@@ -90,9 +90,15 @@ Langfristig: **Immoware24-Anbindung** (REST-API vorhanden) und maximale Automati
 - DSGVO: Hosting in der EU, Auftragsverarbeitung, Löschkonzepte, Audit-Log
 - Integration auf der Website: Login-Button auf bundwimmobilien.de verlinkt auf z. B. `portal.bundwimmobilien.de`
 
-## 6. Offene Fragen (an B&W gestellt)
+## 6. Getroffene Entscheidungen (12.06.2026)
 
-1. Tech-Stack-Präferenz oder freie Wahl?
-2. Priorität für das MVP (Mieter-Schadensmeldung zuerst vs. alles parallel)?
-3. Wo soll das System gehostet werden?
-4. Besteht bereits ein Immoware24-Account mit API-Zugang?
+1. **Tech-Stack**: Next.js + PostgreSQL (Prisma), TypeScript, Tailwind CSS
+2. **MVP-Fokus**: Mieterportal zuerst (Schadensmeldung mit Foto-Upload) inkl. des
+   dafür nötigen Verwalter-Dashboards; Eigentümer-Statistiken in Stufe 2
+3. **Hosting**: Managed Plattform (Vercel) mit EU-Datenbank; Subdomain
+   `portal.bundwimmobilien.de`
+4. **Immoware24**: Account vorhanden, API-Zugang noch zu klären — die
+   Schnittstelle wird so gebaut, dass sie später andockt
+   (`Property.immoware24Id` ist im Datenmodell bereits vorgesehen)
+
+Das MVP ist im Ordner [`portal/`](../portal/README.md) umgesetzt.

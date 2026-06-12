@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  VERWALTER
+  EIGENTUEMER
+  MIETER
+  HANDWERKER // Ausbaustufe 3
+}
+
+enum TicketType {
+  SCHADEN
+  ANFRAGE
+  DOKUMENT_ANFRAGE
+  SONSTIGES
+}
+
+enum TicketStatus {
+  NEU
+  IN_BEARBEITUNG
+  BEAUFTRAGT
+  ERLEDIGT
+  GESCHLOSSEN
+}
+
+enum TicketPriority {
+  NIEDRIG
+  NORMAL
+  HOCH
+  DRINGEND
+}
+
+enum DocumentCategory {
+  ABRECHNUNG
+  PROTOKOLL
+  VERTRAG
+  BESCHEINIGUNG
+  SONSTIGES
+}
+
+enum Audience {
+  MIETER
+  EIGENTUEMER
+  ALLE
+}
+
+model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  passwordHash    String
+  name            String
+  phone           String?
+  role            Role
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  tenancies       Tenancy[]
+  ownerships      Ownership[]
+  ticketsCreated  Ticket[]        @relation("TicketCreatedBy")
+  ticketsAssigned Ticket[]        @relation("TicketAssignedTo")
+  comments        TicketComment[]
+  documents       Document[]
+  announcements   Announcement[]
+}
+
+model Property {
+  id           String         @id @default(cuid())
+  name         String
+  street       String
+  zip          String
+  city         String
+  // Referenz für den späteren Stammdaten-Sync mit Immoware24
+  immoware24Id String?        @unique
+  createdAt    DateTime       @default(now())
+  units        Unit[]
+  ownerships   Ownership[]
+  tickets      Ticket[]
+  documents    Document[]
+  announcements Announcement[]
+}
+
+model Unit {
+  id         String     @id @default(cuid())
+  propertyId String
+  property   Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  label      String // z. B. "WE 03, 1. OG links"
+  floor      String?
+  tenancies  Tenancy[]
+  tickets    Ticket[]
+  documents  Document[]
+}
+
+model Ownership {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+}
+
+model Tenancy {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unitId    String
+  unit      Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  active    Boolean   @default(true)
+
+  @@unique([userId, unitId])
+}
+
+model Ticket {
+  id           String          @id @default(cuid())
+  number       Int             @unique @default(autoincrement())
+  type         TicketType
+  status       TicketStatus    @default(NEU)
+  priority     TicketPriority  @default(NORMAL)
+  category     String? // z. B. "Wasserschaden", "Heizung" — Basis für spätere Automatisierung
+  title        String
+  description  String
+  location     String? // Ort im Objekt, z. B. "Bad, Decke"
+  propertyId   String
+  property     Property        @relation(fields: [propertyId], references: [id])
+  unitId       String?
+  unit         Unit?           @relation(fields: [unitId], references: [id])
+  createdById  String
+  createdBy    User            @relation("TicketCreatedBy", fields: [createdById], references: [id])
+  assignedToId String?
+  assignedTo   User?           @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  comments     TicketComment[]
+  attachments  Attachment[]
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String
+  // interne Notizen sind nur für Verwalter sichtbar
+  internal  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  fileName   String
+  storedName String   @unique
+  mimeType   String
+  size       Int
+  createdAt  DateTime @default(now())
+}
+
+model Document {
+  id           String           @id @default(cuid())
+  title        String
+  category     DocumentCategory
+  audience     Audience
+  fileName     String
+  storedName   String           @unique
+  mimeType     String
+  size         Int
+  propertyId   String?
+  property     Property?        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId       String?
+  unit         Unit?            @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  uploadedById String
+  uploadedBy   User             @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime         @default(now())
+}
+
+model Announcement {
+  id          String   @id @default(cuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  audience    Audience @default(ALLE)
+  title       String
+  body        String
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+}

@@ -5,6 +5,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { canViewTicket, ticketTargetsForUser } from "@/lib/access";
 import { db } from "@/lib/db";
+import {
+  notifyAssignee,
+  notifyCreatorNewComment,
+  notifyCreatorStatusChange,
+  notifyVerwalterNewTicket,
+} from "@/lib/notify";
 import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
 import { requireUser, requireVerwalter } from "@/lib/session";
 
@@ -16,6 +22,24 @@ const createTicketSchema = z.object({
   location: z.string().trim().max(200).optional(),
   target: z.string().min(1),
 });
+
+async function collectPhotoUploads(formData: FormData, redirectTo: string) {
+  const files = formData
+    .getAll("photos")
+    .filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length > 10) {
+    redirect(redirectTo);
+  }
+  const uploads = [];
+  for (const file of files) {
+    try {
+      uploads.push(await saveUpload(file, IMAGE_TYPES));
+    } catch {
+      redirect(redirectTo);
+    }
+  }
+  return uploads;
+}
 
 export async function createTicket(formData: FormData) {
   const user = await requireUser();
@@ -42,21 +66,7 @@ export async function createTicket(formData: FormData) {
     redirect("/vorgaenge/neu?fehler=ziel");
   }
 
-  const files = formData
-    .getAll("photos")
-    .filter((f): f is File => f instanceof File && f.size > 0);
-  if (files.length > 10) {
-    redirect("/vorgaenge/neu?fehler=dateien");
-  }
-
-  const uploads = [];
-  for (const file of files) {
-    try {
-      uploads.push(await saveUpload(file, IMAGE_TYPES));
-    } catch {
-      redirect("/vorgaenge/neu?fehler=dateien");
-    }
-  }
+  const uploads = await collectPhotoUploads(formData, "/vorgaenge/neu?fehler=dateien");
 
   const ticket = await db.ticket.create({
     data: {
@@ -71,6 +81,10 @@ export async function createTicket(formData: FormData) {
       attachments: { create: uploads },
     },
   });
+
+  if (user.role !== "VERWALTER") {
+    await notifyVerwalterNewTicket(ticket, user);
+  }
 
   revalidatePath("/vorgaenge");
   redirect(`/vorgaenge/${ticket.id}`);
@@ -90,10 +104,25 @@ export async function addComment(formData: FormData) {
     redirect(`/vorgaenge/${ticketId}?fehler=kommentar`);
   }
 
+  const uploads = await collectPhotoUploads(
+    formData,
+    `/vorgaenge/${ticketId}?fehler=dateien`
+  );
+
   await db.ticketComment.create({
     data: { ticketId, authorId: user.id, body, internal },
   });
-  await db.ticket.update({ where: { id: ticketId }, data: { updatedAt: new Date() } });
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: {
+      updatedAt: new Date(),
+      ...(uploads.length > 0 ? { attachments: { create: uploads } } : {}),
+    },
+  });
+
+  if (!internal) {
+    await notifyCreatorNewComment(ticketId, user);
+  }
 
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}`);
@@ -107,7 +136,7 @@ const updateTicketSchema = z.object({
 });
 
 export async function updateTicket(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
 
   const parsed = updateTicketSchema.safeParse({
     ticketId: formData.get("ticketId"),
@@ -119,15 +148,64 @@ export async function updateTicket(formData: FormData) {
     redirect("/vorgaenge");
   }
 
+  const before = await db.ticket.findUnique({ where: { id: parsed.data.ticketId } });
+  if (!before) {
+    redirect("/vorgaenge");
+  }
+
+  // Zuweisung nur an aktive Verwalter oder Handwerker
+  let assignedToId: string | null = null;
+  if (parsed.data.assignedToId) {
+    const assignee = await db.user.findUnique({
+      where: { id: parsed.data.assignedToId },
+    });
+    if (!assignee || !assignee.active || assignee.role === "MIETER" || assignee.role === "EIGENTUEMER") {
+      redirect(`/vorgaenge/${parsed.data.ticketId}`);
+    }
+    assignedToId = assignee.id;
+  }
+
   await db.ticket.update({
     where: { id: parsed.data.ticketId },
     data: {
       status: parsed.data.status,
       priority: parsed.data.priority,
-      assignedToId: parsed.data.assignedToId || null,
+      assignedToId,
     },
   });
 
+  if (parsed.data.status !== before.status) {
+    await notifyCreatorStatusChange(parsed.data.ticketId, verwalter);
+  }
+  if (assignedToId && assignedToId !== before.assignedToId && assignedToId !== verwalter.id) {
+    const assignee = await db.user.findUnique({ where: { id: assignedToId } });
+    if (assignee) await notifyAssignee(parsed.data.ticketId, assignee);
+  }
+
   revalidatePath(`/vorgaenge/${parsed.data.ticketId}`);
   redirect(`/vorgaenge/${parsed.data.ticketId}`);
+}
+
+// Handwerker melden den Stand ihrer zugewiesenen Aufträge zurück
+export async function setOwnTicketStatus(formData: FormData) {
+  const user = await requireUser();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const status = String(formData.get("status") ?? "");
+
+  if (user.role !== "HANDWERKER" || !["IN_BEARBEITUNG", "ERLEDIGT"].includes(status)) {
+    redirect("/vorgaenge");
+  }
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
+  if (!ticket || ticket.assignedToId !== user.id) {
+    redirect("/vorgaenge");
+  }
+
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: { status: status as "IN_BEARBEITUNG" | "ERLEDIGT" },
+  });
+  await notifyCreatorStatusChange(ticketId, user);
+
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}`);
 }

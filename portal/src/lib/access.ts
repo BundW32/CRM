@@ -33,6 +33,8 @@ export async function ticketWhereForUser(user: User): Promise<Prisma.TicketWhere
         ],
       };
     }
+    case "HANDWERKER":
+      return { assignedToId: user.id };
     default:
       return { createdById: user.id };
   }
@@ -40,9 +42,10 @@ export async function ticketWhereForUser(user: User): Promise<Prisma.TicketWhere
 
 export async function canViewTicket(
   user: User,
-  ticket: { createdById: string; propertyId: string }
+  ticket: { createdById: string; propertyId: string; assignedToId: string | null }
 ) {
   if (user.role === "VERWALTER") return true;
+  if (user.role === "HANDWERKER") return ticket.assignedToId === user.id;
   if (ticket.createdById === user.id) return true;
   if (user.role === "EIGENTUEMER") {
     const properties = await ownedProperties(user.id);

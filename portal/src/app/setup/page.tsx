@@ -1,19 +1,17 @@
 import { redirect } from "next/navigation";
-import { buttonClass, inputClass, Field } from "@/components/ui";
+import { Field, buttonClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
-import { getUser } from "@/lib/session";
-import { login } from "./actions";
+import { createFirstAdmin } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({
+export default async function SetupPage({
   searchParams,
 }: {
   searchParams: Promise<{ fehler?: string }>;
 }) {
-  const user = await getUser();
-  if (user) redirect("/dashboard");
-  if ((await db.user.count()) === 0) redirect("/setup");
+  const userCount = await db.user.count();
+  if (userCount > 0) redirect("/login");
   const { fehler } = await searchParams;
 
   return (
@@ -23,42 +21,40 @@ export default async function LoginPage({
           <p className="text-2xl font-bold tracking-tight text-blue-900">
             B&amp;W Immobilien Management
           </p>
-          <p className="mt-1 text-sm text-gray-500">Kundenportal</p>
+          <p className="mt-1 text-sm text-gray-500">Kundenportal · Ersteinrichtung</p>
         </div>
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h1 className="mb-4 text-lg font-semibold">Anmelden</h1>
+          <h1 className="mb-2 text-lg font-semibold">Verwalter-Zugang anlegen</h1>
+          <p className="mb-4 text-sm text-gray-600">
+            Das Portal hat noch keine Nutzer. Legen Sie jetzt den ersten
+            Verwalter-Zugang an — danach verwalten Sie alles im Portal.
+          </p>
           {fehler ? (
             <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-              E-Mail-Adresse oder Passwort ist falsch.
+              Bitte alle Felder ausfüllen (Passwort mind. 10 Zeichen).
             </p>
           ) : null}
-          <form action={login} className="space-y-4">
-            <Field label="E-Mail-Adresse">
-              <input
-                type="email"
-                name="email"
-                required
-                autoComplete="email"
-                className={inputClass}
-              />
+          <form action={createFirstAdmin} className="space-y-4">
+            <Field label="Name">
+              <input type="text" name="name" required minLength={2} className={inputClass} />
             </Field>
-            <Field label="Passwort">
+            <Field label="E-Mail-Adresse">
+              <input type="email" name="email" required autoComplete="email" className={inputClass} />
+            </Field>
+            <Field label="Passwort (mind. 10 Zeichen)">
               <input
                 type="password"
                 name="password"
                 required
-                autoComplete="current-password"
+                minLength={10}
+                autoComplete="new-password"
                 className={inputClass}
               />
             </Field>
             <button type="submit" className={`${buttonClass} w-full`}>
-              Anmelden
+              Zugang anlegen
             </button>
           </form>
-          <p className="mt-4 text-xs text-gray-500">
-            Noch keinen Zugang? Ihre Zugangsdaten erhalten Sie von der B&amp;W
-            Immobilien Management UG: info@bundwimmobilien.de
-          </p>
         </div>
       </div>
     </main>

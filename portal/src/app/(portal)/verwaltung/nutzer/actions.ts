@@ -5,13 +5,14 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { notifyWelcome } from "@/lib/notify";
 import { requireVerwalter } from "@/lib/session";
 
 const userSchema = z.object({
   name: z.string().trim().min(2).max(200),
   email: z.email(),
   password: z.string().min(8).max(200),
-  role: z.enum(["VERWALTER", "EIGENTUEMER", "MIETER"]),
+  role: z.enum(["VERWALTER", "EIGENTUEMER", "MIETER", "HANDWERKER"]),
   phone: z.string().trim().max(50).optional(),
   unitId: z.string().optional(),
   propertyId: z.string().optional(),
@@ -59,6 +60,8 @@ export async function createUser(formData: FormData) {
       data: { userId: user.id, propertyId: parsed.data.propertyId },
     });
   }
+
+  await notifyWelcome(user);
 
   revalidatePath("/verwaltung/nutzer");
   redirect("/verwaltung/nutzer");

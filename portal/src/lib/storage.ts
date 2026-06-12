@@ -1,9 +1,10 @@
-// Datei-Ablage auf dem lokalen Dateisystem.
-// Für den Produktivbetrieb auf Vercel muss dieses Modul durch Blob-Storage
-// (z. B. Vercel Blob oder S3) ersetzt werden — die Aufrufer bleiben gleich.
+// Datei-Ablage: Vercel Blob (wenn BLOB_READ_WRITE_TOKEN gesetzt ist, z. B. in
+// Produktion) oder lokales Dateisystem (Entwicklung). `storedName` enthält
+// entweder die Blob-URL oder den lokalen Dateinamen.
 import crypto from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
+import { put } from "@vercel/blob";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -16,6 +17,10 @@ export const IMAGE_TYPES = [
 ];
 
 export const DOCUMENT_TYPES = [...IMAGE_TYPES, "application/pdf"];
+
+function blobEnabled() {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
 
 function uploadDir() {
   return path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? "./uploads");
@@ -34,21 +39,33 @@ export async function saveUpload(file: File, allowedTypes: string[]) {
     .toLowerCase()
     .replace(/[^.a-z0-9]/g, "")
     .slice(0, 10);
-  const storedName = crypto.randomUUID() + ext;
+  const fileId = crypto.randomUUID() + ext;
+  const meta = { fileName: file.name, mimeType: file.type, size: file.size };
+
+  if (blobEnabled()) {
+    // Die Blob-URL ist zufällig und nicht erratbar; ausgeliefert wird trotzdem
+    // ausschließlich über /api/files/** mit Berechtigungsprüfung.
+    const blob = await put(`uploads/${fileId}`, file, {
+      access: "public",
+      contentType: file.type,
+    });
+    return { storedName: blob.url, ...meta };
+  }
+
   await mkdir(uploadDir(), { recursive: true });
   await writeFile(
-    path.join(uploadDir(), storedName),
+    path.join(uploadDir(), fileId),
     Buffer.from(await file.arrayBuffer())
   );
-  return {
-    storedName,
-    fileName: file.name,
-    mimeType: file.type,
-    size: file.size,
-  };
+  return { storedName: fileId, ...meta };
 }
 
-export async function readUpload(storedName: string) {
+export async function readUpload(storedName: string): Promise<Buffer> {
+  if (storedName.startsWith("https://")) {
+    const res = await fetch(storedName);
+    if (!res.ok) throw new Error("Datei nicht abrufbar.");
+    return Buffer.from(await res.arrayBuffer());
+  }
   if (!/^[a-f0-9-]+(\.[a-z0-9]+)?$/.test(storedName)) {
     throw new Error("Ungültiger Dateiname.");
   }

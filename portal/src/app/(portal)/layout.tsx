@@ -10,23 +10,32 @@ const navByRole = {
     { href: "/vorgaenge/neu", label: "Schaden melden" },
     { href: "/dokumente", label: "Dokumente" },
     { href: "/aushaenge", label: "Aushänge" },
+    { href: "/konto", label: "Konto" },
   ],
   EIGENTUEMER: [
     { href: "/dashboard", label: "Übersicht" },
     { href: "/vorgaenge", label: "Vorgänge" },
     { href: "/vorgaenge/neu", label: "Anfrage stellen" },
+    { href: "/statistiken", label: "Statistiken" },
     { href: "/dokumente", label: "Dokumente" },
     { href: "/aushaenge", label: "Aushänge" },
+    { href: "/konto", label: "Konto" },
   ],
   VERWALTER: [
     { href: "/dashboard", label: "Übersicht" },
     { href: "/vorgaenge", label: "Vorgänge" },
     { href: "/dokumente", label: "Dokumente" },
     { href: "/aushaenge", label: "Aushänge" },
+    { href: "/statistiken", label: "Statistiken" },
     { href: "/verwaltung/objekte", label: "Objekte" },
     { href: "/verwaltung/nutzer", label: "Nutzer" },
+    { href: "/konto", label: "Konto" },
   ],
-  HANDWERKER: [{ href: "/dashboard", label: "Übersicht" }],
+  HANDWERKER: [
+    { href: "/dashboard", label: "Übersicht" },
+    { href: "/vorgaenge", label: "Meine Aufträge" },
+    { href: "/konto", label: "Konto" },
+  ],
 } as const;
 
 export default async function PortalLayout({

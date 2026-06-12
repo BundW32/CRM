@@ -18,7 +18,7 @@ import {
   ticketTypeLabels,
 } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
-import { addComment, updateTicket } from "../actions";
+import { addComment, setOwnTicketStatus, updateTicket } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -44,11 +44,13 @@ export default async function TicketDetailPage({
   if (!ticket || !(await canViewTicket(user, ticket))) notFound();
 
   const isVerwalter = user.role === "VERWALTER";
+  const isAssignedHandwerker =
+    user.role === "HANDWERKER" && ticket.assignedToId === user.id;
   const comments = ticket.comments.filter((c) => isVerwalter || !c.internal);
-  const verwalterUsers = isVerwalter
+  const assignableUsers = isVerwalter
     ? await db.user.findMany({
-        where: { role: "VERWALTER", active: true },
-        orderBy: { name: "asc" },
+        where: { role: { in: ["VERWALTER", "HANDWERKER"] }, active: true },
+        orderBy: [{ role: "asc" }, { name: "asc" }],
       })
     : [];
 
@@ -120,6 +122,15 @@ export default async function TicketDetailPage({
                   className={inputClass}
                 />
               </Field>
+              <Field label="Fotos anhängen (optional)">
+                <input
+                  type="file"
+                  name="photos"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100"
+                />
+              </Field>
               {isVerwalter ? (
                 <label className="flex items-center gap-2 text-sm text-gray-700">
                   <input type="checkbox" name="internal" />
@@ -188,9 +199,9 @@ export default async function TicketDetailPage({
                     className={inputClass}
                   >
                     <option value="">– niemand –</option>
-                    {verwalterUsers.map((v) => (
+                    {assignableUsers.map((v) => (
                       <option key={v.id} value={v.id}>
-                        {v.name}
+                        {v.name} ({roleLabels[v.role]})
                       </option>
                     ))}
                   </select>
@@ -199,6 +210,31 @@ export default async function TicketDetailPage({
                   Speichern
                 </button>
               </form>
+            </Card>
+          ) : null}
+
+          {isAssignedHandwerker ? (
+            <Card title="Auftragsstatus melden">
+              <div className="flex flex-col gap-2">
+                <form action={setOwnTicketStatus}>
+                  <input type="hidden" name="ticketId" value={ticket.id} />
+                  <input type="hidden" name="status" value="IN_BEARBEITUNG" />
+                  <button type="submit" className={`${buttonClass} w-full`}>
+                    Arbeit begonnen
+                  </button>
+                </form>
+                <form action={setOwnTicketStatus}>
+                  <input type="hidden" name="ticketId" value={ticket.id} />
+                  <input type="hidden" name="status" value="ERLEDIGT" />
+                  <button type="submit" className={`${buttonClass} w-full`}>
+                    Auftrag erledigt
+                  </button>
+                </form>
+                <p className="text-xs text-gray-500">
+                  Bitte dokumentieren Sie die Ausführung mit Fotos über das
+                  Kommentarfeld.
+                </p>
+              </div>
             </Card>
           ) : null}
 

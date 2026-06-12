@@ -109,6 +109,7 @@ export default async function UsersPage({
                 <option value="MIETER">Mieter</option>
                 <option value="EIGENTUEMER">Eigentümer</option>
                 <option value="VERWALTER">Verwalter</option>
+                <option value="HANDWERKER">Handwerker</option>
               </select>
             </Field>
             <Field label="Wohnung (bei Rolle Mieter)">

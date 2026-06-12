@@ -65,10 +65,22 @@ async function main() {
     },
   });
 
+  const handwerker = await db.user.upsert({
+    where: { email: "handwerker@demo.de" },
+    update: {},
+    create: {
+      email: "handwerker@demo.de",
+      name: "Hans Handwerker",
+      role: "HANDWERKER",
+      passwordHash: await bcrypt.hash("Demo-2026!", 12),
+    },
+  });
+
   console.log("Seed abgeschlossen:");
   console.log("  Verwalter:  admin@bundwimmobilien.de / BundW-Start2026!");
   console.log(`  Eigentümer: ${eigentuemer.email} / Demo-2026!`);
   console.log(`  Mieter:     ${mieter.email} / Demo-2026!`);
+  console.log(`  Handwerker: ${handwerker.email} / Demo-2026!`);
 }
 
 main()

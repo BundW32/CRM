@@ -1,28 +1,60 @@
 # B&W Kundenportal
 
-Kundenportal/CRM der **B&W Immobilien Management UG** für Mieter, Eigentümer und
-Verwaltung. Konzept, Wettbewerbsanalyse und Roadmap: [`../docs/KONZEPT.md`](../docs/KONZEPT.md)
+Kundenportal/CRM der **B&W Immobilien Management UG** für Mieter, Eigentümer,
+Verwaltung und Handwerker. Konzept, Wettbewerbsanalyse und Roadmap:
+[`../docs/KONZEPT.md`](../docs/KONZEPT.md)
 
-## Funktionsumfang (MVP / Ausbaustufe 1)
+## Funktionsumfang
 
-- **Login** mit Rollen Mieter, Eigentümer, Verwalter (Session-Cookie, bcrypt)
-- **Mieter**: Schäden melden mit Foto-Upload, Vorgangsstatus verfolgen,
-  Kommentar-Verlauf, Dokumente einsehen und anfordern, Aushänge lesen
-- **Eigentümer**: Vorgänge der eigenen Objekte einsehen, Anfragen stellen,
-  Dokumente und Aushänge der eigenen Objekte
-- **Verwalter**: Vorgangsmanagement (Status, Priorität, Zuweisung, interne
-  Notizen), Dokumente hochladen (Zielgruppen-Sichtbarkeit), Aushänge
-  veröffentlichen, Objekte/Einheiten und Nutzer verwalten
-- Dateien (Fotos, PDFs) werden nur mit gültiger Berechtigung ausgeliefert
-  (`/api/files/...`)
+- **Login & Rollen**: Mieter, Eigentümer, Verwalter, Handwerker (Session-Cookie,
+  bcrypt). Ersteinrichtung über `/setup`, solange noch kein Nutzer existiert.
+- **Mieter**: Schäden melden mit Foto-Upload, Status verfolgen, Kommentare (auch
+  mit Fotos), Dokumente einsehen und anfordern, Aushänge lesen
+- **Eigentümer**: Vorgänge der eigenen Objekte, Anfragen stellen, **Statistiken**
+  (Vermietungsquote, Vorgänge nach Status/Kategorie, Ø Bearbeitungszeit),
+  Dokumente und Aushänge
+- **Verwalter**: Vorgangsmanagement (Status, Priorität, Zuweisung an Verwalter
+  oder Handwerker, interne Notizen), Dokumenten-Upload mit
+  Zielgruppen-Sichtbarkeit, Aushänge, Objekte/Einheiten- und Nutzerverwaltung,
+  Statistiken über alle Objekte
+- **Handwerker**: sehen ausschließlich ihnen zugewiesene Aufträge, melden
+  „Arbeit begonnen“/„Auftrag erledigt“ und dokumentieren die Ausführung mit Fotos
+- **E-Mail-Benachrichtigungen** (sobald SMTP konfiguriert): neuer Vorgang an die
+  Verwaltung, Statusänderung/Antwort an den Melder, Zuweisung an den Handwerker,
+  Willkommens-Mail bei neuem Zugang. Ohne SMTP läuft alles ohne Versand weiter.
+- **Konto**: eigenes Passwort ändern
+- Dateien (Fotos, PDFs) werden ausschließlich über `/api/files/**` mit
+  Berechtigungsprüfung ausgeliefert
 
 ## Tech-Stack
 
 - [Next.js 16](https://nextjs.org) (App Router, Server Actions), TypeScript, Tailwind CSS
 - PostgreSQL mit [Prisma 7](https://prisma.io) (`@prisma/adapter-pg`)
 - Sessions: signierte JWT-Cookies (`jose`), Passwörter: `bcryptjs`
-- Datei-Uploads: lokales Dateisystem (`UPLOAD_DIR`) — für Vercel-Produktivbetrieb
-  durch Blob-Storage ersetzen (nur `src/lib/storage.ts` anpassen)
+- Datei-Uploads: **Vercel Blob** (wenn `BLOB_READ_WRITE_TOKEN` gesetzt ist),
+  sonst lokales Dateisystem (`UPLOAD_DIR`)
+- E-Mail: `nodemailer` (optional per `SMTP_*`-Variablen)
+
+## Deployment auf Vercel
+
+1. Auf [vercel.com](https://vercel.com) → **Add New → Project** → Repo
+   `BundW32/CRM` importieren
+2. **Root Directory: `portal`** auswählen (wichtig!)
+3. Unter **Storage** eine Datenbank anlegen (Neon/Postgres, Region Frankfurt
+   `fra1`) → setzt `DATABASE_URL` automatisch
+4. Unter **Storage** einen **Blob**-Store anlegen → setzt
+   `BLOB_READ_WRITE_TOKEN` automatisch (nötig für Foto-/Dokument-Uploads)
+5. Environment Variable **`SESSION_SECRET`** setzen (zufällig, mind. 32 Zeichen,
+   z. B. aus `openssl rand -base64 48`)
+6. Optional: `PORTAL_BASE_URL` (z. B. `https://portal.bundwimmobilien.de`) und
+   `SMTP_*` für E-Mail-Versand (siehe `.env.example`)
+7. **Deploy** — die Datenbanktabellen werden beim Build automatisch angelegt
+   (`prisma migrate deploy`, s. `vercel.json`)
+8. Erste Anmeldung: Die App leitet automatisch zur **Ersteinrichtung** (`/setup`),
+   dort den Verwalter-Zugang anlegen. Danach Objekte, Einheiten und Nutzer im
+   Portal anlegen.
+9. Später: Domain `portal.bundwimmobilien.de` im Vercel-Projekt hinzufügen und
+   den Login-Button auf www.bundwimmobilien.de dorthin verlinken
 
 ## Lokale Entwicklung
 
@@ -30,32 +62,26 @@ Verwaltung. Konzept, Wettbewerbsanalyse und Roadmap: [`../docs/KONZEPT.md`](../d
 npm install                 # installiert Abhängigkeiten, generiert Prisma-Client
 cp .env.example .env        # DATABASE_URL + SESSION_SECRET eintragen
 npx prisma migrate dev      # Datenbankschema anlegen
-npm run db:seed             # Verwalter- und Demo-Zugänge anlegen
+npm run db:seed             # Demo-Zugänge anlegen (nur für Entwicklung!)
 npm run dev                 # http://localhost:3000
 ```
 
-Seed-Zugänge (Passwörter nach dem ersten Login ändern bzw. Demo-Nutzer löschen):
+Demo-Zugänge aus dem Seed (nicht in Produktion einspielen):
 
 | Rolle      | E-Mail                     | Passwort          |
 |------------|----------------------------|-------------------|
 | Verwalter  | admin@bundwimmobilien.de   | BundW-Start2026!  |
 | Eigentümer | eigentuemer@demo.de        | Demo-2026!        |
 | Mieter     | mieter@demo.de             | Demo-2026!        |
-
-## Deployment (Vercel, geplant)
-
-1. PostgreSQL in EU-Region anlegen (z. B. Neon/Vercel Postgres) → `DATABASE_URL`
-2. `SESSION_SECRET` setzen (zufällig, mind. 32 Zeichen)
-3. Blob-Storage für Uploads anbinden (Vercel Blob) — `src/lib/storage.ts`
-4. Domain `portal.bundwimmobilien.de` aufschalten und den Login-Button auf
-   www.bundwimmobilien.de dorthin verlinken
+| Handwerker | handwerker@demo.de         | Demo-2026!        |
 
 ## Nächste Ausbaustufen
 
-- **Stufe 2**: E-Mail-Benachrichtigungen, Eigentümer-Statistiken,
-  Immoware24-REST-API-Sync (Feld `Property.immoware24Id` ist vorbereitet),
-  Passwort-Reset / Einladungs-E-Mails
-- **Stufe 3**: Handwerker-Rolle (Beauftragung, Ausführungs-Doku), digitale
-  Umlaufbeschlüsse (WEG), Schlagwort-Automatisierung, Maklerservice-Modul
+- **Immoware24-Sync**: vorbereitet in `src/lib/immoware24.ts` +
+  `Property.immoware24Id`; wartet auf den API-Zugang von Immoware24
+- Passwort-Reset per E-Mail, Mehr-Faktor-Login
+- Digitale Umlaufbeschlüsse / Eigentümerversammlungen (WEG)
+- Schlagwort-Automatisierung (Kategorie → automatische Handwerker-Beauftragung)
+- Maklerservice-Modul (Interessenten, Exposé-Anfragen), Modernisierungs-Projekte
 
 Details: [`../docs/KONZEPT.md`](../docs/KONZEPT.md)

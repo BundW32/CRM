@@ -102,3 +102,23 @@ Langfristig: **Immoware24-Anbindung** (REST-API vorhanden) und maximale Automati
    (`Property.immoware24Id` ist im Datenmodell bereits vorgesehen)
 
 Das MVP ist im Ordner [`portal/`](../portal/README.md) umgesetzt.
+
+## 7. Stand der Umsetzung (12.06.2026, abends)
+
+Umgesetzt und getestet:
+- **Stufe 1 komplett**: Login/Rollen, Schadensmeldung mit Fotos und Status-Workflow,
+  Kommentar-Verlauf (inkl. Fotos und interner Notizen), Dokumente
+  (Upload/Anforderung, Sichtbarkeit je Zielgruppe), Aushänge, Objekt-/Einheiten-
+  und Nutzerverwaltung, geschützte Datei-Auslieferung
+- **Aus Stufe 2**: E-Mail-Benachrichtigungen (neuer Vorgang, Statusänderung,
+  Antwort, Zuweisung, Willkommens-Mail — aktiv, sobald SMTP konfiguriert ist),
+  Eigentümer-Statistiken (Vermietungsquote, Vorgänge nach Status/Kategorie,
+  Ø Bearbeitungszeit), Passwort ändern unter „Konto“
+- **Aus Stufe 3 vorgezogen**: Handwerker-Rolle (sieht nur zugewiesene Aufträge,
+  meldet „begonnen/erledigt“, dokumentiert mit Fotos)
+- **Betrieb**: Vercel-ready (Build mit automatischer Migration, Vercel Blob für
+  Uploads, Ersteinrichtung über `/setup` statt Demo-Passwörtern)
+
+Als Nächstes: Immoware24-Sync (wartet auf API-Zugang, vorbereitet in
+`portal/src/lib/immoware24.ts`), Passwort-Reset per E-Mail, Umlaufbeschlüsse,
+Schlagwort-Automatisierung, Maklerservice-Modul.

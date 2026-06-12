@@ -38,7 +38,7 @@ export default async function DashboardPage() {
     <>
       <PageTitle
         action={
-          user.role !== "VERWALTER" ? (
+          user.role === "MIETER" || user.role === "EIGENTUEMER" ? (
             <Link href="/vorgaenge/neu" className={buttonClass}>
               {user.role === "MIETER" ? "Schaden melden" : "Anfrage stellen"}
             </Link>

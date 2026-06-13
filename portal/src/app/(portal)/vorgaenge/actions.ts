@@ -109,15 +109,21 @@ export async function addComment(formData: FormData) {
     `/vorgaenge/${ticketId}?fehler=dateien`
   );
 
-  await db.ticketComment.create({
-    data: { ticketId, authorId: user.id, body, internal },
+  const comment = await db.ticketComment.create({
+    data: {
+      ticketId,
+      authorId: user.id,
+      body,
+      internal,
+      ...(uploads.length > 0
+        ? { attachments: { create: uploads.map((u) => ({ ...u, ticketId })) } }
+        : {}),
+    },
   });
+  void comment;
   await db.ticket.update({
     where: { id: ticketId },
-    data: {
-      updatedAt: new Date(),
-      ...(uploads.length > 0 ? { attachments: { create: uploads } } : {}),
-    },
+    data: { updatedAt: new Date() },
   });
 
   if (!internal) {

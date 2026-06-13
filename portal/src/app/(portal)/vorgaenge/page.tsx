@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { TicketStatus } from "@/generated/prisma/client";
-import { EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
+import { EmptyState, PageTitle, StatusBadge, buttonClass, inputClass } from "@/components/ui";
 import { ticketWhereForUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
@@ -24,18 +24,41 @@ const statusFilters: TicketStatus[] = [
 export default async function TicketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; propertyId?: string }>;
 }) {
   const user = await requireUser();
-  const { status } = await searchParams;
+  const { status, propertyId } = await searchParams;
   const statusFilter = statusFilters.find((s) => s === status);
 
   const where = await ticketWhereForUser(user);
+
+  const properties =
+    user.role === "VERWALTER"
+      ? await db.property.findMany({ orderBy: { name: "asc" } })
+      : [];
+
+  const propertyFilter =
+    user.role === "VERWALTER" && propertyId
+      ? properties.find((p) => p.id === propertyId)
+      : undefined;
+
   const tickets = await db.ticket.findMany({
-    where: { ...where, ...(statusFilter ? { status: statusFilter } : {}) },
+    where: {
+      ...where,
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(propertyFilter ? { propertyId: propertyFilter.id } : {}),
+    },
     orderBy: { updatedAt: "desc" },
     include: { property: true, unit: true, createdBy: true, assignedTo: true },
   });
+
+  function filterHref(params: { status?: string; propertyId?: string }) {
+    const p = new URLSearchParams();
+    if (params.status) p.set("status", params.status);
+    if (params.propertyId) p.set("propertyId", params.propertyId);
+    const q = p.toString();
+    return `/vorgaenge${q ? `?${q}` : ""}`;
+  }
 
   return (
     <>
@@ -49,9 +72,9 @@ export default async function TicketsPage({
         Vorgänge
       </PageTitle>
 
-      <div className="mb-4 flex flex-wrap gap-2 text-sm">
+      <div className="mb-3 flex flex-wrap gap-2 text-sm">
         <Link
-          href="/vorgaenge"
+          href={filterHref({ propertyId: propertyFilter?.id })}
           className={`rounded-full px-3 py-1 ${!statusFilter ? "bg-blue-700 text-white" : "bg-white text-gray-600 border border-gray-300"}`}
         >
           Alle
@@ -59,13 +82,46 @@ export default async function TicketsPage({
         {statusFilters.map((s) => (
           <Link
             key={s}
-            href={`/vorgaenge?status=${s}`}
+            href={filterHref({ status: s, propertyId: propertyFilter?.id })}
             className={`rounded-full px-3 py-1 ${statusFilter === s ? "bg-blue-700 text-white" : "bg-white text-gray-600 border border-gray-300"}`}
           >
             {ticketStatusLabels[s]}
           </Link>
         ))}
       </div>
+
+      {user.role === "VERWALTER" && properties.length > 1 ? (
+        <div className="mb-4">
+          <form method="get" className="flex items-center gap-2">
+            {statusFilter ? (
+              <input type="hidden" name="status" value={statusFilter} />
+            ) : null}
+            <select
+              name="propertyId"
+              className={`${inputClass} w-auto`}
+              defaultValue={propertyFilter?.id ?? ""}
+            >
+              <option value="">Alle Objekte</option>
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="text-sm text-blue-700 hover:underline">
+              Filtern
+            </button>
+            {propertyFilter ? (
+              <Link
+                href={filterHref({ status: statusFilter })}
+                className="text-sm text-gray-500 hover:underline"
+              >
+                ✕ Filter aufheben
+              </Link>
+            ) : null}
+          </form>
+        </div>
+      ) : null}
 
       {tickets.length === 0 ? (
         <EmptyState>Keine Vorgänge gefunden.</EmptyState>

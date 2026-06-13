@@ -37,8 +37,11 @@ export default async function TicketDetailPage({
       unit: true,
       createdBy: true,
       assignedTo: true,
-      attachments: true,
-      comments: { include: { author: true }, orderBy: { createdAt: "asc" } },
+      attachments: { where: { commentId: null } },
+      comments: {
+        include: { author: true, attachments: true },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
   if (!ticket || !(await canViewTicket(user, ticket))) notFound();
@@ -105,6 +108,25 @@ export default async function TicketDetailPage({
                     <p className="mt-1 whitespace-pre-wrap text-sm text-gray-800">
                       {c.body}
                     </p>
+                    {c.attachments.length > 0 ? (
+                      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {c.attachments.map((a) => (
+                          <a
+                            key={a.id}
+                            href={`/api/files/anhang/${a.id}`}
+                            target="_blank"
+                            className="block overflow-hidden rounded-md border border-gray-200"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`/api/files/anhang/${a.id}`}
+                              alt={a.fileName}
+                              className="h-24 w-full object-cover"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>

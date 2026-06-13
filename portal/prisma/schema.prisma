@@ -51,21 +51,23 @@ enum Audience {
 }
 
 model User {
-  id              String          @id @default(cuid())
-  email           String          @unique
-  passwordHash    String
-  name            String
-  phone           String?
-  role            Role
-  active          Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  tenancies       Tenancy[]
-  ownerships      Ownership[]
-  ticketsCreated  Ticket[]        @relation("TicketCreatedBy")
-  ticketsAssigned Ticket[]        @relation("TicketAssignedTo")
-  comments        TicketComment[]
-  documents       Document[]
-  announcements   Announcement[]
+  id                  String          @id @default(cuid())
+  email               String          @unique
+  passwordHash        String
+  name                String
+  phone               String?
+  role                Role
+  active              Boolean         @default(true)
+  createdAt           DateTime        @default(now())
+  passwordResetToken  String?         @unique
+  passwordResetExpiry DateTime?
+  tenancies           Tenancy[]
+  ownerships          Ownership[]
+  ticketsCreated      Ticket[]        @relation("TicketCreatedBy")
+  ticketsAssigned     Ticket[]        @relation("TicketAssignedTo")
+  comments            TicketComment[]
+  documents           Document[]
+  announcements       Announcement[]
 }
 
 model Property {
@@ -143,26 +145,29 @@ model Ticket {
 }
 
 model TicketComment {
-  id        String   @id @default(cuid())
-  ticketId  String
-  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
-  body      String
+  id          String       @id @default(cuid())
+  ticketId    String
+  ticket      Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User         @relation(fields: [authorId], references: [id])
+  body        String
   // interne Notizen sind nur für Verwalter sichtbar
-  internal  Boolean  @default(false)
-  createdAt DateTime @default(now())
+  internal    Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  attachments Attachment[]
 }
 
 model Attachment {
-  id         String   @id @default(cuid())
+  id         String         @id @default(cuid())
   ticketId   String
-  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket     Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  commentId  String?
+  comment    TicketComment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
   fileName   String
-  storedName String   @unique
+  storedName String         @unique
   mimeType   String
   size       Int
-  createdAt  DateTime @default(now())
+  createdAt  DateTime       @default(now())
 }
 
 model Document {

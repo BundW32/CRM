@@ -55,7 +55,12 @@ export default async function LoginPage({
               Anmelden
             </button>
           </form>
-          <p className="mt-4 text-xs text-gray-500">
+          <p className="mt-4 text-center text-sm">
+            <a href="/login/forgot" className="text-blue-700 hover:underline text-sm">
+              Passwort vergessen?
+            </a>
+          </p>
+          <p className="mt-3 text-xs text-gray-500">
             Noch keinen Zugang? Ihre Zugangsdaten erhalten Sie von der B&amp;W
             Immobilien Management UG: info@bundwimmobilien.de
           </p>

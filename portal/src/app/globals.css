@@ -1,12 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-green: #13443a;
-  --color-brand-green-dark: #0d2f28;
-  --color-brand-green-light: #1d5e50;
-  --color-brand-orange: #f39c1f;
-  --color-brand-orange-dark: #db8a12;
-  --color-brand-orange-light: #fef3e2;
+  /* Exakte Markenfarben aus dem Original-Logo (bw-logo.png) */
+  --color-brand-green: #003630;
+  --color-brand-green-dark: #00241f;
+  --color-brand-green-light: #0c534a;
+  --color-brand-orange: #f69018;
+  --color-brand-orange-dark: #dd7d0c;
+  --color-brand-orange-light: #fef1e0;
 }
 
 body {

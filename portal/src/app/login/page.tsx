@@ -30,16 +30,16 @@ export default async function LoginPage({
           </h1>
           {fehler ? (
             <p className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">
-              E-Mail-Adresse oder Passwort ist falsch.
+              Anmeldedaten oder Passwort sind falsch.
             </p>
           ) : null}
           <form action={login} className="space-y-4">
-            <Field label="E-Mail-Adresse">
+            <Field label="E-Mail-Adresse oder Benutzername">
               <input
-                type="email"
+                type="text"
                 name="email"
                 required
-                autoComplete="email"
+                autoComplete="username"
                 className={inputClass}
               />
             </Field>

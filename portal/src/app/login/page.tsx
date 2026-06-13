@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { buttonClass, inputClass, Field } from "@/components/ui";
-import { BwLogo } from "@/components/logo";
+import { BwLogoBadge } from "@/components/logo";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/session";
 import { login } from "./actions";
@@ -21,10 +21,11 @@ export default async function LoginPage({
     <main className="flex flex-1 items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <BwLogo className="mx-auto mb-2" />
+          <BwLogoBadge className="mb-4" />
+          <p className="text-sm font-medium text-gray-300">Kundenportal</p>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-7 shadow-md">
+        <div className="rounded-2xl border border-white/10 bg-white p-7 shadow-2xl shadow-black/30">
           <h1 className="mb-5 text-center text-lg font-semibold text-gray-800">
             Anmelden
           </h1>

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Field, buttonClass, inputClass } from "@/components/ui";
-import { BwLogo } from "@/components/logo";
+import { BwLogoBadge } from "@/components/logo";
 import { db } from "@/lib/db";
 import { createFirstAdmin } from "./actions";
 
@@ -19,10 +19,10 @@ export default async function SetupPage({
     <main className="flex flex-1 items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <BwLogo className="mx-auto mb-2" />
-          <p className="mt-1 text-sm text-gray-500">Ersteinrichtung</p>
+          <BwLogoBadge className="mb-4" />
+          <p className="text-sm font-medium text-gray-300">Ersteinrichtung</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-white/10 bg-white p-6 shadow-2xl shadow-black/30">
           <h1 className="mb-2 text-lg font-semibold">Verwalter-Zugang anlegen</h1>
           <p className="mb-4 text-sm text-gray-600">
             Das Portal hat noch keine Nutzer. Legen Sie jetzt den ersten

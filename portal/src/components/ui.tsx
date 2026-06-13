@@ -3,21 +3,29 @@ import type { TicketStatus } from "@/generated/prisma/client";
 import { ticketStatusLabels, ticketStatusStyles } from "@/lib/labels";
 
 export const inputClass =
-  "w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green";
+  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-orange focus:outline-none focus:ring-2 focus:ring-brand-orange/30";
 
+// Primäraktion: Orange mit dunkler Schrift – wie die CTAs auf der Website (gut lesbar)
 export const buttonClass =
-  "inline-flex items-center justify-center rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white hover:bg-brand-green-dark disabled:opacity-50";
+  "inline-flex items-center justify-center rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-green-dark shadow-sm transition hover:bg-brand-orange-dark disabled:opacity-50";
 
-export const buttonOrangeClass =
-  "inline-flex items-center justify-center rounded-md bg-brand-orange px-4 py-2 text-sm font-medium text-white hover:bg-brand-orange-dark disabled:opacity-50";
+// Alias – bleibt aus Kompatibilitätsgründen erhalten
+export const buttonOrangeClass = buttonClass;
 
+// Sekundär (auf hellen Flächen)
 export const buttonSecondaryClass =
-  "inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50";
+  "inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50";
+
+// Outline-Variante für dunkle Flächen (oranger Rand, wie „Potenzial Analyse")
+export const buttonOutlineClass =
+  "inline-flex items-center justify-center rounded-lg border border-brand-orange/60 bg-transparent px-4 py-2 text-sm font-semibold text-brand-orange transition hover:bg-brand-orange/10";
 
 export function PageTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <h1 className="text-2xl font-semibold text-brand-green">{children}</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+        {children}
+      </h1>
       {action}
     </div>
   );
@@ -25,9 +33,21 @@ export function PageTitle({ children, action }: { children: ReactNode; action?: 
 
 export function Card({ title, children }: { title?: ReactNode; children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       {title ? (
         <h2 className="mb-4 text-base font-semibold text-gray-900">{title}</h2>
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
+// Dunkle Karte – für Akzent-/Hero-Bereiche auf hellem Grund (Website-Wechselspiel)
+export function DarkCard({ title, children }: { title?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-shell-2 p-5 shadow-lg">
+      {title ? (
+        <h2 className="mb-4 text-base font-semibold text-white">{title}</h2>
       ) : null}
       {children}
     </div>

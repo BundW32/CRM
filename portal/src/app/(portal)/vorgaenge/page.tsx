@@ -75,7 +75,7 @@ export default async function TicketsPage({
       <div className="mb-3 flex flex-wrap gap-2 text-sm">
         <Link
           href={filterHref({ propertyId: propertyFilter?.id })}
-          className={`rounded-full px-3 py-1 ${!statusFilter ? "bg-brand-green text-white" : "bg-white text-gray-600 border border-gray-300"}`}
+          className={`rounded-full px-3 py-1 font-medium ${!statusFilter ? "bg-brand-orange text-brand-green-dark" : "bg-white/90 text-gray-600 border border-white/20"}`}
         >
           Alle
         </Link>
@@ -83,7 +83,7 @@ export default async function TicketsPage({
           <Link
             key={s}
             href={filterHref({ status: s, propertyId: propertyFilter?.id })}
-            className={`rounded-full px-3 py-1 ${statusFilter === s ? "bg-brand-green text-white" : "bg-white text-gray-600 border border-gray-300"}`}
+            className={`rounded-full px-3 py-1 font-medium ${statusFilter === s ? "bg-brand-orange text-brand-green-dark" : "bg-white/90 text-gray-600 border border-white/20"}`}
           >
             {ticketStatusLabels[s]}
           </Link>
@@ -108,13 +108,13 @@ export default async function TicketsPage({
                 </option>
               ))}
             </select>
-            <button type="submit" className="text-sm text-brand-green hover:underline">
+            <button type="submit" className="text-sm font-medium text-brand-orange hover:underline">
               Filtern
             </button>
             {propertyFilter ? (
               <Link
                 href={filterHref({ status: statusFilter })}
-                className="text-sm text-gray-500 hover:underline"
+                className="text-sm text-gray-300 hover:text-brand-orange hover:underline"
               >
                 ✕ Filter aufheben
               </Link>

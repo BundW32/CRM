@@ -51,13 +51,20 @@ export default async function PortalLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link href="/dashboard">
+      <header className="sticky top-0 z-30 px-3 pt-3 sm:px-4 sm:pt-4">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 rounded-2xl border border-white/10 bg-white/95 px-3 py-2 shadow-xl shadow-black/20 backdrop-blur sm:px-4">
+          <Link href="/dashboard" className="shrink-0">
             <BwLogoCompact />
           </Link>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-gray-600">
+          <nav className="min-w-0 flex-1 overflow-x-auto">
+            <ul className="flex items-center gap-1">
+              {nav.map((item) => (
+                <NavLink key={item.href} href={item.href} label={item.label} />
+              ))}
+            </ul>
+          </nav>
+          <div className="flex shrink-0 items-center gap-3 text-sm">
+            <span className="hidden text-gray-600 md:inline">
               {user.name}
               <span className="ml-2 rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-medium text-brand-orange-dark">
                 {roleLabels[user.role]}
@@ -66,25 +73,21 @@ export default async function PortalLayout({
             <form action={logout}>
               <button
                 type="submit"
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
               >
                 Abmelden
               </button>
             </form>
           </div>
         </div>
-        <nav className="mx-auto max-w-6xl overflow-x-auto px-4">
-          <ul className="flex gap-1 pb-2">
-            {nav.map((item) => (
-              <NavLink key={item.href} href={item.href} label={item.label} />
-            ))}
-          </ul>
-        </nav>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
-      <footer className="border-t border-gray-200 bg-white py-4 text-center text-xs text-gray-400">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+      <footer className="mt-4 px-4 py-6 text-center text-xs text-gray-400">
         B&amp;W Immobilien Management UG (haftungsbeschränkt) · Goethestraße 42,
-        45964 Gladbeck · info@bundwimmobilien.de
+        45964 Gladbeck ·{" "}
+        <a href="mailto:info@bundwimmobilien.de" className="hover:text-brand-orange">
+          info@bundwimmobilien.de
+        </a>
       </footer>
     </div>
   );

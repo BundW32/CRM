@@ -124,10 +124,11 @@ async function VerwalterStats() {
       {stats.map((s) => (
         <div
           key={s.label}
-          className="rounded-lg border border-gray-200 bg-white p-4 text-center shadow-sm"
+          className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
         >
-          <p className="text-2xl font-semibold text-gray-900">{s.value}</p>
-          <p className="text-xs text-gray-500">{s.label}</p>
+          <span className="absolute inset-x-0 top-0 h-1 bg-brand-orange" />
+          <p className="text-3xl font-bold tracking-tight text-brand-green">{s.value}</p>
+          <p className="mt-1 text-xs font-medium text-gray-500">{s.label}</p>
         </div>
       ))}
     </div>

@@ -260,7 +260,7 @@ export default async function TicketDetailPage({
             </Card>
           ) : null}
 
-          <Link href="/vorgaenge" className="block text-sm text-brand-green hover:underline">
+          <Link href="/vorgaenge" className="block text-sm text-gray-300 hover:text-brand-orange hover:underline">
             ← Zurück zur Übersicht
           </Link>
         </div>

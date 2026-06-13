@@ -15,7 +15,7 @@ export default async function SchnelleinrichtungPage({
   return (
     <>
       <PageTitle>Objekt-Schnelleinrichtung</PageTitle>
-      <p className="mb-6 text-sm text-gray-600">
+      <p className="mb-6 max-w-3xl text-sm text-gray-300">
         Legen Sie ein neues Objekt mit allen Einheiten, dem Eigentümer und allen Mietern
         in einem Schritt an. Alle Zugänge werden sofort erstellt — mit E-Mail-Einladung
         oder als druckbares Zugangsschreiben.

@@ -52,12 +52,14 @@ enum Audience {
 
 model User {
   id                  String          @id @default(cuid())
-  email               String          @unique
+  email               String?         @unique
+  username            String?         @unique
   passwordHash        String
   name                String
   phone               String?
   role                Role
   active              Boolean         @default(true)
+  mustChangePassword  Boolean         @default(false)
   createdAt           DateTime        @default(now())
   passwordResetToken  String?         @unique
   passwordResetExpiry DateTime?

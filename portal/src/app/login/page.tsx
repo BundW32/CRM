@@ -58,7 +58,7 @@ export default async function LoginPage({
           </form>
 
           <div className="mt-4 text-center">
-            <a href="/login/forgot" className="text-sm text-blue-700 hover:underline">
+            <a href="/login/forgot" className="text-sm text-brand-green hover:underline">
               Passwort vergessen?
             </a>
           </div>

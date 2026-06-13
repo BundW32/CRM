@@ -150,7 +150,7 @@ export default async function TicketDetailPage({
                   name="photos"
                   multiple
                   accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-                  className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100"
+                  className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
                 />
               </Field>
               {isVerwalter ? (
@@ -260,7 +260,7 @@ export default async function TicketDetailPage({
             </Card>
           ) : null}
 
-          <Link href="/vorgaenge" className="block text-sm text-blue-700 hover:underline">
+          <Link href="/vorgaenge" className="block text-sm text-brand-green hover:underline">
             ← Zurück zur Übersicht
           </Link>
         </div>

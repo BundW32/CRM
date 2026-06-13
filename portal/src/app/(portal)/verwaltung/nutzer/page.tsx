@@ -2,13 +2,19 @@ import { Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui
 import { db } from "@/lib/db";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
-import { createUser, resendInvite, toggleUserActive } from "./actions";
+import {
+  createUser,
+  regenerateAccessLetter,
+  resendInvite,
+  toggleUserActive,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
 const errorMessages: Record<string, string> = {
   eingabe: "Bitte alle Pflichtfelder ausfüllen.",
   email: "Diese E-Mail-Adresse ist bereits vergeben.",
+  email_fehlt: "Für eine E-Mail-Einladung muss eine E-Mail-Adresse angegeben werden.",
 };
 
 export default async function UsersPage({
@@ -52,6 +58,7 @@ export default async function UsersPage({
               {users.map((u) => {
                 const hasInvitePending =
                   u.active &&
+                  u.email !== null &&
                   u.passwordResetToken !== null &&
                   u.passwordResetExpiry !== null &&
                   u.passwordResetExpiry > new Date();
@@ -63,7 +70,7 @@ export default async function UsersPage({
                     <span>
                       <span className="block text-sm font-medium text-gray-900">
                         {u.name}
-                        <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800">
+                        <span className="ml-2 rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-medium text-brand-orange-dark">
                           {roleLabels[u.role]}
                         </span>
                         {!u.active ? (
@@ -76,9 +83,14 @@ export default async function UsersPage({
                             Einladung ausstehend
                           </span>
                         ) : null}
+                        {u.mustChangePassword ? (
+                          <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                            Erst-Passwort aktiv
+                          </span>
+                        ) : null}
                       </span>
                       <span className="block text-xs text-gray-500">
-                        {u.email}
+                        {u.email ?? (u.username ? `Benutzer: ${u.username}` : "ohne Login")}
                         {u.phone ? ` · ${u.phone}` : ""} · angelegt {formatDate(u.createdAt)}
                       </span>
                       {u.tenancies.length > 0 ? (
@@ -92,7 +104,7 @@ export default async function UsersPage({
                         </span>
                       ) : null}
                     </span>
-                    <span className="flex items-center gap-3">
+                    <span className="flex flex-wrap items-center gap-3">
                       {hasInvitePending ? (
                         <form action={resendInvite}>
                           <input type="hidden" name="id" value={u.id} />
@@ -101,10 +113,18 @@ export default async function UsersPage({
                           </button>
                         </form>
                       ) : null}
+                      {u.active ? (
+                        <form action={regenerateAccessLetter}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <button type="submit" className="text-xs text-brand-green hover:underline">
+                            Zugangsschreiben
+                          </button>
+                        </form>
+                      ) : null}
                       {u.id !== verwalter.id ? (
                         <form action={toggleUserActive}>
                           <input type="hidden" name="id" value={u.id} />
-                          <button type="submit" className="text-xs text-blue-700 hover:underline">
+                          <button type="submit" className="text-xs text-gray-500 hover:underline">
                             {u.active ? "Deaktivieren" : "Aktivieren"}
                           </button>
                         </form>
@@ -117,13 +137,19 @@ export default async function UsersPage({
           </div>
         </div>
 
-        <Card title="Neuen Nutzer einladen">
+        <Card title="Neuen Nutzer anlegen">
           <form action={createUser} className="space-y-3">
             <Field label="Name">
               <input type="text" name="name" required minLength={2} className={inputClass} />
             </Field>
-            <Field label="E-Mail-Adresse">
-              <input type="email" name="email" required className={inputClass} />
+            <Field label="Zugang per">
+              <select name="method" required className={inputClass} defaultValue="email">
+                <option value="email">E-Mail-Einladung (Link zum Selbst-Einrichten)</option>
+                <option value="schreiben">Zugangsschreiben zum Ausdrucken</option>
+              </select>
+            </Field>
+            <Field label="E-Mail-Adresse (bei E-Mail-Einladung erforderlich)">
+              <input type="email" name="email" className={inputClass} />
             </Field>
             <Field label="Telefon (optional)">
               <input type="tel" name="phone" className={inputClass} />
@@ -159,11 +185,13 @@ export default async function UsersPage({
               </select>
             </Field>
             <button type="submit" className={buttonClass}>
-              Einladen
+              Anlegen
             </button>
             <p className="text-xs text-gray-500">
-              Der Nutzer erhält automatisch eine E-Mail mit einem persönlichen
-              Link zum Einrichten seines Passworts (gültig 7 Tage).
+              <strong>E-Mail-Einladung:</strong> Der Nutzer erhält einen Link zum Einrichten
+              seines Passworts (gültig 7 Tage). <strong>Zugangsschreiben:</strong> Es wird ein
+              Erst-Passwort erzeugt und ein druckbares Schreiben geöffnet — ideal für Mieter
+              ohne E-Mail-Adresse.
             </p>
           </form>
         </Card>

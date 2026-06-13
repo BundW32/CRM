@@ -4,8 +4,6 @@ import { schnelleinrichtung } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-const UNIT_COUNT = 6;
-
 export default async function SchnelleinrichtungPage({
   searchParams,
 }: {
@@ -18,8 +16,10 @@ export default async function SchnelleinrichtungPage({
     <>
       <PageTitle>Objekt-Schnelleinrichtung</PageTitle>
       <p className="mb-6 text-sm text-gray-600">
-        Legen Sie ein neues Objekt mit Eigentümer und Mietern in einem Schritt an. Alle
-        angegebenen Personen erhalten automatisch eine Einladungs-E-Mail.
+        Legen Sie ein neues Objekt mit allen Einheiten und optional einem Eigentümer in
+        einem Schritt an. Mieter fügen Sie anschließend bequem unter „Nutzer" hinzu — dort
+        können Sie pro Mieter zwischen E-Mail-Einladung und gedrucktem Zugangsschreiben
+        wählen.
       </p>
 
       {fehler ? (
@@ -29,7 +29,6 @@ export default async function SchnelleinrichtungPage({
       ) : null}
 
       <form action={schnelleinrichtung} className="space-y-6">
-        {/* Objekt */}
         <Card title="1. Objekt">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Bezeichnung">
@@ -54,16 +53,31 @@ export default async function SchnelleinrichtungPage({
           </div>
         </Card>
 
-        {/* Eigentümer */}
-        <Card title="2. Eigentümer (optional)">
+        <Card title="2. Einheiten (bis zu 50)">
           <p className="mb-3 text-xs text-gray-500">
-            Lassen Sie die Felder leer, wenn kein Eigentümer angelegt werden soll.
+            Eine Einheit pro Zeile. Optional die Etage mit einem senkrechten Strich
+            anhängen: <code className="rounded bg-gray-100 px-1">Bezeichnung | Etage</code>
+          </p>
+          <Field label="Einheiten">
+            <textarea
+              name="units"
+              rows={12}
+              className={`${inputClass} font-mono`}
+              placeholder={`WE 01, EG links | EG\nWE 02, EG rechts | EG\nWE 03, 1. OG links | 1. OG\nWE 04, 1. OG rechts | 1. OG`}
+            />
+          </Field>
+        </Card>
+
+        <Card title="3. Eigentümer (optional)">
+          <p className="mb-3 text-xs text-gray-500">
+            Mit E-Mail wird eine Einladung versendet, ohne E-Mail wird ein druckbares
+            Zugangsschreiben erstellt. Leer lassen, wenn kein Eigentümer angelegt werden soll.
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Name">
               <input type="text" name="eigName" minLength={2} className={inputClass} />
             </Field>
-            <Field label="E-Mail">
+            <Field label="E-Mail (optional)">
               <input type="email" name="eigEmail" className={inputClass} />
             </Field>
             <Field label="Telefon (optional)">
@@ -72,56 +86,9 @@ export default async function SchnelleinrichtungPage({
           </div>
         </Card>
 
-        {/* Einheiten */}
-        <Card title={`3. Einheiten & Mieter (bis zu ${UNIT_COUNT})`}>
-          <p className="mb-4 text-xs text-gray-500">
-            Füllen Sie nur die Einheiten aus, die Sie anlegen möchten. Mieterangaben sind
-            optional.
-          </p>
-          <div className="space-y-6">
-            {Array.from({ length: UNIT_COUNT }, (_, i) => i + 1).map((i) => (
-              <div key={i} className="rounded-md border border-gray-100 bg-gray-50 p-4">
-                <p className="mb-3 text-sm font-medium text-gray-700">Einheit {i}</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Bezeichnung (z. B. WE 01, EG links)">
-                    <input
-                      type="text"
-                      name={`unit${i}Label`}
-                      placeholder={`WE 0${i}`}
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label="Etage (optional)">
-                    <input
-                      type="text"
-                      name={`unit${i}Floor`}
-                      placeholder="z. B. EG, 1. OG"
-                      className={inputClass}
-                    />
-                  </Field>
-                </div>
-                <p className="mb-2 mt-3 text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Mieter dieser Einheit (optional)
-                </p>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <Field label="Name">
-                    <input type="text" name={`unit${i}MieterName`} className={inputClass} />
-                  </Field>
-                  <Field label="E-Mail">
-                    <input type="email" name={`unit${i}MieterEmail`} className={inputClass} />
-                  </Field>
-                  <Field label="Telefon (optional)">
-                    <input type="tel" name={`unit${i}MieterPhone`} className={inputClass} />
-                  </Field>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
         <div className="flex items-center gap-4">
           <button type="submit" className={buttonClass}>
-            Objekt anlegen &amp; Einladungen versenden
+            Objekt anlegen
           </button>
           <a href="/verwaltung/objekte" className="text-sm text-gray-500 hover:underline">
             Abbrechen

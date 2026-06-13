@@ -75,7 +75,7 @@ export default async function DocumentsPage({
                           · {formatDate(doc.createdAt)} · {formatBytes(doc.size)}
                         </span>
                       </span>
-                      <span className="text-sm text-blue-700">Öffnen →</span>
+                      <span className="text-sm text-brand-green">Öffnen →</span>
                     </a>
                   </li>
                 ))}
@@ -144,7 +144,7 @@ export default async function DocumentsPage({
                     name="file"
                     required
                     accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
-                    className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100"
+                    className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
                   />
                 </Field>
                 <button type="submit" className={buttonClass}>

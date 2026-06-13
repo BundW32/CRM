@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { logout } from "@/app/login/actions";
 import { BwLogoCompact } from "@/components/logo";
 import { roleLabels } from "@/lib/labels";
@@ -44,6 +45,7 @@ export default async function PortalLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await requireUser();
+  if (user.mustChangePassword) redirect("/passwort-festlegen");
   const nav = navByRole[user.role];
 
   return (
@@ -56,7 +58,7 @@ export default async function PortalLayout({
           <div className="flex items-center gap-3 text-sm">
             <span className="text-gray-600">
               {user.name}
-              <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800">
+              <span className="ml-2 rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-medium text-brand-orange-dark">
                 {roleLabels[user.role]}
               </span>
             </span>

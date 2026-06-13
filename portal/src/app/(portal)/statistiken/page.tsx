@@ -153,7 +153,7 @@ function Bar({ label, value, max }: { label: string; value: number; max: number 
       </div>
       <div className="h-2 rounded-full bg-gray-100">
         <div
-          className="h-2 rounded-full bg-blue-600"
+          className="h-2 rounded-full bg-brand-green"
           style={{ width: `${width}%` }}
         />
       </div>

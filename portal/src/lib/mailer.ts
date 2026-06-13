@@ -19,7 +19,15 @@ export function portalUrl(path: string) {
   return base.replace(/\/$/, "") + path;
 }
 
-export async function sendMail(to: string, subject: string, text: string) {
+export async function sendMail(
+  to: string | null | undefined,
+  subject: string,
+  text: string
+) {
+  if (!to) {
+    // Zugänge ohne E-Mail-Adresse (Zugangsschreiben) erhalten keine Mails
+    return;
+  }
   const t = transport();
   if (!t) {
     console.log(`[mail deaktiviert] an=${to} betreff=${subject}`);

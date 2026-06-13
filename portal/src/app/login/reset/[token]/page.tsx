@@ -51,7 +51,7 @@ export default async function ResetPasswordPage({
               {!isInvite ? (
                 <a
                   href="/login/forgot"
-                  className="block text-center text-sm text-blue-700 hover:underline"
+                  className="block text-center text-sm text-brand-green hover:underline"
                 >
                   Neuen Reset-Link anfordern
                 </a>

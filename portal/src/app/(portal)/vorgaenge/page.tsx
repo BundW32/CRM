@@ -75,7 +75,7 @@ export default async function TicketsPage({
       <div className="mb-3 flex flex-wrap gap-2 text-sm">
         <Link
           href={filterHref({ propertyId: propertyFilter?.id })}
-          className={`rounded-full px-3 py-1 ${!statusFilter ? "bg-blue-700 text-white" : "bg-white text-gray-600 border border-gray-300"}`}
+          className={`rounded-full px-3 py-1 ${!statusFilter ? "bg-brand-green text-white" : "bg-white text-gray-600 border border-gray-300"}`}
         >
           Alle
         </Link>
@@ -83,7 +83,7 @@ export default async function TicketsPage({
           <Link
             key={s}
             href={filterHref({ status: s, propertyId: propertyFilter?.id })}
-            className={`rounded-full px-3 py-1 ${statusFilter === s ? "bg-blue-700 text-white" : "bg-white text-gray-600 border border-gray-300"}`}
+            className={`rounded-full px-3 py-1 ${statusFilter === s ? "bg-brand-green text-white" : "bg-white text-gray-600 border border-gray-300"}`}
           >
             {ticketStatusLabels[s]}
           </Link>
@@ -108,7 +108,7 @@ export default async function TicketsPage({
                 </option>
               ))}
             </select>
-            <button type="submit" className="text-sm text-blue-700 hover:underline">
+            <button type="submit" className="text-sm text-brand-green hover:underline">
               Filtern
             </button>
             {propertyFilter ? (

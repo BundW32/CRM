@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 export default async function PropertiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; eingerichtet?: string }>;
 }) {
   await requireVerwalter();
-  const { fehler } = await searchParams;
+  const { fehler, eingerichtet } = await searchParams;
 
   const properties = await db.property.findMany({
     orderBy: { name: "asc" },
@@ -25,8 +25,21 @@ export default async function PropertiesPage({
 
   return (
     <>
-      <PageTitle>Objekte</PageTitle>
+      <PageTitle
+        action={
+          <a href="/verwaltung/schnelleinrichtung" className={buttonClass}>
+            + Schnelleinrichtung
+          </a>
+        }
+      >
+        Objekte
+      </PageTitle>
 
+      {eingerichtet ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Objekt wurde angelegt. Mieter können Sie jetzt unter „Nutzer" hinzufügen.
+        </p>
+      ) : null}
       {fehler ? (
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           Bitte alle Pflichtfelder korrekt ausfüllen.

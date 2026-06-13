@@ -27,7 +27,7 @@ export default async function ForgotPasswordPage({
                 wurde ein Link zum Zurücksetzen verschickt. Bitte prüfen Sie Ihr
                 Postfach (und den Spam-Ordner).
               </p>
-              <a href="/login" className="block text-center text-sm text-blue-700 hover:underline">
+              <a href="/login" className="block text-center text-sm text-brand-green hover:underline">
                 Zurück zur Anmeldung
               </a>
             </div>
@@ -57,7 +57,7 @@ export default async function ForgotPasswordPage({
                 </button>
               </form>
               <p className="mt-4 text-center text-sm">
-                <a href="/login" className="text-blue-700 hover:underline">
+                <a href="/login" className="text-brand-green hover:underline">
                   Zurück zur Anmeldung
                 </a>
               </p>

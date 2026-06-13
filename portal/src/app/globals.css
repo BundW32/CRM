@@ -1,6 +1,31 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-green: #13443a;
+  --color-brand-green-dark: #0d2f28;
+  --color-brand-green-light: #1d5e50;
+  --color-brand-orange: #f39c1f;
+  --color-brand-orange-dark: #db8a12;
+  --color-brand-orange-light: #fef3e2;
+}
+
 body {
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Druckansicht: nur das Zugangsschreiben drucken */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  @page {
+    margin: 2cm;
+  }
 }

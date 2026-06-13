@@ -2,22 +2,22 @@ import { Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui
 import { db } from "@/lib/db";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
-import { createUser, toggleUserActive } from "./actions";
+import { createUser, resendInvite, toggleUserActive } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 const errorMessages: Record<string, string> = {
-  eingabe: "Bitte alle Pflichtfelder ausfüllen (Passwort mind. 8 Zeichen).",
+  eingabe: "Bitte alle Pflichtfelder ausfüllen.",
   email: "Diese E-Mail-Adresse ist bereits vergeben.",
 };
 
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; eingeladen?: string }>;
 }) {
   const verwalter = await requireVerwalter();
-  const { fehler } = await searchParams;
+  const { fehler, eingeladen } = await searchParams;
 
   const [users, properties] = await Promise.all([
     db.user.findMany({
@@ -34,6 +34,11 @@ export default async function UsersPage({
     <>
       <PageTitle>Nutzer</PageTitle>
 
+      {eingeladen ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Einladungs-E-Mail wurde versandt (sofern SMTP konfiguriert ist).
+        </p>
+      ) : null}
       {fehler ? (
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {errorMessages[fehler] ?? "Aktion fehlgeschlagen."}
@@ -44,53 +49,75 @@ export default async function UsersPage({
         <div className="lg:col-span-2">
           <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
             <ul className="divide-y divide-gray-100">
-              {users.map((u) => (
-                <li
-                  key={u.id}
-                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
-                >
-                  <span>
-                    <span className="block text-sm font-medium text-gray-900">
-                      {u.name}
-                      <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800">
-                        {roleLabels[u.role]}
+              {users.map((u) => {
+                const hasInvitePending =
+                  u.active &&
+                  u.passwordResetToken !== null &&
+                  u.passwordResetExpiry !== null &&
+                  u.passwordResetExpiry > new Date();
+                return (
+                  <li
+                    key={u.id}
+                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+                  >
+                    <span>
+                      <span className="block text-sm font-medium text-gray-900">
+                        {u.name}
+                        <span className="ml-2 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800">
+                          {roleLabels[u.role]}
+                        </span>
+                        {!u.active ? (
+                          <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                            deaktiviert
+                          </span>
+                        ) : null}
+                        {hasInvitePending ? (
+                          <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                            Einladung ausstehend
+                          </span>
+                        ) : null}
                       </span>
-                      {!u.active ? (
-                        <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
-                          deaktiviert
+                      <span className="block text-xs text-gray-500">
+                        {u.email}
+                        {u.phone ? ` · ${u.phone}` : ""} · angelegt {formatDate(u.createdAt)}
+                      </span>
+                      {u.tenancies.length > 0 ? (
+                        <span className="block text-xs text-gray-500">
+                          Mieter: {u.tenancies.map((t) => `${t.unit.property.name} – ${t.unit.label}`).join(", ")}
+                        </span>
+                      ) : null}
+                      {u.ownerships.length > 0 ? (
+                        <span className="block text-xs text-gray-500">
+                          Eigentümer: {u.ownerships.map((o) => o.property.name).join(", ")}
                         </span>
                       ) : null}
                     </span>
-                    <span className="block text-xs text-gray-500">
-                      {u.email}
-                      {u.phone ? ` · ${u.phone}` : ""} · angelegt {formatDate(u.createdAt)}
+                    <span className="flex items-center gap-3">
+                      {hasInvitePending ? (
+                        <form action={resendInvite}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <button type="submit" className="text-xs text-amber-700 hover:underline">
+                            Erneut einladen
+                          </button>
+                        </form>
+                      ) : null}
+                      {u.id !== verwalter.id ? (
+                        <form action={toggleUserActive}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <button type="submit" className="text-xs text-blue-700 hover:underline">
+                            {u.active ? "Deaktivieren" : "Aktivieren"}
+                          </button>
+                        </form>
+                      ) : null}
                     </span>
-                    {u.tenancies.length > 0 ? (
-                      <span className="block text-xs text-gray-500">
-                        Mieter: {u.tenancies.map((t) => `${t.unit.property.name} – ${t.unit.label}`).join(", ")}
-                      </span>
-                    ) : null}
-                    {u.ownerships.length > 0 ? (
-                      <span className="block text-xs text-gray-500">
-                        Eigentümer: {u.ownerships.map((o) => o.property.name).join(", ")}
-                      </span>
-                    ) : null}
-                  </span>
-                  {u.id !== verwalter.id ? (
-                    <form action={toggleUserActive}>
-                      <input type="hidden" name="id" value={u.id} />
-                      <button type="submit" className="text-xs text-blue-700 hover:underline">
-                        {u.active ? "Deaktivieren" : "Aktivieren"}
-                      </button>
-                    </form>
-                  ) : null}
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </div>
 
-        <Card title="Neuen Nutzer anlegen">
+        <Card title="Neuen Nutzer einladen">
           <form action={createUser} className="space-y-3">
             <Field label="Name">
               <input type="text" name="name" required minLength={2} className={inputClass} />
@@ -100,9 +127,6 @@ export default async function UsersPage({
             </Field>
             <Field label="Telefon (optional)">
               <input type="tel" name="phone" className={inputClass} />
-            </Field>
-            <Field label="Start-Passwort (mind. 8 Zeichen)">
-              <input type="text" name="password" required minLength={8} className={inputClass} />
             </Field>
             <Field label="Rolle">
               <select name="role" required className={inputClass} defaultValue="MIETER">
@@ -135,11 +159,11 @@ export default async function UsersPage({
               </select>
             </Field>
             <button type="submit" className={buttonClass}>
-              Anlegen
+              Einladen
             </button>
             <p className="text-xs text-gray-500">
-              Bitte teilen Sie dem Nutzer die Zugangsdaten persönlich mit. Ein
-              E-Mail-Einladungsversand folgt in Ausbaustufe 2.
+              Der Nutzer erhält automatisch eine E-Mail mit einem persönlichen
+              Link zum Einrichten seines Passworts (gültig 7 Tage).
             </p>
           </form>
         </Card>

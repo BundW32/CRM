@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { logout } from "@/app/login/actions";
+import { BwLogoCompact } from "@/components/logo";
 import { roleLabels } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 
@@ -29,6 +30,7 @@ const navByRole = {
     { href: "/statistiken", label: "Statistiken" },
     { href: "/verwaltung/objekte", label: "Objekte" },
     { href: "/verwaltung/nutzer", label: "Nutzer" },
+    { href: "/verwaltung/schnelleinrichtung", label: "+ Schnelleinrichtung" },
     { href: "/konto", label: "Konto" },
   ],
   HANDWERKER: [
@@ -48,8 +50,8 @@ export default async function PortalLayout({
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link href="/dashboard" className="text-lg font-bold text-blue-900">
-            B&amp;W Kundenportal
+          <Link href="/dashboard">
+            <BwLogoCompact />
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-gray-600">

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { buttonClass, inputClass, Field } from "@/components/ui";
+import { BwLogo } from "@/components/logo";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/session";
 import { login } from "./actions";
@@ -20,15 +21,15 @@ export default async function LoginPage({
     <main className="flex flex-1 items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <p className="text-2xl font-bold tracking-tight text-blue-900">
-            B&amp;W Immobilien Management
-          </p>
-          <p className="mt-1 text-sm text-gray-500">Kundenportal</p>
+          <BwLogo className="mx-auto mb-2" />
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h1 className="mb-4 text-lg font-semibold">Anmelden</h1>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-7 shadow-md">
+          <h1 className="mb-5 text-center text-lg font-semibold text-gray-800">
+            Anmelden
+          </h1>
           {fehler ? (
-            <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">
               E-Mail-Adresse oder Passwort ist falsch.
             </p>
           ) : null}
@@ -51,20 +52,24 @@ export default async function LoginPage({
                 className={inputClass}
               />
             </Field>
-            <button type="submit" className={`${buttonClass} w-full`}>
+            <button type="submit" className={`${buttonClass} w-full py-2.5`}>
               Anmelden
             </button>
           </form>
-          <p className="mt-4 text-center text-sm">
-            <a href="/login/forgot" className="text-blue-700 hover:underline text-sm">
+
+          <div className="mt-4 text-center">
+            <a href="/login/forgot" className="text-sm text-blue-700 hover:underline">
               Passwort vergessen?
             </a>
-          </p>
-          <p className="mt-3 text-xs text-gray-500">
-            Noch keinen Zugang? Ihre Zugangsdaten erhalten Sie von der B&amp;W
-            Immobilien Management UG: info@bundwimmobilien.de
-          </p>
+          </div>
         </div>
+
+        <p className="mt-6 text-center text-xs text-gray-400">
+          Noch keinen Zugang? Wenden Sie sich an{" "}
+          <a href="mailto:info@bundwimmobilien.de" className="hover:underline">
+            info@bundwimmobilien.de
+          </a>
+        </p>
       </div>
     </main>
   );

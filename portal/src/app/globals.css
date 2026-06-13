@@ -9,10 +9,10 @@
   --color-brand-orange-dark: #dd7d0c;
   --color-brand-orange-light: #fef1e0;
 
-  /* ── Dunkler Rahmen (Shell) – tiefes, warmes Grünschwarz, kein reines Schwarz ── */
-  --color-shell: #052824;
-  --color-shell-2: #08332d;
-  --color-shell-3: #0c3f37;
+  /* ── Dunkler Rahmen (Shell) – warmes Dunkelbraun, angelehnt an die Website ── */
+  --color-shell: #1a1512;
+  --color-shell-2: #241d18;
+  --color-shell-3: #2f2620;
 }
 
 body {
@@ -31,14 +31,14 @@ h3 {
 .bw-shell-bg {
   background-color: var(--color-shell);
   background-image: radial-gradient(
-      120% 80% at 80% 0%,
-      rgba(246, 144, 24, 0.1) 0%,
+      120% 80% at 85% -10%,
+      rgba(246, 144, 24, 0.13) 0%,
       rgba(246, 144, 24, 0) 55%
     ),
     radial-gradient(
-      90% 60% at 0% 0%,
-      rgba(12, 83, 74, 0.35) 0%,
-      rgba(12, 83, 74, 0) 60%
+      90% 70% at 5% 0%,
+      rgba(120, 78, 40, 0.22) 0%,
+      rgba(120, 78, 40, 0) 60%
     );
 }
 

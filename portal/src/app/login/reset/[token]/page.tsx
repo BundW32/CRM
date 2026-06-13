@@ -1,6 +1,6 @@
 import { buttonClass, Field, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
-import { BwLogoBadge } from "@/components/logo";
+import { BwLogo } from "@/components/logo";
 import { resetPassword } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -32,11 +32,11 @@ export default async function ResetPasswordPage({
   return (
     <main className="flex flex-1 items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <BwLogoBadge className="mb-4" />
-          <p className="text-sm font-medium text-gray-300">Kundenportal</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white p-6 shadow-2xl shadow-black/30">
+        <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
+          <BwLogo className="mx-auto mb-1 h-20 w-auto" />
+          <p className="mb-6 text-center text-sm font-medium text-gray-400">
+            Kundenportal
+          </p>
           <h1 className="mb-4 text-lg font-semibold">
             {isInvite ? "Zugang einrichten" : "Neues Passwort vergeben"}
           </h1>

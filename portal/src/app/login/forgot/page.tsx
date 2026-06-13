@@ -1,5 +1,5 @@
 import { buttonClass, Field, inputClass } from "@/components/ui";
-import { BwLogoBadge } from "@/components/logo";
+import { BwLogo } from "@/components/logo";
 import { requestPasswordReset } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +14,8 @@ export default async function ForgotPasswordPage({
   return (
     <main className="flex flex-1 items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <BwLogoBadge />
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white p-6 shadow-2xl shadow-black/30">
+        <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
+          <BwLogo className="mx-auto mb-6 h-16 w-auto" />
           <h1 className="mb-4 text-lg font-semibold">Passwort zurücksetzen</h1>
 
           {gesendet ? (

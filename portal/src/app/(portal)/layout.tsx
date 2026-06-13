@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { logout } from "@/app/login/actions";
 import { BwLogoCompact } from "@/components/logo";
+import { NavLink } from "@/components/nav";
 import { roleLabels } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 
@@ -75,14 +76,7 @@ export default async function PortalLayout({
         <nav className="mx-auto max-w-6xl overflow-x-auto px-4">
           <ul className="flex gap-1 pb-2">
             {nav.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="block whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                >
-                  {item.label}
-                </Link>
-              </li>
+              <NavLink key={item.href} href={item.href} label={item.label} />
             ))}
           </ul>
         </nav>

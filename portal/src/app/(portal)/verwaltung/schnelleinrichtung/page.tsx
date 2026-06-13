@@ -16,10 +16,9 @@ export default async function SchnelleinrichtungPage({
     <>
       <PageTitle>Objekt-Schnelleinrichtung</PageTitle>
       <p className="mb-6 text-sm text-gray-600">
-        Legen Sie ein neues Objekt mit allen Einheiten und optional einem Eigentümer in
-        einem Schritt an. Mieter fügen Sie anschließend bequem unter „Nutzer" hinzu — dort
-        können Sie pro Mieter zwischen E-Mail-Einladung und gedrucktem Zugangsschreiben
-        wählen.
+        Legen Sie ein neues Objekt mit allen Einheiten, dem Eigentümer und allen Mietern
+        in einem Schritt an. Alle Zugänge werden sofort erstellt — mit E-Mail-Einladung
+        oder als druckbares Zugangsschreiben.
       </p>
 
       {fehler ? (
@@ -61,7 +60,7 @@ export default async function SchnelleinrichtungPage({
           <Field label="Einheiten">
             <textarea
               name="units"
-              rows={12}
+              rows={10}
               className={`${inputClass} font-mono`}
               placeholder={`WE 01, EG links | EG\nWE 02, EG rechts | EG\nWE 03, 1. OG links | 1. OG\nWE 04, 1. OG rechts | 1. OG`}
             />
@@ -70,8 +69,7 @@ export default async function SchnelleinrichtungPage({
 
         <Card title="3. Eigentümer (optional)">
           <p className="mb-3 text-xs text-gray-500">
-            Mit E-Mail wird eine Einladung versendet, ohne E-Mail wird ein druckbares
-            Zugangsschreiben erstellt. Leer lassen, wenn kein Eigentümer angelegt werden soll.
+            Mit E-Mail → Einladungslink per Mail. Ohne E-Mail → Zugangsschreiben zum Drucken.
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Name">
@@ -84,6 +82,24 @@ export default async function SchnelleinrichtungPage({
               <input type="tel" name="eigPhone" className={inputClass} />
             </Field>
           </div>
+        </Card>
+
+        <Card title="4. Mieter (optional)">
+          <p className="mb-3 text-xs text-gray-500">
+            Ein Mieter pro Zeile im Format:{" "}
+            <code className="rounded bg-gray-100 px-1">Name | Einheit | E-Mail</code>
+            {" "}— Einheit und E-Mail sind optional. Mit E-Mail erhält der Mieter einen Einladungslink,
+            ohne E-Mail wird ein Zugangsschreiben erstellt. Die Einheit muss exakt so
+            geschrieben sein wie oben in Schritt 2.
+          </p>
+          <Field label="Mieter">
+            <textarea
+              name="tenants"
+              rows={8}
+              className={`${inputClass} font-mono`}
+              placeholder={`Max Mustermann | WE 01, EG links | max@example.de\nErika Musterfrau | WE 02, EG rechts\nPeter Schmidt | WE 03, 1. OG links | peter@example.de`}
+            />
+          </Field>
         </Card>
 
         <div className="flex items-center gap-4">

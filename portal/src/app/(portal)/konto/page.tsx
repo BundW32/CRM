@@ -31,8 +31,12 @@ export default async function AccountPage({
               <dd className="text-gray-800">{user.name}</dd>
             </div>
             <div>
-              <dt className="text-xs uppercase tracking-wide text-gray-400">E-Mail</dt>
-              <dd className="text-gray-800">{user.email}</dd>
+              <dt className="text-xs uppercase tracking-wide text-gray-400">
+                {user.email ? "E-Mail" : "Benutzername"}
+              </dt>
+              <dd className="text-gray-800">
+                {user.email ?? user.username ?? "—"}
+              </dd>
             </div>
             <div>
               <dt className="text-xs uppercase tracking-wide text-gray-400">Rolle</dt>

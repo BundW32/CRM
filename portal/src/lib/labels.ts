@@ -3,6 +3,7 @@ import type {
   ContactMethod,
   DocumentCategory,
   MaintenanceInterval,
+  ManagementType,
   MeterType,
   ResolutionStatus,
   Role,
@@ -117,6 +118,11 @@ export const voteChoiceLabels: Record<VoteChoice, string> = {
   JA: "Ja",
   NEIN: "Nein",
   ENTHALTUNG: "Enthaltung",
+};
+
+export const managementTypeLabels: Record<ManagementType, string> = {
+  MIETVERWALTUNG: "Mietverwaltung",
+  WEG: "WEG (Eigentümergemeinschaft)",
 };
 
 // Intervall in Monaten (für die Berechnung der nächsten Fälligkeit)

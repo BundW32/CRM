@@ -110,6 +110,12 @@ enum VoteChoice {
   ENTHALTUNG
 }
 
+// Verwaltungsart eines Objekts
+enum ManagementType {
+  MIETVERWALTUNG
+  WEG
+}
+
 model User {
   id                  String          @id @default(cuid())
   email               String?         @unique
@@ -145,6 +151,7 @@ model Property {
   street       String
   zip          String
   city         String
+  managementType ManagementType @default(MIETVERWALTUNG)
   // Optionale Stammdaten zum Objekt
   buildYear    Int? // Baujahr
   livingArea   Float? // Gesamtwohnfläche in m²
@@ -162,6 +169,7 @@ model Property {
   announcements Announcement[]
   maintenanceTasks MaintenanceTask[]
   resolutions  Resolution[]
+  meters       Meter[]
 }
 
 model Unit {
@@ -176,11 +184,13 @@ model Unit {
   meters     Meter[]
 }
 
-// Zähler einer Einheit (Strom, Wasser, …)
+// Zähler – entweder einer Einheit (unitId) oder dem Objekt allgemein (propertyId)
 model Meter {
   id          String         @id @default(cuid())
-  unitId      String
-  unit        Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unitId      String?
+  unit        Unit?          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  propertyId  String? // Allgemeinzähler (Allgemeinstrom, Hauswasser …)
+  property    Property?      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   type        MeterType
   meterNumber String? // Zählernummer
   location    String? // Einbauort

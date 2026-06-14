@@ -25,6 +25,13 @@ export async function createResolution(formData: FormData) {
   if (!parsed.success) {
     redirect("/beschluesse?fehler=eingabe");
   }
+
+  // Umlaufbeschlüsse gibt es nur für WEG-Objekte, nicht für Mietverwaltung
+  const property = await db.property.findUnique({ where: { id: parsed.data.propertyId } });
+  if (!property || property.managementType !== "WEG") {
+    redirect("/beschluesse?fehler=keinweg");
+  }
+
   const deadline = parsed.data.deadline ? new Date(parsed.data.deadline) : null;
 
   const resolution = await db.resolution.create({

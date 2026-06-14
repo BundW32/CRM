@@ -97,6 +97,9 @@ export async function createObjekt(formData: FormData) {
     redirect("/verwaltung/objekte/neu?fehler=objekt");
   }
 
+  const managementType =
+    String(formData.get("managementType") ?? "") === "WEG" ? "WEG" : "MIETVERWALTUNG";
+
   // ── Objekt anlegen (inkl. optionaler Stammdaten) ────────────────────
   const property = await db.property.create({
     data: {
@@ -104,6 +107,7 @@ export async function createObjekt(formData: FormData) {
       street,
       zip,
       city,
+      managementType,
       buildYear: optInt(formData.get("buildYear")),
       livingArea: optFloat(formData.get("livingArea")),
       floors: optInt(formData.get("floors")),

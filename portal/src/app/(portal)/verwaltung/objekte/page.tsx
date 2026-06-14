@@ -1,5 +1,6 @@
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
+import { managementTypeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import { createUnit } from "./actions";
 
@@ -53,6 +54,11 @@ export default async function PropertiesPage({
           ) : (
             properties.map((p) => (
               <Card key={p.id} title={`${p.name} · ${p.street}, ${p.zip} ${p.city}`}>
+                <p className="mb-2">
+                  <span className="rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-medium text-brand-orange-dark">
+                    {managementTypeLabels[p.managementType]}
+                  </span>
+                </p>
                 <p className="mb-2 text-xs text-gray-500">
                   Eigentümer:{" "}
                   {p.ownerships.length > 0

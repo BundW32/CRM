@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { logout } from "@/app/login/actions";
 import { BwLogoCompact } from "@/components/logo";
 import { NavLink } from "@/components/nav";
+import { ownsWegProperty } from "@/lib/access";
 import { roleLabels } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 
@@ -57,7 +58,11 @@ export default async function PortalLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await requireUser();
   if (user.mustChangePassword) redirect("/passwort-festlegen");
-  const nav = navByRole[user.role];
+  let nav: ReadonlyArray<{ href: string; label: string }> = navByRole[user.role];
+  // Eigentümer ohne WEG-Objekt sehen keine Beschlüsse
+  if (user.role === "EIGENTUEMER" && !(await ownsWegProperty(user.id))) {
+    nav = nav.filter((item) => item.href !== "/beschluesse");
+  }
 
   return (
     <div className="flex min-h-screen flex-col">

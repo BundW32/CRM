@@ -7,7 +7,8 @@ import { db } from "@/lib/db";
 import { requireUser, requireVerwalter } from "@/lib/session";
 
 const meterSchema = z.object({
-  unitId: z.string().min(1),
+  // "unit:<id>" für einen Einheitszähler oder "prop:<id>" für einen Allgemeinzähler
+  target: z.string().min(1),
   type: z.enum(["STROM", "GAS", "WASSER_KALT", "WASSER_WARM", "HEIZUNG", "SONSTIGES"]),
   meterNumber: z.string().trim().max(100).optional(),
   location: z.string().trim().max(200).optional(),
@@ -16,7 +17,7 @@ const meterSchema = z.object({
 export async function createMeter(formData: FormData) {
   await requireVerwalter();
   const parsed = meterSchema.safeParse({
-    unitId: formData.get("unitId"),
+    target: formData.get("target"),
     type: formData.get("type"),
     meterNumber: formData.get("meterNumber") || undefined,
     location: formData.get("location") || undefined,
@@ -24,9 +25,15 @@ export async function createMeter(formData: FormData) {
   if (!parsed.success) {
     redirect("/zaehler?fehler=eingabe");
   }
+  const [kind, refId] = parsed.data.target.split(":");
+  if ((kind !== "unit" && kind !== "prop") || !refId) {
+    redirect("/zaehler?fehler=eingabe");
+  }
+
   await db.meter.create({
     data: {
-      unitId: parsed.data.unitId,
+      unitId: kind === "unit" ? refId : null,
+      propertyId: kind === "prop" ? refId : null,
       type: parsed.data.type,
       meterNumber: parsed.data.meterNumber || null,
       location: parsed.data.location || null,
@@ -56,12 +63,22 @@ export async function submitReading(formData: FormData) {
   const meter = await db.meter.findUnique({ where: { id: meterId } });
   if (!meter) redirect("/zaehler");
 
-  // Mieter dürfen nur Zähler ihrer eigenen Einheit ablesen
+  // Zugriff prüfen: Verwalter immer; Mieter für Einheitszähler ihrer Einheit;
+  // Eigentümer für Allgemeinzähler ihrer Objekte
   if (user.role !== "VERWALTER") {
-    const tenancy = await db.tenancy.findFirst({
-      where: { userId: user.id, unitId: meter.unitId, active: true },
-    });
-    if (!tenancy) redirect("/zaehler");
+    let allowed = false;
+    if (meter.unitId) {
+      const tenancy = await db.tenancy.findFirst({
+        where: { userId: user.id, unitId: meter.unitId, active: true },
+      });
+      allowed = Boolean(tenancy);
+    } else if (meter.propertyId) {
+      const ownership = await db.ownership.findFirst({
+        where: { userId: user.id, propertyId: meter.propertyId },
+      });
+      allowed = Boolean(ownership);
+    }
+    if (!allowed) redirect("/zaehler");
   }
 
   const value = Number(valueRaw);

@@ -76,8 +76,9 @@ export default async function BeschluessePage({
   const open = resolutions.filter((r) => r.status === "OFFEN");
   const decided = resolutions.filter((r) => r.status !== "OFFEN");
 
+  // Nur WEG-Objekte können Umlaufbeschlüsse haben
   const properties = isVerwalter
-    ? await db.property.findMany({ orderBy: { name: "asc" } })
+    ? await db.property.findMany({ where: { managementType: "WEG" }, orderBy: { name: "asc" } })
     : [];
 
   return (
@@ -86,7 +87,9 @@ export default async function BeschluessePage({
 
       {fehler ? (
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          Bitte Objekt, Titel und Beschlusstext ausfüllen.
+          {fehler === "keinweg"
+            ? "Umlaufbeschlüsse sind nur für WEG-Objekte möglich."
+            : "Bitte Objekt, Titel und Beschlusstext ausfüllen."}
         </p>
       ) : null}
 
@@ -230,7 +233,10 @@ export default async function BeschluessePage({
         {isVerwalter ? (
           <Card title="Umlaufbeschluss starten">
             {properties.length === 0 ? (
-              <p className="text-sm text-gray-500">Legen Sie zuerst Objekte an.</p>
+              <p className="text-sm text-gray-500">
+                Keine WEG-Objekte vorhanden. Legen Sie ein Objekt mit Verwaltungsart „WEG“ an,
+                um Umlaufbeschlüsse zu starten.
+              </p>
             ) : (
               <form action={createResolution} className="space-y-3">
                 <Field label="Objekt (WEG)">

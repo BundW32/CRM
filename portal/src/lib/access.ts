@@ -19,6 +19,14 @@ export async function ownedProperties(userId: string) {
   return ownerships.map((o) => o.property);
 }
 
+// Besitzt der Eigentümer mindestens ein WEG-Objekt? (für die Beschluss-Navigation)
+export async function ownsWegProperty(userId: string) {
+  const count = await db.ownership.count({
+    where: { userId, property: { managementType: "WEG" } },
+  });
+  return count > 0;
+}
+
 // Welche Vorgänge darf der Nutzer sehen?
 export async function ticketWhereForUser(user: User): Promise<Prisma.TicketWhereInput> {
   switch (user.role) {

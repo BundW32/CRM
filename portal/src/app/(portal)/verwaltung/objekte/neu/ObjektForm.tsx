@@ -35,6 +35,12 @@ export function ObjektForm() {
               className={inputClass}
             />
           </Field>
+          <Field label="Verwaltungsart *">
+            <select name="managementType" required defaultValue="MIETVERWALTUNG" className={inputClass}>
+              <option value="MIETVERWALTUNG">Mietverwaltung (Miethaus)</option>
+              <option value="WEG">WEG (Eigentümergemeinschaft)</option>
+            </select>
+          </Field>
           <Field label="Straße und Hausnummer *">
             <input type="text" name="street" required minLength={2} className={inputClass} />
           </Field>

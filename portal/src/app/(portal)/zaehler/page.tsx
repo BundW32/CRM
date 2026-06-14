@@ -17,14 +17,23 @@ export default async function ZaehlerPage({
   const isVerwalter = user.role === "VERWALTER";
   const isMieter = user.role === "MIETER";
 
-  // Relevante Zähler je nach Rolle
+  // Relevante Zähler und Erfassungsrechte je nach Rolle
+  const myUnitIds = new Set<string>();
+  const myPropIds = new Set<string>();
   let where = {};
   if (isMieter) {
     const units = await tenantUnits(user.id);
-    where = { unitId: { in: units.map((u) => u.id) } };
+    units.forEach((u) => myUnitIds.add(u.id));
+    where = { unitId: { in: [...myUnitIds] } };
   } else if (!isVerwalter) {
     const props = await ownedProperties(user.id);
-    where = { unit: { propertyId: { in: props.map((p) => p.id) } } };
+    props.forEach((p) => myPropIds.add(p.id));
+    where = {
+      OR: [
+        { propertyId: { in: [...myPropIds] } },
+        { unit: { propertyId: { in: [...myPropIds] } } },
+      ],
+    };
   }
 
   const meters = await db.meter.findMany({
@@ -32,27 +41,33 @@ export default async function ZaehlerPage({
     orderBy: { createdAt: "asc" },
     include: {
       unit: { include: { property: true } },
-      readings: {
-        orderBy: { readingDate: "desc" },
-        take: 3,
-        include: { createdBy: true },
-      },
+      property: true,
+      readings: { orderBy: { readingDate: "desc" }, take: 3, include: { createdBy: true } },
     },
   });
 
-  // Nach Objekt/Einheit gruppieren
+  function canSubmit(m: (typeof meters)[number]) {
+    if (isVerwalter) return true;
+    if (isMieter) return Boolean(m.unitId && myUnitIds.has(m.unitId));
+    return Boolean(m.propertyId && myPropIds.has(m.propertyId));
+  }
+
+  // Gruppieren: Einheit → "Objekt – Einheit", Allgemein → "Objekt – Allgemein"
   const groups = new Map<string, typeof meters>();
   for (const m of meters) {
-    const key = `${m.unit.property.name} – ${m.unit.label}`;
+    const key = m.unit
+      ? `${m.unit.property.name} – ${m.unit.label}`
+      : `${m.property?.name ?? "Objekt"} – Allgemein`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(m);
   }
 
-  const units = isVerwalter
-    ? await db.unit.findMany({ include: { property: true }, orderBy: { label: "asc" } })
-    : [];
-
-  const canSubmit = isVerwalter || isMieter;
+  const [units, properties] = isVerwalter
+    ? await Promise.all([
+        db.unit.findMany({ include: { property: true }, orderBy: { label: "asc" } }),
+        db.property.findMany({ orderBy: { name: "asc" } }),
+      ])
+    : [[], []];
 
   return (
     <>
@@ -77,7 +92,7 @@ export default async function ZaehlerPage({
             <EmptyState>
               {isVerwalter
                 ? "Noch keine Zähler angelegt."
-                : "Für Ihre Einheit sind noch keine Zähler hinterlegt."}
+                : "Für Sie sind noch keine Zähler hinterlegt."}
             </EmptyState>
           ) : (
             [...groups.entries()].map(([key, list]) => (
@@ -114,7 +129,7 @@ export default async function ZaehlerPage({
                         <p className="mt-2 text-xs text-gray-400">Noch kein Stand erfasst.</p>
                       )}
 
-                      {canSubmit ? (
+                      {canSubmit(m) ? (
                         <form action={submitReading} className="mt-2 flex flex-wrap items-end gap-2">
                           <input type="hidden" name="meterId" value={m.id} />
                           <label>
@@ -150,19 +165,26 @@ export default async function ZaehlerPage({
 
         {isVerwalter ? (
           <Card title="Zähler anlegen">
-            {units.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Legen Sie zuerst Objekte mit Einheiten an.
-              </p>
+            {units.length === 0 && properties.length === 0 ? (
+              <p className="text-sm text-gray-500">Legen Sie zuerst Objekte mit Einheiten an.</p>
             ) : (
               <form action={createMeter} className="space-y-3">
-                <Field label="Einheit">
-                  <select name="unitId" required className={inputClass}>
-                    {units.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.property.name} – {u.label}
-                      </option>
-                    ))}
+                <Field label="Zuordnung">
+                  <select name="target" required className={inputClass}>
+                    <optgroup label="Allgemein (ganzes Objekt)">
+                      {properties.map((p) => (
+                        <option key={`prop-${p.id}`} value={`prop:${p.id}`}>
+                          {p.name} – Allgemein
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Einheiten">
+                      {units.map((u) => (
+                        <option key={`unit-${u.id}`} value={`unit:${u.id}`}>
+                          {u.property.name} – {u.label}
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
                 </Field>
                 <Field label="Zählerart">
@@ -183,6 +205,10 @@ export default async function ZaehlerPage({
                 <button type="submit" className={buttonClass}>
                   Anlegen
                 </button>
+                <p className="text-xs text-gray-500">
+                  Allgemeinzähler (z. B. Allgemeinstrom, Hauswasser) können Eigentümer und
+                  Verwalter ablesen; Einheitszähler der jeweilige Mieter.
+                </p>
               </form>
             )}
           </Card>

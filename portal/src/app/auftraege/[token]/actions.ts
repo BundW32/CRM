@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { Craftsman, Ticket } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { portalUrl, sendMail } from "@/lib/mailer";
+import { sendPushToUsers } from "@/lib/push";
 import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
 
 // Token + Ticket prüfen: der Handwerker darf nur seine eigenen Aufträge bearbeiten
@@ -22,13 +23,17 @@ async function authorize(
 async function notifyVerwalter(ticket: Ticket, text: string) {
   const verwalter = await db.user.findMany({
     where: { role: "VERWALTER", active: true },
-    select: { email: true },
+    select: { id: true, email: true },
   });
   const link = portalUrl(`/vorgaenge/${ticket.id}`);
   await Promise.all(
     verwalter.map((v) =>
       sendMail(v.email, `Vorgang #${ticket.number}: Update vom Handwerker`, `${text}\n\nZum Vorgang: ${link}`)
     )
+  );
+  await sendPushToUsers(
+    verwalter.map((v) => v.id),
+    { title: `Vorgang #${ticket.number}: Update vom Handwerker`, body: text, url: `/vorgaenge/${ticket.id}` }
   );
 }
 

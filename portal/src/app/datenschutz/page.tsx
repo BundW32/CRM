@@ -27,8 +27,9 @@ export default function DatenschutzPage() {
         <div className="space-y-5 text-sm text-gray-700">
           <Section title="1. Verantwortlicher">
             <p>
-              B&amp;W Immobilien Management UG (haftungsbeschränkt), Goethestraße 42, 45964
-              Gladbeck, vertreten durch Alexander Wachtel. E-Mail: info@bundwimmobilien.de.
+              B &amp; W Immobilien Management UG (haftungsbeschränkt), Goethestraße 42, 45964
+              Gladbeck, vertreten durch die Geschäftsführer Franz-Josef Barth und Alexander Wachtel
+              (stv.). Telefon: +49 151 29468127, E-Mail: info@bundwimmobilien.de.
             </p>
           </Section>
 

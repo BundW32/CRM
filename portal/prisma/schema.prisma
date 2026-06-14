@@ -143,6 +143,7 @@ model User {
   meterReadings       MeterReading[]
   resolutionsCreated  Resolution[]     @relation("ResolutionCreatedBy")
   resolutionVotes     ResolutionVote[]
+  pushSubscriptions   PushSubscription[]
 }
 
 model Property {
@@ -431,4 +432,15 @@ model ResolutionVote {
   createdAt    DateTime   @default(now())
 
   @@unique([resolutionId, userId])
+}
+
+// Web-Push-Abonnements (PWA-Benachrichtigungen)
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
 }

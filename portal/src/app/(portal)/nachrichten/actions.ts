@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { portalUrl, sendMail } from "@/lib/mailer";
+import { sendPushToUsers } from "@/lib/push";
 import { requireUser } from "@/lib/session";
 
 async function notifyParticipants(
@@ -27,6 +28,10 @@ async function notifyParticipants(
           `Zur Nachricht: ${link}`
       )
     )
+  );
+  await sendPushToUsers(
+    parts.map((p) => p.userId),
+    { title: `Neue Nachricht: ${subject}`, body: preview, url: `/nachrichten/${conversationId}` }
   );
 }
 

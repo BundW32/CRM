@@ -1,4 +1,5 @@
 import { Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { PushToggle } from "@/components/push-toggle";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 import { changePassword } from "./actions";
@@ -112,6 +113,15 @@ export default async function AccountPage({
               Passwort ändern
             </button>
           </form>
+        </Card>
+
+        <Card title="Benachrichtigungen">
+          <p className="mb-3 text-sm text-gray-600">
+            Erhalten Sie Push-Benachrichtigungen auf diesem Gerät, z. B. bei neuen Antworten,
+            Nachrichten oder Vorgängen. Am besten funktioniert das, wenn Sie das Portal über
+            „Zum Startbildschirm hinzufügen“ installieren.
+          </p>
+          <PushToggle />
         </Card>
       </div>
     </>

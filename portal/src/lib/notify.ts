@@ -3,6 +3,7 @@
 import type { Ticket, User } from "@/generated/prisma/client";
 import { db } from "./db";
 import { portalUrl, sendMail } from "./mailer";
+import { sendPush, sendPushToUsers } from "./push";
 import { ticketStatusLabels, ticketTypeLabels, tradeLabels } from "./labels";
 
 export async function notifyVerwalterNewTicket(ticket: Ticket, createdBy: User) {
@@ -27,6 +28,14 @@ export async function notifyVerwalterNewTicket(ticket: Ticket, createdBy: User) 
       )
     )
   );
+  await sendPushToUsers(
+    verwalter.map((v) => v.id),
+    {
+      title: `Neuer Vorgang #${ticket.number}`,
+      body: `${createdBy.name}: ${ticket.title}`,
+      url: `/vorgaenge/${ticket.id}`,
+    }
+  );
 }
 
 export async function notifyCreatorStatusChange(ticketId: string, actor: User) {
@@ -42,6 +51,11 @@ export async function notifyCreatorStatusChange(ticketId: string, actor: User) {
       `„${ticketStatusLabels[ticket.status]}“ geändert.\n\n` +
       `Zum Vorgang: ${portalUrl(`/vorgaenge/${ticket.id}`)}`
   );
+  await sendPush(ticket.createdById, {
+    title: `Vorgang #${ticket.number}: ${ticketStatusLabels[ticket.status]}`,
+    body: ticket.title,
+    url: `/vorgaenge/${ticket.id}`,
+  });
 }
 
 export async function notifyCreatorNewComment(ticketId: string, actor: User) {
@@ -56,6 +70,11 @@ export async function notifyCreatorNewComment(ticketId: string, actor: User) {
     `${actor.name} hat auf Ihren Vorgang „${ticket.title}“ geantwortet.\n\n` +
       `Zum Vorgang: ${portalUrl(`/vorgaenge/${ticket.id}`)}`
   );
+  await sendPush(ticket.createdById, {
+    title: `Neue Antwort zu Vorgang #${ticket.number}`,
+    body: `${actor.name}: ${ticket.title}`,
+    url: `/vorgaenge/${ticket.id}`,
+  });
 }
 
 export async function notifyAssignee(ticketId: string, assignee: User) {
@@ -67,6 +86,11 @@ export async function notifyAssignee(ticketId: string, assignee: User) {
     `Vorgang „${ticket.title}“ wurde Ihnen zugewiesen.\n\n` +
       `Zum Vorgang: ${portalUrl(`/vorgaenge/${ticket.id}`)}`
   );
+  await sendPush(assignee.id, {
+    title: `Vorgang #${ticket.number} zugewiesen`,
+    body: ticket.title,
+    url: `/vorgaenge/${ticket.id}`,
+  });
 }
 
 export async function notifyWelcome(user: User) {

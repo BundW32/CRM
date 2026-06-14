@@ -28,6 +28,7 @@ const createTicketSchema = z.object({
   title: z.string().trim().min(3).max(200),
   description: z.string().trim().min(3).max(5000),
   category: z.string().trim().max(100).optional(),
+  trade: z.enum(TRADES).optional().or(z.literal("")),
   location: z.string().trim().max(200).optional(),
   target: z.string().min(1),
 });
@@ -58,6 +59,7 @@ export async function createTicket(formData: FormData) {
     title: formData.get("title"),
     description: formData.get("description"),
     category: formData.get("category") || undefined,
+    trade: formData.get("trade") || undefined,
     location: formData.get("location") || undefined,
     target: formData.get("target"),
   });
@@ -83,6 +85,7 @@ export async function createTicket(formData: FormData) {
       title: parsed.data.title,
       description: parsed.data.description,
       category: parsed.data.category,
+      trade: parsed.data.trade ? (parsed.data.trade as Trade) : null,
       location: parsed.data.location,
       propertyId,
       unitId: unitId || null,

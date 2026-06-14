@@ -37,7 +37,7 @@ export default async function PropertiesPage({
 
       {eingerichtet ? (
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
-          Objekt wurde angelegt. Mieter können Sie jetzt unter „Nutzer" hinzufügen.
+          Objekt wurde angelegt. Mieter können Sie jetzt unter „Nutzer“ hinzufügen.
         </p>
       ) : null}
       {fehler ? (

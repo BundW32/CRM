@@ -1,6 +1,6 @@
 import { Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { ticketTargetsForUser } from "@/lib/access";
-import { damageCategories, ticketTypeLabels } from "@/lib/labels";
+import { ticketTypeLabels, tradeLabels } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 import { createTicket } from "../actions";
 
@@ -67,12 +67,12 @@ export default async function NewTicketPage({
               </select>
             </Field>
 
-            <Field label="Kategorie (bei Schäden)">
-              <select name="category" className={inputClass} defaultValue="">
-                <option value="">– Keine Angabe –</option>
-                {damageCategories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+            <Field label="Kategorie / Gewerk (hilft bei der Handwerker-Zuordnung)">
+              <select name="trade" className={inputClass} defaultValue="">
+                <option value="">– Keine Angabe / weiß ich nicht –</option>
+                {Object.entries(tradeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
                   </option>
                 ))}
               </select>

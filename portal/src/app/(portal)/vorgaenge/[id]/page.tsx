@@ -330,7 +330,7 @@ export default async function TicketDetailPage({
                 ) : null}
                 <label className="flex items-center gap-2 text-sm text-gray-700">
                   <input type="checkbox" name="setBeauftragt" defaultChecked />
-                  Status auf „Beauftragt" setzen
+                  Status auf „Beauftragt“ setzen
                 </label>
                 <button type="submit" className={buttonClass}>
                   Zuordnen

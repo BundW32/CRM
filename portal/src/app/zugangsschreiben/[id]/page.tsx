@@ -55,7 +55,7 @@ export default async function ZugangsschreibenPage({
       {!pw ? (
         <div className="no-print mx-auto mb-4 max-w-3xl rounded-md bg-amber-50 px-6 py-3 text-sm text-amber-800">
           Das Erst-Passwort kann aus Sicherheitsgründen nur direkt nach der Erstellung
-          angezeigt werden. Über „Nutzer → Zugangsschreiben neu erstellen" können Sie ein
+          angezeigt werden. Über „Nutzer → Zugangsschreiben neu erstellen“ können Sie ein
           neues Erst-Passwort erzeugen.
         </div>
       ) : null}

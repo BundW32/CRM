@@ -6,29 +6,6 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 
-const propertySchema = z.object({
-  name: z.string().trim().min(2).max(200),
-  street: z.string().trim().min(2).max(200),
-  zip: z.string().trim().min(4).max(10),
-  city: z.string().trim().min(2).max(100),
-});
-
-export async function createProperty(formData: FormData) {
-  await requireVerwalter();
-  const parsed = propertySchema.safeParse({
-    name: formData.get("name"),
-    street: formData.get("street"),
-    zip: formData.get("zip"),
-    city: formData.get("city"),
-  });
-  if (!parsed.success) {
-    redirect("/verwaltung/objekte?fehler=eingabe");
-  }
-  await db.property.create({ data: parsed.data });
-  revalidatePath("/verwaltung/objekte");
-  redirect("/verwaltung/objekte");
-}
-
 const unitSchema = z.object({
   propertyId: z.string().min(1),
   label: z.string().trim().min(1).max(200),

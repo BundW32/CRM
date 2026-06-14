@@ -2,6 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { createSession, destroySession } from "@/lib/session";
 
@@ -29,6 +30,10 @@ export async function login(formData: FormData) {
 
   await createSession(user.id);
 
+  // Router-Cache leeren, damit nach einem Nutzerwechsel keine Inhalte aus
+  // einer früheren Session (anderer Name/Rolle) angezeigt werden.
+  revalidatePath("/", "layout");
+
   // Erst-Passwort aus dem Zugangsschreiben: zur Passwortänderung zwingen
   if (user.mustChangePassword) {
     redirect("/passwort-festlegen");
@@ -39,5 +44,7 @@ export async function login(formData: FormData) {
 
 export async function logout() {
   await destroySession();
+  // Gesamten Router-Cache invalidieren (siehe login)
+  revalidatePath("/", "layout");
   redirect("/login");
 }

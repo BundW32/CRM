@@ -32,7 +32,7 @@ const navByRole = {
     { href: "/statistiken", label: "Statistiken" },
     { href: "/verwaltung/objekte", label: "Objekte" },
     { href: "/verwaltung/nutzer", label: "Nutzer" },
-    { href: "/verwaltung/schnelleinrichtung", label: "+ Schnelleinrichtung" },
+    { href: "/verwaltung/objekte/neu", label: "+ Objekt anlegen" },
     { href: "/konto", label: "Konto" },
   ],
   HANDWERKER: [

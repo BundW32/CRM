@@ -1,7 +1,7 @@
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { createProperty, createUnit } from "./actions";
+import { createUnit } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +27,8 @@ export default async function PropertiesPage({
     <>
       <PageTitle
         action={
-          <a href="/verwaltung/schnelleinrichtung" className={buttonClass}>
-            + Schnelleinrichtung
+          <a href="/verwaltung/objekte/neu" className={buttonClass}>
+            + Objekt anlegen
           </a>
         }
       >
@@ -59,6 +59,21 @@ export default async function PropertiesPage({
                     ? p.ownerships.map((o) => o.user.name).join(", ")
                     : "– nicht zugeordnet –"}
                 </p>
+                {(() => {
+                  const details = [
+                    p.buildYear ? `Baujahr ${p.buildYear}` : null,
+                    p.livingArea ? `${p.livingArea} m²` : null,
+                    p.floors != null ? `${p.floors} Etagen` : null,
+                    p.buildingType,
+                    p.heatingType,
+                  ].filter(Boolean);
+                  return details.length > 0 ? (
+                    <p className="mb-2 text-xs text-gray-500">{details.join(" · ")}</p>
+                  ) : null;
+                })()}
+                {p.notes ? (
+                  <p className="mb-2 text-xs italic text-gray-400">{p.notes}</p>
+                ) : null}
                 {p.units.length === 0 ? (
                   <p className="text-sm text-gray-500">Keine Einheiten angelegt.</p>
                 ) : (
@@ -84,24 +99,14 @@ export default async function PropertiesPage({
         </div>
 
         <div className="space-y-5">
-          <Card title="Neues Objekt">
-            <form action={createProperty} className="space-y-3">
-              <Field label="Bezeichnung">
-                <input type="text" name="name" required minLength={2} className={inputClass} placeholder="z. B. Goethestraße 42" />
-              </Field>
-              <Field label="Straße und Hausnummer">
-                <input type="text" name="street" required minLength={2} className={inputClass} />
-              </Field>
-              <Field label="PLZ">
-                <input type="text" name="zip" required minLength={4} maxLength={10} className={inputClass} />
-              </Field>
-              <Field label="Ort">
-                <input type="text" name="city" required minLength={2} className={inputClass} />
-              </Field>
-              <button type="submit" className={buttonClass}>
-                Anlegen
-              </button>
-            </form>
+          <Card title="Schnell ein ganzes Objekt anlegen">
+            <p className="text-sm text-gray-600">
+              Objekt mit Stammdaten, Einheiten, Eigentümer und Mietern in einem Schritt
+              erfassen.
+            </p>
+            <a href="/verwaltung/objekte/neu" className={`${buttonClass} mt-3`}>
+              + Objekt anlegen
+            </a>
           </Card>
 
           <Card title="Neue Einheit">

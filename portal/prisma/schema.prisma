@@ -78,6 +78,13 @@ model Property {
   street       String
   zip          String
   city         String
+  // Optionale Stammdaten zum Objekt
+  buildYear    Int? // Baujahr
+  livingArea   Float? // Gesamtwohnfläche in m²
+  floors       Int? // Anzahl Etagen
+  buildingType String? // Bauart, z. B. Mehrfamilienhaus, Massivbau
+  heatingType  String? // Heizungsart, z. B. Gas-Zentralheizung
+  notes        String? // freie Notizen
   // Referenz für den späteren Stammdaten-Sync mit Immoware24
   immoware24Id String?        @unique
   createdAt    DateTime       @default(now())

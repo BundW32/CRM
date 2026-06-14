@@ -96,6 +96,20 @@ enum MaintenanceInterval {
   EINMALIG
 }
 
+// Status eines (Umlauf-)Beschlusses
+enum ResolutionStatus {
+  OFFEN
+  ANGENOMMEN
+  ABGELEHNT
+  ZURUECKGEZOGEN
+}
+
+enum VoteChoice {
+  JA
+  NEIN
+  ENTHALTUNG
+}
+
 model User {
   id                  String          @id @default(cuid())
   email               String?         @unique
@@ -121,6 +135,8 @@ model User {
   conversationParts   ConversationParticipant[]
   messagesSent        Message[]
   meterReadings       MeterReading[]
+  resolutionsCreated  Resolution[]     @relation("ResolutionCreatedBy")
+  resolutionVotes     ResolutionVote[]
 }
 
 model Property {
@@ -145,6 +161,7 @@ model Property {
   documents    Document[]
   announcements Announcement[]
   maintenanceTasks MaintenanceTask[]
+  resolutions  Resolution[]
 }
 
 model Unit {
@@ -374,4 +391,34 @@ model Message {
   author         User         @relation(fields: [authorId], references: [id])
   body           String
   createdAt      DateTime     @default(now())
+}
+
+// WEG-Umlaufbeschluss mit digitaler Abstimmung
+model Resolution {
+  id          String           @id @default(cuid())
+  propertyId  String
+  property    Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  number      Int? // laufende Nummer in der Beschlusssammlung (nach Entscheidung)
+  title       String
+  description String
+  status      ResolutionStatus @default(OFFEN)
+  deadline    DateTime?
+  createdById String
+  createdBy   User             @relation("ResolutionCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime         @default(now())
+  decidedAt   DateTime?
+  votes       ResolutionVote[]
+}
+
+model ResolutionVote {
+  id           String     @id @default(cuid())
+  resolutionId String
+  resolution   Resolution @relation(fields: [resolutionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  choice       VoteChoice
+  comment      String?
+  createdAt    DateTime   @default(now())
+
+  @@unique([resolutionId, userId])
 }

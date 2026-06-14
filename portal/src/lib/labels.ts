@@ -4,11 +4,13 @@ import type {
   DocumentCategory,
   MaintenanceInterval,
   MeterType,
+  ResolutionStatus,
   Role,
   TicketPriority,
   TicketStatus,
   TicketType,
   Trade,
+  VoteChoice,
 } from "@/generated/prisma/client";
 
 export const roleLabels: Record<Role, string> = {
@@ -102,6 +104,19 @@ export const maintenanceIntervalLabels: Record<MaintenanceInterval, string> = {
   JAEHRLICH: "Jährlich",
   ZWEIJAEHRLICH: "Alle 2 Jahre",
   EINMALIG: "Einmalig",
+};
+
+export const resolutionStatusLabels: Record<ResolutionStatus, string> = {
+  OFFEN: "Abstimmung läuft",
+  ANGENOMMEN: "Angenommen",
+  ABGELEHNT: "Abgelehnt",
+  ZURUECKGEZOGEN: "Zurückgezogen",
+};
+
+export const voteChoiceLabels: Record<VoteChoice, string> = {
+  JA: "Ja",
+  NEIN: "Nein",
+  ENTHALTUNG: "Enthaltung",
 };
 
 // Intervall in Monaten (für die Berechnung der nächsten Fälligkeit)

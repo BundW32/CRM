@@ -36,6 +36,7 @@ const navByRole = {
     { href: "/aushaenge", label: "Aushänge" },
     { href: "/statistiken", label: "Statistiken" },
     { href: "/zaehler", label: "Zähler" },
+    { href: "/verwaltung/wartung", label: "Wartung" },
     { href: "/verwaltung/objekte", label: "Objekte" },
     { href: "/verwaltung/nutzer", label: "Nutzer" },
     { href: "/verwaltung/kontakte", label: "Kontakte" },

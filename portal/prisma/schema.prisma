@@ -86,6 +86,16 @@ enum MeterType {
   SONSTIGES
 }
 
+// Wartungsintervall
+enum MaintenanceInterval {
+  MONATLICH
+  QUARTALSWEISE
+  HALBJAEHRLICH
+  JAEHRLICH
+  ZWEIJAEHRLICH
+  EINMALIG
+}
+
 model User {
   id                  String          @id @default(cuid())
   email               String?         @unique
@@ -134,6 +144,7 @@ model Property {
   tickets      Ticket[]
   documents    Document[]
   announcements Announcement[]
+  maintenanceTasks MaintenanceTask[]
 }
 
 model Unit {
@@ -238,7 +249,24 @@ model Craftsman {
   accessToken      String?       @unique
   createdAt        DateTime      @default(now())
   tickets          Ticket[]
-  comments         TicketComment[] @relation("CraftsmanComments")
+  comments         TicketComment[]   @relation("CraftsmanComments")
+  maintenanceTasks MaintenanceTask[]
+}
+
+// Wartungs-/Prüfaufgaben mit Fälligkeit (visuelle Erinnerung)
+model MaintenanceTask {
+  id          String              @id @default(cuid())
+  title       String
+  description String?
+  interval    MaintenanceInterval
+  dueDate     DateTime
+  lastDoneAt  DateTime?
+  active      Boolean             @default(true)
+  propertyId  String?
+  property    Property?           @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  craftsmanId String?
+  craftsman   Craftsman?          @relation(fields: [craftsmanId], references: [id], onDelete: SetNull)
+  createdAt   DateTime            @default(now())
 }
 
 model TicketComment {

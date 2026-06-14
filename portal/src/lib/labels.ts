@@ -2,6 +2,7 @@ import type {
   Audience,
   ContactMethod,
   DocumentCategory,
+  MaintenanceInterval,
   MeterType,
   Role,
   TicketPriority,
@@ -92,6 +93,25 @@ export const meterTypeLabels: Record<MeterType, string> = {
   WASSER_WARM: "Wasser (warm)",
   HEIZUNG: "Heizung",
   SONSTIGES: "Sonstiges",
+};
+
+export const maintenanceIntervalLabels: Record<MaintenanceInterval, string> = {
+  MONATLICH: "Monatlich",
+  QUARTALSWEISE: "Quartalsweise",
+  HALBJAEHRLICH: "Halbjährlich",
+  JAEHRLICH: "Jährlich",
+  ZWEIJAEHRLICH: "Alle 2 Jahre",
+  EINMALIG: "Einmalig",
+};
+
+// Intervall in Monaten (für die Berechnung der nächsten Fälligkeit)
+export const maintenanceIntervalMonths: Record<MaintenanceInterval, number | null> = {
+  MONATLICH: 1,
+  QUARTALSWEISE: 3,
+  HALBJAEHRLICH: 6,
+  JAEHRLICH: 12,
+  ZWEIJAEHRLICH: 24,
+  EINMALIG: null,
 };
 
 export function formatDate(date: Date) {

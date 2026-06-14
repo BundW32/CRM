@@ -80,6 +80,7 @@ export default async function DashboardPage() {
           </Card>
 
           {user.role === "VERWALTER" ? <VerwalterStats /> : null}
+          {user.role === "VERWALTER" ? <WartungReminder /> : null}
           {user.role === "EIGENTUEMER" ? <EigentuemerObjekte userId={user.id} /> : null}
           {user.role === "MIETER" ? <MieterWohnung userId={user.id} /> : null}
         </div>
@@ -132,6 +133,52 @@ async function VerwalterStats() {
         </div>
       ))}
     </div>
+  );
+}
+
+async function WartungReminder() {
+  const soon = new Date();
+  soon.setDate(soon.getDate() + 14);
+  const tasks = await db.maintenanceTask.findMany({
+    where: { active: true, dueDate: { lte: soon } },
+    orderBy: { dueDate: "asc" },
+    take: 6,
+    include: { property: true },
+  });
+  if (tasks.length === 0) return null;
+  const now = new Date().getTime();
+  return (
+    <Card title="Fällige Wartungen">
+      <ul className="divide-y divide-gray-100">
+        {tasks.map((t) => {
+          const overdue = t.dueDate.getTime() < now;
+          return (
+            <li key={t.id} className="flex items-center justify-between py-2">
+              <span>
+                <span className="block text-sm font-medium text-gray-900">{t.title}</span>
+                <span className="block text-xs text-gray-500">
+                  {t.property ? `${t.property.name} · ` : ""}
+                  fällig am {formatDate(t.dueDate)}
+                </span>
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  overdue ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-800"
+                }`}
+              >
+                {overdue ? "überfällig" : "bald fällig"}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <Link
+        href="/verwaltung/wartung"
+        className="mt-3 inline-block text-sm text-brand-green hover:underline"
+      >
+        Alle Wartungen ansehen →
+      </Link>
+    </Card>
   );
 }
 

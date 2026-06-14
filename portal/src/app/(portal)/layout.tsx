@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { logout } from "@/app/login/actions";
+import { InstallHint } from "@/components/install-hint";
 import { BwLogoCompact } from "@/components/logo";
 import { NavLink } from "@/components/nav";
 import { ownsWegProperty } from "@/lib/access";
@@ -112,6 +113,7 @@ export default async function PortalLayout({
           Datenschutz
         </Link>
       </footer>
+      <InstallHint />
     </div>
   );
 }

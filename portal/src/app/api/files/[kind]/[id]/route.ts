@@ -7,11 +7,20 @@ import { getUser } from "@/lib/session";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ kind: string; id: string }> }
 ) {
   const user = await getUser();
-  if (!user) {
+  const token = new URL(request.url).searchParams.get("token");
+
+  // Handwerker ohne Login: Zugriff per Magic-Link-Token auf Anhänge ihrer Aufträge
+  let craftsman = null;
+  if (!user && token) {
+    const found = await db.craftsman.findUnique({ where: { accessToken: token } });
+    if (found && found.active) craftsman = found;
+  }
+
+  if (!user && !craftsman) {
     return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
   }
   const { kind, id } = await params;
@@ -23,10 +32,14 @@ export async function GET(
       where: { id },
       include: { ticket: true },
     });
-    if (attachment && (await canViewTicket(user, attachment.ticket))) {
-      file = attachment;
+    if (attachment) {
+      if (user && (await canViewTicket(user, attachment.ticket))) {
+        file = attachment;
+      } else if (craftsman && attachment.ticket.craftsmanId === craftsman.id) {
+        file = attachment;
+      }
     }
-  } else if (kind === "dokument") {
+  } else if (kind === "dokument" && user) {
     const document = await db.document.findFirst({
       where: { id, AND: await documentWhereForUser(user) },
     });

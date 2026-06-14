@@ -40,9 +40,10 @@ export default async function AuftraegePage({
     include: {
       property: true,
       unit: true,
+      attachments: { where: { commentId: null } },
       comments: {
         where: { internal: false },
-        include: { author: true, craftsmanAuthor: true },
+        include: { author: true, craftsmanAuthor: true, attachments: true },
         orderBy: { createdAt: "asc" },
       },
     },
@@ -84,6 +85,26 @@ export default async function AuftraegePage({
               </p>
               <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">{t.description}</p>
 
+              {t.attachments.length > 0 ? (
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {t.attachments.map((a) => (
+                    <a
+                      key={a.id}
+                      href={`/api/files/anhang/${a.id}?token=${token}`}
+                      target="_blank"
+                      className="block overflow-hidden rounded-md border border-gray-200"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/api/files/anhang/${a.id}?token=${token}`}
+                        alt={a.fileName}
+                        className="h-28 w-full object-cover"
+                      />
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+
               {t.appointmentNote ? (
                 <p className="mt-3 rounded-md bg-brand-orange-light px-3 py-2 text-xs text-brand-green-dark">
                   Ihr Terminvorschlag: {t.appointmentNote}
@@ -99,6 +120,25 @@ export default async function AuftraegePage({
                         {formatDate(c.createdAt)}
                       </p>
                       <p className="whitespace-pre-wrap text-sm text-gray-800">{c.body}</p>
+                      {c.attachments.length > 0 ? (
+                        <div className="mt-2 grid grid-cols-3 gap-2">
+                          {c.attachments.map((a) => (
+                            <a
+                              key={a.id}
+                              href={`/api/files/anhang/${a.id}?token=${token}`}
+                              target="_blank"
+                              className="block overflow-hidden rounded border border-gray-200"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={`/api/files/anhang/${a.id}?token=${token}`}
+                                alt={a.fileName}
+                                className="h-20 w-full object-cover"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>

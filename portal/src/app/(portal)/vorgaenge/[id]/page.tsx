@@ -365,18 +365,64 @@ export default async function TicketDetailPage({
                       Bevorzugter Kontakt: {contactMethodLabels[ticket.craftsman.preferredContact]}
                     </span>
                   </p>
+
+                  {/* Direktkontakt mit vorbefülltem Text */}
+                  {(() => {
+                    const c = ticket.craftsman!;
+                    const text =
+                      `Guten Tag ${c.name}, bezüglich Auftrag #${ticket.number} „${ticket.title}" ` +
+                      `am Objekt ${ticket.property.name}` +
+                      (ticket.unit ? `, ${ticket.unit.label}` : "") +
+                      (ticket.location ? ` (${ticket.location})` : "") +
+                      `. Bitte melden Sie sich zur Terminabstimmung. ` +
+                      `Mit freundlichen Grüßen, B&W Immobilien Management UG`;
+                    const enc = encodeURIComponent(text);
+                    const wa = waNumber(c.phone);
+                    const pill =
+                      "rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50";
+                    return (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {c.phone ? (
+                          <a href={`tel:${c.phone}`} className={pill}>
+                            📞 Anrufen
+                          </a>
+                        ) : null}
+                        {c.phone ? (
+                          <a href={`sms:${c.phone}?body=${enc}`} className={pill}>
+                            💬 SMS
+                          </a>
+                        ) : null}
+                        {wa ? (
+                          <a
+                            href={`https://wa.me/${wa}?text=${enc}`}
+                            target="_blank"
+                            className={pill}
+                          >
+                            WhatsApp
+                          </a>
+                        ) : null}
+                        {c.email ? (
+                          <a
+                            href={`mailto:${c.email}?subject=${encodeURIComponent(
+                              `Auftrag #${ticket.number}: ${ticket.title}`
+                            )}&body=${enc}`}
+                            className={pill}
+                          >
+                            ✉ E-Mail
+                          </a>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
+
                   {ticket.craftsman.email ? (
                     <form action={notifyCraftsman} className="mt-3">
                       <input type="hidden" name="ticketId" value={ticket.id} />
                       <button type="submit" className={`${buttonClass} w-full`}>
-                        Per E-Mail beauftragen
+                        Auftrag per E-Mail senden (mit Portal-Link)
                       </button>
                     </form>
-                  ) : (
-                    <p className="mt-2 text-xs text-gray-400">
-                      Keine E-Mail hinterlegt – bitte telefonisch beauftragen.
-                    </p>
-                  )}
+                  ) : null}
                 </div>
               ) : null}
             </Card>
@@ -414,6 +460,16 @@ export default async function TicketDetailPage({
       </div>
     </>
   );
+}
+
+// Telefonnummer für wa.me normalisieren (internationale Ziffern ohne +/0)
+function waNumber(phone: string | null): string {
+  if (!phone) return "";
+  let p = phone.replace(/[^\d+]/g, "");
+  if (p.startsWith("+")) p = p.slice(1);
+  else if (p.startsWith("00")) p = p.slice(2);
+  else if (p.startsWith("0")) p = "49" + p.slice(1);
+  return p.length >= 8 ? p : "";
 }
 
 function Detail({ label, value }: { label: string; value: string }) {

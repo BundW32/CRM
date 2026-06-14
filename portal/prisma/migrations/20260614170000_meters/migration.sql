@@ -1,0 +1,30 @@
+-- Zähler & Zählerstände
+CREATE TYPE "MeterType" AS ENUM ('STROM', 'GAS', 'WASSER_KALT', 'WASSER_WARM', 'HEIZUNG', 'SONSTIGES');
+
+CREATE TABLE "Meter" (
+  "id" TEXT NOT NULL,
+  "unitId" TEXT NOT NULL,
+  "type" "MeterType" NOT NULL,
+  "meterNumber" TEXT,
+  "location" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "Meter_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE "MeterReading" (
+  "id" TEXT NOT NULL,
+  "meterId" TEXT NOT NULL,
+  "value" DOUBLE PRECISION NOT NULL,
+  "readingDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "note" TEXT,
+  "createdById" TEXT NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "MeterReading_pkey" PRIMARY KEY ("id")
+);
+
+ALTER TABLE "Meter" ADD CONSTRAINT "Meter_unitId_fkey"
+  FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "MeterReading" ADD CONSTRAINT "MeterReading_meterId_fkey"
+  FOREIGN KEY ("meterId") REFERENCES "Meter"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "MeterReading" ADD CONSTRAINT "MeterReading_createdById_fkey"
+  FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -2,6 +2,7 @@ import type {
   Audience,
   ContactMethod,
   DocumentCategory,
+  MeterType,
   Role,
   TicketPriority,
   TicketStatus,
@@ -82,6 +83,15 @@ export const contactMethodLabels: Record<ContactMethod, string> = {
   TELEFON: "Telefon",
   MOBIL: "Mobil",
   POST: "Post",
+};
+
+export const meterTypeLabels: Record<MeterType, string> = {
+  STROM: "Strom",
+  GAS: "Gas",
+  WASSER_KALT: "Wasser (kalt)",
+  WASSER_WARM: "Wasser (warm)",
+  HEIZUNG: "Heizung",
+  SONSTIGES: "Sonstiges",
 };
 
 export function formatDate(date: Date) {

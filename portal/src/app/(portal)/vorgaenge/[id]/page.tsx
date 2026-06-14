@@ -309,14 +309,16 @@ export default async function TicketDetailPage({
                         ))}
                       </optgroup>
                     ) : null}
-                    <optgroup label={suggested.length > 0 ? "Weitere" : "Alle Handwerker"}>
-                      {others.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.company ? `${c.company} / ` : ""}
-                          {c.name} ({tradeLabels[c.trade]})
-                        </option>
-                      ))}
-                    </optgroup>
+                    {others.length > 0 ? (
+                      <optgroup label={suggested.length > 0 ? "Weitere" : "Alle Handwerker"}>
+                        {others.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.company ? `${c.company} / ` : ""}
+                            {c.name} ({tradeLabels[c.trade]})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
                   </select>
                 </Field>
                 {craftsmen.length === 0 ? (

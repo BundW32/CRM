@@ -287,10 +287,13 @@ export async function notifyCraftsman(formData: FormData) {
       internal: true,
     },
   });
-  await db.ticket.update({
-    where: { id: ticketId },
-    data: { status: "BEAUFTRAGT" },
-  });
+  // Bereits erledigte/geschlossene Vorgänge nicht wieder öffnen
+  if (ticket.status !== "ERLEDIGT" && ticket.status !== "GESCHLOSSEN") {
+    await db.ticket.update({
+      where: { id: ticketId },
+      data: { status: "BEAUFTRAGT" },
+    });
+  }
 
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}?beauftragt=1`);

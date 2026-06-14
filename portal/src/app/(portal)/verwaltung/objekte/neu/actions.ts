@@ -38,10 +38,11 @@ async function inviteOrLetter(opts: {
   phone: string | null;
   role: "EIGENTUEMER" | "MIETER";
 }): Promise<{ id: string; pw: string } | null> {
-  // Duplikate (gleiche E-Mail) überspringen
+  // Existiert bereits ein Nutzer mit dieser E-Mail, wird dieser mit dem Objekt
+  // verknüpft (kein neuer Zugang, keine erneute Einladung).
   if (opts.email) {
     const exists = await db.user.findUnique({ where: { email: opts.email } });
-    if (exists) return null;
+    if (exists) return { id: exists.id, pw: "" };
   }
 
   if (opts.email) {
@@ -147,7 +148,10 @@ export async function createObjekt(formData: FormData) {
       role: "EIGENTUEMER",
     });
     if (result) {
-      await db.ownership.create({ data: { userId: result.id, propertyId: property.id } });
+      // catch: bereits bestehende Verknüpfung (Unique-Constraint) ignorieren
+      await db.ownership
+        .create({ data: { userId: result.id, propertyId: property.id } })
+        .catch(() => {});
       if (result.pw) letterUsers.push(result);
     }
   }
@@ -173,7 +177,9 @@ export async function createObjekt(formData: FormData) {
     if (result) {
       const unitId = tenantUnits[i] ? unitLabelToId.get(tenantUnits[i]) : undefined;
       if (unitId) {
-        await db.tenancy.create({ data: { userId: result.id, unitId } });
+        await db.tenancy
+          .create({ data: { userId: result.id, unitId } })
+          .catch(() => {});
       }
       if (result.pw) letterUsers.push(result);
     }

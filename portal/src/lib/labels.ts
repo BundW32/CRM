@@ -84,20 +84,6 @@ export const contactMethodLabels: Record<ContactMethod, string> = {
   POST: "Post",
 };
 
-// Schadenskategorien — Basis für die spätere Schlagwort-Automatisierung (Stufe 3)
-export const damageCategories = [
-  "Wasserschaden",
-  "Heizung / Warmwasser",
-  "Elektrik",
-  "Sanitär",
-  "Fenster / Türen",
-  "Schimmel / Feuchtigkeit",
-  "Aufzug",
-  "Treppenhaus / Gemeinschaftsflächen",
-  "Außenanlage",
-  "Sonstiges",
-];
-
 export function formatDate(date: Date) {
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",

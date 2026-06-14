@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Card, EmptyState, PageTitle } from "@/components/ui";
 import { ownedProperties } from "@/lib/access";
 import { db } from "@/lib/db";
-import { ticketStatusLabels } from "@/lib/labels";
+import { ticketStatusLabels, tradeLabels } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ export default async function StatisticsPage() {
 }
 
 async function PropertyStats({ propertyId, name }: { propertyId: string; name: string }) {
-  const [unitCount, activeTenancies, openTickets, byStatus, byCategory, resolved] =
+  const [unitCount, activeTenancies, openTickets, byStatus, byTrade, resolved] =
     await Promise.all([
       db.unit.count({ where: { propertyId } }),
       db.tenancy.count({ where: { active: true, unit: { propertyId } } }),
@@ -48,10 +48,10 @@ async function PropertyStats({ propertyId, name }: { propertyId: string; name: s
         _count: { _all: true },
       }),
       db.ticket.groupBy({
-        by: ["category"],
-        where: { propertyId, category: { not: null } },
+        by: ["trade"],
+        where: { propertyId, trade: { not: null } },
         _count: { _all: true },
-        orderBy: { _count: { category: "desc" } },
+        orderBy: { _count: { trade: "desc" } },
         take: 5,
       }),
       db.ticket.findMany({
@@ -123,16 +123,16 @@ async function PropertyStats({ propertyId, name }: { propertyId: string; name: s
           <h3 className="mb-2 text-sm font-medium text-gray-700">
             Häufigste Schadenskategorien
           </h3>
-          {byCategory.length === 0 ? (
+          {byTrade.length === 0 ? (
             <p className="text-sm text-gray-500">Noch keine kategorisierten Vorgänge.</p>
           ) : (
             <ul className="space-y-2">
-              {byCategory.map((c) => (
+              {byTrade.map((c) => (
                 <Bar
-                  key={c.category}
-                  label={c.category ?? "Sonstiges"}
+                  key={c.trade ?? "unbekannt"}
+                  label={c.trade ? tradeLabels[c.trade] : "Sonstiges"}
                   value={c._count._all}
-                  max={byCategory[0]._count._all}
+                  max={byTrade[0]._count._all}
                 />
               ))}
             </ul>

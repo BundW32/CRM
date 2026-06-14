@@ -3,7 +3,7 @@
 import type { Ticket, User } from "@/generated/prisma/client";
 import { db } from "./db";
 import { portalUrl, sendMail } from "./mailer";
-import { ticketStatusLabels, ticketTypeLabels } from "./labels";
+import { ticketStatusLabels, ticketTypeLabels, tradeLabels } from "./labels";
 
 export async function notifyVerwalterNewTicket(ticket: Ticket, createdBy: User) {
   const verwalter = await db.user.findMany({
@@ -17,7 +17,11 @@ export async function notifyVerwalterNewTicket(ticket: Ticket, createdBy: User) 
         `Neuer Vorgang #${ticket.number}: ${ticket.title}`,
         `${createdBy.name} hat einen neuen Vorgang gemeldet.\n\n` +
           `Art: ${ticketTypeLabels[ticket.type]}\n` +
-          (ticket.category ? `Kategorie: ${ticket.category}\n` : "") +
+          (ticket.trade
+            ? `Kategorie: ${tradeLabels[ticket.trade]}\n`
+            : ticket.category
+              ? `Kategorie: ${ticket.category}\n`
+              : "") +
           `Betreff: ${ticket.title}\n\n` +
           `Zum Vorgang: ${link}`
       )

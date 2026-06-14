@@ -8,6 +8,7 @@ import {
   ticketPriorityLabels,
   ticketStatusLabels,
   ticketTypeLabels,
+  tradeLabels,
 } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 
@@ -140,8 +141,12 @@ export default async function TicketsPage({
                     </span>
                     <span className="block text-xs text-gray-500">
                       {ticketTypeLabels[ticket.type]}
-                      {ticket.category ? ` · ${ticket.category}` : ""} ·{" "}
-                      {ticket.property.name}
+                      {ticket.trade
+                        ? ` · ${tradeLabels[ticket.trade]}`
+                        : ticket.category
+                          ? ` · ${ticket.category}`
+                          : ""}{" "}
+                      · {ticket.property.name}
                       {ticket.unit ? ` · ${ticket.unit.label}` : ""}
                       {user.role === "VERWALTER"
                         ? ` · von ${ticket.createdBy.name}`

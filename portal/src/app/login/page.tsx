@@ -70,6 +70,15 @@ export default async function LoginPage({
             info@bundwimmobilien.de
           </a>
         </p>
+        <p className="mt-2 text-center text-xs text-gray-400">
+          <a href="/impressum" className="hover:underline">
+            Impressum
+          </a>{" "}
+          ·{" "}
+          <a href="/datenschutz" className="hover:underline">
+            Datenschutz
+          </a>
+        </p>
       </div>
     </main>
   );

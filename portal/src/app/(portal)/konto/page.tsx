@@ -53,6 +53,18 @@ export default async function AccountPage({
             Änderungen an Name oder E-Mail-Adresse übernimmt die Verwaltung für
             Sie: info@bundwimmobilien.de
           </p>
+          <div className="mt-4 border-t border-gray-100 pt-4">
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a
+              href="/api/export/me"
+              className="text-sm text-brand-green hover:underline"
+            >
+              Meine Daten exportieren (DSGVO)
+            </a>
+            <p className="mt-1 text-xs text-gray-500">
+              Lädt alle zu Ihrer Person gespeicherten Daten als Datei herunter.
+            </p>
+          </div>
         </Card>
 
         <Card title="Passwort ändern">

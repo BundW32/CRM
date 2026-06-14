@@ -103,6 +103,14 @@ export default async function PortalLayout({
         <a href="mailto:info@bundwimmobilien.de" className="hover:text-brand-orange">
           info@bundwimmobilien.de
         </a>
+        <br />
+        <Link href="/impressum" className="hover:text-brand-orange">
+          Impressum
+        </Link>{" "}
+        ·{" "}
+        <Link href="/datenschutz" className="hover:text-brand-orange">
+          Datenschutz
+        </Link>
       </footer>
     </div>
   );

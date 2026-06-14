@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import {
+  anonymizeUser,
   createUser,
   regenerateAccessLetter,
   resendInvite,
@@ -20,10 +21,10 @@ const errorMessages: Record<string, string> = {
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; eingeladen?: string }>;
+  searchParams: Promise<{ fehler?: string; eingeladen?: string; anonymisiert?: string }>;
 }) {
   const verwalter = await requireVerwalter();
-  const { fehler, eingeladen } = await searchParams;
+  const { fehler, eingeladen, anonymisiert } = await searchParams;
 
   const [users, properties] = await Promise.all([
     db.user.findMany({
@@ -43,6 +44,11 @@ export default async function UsersPage({
       {eingeladen ? (
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
           Einladungs-E-Mail wurde versandt (sofern SMTP konfiguriert ist).
+        </p>
+      ) : null}
+      {anonymisiert ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Der Nutzer wurde anonymisiert (DSGVO-Löschung). Personenbezogene Daten wurden entfernt.
         </p>
       ) : null}
       {fehler ? (
@@ -126,6 +132,20 @@ export default async function UsersPage({
                           <input type="hidden" name="id" value={u.id} />
                           <button type="submit" className="text-xs text-gray-500 hover:underline">
                             {u.active ? "Deaktivieren" : "Aktivieren"}
+                          </button>
+                        </form>
+                      ) : null}
+                      <a
+                        href={`/api/export/${u.id}`}
+                        className="text-xs text-gray-500 hover:underline"
+                      >
+                        Daten exportieren
+                      </a>
+                      {u.id !== verwalter.id ? (
+                        <form action={anonymizeUser}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <button type="submit" className="text-xs text-red-600 hover:underline">
+                            DSGVO-Löschung
                           </button>
                         </form>
                       ) : null}

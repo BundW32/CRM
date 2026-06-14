@@ -128,6 +128,41 @@ export async function createUser(formData: FormData) {
   redirect(`/zugangsschreiben/${user.id}?pw=${encodeURIComponent(tempPassword)}`);
 }
 
+// DSGVO-Löschung durch Anonymisierung: personenbezogene Daten werden entfernt,
+// referenzierte Vorgänge/Belege bleiben aus Dokumentationsgründen erhalten.
+export async function anonymizeUser(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const id = String(formData.get("id") ?? "");
+  if (!id || id === verwalter.id) {
+    redirect("/verwaltung/nutzer");
+  }
+  const user = await db.user.findUnique({ where: { id } });
+  if (!user) redirect("/verwaltung/nutzer");
+
+  await db.$transaction([
+    db.acknowledgement.deleteMany({ where: { userId: id } }),
+    db.conversationParticipant.deleteMany({ where: { userId: id } }),
+    db.user.update({
+      where: { id },
+      data: {
+        name: "Gelöschter Nutzer",
+        email: null,
+        username: null,
+        phone: null,
+        preferredContact: null,
+        active: false,
+        mustChangePassword: false,
+        passwordResetToken: null,
+        passwordResetExpiry: null,
+        passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12),
+      },
+    }),
+  ]);
+
+  revalidatePath("/verwaltung/nutzer");
+  redirect("/verwaltung/nutzer?anonymisiert=1");
+}
+
 export async function toggleUserActive(formData: FormData) {
   const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");

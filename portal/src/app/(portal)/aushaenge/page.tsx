@@ -3,7 +3,7 @@ import { announcementWhereForUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import { audienceLabels, formatDate } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
-import { createAnnouncement, deleteAnnouncement } from "./actions";
+import { acknowledgeAnnouncement, createAnnouncement, deleteAnnouncement } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,11 @@ export default async function AnnouncementsPage({
   const announcements = await db.announcement.findMany({
     where: await announcementWhereForUser(user),
     orderBy: { createdAt: "desc" },
-    include: { property: true, createdBy: true },
+    include: {
+      property: true,
+      createdBy: true,
+      acknowledgements: { include: { user: true } },
+    },
   });
 
   const properties = isVerwalter
@@ -66,6 +70,33 @@ export default async function AnnouncementsPage({
                   ) : null}
                 </div>
                 <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">{a.body}</p>
+
+                <div className="mt-3 border-t border-gray-100 pt-3">
+                  {isVerwalter ? (
+                    <p className="text-xs text-gray-500">
+                      Gelesen ({a.acknowledgements.length}):{" "}
+                      {a.acknowledgements.length > 0
+                        ? a.acknowledgements
+                            .map((ack) => ack.user.name)
+                            .join(", ")
+                        : "noch niemand"}
+                    </p>
+                  ) : a.acknowledgements.some((ack) => ack.userId === user.id) ? (
+                    <p className="text-xs font-medium text-green-700">
+                      ✓ Zur Kenntnis genommen
+                    </p>
+                  ) : (
+                    <form action={acknowledgeAnnouncement}>
+                      <input type="hidden" name="id" value={a.id} />
+                      <button
+                        type="submit"
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        Zur Kenntnis nehmen
+                      </button>
+                    </form>
+                  )}
+                </div>
               </Card>
             ))
           )}

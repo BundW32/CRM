@@ -11,6 +11,7 @@ const navByRole = {
     { href: "/dashboard", label: "Übersicht" },
     { href: "/vorgaenge", label: "Meine Vorgänge" },
     { href: "/vorgaenge/neu", label: "Schaden melden" },
+    { href: "/nachrichten", label: "Nachrichten" },
     { href: "/dokumente", label: "Dokumente" },
     { href: "/aushaenge", label: "Aushänge" },
     { href: "/konto", label: "Konto" },
@@ -19,6 +20,7 @@ const navByRole = {
     { href: "/dashboard", label: "Übersicht" },
     { href: "/vorgaenge", label: "Vorgänge" },
     { href: "/vorgaenge/neu", label: "Anfrage stellen" },
+    { href: "/nachrichten", label: "Nachrichten" },
     { href: "/statistiken", label: "Statistiken" },
     { href: "/dokumente", label: "Dokumente" },
     { href: "/aushaenge", label: "Aushänge" },
@@ -27,6 +29,7 @@ const navByRole = {
   VERWALTER: [
     { href: "/dashboard", label: "Übersicht" },
     { href: "/vorgaenge", label: "Vorgänge" },
+    { href: "/nachrichten", label: "Nachrichten" },
     { href: "/dokumente", label: "Dokumente" },
     { href: "/aushaenge", label: "Aushänge" },
     { href: "/statistiken", label: "Statistiken" },

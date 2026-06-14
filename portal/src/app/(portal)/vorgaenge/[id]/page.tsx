@@ -51,7 +51,7 @@ export default async function TicketDetailPage({
       craftsman: true,
       attachments: { where: { commentId: null } },
       comments: {
-        include: { author: true, attachments: true },
+        include: { author: true, craftsmanAuthor: true, attachments: true },
         orderBy: { createdAt: "asc" },
       },
     },
@@ -134,8 +134,12 @@ export default async function TicketDetailPage({
                     className={`rounded-md p-3 ${c.internal ? "bg-amber-50" : "bg-gray-50"}`}
                   >
                     <p className="text-xs text-gray-500">
-                      {c.author.name} ({roleLabels[c.author.role]}) ·{" "}
-                      {formatDate(c.createdAt)}
+                      {c.author
+                        ? `${c.author.name} (${roleLabels[c.author.role]})`
+                        : c.craftsmanAuthor
+                          ? `${c.craftsmanAuthor.name} (Handwerker)`
+                          : "Unbekannt"}{" "}
+                      · {formatDate(c.createdAt)}
                       {c.internal ? " · Interne Notiz" : ""}
                     </p>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-gray-800">

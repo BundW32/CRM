@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -48,6 +49,8 @@ export async function createCraftsman(formData: FormData) {
       phone: parsed.data.phone || null,
       preferredContact: parsed.data.preferredContact,
       notes: parsed.data.notes || null,
+      // Magic-Link-Token für das Auftragsportal
+      accessToken: crypto.randomBytes(24).toString("hex"),
     },
   });
 

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { requireVerwalter } from "@/lib/session";
+import { requireUser, requireVerwalter } from "@/lib/session";
 
 const announcementSchema = z.object({
   propertyId: z.string().min(1),
@@ -30,6 +30,19 @@ export async function createAnnouncement(formData: FormData) {
     data: { ...parsed.data, createdById: user.id },
   });
 
+  revalidatePath("/aushaenge");
+  redirect("/aushaenge");
+}
+
+// Mieter/Eigentümer bestätigen, einen Aushang zur Kenntnis genommen zu haben
+export async function acknowledgeAnnouncement(formData: FormData) {
+  const user = await requireUser();
+  const announcementId = String(formData.get("id") ?? "");
+  if (announcementId && user.role !== "VERWALTER") {
+    await db.acknowledgement
+      .create({ data: { userId: user.id, announcementId } })
+      .catch(() => {});
+  }
   revalidatePath("/aushaenge");
   redirect("/aushaenge");
 }

@@ -15,6 +15,19 @@ const uploadSchema = z.object({
   unitId: z.string().optional(),
 });
 
+// Mieter/Eigentümer bestätigen, ein Dokument zur Kenntnis genommen zu haben
+export async function acknowledgeDocument(formData: FormData) {
+  const user = await requireUser();
+  const documentId = String(formData.get("id") ?? "");
+  if (documentId && user.role !== "VERWALTER") {
+    await db.acknowledgement
+      .create({ data: { userId: user.id, documentId } })
+      .catch(() => {});
+  }
+  revalidatePath("/dokumente");
+  redirect("/dokumente");
+}
+
 export async function uploadDocument(formData: FormData) {
   const user = await requireVerwalter();
 

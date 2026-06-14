@@ -8,7 +8,7 @@ import {
   formatDate,
 } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
-import { requestDocument, uploadDocument } from "./actions";
+import { acknowledgeDocument, requestDocument, uploadDocument } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,11 @@ export default async function DocumentsPage({
   const documents = await db.document.findMany({
     where: await documentWhereForUser(user),
     orderBy: { createdAt: "desc" },
-    include: { property: true, unit: true },
+    include: {
+      property: true,
+      unit: true,
+      acknowledgements: { include: { user: true } },
+    },
   });
 
   const properties = isVerwalter
@@ -55,13 +59,13 @@ export default async function DocumentsPage({
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <ul className="divide-y divide-gray-100">
                 {documents.map((doc) => (
-                  <li key={doc.id}>
-                    <a
-                      href={`/api/files/dokument/${doc.id}`}
-                      target="_blank"
-                      className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-gray-50"
-                    >
-                      <span className="min-w-0">
+                  <li key={doc.id} className="px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <a
+                        href={`/api/files/dokument/${doc.id}`}
+                        target="_blank"
+                        className="min-w-0 hover:underline"
+                      >
                         <span className="block truncate text-sm font-medium text-gray-900">
                           {doc.title}
                         </span>
@@ -74,9 +78,39 @@ export default async function DocumentsPage({
                             : ""}{" "}
                           · {formatDate(doc.createdAt)} · {formatBytes(doc.size)}
                         </span>
-                      </span>
-                      <span className="text-sm text-brand-green">Öffnen →</span>
-                    </a>
+                      </a>
+                      <a
+                        href={`/api/files/dokument/${doc.id}`}
+                        target="_blank"
+                        className="shrink-0 text-sm text-brand-green"
+                      >
+                        Öffnen →
+                      </a>
+                    </div>
+                    <div className="mt-2">
+                      {isVerwalter ? (
+                        <p className="text-xs text-gray-500">
+                          Gelesen ({doc.acknowledgements.length}):{" "}
+                          {doc.acknowledgements.length > 0
+                            ? doc.acknowledgements.map((ack) => ack.user.name).join(", ")
+                            : "noch niemand"}
+                        </p>
+                      ) : doc.acknowledgements.some((ack) => ack.userId === user.id) ? (
+                        <p className="text-xs font-medium text-green-700">
+                          ✓ Zur Kenntnis genommen
+                        </p>
+                      ) : (
+                        <form action={acknowledgeDocument}>
+                          <input type="hidden" name="id" value={doc.id} />
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            Zur Kenntnis nehmen
+                          </button>
+                        </form>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

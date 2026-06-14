@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -7,7 +8,7 @@ import type { Trade } from "@/generated/prisma/client";
 import { canViewTicket, ticketTargetsForUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import { ticketPriorityLabels } from "@/lib/labels";
-import { sendMail } from "@/lib/mailer";
+import { portalUrl, sendMail } from "@/lib/mailer";
 import {
   notifyAssignee,
   notifyCreatorNewComment,
@@ -265,6 +266,16 @@ export async function notifyCraftsman(formData: FormData) {
     ? `${ticket.craftsman.company} / ${ticket.craftsman.name}`
     : ticket.craftsman.name;
 
+  // Magic-Link-Token fürs Auftragsportal sicherstellen
+  let token = ticket.craftsman.accessToken;
+  if (!token) {
+    token = crypto.randomBytes(24).toString("hex");
+    await db.craftsman.update({
+      where: { id: ticket.craftsman.id },
+      data: { accessToken: token },
+    });
+  }
+
   await sendMail(
     ticket.craftsman.email,
     `Auftrag #${ticket.number}: ${ticket.title}`,
@@ -274,7 +285,8 @@ export async function notifyCraftsman(formData: FormData) {
       `Priorität: ${ticketPriorityLabels[ticket.priority]}\n\n` +
       `Beschreibung:\n${ticket.description}\n\n` +
       `${ortsangabe}\n\n` +
-      `Bitte stimmen Sie einen Termin direkt mit uns ab.\n\n` +
+      `Auftrag annehmen, Termin vorschlagen oder Rückfragen stellen:\n` +
+      `${portalUrl(`/auftraege/${token}`)}\n\n` +
       `Mit freundlichen Grüßen\nB&W Immobilien Management UG\n` +
       `info@bundwimmobilien.de`
   );

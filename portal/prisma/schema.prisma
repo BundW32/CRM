@@ -97,6 +97,9 @@ model User {
   comments            TicketComment[]
   documents           Document[]
   announcements       Announcement[]
+  acknowledgements    Acknowledgement[]
+  conversationParts   ConversationParticipant[]
+  messagesSent        Message[]
 }
 
 model Property {
@@ -170,7 +173,8 @@ model Ticket {
   property     Property        @relation(fields: [propertyId], references: [id])
   unitId       String?
   unit         Unit?           @relation(fields: [unitId], references: [id])
-  trade        Trade? // Gewerk – Basis für die Handwerker-Zuordnung
+  trade           Trade? // Gewerk – Basis für die Handwerker-Zuordnung
+  appointmentNote String? // vom Handwerker mitgeteilter Terminvorschlag
   createdById  String
   createdBy    User            @relation("TicketCreatedBy", fields: [createdById], references: [id])
   assignedToId String?
@@ -194,21 +198,27 @@ model Craftsman {
   preferredContact ContactMethod @default(TELEFON)
   notes            String?
   active           Boolean       @default(true)
+  // Magic-Link-Token für das schlanke Handwerker-Portal (ohne Passwort)
+  accessToken      String?       @unique
   createdAt        DateTime      @default(now())
   tickets          Ticket[]
+  comments         TicketComment[] @relation("CraftsmanComments")
 }
 
 model TicketComment {
-  id          String       @id @default(cuid())
-  ticketId    String
-  ticket      Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  authorId    String
-  author      User         @relation(fields: [authorId], references: [id])
-  body        String
+  id                String       @id @default(cuid())
+  ticketId          String
+  ticket            Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  // Autor ist entweder ein Portal-Nutzer ODER ein Handwerker (Magic-Link)
+  authorId          String?
+  author            User?        @relation(fields: [authorId], references: [id])
+  craftsmanAuthorId String?
+  craftsmanAuthor   Craftsman?   @relation("CraftsmanComments", fields: [craftsmanAuthorId], references: [id])
+  body              String
   // interne Notizen sind nur für Verwalter sichtbar
-  internal    Boolean      @default(false)
-  createdAt   DateTime     @default(now())
-  attachments Attachment[]
+  internal          Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  attachments       Attachment[]
 }
 
 model Attachment {
@@ -240,6 +250,7 @@ model Document {
   uploadedById String
   uploadedBy   User             @relation(fields: [uploadedById], references: [id])
   createdAt    DateTime         @default(now())
+  acknowledgements Acknowledgement[]
 }
 
 model Announcement {
@@ -252,4 +263,51 @@ model Announcement {
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
+  acknowledgements Acknowledgement[]
+}
+
+// Lesebestätigung ("zur Kenntnis genommen") für Dokumente und Aushänge
+model Acknowledgement {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId     String?
+  document       Document?     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  announcementId String?
+  announcement   Announcement? @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+
+  @@unique([userId, documentId])
+  @@unique([userId, announcementId])
+}
+
+// Direktnachrichten zwischen Verwalter und Mieter/Eigentümer
+model Conversation {
+  id           String                    @id @default(cuid())
+  subject      String
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id])
+  body           String
+  createdAt      DateTime     @default(now())
 }

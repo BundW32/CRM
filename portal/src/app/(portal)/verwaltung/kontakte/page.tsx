@@ -1,6 +1,7 @@
 import { Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { contactMethodLabels, roleLabels, tradeLabels } from "@/lib/labels";
+import { portalUrl } from "@/lib/mailer";
 import { requireVerwalter } from "@/lib/session";
 import {
   createCraftsman,
@@ -86,6 +87,15 @@ export default async function KontaktePage({
                       </span>
                       {c.notes ? (
                         <span className="block text-xs italic text-gray-400">{c.notes}</span>
+                      ) : null}
+                      {c.accessToken ? (
+                        <a
+                          href={portalUrl(`/auftraege/${c.accessToken}`)}
+                          target="_blank"
+                          className="mt-0.5 block text-xs text-brand-green hover:underline"
+                        >
+                          Auftragsportal-Link öffnen ↗
+                        </a>
                       ) : null}
                     </span>
                     <span className="flex shrink-0 items-center gap-3">

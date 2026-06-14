@@ -154,6 +154,15 @@ export default async function UsersPage({
             <Field label="Telefon (optional)">
               <input type="tel" name="phone" className={inputClass} />
             </Field>
+            <Field label="Bevorzugter Kontaktweg (optional)">
+              <select name="preferredContact" className={inputClass} defaultValue="">
+                <option value="">– keine Angabe –</option>
+                <option value="EMAIL">E-Mail</option>
+                <option value="TELEFON">Telefon</option>
+                <option value="MOBIL">Mobil</option>
+                <option value="POST">Post</option>
+              </select>
+            </Field>
             <Field label="Rolle">
               <select name="role" required className={inputClass} defaultValue="MIETER">
                 <option value="MIETER">Mieter</option>

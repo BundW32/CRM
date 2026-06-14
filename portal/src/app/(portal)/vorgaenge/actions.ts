@@ -3,8 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { Trade } from "@/generated/prisma/client";
 import { canViewTicket, ticketTargetsForUser } from "@/lib/access";
 import { db } from "@/lib/db";
+import { ticketPriorityLabels } from "@/lib/labels";
+import { sendMail } from "@/lib/mailer";
 import {
   notifyAssignee,
   notifyCreatorNewComment,
@@ -13,6 +16,12 @@ import {
 } from "@/lib/notify";
 import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
 import { requireUser, requireVerwalter } from "@/lib/session";
+
+const TRADES = [
+  "SANITAER", "HEIZUNG", "ELEKTRO", "DACH", "MALER", "BODENLEGER",
+  "FENSTER_TUEREN", "SCHLOSSEREI", "GARTEN", "REINIGUNG",
+  "SCHAEDLINGSBEKAEMPFUNG", "AUFZUG", "ALLGEMEIN", "SONSTIGES",
+] as const;
 
 const createTicketSchema = z.object({
   type: z.enum(["SCHADEN", "ANFRAGE", "DOKUMENT_ANFRAGE", "SONSTIGES"]),
@@ -190,6 +199,98 @@ export async function updateTicket(formData: FormData) {
 
   revalidatePath(`/vorgaenge/${parsed.data.ticketId}`);
   redirect(`/vorgaenge/${parsed.data.ticketId}`);
+}
+
+// Verwalter ordnet einem Vorgang ein Gewerk und einen Handwerker zu
+export async function assignCraftsman(formData: FormData) {
+  await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const tradeRaw = String(formData.get("trade") ?? "");
+  const craftsmanId = String(formData.get("craftsmanId") ?? "");
+  const setBeauftragt = formData.get("setBeauftragt") === "on";
+
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
+  if (!ticket) redirect("/vorgaenge");
+
+  const trade: Trade | null = (TRADES as readonly string[]).includes(tradeRaw)
+    ? (tradeRaw as Trade)
+    : null;
+
+  let craftsmanIdToSet: string | null = null;
+  if (craftsmanId) {
+    const craftsman = await db.craftsman.findUnique({ where: { id: craftsmanId } });
+    if (!craftsman || !craftsman.active) redirect(`/vorgaenge/${ticketId}`);
+    craftsmanIdToSet = craftsman.id;
+  }
+
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: {
+      trade,
+      craftsmanId: craftsmanIdToSet,
+      ...(setBeauftragt && craftsmanIdToSet ? { status: "BEAUFTRAGT" as const } : {}),
+    },
+  });
+
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}`);
+}
+
+// Verwalter beauftragt den zugeordneten Handwerker per E-Mail mit den Vorgangsdaten
+export async function notifyCraftsman(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+
+  const ticket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    include: { property: true, unit: true, craftsman: true },
+  });
+  if (!ticket || !ticket.craftsman) redirect(`/vorgaenge/${ticketId}`);
+  if (!ticket.craftsman.email) {
+    redirect(`/vorgaenge/${ticketId}?fehler=keine_email`);
+  }
+
+  const ortsangabe = [
+    `Objekt: ${ticket.property.name}, ${ticket.property.street}, ${ticket.property.zip} ${ticket.property.city}`,
+    ticket.unit ? `Einheit: ${ticket.unit.label}` : null,
+    ticket.location ? `Ort im Objekt: ${ticket.location}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const anrede = ticket.craftsman.company
+    ? `${ticket.craftsman.company} / ${ticket.craftsman.name}`
+    : ticket.craftsman.name;
+
+  await sendMail(
+    ticket.craftsman.email,
+    `Auftrag #${ticket.number}: ${ticket.title}`,
+    `Guten Tag ${ticket.craftsman.name},\n\n` +
+      `die B&W Immobilien Management UG möchte Sie mit folgendem Vorgang beauftragen:\n\n` +
+      `Vorgang #${ticket.number} – ${ticket.title}\n` +
+      `Priorität: ${ticketPriorityLabels[ticket.priority]}\n\n` +
+      `Beschreibung:\n${ticket.description}\n\n` +
+      `${ortsangabe}\n\n` +
+      `Bitte stimmen Sie einen Termin direkt mit uns ab.\n\n` +
+      `Mit freundlichen Grüßen\nB&W Immobilien Management UG\n` +
+      `info@bundwimmobilien.de`
+  );
+
+  await db.ticketComment.create({
+    data: {
+      ticketId,
+      authorId: verwalter.id,
+      body: `Handwerker „${anrede}" per E-Mail beauftragt (${ticket.craftsman.email}).`,
+      internal: true,
+    },
+  });
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: { status: "BEAUFTRAGT" },
+  });
+
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?beauftragt=1`);
 }
 
 // Handwerker melden den Stand ihrer zugewiesenen Aufträge zurück

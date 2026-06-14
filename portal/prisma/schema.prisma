@@ -50,6 +50,32 @@ enum Audience {
   ALLE
 }
 
+// Gewerk eines Handwerkers / Kategorie eines Schadens
+enum Trade {
+  SANITAER
+  HEIZUNG
+  ELEKTRO
+  DACH
+  MALER
+  BODENLEGER
+  FENSTER_TUEREN
+  SCHLOSSEREI
+  GARTEN
+  REINIGUNG
+  SCHAEDLINGSBEKAEMPFUNG
+  AUFZUG
+  ALLGEMEIN
+  SONSTIGES
+}
+
+// Bevorzugter Kontaktweg
+enum ContactMethod {
+  EMAIL
+  TELEFON
+  MOBIL
+  POST
+}
+
 model User {
   id                  String          @id @default(cuid())
   email               String?         @unique
@@ -60,6 +86,7 @@ model User {
   role                Role
   active              Boolean         @default(true)
   mustChangePassword  Boolean         @default(false)
+  preferredContact    ContactMethod?  // bevorzugter Kontaktweg (Mieter/Eigentümer)
   createdAt           DateTime        @default(now())
   passwordResetToken  String?         @unique
   passwordResetExpiry DateTime?
@@ -143,14 +170,32 @@ model Ticket {
   property     Property        @relation(fields: [propertyId], references: [id])
   unitId       String?
   unit         Unit?           @relation(fields: [unitId], references: [id])
+  trade        Trade? // Gewerk – Basis für die Handwerker-Zuordnung
   createdById  String
   createdBy    User            @relation("TicketCreatedBy", fields: [createdById], references: [id])
   assignedToId String?
   assignedTo   User?           @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
+  craftsmanId  String?
+  craftsman    Craftsman?      @relation(fields: [craftsmanId], references: [id])
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   comments     TicketComment[]
   attachments  Attachment[]
+}
+
+// Handwerker als Stammdaten (Kontaktbuch) – ohne eigenen Portal-Login
+model Craftsman {
+  id               String        @id @default(cuid())
+  company          String? // Firma
+  name             String // Ansprechpartner
+  trade            Trade
+  email            String?
+  phone            String?
+  preferredContact ContactMethod @default(TELEFON)
+  notes            String?
+  active           Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  tickets          Ticket[]
 }
 
 model TicketComment {

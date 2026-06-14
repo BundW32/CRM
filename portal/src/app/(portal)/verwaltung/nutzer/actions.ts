@@ -15,10 +15,15 @@ const userSchema = z.object({
   email: z.string().trim().toLowerCase().email().optional().or(z.literal("")),
   role: z.enum(["VERWALTER", "EIGENTUEMER", "MIETER", "HANDWERKER"]),
   phone: z.string().trim().max(50).optional(),
+  preferredContact: z.enum(["EMAIL", "TELEFON", "MOBIL", "POST"]).optional().or(z.literal("")),
   unitId: z.string().optional(),
   propertyId: z.string().optional(),
   method: z.enum(["email", "schreiben"]),
 });
+
+function pcOrNull(v: string | undefined | null) {
+  return v && v !== "" ? (v as "EMAIL" | "TELEFON" | "MOBIL" | "POST") : null;
+}
 
 async function assignRole(
   userId: string,
@@ -42,6 +47,7 @@ export async function createUser(formData: FormData) {
     email: formData.get("email") || undefined,
     role: formData.get("role"),
     phone: formData.get("phone") || undefined,
+    preferredContact: formData.get("preferredContact") || undefined,
     unitId: formData.get("unitId") || undefined,
     propertyId: formData.get("propertyId") || undefined,
     method: formData.get("method") || "email",
@@ -74,6 +80,7 @@ export async function createUser(formData: FormData) {
         name: parsed.data.name,
         email,
         phone: parsed.data.phone,
+        preferredContact: pcOrNull(parsed.data.preferredContact),
         role: parsed.data.role,
         passwordHash,
         passwordResetToken: inviteToken,
@@ -109,6 +116,7 @@ export async function createUser(formData: FormData) {
       email,
       username,
       phone: parsed.data.phone,
+      preferredContact: pcOrNull(parsed.data.preferredContact),
       role: parsed.data.role,
       passwordHash: await bcrypt.hash(tempPassword, 12),
       mustChangePassword: true,

@@ -1,10 +1,12 @@
 import type {
   Audience,
+  ContactMethod,
   DocumentCategory,
   Role,
   TicketPriority,
   TicketStatus,
   TicketType,
+  Trade,
 } from "@/generated/prisma/client";
 
 export const roleLabels: Record<Role, string> = {
@@ -56,6 +58,30 @@ export const audienceLabels: Record<Audience, string> = {
   MIETER: "Mieter",
   EIGENTUEMER: "Eigentümer",
   ALLE: "Alle",
+};
+
+export const tradeLabels: Record<Trade, string> = {
+  SANITAER: "Sanitär",
+  HEIZUNG: "Heizung / Warmwasser",
+  ELEKTRO: "Elektro",
+  DACH: "Dachdecker",
+  MALER: "Maler / Lackierer",
+  BODENLEGER: "Bodenleger",
+  FENSTER_TUEREN: "Fenster / Türen",
+  SCHLOSSEREI: "Schlüssel / Schloss",
+  GARTEN: "Garten / Außenanlage",
+  REINIGUNG: "Reinigung",
+  SCHAEDLINGSBEKAEMPFUNG: "Schädlingsbekämpfung",
+  AUFZUG: "Aufzug",
+  ALLGEMEIN: "Hausmeister / Allgemein",
+  SONSTIGES: "Sonstiges",
+};
+
+export const contactMethodLabels: Record<ContactMethod, string> = {
+  EMAIL: "E-Mail",
+  TELEFON: "Telefon",
+  MOBIL: "Mobil",
+  POST: "Post",
 };
 
 // Schadenskategorien — Basis für die spätere Schlagwort-Automatisierung (Stufe 3)

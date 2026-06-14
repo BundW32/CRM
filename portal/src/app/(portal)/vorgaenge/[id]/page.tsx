@@ -11,24 +11,35 @@ import {
 import { canViewTicket } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
+  contactMethodLabels,
   formatDate,
   roleLabels,
   ticketPriorityLabels,
   ticketStatusLabels,
   ticketTypeLabels,
+  tradeLabels,
 } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
-import { addComment, setOwnTicketStatus, updateTicket } from "../actions";
+import {
+  addComment,
+  assignCraftsman,
+  notifyCraftsman,
+  setOwnTicketStatus,
+  updateTicket,
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function TicketDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ beauftragt?: string; fehler?: string }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
+  const { beauftragt, fehler } = await searchParams;
 
   const ticket = await db.ticket.findUnique({
     where: { id },
@@ -37,6 +48,7 @@ export default async function TicketDetailPage({
       unit: true,
       createdBy: true,
       assignedTo: true,
+      craftsman: true,
       attachments: { where: { commentId: null } },
       comments: {
         include: { author: true, attachments: true },
@@ -56,12 +68,33 @@ export default async function TicketDetailPage({
         orderBy: [{ role: "asc" }, { name: "asc" }],
       })
     : [];
+  // Handwerker für die Zuordnung – passende zum Gewerk des Vorgangs zuerst
+  const craftsmen = isVerwalter
+    ? await db.craftsman.findMany({
+        where: { active: true },
+        orderBy: [{ trade: "asc" }, { name: "asc" }],
+      })
+    : [];
+  const suggested = ticket.trade ? craftsmen.filter((c) => c.trade === ticket.trade) : [];
+  const others = ticket.trade ? craftsmen.filter((c) => c.trade !== ticket.trade) : craftsmen;
 
   return (
     <>
       <PageTitle action={<StatusBadge status={ticket.status} />}>
         #{ticket.number} · {ticket.title}
       </PageTitle>
+
+      {beauftragt ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Der Handwerker wurde per E-Mail beauftragt (sofern SMTP konfiguriert ist).
+        </p>
+      ) : null}
+      {fehler === "keine_email" ? (
+        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          Für diesen Handwerker ist keine E-Mail-Adresse hinterlegt. Bitte im Kontaktbuch
+          ergänzen oder telefonisch beauftragen.
+        </p>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
@@ -177,12 +210,22 @@ export default async function TicketDetailPage({
               />
               {ticket.unit ? <Detail label="Einheit" value={ticket.unit.label} /> : null}
               {ticket.location ? <Detail label="Ort" value={ticket.location} /> : null}
+              {ticket.trade ? <Detail label="Gewerk" value={tradeLabels[ticket.trade]} /> : null}
               <Detail label="Priorität" value={ticketPriorityLabels[ticket.priority]} />
               <Detail label="Gemeldet von" value={ticket.createdBy.name} />
               <Detail
                 label="Zugewiesen an"
                 value={ticket.assignedTo?.name ?? "– noch niemand –"}
               />
+              {ticket.craftsman ? (
+                <Detail
+                  label="Handwerker"
+                  value={
+                    (ticket.craftsman.company ? `${ticket.craftsman.company} / ` : "") +
+                    `${ticket.craftsman.name} (${tradeLabels[ticket.craftsman.trade]})`
+                  }
+                />
+              ) : null}
               <Detail label="Erstellt am" value={formatDate(ticket.createdAt)} />
               <Detail label="Aktualisiert" value={formatDate(ticket.updatedAt)} />
             </dl>
@@ -232,6 +275,104 @@ export default async function TicketDetailPage({
                   Speichern
                 </button>
               </form>
+            </Card>
+          ) : null}
+
+          {isVerwalter ? (
+            <Card title="Handwerker beauftragen">
+              <form action={assignCraftsman} className="space-y-3">
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <Field label="Gewerk">
+                  <select name="trade" defaultValue={ticket.trade ?? ""} className={inputClass}>
+                    <option value="">– kein Gewerk –</option>
+                    {Object.entries(tradeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Handwerker">
+                  <select
+                    name="craftsmanId"
+                    defaultValue={ticket.craftsmanId ?? ""}
+                    className={inputClass}
+                  >
+                    <option value="">– keiner –</option>
+                    {suggested.length > 0 ? (
+                      <optgroup label="Passendes Gewerk">
+                        {suggested.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.company ? `${c.company} / ` : ""}
+                            {c.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
+                    <optgroup label={suggested.length > 0 ? "Weitere" : "Alle Handwerker"}>
+                      {others.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.company ? `${c.company} / ` : ""}
+                          {c.name} ({tradeLabels[c.trade]})
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </Field>
+                {craftsmen.length === 0 ? (
+                  <p className="text-xs text-gray-500">
+                    Noch keine Handwerker im{" "}
+                    <Link href="/verwaltung/kontakte" className="text-brand-green hover:underline">
+                      Kontaktbuch
+                    </Link>
+                    .
+                  </p>
+                ) : null}
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" name="setBeauftragt" defaultChecked />
+                  Status auf „Beauftragt" setzen
+                </label>
+                <button type="submit" className={buttonClass}>
+                  Zuordnen
+                </button>
+              </form>
+
+              {ticket.craftsman ? (
+                <div className="mt-4 border-t border-gray-100 pt-4">
+                  <p className="text-sm font-medium text-gray-900">
+                    {ticket.craftsman.company ? `${ticket.craftsman.company} · ` : ""}
+                    {ticket.craftsman.name}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {ticket.craftsman.phone ? (
+                      <a href={`tel:${ticket.craftsman.phone}`} className="hover:text-brand-orange hover:underline">
+                        {ticket.craftsman.phone}
+                      </a>
+                    ) : null}
+                    {ticket.craftsman.phone && ticket.craftsman.email ? " · " : ""}
+                    {ticket.craftsman.email ? (
+                      <a href={`mailto:${ticket.craftsman.email}`} className="hover:text-brand-orange hover:underline">
+                        {ticket.craftsman.email}
+                      </a>
+                    ) : null}
+                    <span className="block">
+                      Bevorzugter Kontakt: {contactMethodLabels[ticket.craftsman.preferredContact]}
+                    </span>
+                  </p>
+                  {ticket.craftsman.email ? (
+                    <form action={notifyCraftsman} className="mt-3">
+                      <input type="hidden" name="ticketId" value={ticket.id} />
+                      <button type="submit" className={`${buttonClass} w-full`}>
+                        Per E-Mail beauftragen
+                      </button>
+                    </form>
+                  ) : (
+                    <p className="mt-2 text-xs text-gray-400">
+                      Keine E-Mail hinterlegt – bitte telefonisch beauftragen.
+                    </p>
+                  )}
+                </div>
+              ) : null}
             </Card>
           ) : null}
 

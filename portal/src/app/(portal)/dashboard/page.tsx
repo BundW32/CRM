@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { User } from "@/generated/prisma/client";
+import { PropertyStats } from "@/components/property-stats";
 import { Card, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
 import {
   announcementWhereForUser,
@@ -81,7 +83,6 @@ export default async function DashboardPage() {
 
           {user.role === "VERWALTER" ? <VerwalterStats /> : null}
           {user.role === "VERWALTER" ? <WartungReminder /> : null}
-          {user.role === "EIGENTUEMER" ? <EigentuemerObjekte userId={user.id} /> : null}
           {user.role === "MIETER" ? <MieterWohnung userId={user.id} /> : null}
         </div>
 
@@ -103,7 +104,31 @@ export default async function DashboardPage() {
           )}
         </Card>
       </div>
+
+      {user.role === "VERWALTER" || user.role === "EIGENTUEMER" ? (
+        <StatistikSection user={user} />
+      ) : null}
     </>
+  );
+}
+
+async function StatistikSection({ user }: { user: User }) {
+  const properties =
+    user.role === "VERWALTER"
+      ? await db.property.findMany({ orderBy: { name: "asc" } })
+      : await ownedProperties(user.id);
+  if (properties.length === 0) return null;
+  return (
+    <div className="mt-6 space-y-5">
+      <h2 className="text-lg font-bold tracking-tight text-white">Statistiken</h2>
+      {properties.map((p) => (
+        <PropertyStats
+          key={p.id}
+          propertyId={p.id}
+          name={`${p.name} · ${p.street}, ${p.zip} ${p.city}`}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -178,38 +203,6 @@ async function WartungReminder() {
       >
         Alle Wartungen ansehen →
       </Link>
-    </Card>
-  );
-}
-
-async function EigentuemerObjekte({ userId }: { userId: string }) {
-  const properties = await ownedProperties(userId);
-  const counts = await Promise.all(
-    properties.map((p) =>
-      db.ticket.count({
-        where: { propertyId: p.id, status: { notIn: ["ERLEDIGT", "GESCHLOSSEN"] } },
-      })
-    )
-  );
-  return (
-    <Card title="Ihre Objekte">
-      {properties.length === 0 ? (
-        <EmptyState>Ihnen sind noch keine Objekte zugeordnet.</EmptyState>
-      ) : (
-        <ul className="divide-y divide-gray-100">
-          {properties.map((p, i) => (
-            <li key={p.id} className="flex items-center justify-between py-3">
-              <span>
-                <span className="block text-sm font-medium text-gray-900">{p.name}</span>
-                <span className="block text-xs text-gray-500">
-                  {p.street}, {p.zip} {p.city}
-                </span>
-              </span>
-              <span className="text-sm text-gray-600">{counts[i]} offene Vorgänge</span>
-            </li>
-          ))}
-        </ul>
-      )}
     </Card>
   );
 }

@@ -1,40 +1,15 @@
-import { redirect } from "next/navigation";
-import { Card, EmptyState, PageTitle } from "@/components/ui";
-import { ownedProperties } from "@/lib/access";
+import { Card } from "@/components/ui";
 import { db } from "@/lib/db";
 import { ticketStatusLabels, tradeLabels } from "@/lib/labels";
-import { requireUser } from "@/lib/session";
 
-export const dynamic = "force-dynamic";
-
-export default async function StatisticsPage() {
-  const user = await requireUser();
-  if (user.role !== "EIGENTUEMER" && user.role !== "VERWALTER") {
-    redirect("/dashboard");
-  }
-
-  const properties =
-    user.role === "VERWALTER"
-      ? await db.property.findMany({ orderBy: { name: "asc" } })
-      : await ownedProperties(user.id);
-
-  return (
-    <>
-      <PageTitle>Statistiken</PageTitle>
-      {properties.length === 0 ? (
-        <EmptyState>Keine Objekte vorhanden.</EmptyState>
-      ) : (
-        <div className="space-y-5">
-          {properties.map((p) => (
-            <PropertyStats key={p.id} propertyId={p.id} name={`${p.name} · ${p.street}, ${p.zip} ${p.city}`} />
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
-
-async function PropertyStats({ propertyId, name }: { propertyId: string; name: string }) {
+// Detaillierte Kennzahlen je Objekt – wird auf der Übersicht (Dashboard) genutzt.
+export async function PropertyStats({
+  propertyId,
+  name,
+}: {
+  propertyId: string;
+  name: string;
+}) {
   const [unitCount, activeTenancies, openTickets, byStatus, byTrade, resolved] =
     await Promise.all([
       db.unit.count({ where: { propertyId } }),
@@ -76,16 +51,10 @@ async function PropertyStats({ propertyId, name }: { propertyId: string; name: s
 
   const kpis = [
     { label: "Einheiten", value: String(unitCount) },
-    {
-      label: "Vermietungsquote",
-      value: occupancy !== null ? `${occupancy} %` : "–",
-    },
+    { label: "Vermietungsquote", value: occupancy !== null ? `${occupancy} %` : "–" },
     { label: "Offene Vorgänge", value: String(openTickets) },
     { label: "Vorgänge gesamt", value: String(totalTickets) },
-    {
-      label: "Ø Bearbeitungszeit",
-      value: avgDays !== null ? `${avgDays} Tage` : "–",
-    },
+    { label: "Ø Bearbeitungszeit", value: avgDays !== null ? `${avgDays} Tage` : "–" },
   ];
 
   return (
@@ -101,9 +70,7 @@ async function PropertyStats({ propertyId, name }: { propertyId: string; name: s
 
       <div className="grid gap-6 md:grid-cols-2">
         <div>
-          <h3 className="mb-2 text-sm font-medium text-gray-700">
-            Vorgänge nach Status
-          </h3>
+          <h3 className="mb-2 text-sm font-medium text-gray-700">Vorgänge nach Status</h3>
           {totalTickets === 0 ? (
             <p className="text-sm text-gray-500">Noch keine Vorgänge.</p>
           ) : (
@@ -120,9 +87,7 @@ async function PropertyStats({ propertyId, name }: { propertyId: string; name: s
           )}
         </div>
         <div>
-          <h3 className="mb-2 text-sm font-medium text-gray-700">
-            Häufigste Schadenskategorien
-          </h3>
+          <h3 className="mb-2 text-sm font-medium text-gray-700">Häufigste Gewerke</h3>
           {byTrade.length === 0 ? (
             <p className="text-sm text-gray-500">Noch keine kategorisierten Vorgänge.</p>
           ) : (
@@ -152,10 +117,7 @@ function Bar({ label, value, max }: { label: string; value: number; max: number 
         <span>{value}</span>
       </div>
       <div className="h-2 rounded-full bg-gray-100">
-        <div
-          className="h-2 rounded-full bg-brand-green"
-          style={{ width: `${width}%` }}
-        />
+        <div className="h-2 rounded-full bg-brand-green" style={{ width: `${width}%` }} />
       </div>
     </li>
   );

@@ -23,15 +23,15 @@ export async function createAnnouncement(formData: FormData) {
     body: formData.get("body"),
   });
   if (!parsed.success) {
-    redirect("/aushaenge?fehler=eingabe");
+    redirect("/infos?t=aushaenge&fehler=eingabe");
   }
 
   await db.announcement.create({
     data: { ...parsed.data, createdById: user.id },
   });
 
-  revalidatePath("/aushaenge");
-  redirect("/aushaenge");
+  revalidatePath("/infos");
+  redirect("/infos?t=aushaenge");
 }
 
 // Mieter/Eigentümer bestätigen, einen Aushang zur Kenntnis genommen zu haben
@@ -43,8 +43,8 @@ export async function acknowledgeAnnouncement(formData: FormData) {
       .create({ data: { userId: user.id, announcementId } })
       .catch(() => {});
   }
-  revalidatePath("/aushaenge");
-  redirect("/aushaenge");
+  revalidatePath("/infos");
+  redirect("/infos?t=aushaenge");
 }
 
 export async function deleteAnnouncement(formData: FormData) {
@@ -53,6 +53,6 @@ export async function deleteAnnouncement(formData: FormData) {
   if (id) {
     await db.announcement.delete({ where: { id } }).catch(() => {});
   }
-  revalidatePath("/aushaenge");
-  redirect("/aushaenge");
+  revalidatePath("/infos");
+  redirect("/infos?t=aushaenge");
 }

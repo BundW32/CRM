@@ -24,8 +24,8 @@ export async function acknowledgeDocument(formData: FormData) {
       .create({ data: { userId: user.id, documentId } })
       .catch(() => {});
   }
-  revalidatePath("/dokumente");
-  redirect("/dokumente");
+  revalidatePath("/infos");
+  redirect("/infos?t=dokumente");
 }
 
 export async function uploadDocument(formData: FormData) {
@@ -40,7 +40,7 @@ export async function uploadDocument(formData: FormData) {
   });
   const file = formData.get("file");
   if (!parsed.success || !(file instanceof File) || file.size === 0) {
-    redirect("/dokumente?fehler=eingabe");
+    redirect("/infos?t=dokumente&fehler=eingabe");
   }
 
   // Einheit muss zum Objekt gehören
@@ -48,7 +48,7 @@ export async function uploadDocument(formData: FormData) {
   const unitId = parsed.data.unitId || null;
   if (unitId) {
     const unit = await db.unit.findUnique({ where: { id: unitId } });
-    if (!unit) redirect("/dokumente?fehler=eingabe");
+    if (!unit) redirect("/infos?t=dokumente&fehler=eingabe");
     propertyId = unit.propertyId;
   }
 
@@ -56,7 +56,7 @@ export async function uploadDocument(formData: FormData) {
   try {
     upload = await saveUpload(file, DOCUMENT_TYPES);
   } catch {
-    redirect("/dokumente?fehler=datei");
+    redirect("/infos?t=dokumente&fehler=datei");
   }
 
   await db.document.create({
@@ -71,16 +71,18 @@ export async function uploadDocument(formData: FormData) {
     },
   });
 
-  revalidatePath("/dokumente");
-  redirect("/dokumente");
+  revalidatePath("/infos");
+  redirect("/infos?t=dokumente");
 }
 
 // Mieter/Eigentümer fordern ein Dokument an → wird als Vorgang erfasst
 export async function requestDocument(formData: FormData) {
   const user = await requireUser();
-  const description = String(formData.get("description") ?? "").trim();
-  if (description.length < 3 || description.length > 2000) {
-    redirect("/dokumente?fehler=anfrage");
+  const art = String(formData.get("art") ?? "").trim().slice(0, 120);
+  const description = String(formData.get("description") ?? "").trim().slice(0, 2000);
+  // Es muss mindestens eine Dokumentart gewählt oder ein Text angegeben sein
+  if (!art && description.length < 3) {
+    redirect("/infos?t=dokumente&fehler=anfrage");
   }
 
   // Bezugsobjekt ermitteln: erste Wohnung bzw. erstes Objekt des Nutzers
@@ -91,14 +93,14 @@ export async function requestDocument(formData: FormData) {
   const ownership = await db.ownership.findFirst({ where: { userId: user.id } });
   const propertyId = tenancy?.unit.propertyId ?? ownership?.propertyId;
   if (!propertyId) {
-    redirect("/dokumente?fehler=anfrage");
+    redirect("/infos?t=dokumente&fehler=anfrage");
   }
 
   const ticket = await db.ticket.create({
     data: {
       type: "DOKUMENT_ANFRAGE",
-      title: "Dokumentanforderung",
-      description,
+      title: art ? `Dokumentanforderung: ${art}` : "Dokumentanforderung",
+      description: description || `Angefordert: ${art}`,
       propertyId,
       unitId: tenancy?.unitId ?? null,
       createdById: user.id,

@@ -15,7 +15,7 @@ import {
   notifyCreatorStatusChange,
   notifyVerwalterNewTicket,
 } from "@/lib/notify";
-import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
+import { IMAGE_TYPES, DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
 import { requireUser, requireVerwalter } from "@/lib/session";
 
 const TRADES = [
@@ -309,6 +309,72 @@ export async function notifyCraftsman(formData: FormData) {
 
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}?beauftragt=1`);
+}
+
+// Verwalter stellt aus einer Dokumentanforderung heraus direkt das Dokument bereit.
+// Es wird ein Dokument für den Anfragenden erstellt und der Vorgang erledigt.
+const DOC_CATEGORIES = ["ABRECHNUNG", "PROTOKOLL", "VERTRAG", "BESCHEINIGUNG", "SONSTIGES"] as const;
+
+export async function uploadRequestedDocument(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const title = String(formData.get("title") ?? "").trim().slice(0, 200);
+  const catRaw = String(formData.get("category") ?? "BESCHEINIGUNG");
+  const category = (DOC_CATEGORIES as readonly string[]).includes(catRaw)
+    ? (catRaw as (typeof DOC_CATEGORIES)[number])
+    : "BESCHEINIGUNG";
+
+  const ticket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    include: { createdBy: true },
+  });
+  if (!ticket) redirect("/vorgaenge");
+  if (!title) redirect(`/vorgaenge/${ticketId}?fehler=titel`);
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`/vorgaenge/${ticketId}?fehler=datei`);
+  }
+  let upload;
+  try {
+    upload = await saveUpload(file, DOCUMENT_TYPES);
+  } catch {
+    redirect(`/vorgaenge/${ticketId}?fehler=datei`);
+  }
+
+  // Sichtbarkeit am Anfragenden ausrichten
+  const audience =
+    ticket.createdBy.role === "EIGENTUEMER"
+      ? "EIGENTUEMER"
+      : ticket.createdBy.role === "MIETER"
+        ? "MIETER"
+        : "ALLE";
+
+  await db.document.create({
+    data: {
+      title,
+      category,
+      audience,
+      propertyId: ticket.propertyId,
+      unitId: ticket.unitId,
+      uploadedById: verwalter.id,
+      ...upload,
+    },
+  });
+
+  await db.ticketComment.create({
+    data: {
+      ticketId,
+      authorId: verwalter.id,
+      body: `Dokument bereitgestellt: „${title}". Sie finden es unter „Infos → Dokumente".`,
+    },
+  });
+  await db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } });
+  await notifyCreatorNewComment(ticketId, verwalter);
+
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  revalidatePath("/infos");
+  redirect(`/vorgaenge/${ticketId}?bereitgestellt=1`);
 }
 
 // Handwerker melden den Stand ihrer zugewiesenen Aufträge zurück

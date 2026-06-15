@@ -12,6 +12,7 @@ import { canViewTicket } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
   contactMethodLabels,
+  documentCategoryLabels,
   formatDate,
   roleLabels,
   ticketPriorityLabels,
@@ -26,6 +27,7 @@ import {
   notifyCraftsman,
   setOwnTicketStatus,
   updateTicket,
+  uploadRequestedDocument,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -35,11 +37,11 @@ export default async function TicketDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ beauftragt?: string; fehler?: string }>;
+  searchParams: Promise<{ beauftragt?: string; bereitgestellt?: string; fehler?: string }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { beauftragt, fehler } = await searchParams;
+  const { beauftragt, bereitgestellt, fehler } = await searchParams;
 
   const ticket = await db.ticket.findUnique({
     where: { id },
@@ -89,10 +91,23 @@ export default async function TicketDetailPage({
           Der Handwerker wurde per E-Mail beauftragt (sofern SMTP konfiguriert ist).
         </p>
       ) : null}
+      {bereitgestellt ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Dokument hochgeladen und für den Anfragenden bereitgestellt. Der Vorgang wurde
+          als erledigt markiert.
+        </p>
+      ) : null}
       {fehler === "keine_email" ? (
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           Für diesen Handwerker ist keine E-Mail-Adresse hinterlegt. Bitte im Kontaktbuch
           ergänzen oder telefonisch beauftragen.
+        </p>
+      ) : null}
+      {fehler === "datei" || fehler === "titel" ? (
+        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {fehler === "datei"
+            ? "Bitte eine gültige Datei (PDF oder Bild, max. 10 MB) wählen."
+            : "Bitte einen Titel für das Dokument angeben."}
         </p>
       ) : null}
 
@@ -277,6 +292,52 @@ export default async function TicketDetailPage({
                 </Field>
                 <button type="submit" className={buttonClass}>
                   Speichern
+                </button>
+              </form>
+            </Card>
+          ) : null}
+
+          {isVerwalter && ticket.type === "DOKUMENT_ANFRAGE" ? (
+            <Card title="Dokument bereitstellen">
+              <p className="mb-3 text-xs text-gray-500">
+                Laden Sie das angeforderte Dokument hoch — es wird automatisch für{" "}
+                {ticket.createdBy.name} unter „Infos → Dokumente“ sichtbar und der Vorgang
+                als erledigt markiert.
+              </p>
+              <form action={uploadRequestedDocument} className="space-y-3">
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <Field label="Titel">
+                  <input
+                    type="text"
+                    name="title"
+                    required
+                    defaultValue={
+                      ticket.title.replace(/^Dokumentanforderung:\s*/i, "").trim() ||
+                      ticket.title
+                    }
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Kategorie">
+                  <select name="category" className={inputClass} defaultValue="BESCHEINIGUNG">
+                    {Object.entries(documentCategoryLabels).map(([v, l]) => (
+                      <option key={v} value={v}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Datei (PDF oder Bild, max. 10 MB)">
+                  <input
+                    type="file"
+                    name="file"
+                    required
+                    accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
+                    className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
+                  />
+                </Field>
+                <button type="submit" className={buttonClass}>
+                  Hochladen &amp; bereitstellen
                 </button>
               </form>
             </Card>

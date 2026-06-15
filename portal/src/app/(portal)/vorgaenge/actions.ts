@@ -17,6 +17,7 @@ import {
 } from "@/lib/notify";
 import { IMAGE_TYPES, DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
 import { requireUser, requireVerwalter } from "@/lib/session";
+import { applyTriage } from "@/lib/triage";
 
 const TRADES = [
   "SANITAER", "HEIZUNG", "ELEKTRO", "DACH", "MALER", "BODENLEGER",
@@ -95,8 +96,18 @@ export async function createTicket(formData: FormData) {
     },
   });
 
+  // KI-Triage nur, wenn der Melder kein Gewerk gewählt hat (spart Zeit, respektiert die Wahl)
+  let triaged = ticket;
+  if (!parsed.data.trade) {
+    const ai = await applyTriage(ticket.id, {
+      title: parsed.data.title,
+      description: parsed.data.description,
+    });
+    if (ai) triaged = { ...ticket, trade: ai.trade ?? ticket.trade, priority: ai.priority };
+  }
+
   if (user.role !== "VERWALTER") {
-    await notifyVerwalterNewTicket(ticket, user);
+    await notifyVerwalterNewTicket(triaged, user);
   }
 
   revalidatePath("/vorgaenge");

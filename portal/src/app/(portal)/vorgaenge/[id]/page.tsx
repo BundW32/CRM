@@ -153,7 +153,7 @@ export default async function TicketDetailPage({
                         ? `${c.author.name} (${roleLabels[c.author.role]})`
                         : c.craftsmanAuthor
                           ? `${c.craftsmanAuthor.name} (Handwerker)`
-                          : "Unbekannt"}{" "}
+                          : "System"}{" "}
                       · {formatDate(c.createdAt)}
                       {c.internal ? " · Interne Notiz" : ""}
                     </p>

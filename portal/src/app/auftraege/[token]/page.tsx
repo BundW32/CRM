@@ -116,7 +116,7 @@ export default async function AuftraegePage({
                   {t.comments.map((c) => (
                     <div key={c.id} className="rounded-md bg-gray-50 px-3 py-2">
                       <p className="text-[11px] text-gray-500">
-                        {c.author?.name ?? c.craftsmanAuthor?.name ?? "Unbekannt"} ·{" "}
+                        {c.author?.name ?? c.craftsmanAuthor?.name ?? "System"} ·{" "}
                         {formatDate(c.createdAt)}
                       </p>
                       <p className="whitespace-pre-wrap text-sm text-gray-800">{c.body}</p>

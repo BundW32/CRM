@@ -28,7 +28,7 @@ const TRADES = [
 const createTicketSchema = z.object({
   type: z.enum(["SCHADEN", "ANFRAGE", "DOKUMENT_ANFRAGE", "SONSTIGES"]),
   title: z.string().trim().min(3).max(200),
-  description: z.string().trim().min(3).max(5000),
+  description: z.string().trim().max(5000).optional(),
   category: z.string().trim().max(100).optional(),
   trade: z.enum(TRADES).optional().or(z.literal("")),
   location: z.string().trim().max(200).optional(),
@@ -59,13 +59,20 @@ export async function createTicket(formData: FormData) {
   const parsed = createTicketSchema.safeParse({
     type: formData.get("type"),
     title: formData.get("title"),
-    description: formData.get("description"),
+    description: formData.get("description") || undefined,
     category: formData.get("category") || undefined,
     trade: formData.get("trade") || undefined,
     location: formData.get("location") || undefined,
     target: formData.get("target"),
   });
   if (!parsed.success) {
+    redirect("/vorgaenge/neu?fehler=eingabe");
+  }
+
+  const isDocRequest = parsed.data.type === "DOKUMENT_ANFRAGE";
+  const description = (parsed.data.description ?? "").trim();
+  // Bei Schäden/Anfragen ist eine Beschreibung Pflicht; bei Dokumentanforderungen optional
+  if (!isDocRequest && description.length < 3) {
     redirect("/vorgaenge/neu?fehler=eingabe");
   }
 
@@ -79,16 +86,18 @@ export async function createTicket(formData: FormData) {
     redirect("/vorgaenge/neu?fehler=ziel");
   }
 
-  const uploads = await collectPhotoUploads(formData, "/vorgaenge/neu?fehler=dateien");
+  const uploads = isDocRequest
+    ? []
+    : await collectPhotoUploads(formData, "/vorgaenge/neu?fehler=dateien");
 
   const ticket = await db.ticket.create({
     data: {
       type: parsed.data.type,
       title: parsed.data.title,
-      description: parsed.data.description,
-      category: parsed.data.category,
-      trade: parsed.data.trade ? (parsed.data.trade as Trade) : null,
-      location: parsed.data.location,
+      description: description || parsed.data.title,
+      category: isDocRequest ? undefined : parsed.data.category,
+      trade: !isDocRequest && parsed.data.trade ? (parsed.data.trade as Trade) : null,
+      location: isDocRequest ? undefined : parsed.data.location,
       propertyId,
       unitId: unitId || null,
       createdById: user.id,
@@ -96,12 +105,12 @@ export async function createTicket(formData: FormData) {
     },
   });
 
-  // KI-Triage nur, wenn der Melder kein Gewerk gewählt hat (spart Zeit, respektiert die Wahl)
+  // KI-Triage nur bei Schäden/Anfragen ohne gewähltes Gewerk (nicht bei Dokumentanforderungen)
   let triaged = ticket;
-  if (!parsed.data.trade) {
+  if (!isDocRequest && !parsed.data.trade) {
     const ai = await applyTriage(ticket.id, {
       title: parsed.data.title,
-      description: parsed.data.description,
+      description,
     });
     if (ai) triaged = { ...ticket, trade: ai.trade ?? ticket.trade, priority: ai.priority };
   }

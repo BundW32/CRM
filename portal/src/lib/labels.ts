@@ -125,6 +125,17 @@ export const managementTypeLabels: Record<ManagementType, string> = {
   WEG: "WEG (Eigentümergemeinschaft)",
 };
 
+// Vom Mieter/Eigentümer anforderbare Dokumente
+export const requestableDocuments = [
+  "Wohnungsgeberbescheinigung",
+  "Mietbescheinigung",
+  "Nebenkostenabrechnung",
+  "Betriebskostenabrechnung",
+  "Mietvertrag (Kopie)",
+  "Hausgeldabrechnung",
+  "Sonstiges",
+];
+
 // Intervall in Monaten (für die Berechnung der nächsten Fälligkeit)
 export const maintenanceIntervalMonths: Record<MaintenanceInterval, number | null> = {
   MONATLICH: 1,

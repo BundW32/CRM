@@ -8,6 +8,7 @@ import {
   documentCategoryLabels,
   formatBytes,
   formatDate,
+  requestableDocuments,
 } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 import {
@@ -22,15 +23,6 @@ import {
 } from "../dokumente/actions";
 
 export const dynamic = "force-dynamic";
-
-const REQUESTABLE = [
-  "Wohnungsgeberbescheinigung",
-  "Mietbescheinigung",
-  "Nebenkostenabrechnung",
-  "Mietvertrag (Kopie)",
-  "Hausgeldabrechnung",
-  "Sonstiges",
-];
 
 export default async function InfosPage({
   searchParams,
@@ -326,8 +318,8 @@ async function DokumenteTab({ user, isVerwalter }: { user: User; isVerwalter: bo
             </p>
             <form action={requestDocument} className="space-y-3">
               <Field label="Dokument">
-                <select name="art" className={inputClass} defaultValue="Wohnungsgeberbescheinigung">
-                  {REQUESTABLE.map((r) => (
+                <select name="art" className={inputClass} defaultValue={requestableDocuments[0]}>
+                  {requestableDocuments.map((r) => (
                     <option key={r} value={r}>
                       {r}
                     </option>

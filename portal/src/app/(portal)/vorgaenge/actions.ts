@@ -225,6 +225,31 @@ export async function updateTicket(formData: FormData) {
   redirect(`/vorgaenge/${parsed.data.ticketId}`);
 }
 
+// Verwalter ordnet einen (z. B. per E-Mail eingegangenen) Vorgang einem Objekt/einer Einheit zu
+export async function assignTicketTarget(formData: FormData) {
+  await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const target = String(formData.get("target") ?? "");
+  const [propertyId, unitId] = target.split("|");
+  if (!ticketId || !propertyId) redirect(`/vorgaenge/${ticketId}`);
+
+  const property = await db.property.findUnique({ where: { id: propertyId } });
+  if (!property) redirect(`/vorgaenge/${ticketId}`);
+
+  let validUnitId: string | null = null;
+  if (unitId) {
+    const unit = await db.unit.findUnique({ where: { id: unitId } });
+    if (unit && unit.propertyId === propertyId) validUnitId = unit.id;
+  }
+
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: { propertyId, unitId: validUnitId },
+  });
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?zugeordnet=1`);
+}
+
 // Verwalter ordnet einem Vorgang ein Gewerk und einen Handwerker zu
 export async function assignCraftsman(formData: FormData) {
   await requireVerwalter();
@@ -275,7 +300,9 @@ export async function notifyCraftsman(formData: FormData) {
   }
 
   const ortsangabe = [
-    `Objekt: ${ticket.property.name}, ${ticket.property.street}, ${ticket.property.zip} ${ticket.property.city}`,
+    ticket.property
+      ? `Objekt: ${ticket.property.name}, ${ticket.property.street}, ${ticket.property.zip} ${ticket.property.city}`
+      : null,
     ticket.unit ? `Einheit: ${ticket.unit.label}` : null,
     ticket.location ? `Ort im Objekt: ${ticket.location}` : null,
   ]

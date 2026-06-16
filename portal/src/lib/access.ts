@@ -50,7 +50,7 @@ export async function ticketWhereForUser(user: User): Promise<Prisma.TicketWhere
 
 export async function canViewTicket(
   user: User,
-  ticket: { createdById: string; propertyId: string; assignedToId: string | null }
+  ticket: { createdById: string; propertyId: string | null; assignedToId: string | null }
 ) {
   if (user.role === "VERWALTER") return true;
   if (user.role === "HANDWERKER") return ticket.assignedToId === user.id;

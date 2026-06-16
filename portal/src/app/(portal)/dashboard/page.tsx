@@ -23,7 +23,7 @@ export default async function DashboardPage() {
       where: { ...ticketWhere, status: { notIn: ["ERLEDIGT", "GESCHLOSSEN"] } },
     }),
     db.ticket.findMany({
-      where: ticketWhere,
+      where: { ...ticketWhere, status: { not: "GESCHLOSSEN" } },
       orderBy: { updatedAt: "desc" },
       take: 5,
       include: { property: true, unit: true },
@@ -68,7 +68,8 @@ export default async function DashboardPage() {
                           #{ticket.number} · {ticket.title}
                         </span>
                         <span className="block text-xs text-gray-500">
-                          {ticketTypeLabels[ticket.type]} · {ticket.property.name}
+                          {ticketTypeLabels[ticket.type]} ·{" "}
+                          {ticket.property ? ticket.property.name : "nicht zugeordnet"}
                           {ticket.unit ? ` · ${ticket.unit.label}` : ""} ·{" "}
                           {formatDate(ticket.updatedAt)}
                         </span>

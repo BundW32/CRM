@@ -244,10 +244,13 @@ model Ticket {
   title        String
   description  String
   location     String? // Ort im Objekt, z. B. "Bad, Decke"
-  propertyId   String
-  property     Property        @relation(fields: [propertyId], references: [id])
+  propertyId   String?
+  property     Property?       @relation(fields: [propertyId], references: [id])
   unitId       String?
   unit         Unit?           @relation(fields: [unitId], references: [id])
+  // Externer Absender (z. B. E-Mail), wenn (noch) kein Portal-Nutzer zugeordnet ist
+  senderEmail  String?
+  senderName   String?
   trade           Trade? // Gewerk – Basis für die Handwerker-Zuordnung
   appointmentNote String? // vom Handwerker mitgeteilter Terminvorschlag
   inboundMessageId String? @unique // Idempotenz für E-Mail-Eingang (verhindert Doppel-Tickets)

@@ -79,7 +79,9 @@ export default async function AuftraegePage({
                 </span>
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                {t.property.name}, {t.property.street}, {t.property.zip} {t.property.city}
+                {t.property
+                  ? `${t.property.name}, ${t.property.street}, ${t.property.zip} ${t.property.city}`
+                  : ""}
                 {t.unit ? ` · ${t.unit.label}` : ""}
                 {t.location ? ` · ${t.location}` : ""}
               </p>

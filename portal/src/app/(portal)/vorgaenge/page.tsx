@@ -146,7 +146,7 @@ export default async function TicketsPage({
                         : ticket.category
                           ? ` · ${ticket.category}`
                           : ""}{" "}
-                      · {ticket.property.name}
+                      · {ticket.property ? ticket.property.name : "nicht zugeordnet"}
                       {ticket.unit ? ` · ${ticket.unit.label}` : ""}
                       {user.role === "VERWALTER"
                         ? ` · von ${ticket.createdBy.name}`

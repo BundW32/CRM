@@ -8,7 +8,7 @@ import {
   buttonClass,
   inputClass,
 } from "@/components/ui";
-import { canViewTicket } from "@/lib/access";
+import { canViewTicket, ticketTargetsForUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
   contactMethodLabels,
@@ -24,6 +24,7 @@ import { requireUser } from "@/lib/session";
 import {
   addComment,
   assignCraftsman,
+  assignTicketTarget,
   notifyCraftsman,
   setOwnTicketStatus,
   updateTicket,
@@ -37,11 +38,16 @@ export default async function TicketDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ beauftragt?: string; bereitgestellt?: string; fehler?: string }>;
+  searchParams: Promise<{
+    beauftragt?: string;
+    bereitgestellt?: string;
+    zugeordnet?: string;
+    fehler?: string;
+  }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { beauftragt, bereitgestellt, fehler } = await searchParams;
+  const { beauftragt, bereitgestellt, zugeordnet, fehler } = await searchParams;
 
   const ticket = await db.ticket.findUnique({
     where: { id },
@@ -80,6 +86,11 @@ export default async function TicketDetailPage({
   const suggested = ticket.trade ? craftsmen.filter((c) => c.trade === ticket.trade) : [];
   const others = ticket.trade ? craftsmen.filter((c) => c.trade !== ticket.trade) : craftsmen;
 
+  // Nicht zugeordneter Vorgang (z. B. von unbekanntem E-Mail-Absender): Zuordnung + Vorschlag
+  const needsAssignment = isVerwalter && !ticket.propertyId;
+  const assignTargets = needsAssignment ? await ticketTargetsForUser(user) : [];
+  const assignSuggestion = needsAssignment ? await suggestTarget(ticket) : null;
+
   return (
     <>
       <PageTitle action={<StatusBadge status={ticket.status} />}>
@@ -95,6 +106,11 @@ export default async function TicketDetailPage({
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
           Dokument hochgeladen und für den Anfragenden bereitgestellt. Der Vorgang wurde
           als erledigt markiert.
+        </p>
+      ) : null}
+      {zugeordnet ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Vorgang wurde dem Objekt/der Einheit zugeordnet.
         </p>
       ) : null}
       {fehler === "keine_email" ? (
@@ -219,19 +235,76 @@ export default async function TicketDetailPage({
         </div>
 
         <div className="space-y-5">
+          {needsAssignment ? (
+            <Card title="Vorgang zuordnen">
+              {ticket.senderEmail ? (
+                <p className="mb-3 text-xs text-gray-500">
+                  Eingegangen per E-Mail von{" "}
+                  {ticket.senderName ? `${ticket.senderName} ` : ""}
+                  &lt;{ticket.senderEmail}&gt; – dieser Absender ist noch keinem Nutzer
+                  zugeordnet.
+                </p>
+              ) : null}
+              {assignSuggestion ? (
+                <p className="mb-3 rounded-md bg-brand-orange-light px-3 py-2 text-xs text-brand-green-dark">
+                  Vorschlag: <strong>{assignSuggestion.label}</strong>
+                </p>
+              ) : null}
+              <form action={assignTicketTarget} className="space-y-3">
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <Field label="Objekt / Einheit">
+                  <select
+                    name="target"
+                    required
+                    className={inputClass}
+                    defaultValue={assignSuggestion?.target ?? ""}
+                  >
+                    {!assignSuggestion ? (
+                      <option value="" disabled>
+                        – bitte wählen –
+                      </option>
+                    ) : null}
+                    {assignTargets.map((t) => (
+                      <option
+                        key={`${t.propertyId}|${t.unitId ?? ""}`}
+                        value={`${t.propertyId}|${t.unitId ?? ""}`}
+                      >
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <button type="submit" className={buttonClass}>
+                  Zuordnen
+                </button>
+              </form>
+            </Card>
+          ) : null}
+
           <Card title="Details">
             <dl className="space-y-2 text-sm">
               <Detail label="Art" value={ticketTypeLabels[ticket.type]} />
               {ticket.category ? <Detail label="Kategorie" value={ticket.category} /> : null}
               <Detail
                 label="Objekt"
-                value={`${ticket.property.name}, ${ticket.property.street}, ${ticket.property.zip} ${ticket.property.city}`}
+                value={
+                  ticket.property
+                    ? `${ticket.property.name}, ${ticket.property.street}, ${ticket.property.zip} ${ticket.property.city}`
+                    : "– noch nicht zugeordnet –"
+                }
               />
               {ticket.unit ? <Detail label="Einheit" value={ticket.unit.label} /> : null}
               {ticket.location ? <Detail label="Ort" value={ticket.location} /> : null}
               {ticket.trade ? <Detail label="Gewerk" value={tradeLabels[ticket.trade]} /> : null}
               <Detail label="Priorität" value={ticketPriorityLabels[ticket.priority]} />
-              <Detail label="Gemeldet von" value={ticket.createdBy.name} />
+              <Detail
+                label="Gemeldet von"
+                value={
+                  ticket.senderEmail
+                    ? `${ticket.senderName ? `${ticket.senderName} ` : ""}<${ticket.senderEmail}> · per E-Mail`
+                    : ticket.createdBy.name
+                }
+              />
               <Detail
                 label="Zugewiesen an"
                 value={ticket.assignedTo?.name ?? "– noch niemand –"}
@@ -432,7 +505,7 @@ export default async function TicketDetailPage({
                     const c = ticket.craftsman!;
                     const text =
                       `Guten Tag ${c.name}, bezüglich Auftrag #${ticket.number} „${ticket.title}" ` +
-                      `am Objekt ${ticket.property.name}` +
+                      (ticket.property ? `am Objekt ${ticket.property.name}` : "") +
                       (ticket.unit ? `, ${ticket.unit.label}` : "") +
                       (ticket.location ? ` (${ticket.location})` : "") +
                       `. Bitte melden Sie sich zur Terminabstimmung. ` +
@@ -521,6 +594,65 @@ export default async function TicketDetailPage({
       </div>
     </>
   );
+}
+
+// Zuordnungs-Vorschlag für nicht zugeordnete Vorgänge (Name/Einheit/Adresse aus der Mail)
+async function suggestTarget(ticket: {
+  senderName: string | null;
+  description: string;
+}): Promise<{ target: string; label: string } | null> {
+  const name = (ticket.senderName ?? "").trim();
+  const text = (ticket.description ?? "").toLowerCase();
+
+  // 1) Absendername stimmt mit einem Mieter/Eigentümer überein
+  if (name.length >= 3) {
+    const u = await db.user.findFirst({
+      where: {
+        role: { in: ["MIETER", "EIGENTUEMER"] },
+        name: { contains: name, mode: "insensitive" },
+      },
+      include: {
+        tenancies: {
+          where: { active: true },
+          include: { unit: { include: { property: true } } },
+        },
+        ownerships: { include: { property: true } },
+      },
+    });
+    if (u) {
+      const t = u.tenancies[0];
+      if (t) {
+        return {
+          target: `${t.unit.propertyId}|${t.unit.id}`,
+          label: `${u.name} – ${t.unit.property.name}, ${t.unit.label}`,
+        };
+      }
+      const o = u.ownerships[0];
+      if (o) return { target: `${o.propertyId}|`, label: `${u.name} – ${o.property.name}` };
+    }
+  }
+
+  // 2) Eine Einheiten-Bezeichnung kommt im Mailtext vor
+  if (text.length > 0) {
+    const units = await db.unit.findMany({ include: { property: true } });
+    const unitHit = units.find(
+      (un) => un.label.length >= 3 && text.includes(un.label.toLowerCase())
+    );
+    if (unitHit) {
+      return {
+        target: `${unitHit.propertyId}|${unitHit.id}`,
+        label: `${unitHit.property.name}, ${unitHit.label}`,
+      };
+    }
+    // 3) Objektname oder Straße kommt im Mailtext vor
+    const props = await db.property.findMany();
+    const propHit = props.find(
+      (p) => text.includes(p.name.toLowerCase()) || text.includes(p.street.toLowerCase())
+    );
+    if (propHit) return { target: `${propHit.id}|`, label: propHit.name };
+  }
+
+  return null;
 }
 
 // Telefonnummer für wa.me normalisieren (internationale Ziffern ohne +/0)

@@ -15,6 +15,10 @@
   --color-shell-3: #2f2620;
 }
 
+html {
+  background-color: var(--color-shell);
+}
+
 body {
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
@@ -27,18 +31,33 @@ h3 {
   letter-spacing: -0.02em;
 }
 
-/* Sanfter, warmer Verlauf für dunkle Hero-/Rahmenflächen (wie auf der Website) */
+/* Warmer, weicher Hintergrund-Verlauf. Über ein fixiertes Pseudo-Element gelöst,
+   damit der Verlauf immer den ganzen Viewport füllt – kein harter Farb-Cut beim
+   Scrollen, gleiches Bild auf allen Seiten und Geräten. */
 .bw-shell-bg {
   background-color: var(--color-shell);
+}
+.bw-shell-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--color-shell);
   background-image: radial-gradient(
-      120% 80% at 85% -10%,
-      rgba(246, 144, 24, 0.13) 0%,
+      125% 85% at 85% -10%,
+      rgba(246, 144, 24, 0.14) 0%,
       rgba(246, 144, 24, 0) 55%
     ),
     radial-gradient(
-      90% 70% at 5% 0%,
-      rgba(120, 78, 40, 0.22) 0%,
+      100% 80% at 0% 0%,
+      rgba(120, 78, 40, 0.24) 0%,
       rgba(120, 78, 40, 0) 60%
+    ),
+    radial-gradient(
+      120% 70% at 50% 115%,
+      rgba(120, 78, 40, 0.18) 0%,
+      rgba(120, 78, 40, 0) 70%
     );
 }
 

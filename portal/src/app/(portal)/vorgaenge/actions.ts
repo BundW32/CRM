@@ -15,9 +15,15 @@ import {
   notifyCreatorStatusChange,
   notifyVerwalterNewTicket,
 } from "@/lib/notify";
-import { IMAGE_TYPES, DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
+import { IMAGE_TYPES, DOCUMENT_TYPES, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
 import { requireUser, requireVerwalter } from "@/lib/session";
 import { applyTriage } from "@/lib/triage";
+import {
+  generateMietbescheinigung,
+  generateWohnungsgeberbescheinigung,
+  supportedCertificate,
+  type SignatureImage,
+} from "@/lib/documents/bescheinigungen";
 
 const TRADES = [
   "SANITAER", "HEIZUNG", "ELEKTRO", "DACH", "MALER", "BODENLEGER",
@@ -414,6 +420,122 @@ export async function uploadRequestedDocument(formData: FormData) {
       ticketId,
       authorId: verwalter.id,
       body: `Dokument bereitgestellt: „${title}". Sie finden es unter „Infos → Dokumente".`,
+    },
+  });
+  await db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } });
+  await notifyCreatorNewComment(ticketId, verwalter);
+
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  revalidatePath("/infos");
+  redirect(`/vorgaenge/${ticketId}?bereitgestellt=1`);
+}
+
+// Bescheinigung automatisch aus den Stammdaten erstellen und bereitstellen
+export async function generateCertificate(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const ticket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    include: { createdBy: true, unit: true, property: true },
+  });
+  if (!ticket) redirect("/vorgaenge");
+  const kind = supportedCertificate(ticket.title);
+  if (!kind || !ticket.property) {
+    redirect(`/vorgaenge/${ticketId}?fehler=cert`);
+  }
+  const property = ticket.property;
+  const unit = ticket.unit;
+
+  // Aktive Mieter der Einheit (sonst der Anfragende)
+  const tenancies = unit
+    ? await db.tenancy.findMany({
+        where: { unitId: unit.id, active: true },
+        include: { user: true },
+      })
+    : [];
+  const mieterNamen =
+    tenancies.length > 0 ? tenancies.map((t) => t.user.name) : [ticket.createdBy.name];
+  const mietbeginn = tenancies[0]?.startDate ?? null;
+
+  // Eigentümer als Wohnungsgeber
+  const ownership = await db.ownership.findFirst({
+    where: { propertyId: property.id },
+    include: { user: true },
+  });
+  const owner = ownership?.user ?? null;
+
+  const wohnungAnschrift = `${property.street}, ${unit ? unit.label + ", " : ""}${property.zip} ${property.city}`;
+  const wohnungsgeberName = owner?.name ?? "B&W Immobilien Management UG (haftungsbeschränkt)";
+  const wohnungsgeberAnschrift =
+    owner && owner.street && owner.zip && owner.city
+      ? `${owner.street}, ${owner.zip} ${owner.city}`
+      : "c/o B&W Immobilien Management UG, Goethestraße 42, 45964 Gladbeck";
+  const unterzeichner = owner?.name ?? "B&W Immobilien Management UG";
+
+  // Unterschrift (Eigentümer bevorzugt, sonst Verwalter)
+  const sigSource = owner?.signatureStoredName ?? verwalter.signatureStoredName ?? null;
+  let signature: SignatureImage = null;
+  if (sigSource) {
+    try {
+      const bytes = await readUpload(sigSource);
+      signature = {
+        bytes: new Uint8Array(bytes),
+        mime: sigSource.toLowerCase().includes(".png") ? "image/png" : "image/jpeg",
+      };
+    } catch {
+      /* fehlende/ungültige Unterschrift ignorieren */
+    }
+  }
+
+  const ausstellungsdatum = new Date();
+  let pdf: Buffer;
+  let title: string;
+  if (kind === "wohnungsgeber") {
+    title = "Wohnungsgeberbescheinigung";
+    pdf = await generateWohnungsgeberbescheinigung({
+      wohnungsgeberName,
+      wohnungsgeberAnschrift,
+      wohnungAnschrift,
+      mieterNamen,
+      einzugsdatum: mietbeginn,
+      ort: "Gladbeck",
+      ausstellungsdatum,
+      unterzeichner,
+      signature,
+    });
+  } else {
+    title = "Mietbescheinigung";
+    pdf = await generateMietbescheinigung({
+      mieterNamen,
+      wohnungAnschrift,
+      mietbeginn,
+      vermieterName: wohnungsgeberName,
+      ort: "Gladbeck",
+      ausstellungsdatum,
+      unterzeichner,
+      signature,
+    });
+  }
+
+  const upload = await saveBuffer(pdf, `${title}.pdf`, "application/pdf", ["application/pdf"]);
+
+  await db.document.create({
+    data: {
+      title: `${title} – ${ticket.createdBy.name}`,
+      category: "BESCHEINIGUNG",
+      audience: "MIETER",
+      propertyId: property.id,
+      unitId: ticket.unitId,
+      uploadedById: verwalter.id,
+      ...upload,
+    },
+  });
+
+  await db.ticketComment.create({
+    data: {
+      ticketId,
+      authorId: verwalter.id,
+      body: `${title} automatisch erstellt und bereitgestellt. Abrufbar unter „Infos → Dokumente".`,
     },
   });
   await db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } });

@@ -127,6 +127,11 @@ model User {
   active              Boolean         @default(true)
   mustChangePassword  Boolean         @default(false)
   preferredContact    ContactMethod?  // bevorzugter Kontaktweg (Mieter/Eigentümer)
+  // Optionale Anschrift (z. B. Eigentümer als Wohnungsgeber) und Unterschriftsbild
+  street              String?
+  zip                 String?
+  city                String?
+  signatureStoredName String?         // hinterlegte Unterschrift (Bild) für Bescheinigungen
   createdAt           DateTime        @default(now())
   passwordResetToken  String?         @unique
   passwordResetExpiry DateTime?

@@ -9,6 +9,7 @@ import {
   inputClass,
 } from "@/components/ui";
 import { canViewTicket, ticketTargetsForUser } from "@/lib/access";
+import { supportedCertificate } from "@/lib/documents/bescheinigungen";
 import { db } from "@/lib/db";
 import {
   contactMethodLabels,
@@ -25,6 +26,7 @@ import {
   addComment,
   assignCraftsman,
   assignTicketTarget,
+  generateCertificate,
   notifyCraftsman,
   setOwnTicketStatus,
   updateTicket,
@@ -372,8 +374,26 @@ export default async function TicketDetailPage({
 
           {isVerwalter && ticket.type === "DOKUMENT_ANFRAGE" ? (
             <Card title="Dokument bereitstellen">
+              {supportedCertificate(ticket.title) ? (
+                <div className="mb-4 rounded-lg border border-brand-orange/40 bg-brand-orange-light p-3">
+                  <p className="mb-2 text-xs text-brand-green-dark">
+                    Diese Bescheinigung kann <strong>automatisch</strong> aus den hinterlegten
+                    Daten erstellt werden (Eigentümer als Wohnungsgeber, Unterschrift sofern
+                    hinterlegt).
+                  </p>
+                  <form action={generateCertificate}>
+                    <input type="hidden" name="ticketId" value={ticket.id} />
+                    <button type="submit" className={`${buttonClass} w-full`}>
+                      {supportedCertificate(ticket.title) === "wohnungsgeber"
+                        ? "Wohnungsgeberbescheinigung"
+                        : "Mietbescheinigung"}{" "}
+                      automatisch erstellen
+                    </button>
+                  </form>
+                </div>
+              ) : null}
               <p className="mb-3 text-xs text-gray-500">
-                Laden Sie das angeforderte Dokument hoch — es wird automatisch für{" "}
+                … oder ein vorhandenes Dokument hochladen — es wird automatisch für{" "}
                 {ticket.createdBy.name} unter „Infos → Dokumente“ sichtbar und der Vorgang
                 als erledigt markiert.
               </p>

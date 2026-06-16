@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { notifyVerwalterNewTicket } from "@/lib/notify";
-import { saveUpload } from "@/lib/storage";
+import { saveBuffer } from "@/lib/storage";
 import { applyTriage } from "@/lib/triage";
 
 export const dynamic = "force-dynamic";
@@ -144,14 +144,14 @@ export async function POST(request: Request) {
     senderName = fromName;
   }
 
-  // Anhänge (nur Bilder) speichern – ContentType tolerant behandeln
-  const uploads: Awaited<ReturnType<typeof saveUpload>>[] = [];
+  // Anhänge (nur Bilder) speichern – ContentType tolerant, direkt aus dem Buffer
+  const uploads: Awaited<ReturnType<typeof saveBuffer>>[] = [];
   for (const att of normalizeAttachments(body)) {
     const type = att.type.split(";")[0].trim().toLowerCase(); // z. B. "image/jpeg; name=…" → "image/jpeg"
     if (!type.startsWith("image/")) continue; // nur Bilder als Vorgangs-Foto
     try {
-      const file = new File([Buffer.from(att.b64, "base64")], att.name, { type });
-      uploads.push(await saveUpload(file, [type]));
+      const buf = Buffer.from(att.b64, "base64");
+      uploads.push(await saveBuffer(buf, att.name, type, [type]));
     } catch {
       // ungeeignete Anhänge (z. B. zu groß) überspringen
     }

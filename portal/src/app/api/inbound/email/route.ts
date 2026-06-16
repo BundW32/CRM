@@ -93,6 +93,12 @@ export async function POST(request: Request) {
   const htmlRaw = (body.html as string) ?? (body.HtmlBody as string) ?? "";
   const text = (textRaw || (htmlRaw ? stripHtml(htmlRaw) : "")).trim().slice(0, 5000);
 
+  // Eindeutige Kennung der Mail – verhindert Doppel-Tickets bei Webhook-Wiederholungen
+  const messageId =
+    String(
+      body.MessageID ?? body.MessageId ?? body["message-id"] ?? body.messageId ?? ""
+    ) || null;
+
   if (!from) {
     return NextResponse.json({ ok: true, ignored: "kein Absender" });
   }
@@ -115,6 +121,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, unmatched: "kein Objekt" });
   }
 
+  // Idempotenz: wurde diese Mail schon zu einem Ticket verarbeitet?
+  if (messageId) {
+    const existing = await db.ticket.findUnique({
+      where: { inboundMessageId: messageId },
+    });
+    if (existing) {
+      return NextResponse.json({ ok: true, duplicate: true, ticketId: existing.id });
+    }
+  }
+
   // Anhänge (nur Bilder) speichern
   const uploads: Awaited<ReturnType<typeof saveUpload>>[] = [];
   for (const att of normalizeAttachments(body)) {
@@ -126,18 +142,31 @@ export async function POST(request: Request) {
     }
   }
 
-  const ticket = await db.ticket.create({
-    data: {
-      type: "SCHADEN",
-      title: subject,
-      description: text || "(kein Text)",
-      propertyId,
-      unitId: tenancy?.unitId ?? null,
-      createdById: user.id,
-      attachments: { create: uploads },
-    },
-    include: { property: true, unit: true },
-  });
+  let ticket;
+  try {
+    ticket = await db.ticket.create({
+      data: {
+        type: "SCHADEN",
+        title: subject,
+        description: text || "(kein Text)",
+        propertyId,
+        unitId: tenancy?.unitId ?? null,
+        createdById: user.id,
+        inboundMessageId: messageId,
+        attachments: { create: uploads },
+      },
+      include: { property: true, unit: true },
+    });
+  } catch {
+    // Paralleler Webhook-Retry: Unique-Constraint auf inboundMessageId greift → kein Duplikat
+    const existing = messageId
+      ? await db.ticket.findUnique({ where: { inboundMessageId: messageId } })
+      : null;
+    if (existing) {
+      return NextResponse.json({ ok: true, duplicate: true, ticketId: existing.id });
+    }
+    return NextResponse.json({ error: "Anlegen fehlgeschlagen" }, { status: 500 });
+  }
 
   const ai = await applyTriage(ticket.id, { title: subject, description: text });
   const triaged = ai ? { ...ticket, trade: ai.trade ?? ticket.trade, priority: ai.priority } : ticket;

@@ -250,6 +250,7 @@ model Ticket {
   unit         Unit?           @relation(fields: [unitId], references: [id])
   trade           Trade? // Gewerk – Basis für die Handwerker-Zuordnung
   appointmentNote String? // vom Handwerker mitgeteilter Terminvorschlag
+  inboundMessageId String? @unique // Idempotenz für E-Mail-Eingang (verhindert Doppel-Tickets)
   createdById  String
   createdBy    User            @relation("TicketCreatedBy", fields: [createdById], references: [id])
   assignedToId String?

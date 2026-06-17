@@ -8,6 +8,7 @@ import {
   regenerateAccessLetter,
   resendInvite,
   toggleUserActive,
+  uploadStammdaten,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -16,15 +17,21 @@ const errorMessages: Record<string, string> = {
   eingabe: "Bitte alle Pflichtfelder ausfüllen.",
   email: "Diese E-Mail-Adresse ist bereits vergeben.",
   email_fehlt: "Für eine E-Mail-Einladung muss eine E-Mail-Adresse angegeben werden.",
+  signatur: "Die Unterschrift muss ein Bild (PNG/JPG, max. 10 MB) sein.",
 };
 
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; eingeladen?: string; anonymisiert?: string }>;
+  searchParams: Promise<{
+    fehler?: string;
+    eingeladen?: string;
+    anonymisiert?: string;
+    stammdaten?: string;
+  }>;
 }) {
   const verwalter = await requireVerwalter();
-  const { fehler, eingeladen, anonymisiert } = await searchParams;
+  const { fehler, eingeladen, anonymisiert, stammdaten } = await searchParams;
 
   const [users, properties] = await Promise.all([
     db.user.findMany({
@@ -49,6 +56,11 @@ export default async function UsersPage({
       {anonymisiert ? (
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
           Der Nutzer wurde anonymisiert (DSGVO-Löschung). Personenbezogene Daten wurden entfernt.
+        </p>
+      ) : null}
+      {stammdaten ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Stammdaten/Unterschrift gespeichert.
         </p>
       ) : null}
       {fehler ? (
@@ -150,6 +162,63 @@ export default async function UsersPage({
                         </form>
                       ) : null}
                     </span>
+
+                    {u.role === "EIGENTUEMER" || u.role === "VERWALTER" ? (
+                      <form
+                        action={uploadStammdaten}
+                        className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2"
+                      >
+                        <input type="hidden" name="id" value={u.id} />
+                        <p className="mb-2 text-xs font-medium text-gray-500">
+                          Anschrift{u.role === "EIGENTUEMER" ? " (als Wohnungsgeber)" : ""} &
+                          Unterschrift für Bescheinigungen
+                          {u.signatureStoredName ? (
+                            <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-green-700">
+                              Unterschrift hinterlegt ✓
+                            </span>
+                          ) : null}
+                        </p>
+                        <div className="flex flex-wrap items-end gap-2">
+                          <input
+                            type="text"
+                            name="street"
+                            defaultValue={u.street ?? ""}
+                            placeholder="Straße und Nr."
+                            className={`${inputClass} w-48`}
+                          />
+                          <input
+                            type="text"
+                            name="zip"
+                            defaultValue={u.zip ?? ""}
+                            placeholder="PLZ"
+                            className={`${inputClass} w-24`}
+                          />
+                          <input
+                            type="text"
+                            name="city"
+                            defaultValue={u.city ?? ""}
+                            placeholder="Ort"
+                            className={`${inputClass} w-36`}
+                          />
+                          <input
+                            type="file"
+                            name="signature"
+                            accept="image/png,image/jpeg"
+                            className="text-xs text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-brand-orange-light file:px-2 file:py-1 file:text-xs file:font-medium file:text-brand-orange-dark"
+                          />
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            Speichern
+                          </button>
+                        </div>
+                        <p className="mt-1 text-[11px] text-gray-400">
+                          Unterschrift als Bild (PNG/JPG, am besten freigestellt). Wird automatisch
+                          in generierte Bescheinigungen eingefügt.
+                        </p>
+                      </form>
+                    ) : null}
                   </li>
                 );
               })}

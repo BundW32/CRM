@@ -102,7 +102,8 @@ export async function GET(
         });
       }
       const clampedEnd = Math.min(end, totalSize - 1);
-      return new NextResponse(new Uint8Array(data.buffer, start, clampedEnd - start + 1), {
+      const chunk = new Uint8Array(data.subarray(start, clampedEnd + 1));
+      return new NextResponse(chunk, {
         status: 206,
         headers: {
           "Content-Type": file.mimeType,

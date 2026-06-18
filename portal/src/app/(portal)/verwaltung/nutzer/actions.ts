@@ -30,14 +30,16 @@ export async function uploadStammdaten(formData: FormData) {
   };
 
   const file = formData.get("signature");
+  let signaturFehler = false;
   if (file instanceof File && file.size > 0) {
     try {
       const upload = await saveUpload(file, IMAGE_TYPES);
       data.signatureStoredName = upload.storedName;
     } catch {
-      redirect("/verwaltung/nutzer?fehler=signatur");
+      signaturFehler = true;
     }
   }
+  if (signaturFehler) redirect("/verwaltung/nutzer?fehler=signatur");
 
   await db.user.update({ where: { id }, data });
   revalidatePath("/verwaltung/nutzer");

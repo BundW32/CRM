@@ -517,7 +517,12 @@ export async function generateCertificate(formData: FormData) {
     });
   }
 
-  const upload = await saveBuffer(pdf, `${title}.pdf`, "application/pdf", ["application/pdf"]);
+  let upload: Awaited<ReturnType<typeof saveBuffer>>;
+  try {
+    upload = await saveBuffer(pdf, `${title}.pdf`, "application/pdf", ["application/pdf"]);
+  } catch {
+    redirect(`/vorgaenge/${ticketId}?fehler=cert`);
+  }
 
   await db.document.create({
     data: {

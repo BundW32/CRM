@@ -32,6 +32,8 @@ function blobEnabled() {
 }
 
 function uploadDir() {
+  // Vercel's project root is read-only; use /tmp for local fallback storage
+  if (process.env.VERCEL) return "/tmp/bw-uploads";
   return path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? "./uploads");
 }
 

@@ -111,34 +111,68 @@ export async function announcementWhereForUser(
   }
 }
 
+export type TicketTarget = {
+  propertyId: string;
+  propertyName: string;
+  unitId: string | null;
+  unitLabel: string;      // nur der Einheiten-Teil (ohne Objektname)
+  tenantNames: string[];  // aktive Mieter dieser Einheit (für Verwalter-Ansicht)
+  label: string;          // vollständiger Anzeigetext (Objekt + Einheit) für flache Dropdowns
+};
+
 // Objekte/Einheiten, für die der Nutzer einen Vorgang anlegen darf
-export async function ticketTargetsForUser(user: User) {
+export async function ticketTargetsForUser(user: User): Promise<TicketTarget[]> {
   if (user.role === "VERWALTER") {
     const properties = await db.property.findMany({
-      include: { units: true },
+      include: {
+        units: {
+          include: { tenancies: { where: { active: true }, include: { user: true } } },
+        },
+      },
       orderBy: { name: "asc" },
     });
     return properties.flatMap((p) => [
-      { propertyId: p.id, unitId: null as string | null, label: `${p.name} (gesamtes Objekt)` },
-      ...p.units.map((u) => ({
+      {
         propertyId: p.id,
-        unitId: u.id as string | null,
-        label: `${p.name} – ${u.label}`,
-      })),
+        propertyName: p.name,
+        unitId: null,
+        unitLabel: "gesamtes Objekt",
+        tenantNames: [],
+        label: `${p.name} (gesamtes Objekt)`,
+      },
+      ...p.units.map((u) => {
+        const tenantNames = u.tenancies.map((t) => t.user.name);
+        return {
+          propertyId: p.id,
+          propertyName: p.name,
+          unitId: u.id,
+          unitLabel: u.label,
+          tenantNames,
+          label: tenantNames.length > 0
+            ? `${p.name} – ${u.label} · ${tenantNames.join(", ")}`
+            : `${p.name} – ${u.label}`,
+        };
+      }),
     ]);
   }
   if (user.role === "EIGENTUEMER") {
     const properties = await ownedProperties(user.id);
     return properties.map((p) => ({
       propertyId: p.id,
-      unitId: null as string | null,
+      propertyName: `${p.name} · ${p.street}`,
+      unitId: null,
+      unitLabel: "",
+      tenantNames: [],
       label: `${p.name}, ${p.street}`,
     }));
   }
   const units = await tenantUnits(user.id);
   return units.map((u) => ({
     propertyId: u.propertyId,
-    unitId: u.id as string | null,
+    propertyName: `${u.property.name} · ${u.property.street}`,
+    unitId: u.id,
+    unitLabel: u.label,
+    tenantNames: [],
     label: `${u.property.name}, ${u.property.street} – ${u.label}`,
   }));
 }

@@ -3,9 +3,13 @@ import { db } from "@/lib/db";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import {
+  addOwnership,
+  addTenancy,
   anonymizeUser,
   createUser,
   regenerateAccessLetter,
+  removeOwnership,
+  removeTenancy,
   resendInvite,
   toggleUserActive,
   uploadStammdaten,
@@ -111,16 +115,100 @@ export default async function UsersPage({
                         {u.email ?? (u.username ? `Benutzer: ${u.username}` : "ohne Login")}
                         {u.phone ? ` · ${u.phone}` : ""} · angelegt {formatDate(u.createdAt)}
                       </span>
-                      {u.tenancies.length > 0 ? (
-                        <span className="block text-xs text-gray-500">
-                          Mieter: {u.tenancies.map((t) => `${t.unit.property.name} – ${t.unit.label}`).join(", ")}
-                        </span>
-                      ) : null}
-                      {u.ownerships.length > 0 ? (
-                        <span className="block text-xs text-gray-500">
-                          Eigentümer: {u.ownerships.map((o) => o.property.name).join(", ")}
-                        </span>
-                      ) : null}
+                      {u.role === "MIETER" ? (() => {
+                        const assignedUnitIds = new Set(u.tenancies.map((t) => t.unitId));
+                        const availableUnits = properties.flatMap((p) =>
+                          p.units
+                            .filter((un) => !assignedUnitIds.has(un.id))
+                            .map((un) => ({ ...un, propertyName: p.name }))
+                        );
+                        return (
+                          <div className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2">
+                            <p className="mb-1 text-xs font-medium text-gray-500">Einheiten</p>
+                            {u.tenancies.length === 0 ? (
+                              <p className="text-xs text-gray-400">Keine Einheit zugeordnet.</p>
+                            ) : (
+                              <ul className="space-y-0.5">
+                                {u.tenancies.map((t) => (
+                                  <li key={t.id} className="flex items-center justify-between gap-2">
+                                    <span className="text-xs text-gray-700">
+                                      {t.unit.property.name} – {t.unit.label}
+                                    </span>
+                                    <form action={removeTenancy}>
+                                      <input type="hidden" name="id" value={t.id} />
+                                      <button type="submit" className="text-xs text-red-600 hover:underline">
+                                        Entfernen
+                                      </button>
+                                    </form>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            {availableUnits.length > 0 ? (
+                              <form action={addTenancy} className="mt-2 flex flex-wrap items-center gap-2">
+                                <input type="hidden" name="userId" value={u.id} />
+                                <select name="unitId" required className={`${inputClass} flex-1 text-xs`}>
+                                  {availableUnits.map((un) => (
+                                    <option key={un.id} value={un.id}>
+                                      {un.propertyName} – {un.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="submit"
+                                  className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                >
+                                  + Einheit hinzufügen
+                                </button>
+                              </form>
+                            ) : null}
+                          </div>
+                        );
+                      })() : null}
+                      {u.role === "EIGENTUEMER" ? (() => {
+                        const assignedPropIds = new Set(u.ownerships.map((o) => o.propertyId));
+                        const availableProps = properties.filter((p) => !assignedPropIds.has(p.id));
+                        return (
+                          <div className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2">
+                            <p className="mb-1 text-xs font-medium text-gray-500">Objekte</p>
+                            {u.ownerships.length === 0 ? (
+                              <p className="text-xs text-gray-400">Kein Objekt zugeordnet.</p>
+                            ) : (
+                              <ul className="space-y-0.5">
+                                {u.ownerships.map((o) => (
+                                  <li key={o.id} className="flex items-center justify-between gap-2">
+                                    <span className="text-xs text-gray-700">{o.property.name}</span>
+                                    <form action={removeOwnership}>
+                                      <input type="hidden" name="id" value={o.id} />
+                                      <button type="submit" className="text-xs text-red-600 hover:underline">
+                                        Entfernen
+                                      </button>
+                                    </form>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            {availableProps.length > 0 ? (
+                              <form action={addOwnership} className="mt-2 flex flex-wrap items-center gap-2">
+                                <input type="hidden" name="userId" value={u.id} />
+                                <select name="propertyId" required className={`${inputClass} flex-1 text-xs`}>
+                                  {availableProps.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                      {p.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="submit"
+                                  className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                >
+                                  + Objekt hinzufügen
+                                </button>
+                              </form>
+                            ) : null}
+                          </div>
+                        );
+                      })() : null}
                     </span>
                     <span className="flex flex-wrap items-center gap-3">
                       {hasInvitePending ? (

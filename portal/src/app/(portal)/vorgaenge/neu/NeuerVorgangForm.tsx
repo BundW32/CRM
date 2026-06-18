@@ -1,15 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Field, buttonClass, inputClass } from "@/components/ui";
 import { requestableDocuments, ticketTypeLabels, tradeLabels } from "@/lib/labels";
+import type { TicketTarget } from "@/lib/access";
 import { createTicket } from "../actions";
 
-type Target = { propertyId: string; unitId: string | null; label: string };
-
-export function NeuerVorgangForm({ targets }: { targets: Target[] }) {
+export function NeuerVorgangForm({ targets }: { targets: TicketTarget[] }) {
   const [type, setType] = useState("SCHADEN");
   const isDoc = type === "DOKUMENT_ANFRAGE";
+
+  // Objekte dedupliziert, sortiert
+  const properties = useMemo(() => {
+    const seen = new Set<string>();
+    const list: { propertyId: string; propertyName: string }[] = [];
+    for (const t of targets) {
+      if (!seen.has(t.propertyId)) {
+        seen.add(t.propertyId);
+        list.push({ propertyId: t.propertyId, propertyName: t.propertyName });
+      }
+    }
+    return list;
+  }, [targets]);
+
+  const [selectedPropertyId, setSelectedPropertyId] = useState(properties[0]?.propertyId ?? "");
+
+  // Einheiten des gewählten Objekts
+  const unitsForProperty = useMemo(
+    () => targets.filter((t) => t.propertyId === selectedPropertyId),
+    [targets, selectedPropertyId]
+  );
+
+  // Initialer target-Wert
+  const initialTarget = useMemo(() => {
+    const first = unitsForProperty[0];
+    return first ? `${first.propertyId}|${first.unitId ?? ""}` : "";
+  }, [unitsForProperty]);
+
+  const [selectedTarget, setSelectedTarget] = useState(initialTarget);
+
+  function handlePropertyChange(pid: string) {
+    setSelectedPropertyId(pid);
+    const first = targets.find((t) => t.propertyId === pid);
+    setSelectedTarget(first ? `${first.propertyId}|${first.unitId ?? ""}` : "");
+  }
+
+  const showPropertyStep = properties.length > 1;
+  // Einheiten-Dropdown nur zeigen wenn es mehrere Optionen gibt
+  const showUnitStep = unitsForProperty.length > 1;
 
   return (
     <form action={createTicket} className="max-w-2xl space-y-4">
@@ -29,18 +67,55 @@ export function NeuerVorgangForm({ targets }: { targets: Target[] }) {
         </select>
       </Field>
 
-      <Field label="Objekt / Wohnung">
-        <select name="target" required className={inputClass}>
-          {targets.map((t) => (
-            <option
-              key={`${t.propertyId}|${t.unitId ?? ""}`}
-              value={`${t.propertyId}|${t.unitId ?? ""}`}
-            >
-              {t.label}
-            </option>
-          ))}
-        </select>
-      </Field>
+      {/* Schritt 1: Objekt wählen */}
+      {showPropertyStep ? (
+        <Field label="Objekt">
+          <select
+            value={selectedPropertyId}
+            onChange={(e) => handlePropertyChange(e.target.value)}
+            className={inputClass}
+          >
+            {properties.map((p) => (
+              <option key={p.propertyId} value={p.propertyId}>
+                {p.propertyName}
+              </option>
+            ))}
+          </select>
+        </Field>
+      ) : properties.length === 1 ? (
+        <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
+          <span className="font-medium">Objekt:</span> {properties[0].propertyName}
+        </p>
+      ) : null}
+
+      {/* Schritt 2: Einheit wählen */}
+      {showUnitStep ? (
+        <Field label="Einheit / Wohnung">
+          <select
+            value={selectedTarget}
+            onChange={(e) => setSelectedTarget(e.target.value)}
+            className={inputClass}
+          >
+            {unitsForProperty.map((t) => {
+              const value = `${t.propertyId}|${t.unitId ?? ""}`;
+              const label =
+                t.unitId === null
+                  ? "— gesamtes Objekt —"
+                  : t.tenantNames.length > 0
+                    ? `${t.unitLabel}  ·  ${t.tenantNames.join(", ")}`
+                    : t.unitLabel;
+              return (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              );
+            })}
+          </select>
+        </Field>
+      ) : null}
+
+      {/* Versteckter Wert für den Server */}
+      <input type="hidden" name="target" value={selectedTarget} />
 
       {isDoc ? (
         <>

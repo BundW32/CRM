@@ -237,6 +237,52 @@ export async function resendInvite(formData: FormData) {
   redirect("/verwaltung/nutzer?eingeladen=1");
 }
 
+export async function addOwnership(formData: FormData) {
+  await requireVerwalter();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const propertyId = String(formData.get("propertyId") ?? "").trim();
+  if (!userId || !propertyId) redirect("/verwaltung/nutzer");
+  await db.ownership.upsert({
+    where: { userId_propertyId: { userId, propertyId } },
+    create: { userId, propertyId },
+    update: {},
+  });
+  revalidatePath("/verwaltung/nutzer");
+  redirect("/verwaltung/nutzer");
+}
+
+export async function removeOwnership(formData: FormData) {
+  await requireVerwalter();
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) redirect("/verwaltung/nutzer");
+  await db.ownership.delete({ where: { id } });
+  revalidatePath("/verwaltung/nutzer");
+  redirect("/verwaltung/nutzer");
+}
+
+export async function addTenancy(formData: FormData) {
+  await requireVerwalter();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const unitId = String(formData.get("unitId") ?? "").trim();
+  if (!userId || !unitId) redirect("/verwaltung/nutzer");
+  await db.tenancy.upsert({
+    where: { userId_unitId: { userId, unitId } },
+    create: { userId, unitId },
+    update: { active: true },
+  });
+  revalidatePath("/verwaltung/nutzer");
+  redirect("/verwaltung/nutzer");
+}
+
+export async function removeTenancy(formData: FormData) {
+  await requireVerwalter();
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) redirect("/verwaltung/nutzer");
+  await db.tenancy.delete({ where: { id } });
+  revalidatePath("/verwaltung/nutzer");
+  redirect("/verwaltung/nutzer");
+}
+
 // Erzeugt für einen bestehenden Zugang ein neues Erst-Passwort (Zugangsschreiben neu drucken)
 export async function regenerateAccessLetter(formData: FormData) {
   await requireVerwalter();

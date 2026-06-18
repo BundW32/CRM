@@ -6,6 +6,7 @@ import type { NextConfig } from "next";
 const contentSecurityPolicy = [
   "default-src 'self'",
   "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: https:",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
@@ -34,7 +35,7 @@ const nextConfig: NextConfig = {
   experimental: {
     // Standard ist 1 MB – zu klein für Foto-Uploads vom Handy
     serverActions: {
-      bodySizeLimit: "25mb",
+      bodySizeLimit: "200mb",
     },
   },
   async headers() {

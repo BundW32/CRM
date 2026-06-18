@@ -9,7 +9,7 @@ const errorMessages: Record<string, string> = {
   eingabe: "Bitte füllen Sie alle Pflichtfelder aus (mind. 3 Zeichen).",
   ziel: "Das gewählte Objekt ist Ihnen nicht zugeordnet.",
   dateien:
-    "Bitte nur Bilder (JPG, PNG, WebP, HEIC) bis 10 MB hochladen, maximal 10 Stück.",
+    "Bitte nur Bilder (JPG, PNG, WebP, HEIC) oder Videos (MP4, MOV, WebM) bis 100 MB hochladen, maximal 10 Stück.",
 };
 
 export default async function NewTicketPage({

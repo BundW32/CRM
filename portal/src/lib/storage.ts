@@ -6,7 +6,7 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { put } from "@vercel/blob";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 
 export const IMAGE_TYPES = [
   "image/jpeg",
@@ -15,6 +15,15 @@ export const IMAGE_TYPES = [
   "image/heic",
   "image/heif",
 ];
+
+export const VIDEO_TYPES = [
+  "video/mp4",
+  "video/quicktime", // iPhone .mov
+  "video/webm",
+  "video/x-msvideo", // .avi
+];
+
+export const MEDIA_TYPES = [...IMAGE_TYPES, ...VIDEO_TYPES];
 
 export const DOCUMENT_TYPES = [...IMAGE_TYPES, "application/pdf"];
 
@@ -29,7 +38,7 @@ function uploadDir() {
 export async function saveUpload(file: File, allowedTypes: string[]) {
   if (file.size === 0) throw new Error("Die Datei ist leer.");
   if (file.size > MAX_FILE_SIZE) {
-    throw new Error("Die Datei ist größer als 10 MB.");
+    throw new Error("Die Datei ist größer als 100 MB.");
   }
   if (!allowedTypes.includes(file.type)) {
     throw new Error(`Dateityp ${file.type || "unbekannt"} ist nicht erlaubt.`);
@@ -70,7 +79,7 @@ export async function saveBuffer(
 ) {
   const size = buffer.byteLength;
   if (size === 0) throw new Error("Die Datei ist leer.");
-  if (size > MAX_FILE_SIZE) throw new Error("Die Datei ist größer als 10 MB.");
+  if (size > MAX_FILE_SIZE) throw new Error("Die Datei ist größer als 100 MB.");
   if (!allowedTypes.includes(mimeType)) {
     throw new Error(`Dateityp ${mimeType || "unbekannt"} ist nicht erlaubt.`);
   }

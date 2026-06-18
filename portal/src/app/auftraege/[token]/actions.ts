@@ -5,7 +5,7 @@ import type { Craftsman, Ticket } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { sendPushToUsers } from "@/lib/push";
-import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
+import { MEDIA_TYPES, saveUpload } from "@/lib/storage";
 
 // Token + Ticket prüfen: der Handwerker darf nur seine eigenen Aufträge bearbeiten
 async function authorize(
@@ -108,7 +108,7 @@ export async function craftsmanComment(formData: FormData) {
   const uploads = [];
   for (const file of files) {
     try {
-      uploads.push(await saveUpload(file, IMAGE_TYPES));
+      uploads.push(await saveUpload(file, MEDIA_TYPES));
     } catch {
       redirect(`/auftraege/${token}`);
     }

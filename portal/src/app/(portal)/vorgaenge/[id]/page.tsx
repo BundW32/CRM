@@ -124,7 +124,7 @@ export default async function TicketDetailPage({
       {fehler === "datei" || fehler === "titel" ? (
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {fehler === "datei"
-            ? "Bitte eine gültige Datei (PDF oder Bild, max. 10 MB) wählen."
+            ? "Bitte eine gültige Datei (PDF, Bild oder Video, max. 100 MB) wählen."
             : "Bitte einen Titel für das Dokument angeben."}
         </p>
       ) : null}
@@ -137,21 +137,32 @@ export default async function TicketDetailPage({
             </p>
             {ticket.attachments.length > 0 ? (
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {ticket.attachments.map((a) => (
-                  <a
-                    key={a.id}
-                    href={`/api/files/anhang/${a.id}`}
-                    target="_blank"
-                    className="block overflow-hidden rounded-md border border-gray-200"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={`/api/files/anhang/${a.id}`}
-                      alt={a.fileName}
-                      className="h-32 w-full object-cover"
-                    />
-                  </a>
-                ))}
+                {ticket.attachments.map((a) =>
+                  a.mimeType.startsWith("video/") ? (
+                    <div key={a.id} className="overflow-hidden rounded-md border border-gray-200">
+                      <video
+                        src={`/api/files/anhang/${a.id}`}
+                        controls
+                        preload="metadata"
+                        className="h-32 w-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <a
+                      key={a.id}
+                      href={`/api/files/anhang/${a.id}`}
+                      target="_blank"
+                      className="block overflow-hidden rounded-md border border-gray-200"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/api/files/anhang/${a.id}`}
+                        alt={a.fileName}
+                        className="h-32 w-full object-cover"
+                      />
+                    </a>
+                  )
+                )}
               </div>
             ) : null}
           </Card>
@@ -180,21 +191,32 @@ export default async function TicketDetailPage({
                     </p>
                     {c.attachments.length > 0 ? (
                       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        {c.attachments.map((a) => (
-                          <a
-                            key={a.id}
-                            href={`/api/files/anhang/${a.id}`}
-                            target="_blank"
-                            className="block overflow-hidden rounded-md border border-gray-200"
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={`/api/files/anhang/${a.id}`}
-                              alt={a.fileName}
-                              className="h-24 w-full object-cover"
-                            />
-                          </a>
-                        ))}
+                        {c.attachments.map((a) =>
+                          a.mimeType.startsWith("video/") ? (
+                            <div key={a.id} className="overflow-hidden rounded-md border border-gray-200">
+                              <video
+                                src={`/api/files/anhang/${a.id}`}
+                                controls
+                                preload="metadata"
+                                className="h-24 w-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <a
+                              key={a.id}
+                              href={`/api/files/anhang/${a.id}`}
+                              target="_blank"
+                              className="block overflow-hidden rounded-md border border-gray-200"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={`/api/files/anhang/${a.id}`}
+                                alt={a.fileName}
+                                className="h-24 w-full object-cover"
+                              />
+                            </a>
+                          )
+                        )}
                       </div>
                     ) : null}
                   </li>
@@ -214,12 +236,12 @@ export default async function TicketDetailPage({
                   className={inputClass}
                 />
               </Field>
-              <Field label="Fotos anhängen (optional)">
+              <Field label="Fotos / Videos anhängen (optional)">
                 <input
                   type="file"
                   name="photos"
                   multiple
-                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm"
                   className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
                 />
               </Field>

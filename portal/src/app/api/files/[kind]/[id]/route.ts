@@ -50,13 +50,78 @@ export async function GET(
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   }
 
+  const rangeHeader = request.headers.get("range");
+  const disposition = `inline; filename="${encodeURIComponent(file.fileName)}"`;
+  const cacheControl = "private, max-age=300";
+
   try {
+    // Vercel Blob: Range-Header direkt an CDN weiterleiten (kein Buffer im Speicher)
+    if (file.storedName.startsWith("https://")) {
+      const upstream = await fetch(file.storedName, {
+        headers: rangeHeader ? { Range: rangeHeader } : {},
+      });
+      if (!upstream.ok && upstream.status !== 206) {
+        return NextResponse.json({ error: "Datei nicht abrufbar" }, { status: 404 });
+      }
+      const responseHeaders: Record<string, string> = {
+        "Content-Type": file.mimeType,
+        "Content-Disposition": disposition,
+        "Cache-Control": cacheControl,
+        "Accept-Ranges": "bytes",
+      };
+      const cr = upstream.headers.get("Content-Range");
+      const cl = upstream.headers.get("Content-Length");
+      if (cr) responseHeaders["Content-Range"] = cr;
+      if (cl) responseHeaders["Content-Length"] = cl;
+
+      return new NextResponse(upstream.body, {
+        status: upstream.status,
+        headers: responseHeaders,
+      });
+    }
+
+    // Lokaler Speicher: Buffer einlesen und ggf. slicen
     const data = await readUpload(file.storedName);
+    const totalSize = data.length;
+
+    if (rangeHeader) {
+      const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
+      if (!match) {
+        return new NextResponse(null, {
+          status: 416,
+          headers: { "Content-Range": `bytes */${totalSize}` },
+        });
+      }
+      const start = match[1] !== "" ? parseInt(match[1], 10) : totalSize - parseInt(match[2], 10);
+      const end = match[2] !== "" ? parseInt(match[2], 10) : totalSize - 1;
+
+      if (isNaN(start) || start >= totalSize) {
+        return new NextResponse(null, {
+          status: 416,
+          headers: { "Content-Range": `bytes */${totalSize}` },
+        });
+      }
+      const clampedEnd = Math.min(end, totalSize - 1);
+      return new NextResponse(new Uint8Array(data.buffer, start, clampedEnd - start + 1), {
+        status: 206,
+        headers: {
+          "Content-Type": file.mimeType,
+          "Content-Disposition": disposition,
+          "Cache-Control": cacheControl,
+          "Accept-Ranges": "bytes",
+          "Content-Range": `bytes ${start}-${clampedEnd}/${totalSize}`,
+          "Content-Length": String(clampedEnd - start + 1),
+        },
+      });
+    }
+
     return new NextResponse(new Uint8Array(data), {
       headers: {
         "Content-Type": file.mimeType,
-        "Content-Disposition": `inline; filename="${encodeURIComponent(file.fileName)}"`,
-        "Cache-Control": "private, max-age=300",
+        "Content-Disposition": disposition,
+        "Cache-Control": cacheControl,
+        "Accept-Ranges": "bytes",
+        "Content-Length": String(totalSize),
       },
     });
   } catch {

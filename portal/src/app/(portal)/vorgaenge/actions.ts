@@ -15,7 +15,7 @@ import {
   notifyCreatorStatusChange,
   notifyVerwalterNewTicket,
 } from "@/lib/notify";
-import { IMAGE_TYPES, DOCUMENT_TYPES, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
+import { IMAGE_TYPES, MEDIA_TYPES, DOCUMENT_TYPES, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
 import { requireUser, requireVerwalter } from "@/lib/session";
 import { applyTriage } from "@/lib/triage";
 import {
@@ -51,7 +51,7 @@ async function collectPhotoUploads(formData: FormData, redirectTo: string) {
   const uploads = [];
   for (const file of files) {
     try {
-      uploads.push(await saveUpload(file, IMAGE_TYPES));
+      uploads.push(await saveUpload(file, MEDIA_TYPES));
     } catch {
       redirect(redirectTo);
     }

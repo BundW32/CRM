@@ -466,10 +466,11 @@ export async function generateCertificate(formData: FormData) {
 
   const wohnungAnschrift = `${property.street}, ${unit ? unit.label + ", " : ""}${property.zip} ${property.city}`;
   const wohnungsgeberName = owner?.name ?? "B&W Immobilien Management UG (haftungsbeschränkt)";
-  const wohnungsgeberAnschrift =
-    owner && owner.street && owner.zip && owner.city
-      ? `${owner.street}, ${owner.zip} ${owner.city}`
-      : "c/o B&W Immobilien Management UG, Goethestraße 42, 45964 Gladbeck";
+  const wohnungsgeberStrasse = owner?.street ?? "Goethestraße 42";
+  const wohnungsgeberPlzOrt = owner?.zip && owner?.city ? `${owner.zip} ${owner.city}` : "45964 Gladbeck";
+  const wohnungStrasse = property.street;
+  const wohnungPlzOrt = `${property.zip} ${property.city}`;
+  const wohnungZusatz = unit?.label ?? "";
   const unterzeichner = owner?.name ?? "B&W Immobilien Management UG";
 
   // Unterschrift (Eigentümer bevorzugt, sonst Verwalter)
@@ -478,10 +479,16 @@ export async function generateCertificate(formData: FormData) {
   if (sigSource) {
     try {
       const bytes = await readUpload(sigSource);
-      signature = {
-        bytes: new Uint8Array(bytes),
-        mime: sigSource.toLowerCase().includes(".png") ? "image/png" : "image/jpeg",
-      };
+      let sigMime = "image/jpeg";
+      if (sigSource.startsWith("data:")) {
+        const m = sigSource.match(/^data:([^;,]+)/);
+        if (m) sigMime = m[1];
+      } else if (sigSource.toLowerCase().includes(".png")) {
+        sigMime = "image/png";
+      } else if (sigSource.toLowerCase().includes(".webp")) {
+        sigMime = "image/webp";
+      }
+      signature = { bytes: new Uint8Array(bytes), mime: sigMime };
     } catch {
       /* fehlende/ungültige Unterschrift ignorieren */
     }
@@ -494,11 +501,13 @@ export async function generateCertificate(formData: FormData) {
     title = "Wohnungsgeberbescheinigung";
     pdf = await generateWohnungsgeberbescheinigung({
       wohnungsgeberName,
-      wohnungsgeberAnschrift,
-      wohnungAnschrift,
+      wohnungsgeberStrasse,
+      wohnungsgeberPlzOrt,
+      wohnungStrasse,
+      wohnungPlzOrt,
+      wohnungZusatz,
       mieterNamen,
       einzugsdatum: mietbeginn,
-      ort: "Gladbeck",
       ausstellungsdatum,
       unterzeichner,
       signature,

@@ -13,6 +13,7 @@ const DATA_URL_MAX_SIZE = 5 * 1024 * 1024;
 
 export const IMAGE_TYPES = [
   "image/jpeg",
+  "image/jpg", // browser alias for JPEG
   "image/png",
   "image/webp",
   "image/heic",

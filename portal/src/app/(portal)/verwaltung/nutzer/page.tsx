@@ -21,7 +21,8 @@ const errorMessages: Record<string, string> = {
   eingabe: "Bitte alle Pflichtfelder ausfüllen.",
   email: "Diese E-Mail-Adresse ist bereits vergeben.",
   email_fehlt: "Für eine E-Mail-Einladung muss eine E-Mail-Adresse angegeben werden.",
-  signatur: "Die Unterschrift muss ein Bild (PNG/JPG, max. 10 MB) sein.",
+  signatur: "Die Unterschrift muss ein Bild (PNG/JPG) unter 5 MB sein (oder Vercel Blob konfigurieren).",
+  stammdaten: "Fehler beim Speichern – bitte erneut versuchen.",
 };
 
 export default async function UsersPage({
@@ -254,6 +255,7 @@ export default async function UsersPage({
                     {u.role === "EIGENTUEMER" || u.role === "VERWALTER" ? (
                       <form
                         action={uploadStammdaten}
+                        encType="multipart/form-data"
                         className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2"
                       >
                         <input type="hidden" name="id" value={u.id} />

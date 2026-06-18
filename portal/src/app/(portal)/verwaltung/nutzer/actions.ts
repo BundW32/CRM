@@ -41,7 +41,11 @@ export async function uploadStammdaten(formData: FormData) {
   }
   if (signaturFehler) redirect("/verwaltung/nutzer?fehler=signatur");
 
-  await db.user.update({ where: { id }, data });
+  try {
+    await db.user.update({ where: { id }, data });
+  } catch {
+    redirect("/verwaltung/nutzer?fehler=stammdaten");
+  }
   revalidatePath("/verwaltung/nutzer");
   redirect("/verwaltung/nutzer?stammdaten=1");
 }

@@ -30,13 +30,14 @@ export default async function UsersPage({
 }: {
   searchParams: Promise<{
     fehler?: string;
+    msg?: string;
     eingeladen?: string;
     anonymisiert?: string;
     stammdaten?: string;
   }>;
 }) {
   const verwalter = await requireVerwalter();
-  const { fehler, eingeladen, anonymisiert, stammdaten } = await searchParams;
+  const { fehler, msg, eingeladen, anonymisiert, stammdaten } = await searchParams;
 
   const [users, properties] = await Promise.all([
     db.user.findMany({
@@ -71,6 +72,7 @@ export default async function UsersPage({
       {fehler ? (
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {errorMessages[fehler] ?? "Aktion fehlgeschlagen."}
+          {msg ? <span className="mt-1 block text-xs text-red-500">Details: {msg}</span> : null}
         </p>
       ) : null}
 

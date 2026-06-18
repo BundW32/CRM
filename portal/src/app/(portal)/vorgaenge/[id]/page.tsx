@@ -45,11 +45,12 @@ export default async function TicketDetailPage({
     bereitgestellt?: string;
     zugeordnet?: string;
     fehler?: string;
+    msg?: string;
   }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { beauftragt, bereitgestellt, zugeordnet, fehler } = await searchParams;
+  const { beauftragt, bereitgestellt, zugeordnet, fehler, msg } = await searchParams;
 
   const ticket = await db.ticket.findUnique({
     where: { id },
@@ -126,6 +127,13 @@ export default async function TicketDetailPage({
           {fehler === "datei"
             ? "Bitte eine gültige Datei (PDF, Bild oder Video, max. 100 MB) wählen."
             : "Bitte einen Titel für das Dokument angeben."}
+        </p>
+      ) : null}
+      {fehler === "cert" ? (
+        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          Die Bescheinigung konnte nicht automatisch erstellt werden. Bitte prüfen Sie, ob
+          dem Vorgang ein Objekt zugeordnet ist.
+          {msg ? <span className="mt-1 block text-xs text-red-500">Details: {msg}</span> : null}
         </p>
       ) : null}
 

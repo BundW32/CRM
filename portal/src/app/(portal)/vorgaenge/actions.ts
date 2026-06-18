@@ -16,6 +16,7 @@ import {
   notifyVerwalterNewTicket,
 } from "@/lib/notify";
 import { IMAGE_TYPES, MEDIA_TYPES, DOCUMENT_TYPES, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
+import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { requireUser, requireVerwalter } from "@/lib/session";
 import { applyTriage } from "@/lib/triage";
 import {
@@ -432,8 +433,10 @@ export async function uploadRequestedDocument(formData: FormData) {
 
 // Bescheinigung automatisch aus den Stammdaten erstellen und bereitstellen
 export async function generateCertificate(formData: FormData) {
-  const verwalter = await requireVerwalter();
   const ticketId = String(formData.get("ticketId") ?? "");
+  // Äußeres try/catch: konkrete Fehlermeldung statt generischer Fehlerseite.
+  try {
+  const verwalter = await requireVerwalter();
   const ticket = await db.ticket.findUnique({
     where: { id: ticketId },
     include: { createdBy: true, unit: true, property: true },
@@ -526,12 +529,7 @@ export async function generateCertificate(formData: FormData) {
     });
   }
 
-  let upload: Awaited<ReturnType<typeof saveBuffer>>;
-  try {
-    upload = await saveBuffer(pdf, `${title}.pdf`, "application/pdf", ["application/pdf"]);
-  } catch {
-    redirect(`/vorgaenge/${ticketId}?fehler=cert`);
-  }
+  const upload = await saveBuffer(pdf, `${title}.pdf`, "application/pdf", ["application/pdf"]);
 
   await db.document.create({
     data: {
@@ -558,6 +556,10 @@ export async function generateCertificate(formData: FormData) {
   revalidatePath(`/vorgaenge/${ticketId}`);
   revalidatePath("/infos");
   redirect(`/vorgaenge/${ticketId}?bereitgestellt=1`);
+  } catch (e) {
+    if (isNextControlFlowError(e)) throw e; // redirect()/notFound() durchlassen
+    redirect(`/vorgaenge/${ticketId}?fehler=cert&msg=${encodeURIComponent(errorMessage(e))}`);
+  }
 }
 
 // Handwerker melden den Stand ihrer zugewiesenen Aufträge zurück

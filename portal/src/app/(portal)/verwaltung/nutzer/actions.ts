@@ -10,44 +10,42 @@ import { db } from "@/lib/db";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
+import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 
 // Anschrift (Eigentümer = Wohnungsgeber) und Unterschriftsbild für Bescheinigungen
 export async function uploadStammdaten(formData: FormData) {
-  await requireVerwalter();
-  const id = String(formData.get("id") ?? "");
-  const user = await db.user.findUnique({ where: { id } });
-  if (!user) redirect("/verwaltung/nutzer");
+  // Alles in einem äußeren try/catch, damit niemals die generische
+  // „This page couldn't load"-Seite erscheint, sondern eine konkrete Meldung.
+  try {
+    await requireVerwalter();
+    const id = String(formData.get("id") ?? "");
+    const user = await db.user.findUnique({ where: { id } });
+    if (!user) redirect("/verwaltung/nutzer");
 
-  const data: {
-    street: string | null;
-    zip: string | null;
-    city: string | null;
-    signatureStoredName?: string;
-  } = {
-    street: String(formData.get("street") ?? "").trim().slice(0, 200) || null,
-    zip: String(formData.get("zip") ?? "").trim().slice(0, 20) || null,
-    city: String(formData.get("city") ?? "").trim().slice(0, 100) || null,
-  };
+    const data: {
+      street: string | null;
+      zip: string | null;
+      city: string | null;
+      signatureStoredName?: string;
+    } = {
+      street: String(formData.get("street") ?? "").trim().slice(0, 200) || null,
+      zip: String(formData.get("zip") ?? "").trim().slice(0, 20) || null,
+      city: String(formData.get("city") ?? "").trim().slice(0, 100) || null,
+    };
 
-  const file = formData.get("signature");
-  let signaturFehler = false;
-  if (file instanceof File && file.size > 0) {
-    try {
+    const file = formData.get("signature");
+    if (file instanceof File && file.size > 0) {
       const upload = await saveUpload(file, IMAGE_TYPES);
       data.signatureStoredName = upload.storedName;
-    } catch {
-      signaturFehler = true;
     }
-  }
-  if (signaturFehler) redirect("/verwaltung/nutzer?fehler=signatur");
 
-  try {
     await db.user.update({ where: { id }, data });
-  } catch {
-    redirect("/verwaltung/nutzer?fehler=stammdaten");
+    revalidatePath("/verwaltung/nutzer");
+    redirect("/verwaltung/nutzer?stammdaten=1");
+  } catch (e) {
+    if (isNextControlFlowError(e)) throw e; // redirect()/notFound() durchlassen
+    redirect(`/verwaltung/nutzer?fehler=stammdaten&msg=${encodeURIComponent(errorMessage(e))}`);
   }
-  revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer?stammdaten=1");
 }
 
 const userSchema = z.object({

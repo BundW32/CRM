@@ -51,7 +51,11 @@ export async function GET(
   }
 
   const rangeHeader = request.headers.get("range");
-  const disposition = `inline; filename="${encodeURIComponent(file.fileName)}"`;
+  // Content-Disposition mit ASCII-Fallback + RFC-5987-UTF-8-Variante.
+  // Wichtig für mobile Browser (iOS Safari), die PDFs sonst nicht inline öffnen.
+  const asciiName = file.fileName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
+  const utf8Name = encodeURIComponent(file.fileName);
+  const disposition = `inline; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`;
   const cacheControl = "private, max-age=300";
 
   try {

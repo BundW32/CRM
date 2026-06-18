@@ -329,7 +329,7 @@ model Attachment {
   commentId  String?
   comment    TicketComment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
   fileName   String
-  storedName String         @unique
+  storedName String
   mimeType   String
   size       Int
   createdAt  DateTime       @default(now())
@@ -341,7 +341,7 @@ model Document {
   category     DocumentCategory
   audience     Audience
   fileName     String
-  storedName   String           @unique
+  storedName   String
   mimeType     String
   size         Int
   propertyId   String?

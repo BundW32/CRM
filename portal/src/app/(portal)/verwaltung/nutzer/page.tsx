@@ -14,6 +14,7 @@ import {
   toggleUserActive,
   uploadStammdaten,
 } from "./actions";
+import { SignatureInput } from "./signature-input";
 
 export const dynamic = "force-dynamic";
 
@@ -292,12 +293,7 @@ export default async function UsersPage({
                             placeholder="Ort"
                             className={`${inputClass} w-36`}
                           />
-                          <input
-                            type="file"
-                            name="signature"
-                            accept="image/png,image/jpeg"
-                            className="text-xs text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-brand-orange-light file:px-2 file:py-1 file:text-xs file:font-medium file:text-brand-orange-dark"
-                          />
+                          <SignatureInput inputClassName="text-xs text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-brand-orange-light file:px-2 file:py-1 file:text-xs file:font-medium file:text-brand-orange-dark" />
                           <button
                             type="submit"
                             className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"

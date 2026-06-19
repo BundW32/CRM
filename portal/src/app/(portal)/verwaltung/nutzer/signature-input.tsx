@@ -12,8 +12,8 @@ import { useRef, useState } from "react";
 
 const MAX_DIMENSION = 1400; // längste Kante in Pixeln (Verarbeitungsauflösung)
 // Helligkeitsschwellen für das Freistellen (0 = schwarz, 255 = weiß):
-const BG_THRESHOLD = 165; // heller als dies -> Hintergrund (transparent)
-const INK_THRESHOLD = 95; // dunkler als dies -> Tinte (deckend)
+const BG_THRESHOLD = 215; // heller als dies -> Hintergrund (transparent)
+const INK_THRESHOLD = 120; // dunkler als dies -> Tinte (deckend)
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {

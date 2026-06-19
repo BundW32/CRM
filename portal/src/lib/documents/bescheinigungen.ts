@@ -401,18 +401,18 @@ export async function generateWohnungsgeberbescheinigung(input: WohnungsgeberInp
       const img = input.signature.mime.includes("png")
         ? await pdf.embedPng(input.signature.bytes)
         : await pdf.embedJpg(input.signature.bytes);
-      const maxW = 130;
-      const maxH = 48;
+      const maxW = 220;
+      const maxH = 70;
       const scale = Math.min(maxW / img.width, maxH / img.height);
       const w = img.width * scale;
       const h = img.height * scale;
       page.drawImage(img, { x: SIG_COL, y: y - h, width: w, height: h });
       y -= h + 4;
     } catch {
-      y -= 48;
+      y -= 70;
     }
   } else {
-    y -= 48;
+    y -= 70;
   }
 
   // Signature underline

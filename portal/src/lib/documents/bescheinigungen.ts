@@ -1,6 +1,7 @@
 // Automatische Erstellung von Standard-Bescheinigungen als PDF (pdf-lib).
 // Inhalte richten sich nach den gesetzlichen Vorgaben (z. B. § 19 BMG).
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import { prepareSignaturePng } from "./signature";
 
 const A4: [number, number] = [595.28, 841.89];
 // Constants for Mietbescheinigung (legacy helper set)
@@ -17,6 +18,28 @@ const HEADERBG = rgb(0.82, 0.82, 0.82);
 const BOXBORDER = rgb(0.38, 0.38, 0.38);
 
 export type SignatureImage = { bytes: Uint8Array; mime: string } | null;
+
+// Bettet eine freigestellte Unterschrift in das PDF ein. Es wird zunächst
+// serverseitig der Hintergrund entfernt (transparentes PNG). Schlägt das fehl,
+// wird das Originalbild verwendet, damit nie eine Unterschrift fehlt.
+async function embedSignature(pdf: PDFDocument, signature: SignatureImage) {
+  if (!signature) return null;
+  try {
+    const prepared = await prepareSignaturePng(signature.bytes);
+    if (prepared) {
+      return await pdf.embedPng(prepared.png);
+    }
+  } catch {
+    /* Freistellen fehlgeschlagen – Originalbild versuchen */
+  }
+  try {
+    return signature.mime.includes("png")
+      ? await pdf.embedPng(signature.bytes)
+      : await pdf.embedJpg(signature.bytes);
+  } catch {
+    return null;
+  }
+}
 
 // Welche Bescheinigung lässt sich aus dem Anforderungstitel automatisch erstellen?
 export function supportedCertificate(title: string): "wohnungsgeber" | "miet" | null {
@@ -68,18 +91,15 @@ async function drawSignature(
   unterzeichner: string
 ) {
   space(ctx, 24);
-  if (signature) {
-    try {
-      const img = signature.mime.includes("png")
-        ? await pdf.embedPng(signature.bytes)
-        : await pdf.embedJpg(signature.bytes);
-      const w = 140;
-      const h = (img.height / img.width) * w;
-      ctx.page.drawImage(img, { x: MARGIN, y: ctx.y - h + 14, width: w, height: h });
-      ctx.y -= h;
-    } catch {
-      /* ungültiges Bild ignorieren */
-    }
+  const img = await embedSignature(pdf, signature);
+  if (img) {
+    const maxW = 200;
+    const maxH = 70;
+    const scale = Math.min(maxW / img.width, maxH / img.height);
+    const w = img.width * scale;
+    const h = img.height * scale;
+    ctx.page.drawImage(img, { x: MARGIN, y: ctx.y - h + 14, width: w, height: h });
+    ctx.y -= h;
   } else {
     space(ctx, 28);
   }
@@ -396,21 +416,15 @@ export async function generateWohnungsgeberbescheinigung(input: WohnungsgeberInp
   y -= 5;
 
   // Signature image
-  if (input.signature) {
-    try {
-      const img = input.signature.mime.includes("png")
-        ? await pdf.embedPng(input.signature.bytes)
-        : await pdf.embedJpg(input.signature.bytes);
-      const maxW = 220;
-      const maxH = 70;
-      const scale = Math.min(maxW / img.width, maxH / img.height);
-      const w = img.width * scale;
-      const h = img.height * scale;
-      page.drawImage(img, { x: SIG_COL, y: y - h, width: w, height: h });
-      y -= h + 4;
-    } catch {
-      y -= 70;
-    }
+  const sigImg = await embedSignature(pdf, input.signature);
+  if (sigImg) {
+    const maxW = ML + CW - SIG_COL; // gesamte rechte Spaltenbreite
+    const maxH = 70;
+    const scale = Math.min(maxW / sigImg.width, maxH / sigImg.height);
+    const w = sigImg.width * scale;
+    const h = sigImg.height * scale;
+    page.drawImage(sigImg, { x: SIG_COL, y: y - h, width: w, height: h });
+    y -= h + 4;
   } else {
     y -= 70;
   }

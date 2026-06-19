@@ -212,13 +212,22 @@ async function DokumenteTab({ user, isVerwalter }: { user: User; isVerwalter: bo
                         · {formatDate(doc.createdAt)} · {formatBytes(doc.size)}
                       </span>
                     </a>
-                    <a
-                      href={`/api/files/dokument/${doc.id}`}
-                      target="_blank"
-                      className="shrink-0 text-sm text-brand-green"
-                    >
-                      Öffnen →
-                    </a>
+                    <span className="flex shrink-0 items-center gap-3">
+                      <a
+                        href={`/api/files/dokument/${doc.id}`}
+                        target="_blank"
+                        className="text-sm text-brand-green"
+                      >
+                        Öffnen →
+                      </a>
+                      {/* Direkter Download – funktioniert zuverlässig auch auf dem Handy */}
+                      <a
+                        href={`/api/files/dokument/${doc.id}?download=1`}
+                        className="text-sm text-gray-500 hover:text-brand-green"
+                      >
+                        Herunterladen
+                      </a>
+                    </span>
                   </div>
                   <div className="mt-2">
                     {isVerwalter ? (

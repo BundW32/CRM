@@ -51,11 +51,16 @@ export async function GET(
   }
 
   const rangeHeader = request.headers.get("range");
+  // ?download=1 erzwingt das Herunterladen (Content-Disposition: attachment).
+  // Wichtig für mobile Browser, die ein PDF sonst nicht inline öffnen, sondern
+  // nur eine leere Seite/„Link" zeigen – als Download lässt es sich überall
+  // mit dem PDF-Betrachter des Geräts öffnen.
+  const forceDownload = new URL(request.url).searchParams.get("download") === "1";
   // Content-Disposition mit ASCII-Fallback + RFC-5987-UTF-8-Variante.
-  // Wichtig für mobile Browser (iOS Safari), die PDFs sonst nicht inline öffnen.
   const asciiName = file.fileName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
   const utf8Name = encodeURIComponent(file.fileName);
-  const disposition = `inline; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`;
+  const dispositionType = forceDownload ? "attachment" : "inline";
+  const disposition = `${dispositionType}; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`;
   const cacheControl = "private, max-age=300";
 
   try {

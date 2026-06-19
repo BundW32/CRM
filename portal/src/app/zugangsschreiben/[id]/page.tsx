@@ -77,7 +77,7 @@ export default async function ZugangsschreibenPage({
 
         {/* Anschriftfeld */}
         <div className="mb-10 text-sm text-gray-800">
-          <p className="font-medium">{user.name}</p>
+          <p className="font-medium">{user.salutation ? `${user.salutation} ` : ""}{user.name}</p>
           {objekt ? (
             <>
               <p>
@@ -100,7 +100,13 @@ export default async function ZugangsschreibenPage({
         </h1>
 
         <div className="space-y-4 text-sm leading-relaxed text-gray-800">
-          <p>Sehr geehrte/r {user.name},</p>
+          <p>
+            {user.salutation === "Herr"
+              ? `Sehr geehrter Herr ${user.lastName ?? user.name},`
+              : user.salutation === "Frau"
+              ? `Sehr geehrte Frau ${user.lastName ?? user.name},`
+              : `Guten Tag ${user.name},`}
+          </p>
           <p>
             ab sofort steht Ihnen unser Kundenportal zur Verfügung. Dort können Sie
             {user.role === "MIETER"

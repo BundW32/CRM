@@ -49,7 +49,9 @@ export async function uploadStammdaten(formData: FormData) {
 }
 
 const userSchema = z.object({
-  name: z.string().trim().min(2).max(200),
+  firstName: z.string().trim().min(1).max(100),
+  lastName: z.string().trim().min(1).max(100),
+  salutation: z.string().trim().optional(),
   email: z.string().trim().toLowerCase().email().optional().or(z.literal("")),
   role: z.enum(["VERWALTER", "EIGENTUEMER", "MIETER", "HANDWERKER"]),
   phone: z.string().trim().max(50).optional(),
@@ -81,7 +83,9 @@ export async function createUser(formData: FormData) {
   await requireVerwalter();
 
   const parsed = userSchema.safeParse({
-    name: formData.get("name"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    salutation: formData.get("salutation") || undefined,
     email: formData.get("email") || undefined,
     role: formData.get("role"),
     phone: formData.get("phone") || undefined,
@@ -95,6 +99,7 @@ export async function createUser(formData: FormData) {
   }
 
   const email = parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null;
+  const name = `${parsed.data.firstName} ${parsed.data.lastName}`.trim();
 
   // E-Mail-Einladung setzt eine E-Mail-Adresse voraus
   if (parsed.data.method === "email" && !email) {
@@ -115,7 +120,10 @@ export async function createUser(formData: FormData) {
 
     const user = await db.user.create({
       data: {
-        name: parsed.data.name,
+        name,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        salutation: parsed.data.salutation || null,
         email,
         phone: parsed.data.phone,
         preferredContact: pcOrNull(parsed.data.preferredContact),
@@ -128,10 +136,16 @@ export async function createUser(formData: FormData) {
     await assignRole(user.id, parsed.data.role, parsed.data.unitId, parsed.data.propertyId);
 
     const link = portalUrl(`/login/reset/${inviteToken}?einladung=1`);
+    const greeting =
+      parsed.data.salutation === "Herr"
+        ? `Sehr geehrter Herr ${parsed.data.lastName},`
+        : parsed.data.salutation === "Frau"
+        ? `Sehr geehrte Frau ${parsed.data.lastName},`
+        : `Guten Tag ${name},`;
     await sendMail(
       email!,
       "Ihr Zugang zum B&W Kundenportal",
-      `Guten Tag ${user.name},\n\n` +
+      `${greeting}\n\n` +
         `Sie wurden zum Kundenportal der B&W Immobilien Management UG eingeladen.\n\n` +
         `Klicken Sie auf folgenden Link, um Ihren Zugang einzurichten (gültig 7 Tage):\n` +
         `${link}\n\n` +
@@ -146,11 +160,14 @@ export async function createUser(formData: FormData) {
   // ── Variante B: Zugangsschreiben zum Ausdrucken ───────────────────
   // Erst-Passwort wird generiert, muss bei der ersten Anmeldung geändert werden.
   const tempPassword = generatePassword(10);
-  const username = email ? null : await generateUsername(parsed.data.name);
+  const username = email ? null : await generateUsername(name);
 
   const user = await db.user.create({
     data: {
-      name: parsed.data.name,
+      name,
+      firstName: parsed.data.firstName,
+      lastName: parsed.data.lastName,
+      salutation: parsed.data.salutation || null,
       email,
       username,
       phone: parsed.data.phone,
@@ -184,6 +201,9 @@ export async function anonymizeUser(formData: FormData) {
       where: { id },
       data: {
         name: "Gelöschter Nutzer",
+        firstName: null,
+        lastName: null,
+        salutation: null,
         email: null,
         username: null,
         phone: null,

@@ -122,6 +122,9 @@ model User {
   username            String?         @unique
   passwordHash        String
   name                String
+  firstName           String?    // Vorname
+  lastName            String?    // Nachname
+  salutation          String?    // "Herr" oder "Frau"
   phone               String?
   role                Role
   active              Boolean         @default(true)

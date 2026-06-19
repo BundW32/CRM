@@ -94,7 +94,7 @@ export default async function UsersPage({
                   >
                     <span>
                       <span className="block text-sm font-medium text-gray-900">
-                        {u.name}
+                        {u.salutation ? `${u.salutation} ` : ""}{u.name}
                         <span className="ml-2 rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-medium text-brand-orange-dark">
                           {roleLabels[u.role]}
                         </span>
@@ -321,7 +321,15 @@ export default async function UsersPage({
         <Card title="Neuen Nutzer anlegen">
           <form action={createUser} className="space-y-3">
             <Field label="Name">
-              <input type="text" name="name" required minLength={2} className={inputClass} />
+              <div className="flex flex-wrap gap-2">
+                <select name="salutation" className={`${inputClass} w-24`} defaultValue="">
+                  <option value="">Anrede</option>
+                  <option value="Herr">Herr</option>
+                  <option value="Frau">Frau</option>
+                </select>
+                <input type="text" name="firstName" required placeholder="Vorname" className={`${inputClass} flex-1`} />
+                <input type="text" name="lastName" required placeholder="Nachname" className={`${inputClass} flex-1`} />
+              </div>
             </Field>
             <Field label="Zugang per">
               <select name="method" required className={inputClass} defaultValue="email">

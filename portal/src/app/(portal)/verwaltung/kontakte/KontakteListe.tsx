@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, inputClass } from "@/components/ui";
 import { contactMethodLabels, tradeLabels } from "@/lib/labels";
-import { portalUrl } from "@/lib/mailer";
+import { portalUrl } from "@/lib/url";
 import {
   deleteCraftsman,
   toggleCraftsmanActive,

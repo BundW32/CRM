@@ -1,6 +1,7 @@
 // E-Mail-Versand über SMTP. Ohne SMTP_HOST ist der Versand deaktiviert —
 // alle Aufrufer dürfen den Versand daher nie als gegeben voraussetzen.
 import nodemailer from "nodemailer";
+export { portalUrl } from "./url";
 
 function transport() {
   if (!process.env.SMTP_HOST) return null;
@@ -12,11 +13,6 @@ function transport() {
       ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
       : undefined,
   });
-}
-
-export function portalUrl(path: string) {
-  const base = process.env.PORTAL_BASE_URL ?? "http://localhost:3000";
-  return base.replace(/\/$/, "") + path;
 }
 
 function escapeHtml(s: string) {

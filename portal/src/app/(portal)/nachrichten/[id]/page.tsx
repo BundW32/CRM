@@ -70,7 +70,7 @@ export default async function ConversationPage({
           <Field label="Antworten">
             <textarea name="body" required minLength={1} maxLength={5000} rows={3} className={inputClass} />
           </Field>
-          <SubmitButton>Senden</SubmitButton>
+          <SubmitButton pendingLabel="Wird gesendet…">Senden</SubmitButton>
         </form>
       </Card>
 

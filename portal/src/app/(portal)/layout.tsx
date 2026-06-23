@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { InstallHint } from "@/components/install-hint";
+import { NavProgress } from "@/components/nav-progress";
 import { PageTransition } from "@/components/page-transition";
 import { PortalHeader } from "@/components/portal-header";
 import { ownsWegProperty } from "@/lib/access";
@@ -51,6 +52,7 @@ export default async function PortalLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
+      <NavProgress />
       <PortalHeader nav={nav} userName={user.name} roleLabel={roleLabels[user.role]} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
         <PageTransition>{children}</PageTransition>

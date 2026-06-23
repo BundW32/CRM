@@ -132,7 +132,7 @@ export default async function NachrichtenPage({
             <Field label="Nachricht">
               <textarea name="body" required minLength={1} maxLength={5000} rows={5} className={inputClass} />
             </Field>
-            <SubmitButton>Senden</SubmitButton>
+            <SubmitButton pendingLabel="Wird gesendet…">Senden</SubmitButton>
           </form>
         </Card>
       </div>

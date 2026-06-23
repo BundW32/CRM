@@ -73,21 +73,22 @@ export async function PropertyStats({
           const numVal = parseInt(k.value, 10);
           const isNum = !isNaN(numVal) && !k.value.includes(" ") && !k.value.includes("%");
           const display = isNum ? <CountUp value={numVal} /> : k.value;
-          return (
-            <div
-              key={k.label}
-              className="rounded-md bg-gray-50 p-3 text-center transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <p className="text-xl font-semibold text-gray-900">
-                {k.link ? (
-                  <a href={k.link} className="hover:underline">
-                    {display}
-                  </a>
-                ) : (
-                  display
-                )}
-              </p>
+          const tileClass =
+            "rounded-md bg-gray-50 p-3 text-center transition-all hover:-translate-y-0.5 hover:shadow-md" +
+            (k.link ? " cursor-pointer hover:bg-orange-50" : "");
+          const inner = (
+            <>
+              <p className="text-xl font-semibold text-gray-900">{display}</p>
               <p className="text-xs text-gray-500">{k.label}</p>
+            </>
+          );
+          return k.link ? (
+            <a key={k.label} href={k.link} className={tileClass}>
+              {inner}
+            </a>
+          ) : (
+            <div key={k.label} className={tileClass}>
+              {inner}
             </div>
           );
         })}

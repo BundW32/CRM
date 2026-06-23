@@ -32,6 +32,11 @@ const tiles = [
     title: "Wartung",
     desc: "Wiederkehrende Wartungen & Prüfungen mit Fälligkeit",
   },
+  {
+    href: "/verwaltung/notizen",
+    title: "Notizen",
+    desc: "Interne Notizen zu Objekten, Einheiten und Personen",
+  },
 ];
 
 export default async function VerwaltungPage() {

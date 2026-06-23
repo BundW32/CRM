@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
+import { createHandoverPdf } from "@/lib/handover";
 
 export async function finalizeHandover(formData: FormData) {
   await requireVerwalter();
@@ -20,6 +21,9 @@ export async function finalizeHandover(formData: FormData) {
       status: "ABGESCHLOSSEN",
     },
   });
+
+  // PDF direkt beim Abschließen erzeugen (mit eingebetteten Unterschriften).
+  await createHandoverPdf(id);
 
   redirect(`/uebergabe/${id}/abschluss`);
 }

@@ -44,6 +44,19 @@ export async function GET(
       where: { id, AND: await documentWhereForUser(user) },
     });
     if (document) file = document;
+  } else if (kind === "handover-photo" && user?.role === "VERWALTER") {
+    const photo = await db.handoverPhoto.findUnique({ where: { id } });
+    if (photo) file = photo;
+  } else if (kind === "handover-meter" && user?.role === "VERWALTER") {
+    const meter = await db.handoverMeter.findUnique({ where: { id } });
+    if (meter?.photoStoredName) {
+      file = { storedName: meter.photoStoredName, fileName: `zaehler-${id}.jpg`, mimeType: "image/jpeg" };
+    }
+  } else if (kind === "handover-pdf" && user?.role === "VERWALTER") {
+    const handover = await db.handover.findUnique({ where: { id } });
+    if (handover?.pdfStoredName) {
+      file = { storedName: handover.pdfStoredName, fileName: `uebergabeprotokoll-${id}.pdf`, mimeType: "application/pdf" };
+    }
   }
 
   if (!file) {

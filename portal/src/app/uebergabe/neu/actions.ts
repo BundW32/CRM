@@ -2,10 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/session";
+import { requireVerwalter } from "@/lib/session";
 
 export async function createHandover(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireVerwalter();
   const unitId = String(formData.get("unitId") ?? "").trim();
   const type = String(formData.get("type") ?? "EINZUG") as "EINZUG" | "AUSZUG" | "ZWISCHENZUSTAND";
   const dateStr = String(formData.get("handoverDate") ?? "");

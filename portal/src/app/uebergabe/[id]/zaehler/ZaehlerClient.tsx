@@ -110,7 +110,7 @@ export function ZaehlerClient({ handoverId, initialMeters }: { handoverId: strin
             <div className="mt-4">
               {meter.photoStoredName && (
                 <img
-                  src={meter.photoStoredName.startsWith("data:") || meter.photoStoredName.startsWith("http") ? meter.photoStoredName : `/api/uploads/${meter.photoStoredName}`}
+                  src={`/api/files/handover-meter/${meter.id}`}
                   alt="Zählerfoto"
                   className="mb-2 h-24 rounded-lg object-cover border border-gray-200"
                 />

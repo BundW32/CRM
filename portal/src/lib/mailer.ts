@@ -78,10 +78,17 @@ export function renderHtml(subject: string, text: string) {
 </html>`;
 }
 
+export type MailAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+};
+
 export async function sendMail(
   to: string | null | undefined,
   subject: string,
-  text: string
+  text: string,
+  attachments?: MailAttachment[]
 ) {
   if (!to) {
     // Zugänge ohne E-Mail-Adresse (Zugangsschreiben) erhalten keine Mails
@@ -99,6 +106,7 @@ export async function sendMail(
       subject,
       text,
       html: renderHtml(subject, text),
+      attachments,
     });
   } catch (error) {
     // Versandfehler dürfen nie eine Nutzeraktion blockieren

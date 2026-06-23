@@ -118,7 +118,7 @@ export function RaeumeClient({ handoverId, initialRooms }: { handoverId: string;
                     {room.photos.map((photo) => (
                       <div key={photo.id} className="relative group">
                         <img
-                          src={photo.storedName.startsWith("data:") || photo.storedName.startsWith("http") ? photo.storedName : `/api/uploads/${photo.storedName}`}
+                          src={`/api/files/handover-photo/${photo.id}`}
                           alt={photo.fileName}
                           className="h-20 w-20 rounded-lg object-cover border border-gray-200"
                         />

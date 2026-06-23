@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
 import { generateHandoverPdf, sendHandoverEmail } from "./actions";
 
@@ -11,11 +11,14 @@ const typeLabels = { EINZUG: "Einzug", AUSZUG: "Auszug", ZWISCHENZUSTAND: "Zwisc
 
 export default async function AbschlussPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ sent?: string }>;
 }) {
   await requireVerwalter();
   const { id } = await params;
+  const { sent } = await searchParams;
 
   const handover = await db.handover.findUnique({
     where: { id },
@@ -29,11 +32,7 @@ export default async function AbschlussPage({
     year: "numeric",
   });
 
-  const pdfUrl = handover.pdfStoredName
-    ? handover.pdfStoredName.startsWith("data:") || handover.pdfStoredName.startsWith("http")
-      ? handover.pdfStoredName
-      : `/api/uploads/${handover.pdfStoredName}`
-    : null;
+  const pdfUrl = handover.pdfStoredName ? `/api/files/handover-pdf/${id}` : null;
 
   // Collect all available email addresses
   const emails: { label: string; email: string }[] = [];
@@ -76,11 +75,10 @@ ${handover.managerName ?? ""}`.trim();
           {pdfUrl ? (
             <div className="flex flex-wrap gap-3 items-center">
               <a
-                href={pdfUrl}
+                href={`${pdfUrl}?download=1`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={buttonClass}
-                download
               >
                 <svg viewBox="0 0 24 24" className="mr-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" strokeLinecap="round" strokeLinejoin="round" />
@@ -110,6 +108,12 @@ ${handover.managerName ?? ""}`.trim();
         {emails.length > 0 && (
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
             <h2 className="font-semibold text-gray-900">Protokoll per E-Mail versenden</h2>
+
+            {sent && (
+              <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">
+                ✓ Protokoll an {sent} Empfänger gesendet.
+              </div>
+            )}
 
             <form action={sendHandoverEmail} className="space-y-4">
               <input type="hidden" name="handoverId" value={id} />

@@ -68,6 +68,17 @@ function fmt(d: Date) {
   return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+// Standard-Fonts (Helvetica) nutzen WinAnsi/Latin-1 und unterstützen damit
+// deutsche Umlaute (ä ö ü ß) direkt. Nur Zeichen außerhalb von Latin-1
+// (z. B. → ✓ Emojis) müssen ersetzt werden, sonst wirft pdf-lib einen Fehler.
+function enc(s: string): string {
+  return s
+    .replace(/→/g, "->") // →
+    .replace(/←/g, "<-") // ←
+    .replace(/✓/g, "x") // ✓
+    .replace(/[Ā-￿]/g, "?"); // alles außerhalb Latin-1 (z. B. Emojis)
+}
+
 class PageWriter {
   private doc: PDFDocument;
   private page: PDFPage;
@@ -98,10 +109,7 @@ class PageWriter {
 
   text(text: string, size = 10, bold = false, color = rgb(0.1, 0.1, 0.1)) {
     this.ensureSpace(this.lineHeight);
-    this.page.drawText(text.replace(/[^\x00-\x7E]/g, (c) => {
-      const map: Record<string, string> = { ä: "ae", ö: "oe", ü: "ue", Ä: "Ae", Ö: "Oe", Ü: "Ue", ß: "ss", "·": "-", "→": "->", "✓": "OK" };
-      return map[c] ?? "?";
-    }), {
+    this.page.drawText(enc(text), {
       x: this.margin,
       y: this.y,
       size,
@@ -125,30 +133,59 @@ class PageWriter {
     this.y -= 4;
   }
 
+  // Bricht Text an Wortgrenzen um, sodass keine Zeile breiter als maxWidth wird.
+  private wrap(text: string, size: number, maxWidth: number, font: PDFFont): string[] {
+    const out: string[] = [];
+    for (const rawLine of text.split(/\r?\n/)) {
+      const words = rawLine.split(/\s+/).filter(Boolean);
+      let cur = "";
+      for (const word of words) {
+        const test = cur ? `${cur} ${word}` : word;
+        if (cur && font.widthOfTextAtSize(test, size) > maxWidth) {
+          out.push(cur);
+          cur = word;
+        } else {
+          cur = test;
+        }
+      }
+      out.push(cur);
+    }
+    return out.length ? out : [""];
+  }
+
+  // Fließtext über die volle Inhaltsbreite (mit Umbruch).
+  paragraph(text: string, size = 9) {
+    const maxWidth = this.pageWidth - this.margin * 2;
+    for (const line of this.wrap(enc(text), size, maxWidth, this.font)) {
+      this.ensureSpace(this.lineHeight);
+      this.page.drawText(line, { x: this.margin, y: this.y, size, font: this.font, color: rgb(0.1, 0.1, 0.1) });
+      this.y -= this.lineHeight;
+    }
+  }
+
   row(label: string, value: string) {
     if (!value) return;
-    this.ensureSpace(this.lineHeight);
-    this.page.drawText(label.replace(/[^\x00-\x7E]/g, (c) => {
-      const map: Record<string, string> = { ä: "ae", ö: "oe", ü: "ue", Ä: "Ae", Ö: "Oe", Ü: "Ue", ß: "ss" };
-      return map[c] ?? "?";
-    }) + ":", {
+    const valueX = this.margin + 150;
+    const maxWidth = this.pageWidth - this.margin - valueX;
+    const lines = this.wrap(enc(value), 9, maxWidth, this.font);
+    this.ensureSpace(this.lineHeight * lines.length);
+    this.page.drawText(enc(label) + ":", {
       x: this.margin,
       y: this.y,
       size: 9,
       font: this.fontBold,
       color: rgb(0.4, 0.4, 0.4),
     });
-    this.page.drawText(value.replace(/[^\x00-\x7E]/g, (c) => {
-      const map: Record<string, string> = { ä: "ae", ö: "oe", ü: "ue", Ä: "Ae", Ö: "Oe", Ü: "Ue", ß: "ss" };
-      return map[c] ?? "?";
-    }), {
-      x: this.margin + 150,
-      y: this.y,
-      size: 9,
-      font: this.font,
-      color: rgb(0.1, 0.1, 0.1),
+    lines.forEach((line, i) => {
+      this.page.drawText(line, {
+        x: valueX,
+        y: this.y - i * this.lineHeight,
+        size: 9,
+        font: this.font,
+        color: rgb(0.1, 0.1, 0.1),
+      });
     });
-    this.y -= this.lineHeight;
+    this.y -= this.lineHeight * lines.length;
   }
 
   space(n = 8) {
@@ -164,8 +201,12 @@ class PageWriter {
       if (!base64) return;
       const bytes = Buffer.from(base64, "base64");
       const img = await this.doc.embedPng(bytes);
-      const sigW = 200;
-      const sigH = 60;
+      // Seitenverhältnis erhalten: auf max. Breite skalieren, Höhe begrenzen.
+      const maxW = 220;
+      const maxH = 80;
+      const scale = Math.min(maxW / img.width, maxH / img.height);
+      const sigW = img.width * scale;
+      const sigH = img.height * scale;
       this.ensureSpace(sigH + 30);
       this.text(label, 9, true);
       this.page.drawImage(img, {
@@ -174,15 +215,13 @@ class PageWriter {
         width: sigW,
         height: sigH,
       });
-      this.page.drawRectangle({
-        x: this.margin,
-        y: this.y - sigH,
-        width: sigW,
-        height: sigH,
-        borderColor: rgb(0.8, 0.8, 0.8),
-        borderWidth: 1,
+      this.page.drawLine({
+        start: { x: this.margin, y: this.y - sigH - 2 },
+        end: { x: this.margin + Math.max(sigW, 180), y: this.y - sigH - 2 },
+        thickness: 0.5,
+        color: rgb(0.7, 0.7, 0.7),
       });
-      this.y -= sigH + 10;
+      this.y -= sigH + 12;
     } catch {
       this.text(`[${label}: Unterschrift konnte nicht eingebettet werden]`, 9);
     }
@@ -199,7 +238,7 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
 
   // Title
   page.drawRectangle({ x: 0, y: 792, width: 595, height: 50, color: rgb(0, 0.21, 0.19) });
-  page.drawText("Wohnungsuebergabeprotokoll", { x: 50, y: 812, size: 16, font: fontBold, color: rgb(1, 1, 1) });
+  page.drawText(enc("Wohnungsübergabeprotokoll"), { x: 50, y: 812, size: 16, font: fontBold, color: rgb(1, 1, 1) });
   w["y"] = 775;
 
   w.space(10);
@@ -282,12 +321,12 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
     w.heading("Anmerkungen & Vereinbarungen");
     if (data.generalNotes) {
       w.text("Allgemeine Anmerkungen:", 9, true);
-      w.text(data.generalNotes.slice(0, 300), 9);
+      w.paragraph(data.generalNotes, 9);
       w.space(4);
     }
     if (data.agreements) {
       w.text("Vereinbarungen:", 9, true);
-      w.text(data.agreements.slice(0, 300), 9);
+      w.paragraph(data.agreements, 9);
     }
   }
 

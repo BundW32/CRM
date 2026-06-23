@@ -37,6 +37,11 @@ const tiles = [
     title: "Notizen",
     desc: "Interne Notizen zu Objekten, Einheiten und Personen",
   },
+  {
+    href: "/uebergabe/neu",
+    title: "Wohnungsübergabe",
+    desc: "Übergabeprotokoll digital erstellen, unterschreiben und als PDF exportieren",
+  },
 ];
 
 export default async function VerwaltungPage() {

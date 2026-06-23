@@ -154,6 +154,7 @@ model User {
   pushSubscriptions   PushSubscription[]
   notesAuthored       Note[]
   notesAbout          Note[]           @relation("NotesAboutUser")
+  handoversCreated    Handover[]       @relation("HandoverCreatedBy")
 }
 
 model Property {
@@ -195,6 +196,7 @@ model Unit {
   documents  Document[]
   meters     Meter[]
   internalNotes Note[]
+  handovers     Handover[]
 }
 
 // Zähler – entweder einer Einheit (unitId) oder dem Objekt allgemein (propertyId)
@@ -448,6 +450,122 @@ model ResolutionVote {
   createdAt    DateTime   @default(now())
 
   @@unique([resolutionId, userId])
+}
+
+// ── Wohnungsübergabe ──────────────────────────────────────────────────────────
+
+enum HandoverType {
+  EINZUG
+  AUSZUG
+  ZWISCHENZUSTAND
+}
+
+enum HandoverStatus {
+  ENTWURF
+  ABGESCHLOSSEN
+}
+
+enum RoomType {
+  WOHNZIMMER
+  SCHLAFZIMMER
+  KINDERZIMMER
+  KUECHE
+  BAD
+  GAESTE_WC
+  FLUR
+  ABSTELLRAUM
+  BALKON
+  TERRASSE
+  KELLER
+  GARAGE
+  BUERO
+  ESSZIMMER
+  GARDEROBE
+  HAUSWIRTSCHAFTSRAUM
+  SONSTIGES
+}
+
+model Handover {
+  id               String         @id @default(cuid())
+  type             HandoverType   @default(EINZUG)
+  status           HandoverStatus @default(ENTWURF)
+  handoverDate     DateTime       @default(now())
+  unitId           String
+  unit             Unit           @relation(fields: [unitId], references: [id])
+  tenantName       String?
+  tenantEmail      String?
+  tenantPhone      String?
+  tenantAddress    String?
+  ownerName        String?
+  ownerEmail       String?
+  ownerPhone       String?
+  managerName      String?
+  managerEmail     String?
+  managerPhone     String?
+  keysApartment    Int?
+  keysMailbox      Int?
+  keysBasement     Int?
+  keysGarage       Int?
+  keysOther        String?
+  parkingSpace     String?
+  cellarSpace      String?
+  generalNotes     String?
+  agreements       String?
+  checklist        Json?
+  tenantSignature  String?
+  managerSignature String?
+  pdfStoredName    String?
+  createdById      String
+  createdBy        User           @relation("HandoverCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  rooms            HandoverRoom[]
+  meters           HandoverMeter[]
+}
+
+model HandoverRoom {
+  id           String        @id @default(cuid())
+  handoverId   String
+  handover     Handover      @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+  name         String
+  roomType     RoomType
+  sortOrder    Int           @default(0)
+  overallNote  String?
+  wallsNote    String?
+  ceilingNote  String?
+  floorNote    String?
+  windowsNote  String?
+  doorsNote    String?
+  heatingNote  String?
+  sanitaryNote String?
+  otherNote    String?
+  photos       HandoverPhoto[]
+}
+
+model HandoverPhoto {
+  id         String        @id @default(cuid())
+  handoverId String
+  roomId     String?
+  room       HandoverRoom? @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  storedName String
+  fileName   String
+  mimeType   String
+  size       Int
+  caption    String?
+  createdAt  DateTime      @default(now())
+}
+
+model HandoverMeter {
+  id              String    @id @default(cuid())
+  handoverId      String
+  handover        Handover  @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+  meterType       MeterType
+  meterNumber     String?
+  reading         String?
+  readingDate     DateTime  @default(now())
+  photoStoredName String?
+  notes           String?
+  sortOrder       Int       @default(0)
 }
 
 // Web-Push-Abonnements (PWA-Benachrichtigungen)

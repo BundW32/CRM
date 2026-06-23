@@ -13,7 +13,6 @@ const navByRole = {
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
     { href: "/zaehler", label: "Zähler" },
-    { href: "/konto", label: "Konto" },
   ],
   EIGENTUEMER: [
     { href: "/dashboard", label: "Übersicht" },
@@ -22,7 +21,6 @@ const navByRole = {
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
     { href: "/zaehler", label: "Zähler" },
-    { href: "/konto", label: "Konto" },
   ],
   VERWALTER: [
     { href: "/dashboard", label: "Übersicht" },
@@ -32,12 +30,10 @@ const navByRole = {
     { href: "/zaehler", label: "Zähler" },
     { href: "/beschluesse", label: "Beschlüsse" },
     { href: "/verwaltung", label: "Verwaltung" },
-    { href: "/konto", label: "Konto" },
   ],
   HANDWERKER: [
     { href: "/dashboard", label: "Übersicht" },
     { href: "/vorgaenge", label: "Meine Aufträge" },
-    { href: "/konto", label: "Konto" },
   ],
 } as const;
 

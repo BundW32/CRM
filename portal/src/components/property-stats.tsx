@@ -50,11 +50,19 @@ export async function PropertyStats({
       : null;
 
   const kpis = [
-    { label: "Einheiten", value: String(unitCount) },
-    { label: "Vermietungsquote", value: occupancy !== null ? `${occupancy} %` : "–" },
-    { label: "Offene Vorgänge", value: String(openTickets) },
-    { label: "Vorgänge gesamt", value: String(totalTickets) },
-    { label: "Ø Bearbeitungszeit", value: avgDays !== null ? `${avgDays} Tage` : "–" },
+    { label: "Einheiten", value: String(unitCount), link: null },
+    { label: "Vermietungsquote", value: occupancy !== null ? `${occupancy} %` : "–", link: null },
+    {
+      label: "Offene Vorgänge",
+      value: String(openTickets),
+      link: `/vorgaenge?propertyId=${propertyId}`,
+    },
+    {
+      label: "Vorgänge gesamt",
+      value: String(totalTickets),
+      link: `/vorgaenge?propertyId=${propertyId}`,
+    },
+    { label: "Ø Bearbeitungszeit", value: avgDays !== null ? `${avgDays} Tage` : "–", link: null },
   ];
 
   return (
@@ -62,7 +70,15 @@ export async function PropertyStats({
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {kpis.map((k) => (
           <div key={k.label} className="rounded-md bg-gray-50 p-3 text-center">
-            <p className="text-xl font-semibold text-gray-900">{k.value}</p>
+            <p className="text-xl font-semibold text-gray-900">
+              {k.link ? (
+                <a href={k.link} className="hover:underline">
+                  {k.value}
+                </a>
+              ) : (
+                k.value
+              )}
+            </p>
             <p className="text-xs text-gray-500">{k.label}</p>
           </div>
         ))}
@@ -103,6 +119,15 @@ export async function PropertyStats({
             </ul>
           )}
         </div>
+      </div>
+
+      <div className="mt-4 text-right">
+        <a
+          href={`/vorgaenge?propertyId=${propertyId}`}
+          className="text-sm text-brand-orange hover:underline"
+        >
+          Alle Vorgänge →
+        </a>
       </div>
     </Card>
   );

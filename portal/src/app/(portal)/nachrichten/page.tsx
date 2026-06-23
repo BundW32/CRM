@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
-import { formatDate, roleLabels } from "@/lib/labels";
+import { formatDate } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 import { startConversation } from "./actions";
+import { EmpfaengerSelect } from "./EmpfaengerSelect";
+import type { RecipientRow } from "./EmpfaengerSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +32,33 @@ export default async function NachrichtenPage({
     },
   });
 
-  const recipients = isVerwalter
-    ? await db.user.findMany({
-        where: { role: { in: ["MIETER", "EIGENTUEMER"] }, active: true },
-        orderBy: [{ role: "asc" }, { name: "asc" }],
-      })
-    : [];
+  let recipients: RecipientRow[] = [];
+  if (isVerwalter) {
+    const raw = await db.user.findMany({
+      where: { role: { in: ["MIETER", "EIGENTUEMER"] }, active: true },
+      orderBy: [{ role: "asc" }, { name: "asc" }],
+      include: {
+        tenancies: {
+          where: { active: true },
+          include: { unit: { include: { property: true } } },
+          take: 1,
+        },
+        ownerships: {
+          include: { property: true },
+          take: 1,
+        },
+      },
+    });
+    recipients = raw.map((r) => ({
+      id: r.id,
+      name: r.name,
+      role: r.role as "MIETER" | "EIGENTUEMER",
+      propertyName:
+        r.tenancies[0]?.unit.property.name ??
+        r.ownerships[0]?.property.name ??
+        null,
+    }));
+  }
 
   return (
     <>
@@ -99,16 +122,7 @@ export default async function NachrichtenPage({
           <form action={startConversation} className="space-y-3">
             {isVerwalter ? (
               <Field label="Empfänger">
-                <select name="recipientId" required className={inputClass} defaultValue="">
-                  <option value="" disabled>
-                    – bitte wählen –
-                  </option>
-                  {recipients.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} ({roleLabels[r.role]})
-                    </option>
-                  ))}
-                </select>
+                <EmpfaengerSelect recipients={recipients} />
               </Field>
             ) : null}
             <Field label="Betreff">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { SubmitButton } from "@/components/submit-button";
 import { Field, buttonClass, inputClass } from "@/components/ui";
 import { requestableDocuments, ticketTypeLabels, tradeLabels } from "@/lib/labels";
 import type { TicketTarget } from "@/lib/access";
@@ -197,9 +198,7 @@ export function NeuerVorgangForm({ targets }: { targets: TicketTarget[] }) {
         </>
       )}
 
-      <button type="submit" className={buttonClass}>
-        {isDoc ? "Dokument anfordern" : "Vorgang absenden"}
-      </button>
+      <SubmitButton>{isDoc ? "Dokument anfordern" : "Vorgang absenden"}</SubmitButton>
     </form>
   );
 }

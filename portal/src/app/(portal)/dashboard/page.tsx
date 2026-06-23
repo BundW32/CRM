@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { User } from "@/generated/prisma/client";
+import { CountUp } from "@/components/count-up";
 import { PropertyStats } from "@/components/property-stats";
 import { Card, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
 import {
@@ -61,7 +62,7 @@ export default async function DashboardPage() {
                   <li key={ticket.id}>
                     <Link
                       href={`/vorgaenge/${ticket.id}`}
-                      className="flex flex-wrap items-center justify-between gap-2 py-3 hover:bg-gray-50"
+                      className="flex flex-wrap items-center justify-between gap-2 py-3 transition-all hover:bg-gray-50 hover:-translate-y-px"
                     >
                       <span>
                         <span className="block text-sm font-medium text-gray-900">
@@ -154,7 +155,7 @@ async function VerwalterStats() {
           className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
         >
           <span className="absolute inset-x-0 top-0 h-1 bg-brand-orange" />
-          <p className="text-3xl font-bold tracking-tight text-brand-green">{s.value}</p>
+          <p className="text-3xl font-bold tracking-tight text-brand-green"><CountUp value={s.value} /></p>
           <p className="mt-1 text-xs font-medium text-gray-500">{s.label}</p>
         </div>
       ))}

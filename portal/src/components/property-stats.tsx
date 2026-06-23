@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui";
+import { CountUp } from "@/components/count-up";
 import { db } from "@/lib/db";
 import { ticketStatusLabels, tradeLabels } from "@/lib/labels";
 
@@ -68,20 +69,28 @@ export async function PropertyStats({
   return (
     <Card title={name}>
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {kpis.map((k) => (
-          <div key={k.label} className="rounded-md bg-gray-50 p-3 text-center">
-            <p className="text-xl font-semibold text-gray-900">
-              {k.link ? (
-                <a href={k.link} className="hover:underline">
-                  {k.value}
-                </a>
-              ) : (
-                k.value
-              )}
-            </p>
-            <p className="text-xs text-gray-500">{k.label}</p>
-          </div>
-        ))}
+        {kpis.map((k) => {
+          const numVal = parseInt(k.value, 10);
+          const isNum = !isNaN(numVal) && !k.value.includes(" ") && !k.value.includes("%");
+          const display = isNum ? <CountUp value={numVal} /> : k.value;
+          return (
+            <div
+              key={k.label}
+              className="rounded-md bg-gray-50 p-3 text-center transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <p className="text-xl font-semibold text-gray-900">
+                {k.link ? (
+                  <a href={k.link} className="hover:underline">
+                    {display}
+                  </a>
+                ) : (
+                  display
+                )}
+              </p>
+              <p className="text-xs text-gray-500">{k.label}</p>
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

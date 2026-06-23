@@ -133,7 +133,7 @@ export default async function TicketsPage({
               <li key={ticket.id}>
                 <Link
                   href={`/vorgaenge/${ticket.id}`}
-                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-gray-50"
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 transition-all hover:bg-gray-50 hover:-translate-y-px"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-gray-900">

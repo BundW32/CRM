@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { InstallHint } from "@/components/install-hint";
+import { PageTransition } from "@/components/page-transition";
 import { PortalHeader } from "@/components/portal-header";
 import { ownsWegProperty } from "@/lib/access";
 import { roleLabels } from "@/lib/labels";
@@ -51,7 +52,9 @@ export default async function PortalLayout({
   return (
     <div className="flex min-h-screen flex-col">
       <PortalHeader nav={nav} userName={user.name} roleLabel={roleLabels[user.role]} />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+        <PageTransition>{children}</PageTransition>
+      </main>
       <footer className="mt-4 px-4 py-6 text-center text-xs text-gray-400">
         B&amp;W Immobilien Management UG (haftungsbeschränkt) · Goethestraße 42,
         45964 Gladbeck ·{" "}

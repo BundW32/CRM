@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
+import { Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
@@ -131,9 +132,7 @@ export default async function NachrichtenPage({
             <Field label="Nachricht">
               <textarea name="body" required minLength={1} maxLength={5000} rows={5} className={inputClass} />
             </Field>
-            <button type="submit" className={buttonClass}>
-              Senden
-            </button>
+            <SubmitButton>Senden</SubmitButton>
           </form>
         </Card>
       </div>

@@ -70,7 +70,7 @@ export function PortalHeader({
                   onClick={() => setUserMenuOpen(false)}
                   className="fixed inset-0 z-30 cursor-default"
                 />
-                <div className="absolute right-0 top-full z-40 mt-2 w-44 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-2xl">
+                <div className="absolute right-0 top-full z-40 mt-2 w-44 animate-slide-down rounded-2xl border border-gray-200 bg-white p-1.5 shadow-2xl">
                   <Link
                     href="/konto"
                     onClick={() => setUserMenuOpen(false)}
@@ -124,7 +124,7 @@ export function PortalHeader({
               onClick={() => setMenuOpen(false)}
               className="fixed inset-0 z-30 cursor-default md:hidden"
             />
-            <div className="absolute inset-x-0 top-full z-40 mt-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-2xl md:hidden">
+            <div className="absolute inset-x-0 top-full z-40 mt-2 animate-slide-down rounded-2xl border border-gray-200 bg-white p-2 shadow-2xl md:hidden">
               <p className="px-3 py-2 text-xs text-gray-500">
                 Angemeldet als <span className="font-medium text-gray-700">{userName}</span> ·{" "}
                 {roleLabel}

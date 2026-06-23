@@ -13,6 +13,57 @@
   --color-shell: #1a1512;
   --color-shell-2: #241d18;
   --color-shell-3: #2f2620;
+
+  /* ── Micro-Interaction Animations ── */
+  --animate-page-in: pageIn 0.22s ease-out;
+  --animate-slide-down: slideDown 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-right: slideRight 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-fade-in: fadeIn 0.18s ease-out;
+  --animate-toast-in: toastIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-toast-out: toastOut 0.2s ease-in forwards;
+  --animate-spin-once: spinOnce 0.5s ease-in-out;
+  --animate-check-pop: checkPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(16px) scale(0.96); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to   { opacity: 0; transform: translateX(16px) scale(0.96); }
+}
+
+@keyframes spinOnce {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes checkPop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  60%  { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 html {
@@ -84,5 +135,13 @@ h3 {
   }
   @page {
     margin: 2cm;
+  }
+}
+
+/* Reduzierte Bewegung – Animationen respektvoll deaktivieren */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

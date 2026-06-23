@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   const user = await requireUser();
 
   const ticketWhere = await ticketWhereForUser(user);
-  const [openTickets, latestTickets, announcements] = await Promise.all([
+  const [openTickets, latestTickets, announcements, pinnedNotes] = await Promise.all([
     db.ticket.count({
       where: { ...ticketWhere, status: { notIn: ["ERLEDIGT", "GESCHLOSSEN"] } },
     }),
@@ -35,6 +35,18 @@ export default async function DashboardPage() {
       take: 3,
       include: { property: true },
     }),
+    user.role === "VERWALTER"
+      ? db.note.findMany({
+          where: { pinned: true },
+          orderBy: { updatedAt: "desc" },
+          take: 3,
+          include: {
+            property: true,
+            unit: { include: { property: true } },
+            targetUser: true,
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -88,23 +100,59 @@ export default async function DashboardPage() {
           {user.role === "MIETER" ? <MieterWohnung userId={user.id} /> : null}
         </div>
 
-        <Card title="Aktuelle Aushänge">
-          {announcements.length === 0 ? (
-            <EmptyState>Keine Aushänge vorhanden.</EmptyState>
-          ) : (
-            <ul className="space-y-4">
-              {announcements.map((a) => (
-                <li key={a.id}>
-                  <p className="text-sm font-medium text-gray-900">{a.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {a.property.name} · {formatDate(a.createdAt)}
-                  </p>
-                  <p className="mt-1 line-clamp-3 text-sm text-gray-600">{a.body}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        <div className="space-y-5">
+          <Card title="Aktuelle Aushänge">
+            {announcements.length === 0 ? (
+              <EmptyState>Keine Aushänge vorhanden.</EmptyState>
+            ) : (
+              <ul className="space-y-4">
+                {announcements.map((a) => (
+                  <li key={a.id}>
+                    <p className="text-sm font-medium text-gray-900">{a.title}</p>
+                    <p className="text-xs text-gray-500">
+                      {a.property.name} · {formatDate(a.createdAt)}
+                    </p>
+                    <p className="mt-1 line-clamp-3 text-sm text-gray-600">{a.body}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          {user.role === "VERWALTER" ? (
+            <Card title="Pinnwand">
+              {pinnedNotes.length === 0 ? (
+                <EmptyState>Keine gepinnten Notizen.</EmptyState>
+              ) : (
+                <ul className="space-y-3">
+                  {pinnedNotes.map((note) => {
+                    const contextLabel = note.property
+                      ? note.property.name
+                      : note.unit
+                        ? `${note.unit.label} · ${note.unit.property.name}`
+                        : note.targetUser
+                          ? note.targetUser.name
+                          : null;
+                    return (
+                      <li key={note.id}>
+                        <p className="line-clamp-3 text-sm text-gray-900">{note.body}</p>
+                        {contextLabel ? (
+                          <p className="mt-0.5 text-xs text-gray-400">{contextLabel}</p>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <Link
+                href="/verwaltung/notizen"
+                className="mt-3 inline-block text-sm text-brand-green hover:underline"
+              >
+                Alle Notizen →
+              </Link>
+            </Card>
+          ) : null}
+        </div>
       </div>
 
       {user.role === "VERWALTER" || user.role === "EIGENTUEMER" ? (

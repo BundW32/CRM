@@ -152,6 +152,8 @@ model User {
   resolutionsCreated  Resolution[]     @relation("ResolutionCreatedBy")
   resolutionVotes     ResolutionVote[]
   pushSubscriptions   PushSubscription[]
+  notesAuthored       Note[]
+  notesAbout          Note[]           @relation("NotesAboutUser")
 }
 
 model Property {
@@ -179,6 +181,7 @@ model Property {
   maintenanceTasks MaintenanceTask[]
   resolutions  Resolution[]
   meters       Meter[]
+  internalNotes Note[]
 }
 
 model Unit {
@@ -191,6 +194,7 @@ model Unit {
   tickets    Ticket[]
   documents  Document[]
   meters     Meter[]
+  internalNotes Note[]
 }
 
 // Zähler – entweder einer Einheit (unitId) oder dem Objekt allgemein (propertyId)
@@ -455,4 +459,22 @@ model PushSubscription {
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
+}
+
+// Interne Notizen – nur für Verwalter sichtbar
+model Note {
+  id           String    @id @default(cuid())
+  body         String
+  pinned       Boolean   @default(false)
+  authorId     String
+  author       User      @relation(fields: [authorId], references: [id])
+  // Exactly one target:
+  propertyId   String?
+  property     Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade, map: "Note_propertyId_fkey")
+  unitId       String?
+  unit         Unit?     @relation(fields: [unitId], references: [id], onDelete: Cascade, map: "Note_unitId_fkey")
+  targetUserId String?
+  targetUser   User?     @relation("NotesAboutUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }

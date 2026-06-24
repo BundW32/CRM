@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { buttonClass } from "@/components/ui";
+import { buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
 import { ZaehlerClient } from "./ZaehlerClient";
 
@@ -34,7 +34,10 @@ export default async function ZaehlerPage({
 
         <ZaehlerClient handoverId={id} initialMeters={handover.meters} />
 
-        <div className="flex justify-end pt-2">
+        <div className="flex items-center justify-between gap-3 pt-2">
+          <Link href="/uebergabe" className={buttonSecondaryClass}>
+            Speichern &amp; schließen
+          </Link>
           <Link href={`/uebergabe/${id}/unterschriften`} className={buttonClass}>
             Weiter: Unterschriften →
           </Link>

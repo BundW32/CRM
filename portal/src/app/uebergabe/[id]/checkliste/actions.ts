@@ -21,6 +21,7 @@ export async function saveCheckliste(formData: FormData) {
 
   const generalNotes = String(formData.get("generalNotes") ?? "").trim() || null;
   const agreements = String(formData.get("agreements") ?? "").trim() || null;
+  const action = String(formData.get("_action") ?? "next");
 
   await db.handover.update({
     where: { id },
@@ -31,5 +32,6 @@ export async function saveCheckliste(formData: FormData) {
     },
   });
 
+  if (action === "save") redirect(`/uebergabe`);
   redirect(`/uebergabe/${id}/zaehler`);
 }

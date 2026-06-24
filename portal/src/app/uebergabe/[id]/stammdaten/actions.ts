@@ -19,6 +19,8 @@ export async function saveStammdaten(formData: FormData) {
   };
   const strField = (name: string) => String(formData.get(name) ?? "").trim() || null;
 
+  const action = String(formData.get("_action") ?? "next");
+
   await db.handover.update({
     where: { id },
     data: {
@@ -44,5 +46,6 @@ export async function saveStammdaten(formData: FormData) {
     },
   });
 
+  if (action === "save") redirect(`/uebergabe`);
   redirect(`/uebergabe/${id}/raeume`);
 }

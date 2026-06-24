@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { buttonClass } from "@/components/ui";
+import { buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
 import { RaeumeClient } from "./RaeumeClient";
 
@@ -41,7 +41,10 @@ export default async function RaeumePage({
 
         <RaeumeClient handoverId={id} initialRooms={handover.rooms} />
 
-        <div className="flex justify-end pt-2">
+        <div className="flex items-center justify-between gap-3 pt-2">
+          <Link href="/uebergabe" className={buttonSecondaryClass}>
+            Speichern &amp; schließen
+          </Link>
           <Link href={`/uebergabe/${id}/checkliste`} className={buttonClass}>
             Weiter: Checkliste →
           </Link>

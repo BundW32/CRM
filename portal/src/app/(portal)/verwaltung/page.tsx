@@ -38,7 +38,7 @@ const tiles = [
     desc: "Interne Notizen zu Objekten, Einheiten und Personen",
   },
   {
-    href: "/uebergabe/neu",
+    href: "/uebergabe",
     title: "Wohnungsübergabe",
     desc: "Übergabeprotokoll digital erstellen, unterschreiben und als PDF exportieren",
   },

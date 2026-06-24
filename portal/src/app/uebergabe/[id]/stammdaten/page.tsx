@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { inputClass, buttonClass } from "@/components/ui";
+import { inputClass, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
 import { saveStammdaten } from "./actions";
 import { KeysSection } from "./KeysSection";
@@ -149,8 +149,11 @@ export default async function StammdatenPage({
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <button type="submit" className={buttonClass}>
+          <div className="flex items-center justify-between gap-3">
+            <button type="submit" name="_action" value="save" className={buttonSecondaryClass}>
+              Speichern &amp; schließen
+            </button>
+            <button type="submit" name="_action" value="next" className={buttonClass}>
               Weiter: Räume →
             </button>
           </div>

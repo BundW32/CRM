@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { buttonClass } from "@/components/ui";
+import { buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { saveCheckliste } from "./actions";
 
 type CheckItem = { key: string; label: string };
@@ -149,8 +149,11 @@ export function ChecklisteForm({
           </div>
         </div>
 
-        <div className="flex justify-end">
-          <button type="submit" className={buttonClass}>
+        <div className="flex items-center justify-between gap-3">
+          <button type="submit" name="_action" value="save" className={buttonSecondaryClass}>
+            Speichern &amp; schließen
+          </button>
+          <button type="submit" name="_action" value="next" className={buttonClass}>
             Weiter: Zählerstände →
           </button>
         </div>

@@ -21,7 +21,10 @@ export async function createHandoverPdf(
   });
   if (!handover) return null;
 
-  const buffer = await generateHandoverPdfBuffer(handover);
+  const buffer = await generateHandoverPdfBuffer({
+    ...handover,
+    checklist: (handover.checklist ?? null) as Record<string, string> | null,
+  });
 
   const unitLabel = handover.unit.label.replace(/[^a-zA-Z0-9]/g, "_");
   const dateStr = handover.handoverDate.toISOString().split("T")[0];

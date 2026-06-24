@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { buttonClass } from "@/components/ui";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
-import { saveCheckliste } from "./actions";
+import { ChecklisteForm } from "./ChecklisteForm";
 
 export const dynamic = "force-dynamic";
 
@@ -67,12 +66,6 @@ const CHECKLIST_SECTIONS = [
   },
 ];
 
-const STATE_OPTIONS = [
-  { value: "ok", label: "In Ordnung", color: "text-green-600" },
-  { value: "maengel", label: "Mängel", color: "text-yellow-600" },
-  { value: "na", label: "Nicht vorhanden", color: "text-gray-400" },
-];
-
 export default async function ChecklistePage({
   params,
 }: {
@@ -87,75 +80,15 @@ export default async function ChecklistePage({
   const saved = (handover.checklist ?? {}) as Record<string, string>;
 
   return (
-    <div className="pb-10">
+    <div className="pb-10 animate-page-in">
       <StepHeader currentStep={3} title="Checkliste" backHref={`/uebergabe/${id}/raeume`} />
-
-      <div className="mx-auto max-w-2xl px-4 pt-6">
-        <form action={saveCheckliste} className="space-y-5">
-          <input type="hidden" name="id" value={id} />
-
-          {CHECKLIST_SECTIONS.map((section) => (
-            <div key={section.title} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <h2 className="font-semibold text-gray-900 mb-4">{section.title}</h2>
-              <div className="divide-y divide-gray-100">
-                {section.items.map((item) => {
-                  const current = saved[item.key] ?? "";
-                  return (
-                    <div key={item.key} className="py-3 flex items-center justify-between gap-4">
-                      <span className="text-sm text-gray-700">{item.label}</span>
-                      <div className="flex gap-2 shrink-0">
-                        {STATE_OPTIONS.map((opt) => (
-                          <label key={opt.value} className={`flex items-center gap-1 cursor-pointer text-xs font-medium ${opt.color}`}>
-                            <input
-                              type="radio"
-                              name={`check_${item.key}`}
-                              value={opt.value}
-                              defaultChecked={current === opt.value}
-                              className="accent-brand-orange"
-                            />
-                            <span className="hidden sm:inline">{opt.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-
-          {/* Allgemeine Anmerkungen */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-            <h2 className="font-semibold text-gray-900">Anmerkungen &amp; Vereinbarungen</h2>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Allgemeine Anmerkungen</label>
-              <textarea
-                name="generalNotes"
-                defaultValue={handover.generalNotes ?? ""}
-                rows={3}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-orange focus:outline-none focus:ring-2 focus:ring-brand-orange/30 resize-none"
-                placeholder="Weitere Bemerkungen zum Zustand der Wohnung …"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Getroffene Vereinbarungen</label>
-              <textarea
-                name="agreements"
-                defaultValue={handover.agreements ?? ""}
-                rows={3}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-orange focus:outline-none focus:ring-2 focus:ring-brand-orange/30 resize-none"
-                placeholder="z. B. Mieter streicht Wand bis 01.07. neu …"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <button type="submit" className={buttonClass}>
-              Weiter: Zählerstände →
-            </button>
-          </div>
-        </form>
-      </div>
+      <ChecklisteForm
+        handoverId={id}
+        sections={CHECKLIST_SECTIONS}
+        saved={saved}
+        generalNotes={handover.generalNotes}
+        agreements={handover.agreements}
+      />
     </div>
   );
 }

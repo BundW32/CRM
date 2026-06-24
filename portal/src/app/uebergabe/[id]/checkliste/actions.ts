@@ -13,6 +13,9 @@ export async function saveCheckliste(formData: FormData) {
   for (const [key, value] of formData.entries()) {
     if (key.startsWith("check_")) {
       checklist[key.slice(6)] = String(value);
+    } else if (key.startsWith("note_")) {
+      const val = String(value).trim();
+      if (val) checklist[key] = val;
     }
   }
 

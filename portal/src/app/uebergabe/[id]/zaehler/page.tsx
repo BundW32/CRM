@@ -23,7 +23,7 @@ export default async function ZaehlerPage({
   if (!handover) notFound();
 
   return (
-    <div className="pb-10">
+    <div className="pb-10 animate-page-in">
       <StepHeader currentStep={4} title="Zählerstände" backHref={`/uebergabe/${id}/checkliste`} />
 
       <div className="mx-auto max-w-2xl px-4 pt-6 space-y-5">

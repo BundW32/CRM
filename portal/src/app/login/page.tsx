@@ -19,7 +19,7 @@ export default async function LoginPage({
 
   return (
     <main className="flex flex-1 items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm animate-page-in">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
           <BwLogo className="mx-auto mb-1 h-20 w-auto" />
           <p className="mb-6 text-center text-sm font-medium text-gray-400">

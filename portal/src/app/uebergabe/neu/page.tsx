@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { inputClass, buttonClass } from "@/components/ui";
+import { buttonClass, inputClass } from "@/components/ui";
 import { createHandover } from "./actions";
+import { PropertyUnitSelector } from "./PropertyUnitSelector";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,8 @@ export default async function NeueUebergabePage() {
   await requireVerwalter();
 
   const properties = await db.property.findMany({
-    include: { units: { orderBy: { label: "asc" } } },
+    where: { units: { some: {} } },
+    include: { units: { orderBy: { label: "asc" }, select: { id: true, label: true, floor: true } } },
     orderBy: { name: "asc" },
   });
 
@@ -17,7 +19,7 @@ export default async function NeueUebergabePage() {
 
   return (
     <div className="min-h-screen bw-shell-bg flex items-start justify-center px-4 py-8">
-      <div className="w-full max-w-xl">
+      <div className="w-full max-w-xl animate-page-in">
         <div className="mb-5">
           <a
             href="/verwaltung"
@@ -35,26 +37,11 @@ export default async function NeueUebergabePage() {
           <p className="text-sm text-gray-500 mb-6">Wählen Sie die Einheit und Art der Übergabe.</p>
 
           <form action={createHandover} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Einheit</label>
-              <select name="unitId" required className={inputClass}>
-                <option value="">Einheit wählen …</option>
-                {properties.map((p) =>
-                  p.units.length > 0 ? (
-                    <optgroup key={p.id} label={`${p.name}${p.street ? ` – ${p.street}, ${p.zip} ${p.city}` : ""}`}>
-                      {p.units.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.label}{u.floor ? ` (${u.floor}. OG)` : ""}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ) : null
-                )}
-              </select>
-            </div>
+            <PropertyUnitSelector properties={properties} />
 
             <div>
               <span className="block text-sm font-medium text-gray-700 mb-2">Übergabeart</span>
+
               <div className="flex flex-wrap gap-4">
                 {[
                   { value: "EINZUG", label: "Einzug" },

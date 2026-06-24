@@ -42,6 +42,7 @@ type HandoverData = {
   keysOther: string | null;
   parkingSpace: string | null;
   cellarSpace: string | null;
+  checklist: Record<string, string> | null;
   generalNotes: string | null;
   agreements: string | null;
   tenantSignature: string | null;
@@ -312,6 +313,31 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
       parts.push(`Datum: ${fmt(new Date(m.readingDate))}`);
       if (m.notes) parts.push(m.notes);
       w.row(METER_LABELS[m.meterType] ?? m.meterType, parts.join(" | "));
+    }
+  }
+
+  // Checklist
+  if (data.checklist && Object.keys(data.checklist).length > 0) {
+    const cl = data.checklist as Record<string, string>;
+    const maengelKeys = Object.keys(cl).filter((k) => !k.startsWith("note_") && cl[k] === "maengel");
+    const naKeys = Object.keys(cl).filter((k) => !k.startsWith("note_") && cl[k] === "na");
+    if (maengelKeys.length > 0 || naKeys.length > 0) {
+      w.space();
+      w.heading("Checkliste – Auffaelligkeiten");
+      if (maengelKeys.length > 0) {
+        w.text("Maengel festgestellt:", 9, true);
+        for (const k of maengelKeys) {
+          const note = cl[`note_${k}`];
+          w.text(`  - ${enc(k.replace(/_/g, " "))}${note ? `: ${enc(note)}` : ""}`, 9);
+        }
+        w.space(4);
+      }
+      if (naKeys.length > 0) {
+        w.text("Nicht vorhanden:", 9, true);
+        for (const k of naKeys) {
+          w.text(`  - ${enc(k.replace(/_/g, " "))}`, 9);
+        }
+      }
     }
   }
 

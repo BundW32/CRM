@@ -4,6 +4,7 @@ import { requireVerwalter } from "@/lib/session";
 import { inputClass, buttonClass } from "@/components/ui";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
 import { saveStammdaten } from "./actions";
+import { KeysSection } from "./KeysSection";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function StammdatenPage({
   const dateStr = handover.handoverDate.toISOString().split("T")[0];
 
   return (
-    <div className="pb-10">
+    <div className="pb-10 animate-page-in">
       <StepHeader currentStep={1} title="Stammdaten" backHref="/verwaltung" />
 
       <div className="mx-auto max-w-2xl px-4 pt-6 space-y-5">
@@ -110,8 +111,8 @@ export default async function StammdatenPage({
             <h2 className="font-semibold text-gray-900">Verwalter / Protokollführer</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input type="text" name="managerName" defaultValue={handover.managerName ?? ""} className={inputClass} />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name <span className="text-red-500">*</span></label>
+                <input type="text" name="managerName" defaultValue={handover.managerName ?? ""} required className={inputClass} placeholder="Protokollführer" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
@@ -127,35 +128,16 @@ export default async function StammdatenPage({
           {/* Schlüssel */}
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
             <h2 className="font-semibold text-gray-900">Schlüssel &amp; Stellplatz</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[
-                { name: "keysApartment", label: "Wohnungsschlüssel" },
-                { name: "keysMailbox", label: "Briefkastenschlüssel" },
-                { name: "keysBasement", label: "Kellerschlüssel" },
-                { name: "keysGarage", label: "Garagenschlüssel" },
-              ].map((k) => (
-                <div key={k.name}>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">{k.label}</label>
-                  <input
-                    type="number"
-                    name={k.name}
-                    min="0"
-                    defaultValue={
-                      handover[k.name as keyof typeof handover] != null
-                        ? String(handover[k.name as keyof typeof handover])
-                        : ""
-                    }
-                    className={inputClass}
-                    placeholder="0"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sonstige Schlüssel</label>
-                <input type="text" name="keysOther" defaultValue={handover.keysOther ?? ""} className={inputClass} placeholder="z. B. Gartenschlüssel" />
-              </div>
+            <KeysSection
+              initial={{
+                keysApartment: handover.keysApartment,
+                keysMailbox: handover.keysMailbox,
+                keysBasement: handover.keysBasement,
+                keysGarage: handover.keysGarage,
+                keysOther: handover.keysOther,
+              }}
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Stellplatz Nr.</label>
                 <input type="text" name="parkingSpace" defaultValue={handover.parkingSpace ?? ""} className={inputClass} />

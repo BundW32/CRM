@@ -1,4 +1,5 @@
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
@@ -135,9 +136,7 @@ export default async function PropertiesPage({
               <Field label="Etage (optional)">
                 <input type="text" name="floor" className={inputClass} />
               </Field>
-              <button type="submit" className={buttonClass}>
-                Anlegen
-              </button>
+              <SubmitButton pendingLabel="Wird angelegt…">Anlegen</SubmitButton>
             </form>
           </Card>
         </div>

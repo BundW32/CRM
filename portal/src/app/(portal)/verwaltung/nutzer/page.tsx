@@ -1,11 +1,15 @@
+import Link from "next/link";
+import type { Prisma } from "@/generated/prisma/client";
 import { Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
+import { SubmitButton } from "@/components/submit-button";
 import { propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
+import { PropertyAssignPicker } from "./property-assign";
 import {
   addOwnership,
-  addPropertyAssignment,
   addTenancy,
   anonymizeUser,
   createUser,
@@ -39,14 +43,43 @@ export default async function UsersPage({
     eingeladen?: string;
     anonymisiert?: string;
     stammdaten?: string;
+    q?: string;
+    rolle?: string;
+    objekt?: string;
   }>;
 }) {
   const verwalter = await requireVerwalter();
-  const { fehler, msg, eingeladen, anonymisiert, stammdaten } = await searchParams;
+  const { fehler, msg, eingeladen, anonymisiert, stammdaten, q, rolle, objekt } =
+    await searchParams;
+
+  // Filter (Rolle, Objekt/Region, Suche) zusätzlich zum Scope des Verwalters.
+  const roleValues = ["VERWALTER", "EIGENTUEMER", "MIETER", "HANDWERKER"] as const;
+  const filterAnd: Prisma.UserWhereInput[] = [await userWhereForVerwalter(verwalter)];
+  const roleFilter = roleValues.find((r) => r === rolle);
+  if (roleFilter) filterAnd.push({ role: roleFilter });
+  if (objekt) {
+    filterAnd.push({
+      OR: [
+        { tenancies: { some: { unit: { propertyId: objekt } } } },
+        { ownerships: { some: { propertyId: objekt } } },
+        { propertyAssignments: { some: { propertyId: objekt } } },
+      ],
+    });
+  }
+  const term = (q ?? "").trim();
+  if (term) {
+    filterAnd.push({
+      OR: [
+        { name: { contains: term, mode: "insensitive" } },
+        { email: { contains: term, mode: "insensitive" } },
+      ],
+    });
+  }
+  const hasFilter = Boolean(roleFilter || objekt || term);
 
   const [users, properties] = await Promise.all([
     db.user.findMany({
-      where: await userWhereForVerwalter(verwalter),
+      where: { AND: filterAnd },
       orderBy: [{ role: "asc" }, { name: "asc" }],
       include: {
         tenancies: { where: { active: true }, include: { unit: { include: { property: true } } } },
@@ -89,7 +122,54 @@ export default async function UsersPage({
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
+          <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              name="q"
+              defaultValue={term}
+              placeholder="Name oder E-Mail…"
+              className={`${inputClass} min-w-[10rem] flex-1`}
+            />
+            <select name="rolle" defaultValue={roleFilter ?? ""} className={`${inputClass} w-auto`}>
+              <option value="">Alle Rollen</option>
+              <option value="MIETER">Mieter</option>
+              <option value="EIGENTUEMER">Eigentümer</option>
+              {verwalter.isSuperAdmin ? (
+                <>
+                  <option value="VERWALTER">Verwalter</option>
+                  <option value="HANDWERKER">Handwerker</option>
+                </>
+              ) : null}
+            </select>
+            <select name="objekt" defaultValue={objekt ?? ""} className={`${inputClass} w-auto`}>
+              <option value="">Alle Objekte</option>
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} · {p.zip} {p.city}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className={buttonClass}>
+              Filtern
+            </button>
+            {hasFilter ? (
+              <Link
+                href="/verwaltung/nutzer"
+                className="self-center text-sm text-gray-300 hover:text-brand-orange hover:underline"
+              >
+                ✕ Zurücksetzen
+              </Link>
+            ) : null}
+          </form>
+          {hasFilter ? (
+            <p className="mb-2 text-xs text-gray-400">
+              {users.length} Treffer
+            </p>
+          ) : null}
           <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            {users.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-gray-400">Keine Nutzer gefunden.</p>
+            ) : null}
             <ul className="divide-y divide-gray-100">
               {users.map((u) => {
                 const hasInvitePending =
@@ -298,18 +378,17 @@ export default async function UsersPage({
                               ))}
                             </ul>
                           )}
-                          {!u.isSuperAdmin && availableProps.length > 0 ? (
-                            <form action={addPropertyAssignment} className="mt-2 flex flex-wrap items-center gap-2">
-                              <input type="hidden" name="userId" value={u.id} />
-                              <select name="propertyId" required className={`${inputClass} flex-1 text-xs`}>
-                                {availableProps.map((p) => (
-                                  <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                              </select>
-                              <button type="submit" className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                                + Objekt zuweisen
-                              </button>
-                            </form>
+                          {!u.isSuperAdmin ? (
+                            <PropertyAssignPicker
+                              userId={u.id}
+                              available={availableProps.map((p) => ({
+                                id: p.id,
+                                name: p.name,
+                                zip: p.zip,
+                                city: p.city,
+                                street: p.street,
+                              }))}
+                            />
                           ) : null}
                         </div>
                       );
@@ -354,12 +433,9 @@ export default async function UsersPage({
                             className={`${inputClass} w-36`}
                           />
                           <SignatureInput inputClassName="text-xs text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-brand-orange-light file:px-2 file:py-1 file:text-xs file:font-medium file:text-brand-orange-dark" />
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                          >
+                          <PendingButton className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
                             Speichern
-                          </button>
+                          </PendingButton>
                         </div>
                         <p className="mt-1 text-[11px] text-gray-400">
                           Unterschrift als Bild (PNG/JPG, am besten freigestellt). Wird automatisch
@@ -442,9 +518,7 @@ export default async function UsersPage({
                 ))}
               </select>
             </Field>
-            <button type="submit" className={buttonClass}>
-              Anlegen
-            </button>
+            <SubmitButton pendingLabel="Wird angelegt…">Anlegen</SubmitButton>
             <p className="text-xs text-gray-500">
               <strong>E-Mail-Einladung:</strong> Der Nutzer erhält einen Link zum Einrichten
               seines Passworts (gültig 7 Tage). <strong>Zugangsschreiben:</strong> Es wird ein

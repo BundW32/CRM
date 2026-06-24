@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Card, Field, buttonClass, inputClass } from "@/components/ui";
+import { Card, Field, inputClass } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { createObjekt } from "./actions";
 
 type UnitRow = { label: string; floor: string };
@@ -262,9 +263,7 @@ export function ObjektForm() {
       </Card>
 
       <div className="flex items-center gap-4">
-        <button type="submit" className={buttonClass}>
-          Objekt anlegen
-        </button>
+        <SubmitButton pendingLabel="Wird angelegt…">Objekt anlegen</SubmitButton>
         <a href="/verwaltung/objekte" className="text-sm text-gray-500 hover:underline">
           Abbrechen
         </a>

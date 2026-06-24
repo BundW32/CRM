@@ -49,7 +49,7 @@ ${handover.managerName ?? ""}`.trim();
 
   return (
     <div className="pb-10 animate-page-in">
-      <StepHeader currentStep={6} title="Abschluss" backHref={`/uebergabe/${id}/unterschriften`} />
+      <StepHeader currentStep={6} title="Abschluss" backHref={`/uebergabe/${id}/unterschriften`} handoverId={id} />
 
       <div className="mx-auto max-w-2xl px-4 pt-6 space-y-5">
         {/* Success banner */}

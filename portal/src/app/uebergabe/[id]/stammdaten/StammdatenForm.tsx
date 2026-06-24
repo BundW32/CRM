@@ -85,7 +85,7 @@ export function StammdatenForm({
       <input type="hidden" name="id" value={id} />
 
       {/* Objekt / Einheit */}
-      <div className="rounded-2xl border border-brand-green/20 bg-brand-green-dark/5 p-5 space-y-3">
+      <div className="rounded-2xl border border-brand-green/30 bg-white p-5 shadow-sm space-y-3">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-green/10 text-brand-green">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">

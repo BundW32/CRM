@@ -43,7 +43,7 @@ export default async function RaeumePage({
 
   return (
     <div className="pb-10 animate-page-in">
-      <StepHeader currentStep={2} title="Räume" backHref={`/uebergabe/${id}/stammdaten`} />
+      <StepHeader currentStep={2} title="Räume" backHref={`/uebergabe/${id}/stammdaten`} handoverId={id} />
 
       <div className="mx-auto max-w-2xl px-4 pt-6 space-y-5">
         <div className="flex items-center justify-between">

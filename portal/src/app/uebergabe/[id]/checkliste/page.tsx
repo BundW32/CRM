@@ -22,7 +22,7 @@ export default async function ChecklistePage({
 
   return (
     <div className="pb-10 animate-page-in">
-      <StepHeader currentStep={3} title="Checkliste" backHref={`/uebergabe/${id}/raeume`} />
+      <StepHeader currentStep={3} title="Checkliste" backHref={`/uebergabe/${id}/raeume`} handoverId={id} />
       <ChecklisteForm
         handoverId={id}
         sections={GENERAL_CHECKLIST_SECTIONS}

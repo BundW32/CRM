@@ -48,7 +48,7 @@ export default async function UnterschriftenPage({
 
   return (
     <div className="pb-10 animate-page-in">
-      <StepHeader currentStep={5} title="Unterschriften" backHref={`/uebergabe/${id}/zaehler`} />
+      <StepHeader currentStep={5} title="Unterschriften" backHref={`/uebergabe/${id}/zaehler`} handoverId={id} />
 
       <div className="mx-auto max-w-2xl px-4 pt-6 space-y-4">
         {/* Header summary */}

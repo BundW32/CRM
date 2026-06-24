@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { buttonClass } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 

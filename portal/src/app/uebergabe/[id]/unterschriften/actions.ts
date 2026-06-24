@@ -11,12 +11,14 @@ export async function finalizeHandover(formData: FormData) {
   if (!id) return;
 
   const tenantSignature = String(formData.get("tenantSignature") ?? "").trim() || null;
+  const tenant2Signature = String(formData.get("tenant2Signature") ?? "").trim() || null;
   const managerSignature = String(formData.get("managerSignature") ?? "").trim() || null;
 
   await db.handover.update({
     where: { id },
     data: {
       tenantSignature,
+      tenant2Signature,
       managerSignature,
       status: "ABGESCHLOSSEN",
     },

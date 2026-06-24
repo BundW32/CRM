@@ -108,6 +108,10 @@ export function ChecklisteForm({
       <form action={saveCheckliste} className="space-y-5">
         <input type="hidden" name="id" value={handoverId} />
 
+        <div className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white/70">
+          Allgemeine Haus- und Übergabepunkte. Raumbezogene Prüfungen (Wände, Fenster, Küche, Bad …) erfassen Sie direkt im Schritt <span className="font-medium text-white">Räume</span>.
+        </div>
+
         {sections.map((section) => (
           <div key={section.title} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <h2 className="font-semibold text-gray-900 mb-3">{section.title}</h2>

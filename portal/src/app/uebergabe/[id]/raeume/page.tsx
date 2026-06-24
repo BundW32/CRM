@@ -27,6 +27,20 @@ export default async function RaeumePage({
   });
   if (!handover) notFound();
 
+  const rooms = handover.rooms.map((r) => ({
+    id: r.id,
+    name: r.name,
+    roomType: r.roomType,
+    checks: (r.checks ?? null) as Record<string, string> | null,
+    overallNote: r.overallNote,
+    photos: r.photos.map((p) => ({
+      id: p.id,
+      storedName: p.storedName,
+      fileName: p.fileName,
+      caption: p.caption,
+    })),
+  }));
+
   return (
     <div className="pb-10 animate-page-in">
       <StepHeader currentStep={2} title="Räume" backHref={`/uebergabe/${id}/stammdaten`} />
@@ -35,11 +49,11 @@ export default async function RaeumePage({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-semibold text-white">Raumzustand dokumentieren</h2>
-            <p className="text-sm text-white/60">Fügen Sie alle relevanten Räume hinzu und dokumentieren Sie deren Zustand.</p>
+            <p className="text-sm text-white/60">Pro Raum die Prüfpunkte bewerten – je nach Raumart erscheinen passende Punkte (Küche, Bad). Fenster &amp; Türen sind überall dabei.</p>
           </div>
         </div>
 
-        <RaeumeClient handoverId={id} initialRooms={handover.rooms} />
+        <RaeumeClient handoverId={id} initialRooms={rooms} />
 
         <div className="flex items-center justify-between gap-3 pt-2">
           <Link href="/uebergabe" className={buttonSecondaryClass}>

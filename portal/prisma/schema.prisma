@@ -489,16 +489,26 @@ model Handover {
   id               String         @id @default(cuid())
   type             HandoverType   @default(EINZUG)
   status           HandoverStatus @default(ENTWURF)
-  handoverDate     DateTime       @default(now())
+  handoverDate     DateTime       @default(now()) // Protokolldatum (Tag der Protokollführung)
+  moveDate         DateTime? // Ein- bzw. Auszugsdatum / Stichtag
   unitId           String
   unit             Unit           @relation(fields: [unitId], references: [id])
+  // Objektdaten (Schnappschuss zum Übergabezeitpunkt)
+  livingArea       Float? // Wohnfläche in m²
+  roomCount        Float? // Zimmeranzahl (z. B. 2,5)
+  personCount      Int? // Anzahl Personen im Haushalt
   tenantName       String?
   tenantEmail      String?
   tenantPhone      String?
   tenantAddress    String?
+  tenantBirthDate  DateTime? // Geburtsdatum Mieter
+  tenant2Name      String? // Zweiter Mieter / Mitbewohner
+  tenant2BirthDate DateTime?
+  tenant2Signature String?
   ownerName        String?
   ownerEmail       String?
   ownerPhone       String?
+  managerCompany   String? // Verwaltung / Hausverwaltung
   managerName      String?
   managerEmail     String?
   managerPhone     String?
@@ -530,6 +540,7 @@ model HandoverRoom {
   name         String
   roomType     RoomType
   sortOrder    Int           @default(0)
+  checks       Json? // Strukturierte Prüfpunkte: { key: "ok"|"maengel"|"na", note_key: "…" }
   overallNote  String?
   wallsNote    String?
   ceilingNote  String?

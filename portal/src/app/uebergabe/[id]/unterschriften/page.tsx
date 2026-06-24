@@ -2,53 +2,23 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
+import {
+  ALL_ROOM_CHECK_LABELS,
+  GENERAL_CHECKLIST_LABELS,
+  checksForRoomType,
+} from "@/lib/handover-checks";
 import { SignatureSection } from "./SignatureSection";
 
 export const dynamic = "force-dynamic";
 
 const typeLabels = { EINZUG: "Einzug", AUSZUG: "Auszug", ZWISCHENZUSTAND: "Zwischenzustand" };
+const moveDateLabels = { EINZUG: "Einzug", AUSZUG: "Auszug", ZWISCHENZUSTAND: "Stichtag" };
 
-const ROOM_NOTE_LABELS: { key: string; label: string }[] = [
-  { key: "overallNote", label: "Allgemeiner Zustand" },
-  { key: "wallsNote", label: "Wände" },
-  { key: "ceilingNote", label: "Decke" },
-  { key: "floorNote", label: "Boden" },
-  { key: "windowsNote", label: "Fenster" },
-  { key: "doorsNote", label: "Türen" },
-  { key: "heatingNote", label: "Heizung" },
-  { key: "sanitaryNote", label: "Sanitär" },
-  { key: "otherNote", label: "Sonstiges" },
-];
-
-const CHECKLIST_LABELS: Record<string, string> = {
-  heizung: "Heizungsanlage",
-  warmwasser: "Warmwasser",
-  elektrik: "Elektrik",
-  rauchmelder: "Rauchmelder",
-  co_melder: "CO-Melder",
-  kueche_einbau: "Einbauküche",
-  kueche_herd: "Herd/Kochfeld",
-  kueche_spuele: "Spüle",
-  kueche_dunstabzug: "Dunstabzug",
-  bad_wanne: "Wanne/Dusche",
-  bad_wc: "WC-Spülung",
-  bad_armaturen: "Armaturen",
-  bad_abfluss: "Abflüsse",
-  bad_schimmel: "Schimmel",
-  fenster_dicht: "Fenster dicht",
-  fenster_griffe: "Fenstergriffe",
-  tueren_schliessen: "Türen",
-  tueren_schloesser: "Schlösser",
-  rolllaeden: "Rollläden",
-  waende_ok: "Wände",
-  boden_ok: "Boden",
-  decke_ok: "Decken",
-  keller_ok: "Kellerabteil",
-  garage_ok: "Garage",
-  briefkasten: "Briefkasten",
-  benutzungshinweise: "Einweisungen",
-  muell: "Besenrein",
-};
+function fmt(d: Date | null): string {
+  return d
+    ? d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "—";
+}
 
 export default async function UnterschriftenPage({
   params,
@@ -71,16 +41,10 @@ export default async function UnterschriftenPage({
   });
   if (!handover) notFound();
 
-  const dateFormatted = handover.handoverDate.toLocaleDateString("de-DE", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-
   const checklist = (handover.checklist ?? {}) as Record<string, string>;
   const maengelItems = Object.entries(checklist)
     .filter(([k, v]) => !k.startsWith("note_") && v === "maengel")
-    .map(([k]) => CHECKLIST_LABELS[k] ?? k);
+    .map(([k]) => GENERAL_CHECKLIST_LABELS[k] ?? k);
 
   return (
     <div className="pb-10 animate-page-in">
@@ -91,13 +55,17 @@ export default async function UnterschriftenPage({
         <div className="rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white/80 space-y-1">
           <div className="flex flex-wrap gap-x-6 gap-y-1">
             <span><strong className="text-white">Typ:</strong> {typeLabels[handover.type]}</span>
-            <span><strong className="text-white">Datum:</strong> {dateFormatted}</span>
+            <span><strong className="text-white">Protokoll:</strong> {fmt(handover.handoverDate)}</span>
+            <span><strong className="text-white">{moveDateLabels[handover.type]}:</strong> {fmt(handover.moveDate)}</span>
+          </div>
+          <div className="flex flex-wrap gap-x-6 gap-y-1">
             <span><strong className="text-white">Einheit:</strong> {handover.unit.property.name} · {handover.unit.label}</span>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-1">
             {handover.tenantName && <span><strong className="text-white">Mieter:</strong> {handover.tenantName}</span>}
+            {handover.tenant2Name && <span><strong className="text-white">2. Mieter:</strong> {handover.tenant2Name}</span>}
             {handover.ownerName && <span><strong className="text-white">Eigentümer:</strong> {handover.ownerName}</span>}
-            {handover.managerName && <span><strong className="text-white">Protokoll:</strong> {handover.managerName}</span>}
+            {handover.managerName && <span><strong className="text-white">Protokollführer:</strong> {handover.managerName}</span>}
           </div>
         </div>
 
@@ -112,10 +80,13 @@ export default async function UnterschriftenPage({
             </h2>
             <div className="divide-y divide-gray-100">
               {handover.rooms.map((room) => {
-                const notes = ROOM_NOTE_LABELS.filter(
-                  (n) => (room as Record<string, unknown>)[n.key]
-                );
-                const hasNotes = notes.length > 0;
+                const checks = (room.checks ?? {}) as Record<string, string>;
+                const points = checksForRoomType(room.roomType);
+                const maengel = points.filter((p) => checks[p.key] === "maengel");
+                const notes = points
+                  .map((p) => ({ label: p.label, note: checks[`note_${p.key}`] }))
+                  .filter((n) => n.note);
+                const hasFindings = maengel.length > 0 || notes.length > 0 || !!room.overallNote;
                 return (
                   <div key={room.id} className="py-3">
                     <div className="flex items-start justify-between gap-3">
@@ -131,21 +102,35 @@ export default async function UnterschriftenPage({
                             {room.photos.length}
                           </span>
                         )}
-                        {!hasNotes && (
-                          <span className="rounded-full bg-green-50 px-2 py-0.5 text-green-600 font-medium">
-                            OK
+                        {maengel.length > 0 ? (
+                          <span className="rounded-full bg-yellow-50 border border-yellow-200 px-2 py-0.5 text-yellow-700 font-medium">
+                            {maengel.length} {maengel.length === 1 ? "Mangel" : "Mängel"}
                           </span>
+                        ) : (
+                          <span className="rounded-full bg-green-50 px-2 py-0.5 text-green-600 font-medium">OK</span>
                         )}
                       </div>
                     </div>
-                    {hasNotes && (
+                    {hasFindings && (
                       <div className="mt-1.5 space-y-0.5">
-                        {notes.map((n) => (
-                          <p key={n.key} className="text-xs text-gray-500">
-                            <span className="font-medium text-gray-600">{n.label}:</span>{" "}
-                            {String((room as Record<string, unknown>)[n.key])}
+                        {maengel.map((p) => (
+                          <p key={p.key} className="text-xs text-yellow-700">
+                            <span className="font-medium">Mangel:</span> {ALL_ROOM_CHECK_LABELS[p.key] ?? p.label}
+                            {checks[`note_${p.key}`] ? ` – ${checks[`note_${p.key}`]}` : ""}
                           </p>
                         ))}
+                        {notes
+                          .filter((n) => !maengel.some((m) => m.label === n.label))
+                          .map((n) => (
+                            <p key={n.label} className="text-xs text-gray-500">
+                              <span className="font-medium text-gray-600">{n.label}:</span> {n.note}
+                            </p>
+                          ))}
+                        {room.overallNote && (
+                          <p className="text-xs text-gray-500">
+                            <span className="font-medium text-gray-600">Anmerkung:</span> {room.overallNote}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -159,7 +144,7 @@ export default async function UnterschriftenPage({
         {maengelItems.length > 0 && (
           <div className="rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 space-y-1.5">
             <p className="text-sm font-semibold text-yellow-800">
-              Checkliste: {maengelItems.length} Mängel festgestellt
+              Checkliste: {maengelItems.length} {maengelItems.length === 1 ? "Mangel" : "Mängel"} festgestellt
             </p>
             <div className="flex flex-wrap gap-1.5">
               {maengelItems.map((label) => (
@@ -194,8 +179,11 @@ export default async function UnterschriftenPage({
         <SignatureSection
           handoverId={id}
           tenantName={handover.tenantName}
+          tenant2Name={handover.tenant2Name}
           managerName={handover.managerName}
+          managerCompany={handover.managerCompany}
           initialTenantSig={handover.tenantSignature}
+          initialTenant2Sig={handover.tenant2Signature}
           initialManagerSig={handover.managerSignature}
         />
       </div>

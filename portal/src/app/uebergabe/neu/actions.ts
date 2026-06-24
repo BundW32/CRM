@@ -35,6 +35,7 @@ export async function createHandover(formData: FormData) {
       tenantPhone: tenant?.phone ?? null,
       ownerName: owner?.name ?? null,
       ownerEmail: owner?.email ?? null,
+      managerCompany: "B&W Immobilien Management UG",
       managerName: user.name,
       managerEmail: user.email ?? null,
     },

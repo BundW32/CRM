@@ -1,21 +1,20 @@
 import { PDFDocument, StandardFonts, rgb, PDFPage, PDFFont } from "pdf-lib";
 import path from "path";
 import fs from "fs";
+import {
+  checksForRoomType,
+  ALL_ROOM_CHECK_LABELS,
+  GENERAL_CHECKLIST_LABELS,
+  ROOM_TYPE_LABELS,
+} from "@/lib/handover-checks";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Room = {
   name: string;
   roomType: string;
+  checks: unknown; // { key: "ok"|"maengel"|"na", note_key: "…" }
   overallNote: string | null;
-  wallsNote: string | null;
-  ceilingNote: string | null;
-  floorNote: string | null;
-  windowsNote: string | null;
-  doorsNote: string | null;
-  heatingNote: string | null;
-  sanitaryNote: string | null;
-  otherNote: string | null;
   photos: { storedName: string }[];
 };
 
@@ -30,15 +29,26 @@ type Meter = {
 type HandoverData = {
   type: string;
   handoverDate: Date;
-  unit: { label: string; property: { name: string; street: string | null; zip: string | null; city: string | null } };
+  moveDate: Date | null;
+  unit: { label: string; floor: string | null; property: { name: string; street: string | null; zip: string | null; city: string | null } };
+  livingArea: number | null;
+  roomCount: number | null;
+  personCount: number | null;
   tenantName: string | null;
   tenantEmail: string | null;
   tenantPhone: string | null;
   tenantAddress: string | null;
+  tenantBirthDate: Date | null;
+  tenant2Name: string | null;
+  tenant2BirthDate: Date | null;
+  tenant2Signature: string | null;
   ownerName: string | null;
   ownerEmail: string | null;
+  ownerPhone: string | null;
+  managerCompany: string | null;
   managerName: string | null;
   managerEmail: string | null;
+  managerPhone: string | null;
   keysApartment: number | null;
   keysMailbox: number | null;
   keysBasement: number | null;
@@ -68,7 +78,10 @@ const C = {
   gray:       rgb(0.965,   0.965,  0.965),
   grayMid:    rgb(0.87,    0.87,   0.87),
   yellow:     rgb(1,       0.95,   0.8),
+  amber:      rgb(0.7,     0.5,    0),
 };
+
+const DEFAULT_COMPANY = "B&W Immobilien Management UG";
 
 // ─── Label maps ───────────────────────────────────────────────────────────────
 
@@ -76,6 +89,16 @@ const TYPE_LABELS: Record<string, string> = {
   EINZUG: "Einzug",
   AUSZUG: "Auszug",
   ZWISCHENZUSTAND: "Zwischenzustand",
+};
+const MOVE_DATE_LABELS: Record<string, string> = {
+  EINZUG: "Einzugsdatum",
+  AUSZUG: "Auszugsdatum",
+  ZWISCHENZUSTAND: "Stichtag",
+};
+const TENANT_ADDRESS_LABELS: Record<string, string> = {
+  EINZUG: "Vorherige Anschrift",
+  AUSZUG: "Neue Anschrift",
+  ZWISCHENZUSTAND: "Anschrift",
 };
 const METER_LABELS: Record<string, string> = {
   STROM: "Strom",
@@ -85,40 +108,22 @@ const METER_LABELS: Record<string, string> = {
   HEIZUNG: "Heizung",
   SONSTIGES: "Sonstiges",
 };
-const CHECKLIST_LABELS: Record<string, string> = {
-  heizung: "Heizungsanlage",
-  warmwasser: "Warmwasser",
-  elektrik: "Elektrische Anlage",
-  rauchmelder: "Rauchmelder",
-  co_melder: "CO-Melder",
-  kueche_einbau: "Einbauküche",
-  kueche_herd: "Herd / Kochfeld",
-  kueche_spuele: "Spüle & Armaturen",
-  kueche_dunstabzug: "Dunstabzugshaube",
-  bad_wanne: "Badewanne / Dusche",
-  bad_wc: "WC-Spülung",
-  bad_armaturen: "Armaturen",
-  bad_abfluss: "Abflüsse",
-  bad_schimmel: "Schimmel",
-  fenster_dicht: "Fenster dicht",
-  fenster_griffe: "Fenstergriffe",
-  tueren_schliessen: "Türen",
-  tueren_schloesser: "Schlösser",
-  rolllaeden: "Rollläden / Jalousien",
-  waende_ok: "Wände",
-  boden_ok: "Bodenbelag",
-  decke_ok: "Decken",
-  keller_ok: "Kellerabteil",
-  garage_ok: "Garage / Stellplatz",
-  briefkasten: "Briefkasten",
-  benutzungshinweise: "Einweisungen",
-  muell: "Besenrein übergeben",
+const STATE_LABELS: Record<string, string> = {
+  ok: "in Ordnung",
+  maengel: "Mängel",
+  na: "nicht vorhanden",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(d: Date) {
   return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+function fmtOpt(d: Date | null): string {
+  return d ? fmt(new Date(d)) : "—";
+}
+function numFmt(n: number | null): string {
+  return n != null ? String(n).replace(".", ",") : "";
 }
 
 // Keeps German umlauts (Latin-1/WinAnsi), strips non-Latin-1 chars.
@@ -127,6 +132,7 @@ function enc(s: string): string {
     .replace(/→/g, "->")
     .replace(/←/g, "<-")
     .replace(/✓/g, "x")
+    .replace(/[–—]/g, "-")
     .replace(/[Ā-￿]/g, "?");
 }
 
@@ -225,7 +231,6 @@ class PageWriter {
     this.y -= 20;
   }
 
-  // Thin horizontal divider
   divider() {
     this.ensureSpace(8);
     this.y -= 3;
@@ -282,78 +287,13 @@ class PageWriter {
   }
 }
 
-// ─── Branding helpers ─────────────────────────────────────────────────────────
+// ─── Footer ───────────────────────────────────────────────────────────────────
 
-async function drawHeader(
-  page: PDFPage,
-  font: PDFFont,
-  fontBold: PDFFont,
-  type: string,
-  data: HandoverData
-): Promise<number> {
-  const HEADER_H = 72;
-  const SUB_H = 26;
-
-  // Main green bar
-  page.drawRectangle({ x: 0, y: PAGE_H - HEADER_H, width: PAGE_W, height: HEADER_H, color: C.green });
-
-  // Decorative orange accent strip
-  page.drawRectangle({ x: 0, y: PAGE_H - HEADER_H - 3, width: PAGE_W, height: 3, color: C.orange });
-
-  // Logo
-  let logoRight = MARGIN;
-  try {
-    const logoPath = path.join(process.cwd(), "public", "bw-logo.png");
-    const logoBytes = fs.readFileSync(logoPath);
-    const logoImg = await PDFDocument.create().then((tmp) => tmp.embedPng(logoBytes).catch(() => null));
-    if (logoImg) {
-      const logH = 46;
-      const logW = logoImg.width * (logH / logoImg.height);
-      page.drawImage(logoImg, {
-        x: MARGIN,
-        y: PAGE_H - HEADER_H + (HEADER_H - logH) / 2,
-        width: logW,
-        height: logH,
-      });
-      logoRight = MARGIN + logW + 16;
-    }
-  } catch {/* no logo */}
-
-  // Title
-  page.drawText("Wohnungsübergabeprotokoll", {
-    x: logoRight, y: PAGE_H - 30, size: 16, font: fontBold, color: C.white,
-  });
-  // Type badge
-  const typeLabel = enc(TYPE_LABELS[type] ?? type);
-  page.drawText(typeLabel, {
-    x: logoRight, y: PAGE_H - 50, size: 10, font, color: C.orange,
-  });
-  // Date on right
-  const dateStr = enc(data.handoverDate.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }));
-  const dateW = fontBold.widthOfTextAtSize(dateStr, 9);
-  page.drawText(dateStr, {
-    x: PAGE_W - MARGIN - dateW, y: PAGE_H - 36, size: 9, font: fontBold, color: C.white,
-  });
-
-  // Sub-header: property info
-  page.drawRectangle({ x: 0, y: PAGE_H - HEADER_H - SUB_H - 3, width: PAGE_W, height: SUB_H, color: C.gray });
-  const prop = data.unit.property;
-  const propStr = enc(
-    `${prop.name} · ${data.unit.label}` +
-    (prop.street ? `  -  ${prop.street}, ${prop.zip ?? ""} ${prop.city ?? ""}` : "")
-  );
-  page.drawText(propStr, {
-    x: MARGIN, y: PAGE_H - HEADER_H - 3 - SUB_H + 8, size: 9, font: fontBold, color: C.text,
-  });
-
-  return PAGE_H - HEADER_H - 3 - SUB_H - 12;
-}
-
-function drawFooter(page: PDFPage, font: PDFFont, pageNum: number, total: number, createdAt: string) {
+function drawFooter(page: PDFPage, font: PDFFont, pageNum: number, total: number, createdAt: string, company: string) {
   page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: FOOTER_H, color: C.gray });
   page.drawRectangle({ x: 0, y: FOOTER_H - 1, width: PAGE_W, height: 1, color: C.grayMid });
 
-  page.drawText("B&W Immobilien Management UG", {
+  page.drawText(enc(company), {
     x: MARGIN, y: 10, size: 7, font, color: C.textLight,
   });
 
@@ -371,18 +311,19 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
 
+  const company = (data.managerCompany ?? "").trim() || DEFAULT_COMPANY;
+
   const firstPage = doc.addPage([PAGE_W, PAGE_H]);
 
-  // Draw first page header (logo embedding requires per-doc embed)
   const HEADER_H = 72;
   const SUB_H = 26;
 
-  // Green header bar
+  // Green header bar + orange accent strip
   firstPage.drawRectangle({ x: 0, y: PAGE_H - HEADER_H, width: PAGE_W, height: HEADER_H, color: C.green });
   firstPage.drawRectangle({ x: 0, y: PAGE_H - HEADER_H - 3, width: PAGE_W, height: 3, color: C.orange });
 
-  // Logo — drawn on a white rounded pill so any opaque PNG background
-  // looks intentional rather than clipped against the dark green header.
+  // Logo — auf weißer, abgerundeter Fläche, damit ein opaker PNG-Hintergrund
+  // nicht hart gegen das dunkle Grün abgeschnitten wirkt.
   let logoRight = MARGIN;
   try {
     const logoPath = path.join(process.cwd(), "public", "bw-logo.png");
@@ -393,7 +334,6 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
     const pillPad = 6;
     const pillX = MARGIN - pillPad;
     const pillY = PAGE_H - HEADER_H + (HEADER_H - logH) / 2 - pillPad;
-    // White pill background
     firstPage.drawRectangle({
       x: pillX, y: pillY,
       width: logW + pillPad * 2, height: logH + pillPad * 2,
@@ -409,20 +349,21 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
     logoRight = MARGIN + logW + pillPad * 2 + 10;
   } catch { /* logo unavailable */ }
 
-  // Title
+  // Title + Typ
   firstPage.drawText("Wohnungsübergabeprotokoll", {
     x: logoRight, y: PAGE_H - 30, size: 16, font: fontBold, color: C.white,
   });
   firstPage.drawText(enc(TYPE_LABELS[data.type] ?? data.type), {
     x: logoRight, y: PAGE_H - 50, size: 10, font, color: C.orange,
   });
-  const dateStr = enc(fmt(data.handoverDate));
-  const dateW = fontBold.widthOfTextAtSize(dateStr, 9);
+  // Protokolldatum oben rechts
+  const dateStr = enc(`Protokoll: ${fmt(data.handoverDate)}`);
+  const dateW = font.widthOfTextAtSize(dateStr, 9);
   firstPage.drawText(dateStr, {
     x: PAGE_W - MARGIN - dateW, y: PAGE_H - 36, size: 9, font: fontBold, color: C.white,
   });
 
-  // Sub-header
+  // Sub-header: Objektzeile
   firstPage.drawRectangle({ x: 0, y: PAGE_H - HEADER_H - SUB_H - 3, width: PAGE_W, height: SUB_H, color: C.gray });
   const prop = data.unit.property;
   const propStr = enc(
@@ -436,31 +377,54 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
   const startY = PAGE_H - HEADER_H - 3 - SUB_H - 14;
   const w = new PageWriter(doc, firstPage, font, fontBold, startY);
 
-  // ── Beteiligte ────────────────────────────────────────────────────────────
+  // ── Eckdaten ───────────────────────────────────────────────────────────────
+
+  w.heading("Eckdaten der Übergabe");
+  w.space(4);
+  w.row("Art der Übergabe", TYPE_LABELS[data.type] ?? data.type);
+  w.row("Protokolldatum", fmt(data.handoverDate));
+  if (data.moveDate) w.row(MOVE_DATE_LABELS[data.type] ?? "Übergabedatum", fmtOpt(data.moveDate));
+  if (data.livingArea != null) w.row("Wohnfläche", `${numFmt(data.livingArea)} m²`);
+  if (data.roomCount != null) w.row("Zimmer", numFmt(data.roomCount));
+  if (data.personCount != null) w.row("Personen im Haushalt", String(data.personCount));
+  if (data.unit.floor) w.row("Etage", data.unit.floor);
+
+  // ── Beteiligte ─────────────────────────────────────────────────────────────
 
   w.heading("Beteiligte Personen");
 
-  if (data.tenantName || data.tenantEmail || data.tenantPhone || data.tenantAddress) {
+  if (data.tenantName || data.tenantEmail || data.tenantPhone || data.tenantAddress || data.tenantBirthDate) {
     w.space(4);
     w.text("Mieter", 9, true, C.green);
     w.row("Name", data.tenantName ?? "");
+    if (data.tenantBirthDate) w.row("Geburtsdatum", fmtOpt(data.tenantBirthDate));
     w.row("E-Mail", data.tenantEmail ?? "");
     w.row("Telefon", data.tenantPhone ?? "");
-    w.row("Neue Adresse", data.tenantAddress ?? "");
+    w.row(TENANT_ADDRESS_LABELS[data.type] ?? "Anschrift", data.tenantAddress ?? "");
   }
 
-  if (data.ownerName || data.ownerEmail) {
+  if (data.tenant2Name) {
+    w.space(4);
+    w.text("2. Mieter / Mitbewohner", 9, true, C.green);
+    w.row("Name", data.tenant2Name);
+    if (data.tenant2BirthDate) w.row("Geburtsdatum", fmtOpt(data.tenant2BirthDate));
+  }
+
+  if (data.ownerName || data.ownerEmail || data.ownerPhone) {
     w.space(4);
     w.text("Eigentümer", 9, true, C.green);
     w.row("Name", data.ownerName ?? "");
     w.row("E-Mail", data.ownerEmail ?? "");
+    w.row("Telefon", data.ownerPhone ?? "");
   }
 
-  if (data.managerName || data.managerEmail) {
+  if (company || data.managerName || data.managerEmail) {
     w.space(4);
-    w.text("Protokollführer", 9, true, C.green);
-    w.row("Name", data.managerName ?? "");
+    w.text("Verwaltung & Protokollführer", 9, true, C.green);
+    w.row("Verwaltung", company);
+    w.row("Protokollführer", data.managerName ?? "");
     w.row("E-Mail", data.managerEmail ?? "");
+    w.row("Telefon", data.managerPhone ?? "");
   }
 
   // ── Schlüssel & Stellplätze ────────────────────────────────────────────────
@@ -480,37 +444,40 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
     if (data.cellarSpace) w.row("Kellerabteil Nr.", data.cellarSpace);
   }
 
-  // ── Räume ─────────────────────────────────────────────────────────────────
+  // ── Räume ──────────────────────────────────────────────────────────────────
 
   if (data.rooms.length > 0) {
     w.space(4);
     w.heading(`Räume (${data.rooms.length})`);
-    const roomNotes: { key: keyof Room; label: string }[] = [
-      { key: "overallNote", label: "Allgemeiner Zustand" },
-      { key: "wallsNote", label: "Wände" },
-      { key: "ceilingNote", label: "Decke" },
-      { key: "floorNote", label: "Boden" },
-      { key: "windowsNote", label: "Fenster" },
-      { key: "doorsNote", label: "Türen" },
-      { key: "heatingNote", label: "Heizung" },
-      { key: "sanitaryNote", label: "Sanitär" },
-      { key: "otherNote", label: "Sonstiges" },
-    ];
     for (const room of data.rooms) {
-      w.ensureSpace(28);
+      w.ensureSpace(30);
       w.space(6);
-      // Room name bar
-      w.page.drawRectangle({ x: MARGIN, y: w.y - 4, width: CONTENT_W, height: 18, color: C.yellow });
+      // Raum-Kopfzeile
+      w.page.drawRectangle({ x: MARGIN, y: w.y - 4, width: CONTENT_W, height: 18, color: C.gray });
       w.page.drawText(enc(room.name), { x: MARGIN + 6, y: w.y + 1, size: 9, font: fontBold, color: C.text });
+      const rtLabel = ROOM_TYPE_LABELS[room.roomType] ?? "";
+      if (rtLabel) {
+        const rw = font.widthOfTextAtSize(rtLabel, 8);
+        w.page.drawText(enc(rtLabel), { x: MARGIN + CONTENT_W - rw - 6, y: w.y + 2, size: 8, font, color: C.textLight });
+      }
       w.y -= 18;
-      const anyNote = roomNotes.some((n) => room[n.key]);
-      if (anyNote) {
-        for (const n of roomNotes) {
-          const val = room[n.key];
-          if (val) w.row(n.label, String(val), true);
-        }
+
+      const checks = (room.checks ?? {}) as Record<string, string>;
+      const points = checksForRoomType(room.roomType);
+      const flagged = points.filter(
+        (p) => checks[p.key] === "maengel" || checks[p.key] === "na" || checks[`note_${p.key}`],
+      );
+
+      if (flagged.length === 0 && !room.overallNote) {
+        w.text("  Keine Mängel festgestellt", 9, false, C.textLight);
       } else {
-        w.text("  Keine Anmerkungen", 9, false, C.textLight);
+        for (const p of flagged) {
+          const state = checks[p.key];
+          const note = checks[`note_${p.key}`];
+          const value = [state ? STATE_LABELS[state] ?? state : "", note].filter(Boolean).join(" - ");
+          w.row(ALL_ROOM_CHECK_LABELS[p.key] ?? p.label, value, true);
+        }
+        if (room.overallNote) w.row("Anmerkung", room.overallNote, true);
       }
       if (room.photos.length > 0) {
         w.text(`  ${room.photos.length} Foto(s) dokumentiert`, 8, false, C.textLight);
@@ -518,7 +485,7 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
     }
   }
 
-  // ── Zählerstände ──────────────────────────────────────────────────────────
+  // ── Zählerstände ───────────────────────────────────────────────────────────
 
   if (data.meters.length > 0) {
     w.space(4);
@@ -534,7 +501,7 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
     }
   }
 
-  // ── Checkliste ────────────────────────────────────────────────────────────
+  // ── Allgemeine Checkliste ──────────────────────────────────────────────────
 
   if (data.checklist && Object.keys(data.checklist).length > 0) {
     const cl = data.checklist;
@@ -547,24 +514,24 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
 
       if (maengelKeys.length > 0) {
         w.space(4);
-        w.text(`Mängel (${maengelKeys.length})`, 9, true, rgb(0.7, 0.5, 0));
+        w.text(`Mängel (${maengelKeys.length})`, 9, true, C.amber);
         for (const k of maengelKeys) {
           const note = cl[`note_${k}`];
-          const label = CHECKLIST_LABELS[k] ?? enc(k.replace(/_/g, " "));
-          w.text(`  ! ${label}${note ? `:  ${enc(note)}` : ""}`, 9, false, C.text);
+          const label = GENERAL_CHECKLIST_LABELS[k] ?? k.replace(/_/g, " ");
+          w.text(`  ! ${label}${note ? `:  ${note}` : ""}`, 9, false, C.text);
         }
       }
       if (naKeys.length > 0) {
         w.space(4);
         w.text(`Nicht vorhanden (${naKeys.length})`, 9, true, C.textLight);
         for (const k of naKeys) {
-          w.text(`  – ${CHECKLIST_LABELS[k] ?? enc(k.replace(/_/g, " "))}`, 9, false, C.textLight);
+          w.text(`  - ${GENERAL_CHECKLIST_LABELS[k] ?? k.replace(/_/g, " ")}`, 9, false, C.textLight);
         }
       }
     }
   }
 
-  // ── Anmerkungen & Vereinbarungen ──────────────────────────────────────────
+  // ── Anmerkungen & Vereinbarungen ───────────────────────────────────────────
 
   if (data.generalNotes || data.agreements) {
     w.space(4);
@@ -581,7 +548,7 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
     }
   }
 
-  // ── Unterschriften ────────────────────────────────────────────────────────
+  // ── Unterschriften ─────────────────────────────────────────────────────────
 
   w.space(12);
   w.heading("Unterschriften");
@@ -593,21 +560,31 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
     w.blankSignatureLine("Mieter");
   }
 
-  w.space(14);
-
-  if (data.managerSignature) {
-    await w.embedSignature(data.managerSignature, "Unterschrift Verwalter / Eigentümer");
-  } else {
-    w.blankSignatureLine("Verwalter / Eigentümer");
+  if (data.tenant2Name) {
+    w.space(14);
+    if (data.tenant2Signature) {
+      await w.embedSignature(data.tenant2Signature, "Unterschrift 2. Mieter");
+    } else {
+      w.blankSignatureLine("2. Mieter");
+    }
   }
 
-  // ── Footer on every page ─────────────────────────────────────────────────
+  w.space(14);
+
+  const mgrLabel = `Protokollführer${data.managerName ? ` (${data.managerName})` : ""}`;
+  if (data.managerSignature) {
+    await w.embedSignature(data.managerSignature, `Unterschrift ${mgrLabel}`);
+  } else {
+    w.blankSignatureLine(mgrLabel);
+  }
+
+  // ── Footer auf jeder Seite ─────────────────────────────────────────────────
 
   const pages = doc.getPages();
   const total = pages.length;
   const createdAt = new Date().toLocaleDateString("de-DE");
   for (let i = 0; i < total; i++) {
-    drawFooter(pages[i], font, i + 1, total, createdAt);
+    drawFooter(pages[i], font, i + 1, total, createdAt, company);
   }
 
   const bytes = await doc.save();

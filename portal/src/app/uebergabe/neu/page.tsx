@@ -63,13 +63,14 @@ export default async function NeueUebergabePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Übergabedatum</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Protokolldatum</label>
               <input
                 type="date"
                 name="handoverDate"
                 defaultValue={today}
                 className={inputClass}
               />
+              <p className="mt-1 text-xs text-gray-400">Ein- bzw. Auszugsdatum legen Sie im nächsten Schritt fest.</p>
             </div>
 
             <div className="pt-2">

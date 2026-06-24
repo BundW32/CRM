@@ -1,5 +1,5 @@
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
-import { propertyIdsForVerwalter } from "@/lib/access";
+import { craftsmanWhereForVerwalter, propertyIdsForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
   formatDate,
@@ -38,7 +38,10 @@ export default async function WartungPage({
       include: { property: true, craftsman: true },
     }),
     db.property.findMany({ where: propWhere, orderBy: { name: "asc" } }),
-    db.craftsman.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    db.craftsman.findMany({
+      where: { active: true, ...(await craftsmanWhereForVerwalter(verwalter)) },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const now = new Date().getTime();

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { canVerwalterUseCraftsman, propertyIdsForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { maintenanceIntervalMonths } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
@@ -24,7 +25,7 @@ const taskSchema = z.object({
 });
 
 export async function createMaintenanceTask(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const parsed = taskSchema.safeParse({
     title: formData.get("title"),
     description: formData.get("description") || undefined,
@@ -41,14 +42,25 @@ export async function createMaintenanceTask(formData: FormData) {
     redirect("/verwaltung/wartung?fehler=eingabe");
   }
 
+  // Scope-Prüfung: eingeschränkte Verwalter nur auf eigene Objekte/freigegebene Handwerker
+  const allowedPropIds = await propertyIdsForVerwalter(verwalter);
+  let propertyId = parsed.data.propertyId || null;
+  if (propertyId && allowedPropIds !== null && !allowedPropIds.includes(propertyId)) {
+    propertyId = null;
+  }
+  let craftsmanId = parsed.data.craftsmanId || null;
+  if (craftsmanId && !(await canVerwalterUseCraftsman(verwalter, craftsmanId))) {
+    craftsmanId = null;
+  }
+
   await db.maintenanceTask.create({
     data: {
       title: parsed.data.title,
       description: parsed.data.description || null,
       interval: parsed.data.interval,
       dueDate: due,
-      propertyId: parsed.data.propertyId || null,
-      craftsmanId: parsed.data.craftsmanId || null,
+      propertyId,
+      craftsmanId,
     },
   });
   revalidatePath("/verwaltung/wartung");

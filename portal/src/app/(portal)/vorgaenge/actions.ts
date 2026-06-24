@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { Trade } from "@/generated/prisma/client";
-import { canViewTicket, ticketTargetsForUser } from "@/lib/access";
+import { canViewTicket, canVerwalterUseCraftsman, ticketTargetsForUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import { ticketPriorityLabels } from "@/lib/labels";
 import { portalUrl, sendMail } from "@/lib/mailer";
@@ -259,7 +259,7 @@ export async function assignTicketTarget(formData: FormData) {
 
 // Verwalter ordnet einem Vorgang ein Gewerk und einen Handwerker zu
 export async function assignCraftsman(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const ticketId = String(formData.get("ticketId") ?? "");
   const tradeRaw = String(formData.get("trade") ?? "");
   const craftsmanId = String(formData.get("craftsmanId") ?? "");
@@ -276,6 +276,10 @@ export async function assignCraftsman(formData: FormData) {
   if (craftsmanId) {
     const craftsman = await db.craftsman.findUnique({ where: { id: craftsmanId } });
     if (!craftsman || !craftsman.active) redirect(`/vorgaenge/${ticketId}`);
+    // Eingeschränkte Verwalter dürfen nur freigegebene Handwerker zuordnen.
+    if (!(await canVerwalterUseCraftsman(verwalter, craftsman.id))) {
+      redirect(`/vorgaenge/${ticketId}`);
+    }
     craftsmanIdToSet = craftsman.id;
   }
 

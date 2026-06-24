@@ -88,6 +88,34 @@ export async function canVerwalterManageUser(actor: User, targetUserId: string):
   return count > 0;
 }
 
+/**
+ * Welche Handwerker darf dieser Verwalter sehen/nutzen?
+ * SuperAdmin: alle. Eingeschränkter Verwalter ohne Auswahl: alle
+ * (gemeinsamer Pool). Mit Auswahl: nur die zugewiesenen Handwerker.
+ * Rückgabe null = unbeschränkt (alle).
+ */
+export async function craftsmanIdsForVerwalter(user: User): Promise<string[] | null> {
+  if (user.isSuperAdmin) return null;
+  const assignments = await db.craftsmanAssignment.findMany({
+    where: { userId: user.id },
+    select: { craftsmanId: true },
+  });
+  if (assignments.length === 0) return null; // keine Auswahl = alle
+  return assignments.map((a) => a.craftsmanId);
+}
+
+export async function craftsmanWhereForVerwalter(user: User): Promise<Prisma.CraftsmanWhereInput> {
+  const ids = await craftsmanIdsForVerwalter(user);
+  if (ids === null) return {};
+  return { id: { in: ids } };
+}
+
+export async function canVerwalterUseCraftsman(user: User, craftsmanId: string): Promise<boolean> {
+  const ids = await craftsmanIdsForVerwalter(user);
+  if (ids === null) return true;
+  return ids.includes(craftsmanId);
+}
+
 // Welche Vorgänge darf der Nutzer sehen?
 export async function ticketWhereForUser(user: User): Promise<Prisma.TicketWhereInput> {
   switch (user.role) {

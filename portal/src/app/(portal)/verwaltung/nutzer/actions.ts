@@ -383,6 +383,31 @@ export async function removePropertyAssignment(formData: FormData) {
   redirect("/verwaltung/nutzer");
 }
 
+export async function addCraftsmanAssignment(formData: FormData) {
+  // Handwerker-Freigaben anderer Verwalter dürfen nur SuperAdmins ändern.
+  const actor = await requireVerwalter();
+  if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");
+  const userId = String(formData.get("userId") ?? "").trim();
+  const craftsmanIds = formData.getAll("craftsmanId").map((c) => String(c).trim()).filter(Boolean);
+  if (!userId || craftsmanIds.length === 0) redirect("/verwaltung/nutzer");
+  await db.craftsmanAssignment.createMany({
+    data: craftsmanIds.map((craftsmanId) => ({ userId, craftsmanId })),
+    skipDuplicates: true,
+  });
+  revalidatePath("/verwaltung/nutzer");
+  redirect("/verwaltung/nutzer");
+}
+
+export async function removeCraftsmanAssignment(formData: FormData) {
+  const actor = await requireVerwalter();
+  if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) redirect("/verwaltung/nutzer");
+  await db.craftsmanAssignment.delete({ where: { id } });
+  revalidatePath("/verwaltung/nutzer");
+  redirect("/verwaltung/nutzer");
+}
+
 export async function toggleSuperAdmin(formData: FormData) {
   const actor = await requireVerwalter();
   if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");

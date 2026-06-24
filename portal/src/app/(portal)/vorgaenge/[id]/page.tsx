@@ -8,7 +8,7 @@ import {
   buttonClass,
   inputClass,
 } from "@/components/ui";
-import { canViewTicket, ticketTargetsForUser } from "@/lib/access";
+import { canViewTicket, craftsmanWhereForVerwalter, ticketTargetsForUser } from "@/lib/access";
 import { supportedCertificate } from "@/lib/documents/bescheinigungen";
 import { db } from "@/lib/db";
 import {
@@ -82,7 +82,7 @@ export default async function TicketDetailPage({
   // Handwerker für die Zuordnung – passende zum Gewerk des Vorgangs zuerst
   const craftsmen = isVerwalter
     ? await db.craftsman.findMany({
-        where: { active: true },
+        where: { active: true, ...(await craftsmanWhereForVerwalter(user)) },
         orderBy: [{ trade: "asc" }, { name: "asc" }],
       })
     : [];

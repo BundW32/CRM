@@ -5,8 +5,9 @@ import { PendingButton } from "@/components/pending-button";
 import { SubmitButton } from "@/components/submit-button";
 import { propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
-import { formatDate, roleLabels } from "@/lib/labels";
+import { formatDate, roleLabels, tradeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
+import { CraftsmanAssignPicker } from "./craftsman-assign";
 import { PropertyAssignPicker } from "./property-assign";
 import {
   addOwnership,
@@ -14,6 +15,7 @@ import {
   anonymizeUser,
   createUser,
   regenerateAccessLetter,
+  removeCraftsmanAssignment,
   removeOwnership,
   removePropertyAssignment,
   removeTenancy,
@@ -77,7 +79,7 @@ export default async function UsersPage({
   }
   const hasFilter = Boolean(roleFilter || objekt || term);
 
-  const [users, properties] = await Promise.all([
+  const [users, properties, craftsmen] = await Promise.all([
     db.user.findMany({
       where: { AND: filterAnd },
       orderBy: [{ role: "asc" }, { name: "asc" }],
@@ -85,6 +87,7 @@ export default async function UsersPage({
         tenancies: { where: { active: true }, include: { unit: { include: { property: true } } } },
         ownerships: { include: { property: true } },
         propertyAssignments: { include: { property: true } },
+        craftsmanAssignments: { include: { craftsman: true } },
       },
     }),
     db.property.findMany({
@@ -92,7 +95,21 @@ export default async function UsersPage({
       include: { units: true },
       orderBy: { name: "asc" },
     }),
+    // Handwerker-Pool nur für SuperAdmins (für die optionale Freigabe-Auswahl)
+    verwalter.isSuperAdmin
+      ? db.craftsman.findMany({
+          where: { active: true },
+          orderBy: [{ trade: "asc" }, { name: "asc" }],
+        })
+      : Promise.resolve([]),
   ]);
+
+  const craftsmenForPicker = craftsmen.map((c) => ({
+    id: c.id,
+    name: c.name,
+    company: c.company,
+    tradeLabel: tradeLabels[c.trade],
+  }));
 
   return (
     <>
@@ -348,7 +365,9 @@ export default async function UsersPage({
                     {u.role === "VERWALTER" && u.id !== verwalter.id ? (() => {
                       const assignedPropIds = new Set(u.propertyAssignments.map((a) => a.propertyId));
                       const availableProps = properties.filter((p) => !assignedPropIds.has(p.id));
+                      const assignedCraftIds = new Set(u.craftsmanAssignments.map((a) => a.craftsmanId));
                       return (
+                        <>
                         <div className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2">
                           <div className="flex items-center justify-between mb-1">
                             <p className="text-xs font-medium text-gray-500">Zuständige Objekte</p>
@@ -391,6 +410,43 @@ export default async function UsersPage({
                             />
                           ) : null}
                         </div>
+
+                        {!u.isSuperAdmin && verwalter.isSuperAdmin ? (
+                          <div className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2">
+                            <p className="mb-1 text-xs font-medium text-gray-500">Handwerker-Zugriff</p>
+                            {u.craftsmanAssignments.length === 0 ? (
+                              <p className="text-xs text-gray-400">
+                                Sieht alle Handwerker (Standard).
+                              </p>
+                            ) : (
+                              <ul className="space-y-0.5">
+                                {u.craftsmanAssignments.map((a) => (
+                                  <li key={a.id} className="flex items-center justify-between gap-2">
+                                    <span className="text-xs text-gray-700">
+                                      {a.craftsman.company ? `${a.craftsman.company} / ` : ""}
+                                      {a.craftsman.name}
+                                    </span>
+                                    <form action={removeCraftsmanAssignment}>
+                                      <input type="hidden" name="id" value={a.id} />
+                                      <button type="submit" className="text-xs text-red-600 hover:underline">
+                                        Entfernen
+                                      </button>
+                                    </form>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            <CraftsmanAssignPicker
+                              userId={u.id}
+                              available={craftsmenForPicker.filter((c) => !assignedCraftIds.has(c.id))}
+                            />
+                            <p className="mt-1 text-[11px] text-gray-400">
+                              Keine Auswahl = sieht alle Handwerker. Sobald Sie auswählen, sieht
+                              dieser Verwalter nur diese.
+                            </p>
+                          </div>
+                        ) : null}
+                        </>
                       );
                     })() : null}
 

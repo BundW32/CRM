@@ -157,6 +157,7 @@ model User {
   handoversCreated    Handover[]       @relation("HandoverCreatedBy")
   isSuperAdmin        Boolean          @default(false)
   propertyAssignments PropertyAssignment[]
+  craftsmanAssignments CraftsmanAssignment[]
 }
 
 model PropertyAssignment {
@@ -168,6 +169,19 @@ model PropertyAssignment {
   createdAt  DateTime @default(now())
 
   @@unique([userId, propertyId])
+}
+
+// Optionale Einschränkung, welche Handwerker ein (eingeschränkter) Verwalter sieht.
+// Keine Einträge = sieht alle (gemeinsamer Pool); ein oder mehr Einträge = nur diese.
+model CraftsmanAssignment {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  craftsmanId String
+  craftsman   Craftsman @relation(fields: [craftsmanId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, craftsmanId])
 }
 
 model Property {
@@ -311,6 +325,7 @@ model Craftsman {
   tickets          Ticket[]
   comments         TicketComment[]   @relation("CraftsmanComments")
   maintenanceTasks MaintenanceTask[]
+  verwalterAssignments CraftsmanAssignment[]
 }
 
 // Wartungs-/Prüfaufgaben mit Fälligkeit (visuelle Erinnerung)

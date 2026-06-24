@@ -91,28 +91,28 @@ const CHECKLIST_LABELS: Record<string, string> = {
   elektrik: "Elektrische Anlage",
   rauchmelder: "Rauchmelder",
   co_melder: "CO-Melder",
-  kueche_einbau: "Einbaukueche",
+  kueche_einbau: "Einbauküche",
   kueche_herd: "Herd / Kochfeld",
-  kueche_spuele: "Sueule & Armaturen",
+  kueche_spuele: "Spüle & Armaturen",
   kueche_dunstabzug: "Dunstabzugshaube",
   bad_wanne: "Badewanne / Dusche",
-  bad_wc: "WC-Spuelung",
+  bad_wc: "WC-Spülung",
   bad_armaturen: "Armaturen",
-  bad_abfluss: "Abfluesse",
+  bad_abfluss: "Abflüsse",
   bad_schimmel: "Schimmel",
   fenster_dicht: "Fenster dicht",
   fenster_griffe: "Fenstergriffe",
-  tueren_schliessen: "Tueren",
-  tueren_schloesser: "Schloesser",
-  rolllaeden: "Rolllaeden / Jalousien",
-  waende_ok: "Waende",
+  tueren_schliessen: "Türen",
+  tueren_schloesser: "Schlösser",
+  rolllaeden: "Rollläden / Jalousien",
+  waende_ok: "Wände",
   boden_ok: "Bodenbelag",
   decke_ok: "Decken",
   keller_ok: "Kellerabteil",
   garage_ok: "Garage / Stellplatz",
   briefkasten: "Briefkasten",
   benutzungshinweise: "Einweisungen",
-  muell: "Besenrein uebergeben",
+  muell: "Besenrein übergeben",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -213,16 +213,14 @@ class PageWriter {
     this.y -= this.lineH * lines.length;
   }
 
-  // Section heading with left accent bar
+  // Section heading: light gray bg + dark text + green left accent bar
   heading(title: string) {
     this.ensureSpace(32);
     this.y -= 8;
-    // Full-width background
     this.page.drawRectangle({ x: MARGIN, y: this.y - 6, width: CONTENT_W, height: 22, color: C.gray });
-    // Left accent bar
-    this.page.drawRectangle({ x: MARGIN, y: this.y - 6, width: 3, height: 22, color: C.green });
+    this.page.drawRectangle({ x: MARGIN, y: this.y - 6, width: 4, height: 22, color: C.green });
     this.page.drawText(enc(title), {
-      x: MARGIN + 10, y: this.y + 2, size: 10, font: this.fontBold, color: C.green,
+      x: MARGIN + 12, y: this.y + 2, size: 10, font: this.fontBold, color: C.text,
     });
     this.y -= 20;
   }
@@ -342,7 +340,7 @@ async function drawHeader(
   const prop = data.unit.property;
   const propStr = enc(
     `${prop.name} · ${data.unit.label}` +
-    (prop.street ? `  –  ${prop.street}, ${prop.zip ?? ""} ${prop.city ?? ""}` : "")
+    (prop.street ? `  -  ${prop.street}, ${prop.zip ?? ""} ${prop.city ?? ""}` : "")
   );
   page.drawText(propStr, {
     x: MARGIN, y: PAGE_H - HEADER_H - 3 - SUB_H + 8, size: 9, font: fontBold, color: C.text,
@@ -383,23 +381,32 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
   firstPage.drawRectangle({ x: 0, y: PAGE_H - HEADER_H, width: PAGE_W, height: HEADER_H, color: C.green });
   firstPage.drawRectangle({ x: 0, y: PAGE_H - HEADER_H - 3, width: PAGE_W, height: 3, color: C.orange });
 
-  // Logo
+  // Logo — drawn on a white rounded pill so any opaque PNG background
+  // looks intentional rather than clipped against the dark green header.
   let logoRight = MARGIN;
-  let logoEmbedded = false;
   try {
     const logoPath = path.join(process.cwd(), "public", "bw-logo.png");
     const logoBytes = fs.readFileSync(logoPath);
     const logoImg = await doc.embedPng(logoBytes);
-    const logH = 46;
+    const logH = 44;
     const logW = logoImg.width * (logH / logoImg.height);
+    const pillPad = 6;
+    const pillX = MARGIN - pillPad;
+    const pillY = PAGE_H - HEADER_H + (HEADER_H - logH) / 2 - pillPad;
+    // White pill background
+    firstPage.drawRectangle({
+      x: pillX, y: pillY,
+      width: logW + pillPad * 2, height: logH + pillPad * 2,
+      color: C.white,
+      borderRadius: 6,
+    } as Parameters<PDFPage["drawRectangle"]>[0]);
     firstPage.drawImage(logoImg, {
       x: MARGIN,
       y: PAGE_H - HEADER_H + (HEADER_H - logH) / 2,
       width: logW,
       height: logH,
     });
-    logoRight = MARGIN + logW + 16;
-    logoEmbedded = true;
+    logoRight = MARGIN + logW + pillPad * 2 + 10;
   } catch { /* logo unavailable */ }
 
   // Title
@@ -420,7 +427,7 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
   const prop = data.unit.property;
   const propStr = enc(
     `${prop.name} · ${data.unit.label}` +
-    (prop.street ? `  –  ${prop.street}, ${prop.zip ?? ""} ${prop.city ?? ""}` : "")
+    (prop.street ? `  -  ${prop.street}, ${prop.zip ?? ""} ${prop.city ?? ""}` : "")
   );
   firstPage.drawText(propStr, {
     x: MARGIN, y: PAGE_H - HEADER_H - 3 - SUB_H + 8, size: 9, font: fontBold, color: C.text,
@@ -459,7 +466,7 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
   // ── Schlüssel & Stellplätze ────────────────────────────────────────────────
 
   const keyParts: string[] = [];
-  if (data.keysApartment != null && data.keysApartment > 0) keyParts.push(`${data.keysApartment}x Wohnungsschluessel`);
+  if (data.keysApartment != null && data.keysApartment > 0) keyParts.push(`${data.keysApartment}x Wohnungsschlüssel`);
   if (data.keysMailbox != null && data.keysMailbox > 0) keyParts.push(`${data.keysMailbox}x Briefkasten`);
   if (data.keysBasement != null && data.keysBasement > 0) keyParts.push(`${data.keysBasement}x Keller`);
   if (data.keysGarage != null && data.keysGarage > 0) keyParts.push(`${data.keysGarage}x Garage`);
@@ -467,8 +474,8 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
 
   if (keyParts.length > 0 || data.parkingSpace || data.cellarSpace) {
     w.space(4);
-    w.heading("Schluessel & Stellplaetze");
-    if (keyParts.length) w.row("Schluessel uebergeben", keyParts.join(", "));
+    w.heading("Schlüssel & Stellplätze");
+    if (keyParts.length) w.row("Schlüssel übergeben", keyParts.join(", "));
     if (data.parkingSpace) w.row("Stellplatz Nr.", data.parkingSpace);
     if (data.cellarSpace) w.row("Kellerabteil Nr.", data.cellarSpace);
   }
@@ -477,16 +484,16 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
 
   if (data.rooms.length > 0) {
     w.space(4);
-    w.heading(`Raeume (${data.rooms.length})`);
+    w.heading(`Räume (${data.rooms.length})`);
     const roomNotes: { key: keyof Room; label: string }[] = [
       { key: "overallNote", label: "Allgemeiner Zustand" },
-      { key: "wallsNote", label: "Waende" },
+      { key: "wallsNote", label: "Wände" },
       { key: "ceilingNote", label: "Decke" },
       { key: "floorNote", label: "Boden" },
       { key: "windowsNote", label: "Fenster" },
-      { key: "doorsNote", label: "Tueren" },
+      { key: "doorsNote", label: "Türen" },
       { key: "heatingNote", label: "Heizung" },
-      { key: "sanitaryNote", label: "Sanitaer" },
+      { key: "sanitaryNote", label: "Sanitär" },
       { key: "otherNote", label: "Sonstiges" },
     ];
     for (const room of data.rooms) {
@@ -515,7 +522,7 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
 
   if (data.meters.length > 0) {
     w.space(4);
-    w.heading("Zaehlerstaende");
+    w.heading("Zählerstände");
     for (const m of data.meters) {
       const label = METER_LABELS[m.meterType] ?? m.meterType;
       const parts: string[] = [];
@@ -536,11 +543,11 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
 
     if (maengelKeys.length > 0 || naKeys.length > 0) {
       w.space(4);
-      w.heading("Checkliste – Auffaelligkeiten");
+      w.heading("Checkliste - Auffälligkeiten");
 
       if (maengelKeys.length > 0) {
         w.space(4);
-        w.text(`Maengel (${maengelKeys.length})`, 9, true, rgb(0.7, 0.5, 0));
+        w.text(`Mängel (${maengelKeys.length})`, 9, true, rgb(0.7, 0.5, 0));
         for (const k of maengelKeys) {
           const note = cl[`note_${k}`];
           const label = CHECKLIST_LABELS[k] ?? enc(k.replace(/_/g, " "));

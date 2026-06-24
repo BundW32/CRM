@@ -1,4 +1,6 @@
-import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
+import { SubmitButton } from "@/components/submit-button";
 import { ownedProperties, propertyWhereForVerwalter, tenantUnits } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, meterTypeLabels } from "@/lib/labels";
@@ -157,12 +159,12 @@ export default async function ZaehlerPage({
                             <span className="mb-1 block text-xs text-gray-500">Datum</span>
                             <input type="date" name="readingDate" className={`${inputClass} w-40`} />
                           </label>
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                          <PendingButton
+                            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            pendingLabel="Wird gespeichert…"
                           >
                             Speichern
-                          </button>
+                          </PendingButton>
                         </form>
                       ) : null}
                     </li>
@@ -212,9 +214,7 @@ export default async function ZaehlerPage({
                 <Field label="Einbauort (optional)">
                   <input type="text" name="location" className={inputClass} placeholder="z. B. Keller" />
                 </Field>
-                <button type="submit" className={buttonClass}>
-                  Anlegen
-                </button>
+                <SubmitButton pendingLabel="Wird angelegt…">Anlegen</SubmitButton>
                 <p className="text-xs text-gray-500">
                   Allgemeinzähler (z. B. Allgemeinstrom, Hauswasser) können Eigentümer und
                   Verwalter ablesen; Einheitszähler der jeweilige Mieter.

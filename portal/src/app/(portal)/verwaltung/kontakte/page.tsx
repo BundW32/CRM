@@ -1,4 +1,5 @@
-import { Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { Field, PageTitle, inputClass } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { tradeLabels } from "@/lib/labels";
@@ -120,9 +121,7 @@ export default async function KontaktePage({
               <Field label="Notizen (optional)">
                 <textarea name="notes" rows={2} className={inputClass} placeholder="z. B. Verfügbarkeiten, Konditionen" />
               </Field>
-              <button type="submit" className={buttonClass}>
-                Speichern
-              </button>
+              <SubmitButton pendingLabel="Wird gespeichert…">Speichern</SubmitButton>
             </form>
           </div>
         </div>

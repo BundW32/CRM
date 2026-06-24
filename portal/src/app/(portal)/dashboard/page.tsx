@@ -5,6 +5,7 @@ import { PropertyStats } from "@/components/property-stats";
 import { Card, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
 import {
   announcementWhereForUser,
+  noteWhereForVerwalter,
   ownedProperties,
   propertyIdsForVerwalter,
   propertyWhereForVerwalter,
@@ -39,7 +40,7 @@ export default async function DashboardPage() {
     }),
     user.role === "VERWALTER"
       ? db.note.findMany({
-          where: { pinned: true },
+          where: { AND: [{ pinned: true }, await noteWhereForVerwalter(user)] },
           orderBy: { updatedAt: "desc" },
           take: 3,
           include: {

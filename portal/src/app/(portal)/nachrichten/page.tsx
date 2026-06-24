@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import { userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
@@ -27,6 +28,7 @@ export default async function NachrichtenPage({
   const conversations = await db.conversation.findMany({
     where: { participants: { some: { userId: user.id } } },
     orderBy: { updatedAt: "desc" },
+    take: 100,
     include: {
       participants: { include: { user: true } },
       messages: { orderBy: { createdAt: "desc" }, take: 1 },
@@ -35,9 +37,17 @@ export default async function NachrichtenPage({
 
   let recipients: RecipientRow[] = [];
   if (isVerwalter) {
+    // Eingeschränkte Verwalter sehen als Empfänger nur Mieter/Eigentümer
+    // ihrer zugewiesenen Objekte (SuperAdmin: alle).
     const raw = await db.user.findMany({
-      where: { role: { in: ["MIETER", "EIGENTUEMER"] }, active: true },
+      where: {
+        AND: [
+          { role: { in: ["MIETER", "EIGENTUEMER"] }, active: true },
+          await userWhereForVerwalter(user),
+        ],
+      },
       orderBy: [{ role: "asc" }, { name: "asc" }],
+      take: 100,
       include: {
         tenancies: {
           where: { active: true },

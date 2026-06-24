@@ -1,5 +1,11 @@
 import Link from "next/link";
 import { PageTitle } from "@/components/ui";
+import {
+  craftsmanWhereForVerwalter,
+  propertyIdsForVerwalter,
+  propertyWhereForVerwalter,
+  userWhereForVerwalter,
+} from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 
@@ -45,13 +51,24 @@ const tiles = [
 ];
 
 export default async function VerwaltungPage() {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
+
+  // Kennzahlen auf den Zuständigkeitsbereich des Verwalters einschränken.
+  const assignedIds = await propertyIdsForVerwalter(verwalter);
+  const wartungWhere =
+    assignedIds === null
+      ? { active: true, dueDate: { lte: new Date() } }
+      : { active: true, dueDate: { lte: new Date() }, property: { id: { in: assignedIds } } };
 
   const [objekte, nutzer, handwerker, wartungFaellig] = await Promise.all([
-    db.property.count(),
-    db.user.count({ where: { role: { in: ["MIETER", "EIGENTUEMER"] } } }),
-    db.craftsman.count({ where: { active: true } }),
-    db.maintenanceTask.count({ where: { active: true, dueDate: { lte: new Date() } } }),
+    db.property.count({ where: await propertyWhereForVerwalter(verwalter) }),
+    db.user.count({
+      where: {
+        AND: [{ role: { in: ["MIETER", "EIGENTUEMER"] } }, await userWhereForVerwalter(verwalter)],
+      },
+    }),
+    db.craftsman.count({ where: { active: true, ...(await craftsmanWhereForVerwalter(verwalter)) } }),
+    db.maintenanceTask.count({ where: wartungWhere }),
   ]);
 
   const counts: Record<string, string> = {

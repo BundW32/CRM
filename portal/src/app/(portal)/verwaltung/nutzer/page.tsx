@@ -1,19 +1,19 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
-import { Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { Card, PageTitle, inputClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
-import { SubmitButton } from "@/components/submit-button";
 import { propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, roleLabels, tradeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import { CraftsmanAssignPicker } from "./craftsman-assign";
+import { NewUserForm } from "./new-user-form";
 import { PropertyAssignPicker } from "./property-assign";
+import { UserRow } from "./user-row";
 import {
   addOwnership,
   addTenancy,
   anonymizeUser,
-  createUser,
   regenerateAccessLetter,
   removeCraftsmanAssignment,
   removeOwnership,
@@ -27,6 +27,8 @@ import {
 import { SignatureInput } from "./signature-input";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 20;
 
 const errorMessages: Record<string, string> = {
   eingabe: "Bitte alle Pflichtfelder ausfüllen.",
@@ -48,10 +50,11 @@ export default async function UsersPage({
     q?: string;
     rolle?: string;
     objekt?: string;
+    page?: string;
   }>;
 }) {
   const verwalter = await requireVerwalter();
-  const { fehler, msg, eingeladen, anonymisiert, stammdaten, q, rolle, objekt } =
+  const { fehler, msg, eingeladen, anonymisiert, stammdaten, q, rolle, objekt, page } =
     await searchParams;
 
   // Filter (Rolle, Objekt/Region, Suche) zusätzlich zum Scope des Verwalters.
@@ -78,11 +81,17 @@ export default async function UsersPage({
     });
   }
   const hasFilter = Boolean(roleFilter || objekt || term);
+  const where = { AND: filterAnd };
 
-  const [users, properties, craftsmen] = await Promise.all([
+  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
+
+  const [total, users, properties, craftsmen] = await Promise.all([
+    db.user.count({ where }),
     db.user.findMany({
-      where: { AND: filterAnd },
+      where,
       orderBy: [{ role: "asc" }, { name: "asc" }],
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       include: {
         tenancies: { where: { active: true }, include: { unit: { include: { property: true } } } },
         ownerships: { include: { property: true } },
@@ -104,11 +113,29 @@ export default async function UsersPage({
       : Promise.resolve([]),
   ]);
 
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const craftsmenForPicker = craftsmen.map((c) => ({
     id: c.id,
     name: c.name,
     company: c.company,
     tradeLabel: tradeLabels[c.trade],
+  }));
+
+  // Hilfsfunktion: Querystring für Paginierungslinks (Filter beibehalten)
+  function pageHref(p: number) {
+    const sp = new URLSearchParams();
+    if (term) sp.set("q", term);
+    if (roleFilter) sp.set("rolle", roleFilter);
+    if (objekt) sp.set("objekt", objekt);
+    if (p > 1) sp.set("page", String(p));
+    const qs = sp.toString();
+    return qs ? `/verwaltung/nutzer?${qs}` : "/verwaltung/nutzer";
+  }
+
+  const propsForNewUser = properties.map((p) => ({
+    id: p.id,
+    name: p.name,
+    units: p.units.map((u) => ({ id: u.id, label: u.label })),
   }));
 
   return (
@@ -139,50 +166,72 @@ export default async function UsersPage({
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
-            <input
-              type="text"
-              name="q"
-              defaultValue={term}
-              placeholder="Name oder E-Mail…"
-              className={`${inputClass} min-w-[10rem] flex-1`}
-            />
-            <select name="rolle" defaultValue={roleFilter ?? ""} className={`${inputClass} w-auto`}>
-              <option value="">Alle Rollen</option>
-              <option value="MIETER">Mieter</option>
-              <option value="EIGENTUEMER">Eigentümer</option>
-              {verwalter.isSuperAdmin ? (
-                <>
-                  <option value="VERWALTER">Verwalter</option>
-                  <option value="HANDWERKER">Handwerker</option>
-                </>
-              ) : null}
-            </select>
-            <select name="objekt" defaultValue={objekt ?? ""} className={`${inputClass} w-auto`}>
-              <option value="">Alle Objekte</option>
-              {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} · {p.zip} {p.city}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className={buttonClass}>
-              Filtern
-            </button>
-            {hasFilter ? (
-              <Link
-                href="/verwaltung/nutzer"
-                className="self-center text-sm text-gray-300 hover:text-brand-orange hover:underline"
+          {/* Filter-Toolbar */}
+          <form
+            method="get"
+            className="mb-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+          >
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="min-w-[12rem] flex-1">
+                <span className="mb-1 block text-xs font-medium text-gray-500">Suche</span>
+                <input
+                  type="text"
+                  name="q"
+                  defaultValue={term}
+                  placeholder="Name oder E-Mail…"
+                  className={inputClass}
+                />
+              </label>
+              <label>
+                <span className="mb-1 block text-xs font-medium text-gray-500">Rolle</span>
+                <select name="rolle" defaultValue={roleFilter ?? ""} className={`${inputClass} w-auto`}>
+                  <option value="">Alle Rollen</option>
+                  <option value="MIETER">Mieter</option>
+                  <option value="EIGENTUEMER">Eigentümer</option>
+                  {verwalter.isSuperAdmin ? (
+                    <>
+                      <option value="VERWALTER">Verwalter</option>
+                      <option value="HANDWERKER">Handwerker</option>
+                    </>
+                  ) : null}
+                </select>
+              </label>
+              <label>
+                <span className="mb-1 block text-xs font-medium text-gray-500">Objekt</span>
+                <select name="objekt" defaultValue={objekt ?? ""} className={`${inputClass} w-auto`}>
+                  <option value="">Alle Objekte</option>
+                  {properties.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} · {p.zip} {p.city}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="submit"
+                className="rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-green-dark shadow-sm transition-all hover:bg-brand-orange-dark active:scale-95"
               >
-                ✕ Zurücksetzen
-              </Link>
-            ) : null}
+                Filtern
+              </button>
+              {hasFilter ? (
+                <Link
+                  href="/verwaltung/nutzer"
+                  className="self-center text-sm text-gray-400 hover:text-brand-orange hover:underline"
+                >
+                  ✕ Zurücksetzen
+                </Link>
+              ) : null}
+            </div>
           </form>
-          {hasFilter ? (
-            <p className="mb-2 text-xs text-gray-400">
-              {users.length} Treffer
+
+          <div className="mb-2 flex items-center justify-between px-1">
+            <p className="text-xs text-gray-400">
+              {total} {total === 1 ? "Nutzer" : "Nutzer"}
+              {hasFilter ? " (gefiltert)" : ""}
+              {totalPages > 1 ? ` · Seite ${currentPage} von ${totalPages}` : ""}
             </p>
-          ) : null}
+          </div>
+
           <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
             {users.length === 0 ? (
               <p className="px-4 py-6 text-sm text-gray-400">Keine Nutzer gefunden.</p>
@@ -195,133 +244,63 @@ export default async function UsersPage({
                   u.passwordResetToken !== null &&
                   u.passwordResetExpiry !== null &&
                   u.passwordResetExpiry > new Date();
+
+                const assignedUnitIds = new Set(u.tenancies.map((t) => t.unitId));
+                const availableUnits = properties.flatMap((p) =>
+                  p.units
+                    .filter((un) => !assignedUnitIds.has(un.id))
+                    .map((un) => ({ ...un, propertyName: p.name }))
+                );
+                const assignedOwnPropIds = new Set(u.ownerships.map((o) => o.propertyId));
+                const availableOwnProps = properties.filter((p) => !assignedOwnPropIds.has(p.id));
+                const assignedMgmtPropIds = new Set(u.propertyAssignments.map((a) => a.propertyId));
+                const availableMgmtProps = properties.filter((p) => !assignedMgmtPropIds.has(p.id));
+                const assignedCraftIds = new Set(u.craftsmanAssignments.map((a) => a.craftsmanId));
+                const isManagedVerwalter = u.role === "VERWALTER" && u.id !== verwalter.id;
+
                 return (
-                  <li
+                  <UserRow
                     key={u.id}
-                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
-                  >
-                    <span>
-                      <span className="block text-sm font-medium text-gray-900">
-                        {u.salutation ? `${u.salutation} ` : ""}{u.name}
-                        <span className="ml-2 rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-medium text-brand-orange-dark">
-                          {roleLabels[u.role]}
-                        </span>
+                    name={u.name}
+                    salutation={u.salutation}
+                    roleBadge={
+                      <span className="rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-medium text-brand-orange-dark">
+                        {roleLabels[u.role]}
+                      </span>
+                    }
+                    statusBadges={
+                      <>
+                        {u.role === "VERWALTER" && u.isSuperAdmin ? (
+                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                            Super-Admin · sieht alles
+                          </span>
+                        ) : null}
                         {!u.active ? (
-                          <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                          <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
                             deaktiviert
                           </span>
                         ) : null}
                         {hasInvitePending ? (
-                          <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
                             Einladung ausstehend
                           </span>
                         ) : null}
                         {u.mustChangePassword ? (
-                          <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
                             Erst-Passwort aktiv
                           </span>
                         ) : null}
-                      </span>
-                      <span className="block text-xs text-gray-500">
+                      </>
+                    }
+                    subtitle={
+                      <>
                         {u.email ?? (u.username ? `Benutzer: ${u.username}` : "ohne Login")}
                         {u.phone ? ` · ${u.phone}` : ""} · angelegt {formatDate(u.createdAt)}
-                      </span>
-                      {u.role === "MIETER" ? (() => {
-                        const assignedUnitIds = new Set(u.tenancies.map((t) => t.unitId));
-                        const availableUnits = properties.flatMap((p) =>
-                          p.units
-                            .filter((un) => !assignedUnitIds.has(un.id))
-                            .map((un) => ({ ...un, propertyName: p.name }))
-                        );
-                        return (
-                          <div className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2">
-                            <p className="mb-1 text-xs font-medium text-gray-500">Einheiten</p>
-                            {u.tenancies.length === 0 ? (
-                              <p className="text-xs text-gray-400">Keine Einheit zugeordnet.</p>
-                            ) : (
-                              <ul className="space-y-0.5">
-                                {u.tenancies.map((t) => (
-                                  <li key={t.id} className="flex items-center justify-between gap-2">
-                                    <span className="text-xs text-gray-700">
-                                      {t.unit.property.name} – {t.unit.label}
-                                    </span>
-                                    <form action={removeTenancy}>
-                                      <input type="hidden" name="id" value={t.id} />
-                                      <button type="submit" className="text-xs text-red-600 hover:underline">
-                                        Entfernen
-                                      </button>
-                                    </form>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                            {availableUnits.length > 0 ? (
-                              <form action={addTenancy} className="mt-2 flex flex-wrap items-center gap-2">
-                                <input type="hidden" name="userId" value={u.id} />
-                                <select name="unitId" required className={`${inputClass} flex-1 text-xs`}>
-                                  {availableUnits.map((un) => (
-                                    <option key={un.id} value={un.id}>
-                                      {un.propertyName} – {un.label}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  type="submit"
-                                  className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                                >
-                                  + Einheit hinzufügen
-                                </button>
-                              </form>
-                            ) : null}
-                          </div>
-                        );
-                      })() : null}
-                      {u.role === "EIGENTUEMER" ? (() => {
-                        const assignedPropIds = new Set(u.ownerships.map((o) => o.propertyId));
-                        const availableProps = properties.filter((p) => !assignedPropIds.has(p.id));
-                        return (
-                          <div className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2">
-                            <p className="mb-1 text-xs font-medium text-gray-500">Objekte</p>
-                            {u.ownerships.length === 0 ? (
-                              <p className="text-xs text-gray-400">Kein Objekt zugeordnet.</p>
-                            ) : (
-                              <ul className="space-y-0.5">
-                                {u.ownerships.map((o) => (
-                                  <li key={o.id} className="flex items-center justify-between gap-2">
-                                    <span className="text-xs text-gray-700">{o.property.name}</span>
-                                    <form action={removeOwnership}>
-                                      <input type="hidden" name="id" value={o.id} />
-                                      <button type="submit" className="text-xs text-red-600 hover:underline">
-                                        Entfernen
-                                      </button>
-                                    </form>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                            {availableProps.length > 0 ? (
-                              <form action={addOwnership} className="mt-2 flex flex-wrap items-center gap-2">
-                                <input type="hidden" name="userId" value={u.id} />
-                                <select name="propertyId" required className={`${inputClass} flex-1 text-xs`}>
-                                  {availableProps.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                      {p.name}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  type="submit"
-                                  className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                                >
-                                  + Objekt hinzufügen
-                                </button>
-                              </form>
-                            ) : null}
-                          </div>
-                        );
-                      })() : null}
-                    </span>
-                    <span className="flex flex-wrap items-center gap-3">
+                      </>
+                    }
+                  >
+                    {/* Schnellaktionen */}
+                    <div className="flex flex-wrap items-center gap-3">
                       {hasInvitePending ? (
                         <form action={resendInvite}>
                           <input type="hidden" name="id" value={u.id} />
@@ -346,10 +325,7 @@ export default async function UsersPage({
                           </button>
                         </form>
                       ) : null}
-                      <a
-                        href={`/api/export/${u.id}`}
-                        className="text-xs text-gray-500 hover:underline"
-                      >
+                      <a href={`/api/export/${u.id}`} className="text-xs text-gray-500 hover:underline">
                         Daten exportieren
                       </a>
                       {verwalter.isSuperAdmin && u.id !== verwalter.id ? (
@@ -360,30 +336,125 @@ export default async function UsersPage({
                           </button>
                         </form>
                       ) : null}
-                    </span>
+                    </div>
 
-                    {u.role === "VERWALTER" && u.id !== verwalter.id ? (() => {
-                      const assignedPropIds = new Set(u.propertyAssignments.map((a) => a.propertyId));
-                      const availableProps = properties.filter((p) => !assignedPropIds.has(p.id));
-                      const assignedCraftIds = new Set(u.craftsmanAssignments.map((a) => a.craftsmanId));
-                      return (
-                        <>
-                        <div className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2">
-                          <div className="flex items-center justify-between mb-1">
+                    {/* MIETER: Einheiten */}
+                    {u.role === "MIETER" ? (
+                      <div className="rounded-lg border border-gray-100 bg-white p-2">
+                        <p className="mb-1 text-xs font-medium text-gray-500">Einheiten</p>
+                        {u.tenancies.length === 0 ? (
+                          <p className="text-xs text-gray-400">Keine Einheit zugeordnet.</p>
+                        ) : (
+                          <ul className="space-y-0.5">
+                            {u.tenancies.map((t) => (
+                              <li key={t.id} className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-gray-700">
+                                  {t.unit.property.name} – {t.unit.label}
+                                </span>
+                                <form action={removeTenancy}>
+                                  <input type="hidden" name="id" value={t.id} />
+                                  <button type="submit" className="text-xs text-red-600 hover:underline">
+                                    Entfernen
+                                  </button>
+                                </form>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {availableUnits.length > 0 ? (
+                          <form action={addTenancy} className="mt-2 flex flex-wrap items-center gap-2">
+                            <input type="hidden" name="userId" value={u.id} />
+                            <select name="unitId" required className={`${inputClass} flex-1 text-xs`}>
+                              {availableUnits.map((un) => (
+                                <option key={un.id} value={un.id}>
+                                  {un.propertyName} – {un.label}
+                                </option>
+                              ))}
+                            </select>
+                            <PendingButton
+                              pendingLabel="…"
+                              className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              + Einheit hinzufügen
+                            </PendingButton>
+                          </form>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {/* EIGENTÜMER: Objekte */}
+                    {u.role === "EIGENTUEMER" ? (
+                      <div className="rounded-lg border border-gray-100 bg-white p-2">
+                        <p className="mb-1 text-xs font-medium text-gray-500">Objekte</p>
+                        {u.ownerships.length === 0 ? (
+                          <p className="text-xs text-gray-400">Kein Objekt zugeordnet.</p>
+                        ) : (
+                          <ul className="space-y-0.5">
+                            {u.ownerships.map((o) => (
+                              <li key={o.id} className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-gray-700">{o.property.name}</span>
+                                <form action={removeOwnership}>
+                                  <input type="hidden" name="id" value={o.id} />
+                                  <button type="submit" className="text-xs text-red-600 hover:underline">
+                                    Entfernen
+                                  </button>
+                                </form>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {availableOwnProps.length > 0 ? (
+                          <form action={addOwnership} className="mt-2 flex flex-wrap items-center gap-2">
+                            <input type="hidden" name="userId" value={u.id} />
+                            <select name="propertyId" required className={`${inputClass} flex-1 text-xs`}>
+                              {availableOwnProps.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
+                            <PendingButton
+                              pendingLabel="…"
+                              className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            >
+                              + Objekt hinzufügen
+                            </PendingButton>
+                          </form>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {/* VERWALTER: Zuständige Objekte + Handwerker-Zugriff */}
+                    {isManagedVerwalter ? (
+                      <>
+                        <div className="rounded-lg border border-gray-100 bg-white p-2">
+                          <div className="mb-1 flex items-center justify-between">
                             <p className="text-xs font-medium text-gray-500">Zuständige Objekte</p>
                             {verwalter.isSuperAdmin ? (
                               <form action={toggleSuperAdmin} className="inline">
                                 <input type="hidden" name="id" value={u.id} />
-                                <button type="submit" className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${u.isSuperAdmin ? "bg-brand-orange-light text-brand-orange-dark" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
-                                  {u.isSuperAdmin ? "Super-Admin ✓" : "Super-Admin?"}
+                                <button
+                                  type="submit"
+                                  className={`rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+                                    u.isSuperAdmin
+                                      ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                  }`}
+                                >
+                                  {u.isSuperAdmin ? "Super-Admin ✓ (entziehen)" : "Zu Super-Admin machen"}
                                 </button>
                               </form>
                             ) : null}
                           </div>
                           {u.isSuperAdmin ? (
-                            <p className="text-xs font-medium text-brand-orange-dark">Sieht alle Objekte (Super-Admin)</p>
+                            <p className="text-xs font-medium text-indigo-700">
+                              Sieht alle Objekte und Handwerker (Super-Admin). Objekt-/Handwerker-Zuweisung
+                              hat keine Wirkung, solange Super-Admin aktiv ist.
+                            </p>
                           ) : u.propertyAssignments.length === 0 ? (
-                            <p className="text-xs text-amber-600">Keine Objekte zugewiesen – sieht derzeit nichts.</p>
+                            <p className="text-xs text-amber-600">
+                              Keine Objekte zugewiesen – sieht derzeit nichts.
+                            </p>
                           ) : (
                             <ul className="space-y-0.5">
                               {u.propertyAssignments.map((a) => (
@@ -391,7 +462,9 @@ export default async function UsersPage({
                                   <span className="text-xs text-gray-700">{a.property.name}</span>
                                   <form action={removePropertyAssignment}>
                                     <input type="hidden" name="id" value={a.id} />
-                                    <button type="submit" className="text-xs text-red-600 hover:underline">Entfernen</button>
+                                    <button type="submit" className="text-xs text-red-600 hover:underline">
+                                      Entfernen
+                                    </button>
                                   </form>
                                 </li>
                               ))}
@@ -400,7 +473,7 @@ export default async function UsersPage({
                           {!u.isSuperAdmin ? (
                             <PropertyAssignPicker
                               userId={u.id}
-                              available={availableProps.map((p) => ({
+                              available={availableMgmtProps.map((p) => ({
                                 id: p.id,
                                 name: p.name,
                                 zip: p.zip,
@@ -412,12 +485,10 @@ export default async function UsersPage({
                         </div>
 
                         {!u.isSuperAdmin && verwalter.isSuperAdmin ? (
-                          <div className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2">
+                          <div className="rounded-lg border border-gray-100 bg-white p-2">
                             <p className="mb-1 text-xs font-medium text-gray-500">Handwerker-Zugriff</p>
                             {u.craftsmanAssignments.length === 0 ? (
-                              <p className="text-xs text-gray-400">
-                                Sieht alle Handwerker (Standard).
-                              </p>
+                              <p className="text-xs text-gray-400">Sieht alle Handwerker (Standard).</p>
                             ) : (
                               <ul className="space-y-0.5">
                                 {u.craftsmanAssignments.map((a) => (
@@ -446,15 +517,15 @@ export default async function UsersPage({
                             </p>
                           </div>
                         ) : null}
-                        </>
-                      );
-                    })() : null}
+                      </>
+                    ) : null}
 
+                    {/* Stammdaten / Unterschrift */}
                     {u.role === "EIGENTUEMER" || u.role === "VERWALTER" ? (
                       <form
                         action={uploadStammdaten}
                         encType="multipart/form-data"
-                        className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2"
+                        className="rounded-lg border border-gray-100 bg-white p-2"
                       >
                         <input type="hidden" name="id" value={u.id} />
                         <p className="mb-2 text-xs font-medium text-gray-500">
@@ -499,89 +570,44 @@ export default async function UsersPage({
                         </p>
                       </form>
                     ) : null}
-                  </li>
+                  </UserRow>
                 );
               })}
             </ul>
           </div>
+
+          {/* Paginierung */}
+          {totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between">
+              {currentPage > 1 ? (
+                <Link
+                  href={pageHref(currentPage - 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  ← Zurück
+                </Link>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-gray-400">
+                Seite {currentPage} von {totalPages}
+              </span>
+              {currentPage < totalPages ? (
+                <Link
+                  href={pageHref(currentPage + 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Weiter →
+                </Link>
+              ) : (
+                <span />
+              )}
+            </div>
+          ) : null}
         </div>
 
         <Card title="Neuen Nutzer anlegen">
-          <form action={createUser} className="space-y-3">
-            <Field label="Name">
-              <div className="flex flex-wrap gap-2">
-                <select name="salutation" className={`${inputClass} w-24`} defaultValue="">
-                  <option value="">Anrede</option>
-                  <option value="Herr">Herr</option>
-                  <option value="Frau">Frau</option>
-                </select>
-                <input type="text" name="firstName" required placeholder="Vorname" className={`${inputClass} flex-1`} />
-                <input type="text" name="lastName" required placeholder="Nachname" className={`${inputClass} flex-1`} />
-              </div>
-            </Field>
-            <Field label="Zugang per">
-              <select name="method" required className={inputClass} defaultValue="email">
-                <option value="email">E-Mail-Einladung (Link zum Selbst-Einrichten)</option>
-                <option value="schreiben">Zugangsschreiben zum Ausdrucken</option>
-              </select>
-            </Field>
-            <Field label="E-Mail-Adresse (bei E-Mail-Einladung erforderlich)">
-              <input type="email" name="email" className={inputClass} />
-            </Field>
-            <Field label="Telefon (optional)">
-              <input type="tel" name="phone" className={inputClass} />
-            </Field>
-            <Field label="Bevorzugter Kontaktweg (optional)">
-              <select name="preferredContact" className={inputClass} defaultValue="">
-                <option value="">– keine Angabe –</option>
-                <option value="EMAIL">E-Mail</option>
-                <option value="TELEFON">Telefon</option>
-                <option value="MOBIL">Mobil</option>
-                <option value="POST">Post</option>
-              </select>
-            </Field>
-            <Field label="Rolle">
-              <select name="role" required className={inputClass} defaultValue="MIETER">
-                <option value="MIETER">Mieter</option>
-                <option value="EIGENTUEMER">Eigentümer</option>
-                {verwalter.isSuperAdmin ? (
-                  <>
-                    <option value="VERWALTER">Verwalter</option>
-                    <option value="HANDWERKER">Handwerker</option>
-                  </>
-                ) : null}
-              </select>
-            </Field>
-            <Field label="Wohnung (bei Rolle Mieter)">
-              <select name="unitId" className={inputClass} defaultValue="">
-                <option value="">– Keine –</option>
-                {properties.flatMap((p) =>
-                  p.units.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {p.name} – {u.label}
-                    </option>
-                  ))
-                )}
-              </select>
-            </Field>
-            <Field label="Objekt (bei Rolle Eigentümer)">
-              <select name="propertyId" className={inputClass} defaultValue="">
-                <option value="">– Keins –</option>
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <SubmitButton pendingLabel="Wird angelegt…">Anlegen</SubmitButton>
-            <p className="text-xs text-gray-500">
-              <strong>E-Mail-Einladung:</strong> Der Nutzer erhält einen Link zum Einrichten
-              seines Passworts (gültig 7 Tage). <strong>Zugangsschreiben:</strong> Es wird ein
-              Erst-Passwort erzeugt und ein druckbares Schreiben geöffnet — ideal für Mieter
-              ohne E-Mail-Adresse.
-            </p>
-          </form>
+          <NewUserForm properties={propsForNewUser} isSuperAdmin={verwalter.isSuperAdmin} />
         </Card>
       </div>
     </>

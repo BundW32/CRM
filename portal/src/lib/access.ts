@@ -116,6 +116,37 @@ export async function canVerwalterUseCraftsman(user: User, craftsmanId: string):
   return ids.includes(craftsmanId);
 }
 
+/**
+ * WHERE-Filter für interne Notizen eines Verwalters.
+ * SuperAdmin: alle Notizen. Eingeschränkter Verwalter: nur Notizen zu seinen
+ * Objekten/Einheiten, zu Personen in seinem Scope oder rein allgemeine Notizen.
+ * Verhindert Querleaks von personenbezogenen Notizen anderer Objekte.
+ */
+export async function noteWhereForVerwalter(user: User): Promise<Prisma.NoteWhereInput> {
+  const ids = await propertyIdsForVerwalter(user);
+  if (ids === null) return {};
+  const userScope = await userWhereForVerwalter(user);
+  return {
+    OR: [
+      { property: { id: { in: ids } } },
+      { unit: { property: { id: { in: ids } } } },
+      { targetUser: userScope },
+      { AND: [{ propertyId: null }, { unitId: null }, { targetUserId: null }] },
+    ],
+  };
+}
+
+/**
+ * Darf der Verwalter auf diese Notiz zugreifen (löschen/anpinnen)? Verhindert IDOR.
+ */
+export async function canVerwalterAccessNote(user: User, noteId: string): Promise<boolean> {
+  const ids = await propertyIdsForVerwalter(user);
+  if (ids === null) return true;
+  const where = await noteWhereForVerwalter(user);
+  const count = await db.note.count({ where: { AND: [{ id: noteId }, where] } });
+  return count > 0;
+}
+
 // Welche Vorgänge darf der Nutzer sehen?
 export async function ticketWhereForUser(user: User): Promise<Prisma.TicketWhereInput> {
   switch (user.role) {

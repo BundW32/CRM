@@ -1,4 +1,5 @@
-import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter, propertyIdsForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
@@ -165,9 +166,7 @@ export default async function WartungPage({
             <Field label="Notiz (optional)">
               <textarea name="description" rows={2} className={inputClass} />
             </Field>
-            <button type="submit" className={buttonClass}>
-              Anlegen
-            </button>
+            <SubmitButton pendingLabel="Wird angelegt…">Anlegen</SubmitButton>
           </form>
         </Card>
       </div>

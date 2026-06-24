@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { canVerwalterManageUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { sendPushToUsers } from "@/lib/push";
@@ -53,6 +54,11 @@ export async function startConversation(formData: FormData) {
       ? await db.user.findUnique({ where: { id: recipientId } })
       : null;
     if (!recipient || !recipient.active || recipient.role === "VERWALTER") {
+      redirect("/nachrichten?fehler=empfaenger");
+    }
+    // Eingeschränkte Verwalter dürfen nur Empfänger im eigenen
+    // Zuständigkeitsbereich anschreiben (SuperAdmin: immer erlaubt).
+    if (!(await canVerwalterManageUser(user, recipient.id))) {
       redirect("/nachrichten?fehler=empfaenger");
     }
     recipientIds.add(recipient.id);

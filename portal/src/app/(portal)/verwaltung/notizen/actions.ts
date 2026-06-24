@@ -1,5 +1,10 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import {
+  canVerwalterAccessNote,
+  canVerwalterManageUser,
+  propertyIdsForVerwalter,
+} from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 
@@ -11,11 +16,27 @@ export async function createNote(formData: FormData) {
   const propertyId = (formData.get("propertyId") as string | null) || undefined;
   const unitId = (formData.get("unitId") as string | null) || undefined;
   const targetUserId = (formData.get("targetUserId") as string | null) || undefined;
+
+  // Konsistenz erzwingen: gehört eine Einheit dazu, leitet sich das Objekt aus der
+  // Einheit ab – so kann kein widersprüchliches Objekt/Einheit-Paar gespeichert werden.
+  let resolvedPropertyId = propertyId || null;
+  if (unitId) {
+    const unit = await db.unit.findUnique({ where: { id: unitId }, select: { propertyId: true } });
+    resolvedPropertyId = unit?.propertyId ?? resolvedPropertyId;
+  }
+
+  // Scope-Prüfung: eingeschränkter Verwalter darf nur eigene Objekte/Personen adressieren.
+  const allowedPropIds = await propertyIdsForVerwalter(user);
+  if (allowedPropIds !== null) {
+    if (resolvedPropertyId && !allowedPropIds.includes(resolvedPropertyId)) return;
+    if (targetUserId && !(await canVerwalterManageUser(user, targetUserId))) return;
+  }
+
   await db.note.create({
     data: {
       body,
       authorId: user.id,
-      propertyId: propertyId || null,
+      propertyId: resolvedPropertyId,
       unitId: unitId || null,
       targetUserId: targetUserId || null,
     },
@@ -26,6 +47,8 @@ export async function createNote(formData: FormData) {
 export async function deleteNote(id: string) {
   const user = await requireUser();
   if (user.role !== "VERWALTER") return;
+  // IDOR-Schutz: nur Notizen im eigenen Scope dürfen gelöscht werden.
+  if (!(await canVerwalterAccessNote(user, id))) return;
   await db.note.delete({ where: { id } });
   revalidatePath("/verwaltung/notizen");
 }
@@ -33,6 +56,8 @@ export async function deleteNote(id: string) {
 export async function togglePinNote(id: string, pinned: boolean) {
   const user = await requireUser();
   if (user.role !== "VERWALTER") return;
+  // IDOR-Schutz: nur Notizen im eigenen Scope dürfen angepinnt werden.
+  if (!(await canVerwalterAccessNote(user, id))) return;
   await db.note.update({ where: { id }, data: { pinned: !pinned } });
   revalidatePath("/verwaltung/notizen");
 }

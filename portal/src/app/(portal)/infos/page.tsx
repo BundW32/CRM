@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { User } from "@/generated/prisma/client";
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { PropertyUnitFields } from "@/components/property-unit-fields";
+import { SubmitButton } from "@/components/submit-button";
 import { announcementWhereForUser, documentWhereForUser, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
@@ -283,28 +285,14 @@ async function DokumenteTab({ user, isVerwalter }: { user: User; isVerwalter: bo
                   ))}
                 </select>
               </Field>
-              <Field label="Objekt (optional)">
-                <select name="propertyId" className={inputClass} defaultValue="">
-                  <option value="">– Allgemein –</option>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Einheit (optional, überschreibt Objekt)">
-                <select name="unitId" className={inputClass} defaultValue="">
-                  <option value="">– Keine –</option>
-                  {properties.flatMap((p) =>
-                    p.units.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {p.name} – {u.label}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </Field>
+              <PropertyUnitFields
+                properties={properties.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  units: p.units.map((u) => ({ id: u.id, label: u.label })),
+                }))}
+                unitLabel="Einheit (optional, überschreibt Objekt)"
+              />
               <Field label="Datei (PDF oder Bild, max. 10 MB)">
                 <input
                   type="file"
@@ -314,9 +302,7 @@ async function DokumenteTab({ user, isVerwalter }: { user: User; isVerwalter: bo
                   className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
                 />
               </Field>
-              <button type="submit" className={buttonClass}>
-                Hochladen
-              </button>
+              <SubmitButton pendingLabel="Wird hochgeladen…">Hochladen</SubmitButton>
             </form>
           </Card>
         ) : (

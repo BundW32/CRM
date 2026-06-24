@@ -1,10 +1,10 @@
-import { Card, EmptyState, PageTitle, inputClass, buttonClass } from "@/components/ui";
-import { SubmitButton } from "@/components/submit-button";
-import { propertyWhereForVerwalter } from "@/lib/access";
+import { Card, EmptyState, PageTitle } from "@/components/ui";
+import { noteWhereForVerwalter, propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { formatDate } from "@/lib/labels";
-import { createNote, deleteNote, togglePinNote } from "./actions";
+import { formatDate, roleLabels } from "@/lib/labels";
+import { deleteNote, togglePinNote } from "./actions";
+import { NoteForm } from "./note-form";
 
 export const dynamic = "force-dynamic";
 
@@ -31,15 +31,9 @@ export default async function NotizenPage({
 
   const [notes, properties, units, persons] = await Promise.all([
     db.note.findMany({
-      where: {
-        ...filterWhere,
-        OR: [
-          { property: propWhere },
-          { unit: { property: propWhere } },
-          { propertyId: null, unitId: null },
-        ],
-      },
+      where: { AND: [filterWhere, await noteWhereForVerwalter(verwalter)] },
       orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
+      take: 100,
       include: {
         property: true,
         unit: { include: { property: true } },
@@ -53,11 +47,35 @@ export default async function NotizenPage({
       orderBy: [{ propertyId: "asc" }, { label: "asc" }],
       include: { property: true },
     }),
+    // Personen auf den Zuständigkeitsbereich des Verwalters einschränken (kein
+    // Querleak von Mietern/Eigentümern anderer Objekte) und Objekt-Zuordnung laden,
+    // damit die Auswahl im Formular vom gewählten Objekt abhängt.
     db.user.findMany({
-      where: { role: { in: ["MIETER", "EIGENTUEMER"] }, active: true },
+      where: {
+        AND: [
+          { role: { in: ["MIETER", "EIGENTUEMER"] }, active: true },
+          await userWhereForVerwalter(verwalter),
+        ],
+      },
       orderBy: { name: "asc" },
+      include: {
+        tenancies: { where: { active: true }, select: { unit: { select: { propertyId: true } } } },
+        ownerships: { select: { propertyId: true } },
+      },
     }),
   ]);
+
+  const personsForForm = persons.map((p) => {
+    const propertyIds = new Set<string>();
+    p.tenancies.forEach((t) => propertyIds.add(t.unit.propertyId));
+    p.ownerships.forEach((o) => propertyIds.add(o.propertyId));
+    return {
+      id: p.id,
+      name: p.name,
+      roleLabel: roleLabels[p.role],
+      propertyIds: [...propertyIds],
+    };
+  });
 
   const filters: { label: string; value: FilterType }[] = [
     { label: "Alle", value: "alle" },
@@ -165,72 +183,16 @@ export default async function NotizenPage({
 
         {/* Create form */}
         <Card title="Neue Notiz">
-          <form action={createNote} className="space-y-4">
-            <div>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-gray-700">Notiz *</span>
-                <textarea
-                  name="body"
-                  required
-                  minLength={1}
-                  maxLength={2000}
-                  rows={4}
-                  placeholder="Interne Notiz verfassen…"
-                  className={inputClass}
-                />
-              </label>
-            </div>
-
-            <div>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-gray-700">
-                  Objekt (optional)
-                </span>
-                <select name="propertyId" className={inputClass}>
-                  <option value="">— kein Objekt —</option>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-gray-700">
-                  Einheit (optional)
-                </span>
-                <select name="unitId" className={inputClass}>
-                  <option value="">— keine Einheit —</option>
-                  {units.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.label} · {u.property.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div>
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-gray-700">
-                  Mieter/Eigentümer (optional)
-                </span>
-                <select name="targetUserId" className={inputClass}>
-                  <option value="">— keine Person —</option>
-                  {persons.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <SubmitButton pendingLabel="Wird gespeichert…">Notiz speichern</SubmitButton>
-          </form>
+          <NoteForm
+            properties={properties.map((p) => ({ id: p.id, name: p.name }))}
+            units={units.map((u) => ({
+              id: u.id,
+              label: u.label,
+              propertyId: u.propertyId,
+              propertyName: u.property.name,
+            }))}
+            persons={personsForForm}
+          />
         </Card>
       </div>
     </>

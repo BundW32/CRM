@@ -1,4 +1,5 @@
 import { Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { tradeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
@@ -15,13 +16,17 @@ export default async function KontaktePage({
 }: {
   searchParams: Promise<{ fehler?: string; angelegt?: string }>;
 }) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const { fehler, angelegt } = await searchParams;
 
+  // Handwerker sind ein gemeinsamer Pool (alle Verwalter), Personen dagegen
+  // werden auf den Zuständigkeitsbereich des Verwalters eingeschränkt.
   const [craftsmenRaw, personsRaw] = await Promise.all([
     db.craftsman.findMany({ orderBy: [{ active: "desc" }, { trade: "asc" }, { name: "asc" }] }),
     db.user.findMany({
-      where: { role: { in: ["MIETER", "EIGENTUEMER"] } },
+      where: {
+        AND: [{ role: { in: ["MIETER", "EIGENTUEMER"] } }, await userWhereForVerwalter(verwalter)],
+      },
       orderBy: [{ role: "asc" }, { name: "asc" }],
     }),
   ]);

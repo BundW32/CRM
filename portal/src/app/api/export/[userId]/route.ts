@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { canVerwalterManageUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/session";
 
@@ -17,8 +18,14 @@ export async function GET(
   const { userId: raw } = await params;
   const userId = raw === "me" ? current.id : raw;
 
-  if (current.role !== "VERWALTER" && userId !== current.id) {
-    return NextResponse.json({ error: "Nicht erlaubt" }, { status: 403 });
+  // Fremddaten: nur Verwalter – und eingeschränkte Verwalter nur im eigenen Scope.
+  if (userId !== current.id) {
+    if (current.role !== "VERWALTER") {
+      return NextResponse.json({ error: "Nicht erlaubt" }, { status: 403 });
+    }
+    if (!(await canVerwalterManageUser(current, userId))) {
+      return NextResponse.json({ error: "Nicht erlaubt" }, { status: 403 });
+    }
   }
 
   const user = await db.user.findUnique({

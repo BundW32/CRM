@@ -5,6 +5,8 @@ import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { User } from "@/generated/prisma/client";
+import { canVerwalterManageUser, propertyIdsForVerwalter } from "@/lib/access";
 import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
 import { portalUrl, sendMail } from "@/lib/mailer";
@@ -12,13 +14,36 @@ import { requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 
+// ── Scope-Wächter ───────────────────────────────────────────────────
+// Eingeschränkte Verwalter (kein SuperAdmin) dürfen nur Nutzer/Objekte
+// im eigenen Zuständigkeitsbereich berühren. Verstößt eine Aktion dagegen,
+// wird kommentarlos zur Nutzerliste zurückgeleitet.
+async function ensureCanManageUser(actor: User, targetUserId: string) {
+  if (!(await canVerwalterManageUser(actor, targetUserId))) {
+    redirect("/verwaltung/nutzer");
+  }
+}
+
+async function ensurePropertyInScope(actor: User, propertyId: string) {
+  const ids = await propertyIdsForVerwalter(actor);
+  if (ids !== null && !ids.includes(propertyId)) redirect("/verwaltung/nutzer");
+}
+
+async function ensureUnitInScope(actor: User, unitId: string) {
+  const ids = await propertyIdsForVerwalter(actor);
+  if (ids === null) return;
+  const unit = await db.unit.findUnique({ where: { id: unitId }, select: { propertyId: true } });
+  if (!unit || !ids.includes(unit.propertyId)) redirect("/verwaltung/nutzer");
+}
+
 // Anschrift (Eigentümer = Wohnungsgeber) und Unterschriftsbild für Bescheinigungen
 export async function uploadStammdaten(formData: FormData) {
   // Alles in einem äußeren try/catch, damit niemals die generische
   // „This page couldn't load"-Seite erscheint, sondern eine konkrete Meldung.
   try {
-    await requireVerwalter();
+    const actor = await requireVerwalter();
     const id = String(formData.get("id") ?? "");
+    await ensureCanManageUser(actor, id);
     const user = await db.user.findUnique({ where: { id } });
     if (!user) redirect("/verwaltung/nutzer");
 
@@ -80,7 +105,7 @@ async function assignRole(
 }
 
 export async function createUser(formData: FormData) {
-  await requireVerwalter();
+  const actor = await requireVerwalter();
 
   const parsed = userSchema.safeParse({
     firstName: formData.get("firstName"),
@@ -96,6 +121,16 @@ export async function createUser(formData: FormData) {
   });
   if (!parsed.success) {
     redirect("/verwaltung/nutzer?fehler=eingabe");
+  }
+
+  // Eingeschränkte Verwalter dürfen nur Mieter/Eigentümer im eigenen
+  // Zuständigkeitsbereich anlegen – keine Verwalter/Handwerker.
+  if (!actor.isSuperAdmin) {
+    if (parsed.data.role !== "MIETER" && parsed.data.role !== "EIGENTUEMER") {
+      redirect("/verwaltung/nutzer?fehler=eingabe");
+    }
+    if (parsed.data.unitId) await ensureUnitInScope(actor, parsed.data.unitId);
+    if (parsed.data.propertyId) await ensurePropertyInScope(actor, parsed.data.propertyId);
   }
 
   const email = parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null;
@@ -187,6 +222,8 @@ export async function createUser(formData: FormData) {
 // referenzierte Vorgänge/Belege bleiben aus Dokumentationsgründen erhalten.
 export async function anonymizeUser(formData: FormData) {
   const verwalter = await requireVerwalter();
+  // DSGVO-Löschung ist unwiderruflich und rechtlich sensibel: nur SuperAdmin.
+  if (!verwalter.isSuperAdmin) redirect("/verwaltung/nutzer");
   const id = String(formData.get("id") ?? "");
   if (!id || id === verwalter.id) {
     redirect("/verwaltung/nutzer");
@@ -225,6 +262,7 @@ export async function toggleUserActive(formData: FormData) {
   const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   if (id && id !== verwalter.id) {
+    await ensureCanManageUser(verwalter, id);
     const user = await db.user.findUnique({ where: { id } });
     if (user) {
       await db.user.update({ where: { id }, data: { active: !user.active } });
@@ -235,8 +273,9 @@ export async function toggleUserActive(formData: FormData) {
 }
 
 export async function resendInvite(formData: FormData) {
-  await requireVerwalter();
+  const actor = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
+  await ensureCanManageUser(actor, id);
   const user = await db.user.findUnique({ where: { id } });
   if (!user || !user.active || !user.email) redirect("/verwaltung/nutzer");
 
@@ -262,10 +301,11 @@ export async function resendInvite(formData: FormData) {
 }
 
 export async function addOwnership(formData: FormData) {
-  await requireVerwalter();
+  const actor = await requireVerwalter();
   const userId = String(formData.get("userId") ?? "").trim();
   const propertyId = String(formData.get("propertyId") ?? "").trim();
   if (!userId || !propertyId) redirect("/verwaltung/nutzer");
+  await ensurePropertyInScope(actor, propertyId);
   await db.ownership.upsert({
     where: { userId_propertyId: { userId, propertyId } },
     create: { userId, propertyId },
@@ -276,19 +316,23 @@ export async function addOwnership(formData: FormData) {
 }
 
 export async function removeOwnership(formData: FormData) {
-  await requireVerwalter();
+  const actor = await requireVerwalter();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) redirect("/verwaltung/nutzer");
+  const ownership = await db.ownership.findUnique({ where: { id }, select: { propertyId: true } });
+  if (!ownership) redirect("/verwaltung/nutzer");
+  await ensurePropertyInScope(actor, ownership.propertyId);
   await db.ownership.delete({ where: { id } });
   revalidatePath("/verwaltung/nutzer");
   redirect("/verwaltung/nutzer");
 }
 
 export async function addTenancy(formData: FormData) {
-  await requireVerwalter();
+  const actor = await requireVerwalter();
   const userId = String(formData.get("userId") ?? "").trim();
   const unitId = String(formData.get("unitId") ?? "").trim();
   if (!userId || !unitId) redirect("/verwaltung/nutzer");
+  await ensureUnitInScope(actor, unitId);
   await db.tenancy.upsert({
     where: { userId_unitId: { userId, unitId } },
     create: { userId, unitId },
@@ -299,30 +343,39 @@ export async function addTenancy(formData: FormData) {
 }
 
 export async function removeTenancy(formData: FormData) {
-  await requireVerwalter();
+  const actor = await requireVerwalter();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) redirect("/verwaltung/nutzer");
+  const tenancy = await db.tenancy.findUnique({
+    where: { id },
+    select: { unit: { select: { propertyId: true } } },
+  });
+  if (!tenancy) redirect("/verwaltung/nutzer");
+  await ensurePropertyInScope(actor, tenancy.unit.propertyId);
   await db.tenancy.delete({ where: { id } });
   revalidatePath("/verwaltung/nutzer");
   redirect("/verwaltung/nutzer");
 }
 
 export async function addPropertyAssignment(formData: FormData) {
-  await requireVerwalter();
+  // Zuständigkeiten anderer Verwalter dürfen nur SuperAdmins ändern,
+  // sonst könnte sich ein Verwalter selbst weitere Objekte zuweisen.
+  const actor = await requireVerwalter();
+  if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");
   const userId = String(formData.get("userId") ?? "").trim();
-  const propertyId = String(formData.get("propertyId") ?? "").trim();
-  if (!userId || !propertyId) redirect("/verwaltung/nutzer");
-  await db.propertyAssignment.upsert({
-    where: { userId_propertyId: { userId, propertyId } },
-    create: { userId, propertyId },
-    update: {},
+  const propertyIds = formData.getAll("propertyId").map((p) => String(p).trim()).filter(Boolean);
+  if (!userId || propertyIds.length === 0) redirect("/verwaltung/nutzer");
+  await db.propertyAssignment.createMany({
+    data: propertyIds.map((propertyId) => ({ userId, propertyId })),
+    skipDuplicates: true,
   });
   revalidatePath("/verwaltung/nutzer");
   redirect("/verwaltung/nutzer");
 }
 
 export async function removePropertyAssignment(formData: FormData) {
-  await requireVerwalter();
+  const actor = await requireVerwalter();
+  if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");
   const id = String(formData.get("id") ?? "").trim();
   if (!id) redirect("/verwaltung/nutzer");
   await db.propertyAssignment.delete({ where: { id } });
@@ -344,8 +397,9 @@ export async function toggleSuperAdmin(formData: FormData) {
 
 // Erzeugt für einen bestehenden Zugang ein neues Erst-Passwort (Zugangsschreiben neu drucken)
 export async function regenerateAccessLetter(formData: FormData) {
-  await requireVerwalter();
+  const actor = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
+  await ensureCanManageUser(actor, id);
   const user = await db.user.findUnique({ where: { id } });
   if (!user || !user.active) redirect("/verwaltung/nutzer");
 

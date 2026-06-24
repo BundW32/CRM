@@ -1,4 +1,5 @@
 import { Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
@@ -45,6 +46,7 @@ export default async function UsersPage({
 
   const [users, properties] = await Promise.all([
     db.user.findMany({
+      where: await userWhereForVerwalter(verwalter),
       orderBy: [{ role: "asc" }, { name: "asc" }],
       include: {
         tenancies: { where: { active: true }, include: { unit: { include: { property: true } } } },
@@ -52,7 +54,11 @@ export default async function UsersPage({
         propertyAssignments: { include: { property: true } },
       },
     }),
-    db.property.findMany({ include: { units: true }, orderBy: { name: "asc" } }),
+    db.property.findMany({
+      where: await propertyWhereForVerwalter(verwalter),
+      include: { units: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   return (
@@ -249,7 +255,7 @@ export default async function UsersPage({
                       >
                         Daten exportieren
                       </a>
-                      {u.id !== verwalter.id ? (
+                      {verwalter.isSuperAdmin && u.id !== verwalter.id ? (
                         <form action={anonymizeUser}>
                           <input type="hidden" name="id" value={u.id} />
                           <button type="submit" className="text-xs text-red-600 hover:underline">
@@ -406,8 +412,12 @@ export default async function UsersPage({
               <select name="role" required className={inputClass} defaultValue="MIETER">
                 <option value="MIETER">Mieter</option>
                 <option value="EIGENTUEMER">Eigentümer</option>
-                <option value="VERWALTER">Verwalter</option>
-                <option value="HANDWERKER">Handwerker</option>
+                {verwalter.isSuperAdmin ? (
+                  <>
+                    <option value="VERWALTER">Verwalter</option>
+                    <option value="HANDWERKER">Handwerker</option>
+                  </>
+                ) : null}
               </select>
             </Field>
             <Field label="Wohnung (bei Rolle Mieter)">

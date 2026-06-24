@@ -51,6 +51,43 @@ export async function propertyWhereForVerwalter(user: User): Promise<Prisma.Prop
   return { id: { in: ids } };
 }
 
+/**
+ * WHERE-Filter für die Nutzerliste eines Verwalters.
+ * SuperAdmin: alle Nutzer. Eingeschränkter Verwalter: nur Mieter/Eigentümer
+ * seiner zugewiesenen Objekte (keine anderen Verwalter/Handwerker).
+ */
+export async function userWhereForVerwalter(actor: User): Promise<Prisma.UserWhereInput> {
+  const ids = await propertyIdsForVerwalter(actor);
+  if (ids === null) return {};
+  return {
+    OR: [
+      { role: "MIETER", tenancies: { some: { active: true, unit: { propertyId: { in: ids } } } } },
+      { role: "EIGENTUEMER", ownerships: { some: { propertyId: { in: ids } } } },
+    ],
+  };
+}
+
+/**
+ * Darf dieser Verwalter den angegebenen Nutzer sehen/verwalten?
+ * SuperAdmin: immer. Eingeschränkter Verwalter: nur Mieter/Eigentümer
+ * seiner zugewiesenen Objekte (sowie sich selbst).
+ */
+export async function canVerwalterManageUser(actor: User, targetUserId: string): Promise<boolean> {
+  const ids = await propertyIdsForVerwalter(actor);
+  if (ids === null) return true; // SuperAdmin
+  if (targetUserId === actor.id) return true;
+  const count = await db.user.count({
+    where: {
+      id: targetUserId,
+      OR: [
+        { tenancies: { some: { active: true, unit: { propertyId: { in: ids } } } } },
+        { ownerships: { some: { propertyId: { in: ids } } } },
+      ],
+    },
+  });
+  return count > 0;
+}
+
 // Welche Vorgänge darf der Nutzer sehen?
 export async function ticketWhereForUser(user: User): Promise<Prisma.TicketWhereInput> {
   switch (user.role) {

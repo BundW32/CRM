@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "prisma migrate deploy && next build"
+  "buildCommand": "prisma db execute --file prisma/repair_failed_migration.sql || true && prisma migrate deploy && next build"
 }

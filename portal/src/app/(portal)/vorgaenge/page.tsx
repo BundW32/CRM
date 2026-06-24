@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { TicketStatus } from "@/generated/prisma/client";
 import { EmptyState, PageTitle, StatusBadge, buttonClass, inputClass } from "@/components/ui";
-import { ticketWhereForUser } from "@/lib/access";
+import { propertyWhereForVerwalter, ticketWhereForUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
   formatDate,
@@ -35,7 +35,7 @@ export default async function TicketsPage({
 
   const properties =
     user.role === "VERWALTER"
-      ? await db.property.findMany({ orderBy: { name: "asc" } })
+      ? await db.property.findMany({ where: await propertyWhereForVerwalter(user), orderBy: { name: "asc" } })
       : [];
 
   const propertyFilter =

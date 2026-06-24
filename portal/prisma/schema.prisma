@@ -155,6 +155,19 @@ model User {
   notesAuthored       Note[]
   notesAbout          Note[]           @relation("NotesAboutUser")
   handoversCreated    Handover[]       @relation("HandoverCreatedBy")
+  isSuperAdmin        Boolean          @default(false)
+  propertyAssignments PropertyAssignment[]
+}
+
+model PropertyAssignment {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
 }
 
 model Property {
@@ -183,6 +196,7 @@ model Property {
   resolutions  Resolution[]
   meters       Meter[]
   internalNotes Note[]
+  propertyAssignments PropertyAssignment[]
 }
 
 model Unit {

@@ -307,6 +307,41 @@ export async function removeTenancy(formData: FormData) {
   redirect("/verwaltung/nutzer");
 }
 
+export async function addPropertyAssignment(formData: FormData) {
+  await requireVerwalter();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const propertyId = String(formData.get("propertyId") ?? "").trim();
+  if (!userId || !propertyId) redirect("/verwaltung/nutzer");
+  await db.propertyAssignment.upsert({
+    where: { userId_propertyId: { userId, propertyId } },
+    create: { userId, propertyId },
+    update: {},
+  });
+  revalidatePath("/verwaltung/nutzer");
+  redirect("/verwaltung/nutzer");
+}
+
+export async function removePropertyAssignment(formData: FormData) {
+  await requireVerwalter();
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) redirect("/verwaltung/nutzer");
+  await db.propertyAssignment.delete({ where: { id } });
+  revalidatePath("/verwaltung/nutzer");
+  redirect("/verwaltung/nutzer");
+}
+
+export async function toggleSuperAdmin(formData: FormData) {
+  const actor = await requireVerwalter();
+  if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id || id === actor.id) redirect("/verwaltung/nutzer");
+  const target = await db.user.findUnique({ where: { id } });
+  if (!target || target.role !== "VERWALTER") redirect("/verwaltung/nutzer");
+  await db.user.update({ where: { id }, data: { isSuperAdmin: !target.isSuperAdmin } });
+  revalidatePath("/verwaltung/nutzer");
+  redirect("/verwaltung/nutzer");
+}
+
 // Erzeugt für einen bestehenden Zugang ein neues Erst-Passwort (Zugangsschreiben neu drucken)
 export async function regenerateAccessLetter(formData: FormData) {
   await requireVerwalter();

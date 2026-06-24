@@ -6,6 +6,8 @@ import { Card, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/compone
 import {
   announcementWhereForUser,
   ownedProperties,
+  propertyIdsForVerwalter,
+  propertyWhereForVerwalter,
   tenantUnits,
   ticketWhereForUser,
 } from "@/lib/access";
@@ -95,8 +97,8 @@ export default async function DashboardPage() {
             )}
           </Card>
 
-          {user.role === "VERWALTER" ? <VerwalterStats /> : null}
-          {user.role === "VERWALTER" ? <WartungReminder /> : null}
+          {user.role === "VERWALTER" ? <VerwalterStats user={user} /> : null}
+          {user.role === "VERWALTER" ? <WartungReminder user={user} /> : null}
           {user.role === "MIETER" ? <MieterWohnung userId={user.id} /> : null}
         </div>
 
@@ -165,7 +167,7 @@ export default async function DashboardPage() {
 async function StatistikSection({ user }: { user: User }) {
   const properties =
     user.role === "VERWALTER"
-      ? await db.property.findMany({ orderBy: { name: "asc" } })
+      ? await db.property.findMany({ where: await propertyWhereForVerwalter(user), orderBy: { name: "asc" } })
       : await ownedProperties(user.id);
   if (properties.length === 0) return null;
   return (
@@ -182,12 +184,14 @@ async function StatistikSection({ user }: { user: User }) {
   );
 }
 
-async function VerwalterStats() {
+async function VerwalterStats({ user }: { user: User }) {
+  const ticketWhere = await ticketWhereForUser(user);
+  const propWhere = await propertyWhereForVerwalter(user);
   const [neu, inBearbeitung, beauftragt, objekte] = await Promise.all([
-    db.ticket.count({ where: { status: "NEU" } }),
-    db.ticket.count({ where: { status: "IN_BEARBEITUNG" } }),
-    db.ticket.count({ where: { status: "BEAUFTRAGT" } }),
-    db.property.count(),
+    db.ticket.count({ where: { ...ticketWhere, status: "NEU" } }),
+    db.ticket.count({ where: { ...ticketWhere, status: "IN_BEARBEITUNG" } }),
+    db.ticket.count({ where: { ...ticketWhere, status: "BEAUFTRAGT" } }),
+    db.property.count({ where: propWhere }),
   ]);
   const stats = [
     { label: "Neue Vorgänge", value: neu },
@@ -211,11 +215,16 @@ async function VerwalterStats() {
   );
 }
 
-async function WartungReminder() {
+async function WartungReminder({ user }: { user: User }) {
   const soon = new Date();
   soon.setDate(soon.getDate() + 14);
+  const assignedIds = await propertyIdsForVerwalter(user);
+  const taskWhere =
+    assignedIds === null
+      ? { active: true, dueDate: { lte: soon } }
+      : { active: true, dueDate: { lte: soon }, property: { id: { in: assignedIds } } };
   const tasks = await db.maintenanceTask.findMany({
-    where: { active: true, dueDate: { lte: soon } },
+    where: taskWhere,
     orderBy: { dueDate: "asc" },
     take: 6,
     include: { property: true },

@@ -1,5 +1,5 @@
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
-import { ownedProperties, tenantUnits } from "@/lib/access";
+import { ownedProperties, propertyWhereForVerwalter, tenantUnits } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, meterTypeLabels } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
@@ -17,18 +17,28 @@ export default async function ZaehlerPage({
   const isVerwalter = user.role === "VERWALTER";
   const isMieter = user.role === "MIETER";
 
+  // Einmalig den Property-Scope für Verwalter berechnen
+  const verwalterPropWhere = isVerwalter ? await propertyWhereForVerwalter(user) : null;
+
   // Relevante Zähler und Erfassungsrechte je nach Rolle
   const myUnitIds = new Set<string>();
   const myPropIds = new Set<string>();
-  let where = {};
+  let meterWhere = {};
   if (isMieter) {
-    const units = await tenantUnits(user.id);
-    units.forEach((u) => myUnitIds.add(u.id));
-    where = { unitId: { in: [...myUnitIds] } };
-  } else if (!isVerwalter) {
+    const myUnits = await tenantUnits(user.id);
+    myUnits.forEach((u) => myUnitIds.add(u.id));
+    meterWhere = { unitId: { in: [...myUnitIds] } };
+  } else if (isVerwalter) {
+    meterWhere = {
+      OR: [
+        { property: verwalterPropWhere ?? {} },
+        { unit: { property: verwalterPropWhere ?? {} } },
+      ],
+    };
+  } else {
     const props = await ownedProperties(user.id);
     props.forEach((p) => myPropIds.add(p.id));
-    where = {
+    meterWhere = {
       OR: [
         { propertyId: { in: [...myPropIds] } },
         { unit: { propertyId: { in: [...myPropIds] } } },
@@ -37,7 +47,7 @@ export default async function ZaehlerPage({
   }
 
   const meters = await db.meter.findMany({
-    where,
+    where: meterWhere,
     orderBy: { createdAt: "asc" },
     include: {
       unit: { include: { property: true } },
@@ -62,10 +72,10 @@ export default async function ZaehlerPage({
     groups.get(key)!.push(m);
   }
 
-  const [units, properties] = isVerwalter
+  const [units, properties] = isVerwalter && verwalterPropWhere !== null
     ? await Promise.all([
-        db.unit.findMany({ include: { property: true }, orderBy: { label: "asc" } }),
-        db.property.findMany({ orderBy: { name: "asc" } }),
+        db.unit.findMany({ where: { property: verwalterPropWhere }, include: { property: true }, orderBy: { label: "asc" } }),
+        db.property.findMany({ where: verwalterPropWhere, orderBy: { name: "asc" } }),
       ])
     : [[], []];
 

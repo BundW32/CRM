@@ -1,3 +1,4 @@
+import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { buttonClass, inputClass } from "@/components/ui";
@@ -7,10 +8,11 @@ import { PropertyUnitSelector } from "./PropertyUnitSelector";
 export const dynamic = "force-dynamic";
 
 export default async function NeueUebergabePage() {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
+  const propWhere = await propertyWhereForVerwalter(verwalter);
 
   const properties = await db.property.findMany({
-    where: { units: { some: {} } },
+    where: { ...propWhere, units: { some: {} } },
     include: { units: { orderBy: { label: "asc" }, select: { id: true, label: true, floor: true } } },
     orderBy: { name: "asc" },
   });

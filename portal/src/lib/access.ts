@@ -27,11 +27,38 @@ export async function ownsWegProperty(userId: string) {
   return count > 0;
 }
 
+/**
+ * Gibt die zugewiesenen Property-IDs eines Verwalters zurück.
+ * null = Super-Admin, kein Filter → sieht alles.
+ * string[] = eingeschränkter Verwalter → nur diese Objekte.
+ */
+export async function propertyIdsForVerwalter(user: User): Promise<string[] | null> {
+  if (user.isSuperAdmin) return null;
+  const assignments = await db.propertyAssignment.findMany({
+    where: { userId: user.id },
+    select: { propertyId: true },
+  });
+  return assignments.map((a) => a.propertyId);
+}
+
+/**
+ * Prisma-WHERE für Property-Queries: nutzt propertyIdsForVerwalter.
+ * Verwendung: db.property.findMany({ where: await propertyWhereForVerwalter(user) })
+ */
+export async function propertyWhereForVerwalter(user: User): Promise<Prisma.PropertyWhereInput> {
+  const ids = await propertyIdsForVerwalter(user);
+  if (ids === null) return {};
+  return { id: { in: ids } };
+}
+
 // Welche Vorgänge darf der Nutzer sehen?
 export async function ticketWhereForUser(user: User): Promise<Prisma.TicketWhereInput> {
   switch (user.role) {
-    case "VERWALTER":
-      return {};
+    case "VERWALTER": {
+      const ids = await propertyIdsForVerwalter(user);
+      if (ids === null) return {};
+      return { OR: [{ propertyId: { in: ids } }, { propertyId: null }] };
+    }
     case "EIGENTUEMER": {
       const properties = await ownedProperties(user.id);
       return {
@@ -52,7 +79,11 @@ export async function canViewTicket(
   user: User,
   ticket: { createdById: string; propertyId: string | null; assignedToId: string | null }
 ) {
-  if (user.role === "VERWALTER") return true;
+  if (user.role === "VERWALTER") {
+    const ids = await propertyIdsForVerwalter(user);
+    if (ids === null) return true;
+    return ticket.propertyId === null || ids.includes(ticket.propertyId);
+  }
   if (user.role === "HANDWERKER") return ticket.assignedToId === user.id;
   if (ticket.createdById === user.id) return true;
   if (user.role === "EIGENTUEMER") {
@@ -65,8 +96,11 @@ export async function canViewTicket(
 // Welche Dokumente darf der Nutzer sehen?
 export async function documentWhereForUser(user: User): Promise<Prisma.DocumentWhereInput> {
   switch (user.role) {
-    case "VERWALTER":
-      return {};
+    case "VERWALTER": {
+      const ids = await propertyIdsForVerwalter(user);
+      if (ids === null) return {};
+      return { OR: [{ propertyId: { in: ids } }, { propertyId: null }] };
+    }
     case "EIGENTUEMER": {
       const properties = await ownedProperties(user.id);
       return {
@@ -92,8 +126,11 @@ export async function announcementWhereForUser(
   user: User
 ): Promise<Prisma.AnnouncementWhereInput> {
   switch (user.role) {
-    case "VERWALTER":
-      return {};
+    case "VERWALTER": {
+      const ids = await propertyIdsForVerwalter(user);
+      if (ids === null) return {};
+      return { propertyId: { in: ids } };
+    }
     case "EIGENTUEMER": {
       const properties = await ownedProperties(user.id);
       return {
@@ -115,15 +152,17 @@ export type TicketTarget = {
   propertyId: string;
   propertyName: string;
   unitId: string | null;
-  unitLabel: string;      // nur der Einheiten-Teil (ohne Objektname)
-  tenantNames: string[];  // aktive Mieter dieser Einheit (für Verwalter-Ansicht)
-  label: string;          // vollständiger Anzeigetext (Objekt + Einheit) für flache Dropdowns
+  unitLabel: string;
+  tenantNames: string[];
+  label: string;
 };
 
 // Objekte/Einheiten, für die der Nutzer einen Vorgang anlegen darf
 export async function ticketTargetsForUser(user: User): Promise<TicketTarget[]> {
   if (user.role === "VERWALTER") {
+    const propWhere = await propertyWhereForVerwalter(user);
     const properties = await db.property.findMany({
+      where: propWhere,
       include: {
         units: {
           include: { tenancies: { where: { active: true }, include: { user: true } } },

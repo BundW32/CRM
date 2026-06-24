@@ -4,13 +4,16 @@ import { formatDate, roleLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import {
   addOwnership,
+  addPropertyAssignment,
   addTenancy,
   anonymizeUser,
   createUser,
   regenerateAccessLetter,
   removeOwnership,
+  removePropertyAssignment,
   removeTenancy,
   resendInvite,
+  toggleSuperAdmin,
   toggleUserActive,
   uploadStammdaten,
 } from "./actions";
@@ -46,6 +49,7 @@ export default async function UsersPage({
       include: {
         tenancies: { where: { active: true }, include: { unit: { include: { property: true } } } },
         ownerships: { include: { property: true } },
+        propertyAssignments: { include: { property: true } },
       },
     }),
     db.property.findMany({ include: { units: true }, orderBy: { name: "asc" } }),
@@ -254,6 +258,56 @@ export default async function UsersPage({
                         </form>
                       ) : null}
                     </span>
+
+                    {u.role === "VERWALTER" && u.id !== verwalter.id ? (() => {
+                      const assignedPropIds = new Set(u.propertyAssignments.map((a) => a.propertyId));
+                      const availableProps = properties.filter((p) => !assignedPropIds.has(p.id));
+                      return (
+                        <div className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-xs font-medium text-gray-500">Zuständige Objekte</p>
+                            {verwalter.isSuperAdmin ? (
+                              <form action={toggleSuperAdmin} className="inline">
+                                <input type="hidden" name="id" value={u.id} />
+                                <button type="submit" className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${u.isSuperAdmin ? "bg-brand-orange-light text-brand-orange-dark" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                                  {u.isSuperAdmin ? "Super-Admin ✓" : "Super-Admin?"}
+                                </button>
+                              </form>
+                            ) : null}
+                          </div>
+                          {u.isSuperAdmin ? (
+                            <p className="text-xs font-medium text-brand-orange-dark">Sieht alle Objekte (Super-Admin)</p>
+                          ) : u.propertyAssignments.length === 0 ? (
+                            <p className="text-xs text-amber-600">Keine Objekte zugewiesen – sieht derzeit nichts.</p>
+                          ) : (
+                            <ul className="space-y-0.5">
+                              {u.propertyAssignments.map((a) => (
+                                <li key={a.id} className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-gray-700">{a.property.name}</span>
+                                  <form action={removePropertyAssignment}>
+                                    <input type="hidden" name="id" value={a.id} />
+                                    <button type="submit" className="text-xs text-red-600 hover:underline">Entfernen</button>
+                                  </form>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {!u.isSuperAdmin && availableProps.length > 0 ? (
+                            <form action={addPropertyAssignment} className="mt-2 flex flex-wrap items-center gap-2">
+                              <input type="hidden" name="userId" value={u.id} />
+                              <select name="propertyId" required className={`${inputClass} flex-1 text-xs`}>
+                                {availableProps.map((p) => (
+                                  <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                              </select>
+                              <button type="submit" className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                                + Objekt zuweisen
+                              </button>
+                            </form>
+                          ) : null}
+                        </div>
+                      );
+                    })() : null}
 
                     {u.role === "EIGENTUEMER" || u.role === "VERWALTER" ? (
                       <form

@@ -1,5 +1,6 @@
 import { Card, EmptyState, PageTitle, inputClass, buttonClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
+import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { formatDate } from "@/lib/labels";
@@ -21,7 +22,8 @@ export default async function NotizenPage({
 }: {
   searchParams: Promise<{ type?: string }>;
 }) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
+  const propWhere = await propertyWhereForVerwalter(verwalter);
 
   const params = await searchParams;
   const type = (params.type ?? "alle") as FilterType;
@@ -29,7 +31,14 @@ export default async function NotizenPage({
 
   const [notes, properties, units, persons] = await Promise.all([
     db.note.findMany({
-      where: filterWhere,
+      where: {
+        ...filterWhere,
+        OR: [
+          { property: propWhere },
+          { unit: { property: propWhere } },
+          { propertyId: null, unitId: null },
+        ],
+      },
       orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
       include: {
         property: true,
@@ -38,8 +47,9 @@ export default async function NotizenPage({
         author: true,
       },
     }),
-    db.property.findMany({ orderBy: { name: "asc" } }),
+    db.property.findMany({ where: propWhere, orderBy: { name: "asc" } }),
     db.unit.findMany({
+      where: { property: propWhere },
       orderBy: [{ propertyId: "asc" }, { label: "asc" }],
       include: { property: true },
     }),

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
-import { ownedProperties } from "@/lib/access";
+import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels, voteChoiceLabels } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
@@ -54,7 +54,10 @@ export default async function BeschluessePage({
   const isVerwalter = user.role === "VERWALTER";
 
   let where = {};
-  if (!isVerwalter) {
+  if (isVerwalter) {
+    const propWhere = await propertyWhereForVerwalter(user);
+    where = { property: propWhere };
+  } else {
     const props = await ownedProperties(user.id);
     where = { propertyId: { in: props.map((p) => p.id) } };
   }
@@ -78,7 +81,7 @@ export default async function BeschluessePage({
 
   // Nur WEG-Objekte können Umlaufbeschlüsse haben
   const properties = isVerwalter
-    ? await db.property.findMany({ where: { managementType: "WEG" }, orderBy: { name: "asc" } })
+    ? await db.property.findMany({ where: { ...await propertyWhereForVerwalter(user), managementType: "WEG" }, orderBy: { name: "asc" } })
     : [];
 
   return (

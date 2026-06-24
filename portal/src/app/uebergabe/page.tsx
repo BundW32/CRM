@@ -1,3 +1,4 @@
+import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { buttonClass } from "@/components/ui";
@@ -42,9 +43,11 @@ function stepInfo(h: Parameters<typeof resumeHref>[0]): { step: number; label: s
 }
 
 export default async function UebergabeOverviewPage() {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
+  const propWhere = await propertyWhereForVerwalter(verwalter);
 
   const handovers = await db.handover.findMany({
+    where: { unit: { property: propWhere } },
     include: {
       unit: { include: { property: { select: { name: true } } } },
       rooms: { select: { id: true } },

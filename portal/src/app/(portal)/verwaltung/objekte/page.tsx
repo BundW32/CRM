@@ -1,4 +1,5 @@
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
@@ -11,10 +12,12 @@ export default async function PropertiesPage({
 }: {
   searchParams: Promise<{ fehler?: string; eingerichtet?: string }>;
 }) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const { fehler, eingerichtet } = await searchParams;
+  const propWhere = await propertyWhereForVerwalter(verwalter);
 
   const properties = await db.property.findMany({
+    where: propWhere,
     orderBy: { name: "asc" },
     include: {
       units: {
@@ -118,7 +121,7 @@ export default async function PropertiesPage({
           <Card title="Neue Einheit">
             <form action={createUnit} className="space-y-3">
               <Field label="Objekt">
-                <select name="propertyId" required className={inputClass}>
+                <select name="propertyId" required className={inputClass} defaultValue="">
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}

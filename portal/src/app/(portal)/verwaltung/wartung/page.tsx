@@ -1,4 +1,5 @@
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { propertyIdsForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
   formatDate,
@@ -21,16 +22,22 @@ export default async function WartungPage({
 }: {
   searchParams: Promise<{ fehler?: string }>;
 }) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const { fehler } = await searchParams;
+  const assignedIds = await propertyIdsForVerwalter(verwalter);
+  const propWhere = assignedIds === null ? {} : { id: { in: assignedIds } };
+  const taskWhere =
+    assignedIds === null
+      ? { active: true }
+      : { active: true, property: { id: { in: assignedIds } } };
 
   const [tasks, properties, craftsmen] = await Promise.all([
     db.maintenanceTask.findMany({
-      where: { active: true },
+      where: taskWhere,
       orderBy: { dueDate: "asc" },
       include: { property: true, craftsman: true },
     }),
-    db.property.findMany({ orderBy: { name: "asc" } }),
+    db.property.findMany({ where: propWhere, orderBy: { name: "asc" } }),
     db.craftsman.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
   ]);
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { User } from "@/generated/prisma/client";
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
-import { announcementWhereForUser, documentWhereForUser } from "@/lib/access";
+import { announcementWhereForUser, documentWhereForUser, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
   audienceLabels,
@@ -88,7 +88,7 @@ async function AushaengeTab({ user, isVerwalter }: { user: User; isVerwalter: bo
     include: { property: true, acknowledgements: { include: { user: true } } },
   });
   const properties = isVerwalter
-    ? await db.property.findMany({ orderBy: { name: "asc" } })
+    ? await db.property.findMany({ where: await propertyWhereForVerwalter(user), orderBy: { name: "asc" } })
     : [];
 
   return (
@@ -188,7 +188,7 @@ async function DokumenteTab({ user, isVerwalter }: { user: User; isVerwalter: bo
     include: { property: true, unit: true, acknowledgements: { include: { user: true } } },
   });
   const properties = isVerwalter
-    ? await db.property.findMany({ include: { units: true }, orderBy: { name: "asc" } })
+    ? await db.property.findMany({ where: await propertyWhereForVerwalter(user), include: { units: true }, orderBy: { name: "asc" } })
     : [];
 
   return (

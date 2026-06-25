@@ -117,47 +117,49 @@ enum ManagementType {
 }
 
 model User {
-  id                  String          @id @default(cuid())
-  email               String?         @unique
-  username            String?         @unique
-  passwordHash        String
-  name                String
-  firstName           String?    // Vorname
-  lastName            String?    // Nachname
-  salutation          String?    // "Herr" oder "Frau"
-  phone               String?
-  role                Role
-  active              Boolean         @default(true)
-  mustChangePassword  Boolean         @default(false)
-  preferredContact    ContactMethod?  // bevorzugter Kontaktweg (Mieter/Eigentümer)
+  id                   String                    @id @default(cuid())
+  email                String?                   @unique
+  username             String?                   @unique
+  passwordHash         String
+  name                 String
+  firstName            String? // Vorname
+  lastName             String? // Nachname
+  salutation           String? // "Herr" oder "Frau"
+  phone                String?
+  role                 Role
+  active               Boolean                   @default(true)
+  mustChangePassword   Boolean                   @default(false)
+  preferredContact     ContactMethod? // bevorzugter Kontaktweg (Mieter/Eigentümer)
   // Optionale Anschrift (z. B. Eigentümer als Wohnungsgeber) und Unterschriftsbild
-  street              String?
-  zip                 String?
-  city                String?
-  signatureStoredName String?         // hinterlegte Unterschrift (Bild) für Bescheinigungen
-  createdAt           DateTime        @default(now())
-  passwordResetToken  String?         @unique
-  passwordResetExpiry DateTime?
-  tenancies           Tenancy[]
-  ownerships          Ownership[]
-  ticketsCreated      Ticket[]        @relation("TicketCreatedBy")
-  ticketsAssigned     Ticket[]        @relation("TicketAssignedTo")
-  comments            TicketComment[]
-  documents           Document[]
-  announcements       Announcement[]
-  acknowledgements    Acknowledgement[]
-  conversationParts   ConversationParticipant[]
-  messagesSent        Message[]
-  meterReadings       MeterReading[]
-  resolutionsCreated  Resolution[]     @relation("ResolutionCreatedBy")
-  resolutionVotes     ResolutionVote[]
-  pushSubscriptions   PushSubscription[]
-  notesAuthored       Note[]
-  notesAbout          Note[]           @relation("NotesAboutUser")
-  handoversCreated    Handover[]       @relation("HandoverCreatedBy")
-  isSuperAdmin        Boolean          @default(false)
-  propertyAssignments PropertyAssignment[]
+  street               String?
+  zip                  String?
+  city                 String?
+  signatureStoredName  String? // hinterlegte Unterschrift (Bild) für Bescheinigungen
+  createdAt            DateTime                  @default(now())
+  passwordResetToken   String?                   @unique
+  passwordResetExpiry  DateTime?
+  tenancies            Tenancy[]
+  ownerships           Ownership[]
+  ticketsCreated       Ticket[]                  @relation("TicketCreatedBy")
+  ticketsAssigned      Ticket[]                  @relation("TicketAssignedTo")
+  comments             TicketComment[]
+  documents            Document[]
+  announcements        Announcement[]
+  acknowledgements     Acknowledgement[]
+  conversationParts    ConversationParticipant[]
+  messagesSent         Message[]
+  meterReadings        MeterReading[]
+  resolutionsCreated   Resolution[]              @relation("ResolutionCreatedBy")
+  resolutionVotes      ResolutionVote[]
+  pushSubscriptions    PushSubscription[]
+  notesAuthored        Note[]
+  notesAbout           Note[]                    @relation("NotesAboutUser")
+  handoversCreated     Handover[]                @relation("HandoverCreatedBy")
+  isSuperAdmin         Boolean                   @default(false)
+  propertyAssignments  PropertyAssignment[]
   craftsmanAssignments CraftsmanAssignment[]
+
+  @@index([role])
 }
 
 model PropertyAssignment {
@@ -169,6 +171,7 @@ model PropertyAssignment {
   createdAt  DateTime @default(now())
 
   @@unique([userId, propertyId])
+  @@index([propertyId])
 }
 
 // Optionale Einschränkung, welche Handwerker ein (eingeschränkter) Verwalter sieht.
@@ -182,49 +185,52 @@ model CraftsmanAssignment {
   createdAt   DateTime  @default(now())
 
   @@unique([userId, craftsmanId])
+  @@index([craftsmanId])
 }
 
 model Property {
-  id           String         @id @default(cuid())
-  name         String
-  street       String
-  zip          String
-  city         String
-  managementType ManagementType @default(MIETVERWALTUNG)
+  id                  String               @id @default(cuid())
+  name                String
+  street              String
+  zip                 String
+  city                String
+  managementType      ManagementType       @default(MIETVERWALTUNG)
   // Optionale Stammdaten zum Objekt
-  buildYear    Int? // Baujahr
-  livingArea   Float? // Gesamtwohnfläche in m²
-  floors       Int? // Anzahl Etagen
-  buildingType String? // Bauart, z. B. Mehrfamilienhaus, Massivbau
-  heatingType  String? // Heizungsart, z. B. Gas-Zentralheizung
-  notes        String? // freie Notizen
+  buildYear           Int? // Baujahr
+  livingArea          Float? // Gesamtwohnfläche in m²
+  floors              Int? // Anzahl Etagen
+  buildingType        String? // Bauart, z. B. Mehrfamilienhaus, Massivbau
+  heatingType         String? // Heizungsart, z. B. Gas-Zentralheizung
+  notes               String? // freie Notizen
   // Referenz für den späteren Stammdaten-Sync mit Immoware24
-  immoware24Id String?        @unique
-  createdAt    DateTime       @default(now())
-  units        Unit[]
-  ownerships   Ownership[]
-  tickets      Ticket[]
-  documents    Document[]
-  announcements Announcement[]
-  maintenanceTasks MaintenanceTask[]
-  resolutions  Resolution[]
-  meters       Meter[]
-  internalNotes Note[]
+  immoware24Id        String?              @unique
+  createdAt           DateTime             @default(now())
+  units               Unit[]
+  ownerships          Ownership[]
+  tickets             Ticket[]
+  documents           Document[]
+  announcements       Announcement[]
+  maintenanceTasks    MaintenanceTask[]
+  resolutions         Resolution[]
+  meters              Meter[]
+  internalNotes       Note[]
   propertyAssignments PropertyAssignment[]
 }
 
 model Unit {
-  id         String     @id @default(cuid())
-  propertyId String
-  property   Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  label      String // z. B. "WE 03, 1. OG links"
-  floor      String?
-  tenancies  Tenancy[]
-  tickets    Ticket[]
-  documents  Document[]
-  meters     Meter[]
+  id            String     @id @default(cuid())
+  propertyId    String
+  property      Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  label         String // z. B. "WE 03, 1. OG links"
+  floor         String?
+  tenancies     Tenancy[]
+  tickets       Ticket[]
+  documents     Document[]
+  meters        Meter[]
   internalNotes Note[]
   handovers     Handover[]
+
+  @@index([propertyId])
 }
 
 // Zähler – entweder einer Einheit (unitId) oder dem Objekt allgemein (propertyId)
@@ -239,6 +245,9 @@ model Meter {
   location    String? // Einbauort
   createdAt   DateTime       @default(now())
   readings    MeterReading[]
+
+  @@index([unitId])
+  @@index([propertyId])
 }
 
 model MeterReading {
@@ -251,6 +260,8 @@ model MeterReading {
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
+
+  @@index([meterId])
 }
 
 model Ownership {
@@ -261,6 +272,7 @@ model Ownership {
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@unique([userId, propertyId])
+  @@index([propertyId])
 }
 
 model Tenancy {
@@ -274,57 +286,66 @@ model Tenancy {
   active    Boolean   @default(true)
 
   @@unique([userId, unitId])
+  @@index([unitId])
 }
 
 model Ticket {
-  id           String          @id @default(cuid())
-  number       Int             @unique @default(autoincrement())
-  type         TicketType
-  status       TicketStatus    @default(NEU)
-  priority     TicketPriority  @default(NORMAL)
-  category     String? // z. B. "Wasserschaden", "Heizung" — Basis für spätere Automatisierung
-  title        String
-  description  String
-  location     String? // Ort im Objekt, z. B. "Bad, Decke"
-  propertyId   String?
-  property     Property?       @relation(fields: [propertyId], references: [id])
-  unitId       String?
-  unit         Unit?           @relation(fields: [unitId], references: [id])
+  id               String          @id @default(cuid())
+  number           Int             @unique @default(autoincrement())
+  type             TicketType
+  status           TicketStatus    @default(NEU)
+  priority         TicketPriority  @default(NORMAL)
+  category         String? // z. B. "Wasserschaden", "Heizung" — Basis für spätere Automatisierung
+  title            String
+  description      String
+  location         String? // Ort im Objekt, z. B. "Bad, Decke"
+  propertyId       String?
+  property         Property?       @relation(fields: [propertyId], references: [id])
+  unitId           String?
+  unit             Unit?           @relation(fields: [unitId], references: [id])
   // Externer Absender (z. B. E-Mail), wenn (noch) kein Portal-Nutzer zugeordnet ist
-  senderEmail  String?
-  senderName   String?
-  trade           Trade? // Gewerk – Basis für die Handwerker-Zuordnung
-  appointmentNote String? // vom Handwerker mitgeteilter Terminvorschlag
-  inboundMessageId String? @unique // Idempotenz für E-Mail-Eingang (verhindert Doppel-Tickets)
-  createdById  String
-  createdBy    User            @relation("TicketCreatedBy", fields: [createdById], references: [id])
-  assignedToId String?
-  assignedTo   User?           @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
-  craftsmanId  String?
-  craftsman    Craftsman?      @relation(fields: [craftsmanId], references: [id])
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  comments     TicketComment[]
-  attachments  Attachment[]
+  senderEmail      String?
+  senderName       String?
+  trade            Trade? // Gewerk – Basis für die Handwerker-Zuordnung
+  appointmentNote  String? // vom Handwerker mitgeteilter Terminvorschlag
+  inboundMessageId String?         @unique // Idempotenz für E-Mail-Eingang (verhindert Doppel-Tickets)
+  createdById      String
+  createdBy        User            @relation("TicketCreatedBy", fields: [createdById], references: [id])
+  assignedToId     String?
+  assignedTo       User?           @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
+  craftsmanId      String?
+  craftsman        Craftsman?      @relation(fields: [craftsmanId], references: [id])
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  comments         TicketComment[]
+  attachments      Attachment[]
+
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([craftsmanId])
+  @@index([status])
+  @@index([updatedAt])
 }
 
 // Handwerker als Stammdaten (Kontaktbuch) – ohne eigenen Portal-Login
 model Craftsman {
-  id               String        @id @default(cuid())
-  company          String? // Firma
-  name             String // Ansprechpartner
-  trade            Trade
-  email            String?
-  phone            String?
-  preferredContact ContactMethod @default(TELEFON)
-  notes            String?
-  active           Boolean       @default(true)
+  id                   String                @id @default(cuid())
+  company              String? // Firma
+  name                 String // Ansprechpartner
+  trade                Trade
+  email                String?
+  phone                String?
+  preferredContact     ContactMethod         @default(TELEFON)
+  notes                String?
+  active               Boolean               @default(true)
   // Magic-Link-Token für das schlanke Handwerker-Portal (ohne Passwort)
-  accessToken      String?       @unique
-  createdAt        DateTime      @default(now())
-  tickets          Ticket[]
-  comments         TicketComment[]   @relation("CraftsmanComments")
-  maintenanceTasks MaintenanceTask[]
+  accessToken          String?               @unique
+  createdAt            DateTime              @default(now())
+  tickets              Ticket[]
+  comments             TicketComment[]       @relation("CraftsmanComments")
+  maintenanceTasks     MaintenanceTask[]
   verwalterAssignments CraftsmanAssignment[]
 }
 
@@ -342,6 +363,9 @@ model MaintenanceTask {
   craftsmanId String?
   craftsman   Craftsman?          @relation(fields: [craftsmanId], references: [id], onDelete: SetNull)
   createdAt   DateTime            @default(now())
+
+  @@index([propertyId])
+  @@index([dueDate])
 }
 
 model TicketComment {
@@ -358,6 +382,8 @@ model TicketComment {
   internal          Boolean      @default(false)
   createdAt         DateTime     @default(now())
   attachments       Attachment[]
+
+  @@index([ticketId])
 }
 
 model Attachment {
@@ -371,38 +397,46 @@ model Attachment {
   mimeType   String
   size       Int
   createdAt  DateTime       @default(now())
+
+  @@index([ticketId])
+  @@index([commentId])
 }
 
 model Document {
-  id           String           @id @default(cuid())
-  title        String
-  category     DocumentCategory
-  audience     Audience
-  fileName     String
-  storedName   String
-  mimeType     String
-  size         Int
-  propertyId   String?
-  property     Property?        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unitId       String?
-  unit         Unit?            @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  uploadedById String
-  uploadedBy   User             @relation(fields: [uploadedById], references: [id])
-  createdAt    DateTime         @default(now())
+  id               String            @id @default(cuid())
+  title            String
+  category         DocumentCategory
+  audience         Audience
+  fileName         String
+  storedName       String
+  mimeType         String
+  size             Int
+  propertyId       String?
+  property         Property?         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId           String?
+  unit             Unit?             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  uploadedById     String
+  uploadedBy       User              @relation(fields: [uploadedById], references: [id])
+  createdAt        DateTime          @default(now())
   acknowledgements Acknowledgement[]
+
+  @@index([propertyId])
+  @@index([unitId])
 }
 
 model Announcement {
-  id          String   @id @default(cuid())
-  propertyId  String
-  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  audience    Audience @default(ALLE)
-  title       String
-  body        String
-  createdById String
-  createdBy   User     @relation(fields: [createdById], references: [id])
-  createdAt   DateTime @default(now())
+  id               String            @id @default(cuid())
+  propertyId       String
+  property         Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  audience         Audience          @default(ALLE)
+  title            String
+  body             String
+  createdById      String
+  createdBy        User              @relation(fields: [createdById], references: [id])
+  createdAt        DateTime          @default(now())
   acknowledgements Acknowledgement[]
+
+  @@index([propertyId])
 }
 
 // Lesebestätigung ("zur Kenntnis genommen") für Dokumente und Aushänge
@@ -418,6 +452,8 @@ model Acknowledgement {
 
   @@unique([userId, documentId])
   @@unique([userId, announcementId])
+  @@index([documentId])
+  @@index([announcementId])
 }
 
 // Direktnachrichten zwischen Verwalter und Mieter/Eigentümer
@@ -439,6 +475,7 @@ model ConversationParticipant {
   lastReadAt     DateTime?
 
   @@unique([conversationId, userId])
+  @@index([userId])
 }
 
 model Message {
@@ -449,6 +486,8 @@ model Message {
   author         User         @relation(fields: [authorId], references: [id])
   body           String
   createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
 }
 
 // WEG-Umlaufbeschluss mit digitaler Abstimmung
@@ -466,6 +505,8 @@ model Resolution {
   createdAt   DateTime         @default(now())
   decidedAt   DateTime?
   votes       ResolutionVote[]
+
+  @@index([propertyId])
 }
 
 model ResolutionVote {
@@ -515,13 +556,13 @@ enum RoomType {
 }
 
 model Handover {
-  id               String         @id @default(cuid())
-  type             HandoverType   @default(EINZUG)
-  status           HandoverStatus @default(ENTWURF)
-  handoverDate     DateTime       @default(now()) // Protokolldatum (Tag der Protokollführung)
+  id               String          @id @default(cuid())
+  type             HandoverType    @default(EINZUG)
+  status           HandoverStatus  @default(ENTWURF)
+  handoverDate     DateTime        @default(now()) // Protokolldatum (Tag der Protokollführung)
   moveDate         DateTime? // Ein- bzw. Auszugsdatum / Stichtag
   unitId           String
-  unit             Unit           @relation(fields: [unitId], references: [id])
+  unit             Unit            @relation(fields: [unitId], references: [id])
   // Objektdaten (Schnappschuss zum Übergabezeitpunkt)
   livingArea       Float? // Wohnfläche in m²
   roomCount        Float? // Zimmeranzahl (z. B. 2,5)
@@ -555,20 +596,22 @@ model Handover {
   managerSignature String?
   pdfStoredName    String?
   createdById      String
-  createdBy        User           @relation("HandoverCreatedBy", fields: [createdById], references: [id])
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  createdBy        User            @relation("HandoverCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
   rooms            HandoverRoom[]
   meters           HandoverMeter[]
+
+  @@index([unitId])
 }
 
 model HandoverRoom {
-  id           String        @id @default(cuid())
+  id           String          @id @default(cuid())
   handoverId   String
-  handover     Handover      @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+  handover     Handover        @relation(fields: [handoverId], references: [id], onDelete: Cascade)
   name         String
   roomType     RoomType
-  sortOrder    Int           @default(0)
+  sortOrder    Int             @default(0)
   checks       Json? // Strukturierte Prüfpunkte: { key: "ok"|"maengel"|"na", note_key: "…" }
   overallNote  String?
   wallsNote    String?
@@ -580,6 +623,8 @@ model HandoverRoom {
   sanitaryNote String?
   otherNote    String?
   photos       HandoverPhoto[]
+
+  @@index([handoverId])
 }
 
 model HandoverPhoto {
@@ -593,6 +638,8 @@ model HandoverPhoto {
   size       Int
   caption    String?
   createdAt  DateTime      @default(now())
+
+  @@index([roomId])
 }
 
 model HandoverMeter {
@@ -606,6 +653,8 @@ model HandoverMeter {
   photoStoredName String?
   notes           String?
   sortOrder       Int       @default(0)
+
+  @@index([handoverId])
 }
 
 // Web-Push-Abonnements (PWA-Benachrichtigungen)
@@ -617,6 +666,8 @@ model PushSubscription {
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // Interne Notizen – nur für Verwalter sichtbar
@@ -635,4 +686,9 @@ model Note {
   targetUser   User?     @relation("NotesAboutUser", fields: [targetUserId], references: [id], onDelete: Cascade)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([targetUserId])
+  @@index([pinned])
 }

@@ -392,6 +392,8 @@ model TicketComment {
   body              String
   // interne Notizen sind nur für Verwalter sichtbar
   internal          Boolean      @default(false)
+  // Idempotenz für E-Mail-Antworten (verhindert Doppel-Kommentare bei Webhook-Wiederholungen)
+  inboundMessageId  String?      @unique
   createdAt         DateTime     @default(now())
   attachments       Attachment[]
 

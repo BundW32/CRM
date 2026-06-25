@@ -38,6 +38,7 @@ export default async function KontaktePage({
     preferredContact: c.preferredContact as CraftsmanRow["preferredContact"],
     notes: c.notes,
     active: c.active,
+    isInternal: c.isInternal,
     accessToken: c.accessToken,
   }));
 
@@ -105,6 +106,16 @@ export default async function KontaktePage({
               <Field label="Notizen (optional)">
                 <textarea name="notes" rows={2} className={inputClass} placeholder="z. B. Verfügbarkeiten, Konditionen" />
               </Field>
+              <label className="flex items-start gap-2 text-sm text-gray-700">
+                <input type="checkbox" name="isInternal" className="mt-0.5" />
+                <span>
+                  <span className="font-medium">Interner Handwerker (Eigenleistung)</span>
+                  <span className="block text-xs text-gray-500">
+                    Wird bei der Vorgangszuordnung zuerst angeboten. Externe Handwerker können
+                    erst nach ausdrücklicher Freigabe beauftragt werden.
+                  </span>
+                </span>
+              </label>
               <SubmitButton pendingLabel="Wird gespeichert…">Speichern</SubmitButton>
             </form>
           </div>

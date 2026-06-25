@@ -101,6 +101,8 @@ export async function createCraftsman(formData: FormData) {
       phone: parsed.data.phone || null,
       preferredContact: parsed.data.preferredContact,
       notes: parsed.data.notes || null,
+      // Interner Handwerker (Eigenleistung)
+      isInternal: formData.get("isInternal") === "on",
       // Magic-Link-Token für das Auftragsportal
       accessToken: crypto.randomBytes(24).toString("hex"),
     },
@@ -116,6 +118,17 @@ export async function toggleCraftsmanActive(formData: FormData) {
   const c = await db.craftsman.findUnique({ where: { id } });
   if (c) {
     await db.craftsman.update({ where: { id }, data: { active: !c.active } });
+  }
+  revalidatePath("/verwaltung/kontakte");
+  redirect("/verwaltung/kontakte");
+}
+
+export async function toggleCraftsmanInternal(formData: FormData) {
+  await requireVerwalter();
+  const id = String(formData.get("id") ?? "");
+  const c = await db.craftsman.findUnique({ where: { id } });
+  if (c) {
+    await db.craftsman.update({ where: { id }, data: { isInternal: !c.isInternal } });
   }
   revalidatePath("/verwaltung/kontakte");
   redirect("/verwaltung/kontakte");

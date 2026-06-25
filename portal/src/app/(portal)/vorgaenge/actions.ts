@@ -303,6 +303,31 @@ export async function assignCraftsman(formData: FormData) {
   redirect(`/vorgaenge/${ticketId}`);
 }
 
+// Verwalter gibt die Beauftragung EXTERNER Handwerker für diesen Vorgang frei.
+// Bewusster Schritt nach Prüfung der internen Eigenleistung – ohne diese Freigabe
+// blockiert notifyCraftsman die externe Beauftragung serverseitig.
+export async function releaseExternalCraftsman(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, select: { id: true } });
+  if (!ticket) redirect("/vorgaenge");
+
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: { externalReleasedAt: new Date(), externalReleasedById: verwalter.id },
+  });
+  await db.ticketComment.create({
+    data: {
+      ticketId,
+      authorId: verwalter.id,
+      internal: true,
+      body: "Externe Beauftragung freigegeben (interne Eigenleistung nicht möglich).",
+    },
+  });
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?freigegeben=1`);
+}
+
 // Verwalter beauftragt den zugeordneten Handwerker per E-Mail mit den Vorgangsdaten
 export async function notifyCraftsman(formData: FormData) {
   const verwalter = await requireVerwalter();
@@ -315,6 +340,11 @@ export async function notifyCraftsman(formData: FormData) {
   if (!ticket || !ticket.craftsman) redirect(`/vorgaenge/${ticketId}`);
   if (!ticket.craftsman.email) {
     redirect(`/vorgaenge/${ticketId}?fehler=keine_email`);
+  }
+  // Harte Sperre: EXTERNE Handwerker dürfen erst nach bewusster Verwalter-Freigabe
+  // beauftragt werden (interne Eigenleistung wird zuerst geprüft). Niemals automatisch.
+  if (!ticket.craftsman.isInternal && !ticket.externalReleasedAt) {
+    redirect(`/vorgaenge/${ticketId}?fehler=freigabe`);
   }
 
   const ortsangabe = [

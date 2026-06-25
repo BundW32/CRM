@@ -32,6 +32,7 @@ import { requireUser } from "@/lib/session";
 import {
   addComment,
   assignCraftsman,
+  releaseExternalCraftsman,
   generateCertificate,
   notifyCraftsman,
   setOwnTicketStatus,
@@ -51,13 +52,14 @@ export default async function TicketDetailPage({
     beauftragt?: string;
     bereitgestellt?: string;
     zugeordnet?: string;
+    freigegeben?: string;
     fehler?: string;
     msg?: string;
   }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { beauftragt, bereitgestellt, zugeordnet, fehler, msg } = await searchParams;
+  const { beauftragt, bereitgestellt, zugeordnet, freigegeben, fehler, msg } = await searchParams;
 
   const ticket = await db.ticket.findUnique({
     where: { id },
@@ -86,15 +88,18 @@ export default async function TicketDetailPage({
         orderBy: [{ role: "asc" }, { name: "asc" }],
       })
     : [];
-  // Handwerker für die Zuordnung – passende zum Gewerk des Vorgangs zuerst
+  // Handwerker für die Zuordnung. Interne (Eigenleistung) werden zuerst angeboten;
+  // bei den externen kommt das passende Gewerk vor den übrigen.
   const craftsmen = isVerwalter
     ? await db.craftsman.findMany({
         where: { active: true, ...(await craftsmanWhereForVerwalter(user)) },
-        orderBy: [{ trade: "asc" }, { name: "asc" }],
+        orderBy: [{ isInternal: "desc" }, { trade: "asc" }, { name: "asc" }],
       })
     : [];
-  const suggested = ticket.trade ? craftsmen.filter((c) => c.trade === ticket.trade) : [];
-  const others = ticket.trade ? craftsmen.filter((c) => c.trade !== ticket.trade) : craftsmen;
+  const internal = craftsmen.filter((c) => c.isInternal);
+  const external = craftsmen.filter((c) => !c.isInternal);
+  const suggested = ticket.trade ? external.filter((c) => c.trade === ticket.trade) : [];
+  const others = ticket.trade ? external.filter((c) => c.trade !== ticket.trade) : external;
 
   // Nicht zugeordneter Vorgang (z. B. von unbekanntem E-Mail-Absender): Zuordnung + Vorschlag.
   // Nur die Objektliste laden; Einheiten kommen on demand. Für den Vorschlag werden
@@ -133,6 +138,19 @@ export default async function TicketDetailPage({
       {zugeordnet ? (
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
           Vorgang wurde dem Objekt/der Einheit zugeordnet.
+        </p>
+      ) : null}
+      {freigegeben ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Externe Beauftragung freigegeben. Sie können den externen Handwerker jetzt
+          beauftragen.
+        </p>
+      ) : null}
+      {fehler === "freigabe" ? (
+        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Externe Handwerker dürfen erst nach Freigabe beauftragt werden. Bitte zuerst
+          prüfen, ob die Arbeit intern (Eigenleistung) erledigt werden kann, und dann
+          „Externe Beauftragung freigeben“ wählen.
         </p>
       ) : null}
       {fehler === "keine_email" ? (
@@ -485,8 +503,18 @@ export default async function TicketDetailPage({
                     className={inputClass}
                   >
                     <option value="">– keiner –</option>
+                    {internal.length > 0 ? (
+                      <optgroup label="Intern (Eigenleistung) – zuerst prüfen">
+                        {internal.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.company ? `${c.company} / ` : ""}
+                            {c.name} ({tradeLabels[c.trade]})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ) : null}
                     {suggested.length > 0 ? (
-                      <optgroup label="Passendes Gewerk">
+                      <optgroup label="Passendes Gewerk (extern)">
                         {suggested.map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.company ? `${c.company} / ` : ""}
@@ -597,14 +625,54 @@ export default async function TicketDetailPage({
                     );
                   })()}
 
-                  {ticket.craftsman.email ? (
-                    <form action={notifyCraftsman} className="mt-3">
-                      <input type="hidden" name="ticketId" value={ticket.id} />
-                      <button type="submit" className={`${buttonClass} w-full`}>
-                        Auftrag per E-Mail senden (mit Portal-Link)
-                      </button>
-                    </form>
-                  ) : null}
+                  {/* Beauftragung: interne Eigenleistung jederzeit; externe Handwerker
+                      erst nach ausdrücklicher Freigabe (serverseitig erzwungen). */}
+                  {ticket.craftsman.isInternal ? (
+                    <div className="mt-3">
+                      <p className="mb-2 rounded-md bg-brand-green/10 px-3 py-2 text-xs text-brand-green">
+                        Interner Handwerker (Eigenleistung) – keine externe Freigabe nötig.
+                      </p>
+                      {ticket.craftsman.email ? (
+                        <form action={notifyCraftsman}>
+                          <input type="hidden" name="ticketId" value={ticket.id} />
+                          <button type="submit" className={`${buttonClass} w-full`}>
+                            Auftrag intern per E-Mail senden
+                          </button>
+                        </form>
+                      ) : null}
+                    </div>
+                  ) : ticket.externalReleasedAt ? (
+                    <div className="mt-3">
+                      <p className="mb-2 rounded-md bg-green-50 px-3 py-2 text-xs text-green-800">
+                        Externe Beauftragung freigegeben am {formatDate(ticket.externalReleasedAt)}.
+                      </p>
+                      {ticket.craftsman.email ? (
+                        <form action={notifyCraftsman}>
+                          <input type="hidden" name="ticketId" value={ticket.id} />
+                          <button type="submit" className={`${buttonClass} w-full`}>
+                            Auftrag per E-Mail senden (mit Portal-Link)
+                          </button>
+                        </form>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <p className="text-xs text-amber-800">
+                        <span className="font-semibold">Externer Handwerker.</span> Bitte zuerst
+                        prüfen, ob die Arbeit intern (Eigenleistung) erledigt werden kann. Erst
+                        nach Freigabe kann extern beauftragt werden.
+                      </p>
+                      <form action={releaseExternalCraftsman} className="mt-2">
+                        <input type="hidden" name="ticketId" value={ticket.id} />
+                        <button
+                          type="submit"
+                          className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+                        >
+                          Externe Beauftragung freigeben
+                        </button>
+                      </form>
+                    </div>
+                  )}
                 </div>
               ) : null}
             </Card>

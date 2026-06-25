@@ -8,6 +8,7 @@ import {
   deleteCraftsman,
   searchContactPersons,
   toggleCraftsmanActive,
+  toggleCraftsmanInternal,
   updatePersonContact,
   type ContactPerson,
 } from "./actions";
@@ -24,6 +25,7 @@ export type CraftsmanRow = {
   preferredContact: keyof typeof contactMethodLabels;
   notes: string | null;
   active: boolean;
+  isInternal: boolean;
   accessToken: string | null;
 };
 
@@ -88,6 +90,11 @@ export function KontakteListe({ craftsmen }: { craftsmen: CraftsmanRow[] }) {
                         <span className="block text-sm font-medium text-gray-900">
                           {c.company ? `${c.company} · ` : ""}
                           {c.name}
+                          {c.isInternal ? (
+                            <span className="ml-2 rounded-full bg-brand-green/10 px-2 py-0.5 text-xs font-semibold text-brand-green">
+                              intern · Eigenleistung
+                            </span>
+                          ) : null}
                           {!c.active ? (
                             <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
                               inaktiv
@@ -123,6 +130,12 @@ export function KontakteListe({ craftsmen }: { craftsmen: CraftsmanRow[] }) {
                         ) : null}
                       </span>
                       <span className="flex shrink-0 items-center gap-3">
+                        <form action={toggleCraftsmanInternal}>
+                          <input type="hidden" name="id" value={c.id} />
+                          <button type="submit" className="text-xs text-gray-500 hover:underline">
+                            {c.isInternal ? "Als extern markieren" : "Als intern markieren"}
+                          </button>
+                        </form>
                         <form action={toggleCraftsmanActive}>
                           <input type="hidden" name="id" value={c.id} />
                           <button type="submit" className="text-xs text-gray-500 hover:underline">

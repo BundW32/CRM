@@ -290,35 +290,40 @@ model Tenancy {
 }
 
 model Ticket {
-  id               String          @id @default(cuid())
-  number           Int             @unique @default(autoincrement())
-  type             TicketType
-  status           TicketStatus    @default(NEU)
-  priority         TicketPriority  @default(NORMAL)
-  category         String? // z. B. "Wasserschaden", "Heizung" — Basis für spätere Automatisierung
-  title            String
-  description      String
-  location         String? // Ort im Objekt, z. B. "Bad, Decke"
-  propertyId       String?
-  property         Property?       @relation(fields: [propertyId], references: [id])
-  unitId           String?
-  unit             Unit?           @relation(fields: [unitId], references: [id])
+  id                   String          @id @default(cuid())
+  number               Int             @unique @default(autoincrement())
+  type                 TicketType
+  status               TicketStatus    @default(NEU)
+  priority             TicketPriority  @default(NORMAL)
+  category             String? // z. B. "Wasserschaden", "Heizung" — Basis für spätere Automatisierung
+  title                String
+  description          String
+  location             String? // Ort im Objekt, z. B. "Bad, Decke"
+  propertyId           String?
+  property             Property?       @relation(fields: [propertyId], references: [id])
+  unitId               String?
+  unit                 Unit?           @relation(fields: [unitId], references: [id])
   // Externer Absender (z. B. E-Mail), wenn (noch) kein Portal-Nutzer zugeordnet ist
-  senderEmail      String?
-  senderName       String?
-  trade            Trade? // Gewerk – Basis für die Handwerker-Zuordnung
-  appointmentNote  String? // vom Handwerker mitgeteilter Terminvorschlag
-  inboundMessageId String?         @unique // Idempotenz für E-Mail-Eingang (verhindert Doppel-Tickets)
-  createdById      String
-  createdBy        User            @relation("TicketCreatedBy", fields: [createdById], references: [id])
-  assignedToId     String?
-  assignedTo       User?           @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
-  craftsmanId      String?
-  craftsman        Craftsman?      @relation(fields: [craftsmanId], references: [id])
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  comments         TicketComment[]
-  attachments      Attachment[]
+  senderEmail          String?
+  senderName           String?
+  trade                Trade? // Gewerk – Basis für die Handwerker-Zuordnung
+  appointmentNote      String? // vom Handwerker mitgeteilter Terminvorschlag
+  inboundMessageId     String?         @unique // Idempotenz für E-Mail-Eingang (verhindert Doppel-Tickets)
+  createdById          String
+  createdBy            User            @relation("TicketCreatedBy", fields: [createdById], references: [id])
+  assignedToId         String?
+  assignedTo           User?           @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
+  craftsmanId          String?
+  craftsman            Craftsman?      @relation(fields: [craftsmanId], references: [id])
+  // Freigabe für die Beauftragung EXTERNER Handwerker. Null = noch nicht
+  // freigegeben → externe Beauftragung ist serverseitig gesperrt (interne
+  // Eigenleistung zuerst). Wird durch eine bewusste Verwalter-Aktion gesetzt.
+  externalReleasedAt   DateTime?
+  externalReleasedById String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  comments             TicketComment[]
+  attachments          Attachment[]
 
   @@index([propertyId])
   @@index([unitId])
@@ -340,6 +345,9 @@ model Craftsman {
   preferredContact     ContactMethod         @default(TELEFON)
   notes                String?
   active               Boolean               @default(true)
+  // Interner Handwerker (Eigenleistung). Wird bei der Zuordnung zuerst angeboten;
+  // externe Handwerker dürfen erst nach Verwalter-Freigabe beauftragt werden.
+  isInternal           Boolean               @default(false)
   // Magic-Link-Token für das schlanke Handwerker-Portal (ohne Passwort)
   accessToken          String?               @unique
   createdAt            DateTime              @default(now())

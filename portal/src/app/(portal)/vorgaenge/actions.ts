@@ -23,6 +23,8 @@ import {
 import { MEDIA_TYPES, DOCUMENT_TYPES, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { requireUser, requireVerwalter } from "@/lib/session";
+import { AUDIT, logAudit } from "@/lib/audit";
+import { getClientIp } from "@/lib/rate-limit";
 import { applyTriage } from "@/lib/triage";
 import {
   generateMietbescheinigung,
@@ -370,6 +372,13 @@ export async function releaseExternalCraftsman(formData: FormData) {
       body: "Externe Beauftragung freigegeben (interne Eigenleistung nicht möglich).",
     },
   });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.TICKET_EXTERNAL_RELEASED,
+    targetType: "Ticket",
+    targetId: ticketId,
+    ip: await getClientIp(),
+  });
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}?freigegeben=1`);
 }
@@ -512,6 +521,13 @@ export async function confirmCompletion(formData: FormData) {
       body: "Abschluss bestätigt – Vorgang geschlossen.",
     },
   });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.TICKET_CLOSED,
+    targetType: "Ticket",
+    targetId: ticketId,
+    ip: await getClientIp(),
+  });
   await notifyCreatorStatusChange(ticketId, verwalter);
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}?abschluss=bestaetigt`);
@@ -548,6 +564,14 @@ export async function reopenTicket(formData: FormData) {
       internal: true,
       body: `Vorgang wieder geöffnet (Nacharbeit nötig)${note ? `: ${note}` : ""}.`,
     },
+  });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.TICKET_REOPENED,
+    targetType: "Ticket",
+    targetId: ticketId,
+    meta: note ? { note } : undefined,
+    ip: await getClientIp(),
   });
   // Beauftragten Handwerker über die Nacharbeit informieren
   if (ticket.craftsman?.email) {

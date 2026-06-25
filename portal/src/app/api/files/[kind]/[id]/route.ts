@@ -77,11 +77,13 @@ export async function GET(
   const cacheControl = "private, max-age=300";
 
   try {
-    // Vercel Blob: Range-Header direkt an CDN weiterleiten (kein Buffer im Speicher)
+    // Vercel Blob: Range-Header direkt weiterleiten; Bearer-Token für private Blobs
     if (file.storedName.startsWith("https://")) {
-      const upstream = await fetch(file.storedName, {
-        headers: rangeHeader ? { Range: rangeHeader } : {},
-      });
+      const blobHeaders: Record<string, string> = {};
+      const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+      if (blobToken) blobHeaders["Authorization"] = `Bearer ${blobToken}`;
+      if (rangeHeader) blobHeaders["Range"] = rangeHeader;
+      const upstream = await fetch(file.storedName, { headers: blobHeaders });
       if (!upstream.ok && upstream.status !== 206) {
         return NextResponse.json({ error: "Datei nicht abrufbar" }, { status: 404 });
       }

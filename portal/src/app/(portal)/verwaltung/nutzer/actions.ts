@@ -11,8 +11,10 @@ import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireVerwalter } from "@/lib/session";
-import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
+import { IMAGE_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
+import { AUDIT, logAudit } from "@/lib/audit";
+import { getClientIp } from "@/lib/rate-limit";
 
 // ── Scope-Wächter ───────────────────────────────────────────────────
 // Eingeschränkte Verwalter (kein SuperAdmin) dürfen nur Nutzer/Objekte
@@ -231,6 +233,31 @@ export async function anonymizeUser(formData: FormData) {
   const user = await db.user.findUnique({ where: { id } });
   if (!user) redirect("/verwaltung/nutzer");
 
+  // DSGVO Art. 17: Blobs mit personenbezogenen Daten löschen
+  if (user.signatureStoredName) {
+    await deleteBlob(user.signatureStoredName);
+  }
+  const handoversWithPdf = await db.handover.findMany({
+    where: { createdById: id, pdfStoredName: { not: null } },
+    select: { id: true, pdfStoredName: true },
+  });
+  for (const h of handoversWithPdf) {
+    if (h.pdfStoredName) {
+      await deleteBlob(h.pdfStoredName);
+      await db.handover.update({ where: { id: h.id }, data: { pdfStoredName: null } });
+    }
+  }
+
+  const ip = await getClientIp();
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.USER_ANONYMIZED,
+    targetType: "User",
+    targetId: id,
+    meta: { name: user.name, email: user.email },
+    ip,
+  });
+
   await db.$transaction([
     db.acknowledgement.deleteMany({ where: { userId: id } }),
     db.conversationParticipant.deleteMany({ where: { userId: id } }),
@@ -249,6 +276,7 @@ export async function anonymizeUser(formData: FormData) {
         mustChangePassword: false,
         passwordResetToken: null,
         passwordResetExpiry: null,
+        signatureStoredName: null,
         passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12),
       },
     }),

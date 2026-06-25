@@ -158,6 +158,7 @@ model User {
   isSuperAdmin         Boolean                   @default(false)
   propertyAssignments  PropertyAssignment[]
   craftsmanAssignments CraftsmanAssignment[]
+  auditLogs            AuditLog[]
 
   @@index([role])
 }
@@ -287,6 +288,7 @@ model Tenancy {
 
   @@unique([userId, unitId])
   @@index([unitId])
+  @@index([userId, active])
 }
 
 model Ticket {
@@ -713,4 +715,34 @@ model Note {
   @@index([unitId])
   @@index([targetUserId])
   @@index([pinned])
+}
+
+// DB-backed rate limiting – zählt Versuche pro Schlüssel in einem Zeitfenster.
+// Serverless-kompatibel (kein Redis nötig). Abgelaufene Einträge werden
+// probabilistisch bereinigt (kein separater Cronjob erforderlich).
+model RateLimit {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+// Unveränderliches Audit-Log für sicherheitsrelevante Aktionen (DSGVO-Löschung,
+// Login, Statuswechsel, Freigaben). Einträge werden nie gelöscht – nur SuperAdmin
+// darf das Log einsehen.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  targetType String?
+  targetId   String?
+  meta       Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([action])
 }

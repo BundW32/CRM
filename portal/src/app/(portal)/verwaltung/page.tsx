@@ -78,17 +78,24 @@ export default async function VerwaltungPage() {
     "/verwaltung/wartung": wartungFaellig > 0 ? `${wartungFaellig} überfällig` : "aktuell",
   };
 
+  const allTiles = [
+    ...tiles,
+    ...(verwalter.isSuperAdmin
+      ? [{ href: "/verwaltung/audit", title: "Audit-Log", desc: "Sicherheitsrelevante Aktionen (Login, DSGVO, Freigaben)" }]
+      : []),
+  ];
+
   return (
     <>
       <PageTitle>Verwaltung</PageTitle>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {tiles.map((t) => (
+        {allTiles.map((t) => (
           <Link
             key={t.href}
             href={t.href}
             className={`group rounded-2xl border p-5 shadow-sm transition hover:shadow-md ${
-              t.accent
+              (t as { accent?: boolean }).accent
                 ? "border-brand-orange/40 bg-brand-orange-light"
                 : "border-gray-200 bg-white"
             }`}

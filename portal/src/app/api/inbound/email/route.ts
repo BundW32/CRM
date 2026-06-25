@@ -4,6 +4,7 @@ import { portalUrl, sendMail } from "@/lib/mailer";
 import { notifyVerwalterNewTicket } from "@/lib/notify";
 import { IMAGE_TYPES, saveBuffer } from "@/lib/storage";
 import { applyTriage } from "@/lib/triage";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +94,17 @@ export async function POST(request: Request) {
   if (!secret) {
     return NextResponse.json({ error: "Inbound nicht konfiguriert" }, { status: 503 });
   }
+
+  const ip =
+    request.headers.get("x-real-ip") ??
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "unknown";
+
+  // Rate limit: 60 Webhook-Aufrufe pro IP pro Minute
+  if (!(await checkRateLimit(`inbound:${ip}`, 60, 60))) {
+    return NextResponse.json({ error: "Zu viele Anfragen" }, { status: 429 });
+  }
+
   const url = new URL(request.url);
   const token = url.searchParams.get("token") ?? request.headers.get("x-inbound-secret");
   if (token !== secret) {

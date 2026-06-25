@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { canVerwalterManageUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/session";
+import { AUDIT, logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,17 @@ export async function GET(
       "Dieser Export enthält die zu Ihrer Person im B&W Kundenportal gespeicherten Daten (DSGVO Art. 20).",
     daten: user,
   };
+
+  await logAudit({
+    actorId: current.id,
+    action: AUDIT.DSGVO_EXPORT,
+    targetType: "User",
+    targetId: userId,
+    ip:
+      _request.headers.get("x-real-ip") ??
+      _request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      "unknown",
+  });
 
   return new NextResponse(JSON.stringify(payload, null, 2), {
     headers: {

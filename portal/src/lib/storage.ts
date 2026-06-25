@@ -5,7 +5,7 @@
 import crypto from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
-import { put } from "@vercel/blob";
+import { del, put } from "@vercel/blob";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 // Ohne Blob werden Dateien als Data-URL in der DB gespeichert – Limit: 5 MB
@@ -57,7 +57,7 @@ export async function saveUpload(file: File, allowedTypes: string[]) {
 
   if (blobEnabled()) {
     const blob = await put(`uploads/${fileId}`, file, {
-      access: "public",
+      access: "private",
       contentType: file.type,
     });
     return { storedName: blob.url, ...meta };
@@ -106,7 +106,7 @@ export async function saveBuffer(
 
   if (blobEnabled()) {
     const blob = await put(`uploads/${fileId}`, buffer, {
-      access: "public",
+      access: "private",
       contentType: mimeType,
     });
     return { storedName: blob.url, ...meta };
@@ -136,9 +136,12 @@ export async function readUpload(storedName: string): Promise<Buffer> {
     if (commaIdx === -1) throw new Error("Ungültiger Data-URL.");
     return Buffer.from(storedName.slice(commaIdx + 1), "base64");
   }
-  // Vercel Blob (https://)
+  // Vercel Blob (https://) – private blobs benötigen den Bearer-Token
   if (storedName.startsWith("https://")) {
-    const res = await fetch(storedName);
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const res = await fetch(storedName, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!res.ok) throw new Error("Datei nicht abrufbar.");
     return Buffer.from(await res.arrayBuffer());
   }
@@ -147,4 +150,17 @@ export async function readUpload(storedName: string): Promise<Buffer> {
     throw new Error("Ungültiger Dateiname.");
   }
   return readFile(path.join(uploadDir(), storedName));
+}
+
+// Löscht eine gespeicherte Datei (z. B. bei DSGVO-Anonymisierung).
+// Data-URLs liegen in der DB und brauchen keinen separaten Löschaufruf.
+// Lokale Entwicklungsdateien werden bewusst nicht gelöscht.
+export async function deleteBlob(storedName: string): Promise<void> {
+  if (!storedName || !storedName.startsWith("https://")) return;
+  if (!blobEnabled()) return;
+  try {
+    await del(storedName);
+  } catch {
+    // Blob bereits gelöscht oder nicht gefunden – kein Fehler
+  }
 }

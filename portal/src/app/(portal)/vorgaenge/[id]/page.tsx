@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -28,6 +29,7 @@ import {
   ticketTypeLabels,
   tradeLabels,
 } from "@/lib/labels";
+import { formatCents } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import {
   addComment,
@@ -379,6 +381,35 @@ export default async function TicketDetailPage({
               {ticket.location ? <Detail label="Ort" value={ticket.location} /> : null}
               {ticket.trade ? <Detail label="Gewerk" value={tradeLabels[ticket.trade]} /> : null}
               <Detail label="Priorität" value={ticketPriorityLabels[ticket.priority]} />
+              {isVerwalter && ticket.dueAt && ticket.status !== "GESCHLOSSEN" ? (
+                <Detail
+                  label="Fällig bis"
+                  value={
+                    <span
+                      className={
+                        ticket.dueAt.getTime() < Date.now()
+                          ? "font-semibold text-red-600"
+                          : ""
+                      }
+                    >
+                      {formatDate(ticket.dueAt)}
+                      {ticket.dueAt.getTime() < Date.now() ? " · überfällig" : ""}
+                    </span>
+                  }
+                />
+              ) : null}
+              {isVerwalter && (ticket.costCents != null || ticket.costNote) ? (
+                <Detail
+                  label="Kosten"
+                  value={
+                    <>
+                      {ticket.costCents != null ? formatCents(ticket.costCents) : ""}
+                      {ticket.costCents != null && ticket.costNote ? " · " : ""}
+                      {ticket.costNote ?? ""}
+                    </>
+                  }
+                />
+              ) : null}
               <Detail
                 label="Gemeldet von"
                 value={
@@ -444,6 +475,30 @@ export default async function TicketDetailPage({
                       </option>
                     ))}
                   </select>
+                </Field>
+                <Field label="Kosten (optional, €)">
+                  <input
+                    type="text"
+                    name="cost"
+                    inputMode="decimal"
+                    defaultValue={
+                      ticket.costCents != null
+                        ? (ticket.costCents / 100).toFixed(2).replace(".", ",")
+                        : ""
+                    }
+                    placeholder="z. B. 480,00"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Kostennotiz (optional)">
+                  <input
+                    type="text"
+                    name="costNote"
+                    defaultValue={ticket.costNote ?? ""}
+                    placeholder="z. B. Sanitär GmbH, netto"
+                    maxLength={300}
+                    className={inputClass}
+                  />
                 </Field>
                 <button type="submit" className={buttonClass}>
                   Speichern
@@ -972,7 +1027,7 @@ function waNumber(phone: string | null): string {
   return p.length >= 8 ? p : "";
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
+function Detail({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <dt className="text-xs uppercase tracking-wide text-gray-400">{label}</dt>

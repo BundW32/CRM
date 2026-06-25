@@ -327,6 +327,11 @@ model Ticket {
   // SLA-Fälligkeitsdatum – wird aus der Priorität beim Erstellen berechnet;
   // bei Prioritätsänderung wird es relativ zum Änderungszeitpunkt neu gesetzt.
   dueAt                    DateTime?
+  // Optionale Kostenerfassung – KEIN Buchhaltungsmodul, nur eine interne Notiz
+  // (z. B. für Eigentümer-Jahresübersicht). Betrag in Cent, um Rundungsfehler zu
+  // vermeiden; costNote für Anbieter/netto-brutto/KV-Nr. Buchhaltung bleibt extern.
+  costCents                Int?
+  costNote                 String?
   // Herkunft: Vorgang aus einer Wartungsaufgabe erzeugt (Rückverfolgung)
   sourceMaintenanceTaskId  String?
   sourceMaintenanceTask    MaintenanceTask? @relation(fields: [sourceMaintenanceTaskId], references: [id], onDelete: SetNull)

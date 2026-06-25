@@ -22,6 +22,7 @@ import {
   notifyVerwalterNewTicket,
 } from "@/lib/notify";
 import { computeDueAt } from "@/lib/sla";
+import { parseEuroToCents } from "@/lib/money";
 import { MEDIA_TYPES, DOCUMENT_TYPES, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { requireUser, requireVerwalter } from "@/lib/session";
@@ -207,6 +208,8 @@ const updateTicketSchema = z.object({
   status: z.enum(["NEU", "IN_BEARBEITUNG", "BEAUFTRAGT", "ERLEDIGT", "GESCHLOSSEN"]),
   priority: z.enum(["NIEDRIG", "NORMAL", "HOCH", "DRINGEND"]),
   assignedToId: z.string().optional(),
+  cost: z.string().optional(),
+  costNote: z.string().optional(),
 });
 
 export async function updateTicket(formData: FormData) {
@@ -217,6 +220,8 @@ export async function updateTicket(formData: FormData) {
     status: formData.get("status"),
     priority: formData.get("priority"),
     assignedToId: formData.get("assignedToId") || undefined,
+    cost: formData.get("cost") ?? undefined,
+    costNote: formData.get("costNote") ?? undefined,
   });
   if (!parsed.success) {
     redirect("/vorgaenge");
@@ -277,12 +282,18 @@ export async function updateTicket(formData: FormData) {
       ? { dueAt: computeDueAt(parsed.data.priority) }
       : {};
 
+  // Optionale Kostenerfassung: leeres Feld löscht den Betrag (null), sonst Cent.
+  const costCents = parseEuroToCents(parsed.data.cost ?? "");
+  const costNote = (parsed.data.costNote ?? "").trim().slice(0, 300) || null;
+
   await db.ticket.update({
     where: { id: parsed.data.ticketId },
     data: {
       status: next,
       priority: parsed.data.priority,
       assignedToId,
+      costCents,
+      costNote,
       ...statusFields,
       ...dueAtUpdate,
     },

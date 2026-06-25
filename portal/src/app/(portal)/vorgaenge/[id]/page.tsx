@@ -33,10 +33,13 @@ import {
   addComment,
   assignCraftsman,
   confirmAppointment,
+  confirmCompletion,
   declineAppointment,
   releaseExternalCraftsman,
   generateCertificate,
   notifyCraftsman,
+  reopenTicket,
+  reportCompletion,
   setOwnTicketStatus,
   updateTicket,
   uploadRequestedDocument,
@@ -56,13 +59,14 @@ export default async function TicketDetailPage({
     zugeordnet?: string;
     freigegeben?: string;
     termin?: string;
+    abschluss?: string;
     fehler?: string;
     msg?: string;
   }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { beauftragt, bereitgestellt, zugeordnet, freigegeben, termin, fehler, msg } =
+  const { beauftragt, bereitgestellt, zugeordnet, freigegeben, termin, abschluss, fehler, msg } =
     await searchParams;
 
   const ticket = await db.ticket.findUnique({
@@ -158,6 +162,22 @@ export default async function TicketDetailPage({
       {termin === "abgelehnt" ? (
         <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
           Terminvorschlag abgelehnt. Der Handwerker wurde um einen neuen Termin gebeten.
+        </p>
+      ) : null}
+      {abschluss === "gemeldet" ? (
+        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Erledigung dokumentiert. Der Vorgang wartet jetzt auf Ihre Abschluss-Bestätigung.
+        </p>
+      ) : null}
+      {abschluss === "bestaetigt" ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Abschluss bestätigt – der Vorgang ist geschlossen.
+        </p>
+      ) : null}
+      {abschluss === "geoeffnet" ? (
+        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Vorgang wieder geöffnet. Der Handwerker wurde über die Nacharbeit informiert
+          (sofern SMTP konfiguriert ist).
         </p>
       ) : null}
       {fehler === "freigabe" ? (
@@ -429,6 +449,110 @@ export default async function TicketDetailPage({
                   Speichern
                 </button>
               </form>
+            </Card>
+          ) : null}
+
+          {isVerwalter && ticket.type !== "DOKUMENT_ANFRAGE" ? (
+            <Card title="Abschluss">
+              {ticket.status === "GESCHLOSSEN" ? (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                    <p className="text-xs font-semibold text-green-800">✓ Abschluss bestätigt</p>
+                    {ticket.closedAt ? (
+                      <p className="mt-0.5 text-xs text-green-700">
+                        geschlossen am {formatDate(ticket.closedAt)}
+                      </p>
+                    ) : null}
+                  </div>
+                  <form action={reopenTicket} className="space-y-2">
+                    <input type="hidden" name="ticketId" value={ticket.id} />
+                    <textarea
+                      name="note"
+                      rows={2}
+                      placeholder="Grund der Wiedereröffnung (optional) …"
+                      className={inputClass}
+                    />
+                    <button
+                      type="submit"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Vorgang wieder öffnen
+                    </button>
+                  </form>
+                </div>
+              ) : ticket.status === "ERLEDIGT" ? (
+                <div className="space-y-3">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs font-semibold text-amber-800">
+                      Erledigung gemeldet – bitte prüfen und abnehmen
+                    </p>
+                    <p className="mt-0.5 text-xs text-amber-700">
+                      {ticket.completionReportedVia ? `Kanal: ${ticket.completionReportedVia}` : ""}
+                      {ticket.completionReportedAt
+                        ? `${ticket.completionReportedVia ? " · " : ""}gemeldet am ${formatDate(ticket.completionReportedAt)}`
+                        : ""}
+                    </p>
+                  </div>
+                  <form action={confirmCompletion}>
+                    <input type="hidden" name="ticketId" value={ticket.id} />
+                    <button type="submit" className={`${buttonClass} w-full`}>
+                      Abschluss bestätigen &amp; schließen
+                    </button>
+                  </form>
+                  <form action={reopenTicket} className="space-y-2 border-t border-gray-100 pt-3">
+                    <input type="hidden" name="ticketId" value={ticket.id} />
+                    <textarea
+                      name="note"
+                      rows={2}
+                      placeholder="Was muss nachgearbeitet werden? (optional) …"
+                      className={inputClass}
+                    />
+                    <button
+                      type="submit"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Nacharbeit nötig – wieder öffnen
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-500">
+                    Hat der Handwerker die Erledigung gemeldet (z. B. telefonisch oder per
+                    WhatsApp)? Hier dokumentieren – der Vorgang wartet danach auf Ihre
+                    Abschluss-Bestätigung.
+                  </p>
+                  <form action={reportCompletion} className="space-y-2">
+                    <input type="hidden" name="ticketId" value={ticket.id} />
+                    <Field label="Gemeldet über">
+                      <select name="via" defaultValue="Telefon" className={inputClass}>
+                        <option value="Telefon">Telefon</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="E-Mail">E-Mail</option>
+                        <option value="persönlich">persönlich</option>
+                      </select>
+                    </Field>
+                    <textarea
+                      name="note"
+                      rows={2}
+                      placeholder="Notiz zur Erledigung (optional) …"
+                      className={inputClass}
+                    />
+                    <button type="submit" className={`${buttonClass} w-full`}>
+                      Erledigung melden
+                    </button>
+                  </form>
+                  <form action={confirmCompletion} className="border-t border-gray-100 pt-3">
+                    <input type="hidden" name="ticketId" value={ticket.id} />
+                    <button
+                      type="submit"
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Direkt als erledigt abschließen
+                    </button>
+                  </form>
+                </div>
+              )}
             </Card>
           ) : null}
 

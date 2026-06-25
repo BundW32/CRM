@@ -145,11 +145,15 @@ export async function craftsmanDone(formData: FormData) {
   const auth = await authorize(token, ticketId);
   if (!auth) redirect(`/auftraege/${token}`);
 
-  await db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } });
+  // Erledigung wird GEMELDET – die Abnahme/Schließung erfolgt durch den Verwalter.
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: { status: "ERLEDIGT", completionReportedAt: new Date(), completionReportedVia: "Portal" },
+  });
   await addCraftsmanComment(ticketId, auth.craftsman.id, "Auftrag als erledigt gemeldet.");
   await notifyVerwalter(
     auth.ticket,
-    `${auth.craftsman.name} hat den Auftrag „${auth.ticket.title}" als ERLEDIGT gemeldet.`
+    `${auth.craftsman.name} hat den Auftrag „${auth.ticket.title}" als ERLEDIGT gemeldet. Bitte Abschluss bestätigen.`
   );
   redirect(`/auftraege/${token}`);
 }

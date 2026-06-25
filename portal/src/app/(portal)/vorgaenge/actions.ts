@@ -404,6 +404,123 @@ export async function declineAppointment(formData: FormData) {
   redirect(`/vorgaenge/${ticketId}?termin=abgelehnt`);
 }
 
+// ---------------------------------------------------------------------------
+// Abschluss-Workflow
+//
+// Der Handwerker MELDET die Erledigung – in der Praxis meist per Telefon,
+// WhatsApp oder E-Mail, nicht zwingend über das Portal. Diese Meldung setzt den
+// Vorgang auf ERLEDIGT (gemeldet, wartet auf Prüfung). Erst die ausdrückliche
+// Bestätigung durch den Verwalter schließt den Vorgang (GESCHLOSSEN). Ist
+// Nacharbeit nötig, öffnet der Verwalter den Vorgang wieder.
+// ---------------------------------------------------------------------------
+
+const COMPLETION_CHANNELS = ["Telefon", "WhatsApp", "E-Mail", "persönlich", "Portal"] as const;
+
+// Verwalter dokumentiert die (z. B. telefonische) Erledigungsmeldung des Handwerkers.
+export async function reportCompletion(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const viaRaw = String(formData.get("via") ?? "Telefon");
+  const via = (COMPLETION_CHANNELS as readonly string[]).includes(viaRaw) ? viaRaw : "Telefon";
+  const note = String(formData.get("note") ?? "").trim().slice(0, 1000);
+
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, select: { id: true, status: true } });
+  if (!ticket) redirect("/vorgaenge");
+  if (ticket.status === "GESCHLOSSEN") redirect(`/vorgaenge/${ticketId}`);
+
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: { status: "ERLEDIGT", completionReportedAt: new Date(), completionReportedVia: via },
+  });
+  await db.ticketComment.create({
+    data: {
+      ticketId,
+      authorId: verwalter.id,
+      internal: true,
+      body: `Erledigung gemeldet (${via})${note ? `: ${note}` : ""}. Wartet auf Abschluss-Bestätigung.`,
+    },
+  });
+  await notifyCreatorStatusChange(ticketId, verwalter);
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?abschluss=gemeldet`);
+}
+
+// Verwalter bestätigt den Abschluss und schließt den Vorgang.
+export async function confirmCompletion(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, select: { id: true } });
+  if (!ticket) redirect("/vorgaenge");
+
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: {
+      status: "GESCHLOSSEN",
+      closedAt: new Date(),
+      closedById: verwalter.id,
+    },
+  });
+  await db.ticketComment.create({
+    data: {
+      ticketId,
+      authorId: verwalter.id,
+      internal: true,
+      body: "Abschluss bestätigt – Vorgang geschlossen.",
+    },
+  });
+  await notifyCreatorStatusChange(ticketId, verwalter);
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?abschluss=bestaetigt`);
+}
+
+// Verwalter weist die Erledigung zurück / öffnet den Vorgang für Nacharbeit wieder.
+export async function reopenTicket(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const note = String(formData.get("note") ?? "").trim().slice(0, 1000);
+  const ticket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    include: { craftsman: true },
+  });
+  if (!ticket) redirect("/vorgaenge");
+
+  // Zurück in einen aktiven Status: war ein Handwerker beauftragt → BEAUFTRAGT,
+  // sonst IN_BEARBEITUNG. Meldekennzeichen und Abschluss zurücksetzen.
+  const nextStatus = ticket.craftsmanId ? "BEAUFTRAGT" : "IN_BEARBEITUNG";
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: {
+      status: nextStatus,
+      completionReportedAt: null,
+      completionReportedVia: null,
+      closedAt: null,
+      closedById: null,
+    },
+  });
+  await db.ticketComment.create({
+    data: {
+      ticketId,
+      authorId: verwalter.id,
+      internal: true,
+      body: `Vorgang wieder geöffnet (Nacharbeit nötig)${note ? `: ${note}` : ""}.`,
+    },
+  });
+  // Beauftragten Handwerker über die Nacharbeit informieren
+  if (ticket.craftsman?.email) {
+    await sendMail(
+      ticket.craftsman.email,
+      `Nacharbeit erforderlich – Auftrag #${ticket.number}`,
+      `Guten Tag ${ticket.craftsman.name},\n\n` +
+        `der Vorgang #${ticket.number} „${ticket.title}" wurde noch nicht abgenommen` +
+        `${note ? `:\n\n${note}` : "."}\n\n` +
+        `Bitte stimmen Sie sich mit der B&W Immobilien Management UG ab.\n\n` +
+        `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+    );
+  }
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?abschluss=geoeffnet`);
+}
+
 // Verwalter beauftragt den zugeordneten Handwerker per E-Mail mit den Vorgangsdaten
 export async function notifyCraftsman(formData: FormData) {
   const verwalter = await requireVerwalter();
@@ -695,7 +812,13 @@ export async function setOwnTicketStatus(formData: FormData) {
 
   await db.ticket.update({
     where: { id: ticketId },
-    data: { status: status as "IN_BEARBEITUNG" | "ERLEDIGT" },
+    data: {
+      status: status as "IN_BEARBEITUNG" | "ERLEDIGT",
+      // Erledigung gilt als gemeldet (über das Portal), wartet auf Verwalter-Abnahme
+      ...(status === "ERLEDIGT"
+        ? { completionReportedAt: new Date(), completionReportedVia: "Portal" }
+        : {}),
+    },
   });
   await notifyCreatorStatusChange(ticketId, user);
 

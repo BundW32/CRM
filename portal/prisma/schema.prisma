@@ -312,6 +312,14 @@ model Ticket {
   // Null = Vorschlag offen / wartet auf Bestätigung.
   appointmentConfirmedAt   DateTime?
   appointmentConfirmedById String?
+  // Abschluss-Workflow: Der Handwerker MELDET die Erledigung (oft per Telefon/
+  // WhatsApp/E-Mail, nicht im Portal). Erst die ausdrückliche Bestätigung durch
+  // den Verwalter schließt den Vorgang. completionReportedAt = gemeldet (Status
+  // ERLEDIGT, wartet auf Prüfung); closedAt = vom Verwalter bestätigt (GESCHLOSSEN).
+  completionReportedAt     DateTime?
+  completionReportedVia    String? // Kanal der Erledigungsmeldung (Portal, Telefon, WhatsApp, …)
+  closedAt                 DateTime?
+  closedById               String?
   inboundMessageId         String?         @unique // Idempotenz für E-Mail-Eingang (verhindert Doppel-Tickets)
   createdById              String
   createdBy                User            @relation("TicketCreatedBy", fields: [createdById], references: [id])

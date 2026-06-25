@@ -5,28 +5,69 @@ import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import { createUnit } from "./actions";
+import { PropertyRow } from "./property-row";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 15;
 
 export default async function PropertiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; eingerichtet?: string }>;
+  searchParams: Promise<{ fehler?: string; eingerichtet?: string; q?: string; page?: string }>;
 }) {
   const verwalter = await requireVerwalter();
-  const { fehler, eingerichtet } = await searchParams;
+  const { fehler, eingerichtet, q, page } = await searchParams;
   const propWhere = await propertyWhereForVerwalter(verwalter);
 
-  const properties = await db.property.findMany({
-    where: propWhere,
-    orderBy: { name: "asc" },
-    include: {
-      units: {
-        include: { tenancies: { where: { active: true }, include: { user: true } } },
+  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
+
+  const combinedWhere = q
+    ? {
+        AND: [
+          propWhere,
+          {
+            OR: [
+              { name: { contains: q, mode: "insensitive" as const } },
+              { street: { contains: q, mode: "insensitive" as const } },
+              { city: { contains: q, mode: "insensitive" as const } },
+              { zip: { contains: q, mode: "insensitive" as const } },
+            ],
+          },
+        ],
+      }
+    : propWhere;
+
+  const [total, properties, allProperties] = await Promise.all([
+    db.property.count({ where: combinedWhere }),
+    db.property.findMany({
+      where: combinedWhere,
+      orderBy: { name: "asc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: {
+        units: {
+          include: { tenancies: { where: { active: true }, include: { user: true } } },
+        },
+        ownerships: { include: { user: true } },
       },
-      ownerships: { include: { user: true } },
-    },
-  });
+    }),
+    db.property.findMany({
+      where: propWhere,
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  function pageHref(p: number) {
+    const sp = new URLSearchParams();
+    if (q) sp.set("q", q);
+    if (p > 1) sp.set("page", String(p));
+    const qs = sp.toString();
+    return `/verwaltung/objekte${qs ? `?${qs}` : ""}`;
+  }
 
   return (
     <>
@@ -42,7 +83,7 @@ export default async function PropertiesPage({
 
       {eingerichtet ? (
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
-          Objekt wurde angelegt. Mieter können Sie jetzt unter „Nutzer“ hinzufügen.
+          Objekt wurde angelegt. Mieter können Sie jetzt unter „Nutzer" hinzufügen.
         </p>
       ) : null}
       {fehler ? (
@@ -53,66 +94,136 @@ export default async function PropertiesPage({
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          {/* Search bar */}
+          <form method="get" className="flex items-center gap-2">
+            <input
+              type="search"
+              name="q"
+              defaultValue={q ?? ""}
+              placeholder="Suche nach Name, Straße, PLZ oder Stadt …"
+              className={`${inputClass} flex-1`}
+            />
+            <button
+              type="submit"
+              className="text-sm font-medium text-brand-orange hover:underline"
+            >
+              Suchen
+            </button>
+            {q ? (
+              <a
+                href="/verwaltung/objekte"
+                className="text-sm text-gray-400 hover:text-brand-orange hover:underline"
+              >
+                ✕ Zurücksetzen
+              </a>
+            ) : null}
+          </form>
+
+          <p className="text-xs text-gray-400">
+            {total} Objekt{total !== 1 ? "e" : ""}
+            {q ? ` für „${q}"` : ""}
+          </p>
+
           {properties.length === 0 ? (
-            <EmptyState>Noch keine Objekte angelegt.</EmptyState>
+            <EmptyState>{q ? "Keine Objekte gefunden." : "Noch keine Objekte angelegt."}</EmptyState>
           ) : (
-            properties.map((p) => (
-              <Card key={p.id} title={`${p.name} · ${p.street}, ${p.zip} ${p.city}`}>
-                <p className="mb-2">
-                  <span className="rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-medium text-brand-orange-dark">
-                    {managementTypeLabels[p.managementType]}
-                  </span>
-                </p>
-                <p className="mb-2 text-xs text-gray-500">
-                  Eigentümer:{" "}
-                  {p.ownerships.length > 0
-                    ? p.ownerships.map((o) => o.user.name).join(", ")
-                    : "– nicht zugeordnet –"}
-                </p>
-                {(() => {
+            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+              <ul className="divide-y divide-gray-100">
+                {properties.map((p) => {
+                  const ownersLabel =
+                    p.ownerships.length > 0
+                      ? p.ownerships.map((o) => o.user.name).join(", ")
+                      : "– kein Eigentümer";
                   const details = [
                     p.buildYear ? `Baujahr ${p.buildYear}` : null,
                     p.livingArea ? `${p.livingArea} m²` : null,
                     p.floors != null ? `${p.floors} Etagen` : null,
-                    p.buildingType,
-                    p.heatingType,
-                  ].filter(Boolean);
-                  return details.length > 0 ? (
-                    <p className="mb-2 text-xs text-gray-500">{details.join(" · ")}</p>
-                  ) : null;
-                })()}
-                {p.notes ? (
-                  <p className="mb-2 text-xs italic text-gray-400">{p.notes}</p>
-                ) : null}
-                {p.units.length === 0 ? (
-                  <p className="text-sm text-gray-500">Keine Einheiten angelegt.</p>
-                ) : (
-                  <ul className="divide-y divide-gray-100">
-                    {p.units.map((u) => (
-                      <li key={u.id} className="flex justify-between py-2 text-sm">
-                        <span className="text-gray-900">
-                          {u.label}
-                          {u.floor ? ` (${u.floor})` : ""}
+                    p.buildingType ?? null,
+                    p.heatingType ?? null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ");
+
+                  return (
+                    <PropertyRow
+                      key={p.id}
+                      name={p.name}
+                      address={`${p.street}, ${p.zip} ${p.city}`}
+                      managementTypeBadge={
+                        <span className="rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-medium text-brand-orange-dark">
+                          {managementTypeLabels[p.managementType]}
                         </span>
-                        <span className="text-gray-500">
-                          {u.tenancies.length > 0
-                            ? u.tenancies.map((t) => t.user.name).join(", ")
-                            : "leer / kein Mieter"}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Card>
-            ))
+                      }
+                      unitCount={p.units.length}
+                    >
+                      <div className="space-y-3">
+                        <p className="text-xs text-gray-500">
+                          <span className="font-medium">Eigentümer:</span> {ownersLabel}
+                        </p>
+                        {details ? <p className="text-xs text-gray-500">{details}</p> : null}
+                        {p.notes ? (
+                          <p className="text-xs italic text-gray-400">{p.notes}</p>
+                        ) : null}
+                        {p.units.length === 0 ? (
+                          <p className="text-sm text-gray-500">Keine Einheiten angelegt.</p>
+                        ) : (
+                          <ul className="divide-y divide-gray-100">
+                            {p.units.map((u) => (
+                              <li key={u.id} className="flex justify-between py-2 text-sm">
+                                <span className="text-gray-900">
+                                  {u.label}
+                                  {u.floor ? ` (${u.floor})` : ""}
+                                </span>
+                                <span className="text-gray-500">
+                                  {u.tenancies.length > 0
+                                    ? u.tenancies.map((t) => t.user.name).join(", ")
+                                    : "leer / kein Mieter"}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </PropertyRow>
+                  );
+                })}
+              </ul>
+            </div>
           )}
+
+          {totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between">
+              {currentPage > 1 ? (
+                <a
+                  href={pageHref(currentPage - 1)}
+                  className="rounded-lg border border-white/20 bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white"
+                >
+                  ← Zurück
+                </a>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-gray-400">
+                Seite {currentPage} von {totalPages} · {total} Objekte
+              </span>
+              {currentPage < totalPages ? (
+                <a
+                  href={pageHref(currentPage + 1)}
+                  className="rounded-lg border border-white/20 bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white"
+                >
+                  Weiter →
+                </a>
+              ) : (
+                <span />
+              )}
+            </div>
+          ) : null}
         </div>
 
         <div className="space-y-5">
           <Card title="Schnell ein ganzes Objekt anlegen">
             <p className="text-sm text-gray-600">
-              Objekt mit Stammdaten, Einheiten, Eigentümer und Mietern in einem Schritt
-              erfassen.
+              Objekt mit Stammdaten, Einheiten, Eigentümer und Mietern in einem Schritt erfassen.
             </p>
             <a href="/verwaltung/objekte/neu" className={`${buttonClass} mt-3`}>
               + Objekt anlegen
@@ -123,7 +234,10 @@ export default async function PropertiesPage({
             <form action={createUnit} className="space-y-3">
               <Field label="Objekt">
                 <select name="propertyId" required className={inputClass} defaultValue="">
-                  {properties.map((p) => (
+                  <option value="" disabled>
+                    – bitte wählen –
+                  </option>
+                  {allProperties.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
                     </option>
@@ -131,7 +245,13 @@ export default async function PropertiesPage({
                 </select>
               </Field>
               <Field label="Bezeichnung">
-                <input type="text" name="label" required className={inputClass} placeholder="z. B. WE 03, 1. OG links" />
+                <input
+                  type="text"
+                  name="label"
+                  required
+                  className={inputClass}
+                  placeholder="z. B. WE 03, 1. OG links"
+                />
               </Field>
               <Field label="Etage (optional)">
                 <input type="text" name="floor" className={inputClass} />

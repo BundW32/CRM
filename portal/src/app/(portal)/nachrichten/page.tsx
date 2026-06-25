@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
-import { userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 import { startConversation } from "./actions";
 import { EmpfaengerSelect } from "./EmpfaengerSelect";
-import type { RecipientRow } from "./EmpfaengerSelect";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 30;
 
 const errorMessages: Record<string, string> = {
   eingabe: "Bitte Betreff und Nachricht ausfüllen.",
@@ -19,56 +19,32 @@ const errorMessages: Record<string, string> = {
 export default async function NachrichtenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; page?: string }>;
 }) {
   const user = await requireUser();
-  const { fehler } = await searchParams;
+  const { fehler, page } = await searchParams;
   const isVerwalter = user.role === "VERWALTER";
 
-  const conversations = await db.conversation.findMany({
-    where: { participants: { some: { userId: user.id } } },
-    orderBy: { updatedAt: "desc" },
-    take: 100,
-    include: {
-      participants: { include: { user: true } },
-      messages: { orderBy: { createdAt: "desc" }, take: 1 },
-    },
-  });
+  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
+  const convWhere = { participants: { some: { userId: user.id } } };
 
-  let recipients: RecipientRow[] = [];
-  if (isVerwalter) {
-    // Eingeschränkte Verwalter sehen als Empfänger nur Mieter/Eigentümer
-    // ihrer zugewiesenen Objekte (SuperAdmin: alle).
-    const raw = await db.user.findMany({
-      where: {
-        AND: [
-          { role: { in: ["MIETER", "EIGENTUEMER"] }, active: true },
-          await userWhereForVerwalter(user),
-        ],
-      },
-      orderBy: [{ role: "asc" }, { name: "asc" }],
-      take: 100,
+  const [total, conversations] = await Promise.all([
+    db.conversation.count({ where: convWhere }),
+    db.conversation.findMany({
+      where: convWhere,
+      orderBy: { updatedAt: "desc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       include: {
-        tenancies: {
-          where: { active: true },
-          include: { unit: { include: { property: true } } },
-          take: 1,
-        },
-        ownerships: {
-          include: { property: true },
-          take: 1,
-        },
+        participants: { include: { user: true } },
+        messages: { orderBy: { createdAt: "desc" }, take: 1 },
       },
-    });
-    recipients = raw.map((r) => ({
-      id: r.id,
-      name: r.name,
-      role: r.role as "MIETER" | "EIGENTUEMER",
-      propertyName:
-        r.tenancies[0]?.unit.property.name ??
-        r.ownerships[0]?.property.name ??
-        null,
-    }));
+    }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  function pageHref(p: number) {
+    return p > 1 ? `/nachrichten?page=${p}` : "/nachrichten";
   }
 
   return (
@@ -127,13 +103,41 @@ export default async function NachrichtenPage({
               </ul>
             </div>
           )}
+
+          {totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between">
+              {currentPage > 1 ? (
+                <Link
+                  href={pageHref(currentPage - 1)}
+                  className="rounded-lg border border-white/20 bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white"
+                >
+                  ← Zurück
+                </Link>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-gray-300">
+                Seite {currentPage} von {totalPages} · {total} Konversationen
+              </span>
+              {currentPage < totalPages ? (
+                <Link
+                  href={pageHref(currentPage + 1)}
+                  className="rounded-lg border border-white/20 bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white"
+                >
+                  Weiter →
+                </Link>
+              ) : (
+                <span />
+              )}
+            </div>
+          ) : null}
         </div>
 
         <Card title={isVerwalter ? "Neue Nachricht" : "Nachricht an die Verwaltung"}>
           <form action={startConversation} className="space-y-3">
             {isVerwalter ? (
               <Field label="Empfänger">
-                <EmpfaengerSelect recipients={recipients} />
+                <EmpfaengerSelect />
               </Field>
             ) : null}
             <Field label="Betreff">

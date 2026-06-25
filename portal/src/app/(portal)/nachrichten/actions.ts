@@ -2,11 +2,59 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { canVerwalterManageUser } from "@/lib/access";
+import { canVerwalterManageUser, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { sendPushToUsers } from "@/lib/push";
 import { requireUser } from "@/lib/session";
+
+export type RecipientResult = {
+  id: string;
+  name: string;
+  role: "MIETER" | "EIGENTUEMER";
+  propertyName: string | null;
+};
+
+const RECIPIENT_PAGE_SIZE = 25;
+
+/**
+ * Sucht Empfänger (Mieter/Eigentümer) für einen Verwalter **serverseitig** und
+ * gedeckelt – statt alle (potenziell zehntausende) Empfänger ins Formular zu
+ * laden. Ohne Suchbegriff werden die ersten Treffer im Scope geliefert.
+ */
+export async function searchRecipients(query: string): Promise<RecipientResult[]> {
+  const user = await requireUser();
+  if (user.role !== "VERWALTER") return [];
+  const q = query.trim();
+
+  const raw = await db.user.findMany({
+    where: {
+      AND: [
+        { role: { in: ["MIETER", "EIGENTUEMER"] }, active: true },
+        ...(q ? [{ name: { contains: q, mode: "insensitive" as const } }] : []),
+        await userWhereForVerwalter(user),
+      ],
+    },
+    orderBy: [{ role: "asc" }, { name: "asc" }],
+    take: RECIPIENT_PAGE_SIZE,
+    include: {
+      tenancies: {
+        where: { active: true },
+        include: { unit: { include: { property: { select: { name: true } } } } },
+        take: 1,
+      },
+      ownerships: { include: { property: { select: { name: true } } }, take: 1 },
+    },
+  });
+
+  return raw.map((r) => ({
+    id: r.id,
+    name: r.name,
+    role: r.role as "MIETER" | "EIGENTUEMER",
+    propertyName:
+      r.tenancies[0]?.unit.property.name ?? r.ownerships[0]?.property.name ?? null,
+  }));
+}
 
 async function notifyParticipants(
   conversationId: string,

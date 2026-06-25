@@ -17,10 +17,12 @@ function buildWhere(type: FilterType) {
   return {};
 }
 
+const PAGE_SIZE = 30;
+
 export default async function NotizenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string }>;
+  searchParams: Promise<{ type?: string; page?: string }>;
 }) {
   const verwalter = await requireVerwalter();
   const propWhere = await propertyWhereForVerwalter(verwalter);
@@ -28,12 +30,16 @@ export default async function NotizenPage({
   const params = await searchParams;
   const type = (params.type ?? "alle") as FilterType;
   const filterWhere = buildWhere(type);
+  const currentPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
+  const noteWhere = { AND: [filterWhere, await noteWhereForVerwalter(verwalter)] };
 
-  const [notes, properties] = await Promise.all([
+  const [total, notes, properties] = await Promise.all([
+    db.note.count({ where: noteWhere }),
     db.note.findMany({
-      where: { AND: [filterWhere, await noteWhereForVerwalter(verwalter)] },
+      where: noteWhere,
       orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
-      take: 100,
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       include: {
         property: true,
         unit: { include: { property: true } },
@@ -49,6 +55,15 @@ export default async function NotizenPage({
       select: { id: true, name: true },
     }),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  function pageHref(p: number) {
+    const sp = new URLSearchParams();
+    if (type !== "alle") sp.set("type", type);
+    if (p > 1) sp.set("page", String(p));
+    const q = sp.toString();
+    return `/verwaltung/notizen${q ? `?${q}` : ""}`;
+  }
 
   const filters: { label: string; value: FilterType }[] = [
     { label: "Alle", value: "alle" },
@@ -152,6 +167,34 @@ export default async function NotizenPage({
               })}
             </ul>
           )}
+
+          {totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between">
+              {currentPage > 1 ? (
+                <a
+                  href={pageHref(currentPage - 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  ← Zurück
+                </a>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-gray-400">
+                Seite {currentPage} von {totalPages} · {total} Notizen
+              </span>
+              {currentPage < totalPages ? (
+                <a
+                  href={pageHref(currentPage + 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Weiter →
+                </a>
+              ) : (
+                <span />
+              )}
+            </div>
+          ) : null}
         </div>
 
         {/* Create form */}

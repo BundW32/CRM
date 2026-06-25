@@ -190,7 +190,11 @@ async function DokumenteTab({ user, isVerwalter }: { user: User; isVerwalter: bo
     include: { property: true, unit: true, acknowledgements: { include: { user: true } } },
   });
   const properties = isVerwalter
-    ? await db.property.findMany({ where: await propertyWhereForVerwalter(user), include: { units: true }, orderBy: { name: "asc" } })
+    ? await db.property.findMany({
+        where: await propertyWhereForVerwalter(user),
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      })
     : [];
 
   return (
@@ -286,11 +290,7 @@ async function DokumenteTab({ user, isVerwalter }: { user: User; isVerwalter: bo
                 </select>
               </Field>
               <PropertyUnitFields
-                properties={properties.map((p) => ({
-                  id: p.id,
-                  name: p.name,
-                  units: p.units.map((u) => ({ id: u.id, label: u.label })),
-                }))}
+                properties={properties.map((p) => ({ id: p.id, name: p.name }))}
                 unitLabel="Einheit (optional, überschreibt Objekt)"
               />
               <Field label="Datei (PDF oder Bild, max. 10 MB)">

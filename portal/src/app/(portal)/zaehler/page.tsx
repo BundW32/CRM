@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { formatDate, meterTypeLabels } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 import { createMeter, deleteMeter, submitReading } from "./actions";
+import { MeterTargetPicker } from "./meter-target-picker";
 
 export const dynamic = "force-dynamic";
 
@@ -74,12 +75,16 @@ export default async function ZaehlerPage({
     groups.get(key)!.push(m);
   }
 
-  const [units, properties] = isVerwalter && verwalterPropWhere !== null
-    ? await Promise.all([
-        db.unit.findMany({ where: { property: verwalterPropWhere }, include: { property: true }, orderBy: { label: "asc" } }),
-        db.property.findMany({ where: verwalterPropWhere, orderBy: { name: "asc" } }),
-      ])
-    : [[], []];
+  // Nur die Objektliste ausliefern; Einheiten lädt das Formular bei Objektauswahl
+  // on demand nach (skaliert auch bei sehr großen Beständen).
+  const properties =
+    isVerwalter && verwalterPropWhere !== null
+      ? await db.property.findMany({
+          where: verwalterPropWhere,
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        })
+      : [];
 
   return (
     <>
@@ -177,28 +182,11 @@ export default async function ZaehlerPage({
 
         {isVerwalter ? (
           <Card title="Zähler anlegen">
-            {units.length === 0 && properties.length === 0 ? (
+            {properties.length === 0 ? (
               <p className="text-sm text-gray-500">Legen Sie zuerst Objekte mit Einheiten an.</p>
             ) : (
               <form action={createMeter} className="space-y-3">
-                <Field label="Zuordnung">
-                  <select name="target" required className={inputClass}>
-                    <optgroup label="Allgemein (ganzes Objekt)">
-                      {properties.map((p) => (
-                        <option key={`prop-${p.id}`} value={`prop:${p.id}`}>
-                          {p.name} – Allgemein
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Einheiten">
-                      {units.map((u) => (
-                        <option key={`unit-${u.id}`} value={`unit:${u.id}`}>
-                          {u.property.name} – {u.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
-                </Field>
+                <MeterTargetPicker properties={properties} />
                 <Field label="Zählerart">
                   <select name="type" required className={inputClass} defaultValue="STROM">
                     {Object.entries(meterTypeLabels).map(([v, l]) => (

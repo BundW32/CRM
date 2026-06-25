@@ -1,59 +1,37 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { inputClass } from "@/components/ui";
-import { createNote } from "./actions";
+import { createNote, loadNoteTargets, type NoteTargets } from "./actions";
 
 type Prop = { id: string; name: string };
-type Unit = { id: string; label: string; propertyId: string; propertyName: string };
-// propertyIds: Objekte, zu denen die Person gehört (Mieter via Einheit, Eigentümer via Objekt)
-type Person = { id: string; name: string; roleLabel: string; propertyIds: string[] };
 
-export function NoteForm({
-  properties,
-  units,
-  persons,
-}: {
-  properties: Prop[];
-  units: Unit[];
-  persons: Person[];
-}) {
+export function NoteForm({ properties }: { properties: Prop[] }) {
   const [propertyId, setPropertyId] = useState("");
-
-  // Einheiten werden vom gewählten Objekt abhängig gefiltert.
-  // Ohne Objektauswahl: alle Einheiten (mit Objektname zur Orientierung).
-  const visibleUnits = useMemo(
-    () => (propertyId ? units.filter((u) => u.propertyId === propertyId) : units),
-    [propertyId, units]
-  );
-
-  // Personen ebenfalls am Objekt ausrichten: ist ein Objekt gewählt, nur dessen
-  // Mieter/Eigentümer; ohne Auswahl alle.
-  const visiblePersons = useMemo(
-    () => (propertyId ? persons.filter((p) => p.propertyIds.includes(propertyId)) : persons),
-    [propertyId, persons]
-  );
-
-  // Wenn das Objekt wechselt, eine nicht mehr passende Einheit/Person zurücksetzen
-  // (geschieht automatisch, da wir die Selects als controlled führen).
   const [unitId, setUnitId] = useState("");
   const [targetUserId, setTargetUserId] = useState("");
+  const [targets, setTargets] = useState<NoteTargets>({ units: [], persons: [] });
+  const [query, setQuery] = useState("");
+  const [pending, startTransition] = useTransition();
+  // Race-Schutz: nur die Antwort zur zuletzt gewählten Anfrage übernehmen.
+  const reqRef = useRef(0);
+
+  const q = query.toLowerCase().trim();
+  const visibleProps = q
+    ? properties.filter((p) => p.name.toLowerCase().includes(q))
+    : properties;
 
   function handlePropertyChange(value: string) {
     setPropertyId(value);
-    // Einheit nur behalten, wenn sie zum neuen Objekt passt
-    setUnitId((prev) => {
-      if (!prev) return prev;
-      const stillValid = units.some((u) => u.id === prev && (!value || u.propertyId === value));
-      return stillValid ? prev : "";
-    });
-    setTargetUserId((prev) => {
-      if (!prev) return prev;
-      const stillValid = persons.some(
-        (p) => p.id === prev && (!value || p.propertyIds.includes(value))
-      );
-      return stillValid ? prev : "";
+    setUnitId("");
+    setTargetUserId("");
+    setTargets({ units: [], persons: [] });
+    const req = ++reqRef.current;
+    if (!value) return;
+    startTransition(async () => {
+      const loaded = await loadNoteTargets(value);
+      if (reqRef.current === req) setTargets(loaded);
     });
   }
 
@@ -77,6 +55,16 @@ export function NoteForm({
       <div>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">Objekt (optional)</span>
+          {properties.length > 8 ? (
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Objekt suchen …"
+              className={`${inputClass} mb-1.5`}
+              autoComplete="off"
+            />
+          ) : null}
           <select
             name="propertyId"
             value={propertyId}
@@ -84,7 +72,7 @@ export function NoteForm({
             className={inputClass}
           >
             <option value="">— kein Objekt —</option>
-            {properties.map((p) => (
+            {visibleProps.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
@@ -95,23 +83,28 @@ export function NoteForm({
 
       <div>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-gray-700">Einheit (optional)</span>
+          <span className="mb-1 block text-sm font-medium text-gray-700">
+            Einheit (optional)
+            {!propertyId ? (
+              <span className="ml-1 font-normal text-gray-400">(zuerst Objekt wählen)</span>
+            ) : null}
+          </span>
           <select
             name="unitId"
             value={unitId}
             onChange={(e) => setUnitId(e.target.value)}
-            className={inputClass}
+            disabled={!propertyId || pending}
+            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
           >
-            <option value="">— keine Einheit —</option>
-            {visibleUnits.map((u) => (
+            <option value="">{pending ? "wird geladen …" : "— keine Einheit —"}</option>
+            {targets.units.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.label}
-                {propertyId ? "" : ` · ${u.propertyName}`}
               </option>
             ))}
           </select>
         </label>
-        {propertyId && visibleUnits.length === 0 ? (
+        {propertyId && !pending && targets.units.length === 0 ? (
           <p className="mt-1 text-xs text-gray-400">Dieses Objekt hat keine Einheiten.</p>
         ) : null}
       </div>
@@ -120,22 +113,26 @@ export function NoteForm({
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">
             Mieter/Eigentümer (optional)
+            {!propertyId ? (
+              <span className="ml-1 font-normal text-gray-400">(zuerst Objekt wählen)</span>
+            ) : null}
           </span>
           <select
             name="targetUserId"
             value={targetUserId}
             onChange={(e) => setTargetUserId(e.target.value)}
-            className={inputClass}
+            disabled={!propertyId || pending}
+            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
           >
-            <option value="">— keine Person —</option>
-            {visiblePersons.map((p) => (
+            <option value="">{pending ? "wird geladen …" : "— keine Person —"}</option>
+            {targets.persons.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name} · {p.roleLabel}
               </option>
             ))}
           </select>
         </label>
-        {propertyId && visiblePersons.length === 0 ? (
+        {propertyId && !pending && targets.persons.length === 0 ? (
           <p className="mt-1 text-xs text-gray-400">
             Keine Mieter/Eigentümer für dieses Objekt hinterlegt.
           </p>

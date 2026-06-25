@@ -4,34 +4,20 @@ import { useRef, useState, useTransition } from "react";
 import { loadUnitsForProperty, type UnitOption } from "@/app/(portal)/unit-options";
 import { inputClass } from "@/components/ui";
 
-type Property = { id: string; name: string };
+type Prop = { id: string; name: string };
 
 /**
- * Gekoppeltes Objekt/Einheit-Auswahlpaar. Die Einheiten werden **on demand** für
- * das gewählte Objekt nachgeladen (Server-Action), damit nicht alle Einheiten des
- * Bestands ins HTML serialisiert werden – das skaliert auch bei sehr großen
- * Beständen. Über das Suchfeld lässt sich die Objektliste eingrenzen.
- * Beide Felder sind optional (Felder heißen `propertyId` und `unitId`).
+ * Auswahl der Zähler-Zuordnung. Zuerst wird ein Objekt gewählt; dessen Einheiten
+ * werden **on demand** nachgeladen, statt alle Einheiten des Bestands ins HTML zu
+ * serialisieren. Ausgegeben wird das Feld `target` als `prop:<id>` (Allgemeinzähler)
+ * oder `unit:<id>` (Einheitszähler).
  */
-export function PropertyUnitFields({
-  properties,
-  propertyLabel = "Objekt (optional)",
-  unitLabel = "Einheit (optional)",
-  propertyPlaceholder = "– Allgemein –",
-  unitPlaceholder = "– Keine –",
-}: {
-  properties: Property[];
-  propertyLabel?: string;
-  unitLabel?: string;
-  propertyPlaceholder?: string;
-  unitPlaceholder?: string;
-}) {
+export function MeterTargetPicker({ properties }: { properties: Prop[] }) {
   const [propertyId, setPropertyId] = useState("");
-  const [unitId, setUnitId] = useState("");
+  const [target, setTarget] = useState("");
   const [units, setUnits] = useState<UnitOption[]>([]);
   const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
-  // Race-Schutz: nur die Antwort zur zuletzt gewählten Anfrage übernehmen.
   const reqRef = useRef(0);
 
   const q = query.toLowerCase().trim();
@@ -41,7 +27,7 @@ export function PropertyUnitFields({
 
   function handlePropertyChange(value: string) {
     setPropertyId(value);
-    setUnitId("");
+    setTarget(value ? `prop:${value}` : "");
     setUnits([]);
     const req = ++reqRef.current;
     if (!value) return;
@@ -52,9 +38,9 @@ export function PropertyUnitFields({
   }
 
   return (
-    <>
+    <div className="space-y-3">
       <label className="block">
-        <span className="mb-1 block text-sm font-medium text-gray-700">{propertyLabel}</span>
+        <span className="mb-1 block text-sm font-medium text-gray-700">Objekt</span>
         {properties.length > 8 ? (
           <input
             type="search"
@@ -66,12 +52,14 @@ export function PropertyUnitFields({
           />
         ) : null}
         <select
-          name="propertyId"
           value={propertyId}
           onChange={(e) => handlePropertyChange(e.target.value)}
+          required
           className={inputClass}
         >
-          <option value="">{propertyPlaceholder}</option>
+          <option value="" disabled>
+            – bitte wählen –
+          </option>
           {visibleProps.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -82,31 +70,34 @@ export function PropertyUnitFields({
 
       <label className="block">
         <span className="mb-1 block text-sm font-medium text-gray-700">
-          {unitLabel}
+          Zuordnung
           {!propertyId ? (
             <span className="ml-1 font-normal text-gray-400">(zuerst Objekt wählen)</span>
           ) : null}
         </span>
         <select
-          name="unitId"
-          value={unitId}
-          onChange={(e) => setUnitId(e.target.value)}
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
           disabled={!propertyId || pending}
           className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
         >
-          <option value="">{pending ? "Einheiten werden geladen …" : unitPlaceholder}</option>
+          {propertyId ? (
+            <option value={`prop:${propertyId}`}>Allgemein (ganzes Objekt)</option>
+          ) : (
+            <option value="">–</option>
+          )}
           {units.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.label}
+            <option key={u.id} value={`unit:${u.id}`}>
+              Einheit: {u.label}
             </option>
           ))}
         </select>
-        {propertyId && !pending && units.length === 0 ? (
-          <span className="mt-1 block text-xs text-gray-400">
-            Dieses Objekt hat keine Einheiten.
-          </span>
+        {pending ? (
+          <span className="mt-1 block text-xs text-gray-400">Einheiten werden geladen …</span>
         ) : null}
       </label>
-    </>
+
+      <input type="hidden" name="target" value={target} />
+    </div>
   );
 }

@@ -89,6 +89,25 @@ export async function canVerwalterManageUser(actor: User, targetUserId: string):
 }
 
 /**
+ * Darf dieser Verwalter einen Vorgang für dieses Ziel (Objekt + optional Einheit)
+ * anlegen/zuordnen? Ersetzt das Laden **aller** Ziele (ticketTargetsForUser) durch
+ * eine gezielte Scope-Prüfung – wichtig bei sehr großen Beständen.
+ */
+export async function canVerwalterUseTicketTarget(
+  user: User,
+  propertyId: string,
+  unitId: string | null
+): Promise<boolean> {
+  if (!propertyId) return false;
+  const ids = await propertyIdsForVerwalter(user);
+  if (ids !== null && !ids.includes(propertyId)) return false;
+  if (!unitId) return true;
+  // Einheit muss zum (erlaubten) Objekt gehören.
+  const count = await db.unit.count({ where: { id: unitId, propertyId } });
+  return count > 0;
+}
+
+/**
  * Welche Handwerker darf dieser Verwalter sehen/nutzen?
  * SuperAdmin: alle. Eingeschränkter Verwalter ohne Auswahl: alle
  * (gemeinsamer Pool). Mit Auswahl: nur die zugewiesenen Handwerker.

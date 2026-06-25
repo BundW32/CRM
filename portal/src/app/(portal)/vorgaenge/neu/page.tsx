@@ -1,5 +1,6 @@
 import { Card, PageTitle } from "@/components/ui";
-import { ticketTargetsForUser } from "@/lib/access";
+import { propertyWhereForVerwalter, ticketTargetsForUser } from "@/lib/access";
+import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { NeuerVorgangForm } from "./NeuerVorgangForm";
 
@@ -19,7 +20,20 @@ export default async function NewTicketPage({
 }) {
   const user = await requireUser();
   const { fehler } = await searchParams;
-  const targets = await ticketTargetsForUser(user);
+  const isVerwalter = user.role === "VERWALTER";
+
+  // Verwalter: nur die Objektliste laden (Einheiten on demand im Formular).
+  // Andere Rollen: ihre – kleine – Zielliste komplett.
+  const verwalterProperties = isVerwalter
+    ? await db.property.findMany({
+        where: await propertyWhereForVerwalter(user),
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      })
+    : [];
+  const targets = isVerwalter ? [] : await ticketTargetsForUser(user);
+
+  const hasTargets = isVerwalter ? verwalterProperties.length > 0 : targets.length > 0;
 
   return (
     <>
@@ -33,7 +47,7 @@ export default async function NewTicketPage({
         </p>
       ) : null}
 
-      {targets.length === 0 ? (
+      {!hasTargets ? (
         <Card>
           <p className="text-sm text-gray-600">
             Ihnen ist noch kein Objekt zugeordnet. Bitte wenden Sie sich an die
@@ -42,7 +56,11 @@ export default async function NewTicketPage({
         </Card>
       ) : (
         <Card>
-          <NeuerVorgangForm targets={targets} />
+          {isVerwalter ? (
+            <NeuerVorgangForm verwalterProperties={verwalterProperties} />
+          ) : (
+            <NeuerVorgangForm targets={targets} />
+          )}
         </Card>
       )}
     </>

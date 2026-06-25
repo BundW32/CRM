@@ -1,54 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { loadUnitsForProperty, type UnitOption } from "@/app/(portal)/unit-options";
 import { SubmitButton } from "@/components/submit-button";
-import { Field, buttonClass, inputClass } from "@/components/ui";
+import { Field, inputClass } from "@/components/ui";
 import { requestableDocuments, ticketTypeLabels, tradeLabels } from "@/lib/labels";
 import type { TicketTarget } from "@/lib/access";
 import { createTicket } from "../actions";
 
-export function NeuerVorgangForm({ targets }: { targets: TicketTarget[] }) {
+type VerwalterProperty = { id: string; name: string };
+
+export function NeuerVorgangForm({
+  targets,
+  verwalterProperties,
+}: {
+  targets?: TicketTarget[];
+  verwalterProperties?: VerwalterProperty[];
+}) {
   const [type, setType] = useState("SCHADEN");
   const isDoc = type === "DOKUMENT_ANFRAGE";
-
-  // Objekte dedupliziert, sortiert
-  const properties = useMemo(() => {
-    const seen = new Set<string>();
-    const list: { propertyId: string; propertyName: string }[] = [];
-    for (const t of targets) {
-      if (!seen.has(t.propertyId)) {
-        seen.add(t.propertyId);
-        list.push({ propertyId: t.propertyId, propertyName: t.propertyName });
-      }
-    }
-    return list;
-  }, [targets]);
-
-  const [selectedPropertyId, setSelectedPropertyId] = useState(properties[0]?.propertyId ?? "");
-
-  // Einheiten des gewählten Objekts
-  const unitsForProperty = useMemo(
-    () => targets.filter((t) => t.propertyId === selectedPropertyId),
-    [targets, selectedPropertyId]
-  );
-
-  // Initialer target-Wert
-  const initialTarget = useMemo(() => {
-    const first = unitsForProperty[0];
-    return first ? `${first.propertyId}|${first.unitId ?? ""}` : "";
-  }, [unitsForProperty]);
-
-  const [selectedTarget, setSelectedTarget] = useState(initialTarget);
-
-  function handlePropertyChange(pid: string) {
-    setSelectedPropertyId(pid);
-    const first = targets.find((t) => t.propertyId === pid);
-    setSelectedTarget(first ? `${first.propertyId}|${first.unitId ?? ""}` : "");
-  }
-
-  const showPropertyStep = properties.length > 1;
-  // Einheiten-Dropdown nur zeigen wenn es mehrere Optionen gibt
-  const showUnitStep = unitsForProperty.length > 1;
 
   return (
     <form action={createTicket} className="max-w-2xl space-y-4">
@@ -68,55 +38,11 @@ export function NeuerVorgangForm({ targets }: { targets: TicketTarget[] }) {
         </select>
       </Field>
 
-      {/* Schritt 1: Objekt wählen */}
-      {showPropertyStep ? (
-        <Field label="Objekt">
-          <select
-            value={selectedPropertyId}
-            onChange={(e) => handlePropertyChange(e.target.value)}
-            className={inputClass}
-          >
-            {properties.map((p) => (
-              <option key={p.propertyId} value={p.propertyId}>
-                {p.propertyName}
-              </option>
-            ))}
-          </select>
-        </Field>
-      ) : properties.length === 1 ? (
-        <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
-          <span className="font-medium">Objekt:</span> {properties[0].propertyName}
-        </p>
-      ) : null}
-
-      {/* Schritt 2: Einheit wählen */}
-      {showUnitStep ? (
-        <Field label="Einheit / Wohnung">
-          <select
-            value={selectedTarget}
-            onChange={(e) => setSelectedTarget(e.target.value)}
-            className={inputClass}
-          >
-            {unitsForProperty.map((t) => {
-              const value = `${t.propertyId}|${t.unitId ?? ""}`;
-              const label =
-                t.unitId === null
-                  ? "— gesamtes Objekt —"
-                  : t.tenantNames.length > 0
-                    ? `${t.unitLabel}  ·  ${t.tenantNames.join(", ")}`
-                    : t.unitLabel;
-              return (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              );
-            })}
-          </select>
-        </Field>
-      ) : null}
-
-      {/* Versteckter Wert für den Server */}
-      <input type="hidden" name="target" value={selectedTarget} />
+      {verwalterProperties ? (
+        <VerwalterTargetFields properties={verwalterProperties} />
+      ) : (
+        <RoleTargetFields targets={targets ?? []} />
+      )}
 
       {isDoc ? (
         <>
@@ -200,5 +126,182 @@ export function NeuerVorgangForm({ targets }: { targets: TicketTarget[] }) {
 
       <SubmitButton>{isDoc ? "Dokument anfordern" : "Vorgang absenden"}</SubmitButton>
     </form>
+  );
+}
+
+/**
+ * Ziel-Auswahl für Mieter/Eigentümer: die Zielliste ist klein (eigene
+ * Objekte/Einheiten) und wird komplett mitgeliefert.
+ */
+function RoleTargetFields({ targets }: { targets: TicketTarget[] }) {
+  const properties = useMemo(() => {
+    const seen = new Set<string>();
+    const list: { propertyId: string; propertyName: string }[] = [];
+    for (const t of targets) {
+      if (!seen.has(t.propertyId)) {
+        seen.add(t.propertyId);
+        list.push({ propertyId: t.propertyId, propertyName: t.propertyName });
+      }
+    }
+    return list;
+  }, [targets]);
+
+  const [selectedPropertyId, setSelectedPropertyId] = useState(properties[0]?.propertyId ?? "");
+
+  const unitsForProperty = useMemo(
+    () => targets.filter((t) => t.propertyId === selectedPropertyId),
+    [targets, selectedPropertyId]
+  );
+
+  const initialTarget = useMemo(() => {
+    const first = unitsForProperty[0];
+    return first ? `${first.propertyId}|${first.unitId ?? ""}` : "";
+  }, [unitsForProperty]);
+
+  const [selectedTarget, setSelectedTarget] = useState(initialTarget);
+
+  function handlePropertyChange(pid: string) {
+    setSelectedPropertyId(pid);
+    const first = targets.find((t) => t.propertyId === pid);
+    setSelectedTarget(first ? `${first.propertyId}|${first.unitId ?? ""}` : "");
+  }
+
+  const showPropertyStep = properties.length > 1;
+  const showUnitStep = unitsForProperty.length > 1;
+
+  return (
+    <>
+      {showPropertyStep ? (
+        <Field label="Objekt">
+          <select
+            value={selectedPropertyId}
+            onChange={(e) => handlePropertyChange(e.target.value)}
+            className={inputClass}
+          >
+            {properties.map((p) => (
+              <option key={p.propertyId} value={p.propertyId}>
+                {p.propertyName}
+              </option>
+            ))}
+          </select>
+        </Field>
+      ) : properties.length === 1 ? (
+        <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
+          <span className="font-medium">Objekt:</span> {properties[0].propertyName}
+        </p>
+      ) : null}
+
+      {showUnitStep ? (
+        <Field label="Einheit / Wohnung">
+          <select
+            value={selectedTarget}
+            onChange={(e) => setSelectedTarget(e.target.value)}
+            className={inputClass}
+          >
+            {unitsForProperty.map((t) => {
+              const value = `${t.propertyId}|${t.unitId ?? ""}`;
+              const label =
+                t.unitId === null
+                  ? "— gesamtes Objekt —"
+                  : t.tenantNames.length > 0
+                    ? `${t.unitLabel}  ·  ${t.tenantNames.join(", ")}`
+                    : t.unitLabel;
+              return (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              );
+            })}
+          </select>
+        </Field>
+      ) : null}
+
+      <input type="hidden" name="target" value={selectedTarget} />
+    </>
+  );
+}
+
+/**
+ * Ziel-Auswahl für Verwalter: der Bestand kann sehr groß sein, daher wird nur die
+ * Objektliste mitgeliefert und die Einheiten des gewählten Objekts **on demand**
+ * nachgeladen (statt alle Einheiten ins HTML zu serialisieren).
+ */
+function VerwalterTargetFields({ properties }: { properties: VerwalterProperty[] }) {
+  const [propertyId, setPropertyId] = useState("");
+  const [target, setTarget] = useState("");
+  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [query, setQuery] = useState("");
+  const [pending, startTransition] = useTransition();
+  const reqRef = useRef(0);
+
+  const q = query.toLowerCase().trim();
+  const visibleProps = q
+    ? properties.filter((p) => p.name.toLowerCase().includes(q))
+    : properties;
+
+  function handlePropertyChange(value: string) {
+    setPropertyId(value);
+    setTarget(value ? `${value}|` : "");
+    setUnits([]);
+    const req = ++reqRef.current;
+    if (!value) return;
+    startTransition(async () => {
+      const loaded = await loadUnitsForProperty(value);
+      if (reqRef.current === req) setUnits(loaded);
+    });
+  }
+
+  return (
+    <>
+      <Field label="Objekt">
+        {properties.length > 8 ? (
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Objekt suchen …"
+            className={`${inputClass} mb-1.5`}
+            autoComplete="off"
+          />
+        ) : null}
+        <select
+          value={propertyId}
+          onChange={(e) => handlePropertyChange(e.target.value)}
+          required
+          className={inputClass}
+        >
+          <option value="" disabled>
+            – bitte wählen –
+          </option>
+          {visibleProps.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label="Einheit / Wohnung">
+        <select
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          disabled={!propertyId || pending}
+          className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
+        >
+          {propertyId ? (
+            <option value={`${propertyId}|`}>— gesamtes Objekt —</option>
+          ) : (
+            <option value="">{pending ? "wird geladen …" : "zuerst Objekt wählen"}</option>
+          )}
+          {units.map((u) => (
+            <option key={u.id} value={`${propertyId}|${u.id}`}>
+              {u.tenantNames.length > 0 ? `${u.label}  ·  ${u.tenantNames.join(", ")}` : u.label}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <input type="hidden" name="target" value={target} />
+    </>
   );
 }

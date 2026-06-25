@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { Trade } from "@/generated/prisma/client";
-import { canViewTicket, canVerwalterUseCraftsman, ticketTargetsForUser } from "@/lib/access";
+import {
+  canViewTicket,
+  canVerwalterUseCraftsman,
+  canVerwalterUseTicketTarget,
+  ticketTargetsForUser,
+} from "@/lib/access";
 import { db } from "@/lib/db";
 import { ticketPriorityLabels } from "@/lib/labels";
 import { portalUrl, sendMail } from "@/lib/mailer";
@@ -83,12 +88,16 @@ export async function createTicket(formData: FormData) {
     redirect("/vorgaenge/neu?fehler=eingabe");
   }
 
-  // Ziel (Objekt/Einheit) gegen die Berechtigungen des Nutzers prüfen
+  // Ziel (Objekt/Einheit) gegen die Berechtigungen des Nutzers prüfen.
+  // Verwalter: gezielte Scope-Prüfung (lädt nicht alle Ziele). Andere Rollen:
+  // Mitgliedschaft in der – kleinen – Zielliste prüfen.
   const [propertyId, unitId] = parsed.data.target.split("|");
-  const targets = await ticketTargetsForUser(user);
-  const allowed = targets.some(
-    (t) => t.propertyId === propertyId && (t.unitId ?? "") === (unitId ?? "")
-  );
+  const allowed =
+    user.role === "VERWALTER"
+      ? await canVerwalterUseTicketTarget(user, propertyId, unitId || null)
+      : (await ticketTargetsForUser(user)).some(
+          (t) => t.propertyId === propertyId && (t.unitId ?? "") === (unitId ?? "")
+        );
   if (!allowed) {
     redirect("/vorgaenge/neu?fehler=ziel");
   }
@@ -234,24 +243,22 @@ export async function updateTicket(formData: FormData) {
 
 // Verwalter ordnet einen (z. B. per E-Mail eingegangenen) Vorgang einem Objekt/einer Einheit zu
 export async function assignTicketTarget(formData: FormData) {
-  await requireVerwalter();
+  const user = await requireVerwalter();
   const ticketId = String(formData.get("ticketId") ?? "");
   const target = String(formData.get("target") ?? "");
   const [propertyId, unitId] = target.split("|");
   if (!ticketId || !propertyId) redirect(`/vorgaenge/${ticketId}`);
 
-  const property = await db.property.findUnique({ where: { id: propertyId } });
-  if (!property) redirect(`/vorgaenge/${ticketId}`);
-
-  let validUnitId: string | null = null;
-  if (unitId) {
-    const unit = await db.unit.findUnique({ where: { id: unitId } });
-    if (unit && unit.propertyId === propertyId) validUnitId = unit.id;
+  // Scope-Prüfung: nur Objekte/Einheiten im eigenen Zuständigkeitsbereich.
+  // canVerwalterUseTicketTarget stellt zugleich sicher, dass die Einheit zum
+  // Objekt gehört.
+  if (!(await canVerwalterUseTicketTarget(user, propertyId, unitId || null))) {
+    redirect(`/vorgaenge/${ticketId}`);
   }
 
   await db.ticket.update({
     where: { id: ticketId },
-    data: { propertyId, unitId: validUnitId },
+    data: { propertyId, unitId: unitId || null },
   });
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}?zugeordnet=1`);

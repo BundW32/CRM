@@ -8,7 +8,14 @@ import {
   buttonClass,
   inputClass,
 } from "@/components/ui";
-import { canViewTicket, craftsmanWhereForVerwalter, ticketTargetsForUser } from "@/lib/access";
+import {
+  canViewTicket,
+  craftsmanWhereForVerwalter,
+  propertyWhereForVerwalter,
+  userWhereForVerwalter,
+} from "@/lib/access";
+import { loadUnitsForProperty, type UnitOption } from "@/app/(portal)/unit-options";
+import type { Prisma } from "@/generated/prisma/client";
 import { supportedCertificate } from "@/lib/documents/bescheinigungen";
 import { db } from "@/lib/db";
 import {
@@ -25,13 +32,13 @@ import { requireUser } from "@/lib/session";
 import {
   addComment,
   assignCraftsman,
-  assignTicketTarget,
   generateCertificate,
   notifyCraftsman,
   setOwnTicketStatus,
   updateTicket,
   uploadRequestedDocument,
 } from "../actions";
+import { AssignTargetPicker } from "./assign-target-picker";
 
 export const dynamic = "force-dynamic";
 
@@ -89,10 +96,22 @@ export default async function TicketDetailPage({
   const suggested = ticket.trade ? craftsmen.filter((c) => c.trade === ticket.trade) : [];
   const others = ticket.trade ? craftsmen.filter((c) => c.trade !== ticket.trade) : craftsmen;
 
-  // Nicht zugeordneter Vorgang (z. B. von unbekanntem E-Mail-Absender): Zuordnung + Vorschlag
+  // Nicht zugeordneter Vorgang (z. B. von unbekanntem E-Mail-Absender): Zuordnung + Vorschlag.
+  // Nur die Objektliste laden; Einheiten kommen on demand. Für den Vorschlag werden
+  // die Einheiten des vorgeschlagenen Objekts vorab serverseitig geladen.
   const needsAssignment = isVerwalter && !ticket.propertyId;
-  const assignTargets = needsAssignment ? await ticketTargetsForUser(user) : [];
-  const assignSuggestion = needsAssignment ? await suggestTarget(ticket) : null;
+  const assignProperties = needsAssignment
+    ? await db.property.findMany({
+        where: await propertyWhereForVerwalter(user),
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      })
+    : [];
+  const assignSuggestion = needsAssignment ? await suggestTarget(user, ticket) : null;
+  const suggestedPropertyId = assignSuggestion ? assignSuggestion.target.split("|")[0] : "";
+  const suggestedUnits: UnitOption[] = suggestedPropertyId
+    ? await loadUnitsForProperty(suggestedPropertyId)
+    : [];
 
   return (
     <>
@@ -282,34 +301,13 @@ export default async function TicketDetailPage({
                   Vorschlag: <strong>{assignSuggestion.label}</strong>
                 </p>
               ) : null}
-              <form action={assignTicketTarget} className="space-y-3">
-                <input type="hidden" name="ticketId" value={ticket.id} />
-                <Field label="Objekt / Einheit">
-                  <select
-                    name="target"
-                    required
-                    className={inputClass}
-                    defaultValue={assignSuggestion?.target ?? ""}
-                  >
-                    {!assignSuggestion ? (
-                      <option value="" disabled>
-                        – bitte wählen –
-                      </option>
-                    ) : null}
-                    {assignTargets.map((t) => (
-                      <option
-                        key={`${t.propertyId}|${t.unitId ?? ""}`}
-                        value={`${t.propertyId}|${t.unitId ?? ""}`}
-                      >
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <button type="submit" className={buttonClass}>
-                  Zuordnen
-                </button>
-              </form>
+              <AssignTargetPicker
+                ticketId={ticket.id}
+                properties={assignProperties}
+                initialPropertyId={suggestedPropertyId}
+                initialTarget={assignSuggestion?.target ?? ""}
+                initialUnits={suggestedUnits}
+              />
             </Card>
           ) : null}
 
@@ -646,20 +644,28 @@ export default async function TicketDetailPage({
   );
 }
 
-// Zuordnungs-Vorschlag für nicht zugeordnete Vorgänge (Name/Einheit/Adresse aus der Mail)
-async function suggestTarget(ticket: {
-  senderName: string | null;
-  description: string;
-}): Promise<{ target: string; label: string } | null> {
+// Zuordnungs-Vorschlag für nicht zugeordnete Vorgänge (Name/Einheit/Adresse aus der Mail).
+// Best-effort-Heuristik: alle Abfragen sind auf den Scope des Verwalters begrenzt und
+// gedeckelt (SUGGEST_SCAN_LIMIT), damit kein voller Tabellen-Scan über große Bestände
+// nötig ist. Die finale Zuordnung wird ohnehin serverseitig geprüft.
+const SUGGEST_SCAN_LIMIT = 2000;
+
+async function suggestTarget(
+  user: Parameters<typeof userWhereForVerwalter>[0],
+  ticket: { senderName: string | null; description: string }
+): Promise<{ target: string; label: string } | null> {
   const name = (ticket.senderName ?? "").trim();
   const text = (ticket.description ?? "").toLowerCase();
+  const propWhere: Prisma.PropertyWhereInput = await propertyWhereForVerwalter(user);
 
-  // 1) Absendername stimmt mit einem Mieter/Eigentümer überein
+  // 1) Absendername stimmt mit einem Mieter/Eigentümer (im Scope) überein
   if (name.length >= 3) {
     const u = await db.user.findFirst({
       where: {
-        role: { in: ["MIETER", "EIGENTUEMER"] },
-        name: { contains: name, mode: "insensitive" },
+        AND: [
+          { role: { in: ["MIETER", "EIGENTUEMER"] }, name: { contains: name, mode: "insensitive" } },
+          await userWhereForVerwalter(user),
+        ],
       },
       include: {
         tenancies: {
@@ -682,9 +688,13 @@ async function suggestTarget(ticket: {
     }
   }
 
-  // 2) Eine Einheiten-Bezeichnung kommt im Mailtext vor
+  // 2) Eine Einheiten-Bezeichnung kommt im Mailtext vor (nur Einheiten im Scope)
   if (text.length > 0) {
-    const units = await db.unit.findMany({ include: { property: true } });
+    const units = await db.unit.findMany({
+      where: { property: propWhere },
+      take: SUGGEST_SCAN_LIMIT,
+      select: { id: true, label: true, propertyId: true, property: { select: { name: true } } },
+    });
     const unitHit = units.find(
       (un) => un.label.length >= 3 && text.includes(un.label.toLowerCase())
     );
@@ -694,8 +704,12 @@ async function suggestTarget(ticket: {
         label: `${unitHit.property.name}, ${unitHit.label}`,
       };
     }
-    // 3) Objektname oder Straße kommt im Mailtext vor
-    const props = await db.property.findMany();
+    // 3) Objektname oder Straße kommt im Mailtext vor (nur Objekte im Scope)
+    const props = await db.property.findMany({
+      where: propWhere,
+      take: SUGGEST_SCAN_LIMIT,
+      select: { id: true, name: true, street: true },
+    });
     const propHit = props.find(
       (p) => text.includes(p.name.toLowerCase()) || text.includes(p.street.toLowerCase())
     );

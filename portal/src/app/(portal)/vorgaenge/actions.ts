@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { Trade } from "@/generated/prisma/client";
+import type { Trade, User } from "@/generated/prisma/client";
 import {
   canViewTicket,
   canVerwalterUseCraftsman,
@@ -20,7 +20,7 @@ import {
   notifyCreatorStatusChange,
   notifyVerwalterNewTicket,
 } from "@/lib/notify";
-import { IMAGE_TYPES, MEDIA_TYPES, DOCUMENT_TYPES, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
+import { MEDIA_TYPES, DOCUMENT_TYPES, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { requireUser, requireVerwalter } from "@/lib/session";
 import { applyTriage } from "@/lib/triage";
@@ -36,6 +36,17 @@ const TRADES = [
   "FENSTER_TUEREN", "SCHLOSSEREI", "GARTEN", "REINIGUNG",
   "SCHAEDLINGSBEKAEMPFUNG", "AUFZUG", "ALLGEMEIN", "SONSTIGES",
 ] as const;
+
+// Mandanten-Scope für jede mutierende Verwalter-Aktion an einem Vorgang erzwingen.
+// Verhindert IDOR: ein eingeschränkter Verwalter darf nur Vorgänge in seinen
+// zugewiesenen Objekten (bzw. noch nicht zugeordnete) bearbeiten. Liefert das
+// Ticket zurück oder leitet bei fehlender Berechtigung weg.
+async function requireTicketInScope(verwalter: User, ticketId: string) {
+  if (!ticketId) redirect("/vorgaenge");
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
+  if (!ticket || !(await canViewTicket(verwalter, ticket))) redirect("/vorgaenge");
+  return ticket;
+}
 
 const createTicketSchema = z.object({
   type: z.enum(["SCHADEN", "ANFRAGE", "DOKUMENT_ANFRAGE", "SONSTIGES"]),
@@ -204,7 +215,7 @@ export async function updateTicket(formData: FormData) {
   }
 
   const before = await db.ticket.findUnique({ where: { id: parsed.data.ticketId } });
-  if (!before) {
+  if (!before || !(await canViewTicket(verwalter, before))) {
     redirect("/vorgaenge");
   }
 
@@ -220,12 +231,46 @@ export async function updateTicket(formData: FormData) {
     assignedToId = assignee.id;
   }
 
+  // Status-Felder kohärent halten, wenn der Status direkt über das Dropdown
+  // gesetzt wird (sonst z. B. GESCHLOSSEN ohne closedAt → inkonsistente Anzeige).
+  const next = parsed.data.status;
+  const statusFields: {
+    closedAt?: Date | null;
+    closedById?: string | null;
+    completionReportedAt?: Date | null;
+    completionReportedVia?: string | null;
+  } = {};
+  if (next !== before.status) {
+    if (next === "GESCHLOSSEN") {
+      statusFields.closedAt = new Date();
+      statusFields.closedById = verwalter.id;
+      if (!before.completionReportedAt) {
+        statusFields.completionReportedAt = new Date();
+        statusFields.completionReportedVia = "manuell";
+      }
+    } else if (next === "ERLEDIGT") {
+      statusFields.closedAt = null;
+      statusFields.closedById = null;
+      if (!before.completionReportedAt) {
+        statusFields.completionReportedAt = new Date();
+        statusFields.completionReportedVia = "manuell";
+      }
+    } else {
+      // zurück in einen aktiven Status → Abschluss-/Meldekennzeichen löschen
+      statusFields.closedAt = null;
+      statusFields.closedById = null;
+      statusFields.completionReportedAt = null;
+      statusFields.completionReportedVia = null;
+    }
+  }
+
   await db.ticket.update({
     where: { id: parsed.data.ticketId },
     data: {
-      status: parsed.data.status,
+      status: next,
       priority: parsed.data.priority,
       assignedToId,
+      ...statusFields,
     },
   });
 
@@ -248,6 +293,9 @@ export async function assignTicketTarget(formData: FormData) {
   const target = String(formData.get("target") ?? "");
   const [propertyId, unitId] = target.split("|");
   if (!ticketId || !propertyId) redirect(`/vorgaenge/${ticketId}`);
+
+  // Der Vorgang selbst muss im Scope liegen (kein „Übernehmen" fremder Vorgänge).
+  await requireTicketInScope(user, ticketId);
 
   // Scope-Prüfung: nur Objekte/Einheiten im eigenen Zuständigkeitsbereich.
   // canVerwalterUseTicketTarget stellt zugleich sicher, dass die Einheit zum
@@ -272,8 +320,7 @@ export async function assignCraftsman(formData: FormData) {
   const craftsmanId = String(formData.get("craftsmanId") ?? "");
   const setBeauftragt = formData.get("setBeauftragt") === "on";
 
-  const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
-  if (!ticket) redirect("/vorgaenge");
+  await requireTicketInScope(verwalter, ticketId);
 
   const trade: Trade | null = (TRADES as readonly string[]).includes(tradeRaw)
     ? (tradeRaw as Trade)
@@ -309,8 +356,7 @@ export async function assignCraftsman(formData: FormData) {
 export async function releaseExternalCraftsman(formData: FormData) {
   const verwalter = await requireVerwalter();
   const ticketId = String(formData.get("ticketId") ?? "");
-  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, select: { id: true } });
-  if (!ticket) redirect("/vorgaenge");
+  await requireTicketInScope(verwalter, ticketId);
 
   await db.ticket.update({
     where: { id: ticketId },
@@ -337,7 +383,7 @@ export async function confirmAppointment(formData: FormData) {
     where: { id: ticketId },
     include: { craftsman: true },
   });
-  if (!ticket) redirect("/vorgaenge");
+  if (!ticket || !(await canViewTicket(verwalter, ticket))) redirect("/vorgaenge");
   if (!ticket.appointmentNote) redirect(`/vorgaenge/${ticketId}`);
 
   await db.ticket.update({
@@ -374,7 +420,7 @@ export async function declineAppointment(formData: FormData) {
     where: { id: ticketId },
     include: { craftsman: true },
   });
-  if (!ticket) redirect("/vorgaenge");
+  if (!ticket || !(await canViewTicket(verwalter, ticket))) redirect("/vorgaenge");
   if (!ticket.appointmentNote) redirect(`/vorgaenge/${ticketId}`);
 
   const abgelehnt = ticket.appointmentNote;
@@ -424,8 +470,7 @@ export async function reportCompletion(formData: FormData) {
   const via = (COMPLETION_CHANNELS as readonly string[]).includes(viaRaw) ? viaRaw : "Telefon";
   const note = String(formData.get("note") ?? "").trim().slice(0, 1000);
 
-  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, select: { id: true, status: true } });
-  if (!ticket) redirect("/vorgaenge");
+  const ticket = await requireTicketInScope(verwalter, ticketId);
   if (ticket.status === "GESCHLOSSEN") redirect(`/vorgaenge/${ticketId}`);
 
   await db.ticket.update({
@@ -449,8 +494,7 @@ export async function reportCompletion(formData: FormData) {
 export async function confirmCompletion(formData: FormData) {
   const verwalter = await requireVerwalter();
   const ticketId = String(formData.get("ticketId") ?? "");
-  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, select: { id: true } });
-  if (!ticket) redirect("/vorgaenge");
+  await requireTicketInScope(verwalter, ticketId);
 
   await db.ticket.update({
     where: { id: ticketId },
@@ -482,7 +526,7 @@ export async function reopenTicket(formData: FormData) {
     where: { id: ticketId },
     include: { craftsman: true },
   });
-  if (!ticket) redirect("/vorgaenge");
+  if (!ticket || !(await canViewTicket(verwalter, ticket))) redirect("/vorgaenge");
 
   // Zurück in einen aktiven Status: war ein Handwerker beauftragt → BEAUFTRAGT,
   // sonst IN_BEARBEITUNG. Meldekennzeichen und Abschluss zurücksetzen.
@@ -530,7 +574,8 @@ export async function notifyCraftsman(formData: FormData) {
     where: { id: ticketId },
     include: { property: true, unit: true, craftsman: true },
   });
-  if (!ticket || !ticket.craftsman) redirect(`/vorgaenge/${ticketId}`);
+  if (!ticket || !(await canViewTicket(verwalter, ticket))) redirect("/vorgaenge");
+  if (!ticket.craftsman) redirect(`/vorgaenge/${ticketId}`);
   if (!ticket.craftsman.email) {
     redirect(`/vorgaenge/${ticketId}?fehler=keine_email`);
   }
@@ -616,7 +661,7 @@ export async function uploadRequestedDocument(formData: FormData) {
     where: { id: ticketId },
     include: { createdBy: true },
   });
-  if (!ticket) redirect("/vorgaenge");
+  if (!ticket || !(await canViewTicket(verwalter, ticket))) redirect("/vorgaenge");
   if (!title) redirect(`/vorgaenge/${ticketId}?fehler=titel`);
 
   const file = formData.get("file");
@@ -675,7 +720,7 @@ export async function generateCertificate(formData: FormData) {
     where: { id: ticketId },
     include: { createdBy: true, unit: true, property: true },
   });
-  if (!ticket) redirect("/vorgaenge");
+  if (!ticket || !(await canViewTicket(verwalter, ticket))) redirect("/vorgaenge");
   const kind = supportedCertificate(ticket.title);
   if (!kind || !ticket.property) {
     redirect(`/vorgaenge/${ticketId}?fehler=cert`);

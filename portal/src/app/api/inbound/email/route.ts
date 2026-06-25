@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { notifyVerwalterNewTicket } from "@/lib/notify";
-import { saveBuffer } from "@/lib/storage";
+import { IMAGE_TYPES, saveBuffer } from "@/lib/storage";
 import { applyTriage } from "@/lib/triage";
 
 export const dynamic = "force-dynamic";
@@ -75,10 +75,12 @@ async function saveImageAttachments(body: Record<string, unknown>) {
   const uploads: Awaited<ReturnType<typeof saveBuffer>>[] = [];
   for (const att of normalizeAttachments(body)) {
     const type = att.type.split(";")[0].trim().toLowerCase(); // "image/jpeg; name=…" → "image/jpeg"
-    if (!type.startsWith("image/")) continue; // nur Bilder als Vorgangs-Foto
+    // Nur explizit erlaubte Bildtypen (keine SVG o. Ä. – Allowlist, nicht der
+    // vom Absender behauptete Typ).
+    if (!IMAGE_TYPES.includes(type)) continue;
     try {
       const buf = Buffer.from(att.b64, "base64");
-      uploads.push(await saveBuffer(buf, att.name, type, [type]));
+      uploads.push(await saveBuffer(buf, att.name, type, IMAGE_TYPES));
     } catch {
       // ungeeignete Anhänge (z. B. zu groß) überspringen
     }

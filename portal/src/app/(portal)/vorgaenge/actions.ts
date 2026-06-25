@@ -171,22 +171,20 @@ export async function addComment(formData: FormData) {
     `/vorgaenge/${ticketId}?fehler=dateien`
   );
 
-  const comment = await db.ticketComment.create({
-    data: {
-      ticketId,
-      authorId: user.id,
-      body,
-      internal,
-      ...(uploads.length > 0
-        ? { attachments: { create: uploads.map((u) => ({ ...u, ticketId })) } }
-        : {}),
-    },
-  });
-  void comment;
-  await db.ticket.update({
-    where: { id: ticketId },
-    data: { updatedAt: new Date() },
-  });
+  await db.$transaction([
+    db.ticketComment.create({
+      data: {
+        ticketId,
+        authorId: user.id,
+        body,
+        internal,
+        ...(uploads.length > 0
+          ? { attachments: { create: uploads.map((u) => ({ ...u, ticketId })) } }
+          : {}),
+      },
+    }),
+    db.ticket.update({ where: { id: ticketId }, data: { updatedAt: new Date() } }),
+  ]);
 
   if (!internal) {
     await notifyCreatorNewComment(ticketId, user);
@@ -623,16 +621,35 @@ export async function notifyCraftsman(formData: FormData) {
     ? `${ticket.craftsman.company} / ${ticket.craftsman.name}`
     : ticket.craftsman.name;
 
-  // Magic-Link-Token fürs Auftragsportal sicherstellen
+  // Magic-Link-Token sicherstellen (ggf. neu erzeugen)
   let token = ticket.craftsman.accessToken;
   if (!token) {
     token = crypto.randomBytes(24).toString("hex");
-    await db.craftsman.update({
-      where: { id: ticket.craftsman.id },
-      data: { accessToken: token },
-    });
   }
+  const missingToken = !ticket.craftsman.accessToken;
 
+  // DB-Schreibvorgänge atomisch: Token setzen + Kommentar + Statuswechsel
+  await db.$transaction(async (tx) => {
+    if (missingToken) {
+      await tx.craftsman.update({
+        where: { id: ticket.craftsman!.id },
+        data: { accessToken: token },
+      });
+    }
+    await tx.ticketComment.create({
+      data: {
+        ticketId,
+        authorId: verwalter.id,
+        body: `Handwerker „${anrede}" per E-Mail beauftragt (${ticket.craftsman!.email}).`,
+        internal: true,
+      },
+    });
+    if (ticket.status !== "ERLEDIGT" && ticket.status !== "GESCHLOSSEN") {
+      await tx.ticket.update({ where: { id: ticketId }, data: { status: "BEAUFTRAGT" } });
+    }
+  });
+
+  // E-Mail nach erfolgreichem Commit – externe Side-Effects nie im Transaction-Block
   await sendMail(
     ticket.craftsman.email,
     `Auftrag #${ticket.number}: ${ticket.title}`,
@@ -647,22 +664,6 @@ export async function notifyCraftsman(formData: FormData) {
       `Mit freundlichen Grüßen\nB&W Immobilien Management UG\n` +
       `info@bundwimmobilien.de`
   );
-
-  await db.ticketComment.create({
-    data: {
-      ticketId,
-      authorId: verwalter.id,
-      body: `Handwerker „${anrede}" per E-Mail beauftragt (${ticket.craftsman.email}).`,
-      internal: true,
-    },
-  });
-  // Bereits erledigte/geschlossene Vorgänge nicht wieder öffnen
-  if (ticket.status !== "ERLEDIGT" && ticket.status !== "GESCHLOSSEN") {
-    await db.ticket.update({
-      where: { id: ticketId },
-      data: { status: "BEAUFTRAGT" },
-    });
-  }
 
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}?beauftragt=1`);
@@ -707,26 +708,27 @@ export async function uploadRequestedDocument(formData: FormData) {
         ? "MIETER"
         : "ALLE";
 
-  await db.document.create({
-    data: {
-      title,
-      category,
-      audience,
-      propertyId: ticket.propertyId,
-      unitId: ticket.unitId,
-      uploadedById: verwalter.id,
-      ...upload,
-    },
-  });
-
-  await db.ticketComment.create({
-    data: {
-      ticketId,
-      authorId: verwalter.id,
-      body: `Dokument bereitgestellt: „${title}". Sie finden es unter „Infos → Dokumente".`,
-    },
-  });
-  await db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } });
+  await db.$transaction([
+    db.document.create({
+      data: {
+        title,
+        category,
+        audience,
+        propertyId: ticket.propertyId,
+        unitId: ticket.unitId,
+        uploadedById: verwalter.id,
+        ...upload,
+      },
+    }),
+    db.ticketComment.create({
+      data: {
+        ticketId,
+        authorId: verwalter.id,
+        body: `Dokument bereitgestellt: „${title}". Sie finden es unter „Infos → Dokumente".`,
+      },
+    }),
+    db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } }),
+  ]);
   await notifyCreatorNewComment(ticketId, verwalter);
 
   revalidatePath(`/vorgaenge/${ticketId}`);
@@ -834,26 +836,27 @@ export async function generateCertificate(formData: FormData) {
 
   const upload = await saveBuffer(pdf, `${title}.pdf`, "application/pdf", ["application/pdf"]);
 
-  await db.document.create({
-    data: {
-      title: `${title} – ${ticket.createdBy.name}`,
-      category: "BESCHEINIGUNG",
-      audience: "MIETER",
-      propertyId: property.id,
-      unitId: ticket.unitId,
-      uploadedById: verwalter.id,
-      ...upload,
-    },
-  });
-
-  await db.ticketComment.create({
-    data: {
-      ticketId,
-      authorId: verwalter.id,
-      body: `${title} automatisch erstellt und bereitgestellt. Abrufbar unter „Infos → Dokumente".`,
-    },
-  });
-  await db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } });
+  await db.$transaction([
+    db.document.create({
+      data: {
+        title: `${title} – ${ticket.createdBy.name}`,
+        category: "BESCHEINIGUNG",
+        audience: "MIETER",
+        propertyId: property.id,
+        unitId: ticket.unitId,
+        uploadedById: verwalter.id,
+        ...upload,
+      },
+    }),
+    db.ticketComment.create({
+      data: {
+        ticketId,
+        authorId: verwalter.id,
+        body: `${title} automatisch erstellt und bereitgestellt. Abrufbar unter „Infos → Dokumente".`,
+      },
+    }),
+    db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } }),
+  ]);
   await notifyCreatorNewComment(ticketId, verwalter);
 
   revalidatePath(`/vorgaenge/${ticketId}`);

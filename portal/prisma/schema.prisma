@@ -161,6 +161,7 @@ model User {
   auditLogs            AuditLog[]
 
   @@index([role])
+  @@index([role, active])
 }
 
 model PropertyAssignment {
@@ -346,6 +347,8 @@ model Ticket {
   @@index([craftsmanId])
   @@index([status])
   @@index([updatedAt])
+  @@index([type])
+  @@index([priority])
 }
 
 // Handwerker als Stammdaten (Kontaktbuch) – ohne eigenen Portal-Login
@@ -369,6 +372,9 @@ model Craftsman {
   comments             TicketComment[]       @relation("CraftsmanComments")
   maintenanceTasks     MaintenanceTask[]
   verwalterAssignments CraftsmanAssignment[]
+
+  @@index([active, trade])
+  @@index([email])
 }
 
 // Wartungs-/Prüfaufgaben mit Fälligkeit (visuelle Erinnerung)
@@ -388,6 +394,7 @@ model MaintenanceTask {
 
   @@index([propertyId])
   @@index([dueDate])
+  @@index([active, dueDate])
 }
 
 model TicketComment {

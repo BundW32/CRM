@@ -38,10 +38,10 @@ async function notifyVerwalter(ticket: Ticket, text: string) {
 }
 
 async function addCraftsmanComment(ticketId: string, craftsmanId: string, body: string) {
-  await db.ticketComment.create({
-    data: { ticketId, craftsmanAuthorId: craftsmanId, body },
-  });
-  await db.ticket.update({ where: { id: ticketId }, data: { updatedAt: new Date() } });
+  await db.$transaction([
+    db.ticketComment.create({ data: { ticketId, craftsmanAuthorId: craftsmanId, body } }),
+    db.ticket.update({ where: { id: ticketId }, data: { updatedAt: new Date() } }),
+  ]);
 }
 
 export async function craftsmanAccept(formData: FormData) {
@@ -64,12 +64,11 @@ export async function craftsmanDecline(formData: FormData) {
   const auth = await authorize(token, ticketId);
   if (!auth) redirect(`/auftraege/${token}`);
 
-  await addCraftsmanComment(ticketId, auth.craftsman.id, "Auftrag abgelehnt.");
-  // Zuordnung lösen und Vorgang zurück in die Verwalter-Warteschlange
-  await db.ticket.update({
-    where: { id: ticketId },
-    data: { craftsmanId: null, status: "NEU" },
-  });
+  // Kommentar + Zuordnung lösen + Status atomisch zurücksetzen
+  await db.$transaction([
+    db.ticketComment.create({ data: { ticketId, craftsmanAuthorId: auth.craftsman.id, body: "Auftrag abgelehnt." } }),
+    db.ticket.update({ where: { id: ticketId }, data: { craftsmanId: null, status: "NEU", updatedAt: new Date() } }),
+  ]);
   await notifyVerwalter(
     auth.ticket,
     `${auth.craftsman.name} hat den Auftrag „${auth.ticket.title}" ABGELEHNT. Bitte neu zuordnen.`
@@ -85,13 +84,14 @@ export async function craftsmanAppointment(formData: FormData) {
   if (!auth) redirect(`/auftraege/${token}`);
   if (!note) redirect(`/auftraege/${token}`);
 
-  // Neuer Vorschlag → Bestätigung zurücksetzen; wird erst wirksam, wenn der
-  // Verwalter ihn bestätigt.
-  await db.ticket.update({
-    where: { id: ticketId },
-    data: { appointmentNote: note, appointmentConfirmedAt: null, appointmentConfirmedById: null },
-  });
-  await addCraftsmanComment(ticketId, auth.craftsman.id, `Terminvorschlag: ${note}`);
+  // Terminvorschlag + Kommentar atomisch – Bestätigung erst nach Verwalter-Freigabe wirksam
+  await db.$transaction([
+    db.ticket.update({
+      where: { id: ticketId },
+      data: { appointmentNote: note, appointmentConfirmedAt: null, appointmentConfirmedById: null, updatedAt: new Date() },
+    }),
+    db.ticketComment.create({ data: { ticketId, craftsmanAuthorId: auth.craftsman.id, body: `Terminvorschlag: ${note}` } }),
+  ]);
   await notifyVerwalter(
     auth.ticket,
     `${auth.craftsman.name} schlägt einen Termin vor: ${note} (bitte bestätigen)`
@@ -121,17 +121,19 @@ export async function craftsmanComment(formData: FormData) {
 
   if (!body && uploads.length === 0) redirect(`/auftraege/${token}`);
 
-  await db.ticketComment.create({
-    data: {
-      ticketId,
-      craftsmanAuthorId: auth.craftsman.id,
-      body: body || "(Foto/Dokument)",
-      ...(uploads.length > 0
-        ? { attachments: { create: uploads.map((u) => ({ ...u, ticketId })) } }
-        : {}),
-    },
-  });
-  await db.ticket.update({ where: { id: ticketId }, data: { updatedAt: new Date() } });
+  await db.$transaction([
+    db.ticketComment.create({
+      data: {
+        ticketId,
+        craftsmanAuthorId: auth.craftsman.id,
+        body: body || "(Foto/Dokument)",
+        ...(uploads.length > 0
+          ? { attachments: { create: uploads.map((u) => ({ ...u, ticketId })) } }
+          : {}),
+      },
+    }),
+    db.ticket.update({ where: { id: ticketId }, data: { updatedAt: new Date() } }),
+  ]);
   await notifyVerwalter(
     auth.ticket,
     `${auth.craftsman.name} hat eine Nachricht/Foto zum Auftrag „${auth.ticket.title}" hinterlassen.`
@@ -145,12 +147,14 @@ export async function craftsmanDone(formData: FormData) {
   const auth = await authorize(token, ticketId);
   if (!auth) redirect(`/auftraege/${token}`);
 
-  // Erledigung wird GEMELDET – die Abnahme/Schließung erfolgt durch den Verwalter.
-  await db.ticket.update({
-    where: { id: ticketId },
-    data: { status: "ERLEDIGT", completionReportedAt: new Date(), completionReportedVia: "Portal" },
-  });
-  await addCraftsmanComment(ticketId, auth.craftsman.id, "Auftrag als erledigt gemeldet.");
+  // Status-Update + Kommentar atomisch – Abnahme/Schließung durch den Verwalter
+  await db.$transaction([
+    db.ticket.update({
+      where: { id: ticketId },
+      data: { status: "ERLEDIGT", completionReportedAt: new Date(), completionReportedVia: "Portal", updatedAt: new Date() },
+    }),
+    db.ticketComment.create({ data: { ticketId, craftsmanAuthorId: auth.craftsman.id, body: "Auftrag als erledigt gemeldet." } }),
+  ]);
   await notifyVerwalter(
     auth.ticket,
     `${auth.craftsman.name} hat den Auftrag „${auth.ticket.title}" als ERLEDIGT gemeldet. Bitte Abschluss bestätigen.`

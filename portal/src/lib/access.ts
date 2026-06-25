@@ -272,19 +272,44 @@ export type TicketTarget = {
   label: string;
 };
 
-// Objekte/Einheiten, für die der Nutzer einen Vorgang anlegen darf
+// Objekte/Einheiten, für die der Nutzer einen Vorgang anlegen darf.
+// Für Verwalter: zwei schlanke Abfragen statt einer tief geschachtelten, die
+// vollständige User-/Property-Objekte in den RAM lädt (kritisch bei 1.000+
+// Einheiten – vorher wurden u. a. passwordHash, Unterschriften, alle
+// Property-Felder für jede Einheit in den Speicher geladen).
 export async function ticketTargetsForUser(user: User): Promise<TicketTarget[]> {
   if (user.role === "VERWALTER") {
     const propWhere = await propertyWhereForVerwalter(user);
-    const properties = await db.property.findMany({
-      where: propWhere,
-      include: {
-        units: {
-          include: { tenancies: { where: { active: true }, include: { user: true } } },
+
+    const [properties, units] = await Promise.all([
+      db.property.findMany({
+        where: propWhere,
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      db.unit.findMany({
+        where: { property: propWhere },
+        select: {
+          id: true,
+          label: true,
+          propertyId: true,
+          tenancies: {
+            where: { active: true },
+            select: { user: { select: { name: true } } },
+          },
         },
-      },
-      orderBy: { name: "asc" },
-    });
+        orderBy: [{ property: { name: "asc" } }, { label: "asc" }],
+      }),
+    ]);
+
+    // Einheiten nach Objekt gruppieren
+    const unitsByProperty = new Map<string, typeof units>();
+    for (const u of units) {
+      const list = unitsByProperty.get(u.propertyId) ?? [];
+      list.push(u);
+      unitsByProperty.set(u.propertyId, list);
+    }
+
     return properties.flatMap((p) => [
       {
         propertyId: p.id,
@@ -294,7 +319,7 @@ export async function ticketTargetsForUser(user: User): Promise<TicketTarget[]> 
         tenantNames: [],
         label: `${p.name} (gesamtes Objekt)`,
       },
-      ...p.units.map((u) => {
+      ...(unitsByProperty.get(p.id) ?? []).map((u) => {
         const tenantNames = u.tenancies.map((t) => t.user.name);
         return {
           propertyId: p.id,
@@ -302,9 +327,10 @@ export async function ticketTargetsForUser(user: User): Promise<TicketTarget[]> 
           unitId: u.id,
           unitLabel: u.label,
           tenantNames,
-          label: tenantNames.length > 0
-            ? `${p.name} – ${u.label} · ${tenantNames.join(", ")}`
-            : `${p.name} – ${u.label}`,
+          label:
+            tenantNames.length > 0
+              ? `${p.name} – ${u.label} · ${tenantNames.join(", ")}`
+              : `${p.name} – ${u.label}`,
         };
       }),
     ]);

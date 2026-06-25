@@ -18,8 +18,10 @@ import {
   notifyAssignee,
   notifyCreatorNewComment,
   notifyCreatorStatusChange,
+  notifyTenantStatusChange,
   notifyVerwalterNewTicket,
 } from "@/lib/notify";
+import { computeDueAt } from "@/lib/sla";
 import { MEDIA_TYPES, DOCUMENT_TYPES, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { requireUser, requireVerwalter } from "@/lib/session";
@@ -144,6 +146,12 @@ export async function createTicket(formData: FormData) {
     if (ai) triaged = { ...ticket, trade: ai.trade ?? ticket.trade, priority: ai.priority };
   }
 
+  // SLA-Fälligkeitsdatum aus der (ggf. durch Triage angepassten) Priorität
+  await db.ticket.update({
+    where: { id: ticket.id },
+    data: { dueAt: computeDueAt(triaged.priority) },
+  });
+
   if (user.role !== "VERWALTER") {
     await notifyVerwalterNewTicket(triaged, user);
   }
@@ -264,6 +272,11 @@ export async function updateTicket(formData: FormData) {
     }
   }
 
+  const dueAtUpdate =
+    parsed.data.priority !== before.priority
+      ? { dueAt: computeDueAt(parsed.data.priority) }
+      : {};
+
   await db.ticket.update({
     where: { id: parsed.data.ticketId },
     data: {
@@ -271,6 +284,7 @@ export async function updateTicket(formData: FormData) {
       priority: parsed.data.priority,
       assignedToId,
       ...statusFields,
+      ...dueAtUpdate,
     },
   });
 
@@ -415,6 +429,14 @@ export async function confirmAppointment(formData: FormData) {
         `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
     );
   }
+  // Mieter über den bestätigten Termin informieren (verständliche Sprache)
+  await notifyTenantStatusChange(
+    ticketId,
+    `Terminbestätigung zu Ihrem Anliegen #${ticket.number}`,
+    `Bezüglich Ihres Anliegens „${ticket.title}" wurde folgender Termin vereinbart:\n\n` +
+      `${ticket.appointmentNote}\n\n` +
+      `Der Handwerker wird zu diesem Termin erscheinen.`
+  );
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}?termin=bestaetigt`);
 }
@@ -527,6 +549,20 @@ export async function confirmCompletion(formData: FormData) {
     ip: await getClientIp(),
   });
   await notifyCreatorStatusChange(ticketId, verwalter);
+  // Mieter über den Abschluss informieren
+  const closedTicket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    select: { number: true, title: true },
+  });
+  if (closedTicket) {
+    await notifyTenantStatusChange(
+      ticketId,
+      `Ihr Anliegen #${closedTicket.number} wurde abgeschlossen`,
+      `Ihr Anliegen „${closedTicket.title}" wurde durch die Hausverwaltung abgeschlossen. ` +
+        `Wir hoffen, dass alles zu Ihrer Zufriedenheit erledigt wurde.\n\n` +
+        `Bei weiteren Fragen stehen wir Ihnen gerne zur Verfügung.`
+    );
+  }
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}?abschluss=bestaetigt`);
 }
@@ -663,6 +699,14 @@ export async function notifyCraftsman(formData: FormData) {
       `${portalUrl(`/auftraege/${token}`)}\n\n` +
       `Mit freundlichen Grüßen\nB&W Immobilien Management UG\n` +
       `info@bundwimmobilien.de`
+  );
+
+  // Mieter über die Beauftragung informieren
+  await notifyTenantStatusChange(
+    ticketId,
+    `Update zu Ihrem Anliegen #${ticket.number}`,
+    `Bezüglich Ihres Anliegens „${ticket.title}" haben wir einen Handwerker beauftragt, ` +
+      `der sich darum kümmern wird. Wir melden uns zur Terminabstimmung.`
   );
 
   revalidatePath(`/vorgaenge/${ticketId}`);

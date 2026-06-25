@@ -7,6 +7,7 @@ import { canVerwalterUseCraftsman, propertyIdsForVerwalter } from "@/lib/access"
 import { db } from "@/lib/db";
 import { maintenanceIntervalMonths } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
+import { computeDueAt } from "@/lib/sla";
 
 const taskSchema = z.object({
   title: z.string().trim().min(2).max(200),
@@ -102,4 +103,50 @@ export async function deleteMaintenanceTask(formData: FormData) {
   }
   revalidatePath("/verwaltung/wartung");
   redirect("/verwaltung/wartung");
+}
+
+// Erzeugt aus einer Wartungsaufgabe einen Vorgang (Status NEU, kein Handwerker).
+// Der Verwalter muss den Handwerker manuell zuordnen und die Beauftragung freigeben.
+export async function createTicketFromTask(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const id = String(formData.get("id") ?? "");
+  if (!id) redirect("/verwaltung/wartung");
+
+  const task = await db.maintenanceTask.findUnique({
+    where: { id },
+    include: { craftsman: true, property: true },
+  });
+  if (!task || !task.active) redirect("/verwaltung/wartung");
+
+  // Scope-Prüfung für eingeschränkte Verwalter
+  const allowedPropIds = await propertyIdsForVerwalter(verwalter);
+  if (task.propertyId && allowedPropIds !== null && !allowedPropIds.includes(task.propertyId)) {
+    redirect("/verwaltung/wartung");
+  }
+
+  // Keinen zweiten Vorgang anlegen, wenn bereits ein aktiver existiert
+  const existing = await db.ticket.findFirst({
+    where: {
+      sourceMaintenanceTaskId: id,
+      status: { notIn: ["GESCHLOSSEN"] },
+    },
+    select: { id: true },
+  });
+  if (existing) redirect(`/vorgaenge/${existing.id}`);
+
+  const ticket = await db.ticket.create({
+    data: {
+      type: "SONSTIGES",
+      title: task.title,
+      description: task.description || task.title,
+      trade: task.craftsman?.trade ?? null,
+      propertyId: task.propertyId ?? null,
+      createdById: verwalter.id,
+      dueAt: computeDueAt("NORMAL"),
+      sourceMaintenanceTaskId: id,
+    },
+  });
+
+  revalidatePath("/verwaltung/wartung");
+  redirect(`/vorgaenge/${ticket.id}`);
 }

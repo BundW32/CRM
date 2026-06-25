@@ -5,12 +5,14 @@ import { db } from "@/lib/db";
 import {
   formatDate,
   maintenanceIntervalLabels,
+  ticketStatusLabels,
   tradeLabels,
 } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import {
   completeMaintenanceTask,
   createMaintenanceTask,
+  createTicketFromTask,
   deleteMaintenanceTask,
 } from "./actions";
 
@@ -43,7 +45,16 @@ export default async function WartungPage({
       orderBy: { dueDate: "asc" },
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
-      include: { property: true, craftsman: true },
+      include: {
+        property: true,
+        craftsman: true,
+        generatedTickets: {
+          where: { status: { notIn: ["GESCHLOSSEN"] } },
+          select: { id: true, status: true, number: true },
+          take: 1,
+          orderBy: { createdAt: "desc" },
+        },
+      },
     }),
     db.property.findMany({ where: propWhere, orderBy: { name: "asc" } }),
     db.craftsman.findMany({
@@ -116,7 +127,25 @@ export default async function WartungPage({
                         <p className="mt-1 text-sm text-gray-700">{t.description}</p>
                       ) : null}
                     </div>
-                    <div className="flex shrink-0 items-center gap-3">
+                    <div className="flex shrink-0 flex-wrap items-center gap-3">
+                      {t.generatedTickets[0] ? (
+                        <a
+                          href={`/vorgaenge/${t.generatedTickets[0].id}`}
+                          className="rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                        >
+                          Vorgang #{t.generatedTickets[0].number} ({ticketStatusLabels[t.generatedTickets[0].status]})
+                        </a>
+                      ) : (
+                        <form action={createTicketFromTask}>
+                          <input type="hidden" name="id" value={t.id} />
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                          >
+                            Vorgang anlegen
+                          </button>
+                        </form>
+                      )}
                       <form action={completeMaintenanceTask}>
                         <input type="hidden" name="id" value={t.id} />
                         <button

@@ -324,6 +324,12 @@ model Ticket {
   closedAt                 DateTime?
   closedById               String?
   inboundMessageId         String?         @unique // Idempotenz für E-Mail-Eingang (verhindert Doppel-Tickets)
+  // SLA-Fälligkeitsdatum – wird aus der Priorität beim Erstellen berechnet;
+  // bei Prioritätsänderung wird es relativ zum Änderungszeitpunkt neu gesetzt.
+  dueAt                    DateTime?
+  // Herkunft: Vorgang aus einer Wartungsaufgabe erzeugt (Rückverfolgung)
+  sourceMaintenanceTaskId  String?
+  sourceMaintenanceTask    MaintenanceTask? @relation(fields: [sourceMaintenanceTaskId], references: [id], onDelete: SetNull)
   createdById              String
   createdBy                User            @relation("TicketCreatedBy", fields: [createdById], references: [id])
   assignedToId             String?
@@ -349,6 +355,8 @@ model Ticket {
   @@index([updatedAt])
   @@index([type])
   @@index([priority])
+  @@index([dueAt])
+  @@index([sourceMaintenanceTaskId])
 }
 
 // Handwerker als Stammdaten (Kontaktbuch) – ohne eigenen Portal-Login
@@ -379,18 +387,19 @@ model Craftsman {
 
 // Wartungs-/Prüfaufgaben mit Fälligkeit (visuelle Erinnerung)
 model MaintenanceTask {
-  id          String              @id @default(cuid())
-  title       String
-  description String?
-  interval    MaintenanceInterval
-  dueDate     DateTime
-  lastDoneAt  DateTime?
-  active      Boolean             @default(true)
-  propertyId  String?
-  property    Property?           @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  craftsmanId String?
-  craftsman   Craftsman?          @relation(fields: [craftsmanId], references: [id], onDelete: SetNull)
-  createdAt   DateTime            @default(now())
+  id               String              @id @default(cuid())
+  title            String
+  description      String?
+  interval         MaintenanceInterval
+  dueDate          DateTime
+  lastDoneAt       DateTime?
+  active           Boolean             @default(true)
+  propertyId       String?
+  property         Property?           @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  craftsmanId      String?
+  craftsman        Craftsman?          @relation(fields: [craftsmanId], references: [id], onDelete: SetNull)
+  createdAt        DateTime            @default(now())
+  generatedTickets Ticket[]
 
   @@index([propertyId])
   @@index([dueDate])

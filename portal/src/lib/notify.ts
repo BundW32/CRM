@@ -6,6 +6,44 @@ import { portalUrl, sendMail } from "./mailer";
 import { sendPush, sendPushToUsers } from "./push";
 import { ticketStatusLabels, ticketTypeLabels, tradeLabels } from "./labels";
 
+// Sendet eine verständliche Statusmail an den/die Mieter der betreffenden
+// Einheit – übersetzt technische Statusbezeichnungen in Alltagssprache.
+// Schickt nur an Mieter mit E-Mail-Adresse; überspringt den Ticket-Ersteller
+// (der bekommt die Benachrichtigung ohnehin über notifyCreatorStatusChange).
+export async function notifyTenantStatusChange(
+  ticketId: string,
+  subject: string,
+  body: string
+): Promise<void> {
+  try {
+    const ticket = await db.ticket.findUnique({
+      where: { id: ticketId },
+      select: { unitId: true, createdById: true, number: true },
+    });
+    if (!ticket?.unitId) return;
+
+    const tenancies = await db.tenancy.findMany({
+      where: { unitId: ticket.unitId, active: true },
+      select: { user: { select: { id: true, email: true, name: true } } },
+    });
+
+    await Promise.all(
+      tenancies
+        .map((t) => t.user)
+        .filter((u) => u.email && u.id !== ticket.createdById)
+        .map((u) =>
+          sendMail(
+            u.email!,
+            subject,
+            `Guten Tag ${u.name},\n\n${body}\n\nMit freundlichen Grüßen\nB&W Immobilien Management UG`
+          ).catch(() => {})
+        )
+    );
+  } catch {
+    // Fehler dürfen die Hauptaktion nicht unterbrechen
+  }
+}
+
 export async function notifyVerwalterNewTicket(ticket: Ticket, createdBy: User) {
   const verwalter = await db.user.findMany({
     where: { role: "VERWALTER", active: true },

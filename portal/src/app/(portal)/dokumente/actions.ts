@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { notifyDocumentPublished } from "@/lib/notify";
 import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
 import { requireUser, requireVerwalter } from "@/lib/session";
 
@@ -59,7 +60,7 @@ export async function uploadDocument(formData: FormData) {
     redirect("/infos?t=dokumente&fehler=datei");
   }
 
-  await db.document.create({
+  const doc = await db.document.create({
     data: {
       title: parsed.data.title,
       category: parsed.data.category,
@@ -70,6 +71,9 @@ export async function uploadDocument(formData: FormData) {
       ...upload,
     },
   });
+
+  // Mieter/Eigentümer im Scope über das neue Dokument informieren
+  await notifyDocumentPublished(doc.id);
 
   revalidatePath("/infos");
   redirect("/infos?t=dokumente");

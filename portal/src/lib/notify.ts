@@ -131,6 +131,73 @@ export async function notifyAssignee(ticketId: string, assignee: User) {
   });
 }
 
+// Benachrichtigt Mieter/Eigentümer über ein neu bereitgestelltes Dokument.
+// Wichtig: NUR im Objekt-/Einheiten-Scope. Bei objektlosen ("globalen") Dokumenten
+// wird bewusst NICHT benachrichtigt, um Benachrichtigungs-Spam zu vermeiden.
+export async function notifyDocumentPublished(documentId: string): Promise<void> {
+  try {
+    const doc = await db.document.findUnique({ where: { id: documentId } });
+    // Ohne Objekt-/Einheiten-Bezug keine Massenmail an alle Nutzer
+    if (!doc || (!doc.propertyId && !doc.unitId)) return;
+
+    const wantMieter = doc.audience === "MIETER" || doc.audience === "ALLE";
+    const wantEigentuemer = doc.audience === "EIGENTUEMER" || doc.audience === "ALLE";
+
+    type Recipient = { id: string; email: string | null; name: string; active: boolean };
+    const recipients = new Map<string, Recipient>();
+
+    if (wantMieter) {
+      const tenancies = await db.tenancy.findMany({
+        where: {
+          active: true,
+          ...(doc.unitId
+            ? { unitId: doc.unitId }
+            : { unit: { propertyId: doc.propertyId! } }),
+        },
+        select: { user: { select: { id: true, email: true, name: true, active: true } } },
+      });
+      for (const t of tenancies) recipients.set(t.user.id, t.user);
+    }
+
+    if (wantEigentuemer && doc.propertyId) {
+      const ownerships = await db.ownership.findMany({
+        where: { propertyId: doc.propertyId },
+        select: { user: { select: { id: true, email: true, name: true, active: true } } },
+      });
+      for (const o of ownerships) recipients.set(o.user.id, o.user);
+    }
+
+    // Hochladenden Verwalter ausschließen, Inaktive überspringen
+    const targets = [...recipients.values()].filter(
+      (u) => u.active && u.id !== doc.uploadedById
+    );
+    if (targets.length === 0) return;
+
+    const link = portalUrl("/infos?t=dokumente");
+    await Promise.all(
+      targets
+        .filter((u) => u.email)
+        .map((u) =>
+          sendMail(
+            u.email!,
+            `Neues Dokument verfügbar: ${doc.title}`,
+            `Guten Tag ${u.name},\n\n` +
+              `Ihre Hausverwaltung hat ein neues Dokument für Sie bereitgestellt:\n` +
+              `„${doc.title}"\n\n` +
+              `Sie finden es im Portal unter Infos → Dokumente:\n${link}\n\n` +
+              `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+          ).catch(() => {})
+        )
+    );
+    await sendPushToUsers(
+      targets.map((u) => u.id),
+      { title: "Neues Dokument verfügbar", body: doc.title, url: "/infos?t=dokumente" }
+    );
+  } catch {
+    // Benachrichtigung darf den Upload nie blockieren
+  }
+}
+
 export async function notifyWelcome(user: User) {
   await sendMail(
     user.email,

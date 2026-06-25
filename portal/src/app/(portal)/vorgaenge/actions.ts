@@ -328,6 +328,82 @@ export async function releaseExternalCraftsman(formData: FormData) {
   redirect(`/vorgaenge/${ticketId}?freigegeben=1`);
 }
 
+// Verwalter bestätigt den vom Handwerker vorgeschlagenen Termin. Erst danach gilt
+// der Termin als verbindlich; der Handwerker wird (falls E-Mail vorhanden) informiert.
+export async function confirmAppointment(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const ticket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    include: { craftsman: true },
+  });
+  if (!ticket) redirect("/vorgaenge");
+  if (!ticket.appointmentNote) redirect(`/vorgaenge/${ticketId}`);
+
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: { appointmentConfirmedAt: new Date(), appointmentConfirmedById: verwalter.id },
+  });
+  await db.ticketComment.create({
+    data: {
+      ticketId,
+      authorId: verwalter.id,
+      internal: true,
+      body: `Termin bestätigt: ${ticket.appointmentNote}`,
+    },
+  });
+  if (ticket.craftsman?.email) {
+    await sendMail(
+      ticket.craftsman.email,
+      `Termin bestätigt – Auftrag #${ticket.number}`,
+      `Guten Tag ${ticket.craftsman.name},\n\n` +
+        `Ihr Terminvorschlag für Vorgang #${ticket.number} „${ticket.title}" wurde bestätigt:\n` +
+        `${ticket.appointmentNote}\n\n` +
+        `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+    );
+  }
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?termin=bestaetigt`);
+}
+
+// Verwalter lehnt den Terminvorschlag ab (bittet um einen neuen Termin).
+export async function declineAppointment(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const ticket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    include: { craftsman: true },
+  });
+  if (!ticket) redirect("/vorgaenge");
+  if (!ticket.appointmentNote) redirect(`/vorgaenge/${ticketId}`);
+
+  const abgelehnt = ticket.appointmentNote;
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: { appointmentNote: null, appointmentConfirmedAt: null, appointmentConfirmedById: null },
+  });
+  await db.ticketComment.create({
+    data: {
+      ticketId,
+      authorId: verwalter.id,
+      internal: true,
+      body: `Terminvorschlag abgelehnt: ${abgelehnt}. Neuer Termin angefragt.`,
+    },
+  });
+  if (ticket.craftsman?.email) {
+    await sendMail(
+      ticket.craftsman.email,
+      `Bitte neuen Termin vorschlagen – Auftrag #${ticket.number}`,
+      `Guten Tag ${ticket.craftsman.name},\n\n` +
+        `Ihr Terminvorschlag für Vorgang #${ticket.number} „${ticket.title}" (${abgelehnt}) ` +
+        `passt leider nicht. Bitte schlagen Sie über das Auftragsportal einen neuen Termin vor.\n\n` +
+        `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+    );
+  }
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?termin=abgelehnt`);
+}
+
 // Verwalter beauftragt den zugeordneten Handwerker per E-Mail mit den Vorgangsdaten
 export async function notifyCraftsman(formData: FormData) {
   const verwalter = await requireVerwalter();

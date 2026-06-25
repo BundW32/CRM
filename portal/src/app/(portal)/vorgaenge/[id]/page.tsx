@@ -32,6 +32,8 @@ import { requireUser } from "@/lib/session";
 import {
   addComment,
   assignCraftsman,
+  confirmAppointment,
+  declineAppointment,
   releaseExternalCraftsman,
   generateCertificate,
   notifyCraftsman,
@@ -53,13 +55,15 @@ export default async function TicketDetailPage({
     bereitgestellt?: string;
     zugeordnet?: string;
     freigegeben?: string;
+    termin?: string;
     fehler?: string;
     msg?: string;
   }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { beauftragt, bereitgestellt, zugeordnet, freigegeben, fehler, msg } = await searchParams;
+  const { beauftragt, bereitgestellt, zugeordnet, freigegeben, termin, fehler, msg } =
+    await searchParams;
 
   const ticket = await db.ticket.findUnique({
     where: { id },
@@ -144,6 +148,16 @@ export default async function TicketDetailPage({
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
           Externe Beauftragung freigegeben. Sie können den externen Handwerker jetzt
           beauftragen.
+        </p>
+      ) : null}
+      {termin === "bestaetigt" ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Termin bestätigt. Der Handwerker wurde informiert (sofern SMTP konfiguriert ist).
+        </p>
+      ) : null}
+      {termin === "abgelehnt" ? (
+        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Terminvorschlag abgelehnt. Der Handwerker wurde um einen neuen Termin gebeten.
         </p>
       ) : null}
       {fehler === "freigabe" ? (
@@ -673,6 +687,43 @@ export default async function TicketDetailPage({
                       </form>
                     </div>
                   )}
+
+                  {/* Terminvorschlag des Handwerkers – wird erst mit Bestätigung wirksam */}
+                  {ticket.appointmentNote ? (
+                    ticket.appointmentConfirmedAt ? (
+                      <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3">
+                        <p className="text-xs font-semibold text-green-800">✓ Termin bestätigt</p>
+                        <p className="mt-0.5 text-sm text-green-900">{ticket.appointmentNote}</p>
+                        <p className="mt-0.5 text-xs text-green-700">
+                          bestätigt am {formatDate(ticket.appointmentConfirmedAt)}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                        <p className="text-xs font-semibold text-amber-800">
+                          Terminvorschlag des Handwerkers – bitte bestätigen
+                        </p>
+                        <p className="mt-0.5 text-sm text-amber-900">{ticket.appointmentNote}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <form action={confirmAppointment}>
+                            <input type="hidden" name="ticketId" value={ticket.id} />
+                            <button type="submit" className={buttonClass}>
+                              Termin bestätigen
+                            </button>
+                          </form>
+                          <form action={declineAppointment}>
+                            <input type="hidden" name="ticketId" value={ticket.id} />
+                            <button
+                              type="submit"
+                              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                              Ablehnen / neuen Termin anfragen
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+                    )
+                  ) : null}
                 </div>
               ) : null}
             </Card>

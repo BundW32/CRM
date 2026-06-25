@@ -85,11 +85,16 @@ export async function craftsmanAppointment(formData: FormData) {
   if (!auth) redirect(`/auftraege/${token}`);
   if (!note) redirect(`/auftraege/${token}`);
 
-  await db.ticket.update({ where: { id: ticketId }, data: { appointmentNote: note } });
+  // Neuer Vorschlag → Bestätigung zurücksetzen; wird erst wirksam, wenn der
+  // Verwalter ihn bestätigt.
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: { appointmentNote: note, appointmentConfirmedAt: null, appointmentConfirmedById: null },
+  });
   await addCraftsmanComment(ticketId, auth.craftsman.id, `Terminvorschlag: ${note}`);
   await notifyVerwalter(
     auth.ticket,
-    `${auth.craftsman.name} schlägt einen Termin vor: ${note}`
+    `${auth.craftsman.name} schlägt einen Termin vor: ${note} (bitte bestätigen)`
   );
   redirect(`/auftraege/${token}`);
 }

@@ -119,9 +119,15 @@ export default async function AuftraegePage({
               ) : null}
 
               {t.appointmentNote ? (
-                <p className="mt-3 rounded-md bg-brand-orange-light px-3 py-2 text-xs text-brand-green-dark">
-                  Ihr Terminvorschlag: {t.appointmentNote}
-                </p>
+                t.appointmentConfirmedAt ? (
+                  <p className="mt-3 rounded-md bg-green-50 px-3 py-2 text-xs text-green-800">
+                    ✓ Termin bestätigt: {t.appointmentNote}
+                  </p>
+                ) : (
+                  <p className="mt-3 rounded-md bg-brand-orange-light px-3 py-2 text-xs text-brand-green-dark">
+                    Ihr Terminvorschlag (wartet auf Bestätigung): {t.appointmentNote}
+                  </p>
+                )
               ) : null}
 
               {t.comments.length > 0 ? (

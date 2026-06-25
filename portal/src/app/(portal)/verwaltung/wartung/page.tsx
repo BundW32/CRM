@@ -18,13 +18,17 @@ export const dynamic = "force-dynamic";
 
 const DAY = 1000 * 60 * 60 * 24;
 
+const PAGE_SIZE = 30;
+
 export default async function WartungPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; page?: string }>;
 }) {
   const verwalter = await requireVerwalter();
-  const { fehler } = await searchParams;
+  const params = await searchParams;
+  const { fehler } = params;
+  const currentPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
   const assignedIds = await propertyIdsForVerwalter(verwalter);
   const propWhere = assignedIds === null ? {} : { id: { in: assignedIds } };
   const taskWhere =
@@ -32,10 +36,13 @@ export default async function WartungPage({
       ? { active: true }
       : { active: true, property: { id: { in: assignedIds } } };
 
-  const [tasks, properties, craftsmen] = await Promise.all([
+  const [total, tasks, properties, craftsmen] = await Promise.all([
+    db.maintenanceTask.count({ where: taskWhere }),
     db.maintenanceTask.findMany({
       where: taskWhere,
       orderBy: { dueDate: "asc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       include: { property: true, craftsman: true },
     }),
     db.property.findMany({ where: propWhere, orderBy: { name: "asc" } }),
@@ -44,6 +51,14 @@ export default async function WartungPage({
       orderBy: { name: "asc" },
     }),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  function pageHref(p: number) {
+    const sp = new URLSearchParams();
+    if (p > 1) sp.set("page", String(p));
+    const q = sp.toString();
+    return `/verwaltung/wartung${q ? `?${q}` : ""}`;
+  }
 
   const now = new Date().getTime();
 
@@ -123,6 +138,34 @@ export default async function WartungPage({
               );
             })
           )}
+
+          {totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between">
+              {currentPage > 1 ? (
+                <a
+                  href={pageHref(currentPage - 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  ← Zurück
+                </a>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-gray-400">
+                Seite {currentPage} von {totalPages} · {total} Einträge
+              </span>
+              {currentPage < totalPages ? (
+                <a
+                  href={pageHref(currentPage + 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Weiter →
+                </a>
+              ) : (
+                <span />
+              )}
+            </div>
+          ) : null}
         </div>
 
         <Card title="Wartung anlegen">

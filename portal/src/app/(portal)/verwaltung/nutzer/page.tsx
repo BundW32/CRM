@@ -6,13 +6,13 @@ import { propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, roleLabels, tradeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
+import { AddTenancyForm } from "./add-tenancy-form";
 import { CraftsmanAssignPicker } from "./craftsman-assign";
 import { NewUserForm } from "./new-user-form";
 import { PropertyAssignPicker } from "./property-assign";
 import { UserRow } from "./user-row";
 import {
   addOwnership,
-  addTenancy,
   anonymizeUser,
   regenerateAccessLetter,
   removeCraftsmanAssignment,
@@ -99,9 +99,11 @@ export default async function UsersPage({
         craftsmanAssignments: { include: { craftsman: true } },
       },
     }),
+    // Objektliste ohne Einheiten (die laden die Formulare on demand). Adressfelder
+    // werden für Filter-Dropdown und Objekt-Zuweisung benötigt.
     db.property.findMany({
       where: await propertyWhereForVerwalter(verwalter),
-      include: { units: true },
+      select: { id: true, name: true, street: true, zip: true, city: true },
       orderBy: { name: "asc" },
     }),
     // Handwerker-Pool nur für SuperAdmins (für die optionale Freigabe-Auswahl)
@@ -132,11 +134,7 @@ export default async function UsersPage({
     return qs ? `/verwaltung/nutzer?${qs}` : "/verwaltung/nutzer";
   }
 
-  const propsForNewUser = properties.map((p) => ({
-    id: p.id,
-    name: p.name,
-    units: p.units.map((u) => ({ id: u.id, label: u.label })),
-  }));
+  const propsForNewUser = properties.map((p) => ({ id: p.id, name: p.name }));
 
   return (
     <>
@@ -245,12 +243,7 @@ export default async function UsersPage({
                   u.passwordResetExpiry !== null &&
                   u.passwordResetExpiry > new Date();
 
-                const assignedUnitIds = new Set(u.tenancies.map((t) => t.unitId));
-                const availableUnits = properties.flatMap((p) =>
-                  p.units
-                    .filter((un) => !assignedUnitIds.has(un.id))
-                    .map((un) => ({ ...un, propertyName: p.name }))
-                );
+                const assignedUnitIds = u.tenancies.map((t) => t.unitId);
                 const assignedOwnPropIds = new Set(u.ownerships.map((o) => o.propertyId));
                 const availableOwnProps = properties.filter((p) => !assignedOwnPropIds.has(p.id));
                 const assignedMgmtPropIds = new Set(u.propertyAssignments.map((a) => a.propertyId));
@@ -361,24 +354,11 @@ export default async function UsersPage({
                             ))}
                           </ul>
                         )}
-                        {availableUnits.length > 0 ? (
-                          <form action={addTenancy} className="mt-2 flex flex-wrap items-center gap-2">
-                            <input type="hidden" name="userId" value={u.id} />
-                            <select name="unitId" required className={`${inputClass} flex-1 text-xs`}>
-                              {availableUnits.map((un) => (
-                                <option key={un.id} value={un.id}>
-                                  {un.propertyName} – {un.label}
-                                </option>
-                              ))}
-                            </select>
-                            <PendingButton
-                              pendingLabel="…"
-                              className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                            >
-                              + Einheit hinzufügen
-                            </PendingButton>
-                          </form>
-                        ) : null}
+                        <AddTenancyForm
+                          userId={u.id}
+                          properties={properties}
+                          assignedUnitIds={assignedUnitIds}
+                        />
                       </div>
                     ) : null}
 

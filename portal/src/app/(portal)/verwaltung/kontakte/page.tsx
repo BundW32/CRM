@@ -1,12 +1,12 @@
 import { Field, PageTitle, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
-import { craftsmanWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
+import { craftsmanWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { tradeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import { createCraftsman } from "./actions";
 import { KontakteListe } from "./KontakteListe";
-import type { CraftsmanRow, PersonRow } from "./KontakteListe";
+import type { CraftsmanRow } from "./KontakteListe";
 
 export const dynamic = "force-dynamic";
 
@@ -20,20 +20,13 @@ export default async function KontaktePage({
   const verwalter = await requireVerwalter();
   const { fehler, angelegt } = await searchParams;
 
-  // Handwerker sind ein gemeinsamer Pool (alle Verwalter), Personen dagegen
-  // werden auf den Zuständigkeitsbereich des Verwalters eingeschränkt.
-  const [craftsmenRaw, personsRaw] = await Promise.all([
-    db.craftsman.findMany({
-      where: await craftsmanWhereForVerwalter(verwalter),
-      orderBy: [{ active: "desc" }, { trade: "asc" }, { name: "asc" }],
-    }),
-    db.user.findMany({
-      where: {
-        AND: [{ role: { in: ["MIETER", "EIGENTUEMER"] } }, await userWhereForVerwalter(verwalter)],
-      },
-      orderBy: [{ role: "asc" }, { name: "asc" }],
-    }),
-  ]);
+  // Handwerker sind ein gemeinsamer Pool (überschaubar) und werden komplett geladen;
+  // Mieter/Eigentümer werden im Kontaktbuch serverseitig gesucht (skaliert bei großen
+  // Beständen) – siehe KontakteListe / searchContactPersons.
+  const craftsmenRaw = await db.craftsman.findMany({
+    where: await craftsmanWhereForVerwalter(verwalter),
+    orderBy: [{ active: "desc" }, { trade: "asc" }, { name: "asc" }],
+  });
 
   const craftsmen: CraftsmanRow[] = craftsmenRaw.map((c) => ({
     id: c.id,
@@ -46,15 +39,6 @@ export default async function KontaktePage({
     notes: c.notes,
     active: c.active,
     accessToken: c.accessToken,
-  }));
-
-  const persons: PersonRow[] = personsRaw.map((p) => ({
-    id: p.id,
-    name: p.name,
-    role: p.role as PersonRow["role"],
-    email: p.email,
-    phone: p.phone,
-    preferredContact: p.preferredContact ?? null,
   }));
 
   return (
@@ -75,7 +59,7 @@ export default async function KontaktePage({
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Handwerker-Liste + Personen */}
         <div className="lg:col-span-2">
-          <KontakteListe craftsmen={craftsmen} persons={persons} />
+          <KontakteListe craftsmen={craftsmen} />
         </div>
 
         {/* Handwerker anlegen */}

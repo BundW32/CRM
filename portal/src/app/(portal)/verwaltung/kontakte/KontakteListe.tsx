@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Card, inputClass } from "@/components/ui";
 import { contactMethodLabels, tradeLabels } from "@/lib/labels";
 import { portalUrl } from "@/lib/url";
 import {
   deleteCraftsman,
+  searchContactPersons,
   toggleCraftsmanActive,
   updatePersonContact,
+  type ContactPerson,
 } from "./actions";
 
 type Trade = keyof typeof tradeLabels;
@@ -25,24 +27,9 @@ export type CraftsmanRow = {
   accessToken: string | null;
 };
 
-export type PersonRow = {
-  id: string;
-  name: string;
-  role: "MIETER" | "EIGENTUEMER";
-  email: string | null;
-  phone: string | null;
-  preferredContact: string | null;
-};
-
 const TRADE_ORDER = Object.keys(tradeLabels) as Trade[];
 
-export function KontakteListe({
-  craftsmen,
-  persons,
-}: {
-  craftsmen: CraftsmanRow[];
-  persons: PersonRow[];
-}) {
+export function KontakteListe({ craftsmen }: { craftsmen: CraftsmanRow[] }) {
   const [search, setSearch] = useState("");
 
   const q = search.toLowerCase();
@@ -58,24 +45,12 @@ export function KontakteListe({
       )
     : craftsmen;
 
-  const filteredPersons = q
-    ? persons.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          (p.email ?? "").toLowerCase().includes(q) ||
-          (p.phone ?? "").toLowerCase().includes(q)
-      )
-    : persons;
-
   // Group craftsmen by trade
   const byTrade: Record<string, CraftsmanRow[]> = {};
   for (const c of filteredCraftsmen) {
     if (!byTrade[c.trade]) byTrade[c.trade] = [];
     byTrade[c.trade].push(c);
   }
-
-  const eigentuemer = filteredPersons.filter((p) => p.role === "EIGENTUEMER");
-  const mieter = filteredPersons.filter((p) => p.role === "MIETER");
 
   return (
     <div className="space-y-4">
@@ -170,46 +145,85 @@ export function KontakteListe({
         )}
       </Card>
 
-      {/* Personen */}
-      <Card title={`Mieter & Eigentümer (${filteredPersons.length})`}>
-        {filteredPersons.length === 0 ? (
-          <p className="text-sm text-gray-500">
-            {q ? "Keine Personen gefunden." : "Noch keine Personen vorhanden."}
-          </p>
-        ) : (
-          <div className="space-y-6">
-            {eigentuemer.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-sm font-semibold text-gray-700">
-                  Eigentümer ({eigentuemer.length})
-                </h3>
-                <ul className="divide-y divide-gray-100">
-                  {eigentuemer.map((p) => (
-                    <PersonCard key={p.id} person={p} />
-                  ))}
-                </ul>
-              </div>
-            )}
-            {mieter.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-sm font-semibold text-gray-700">
-                  Mieter ({mieter.length})
-                </h3>
-                <ul className="divide-y divide-gray-100">
-                  {mieter.map((p) => (
-                    <PersonCard key={p.id} person={p} />
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-      </Card>
+      {/* Personen – serverseitige Suche (skaliert bei vielen Mietern/Eigentümern) */}
+      <PersonenListe query={search} />
     </div>
   );
 }
 
-function PersonCard({ person: p }: { person: PersonRow }) {
+const PERSON_LIMIT = 50;
+
+function PersonenListe({ query }: { query: string }) {
+  const [persons, setPersons] = useState<ContactPerson[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const reqRef = useRef(0);
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const req = ++reqRef.current;
+      startTransition(async () => {
+        const found = await searchContactPersons(query);
+        if (reqRef.current === req) {
+          setPersons(found);
+          setLoaded(true);
+        }
+      });
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [query]);
+
+  const eigentuemer = persons.filter((p) => p.role === "EIGENTUEMER");
+  const mieter = persons.filter((p) => p.role === "MIETER");
+
+  return (
+    <Card title={`Mieter & Eigentümer${pending ? " …" : ""}`}>
+      {persons.length === 0 ? (
+        <p className="text-sm text-gray-500">
+          {!loaded || pending
+            ? "Wird geladen …"
+            : query
+              ? "Keine Personen gefunden."
+              : "Noch keine Personen vorhanden."}
+        </p>
+      ) : (
+        <div className="space-y-6">
+          {eigentuemer.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-gray-700">
+                Eigentümer ({eigentuemer.length})
+              </h3>
+              <ul className="divide-y divide-gray-100">
+                {eigentuemer.map((p) => (
+                  <PersonCard key={p.id} person={p} />
+                ))}
+              </ul>
+            </div>
+          )}
+          {mieter.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-gray-700">
+                Mieter ({mieter.length})
+              </h3>
+              <ul className="divide-y divide-gray-100">
+                {mieter.map((p) => (
+                  <PersonCard key={p.id} person={p} />
+                ))}
+              </ul>
+            </div>
+          )}
+          {persons.length >= PERSON_LIMIT ? (
+            <p className="text-xs text-gray-400">
+              Es werden die ersten {PERSON_LIMIT} Treffer angezeigt – bitte Suche verfeinern.
+            </p>
+          ) : null}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function PersonCard({ person: p }: { person: ContactPerson }) {
   return (
     <li className="py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">

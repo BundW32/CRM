@@ -1,16 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useRef, useState, useTransition } from "react";
+import { loadUnitsForProperty, type UnitOption } from "@/app/(portal)/unit-options";
 import { Field, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { createUser } from "./actions";
 
-type Unit = { id: string; label: string };
-type Property = { id: string; name: string; units: Unit[] };
+type Property = { id: string; name: string };
 
 // Rollenabhängiges Anlegen: je nach Rolle erscheint nur das passende Zuordnungsfeld
-// (Mieter → Objekt + Wohnung gekoppelt, Eigentümer → Objekt). So keine endlose,
-// ungefilterte Wohnungsliste mehr.
+// (Mieter → Objekt + Wohnung gekoppelt, Eigentümer → Objekt). Die Einheiten werden
+// on demand für das gewählte Objekt nachgeladen – keine endlose Wohnungsliste.
 export function NewUserForm({
   properties,
   isSuperAdmin,
@@ -21,17 +21,20 @@ export function NewUserForm({
   const [role, setRole] = useState("MIETER");
   const [propertyId, setPropertyId] = useState("");
   const [unitId, setUnitId] = useState("");
-
-  const selected = useMemo(
-    () => properties.find((p) => p.id === propertyId) ?? null,
-    [properties, propertyId]
-  );
+  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [pending, startTransition] = useTransition();
+  const reqRef = useRef(0);
 
   function handlePropertyChange(value: string) {
     setPropertyId(value);
-    setUnitId((prev) =>
-      prev && properties.find((p) => p.id === value)?.units.some((u) => u.id === prev) ? prev : ""
-    );
+    setUnitId("");
+    setUnits([]);
+    const req = ++reqRef.current;
+    if (!value) return;
+    startTransition(async () => {
+      const loaded = await loadUnitsForProperty(value);
+      if (reqRef.current === req) setUnits(loaded);
+    });
   }
 
   return (
@@ -109,11 +112,11 @@ export function NewUserForm({
               name="unitId"
               value={unitId}
               onChange={(e) => setUnitId(e.target.value)}
-              disabled={!propertyId}
+              disabled={!propertyId || pending}
               className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
             >
-              <option value="">– Keine –</option>
-              {selected?.units.map((u) => (
+              <option value="">{pending ? "wird geladen …" : "– Keine –"}</option>
+              {units.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.label}
                 </option>

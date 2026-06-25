@@ -14,6 +14,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 30;
+
 const statusTone: Record<string, string> = {
   OFFEN: "bg-blue-100 text-blue-800",
   ANGENOMMEN: "bg-green-100 text-green-800",
@@ -44,13 +46,15 @@ function Tally({
 export default async function BeschluessePage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; page?: string }>;
 }) {
   const user = await requireUser();
   if (user.role !== "VERWALTER" && user.role !== "EIGENTUEMER") {
     redirect("/dashboard");
   }
-  const { fehler } = await searchParams;
+  const params = await searchParams;
+  const { fehler } = params;
+  const currentPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
   const isVerwalter = user.role === "VERWALTER";
 
   let where = {};
@@ -62,11 +66,24 @@ export default async function BeschluessePage({
     where = { propertyId: { in: props.map((p) => p.id) } };
   }
 
-  const resolutions = await db.resolution.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    include: { property: true, votes: { include: { user: true } } },
-  });
+  const [total, resolutions] = await Promise.all([
+    db.resolution.count({ where }),
+    db.resolution.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: { property: true, votes: { include: { user: true } } },
+    }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  function pageHref(p: number) {
+    const sp = new URLSearchParams();
+    if (p > 1) sp.set("page", String(p));
+    const q = sp.toString();
+    return `/beschluesse${q ? `?${q}` : ""}`;
+  }
 
   const propIds = [...new Set(resolutions.map((r) => r.propertyId))];
   const ownerCounts = await db.ownership.groupBy({
@@ -231,6 +248,34 @@ export default async function BeschluessePage({
               </ul>
             </div>
           )}
+
+          {totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between">
+              {currentPage > 1 ? (
+                <a
+                  href={pageHref(currentPage - 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  ← Zurück
+                </a>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-gray-400">
+                Seite {currentPage} von {totalPages} · {total} Einträge
+              </span>
+              {currentPage < totalPages ? (
+                <a
+                  href={pageHref(currentPage + 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Weiter →
+                </a>
+              ) : (
+                <span />
+              )}
+            </div>
+          ) : null}
         </div>
 
         {isVerwalter ? (

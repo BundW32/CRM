@@ -10,13 +10,16 @@ import { MeterTargetPicker } from "./meter-target-picker";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 30;
+
 export default async function ZaehlerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
+  searchParams: Promise<{ fehler?: string; gespeichert?: string; page?: string }>;
 }) {
   const user = await requireUser();
-  const { fehler, gespeichert } = await searchParams;
+  const { fehler, gespeichert, page } = await searchParams;
+  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
   const isVerwalter = user.role === "VERWALTER";
   const isMieter = user.role === "MIETER";
 
@@ -49,15 +52,25 @@ export default async function ZaehlerPage({
     };
   }
 
-  const meters = await db.meter.findMany({
-    where: meterWhere,
-    orderBy: { createdAt: "asc" },
-    include: {
-      unit: { include: { property: true } },
-      property: true,
-      readings: { orderBy: { readingDate: "desc" }, take: 3, include: { createdBy: true } },
-    },
-  });
+  const [totalMeters, meters] = await Promise.all([
+    db.meter.count({ where: meterWhere }),
+    db.meter.findMany({
+      where: meterWhere,
+      orderBy: { createdAt: "asc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: {
+        unit: { include: { property: true } },
+        property: true,
+        readings: { orderBy: { readingDate: "desc" }, take: 3, include: { createdBy: true } },
+      },
+    }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(totalMeters / PAGE_SIZE));
+
+  function pageHref(p: number) {
+    return p > 1 ? `/zaehler?page=${p}` : "/zaehler";
+  }
 
   function canSubmit(m: (typeof meters)[number]) {
     if (isVerwalter) return true;
@@ -178,6 +191,34 @@ export default async function ZaehlerPage({
               </Card>
             ))
           )}
+
+          {totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between">
+              {currentPage > 1 ? (
+                <a
+                  href={pageHref(currentPage - 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  ← Zurück
+                </a>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-gray-400">
+                Seite {currentPage} von {totalPages} · {totalMeters} Zähler
+              </span>
+              {currentPage < totalPages ? (
+                <a
+                  href={pageHref(currentPage + 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Weiter →
+                </a>
+              ) : (
+                <span />
+              )}
+            </div>
+          ) : null}
         </div>
 
         {isVerwalter ? (

@@ -4,8 +4,60 @@ import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { canVerwalterManageUser, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
+
+export type ContactPerson = {
+  id: string;
+  name: string;
+  role: "MIETER" | "EIGENTUEMER";
+  email: string | null;
+  phone: string | null;
+  preferredContact: string | null;
+};
+
+const CONTACT_PERSON_LIMIT = 50;
+
+/**
+ * Sucht Mieter/Eigentümer im Scope des Verwalters **serverseitig** und gedeckelt
+ * – statt alle (potenziell zehntausende) Personen ins Kontaktbuch zu laden.
+ * Ohne Suchbegriff werden die ersten Treffer geliefert.
+ */
+export async function searchContactPersons(query: string): Promise<ContactPerson[]> {
+  const verwalter = await requireVerwalter();
+  const q = query.trim();
+  const persons = await db.user.findMany({
+    where: {
+      AND: [
+        { role: { in: ["MIETER", "EIGENTUEMER"] } },
+        ...(q
+          ? [
+              {
+                OR: [
+                  { name: { contains: q, mode: "insensitive" as const } },
+                  { email: { contains: q, mode: "insensitive" as const } },
+                  { phone: { contains: q, mode: "insensitive" as const } },
+                ],
+              },
+            ]
+          : []),
+        await userWhereForVerwalter(verwalter),
+      ],
+    },
+    orderBy: [{ role: "asc" }, { name: "asc" }],
+    take: CONTACT_PERSON_LIMIT,
+    select: { id: true, name: true, role: true, email: true, phone: true, preferredContact: true },
+  });
+  return persons.map((p) => ({
+    id: p.id,
+    name: p.name,
+    role: p.role as "MIETER" | "EIGENTUEMER",
+    email: p.email,
+    phone: p.phone,
+    preferredContact: p.preferredContact ?? null,
+  }));
+}
 
 const TRADES = [
   "SANITAER", "HEIZUNG", "ELEKTRO", "DACH", "MALER", "BODENLEGER",
@@ -84,7 +136,7 @@ export async function deleteCraftsman(formData: FormData) {
 }
 
 export async function updatePersonContact(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   const phoneRaw = String(formData.get("phone") ?? "").trim();
   const pcRaw = String(formData.get("preferredContact") ?? "");
@@ -92,8 +144,8 @@ export async function updatePersonContact(formData: FormData) {
     ? (pcRaw as (typeof CONTACT_METHODS)[number])
     : null;
 
-  const user = await db.user.findUnique({ where: { id } });
-  if (user) {
+  // Scope-Prüfung: nur Personen im eigenen Zuständigkeitsbereich bearbeiten.
+  if (id && (await canVerwalterManageUser(verwalter, id))) {
     await db.user.update({
       where: { id },
       data: { phone: phoneRaw || null, preferredContact },

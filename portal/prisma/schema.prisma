@@ -116,6 +116,12 @@ enum ManagementType {
   WEG
 }
 
+// Herkunft eines Dokuments – manueller Upload oder automatischer Sync
+enum DocumentSource {
+  UPLOAD // manueller Upload (Standard)
+  GDRIVE // Google Drive Sync
+}
+
 model User {
   id                   String                    @id @default(cuid())
   email                String?                   @unique
@@ -155,10 +161,11 @@ model User {
   notesAuthored        Note[]
   notesAbout           Note[]                    @relation("NotesAboutUser")
   handoversCreated     Handover[]                @relation("HandoverCreatedBy")
-  isSuperAdmin         Boolean                   @default(false)
-  propertyAssignments  PropertyAssignment[]
-  craftsmanAssignments CraftsmanAssignment[]
-  auditLogs            AuditLog[]
+  isSuperAdmin              Boolean                   @default(false)
+  propertyAssignments       PropertyAssignment[]
+  craftsmanAssignments      CraftsmanAssignment[]
+  auditLogs                 AuditLog[]
+  documentSourceConfigs     DocumentSourceConfig[]
 
   @@index([role])
   @@index([role, active])
@@ -214,9 +221,10 @@ model Property {
   announcements       Announcement[]
   maintenanceTasks    MaintenanceTask[]
   resolutions         Resolution[]
-  meters              Meter[]
-  internalNotes       Note[]
-  propertyAssignments PropertyAssignment[]
+  meters                Meter[]
+  internalNotes         Note[]
+  propertyAssignments   PropertyAssignment[]
+  documentSourceConfigs DocumentSourceConfig[]
 }
 
 model Unit {
@@ -462,11 +470,41 @@ model Document {
   unit             Unit?             @relation(fields: [unitId], references: [id], onDelete: Cascade)
   uploadedById     String
   uploadedBy       User              @relation(fields: [uploadedById], references: [id])
+  // Herkunft: UPLOAD = manuell, GDRIVE = automatischer Sync
+  source           DocumentSource    @default(UPLOAD)
+  // Externe Datei-ID (z. B. Google Drive fileId) für Deduplizierung beim Sync
+  externalRef      String?
   createdAt        DateTime          @default(now())
   acknowledgements Acknowledgement[]
 
   @@index([propertyId])
   @@index([unitId])
+  @@index([externalRef])
+}
+
+// Konfiguration einer Dokument-Quelle (z. B. ein Google Drive Ordner).
+// Jede Quelle hat einen Connector-Typ, eine optionale Objekt-Zuordnung und
+// Sync-Metadaten. organizationId ist für die spätere Mandantentrennung
+// bereits vorbereitet, aber noch nicht erzwungen.
+model DocumentSourceConfig {
+  id             String         @id @default(cuid())
+  label          String // Anzeigename, z. B. "Jahresabrechnungen Musterstr. 1"
+  source         DocumentSource
+  propertyId     String?
+  property       Property?      @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  audience       Audience       @default(ALLE)
+  category       DocumentCategory @default(SONSTIGES)
+  // Connector-spezifische Konfiguration (z. B. { folderId: "..." } für Google Drive)
+  config         Json
+  organizationId String? // vorbereitet für Mandantentrennung (Phase 4.3)
+  lastSyncAt     DateTime?
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  createdById    String
+  createdBy      User           @relation(fields: [createdById], references: [id])
+
+  @@index([propertyId])
+  @@index([source, active])
 }
 
 model Announcement {

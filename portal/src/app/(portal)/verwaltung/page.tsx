@@ -39,6 +39,11 @@ const tiles = [
     desc: "Wiederkehrende Wartungen & Prüfungen mit Fälligkeit",
   },
   {
+    href: "/verwaltung/dokument-quellen",
+    title: "Dokument-Quellen",
+    desc: "Google Drive Ordner automatisch ins Dokumenten-Portal synchronisieren",
+  },
+  {
     href: "/verwaltung/notizen",
     title: "Notizen",
     desc: "Interne Notizen zu Objekten, Einheiten und Personen",

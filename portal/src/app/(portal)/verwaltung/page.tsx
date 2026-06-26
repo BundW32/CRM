@@ -86,7 +86,10 @@ export default async function VerwaltungPage() {
   const allTiles = [
     ...tiles,
     ...(verwalter.isSuperAdmin
-      ? [{ href: "/verwaltung/audit", title: "Audit-Log", desc: "Sicherheitsrelevante Aktionen (Login, DSGVO, Freigaben)" }]
+      ? [
+          { href: "/verwaltung/branding", title: "Branding", desc: "Logo, Akzentfarbe und Impressum Ihrer Hausverwaltung" },
+          { href: "/verwaltung/audit", title: "Audit-Log", desc: "Sicherheitsrelevante Aktionen (Login, DSGVO, Freigaben)" },
+        ]
       : []),
   ];
 

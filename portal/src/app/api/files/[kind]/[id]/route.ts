@@ -53,6 +53,18 @@ export async function GET(
     if (meter?.photoStoredName && (await canVerwalterAccessHandover(user, meter.handoverId))) {
       file = { storedName: meter.photoStoredName, fileName: `zaehler-${id}.jpg`, mimeType: "image/jpeg" };
     }
+  } else if (kind === "org-logo" && user) {
+    // Logo der eigenen Organisation (Branding). Nur das Logo des eigenen
+    // Mandanten wird ausgeliefert – Org-ID muss zur Session passen.
+    if (id === user.organizationId) {
+      const org = await db.organization.findUnique({
+        where: { id },
+        select: { logoStoredName: true },
+      });
+      if (org?.logoStoredName) {
+        file = { storedName: org.logoStoredName, fileName: "logo.png", mimeType: "image/png" };
+      }
+    }
   } else if (kind === "handover-pdf" && user?.role === "VERWALTER") {
     const handover = await db.handover.findUnique({ where: { id } });
     if (handover?.pdfStoredName && (await canVerwalterAccessHandover(user, handover.id))) {

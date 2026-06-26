@@ -17,7 +17,12 @@ async function main() {
     create: {
       slug: "bw",
       name: "B&W Immobilien",
-      legalName: "B&W Immobilien Management UG",
+      legalName: "B&W Immobilien Management UG (haftungsbeschränkt)",
+      primaryColor: "#f69018",
+      email: "info@bundwimmobilien.de",
+      street: "Goethestraße 42",
+      zip: "45964",
+      city: "Gladbeck",
     },
   });
 

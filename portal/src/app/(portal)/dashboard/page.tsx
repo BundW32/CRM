@@ -14,12 +14,17 @@ import {
 } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, ticketTypeLabels } from "@/lib/labels";
-import { requireUser } from "@/lib/session";
+import { getOrganization, requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const user = await requireUser();
+
+  // SuperAdmins, deren Mandant noch kein Branding (Farbe/Logo) gesetzt hat,
+  // bekommen einen Hinweis-Banner zum Onboarding.
+  const org = user.isSuperAdmin ? await getOrganization() : null;
+  const brandingIncomplete = Boolean(org && !org.primaryColor && !org.logoStoredName);
 
   const ticketWhere = await ticketWhereForUser(user);
   const [openTickets, latestTickets, announcements, pinnedNotes] = await Promise.all([
@@ -65,6 +70,21 @@ export default async function DashboardPage() {
       >
         Guten Tag, {user.name}
       </PageTitle>
+
+      {brandingIncomplete ? (
+        <Link
+          href="/onboarding"
+          className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-brand-orange/40 bg-brand-orange-light px-4 py-3 transition hover:shadow-md"
+        >
+          <span className="text-sm text-brand-green">
+            <span className="font-semibold">Portal einrichten:</span> Hinterlegen Sie Logo,
+            Farbe und Impressum Ihrer Hausverwaltung.
+          </span>
+          <span className="shrink-0 text-sm font-medium text-brand-orange-dark">
+            Jetzt einrichten →
+          </span>
+        </Link>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">

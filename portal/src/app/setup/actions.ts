@@ -53,5 +53,6 @@ export async function createFirstAdmin(formData: FormData) {
   });
 
   await createSession(user.id);
-  redirect("/dashboard");
+  // Direkt in den Onboarding-Assistenten (Logo, Farbe, Impressum festlegen).
+  redirect("/onboarding");
 }

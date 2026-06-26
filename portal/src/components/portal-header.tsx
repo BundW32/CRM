@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { logout } from "@/app/login/actions";
-import { BwLogoCompact } from "@/components/logo";
+import { OrgLogo } from "@/components/logo";
 import { NavLink } from "@/components/nav";
 
 type NavItem = { href: string; label: string };
@@ -13,10 +13,14 @@ export function PortalHeader({
   nav,
   userName,
   roleLabel,
+  logoUrl,
+  orgName,
 }: {
   nav: ReadonlyArray<NavItem>;
   userName: string;
   roleLabel: string;
+  logoUrl: string;
+  orgName: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -31,7 +35,7 @@ export function PortalHeader({
       <div className="relative mx-auto max-w-6xl">
         <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/95 px-3 py-2 shadow-xl shadow-black/20 backdrop-blur sm:px-4">
           <Link href="/dashboard" className="shrink-0" onClick={() => setMenuOpen(false)}>
-            <BwLogoCompact />
+            <OrgLogo src={logoUrl} alt={orgName} />
           </Link>
 
           {/* Desktop-Navigation */}

@@ -57,6 +57,14 @@ export async function requireUser() {
   return user;
 }
 
+// Pro Request gecacht: die Organisation (Mandant) des angemeldeten Nutzers.
+// Liefert die Branding-/Impressum-Daten für Layout, Logo und Theming.
+export const getOrganization = cache(async () => {
+  const user = await getUser();
+  if (!user) return null;
+  return db.organization.findUnique({ where: { id: user.organizationId } });
+});
+
 export async function requireVerwalter() {
   const user = await requireUser();
   if (user.role !== "VERWALTER") redirect("/dashboard");

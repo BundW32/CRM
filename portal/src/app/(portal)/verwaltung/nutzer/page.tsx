@@ -24,7 +24,7 @@ import {
   toggleUserActive,
   uploadStammdaten,
 } from "./actions";
-import { SignatureInput } from "./signature-input";
+import { SignatureCanvas } from "./signature-canvas";
 
 export const dynamic = "force-dynamic";
 
@@ -504,18 +504,12 @@ export default async function UsersPage({
                     {u.role === "EIGENTUEMER" || u.role === "VERWALTER" ? (
                       <form
                         action={uploadStammdaten}
-                        encType="multipart/form-data"
                         className="rounded-lg border border-gray-100 bg-white p-2"
                       >
                         <input type="hidden" name="id" value={u.id} />
                         <p className="mb-2 text-xs font-medium text-gray-500">
-                          Anschrift{u.role === "EIGENTUEMER" ? " (als Wohnungsgeber)" : ""} &
+                          Anschrift{u.role === "EIGENTUEMER" ? " (als Wohnungsgeber)" : ""} &amp;
                           Unterschrift für Bescheinigungen
-                          {u.signatureStoredName ? (
-                            <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-green-700">
-                              Unterschrift hinterlegt ✓
-                            </span>
-                          ) : null}
                         </p>
                         <div className="flex flex-wrap items-end gap-2">
                           <input
@@ -539,13 +533,15 @@ export default async function UsersPage({
                             placeholder="Ort"
                             className={`${inputClass} w-36`}
                           />
-                          <SignatureInput inputClassName="text-xs text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-brand-orange-light file:px-2 file:py-1 file:text-xs file:font-medium file:text-brand-orange-dark" />
                           <PendingButton className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
                             Speichern
                           </PendingButton>
                         </div>
+                        <div className="mt-3">
+                          <SignatureCanvas hasExisting={!!u.signatureStoredName} />
+                        </div>
                         <p className="mt-1 text-[11px] text-gray-400">
-                          Unterschrift als Bild (PNG/JPG, am besten freigestellt). Wird automatisch
+                          Unterschrift mit Finger oder Maus zeichnen. Wird automatisch
                           in generierte Bescheinigungen eingefügt.
                         </p>
                       </form>

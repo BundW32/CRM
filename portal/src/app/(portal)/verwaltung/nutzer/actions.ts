@@ -11,7 +11,7 @@ import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireVerwalter } from "@/lib/session";
-import { IMAGE_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
+import { IMAGE_TYPES, deleteBlob, saveBuffer, saveUpload } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
@@ -72,10 +72,16 @@ export async function uploadStammdaten(formData: FormData) {
       city: String(formData.get("city") ?? "").trim().slice(0, 100) || null,
     };
 
-    const file = formData.get("signature");
-    if (file instanceof File && file.size > 0) {
-      const upload = await saveUpload(file, IMAGE_TYPES);
-      data.signatureStoredName = upload.storedName;
+    const signatureDataUrl = String(formData.get("signatureDataUrl") ?? "").trim();
+    const DATA_URL_PREFIX = "data:image/png;base64,";
+    if (signatureDataUrl.startsWith(DATA_URL_PREFIX)) {
+      const base64 = signatureDataUrl.slice(DATA_URL_PREFIX.length);
+      const buffer = Buffer.from(base64, "base64");
+      if (buffer.byteLength > 0) {
+        if (user.signatureStoredName) await deleteBlob(user.signatureStoredName);
+        const upload = await saveBuffer(buffer, "unterschrift.png", "image/png", IMAGE_TYPES);
+        data.signatureStoredName = upload.storedName;
+      }
     }
 
     await db.user.update({ where: { id }, data });

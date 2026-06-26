@@ -122,8 +122,46 @@ enum DocumentSource {
   GDRIVE // Google Drive Sync
 }
 
+// ── Mandant (White-Label) ─────────────────────────────────────────────────────
+// Oberste Mandanten-Einheit: eine Hausverwaltung. Alle mandantentragenden
+// Tabellen hängen über organizationId an genau einer Organisation. Der Org-Filter
+// gilt für ALLE Rollen – auch SuperAdmin (= Vollzugriff INNERHALB der eigenen Org).
+// Theming-/Impressumsfelder sind für Phase 4.4 (White-Label) bereits vorbereitet.
+model Organization {
+  id             String   @id @default(cuid())
+  slug           String   @unique // für spätere Subdomain/Custom-Domain (z. B. "bw")
+  name           String // Anzeigename der Hausverwaltung
+  legalName      String? // vollständiger Firmenname (Impressum)
+  // White-Label-Theming (Phase 4.4)
+  logoStoredName String?
+  primaryColor   String? // z. B. "#E8740C"
+  // Kontakt / Impressum
+  email          String?
+  phone          String?
+  street         String?
+  zip            String?
+  city           String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  users                 User[]
+  properties            Property[]
+  craftsmen             Craftsman[]
+  tickets               Ticket[]
+  documents             Document[]
+  announcements         Announcement[]
+  notes                 Note[]
+  maintenanceTasks      MaintenanceTask[]
+  conversations         Conversation[]
+  resolutions           Resolution[]
+  handovers             Handover[]
+  documentSourceConfigs DocumentSourceConfig[]
+}
+
 model User {
   id                   String                    @id @default(cuid())
+  organizationId       String
+  organization         Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   email                String?                   @unique
   username             String?                   @unique
   passwordHash         String
@@ -169,6 +207,7 @@ model User {
 
   @@index([role])
   @@index([role, active])
+  @@index([organizationId])
 }
 
 model PropertyAssignment {
@@ -199,6 +238,8 @@ model CraftsmanAssignment {
 
 model Property {
   id                  String               @id @default(cuid())
+  organizationId      String
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name                String
   street              String
   zip                 String
@@ -225,6 +266,8 @@ model Property {
   internalNotes         Note[]
   propertyAssignments   PropertyAssignment[]
   documentSourceConfigs DocumentSourceConfig[]
+
+  @@index([organizationId])
 }
 
 model Unit {
@@ -302,6 +345,8 @@ model Tenancy {
 
 model Ticket {
   id                       String          @id @default(cuid())
+  organizationId           String
+  organization             Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   number                   Int             @unique @default(autoincrement())
   type                     TicketType
   status                   TicketStatus    @default(NEU)
@@ -370,11 +415,14 @@ model Ticket {
   @@index([priority])
   @@index([dueAt])
   @@index([sourceMaintenanceTaskId])
+  @@index([organizationId])
 }
 
 // Handwerker als Stammdaten (Kontaktbuch) – ohne eigenen Portal-Login
 model Craftsman {
   id                   String                @id @default(cuid())
+  organizationId       String
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   company              String? // Firma
   name                 String // Ansprechpartner
   trade                Trade
@@ -396,11 +444,14 @@ model Craftsman {
 
   @@index([active, trade])
   @@index([email])
+  @@index([organizationId])
 }
 
 // Wartungs-/Prüfaufgaben mit Fälligkeit (visuelle Erinnerung)
 model MaintenanceTask {
   id               String              @id @default(cuid())
+  organizationId   String
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   title            String
   description      String?
   interval         MaintenanceInterval
@@ -417,6 +468,7 @@ model MaintenanceTask {
   @@index([propertyId])
   @@index([dueDate])
   @@index([active, dueDate])
+  @@index([organizationId])
 }
 
 model TicketComment {
@@ -457,6 +509,8 @@ model Attachment {
 
 model Document {
   id               String            @id @default(cuid())
+  organizationId   String
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   title            String
   category         DocumentCategory
   audience         Audience
@@ -480,6 +534,7 @@ model Document {
   @@index([propertyId])
   @@index([unitId])
   @@index([externalRef])
+  @@index([organizationId])
 }
 
 // Konfiguration einer Dokument-Quelle (z. B. ein Google Drive Ordner).
@@ -496,7 +551,8 @@ model DocumentSourceConfig {
   category       DocumentCategory @default(SONSTIGES)
   // Connector-spezifische Konfiguration (z. B. { folderId: "..." } für Google Drive)
   config         Json
-  organizationId String? // vorbereitet für Mandantentrennung (Phase 4.3)
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   lastSyncAt     DateTime?
   active         Boolean        @default(true)
   createdAt      DateTime       @default(now())
@@ -505,10 +561,13 @@ model DocumentSourceConfig {
 
   @@index([propertyId])
   @@index([source, active])
+  @@index([organizationId])
 }
 
 model Announcement {
   id               String            @id @default(cuid())
+  organizationId   String
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   propertyId       String
   property         Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   audience         Audience          @default(ALLE)
@@ -520,6 +579,7 @@ model Announcement {
   acknowledgements Acknowledgement[]
 
   @@index([propertyId])
+  @@index([organizationId])
 }
 
 // Lesebestätigung ("zur Kenntnis genommen") für Dokumente und Aushänge
@@ -541,12 +601,16 @@ model Acknowledgement {
 
 // Direktnachrichten zwischen Verwalter und Mieter/Eigentümer
 model Conversation {
-  id           String                    @id @default(cuid())
-  subject      String
-  createdAt    DateTime                  @default(now())
-  updatedAt    DateTime                  @updatedAt
-  participants ConversationParticipant[]
-  messages     Message[]
+  id             String                    @id @default(cuid())
+  organizationId String
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subject        String
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  participants   ConversationParticipant[]
+  messages       Message[]
+
+  @@index([organizationId])
 }
 
 model ConversationParticipant {
@@ -576,6 +640,8 @@ model Message {
 // WEG-Umlaufbeschluss mit digitaler Abstimmung
 model Resolution {
   id          String           @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   propertyId  String
   property    Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   number      Int? // laufende Nummer in der Beschlusssammlung (nach Entscheidung)
@@ -590,6 +656,7 @@ model Resolution {
   votes       ResolutionVote[]
 
   @@index([propertyId])
+  @@index([organizationId])
 }
 
 model ResolutionVote {
@@ -640,6 +707,8 @@ enum RoomType {
 
 model Handover {
   id               String          @id @default(cuid())
+  organizationId   String
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   type             HandoverType    @default(EINZUG)
   status           HandoverStatus  @default(ENTWURF)
   handoverDate     DateTime        @default(now()) // Protokolldatum (Tag der Protokollführung)
@@ -686,6 +755,7 @@ model Handover {
   meters           HandoverMeter[]
 
   @@index([unitId])
+  @@index([organizationId])
 }
 
 model HandoverRoom {
@@ -755,9 +825,11 @@ model PushSubscription {
 
 // Interne Notizen – nur für Verwalter sichtbar
 model Note {
-  id           String    @id @default(cuid())
-  body         String
-  pinned       Boolean   @default(false)
+  id             String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  body           String
+  pinned         Boolean   @default(false)
   authorId     String
   author       User      @relation(fields: [authorId], references: [id])
   // Exactly one target:
@@ -774,6 +846,7 @@ model Note {
   @@index([unitId])
   @@index([targetUserId])
   @@index([pinned])
+  @@index([organizationId])
 }
 
 // DB-backed rate limiting – zählt Versuche pro Schlüssel in einem Zeitfenster.

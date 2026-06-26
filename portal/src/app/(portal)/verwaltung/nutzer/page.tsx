@@ -106,10 +106,10 @@ export default async function UsersPage({
       select: { id: true, name: true, street: true, zip: true, city: true },
       orderBy: { name: "asc" },
     }),
-    // Handwerker-Pool nur für SuperAdmins (für die optionale Freigabe-Auswahl)
+    // Handwerker-Pool nur für SuperAdmins (für die optionale Freigabe-Auswahl) – eigene Org.
     verwalter.isSuperAdmin
       ? db.craftsman.findMany({
-          where: { active: true },
+          where: { active: true, organizationId: verwalter.organizationId },
           orderBy: [{ trade: "asc" }, { name: "asc" }],
         })
       : Promise.resolve([]),

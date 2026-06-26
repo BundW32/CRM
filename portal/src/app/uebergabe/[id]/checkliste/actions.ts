@@ -3,11 +3,13 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
+import { canVerwalterAccessHandover } from "@/lib/access";
 
 export async function saveCheckliste(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return;
+  if (!(await canVerwalterAccessHandover(verwalter, id))) redirect("/uebergabe");
 
   const checklist: Record<string, string> = {};
   for (const [key, value] of formData.entries()) {

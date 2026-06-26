@@ -28,13 +28,14 @@ export default async function BatchZugangsschreibenPage({
 }: {
   searchParams: Promise<{ u?: string }>;
 }) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const { u } = await searchParams;
   const entries = parseParam(u);
   if (entries.length === 0) notFound();
 
   const users = await db.user.findMany({
-    where: { id: { in: entries.map((e) => e.id) } },
+    // Org-Wand: nur Zugangsschreiben für Nutzer der eigenen Org drucken.
+    where: { id: { in: entries.map((e) => e.id) }, organizationId: verwalter.organizationId },
     include: {
       tenancies: {
         where: { active: true },

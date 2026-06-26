@@ -38,6 +38,18 @@ async function ensureUnitInScope(actor: User, unitId: string) {
   if (!unit || !ids.includes(unit.propertyId)) redirect("/verwaltung/nutzer");
 }
 
+// Der Begünstigte (z. B. neuer Eigentümer/Mieter) muss zur selben Organisation
+// gehören. canVerwalterManageUser greift hier NICHT, weil ein noch nicht
+// zugeordneter Nutzer erst DURCH diese Aktion in den Scope kommt – daher
+// genügt (und gilt) der reine Mandanten-Abgleich.
+async function ensureUserInOrg(actor: User, userId: string) {
+  const target = await db.user.findUnique({
+    where: { id: userId },
+    select: { organizationId: true },
+  });
+  if (!target || target.organizationId !== actor.organizationId) redirect("/verwaltung/nutzer");
+}
+
 // Anschrift (Eigentümer = Wohnungsgeber) und Unterschriftsbild für Bescheinigungen
 export async function uploadStammdaten(formData: FormData) {
   // Alles in einem äußeren try/catch, damit niemals die generische
@@ -168,6 +180,7 @@ export async function createUser(formData: FormData) {
         passwordHash,
         passwordResetToken: inviteToken,
         passwordResetExpiry: inviteExpiry,
+        organizationId: actor.organizationId,
       },
     });
     await assignRole(user.id, parsed.data.role, parsed.data.unitId, parsed.data.propertyId);
@@ -212,6 +225,7 @@ export async function createUser(formData: FormData) {
       role: parsed.data.role,
       passwordHash: await bcrypt.hash(tempPassword, 12),
       mustChangePassword: true,
+      organizationId: actor.organizationId,
     },
   });
   await assignRole(user.id, parsed.data.role, parsed.data.unitId, parsed.data.propertyId);
@@ -334,6 +348,7 @@ export async function addOwnership(formData: FormData) {
   const propertyId = String(formData.get("propertyId") ?? "").trim();
   if (!userId || !propertyId) redirect("/verwaltung/nutzer");
   await ensurePropertyInScope(actor, propertyId);
+  await ensureUserInOrg(actor, userId); // Begünstigte userId validieren (deferred-fix)
   await db.ownership.upsert({
     where: { userId_propertyId: { userId, propertyId } },
     create: { userId, propertyId },
@@ -361,6 +376,7 @@ export async function addTenancy(formData: FormData) {
   const unitId = String(formData.get("unitId") ?? "").trim();
   if (!userId || !unitId) redirect("/verwaltung/nutzer");
   await ensureUnitInScope(actor, unitId);
+  await ensureUserInOrg(actor, userId); // Begünstigte userId validieren (deferred-fix)
   await db.tenancy.upsert({
     where: { userId_unitId: { userId, unitId } },
     create: { userId, unitId },
@@ -393,8 +409,15 @@ export async function addPropertyAssignment(formData: FormData) {
   const userId = String(formData.get("userId") ?? "").trim();
   const propertyIds = formData.getAll("propertyId").map((p) => String(p).trim()).filter(Boolean);
   if (!userId || propertyIds.length === 0) redirect("/verwaltung/nutzer");
+  await ensureUserInOrg(actor, userId);
+  // Nur Objekte der eigenen Org dürfen zugewiesen werden.
+  const validProps = await db.property.findMany({
+    where: { id: { in: propertyIds }, organizationId: actor.organizationId },
+    select: { id: true },
+  });
+  if (validProps.length === 0) redirect("/verwaltung/nutzer");
   await db.propertyAssignment.createMany({
-    data: propertyIds.map((propertyId) => ({ userId, propertyId })),
+    data: validProps.map((p) => ({ userId, propertyId: p.id })),
     skipDuplicates: true,
   });
   revalidatePath("/verwaltung/nutzer");
@@ -406,6 +429,12 @@ export async function removePropertyAssignment(formData: FormData) {
   if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");
   const id = String(formData.get("id") ?? "").trim();
   if (!id) redirect("/verwaltung/nutzer");
+  // Org-Constraint: nur Zuweisungen von Nutzern der eigenen Org löschen.
+  const a = await db.propertyAssignment.findUnique({
+    where: { id },
+    select: { user: { select: { organizationId: true } } },
+  });
+  if (!a || a.user.organizationId !== actor.organizationId) redirect("/verwaltung/nutzer");
   await db.propertyAssignment.delete({ where: { id } });
   revalidatePath("/verwaltung/nutzer");
   redirect("/verwaltung/nutzer");
@@ -418,8 +447,15 @@ export async function addCraftsmanAssignment(formData: FormData) {
   const userId = String(formData.get("userId") ?? "").trim();
   const craftsmanIds = formData.getAll("craftsmanId").map((c) => String(c).trim()).filter(Boolean);
   if (!userId || craftsmanIds.length === 0) redirect("/verwaltung/nutzer");
+  await ensureUserInOrg(actor, userId);
+  // Nur Handwerker der eigenen Org dürfen zugewiesen werden.
+  const validCraftsmen = await db.craftsman.findMany({
+    where: { id: { in: craftsmanIds }, organizationId: actor.organizationId },
+    select: { id: true },
+  });
+  if (validCraftsmen.length === 0) redirect("/verwaltung/nutzer");
   await db.craftsmanAssignment.createMany({
-    data: craftsmanIds.map((craftsmanId) => ({ userId, craftsmanId })),
+    data: validCraftsmen.map((c) => ({ userId, craftsmanId: c.id })),
     skipDuplicates: true,
   });
   revalidatePath("/verwaltung/nutzer");
@@ -431,6 +467,12 @@ export async function removeCraftsmanAssignment(formData: FormData) {
   if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");
   const id = String(formData.get("id") ?? "").trim();
   if (!id) redirect("/verwaltung/nutzer");
+  // Org-Constraint: nur Zuweisungen von Nutzern der eigenen Org löschen.
+  const a = await db.craftsmanAssignment.findUnique({
+    where: { id },
+    select: { user: { select: { organizationId: true } } },
+  });
+  if (!a || a.user.organizationId !== actor.organizationId) redirect("/verwaltung/nutzer");
   await db.craftsmanAssignment.delete({ where: { id } });
   revalidatePath("/verwaltung/nutzer");
   redirect("/verwaltung/nutzer");
@@ -443,6 +485,8 @@ export async function toggleSuperAdmin(formData: FormData) {
   if (!id || id === actor.id) redirect("/verwaltung/nutzer");
   const target = await db.user.findUnique({ where: { id } });
   if (!target || target.role !== "VERWALTER") redirect("/verwaltung/nutzer");
+  // Nur Verwalter der eigenen Org dürfen zum SuperAdmin (de)ernannt werden.
+  if (target.organizationId !== actor.organizationId) redirect("/verwaltung/nutzer");
   await db.user.update({ where: { id }, data: { isSuperAdmin: !target.isSuperAdmin } });
   revalidatePath("/verwaltung/nutzer");
   redirect("/verwaltung/nutzer");

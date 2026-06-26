@@ -21,8 +21,9 @@ async function authorize(
 }
 
 async function notifyVerwalter(ticket: Ticket, text: string) {
+  // Nur Verwalter der Org des Vorgangs benachrichtigen.
   const verwalter = await db.user.findMany({
-    where: { role: "VERWALTER", active: true },
+    where: { role: "VERWALTER", active: true, organizationId: ticket.organizationId },
     select: { id: true, email: true },
   });
   const link = portalUrl(`/vorgaenge/${ticket.id}`);

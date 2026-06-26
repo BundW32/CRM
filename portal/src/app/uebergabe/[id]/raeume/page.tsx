@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
+import { canVerwalterAccessHandover } from "@/lib/access";
 import { buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
 import { RaeumeClient } from "./RaeumeClient";
@@ -13,8 +14,9 @@ export default async function RaeumePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const { id } = await params;
+  if (!(await canVerwalterAccessHandover(verwalter, id))) notFound();
 
   const handover = await db.handover.findUnique({
     where: { id },

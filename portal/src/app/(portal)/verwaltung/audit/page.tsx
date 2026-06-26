@@ -36,7 +36,13 @@ export default async function AuditPage({
   const pageSize = 50;
   const skip = (page - 1) * pageSize;
 
-  const where = filterAction ? { action: filterAction } : {};
+  // Org-Wand: ein SuperAdmin sieht nur Audit-Einträge von Akteuren der eigenen Org.
+  // (AuditLog trägt keine eigene organizationId – Filter läuft über die Actor-Relation;
+  // systemweite Einträge ohne Akteur sind einem künftigen Plattform-Admin vorbehalten.)
+  const where = {
+    actor: { organizationId: verwalter.organizationId },
+    ...(filterAction ? { action: filterAction } : {}),
+  };
 
   const [total, logs] = await Promise.all([
     db.auditLog.count({ where }),

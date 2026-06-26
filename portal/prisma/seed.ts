@@ -10,6 +10,17 @@ const db = new PrismaClient({
 });
 
 async function main() {
+  // Mandant (Organisation) zuerst – alle Demo-Daten hängen an dieser Org.
+  const org = await db.organization.upsert({
+    where: { slug: "bw" },
+    update: {},
+    create: {
+      slug: "bw",
+      name: "B&W Immobilien",
+      legalName: "B&W Immobilien Management UG",
+    },
+  });
+
   await db.user.upsert({
     where: { email: "admin@bundwimmobilien.de" },
     update: {},
@@ -17,6 +28,8 @@ async function main() {
       email: "admin@bundwimmobilien.de",
       name: "B&W Verwaltung",
       role: "VERWALTER",
+      isSuperAdmin: true,
+      organizationId: org.id,
       passwordHash: await bcrypt.hash("BundW-Start2026!", 12),
     },
   });
@@ -30,6 +43,7 @@ async function main() {
       zip: "45964",
       city: "Gladbeck",
       immoware24Id: "demo-1",
+      organizationId: org.id,
       units: {
         create: [
           { label: "WE 01, EG links", floor: "EG" },
@@ -47,6 +61,7 @@ async function main() {
       email: "eigentuemer@demo.de",
       name: "Erika Eigentümerin",
       role: "EIGENTUEMER",
+      organizationId: org.id,
       passwordHash: await bcrypt.hash("Demo-2026!", 12),
       ownerships: { create: { propertyId: property.id } },
     },
@@ -60,6 +75,7 @@ async function main() {
       email: "mieter@demo.de",
       name: "Max Mieter",
       role: "MIETER",
+      organizationId: org.id,
       passwordHash: await bcrypt.hash("Demo-2026!", 12),
       tenancies: { create: { unitId: unit!.id } },
     },
@@ -72,6 +88,7 @@ async function main() {
       email: "handwerker@demo.de",
       name: "Hans Handwerker",
       role: "HANDWERKER",
+      organizationId: org.id,
       passwordHash: await bcrypt.hash("Demo-2026!", 12),
     },
   });

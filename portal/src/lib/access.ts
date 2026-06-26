@@ -47,8 +47,9 @@ export async function propertyIdsForVerwalter(user: User): Promise<string[] | nu
  */
 export async function propertyWhereForVerwalter(user: User): Promise<Prisma.PropertyWhereInput> {
   const ids = await propertyIdsForVerwalter(user);
-  if (ids === null) return {};
-  return { id: { in: ids } };
+  // Org-Filter gilt IMMER – auch für SuperAdmin (= alles INNERHALB der eigenen Org).
+  if (ids === null) return { organizationId: user.organizationId };
+  return { id: { in: ids }, organizationId: user.organizationId };
 }
 
 /**
@@ -58,8 +59,10 @@ export async function propertyWhereForVerwalter(user: User): Promise<Prisma.Prop
  */
 export async function userWhereForVerwalter(actor: User): Promise<Prisma.UserWhereInput> {
   const ids = await propertyIdsForVerwalter(actor);
-  if (ids === null) return {};
+  // SuperAdmin: alle Nutzer der EIGENEN Org (nicht mehr global).
+  if (ids === null) return { organizationId: actor.organizationId };
   return {
+    organizationId: actor.organizationId,
     OR: [
       { role: "MIETER", tenancies: { some: { active: true, unit: { propertyId: { in: ids } } } } },
       { role: "EIGENTUEMER", ownerships: { some: { propertyId: { in: ids } } } },
@@ -80,9 +83,16 @@ export async function canVerwalterAccessProperty(
   propertyId: string | null
 ): Promise<boolean> {
   const ids = await propertyIdsForVerwalter(user);
-  if (ids === null) return true;
-  if (!propertyId) return false;
-  return ids.includes(propertyId);
+  // Objektloser (globaler) Datensatz: nur SuperAdmin der eigenen Org.
+  if (!propertyId) return ids === null;
+  // Eingeschränkter Verwalter: Zuweisungen liegen per Definition in der eigenen Org.
+  if (ids !== null) return ids.includes(propertyId);
+  // SuperAdmin: Objekt muss zur eigenen Org gehören (verhindert Cross-Org-Zugriff per ID).
+  const prop = await db.property.findUnique({
+    where: { id: propertyId },
+    select: { organizationId: true },
+  });
+  return prop?.organizationId === user.organizationId;
 }
 
 /**
@@ -95,12 +105,14 @@ export async function canVerwalterAccessHandover(
   handoverId: string
 ): Promise<boolean> {
   const ids = await propertyIdsForVerwalter(user);
-  if (ids === null) return true;
   const handover = await db.handover.findUnique({
     where: { id: handoverId },
-    select: { unit: { select: { propertyId: true } } },
+    select: { organizationId: true, unit: { select: { propertyId: true } } },
   });
   if (!handover) return false;
+  // Org-Wand zuerst – auch SuperAdmin sieht nur Übergaben der eigenen Org.
+  if (handover.organizationId !== user.organizationId) return false;
+  if (ids === null) return true;
   return ids.includes(handover.unit.propertyId);
 }
 
@@ -110,12 +122,19 @@ export async function canVerwalterAccessHandover(
  * seiner zugewiesenen Objekte (sowie sich selbst).
  */
 export async function canVerwalterManageUser(actor: User, targetUserId: string): Promise<boolean> {
-  const ids = await propertyIdsForVerwalter(actor);
-  if (ids === null) return true; // SuperAdmin
   if (targetUserId === actor.id) return true;
+  const ids = await propertyIdsForVerwalter(actor);
+  if (ids === null) {
+    // SuperAdmin: Ziel muss in derselben Org sein (nicht mehr blind true).
+    const c = await db.user.count({
+      where: { id: targetUserId, organizationId: actor.organizationId },
+    });
+    return c > 0;
+  }
   const count = await db.user.count({
     where: {
       id: targetUserId,
+      organizationId: actor.organizationId,
       OR: [
         { tenancies: { some: { active: true, unit: { propertyId: { in: ids } } } } },
         { ownerships: { some: { propertyId: { in: ids } } } },
@@ -136,8 +155,8 @@ export async function canVerwalterUseTicketTarget(
   unitId: string | null
 ): Promise<boolean> {
   if (!propertyId) return false;
-  const ids = await propertyIdsForVerwalter(user);
-  if (ids !== null && !ids.includes(propertyId)) return false;
+  // Org- und Zuweisungsprüfung in einem (canVerwalterAccessProperty ist org-bewusst).
+  if (!(await canVerwalterAccessProperty(user, propertyId))) return false;
   if (!unitId) return true;
   // Einheit muss zum (erlaubten) Objekt gehören.
   const count = await db.unit.count({ where: { id: unitId, propertyId } });
@@ -162,11 +181,18 @@ export async function craftsmanIdsForVerwalter(user: User): Promise<string[] | n
 
 export async function craftsmanWhereForVerwalter(user: User): Promise<Prisma.CraftsmanWhereInput> {
   const ids = await craftsmanIdsForVerwalter(user);
-  if (ids === null) return {};
-  return { id: { in: ids } };
+  // Org-Filter immer – Handwerker sind pro Mandant getrennt.
+  if (ids === null) return { organizationId: user.organizationId };
+  return { id: { in: ids }, organizationId: user.organizationId };
 }
 
 export async function canVerwalterUseCraftsman(user: User, craftsmanId: string): Promise<boolean> {
+  // Org-Wand zuerst: Handwerker muss zur eigenen Org gehören.
+  const c = await db.craftsman.findUnique({
+    where: { id: craftsmanId },
+    select: { organizationId: true },
+  });
+  if (!c || c.organizationId !== user.organizationId) return false;
   const ids = await craftsmanIdsForVerwalter(user);
   if (ids === null) return true;
   return ids.includes(craftsmanId);
@@ -180,9 +206,11 @@ export async function canVerwalterUseCraftsman(user: User, craftsmanId: string):
  */
 export async function noteWhereForVerwalter(user: User): Promise<Prisma.NoteWhereInput> {
   const ids = await propertyIdsForVerwalter(user);
-  if (ids === null) return {};
+  // SuperAdmin: alle Notizen der eigenen Org.
+  if (ids === null) return { organizationId: user.organizationId };
   const userScope = await userWhereForVerwalter(user);
   return {
+    organizationId: user.organizationId,
     OR: [
       { property: { id: { in: ids } } },
       { unit: { property: { id: { in: ids } } } },
@@ -194,10 +222,10 @@ export async function noteWhereForVerwalter(user: User): Promise<Prisma.NoteWher
 
 /**
  * Darf der Verwalter auf diese Notiz zugreifen (löschen/anpinnen)? Verhindert IDOR.
+ * noteWhereForVerwalter enthält jetzt immer den Org-Filter (auch für SuperAdmin),
+ * daher genügt der count gegen diesen Scope.
  */
 export async function canVerwalterAccessNote(user: User, noteId: string): Promise<boolean> {
-  const ids = await propertyIdsForVerwalter(user);
-  if (ids === null) return true;
   const where = await noteWhereForVerwalter(user);
   const count = await db.note.count({ where: { AND: [{ id: noteId }, where] } });
   return count > 0;
@@ -208,8 +236,11 @@ export async function ticketWhereForUser(user: User): Promise<Prisma.TicketWhere
   switch (user.role) {
     case "VERWALTER": {
       const ids = await propertyIdsForVerwalter(user);
-      if (ids === null) return {};
-      return { OR: [{ propertyId: { in: ids } }, { propertyId: null }] };
+      if (ids === null) return { organizationId: user.organizationId };
+      return {
+        organizationId: user.organizationId,
+        OR: [{ propertyId: { in: ids } }, { propertyId: null }],
+      };
     }
     case "EIGENTUEMER": {
       const properties = await ownedProperties(user.id);
@@ -229,9 +260,16 @@ export async function ticketWhereForUser(user: User): Promise<Prisma.TicketWhere
 
 export async function canViewTicket(
   user: User,
-  ticket: { createdById: string; propertyId: string | null; assignedToId: string | null }
+  ticket: {
+    createdById: string;
+    propertyId: string | null;
+    assignedToId: string | null;
+    organizationId: string;
+  }
 ) {
   if (user.role === "VERWALTER") {
+    // Org-Wand zuerst – auch SuperAdmin sieht nur Vorgänge der eigenen Org.
+    if (ticket.organizationId !== user.organizationId) return false;
     const ids = await propertyIdsForVerwalter(user);
     if (ids === null) return true;
     return ticket.propertyId === null || ids.includes(ticket.propertyId);
@@ -250,8 +288,11 @@ export async function documentWhereForUser(user: User): Promise<Prisma.DocumentW
   switch (user.role) {
     case "VERWALTER": {
       const ids = await propertyIdsForVerwalter(user);
-      if (ids === null) return {};
-      return { OR: [{ propertyId: { in: ids } }, { propertyId: null }] };
+      if (ids === null) return { organizationId: user.organizationId };
+      return {
+        organizationId: user.organizationId,
+        OR: [{ propertyId: { in: ids } }, { propertyId: null }],
+      };
     }
     case "EIGENTUEMER": {
       const properties = await ownedProperties(user.id);
@@ -280,8 +321,8 @@ export async function announcementWhereForUser(
   switch (user.role) {
     case "VERWALTER": {
       const ids = await propertyIdsForVerwalter(user);
-      if (ids === null) return {};
-      return { propertyId: { in: ids } };
+      if (ids === null) return { organizationId: user.organizationId };
+      return { organizationId: user.organizationId, propertyId: { in: ids } };
     }
     case "EIGENTUEMER": {
       const properties = await ownedProperties(user.id);

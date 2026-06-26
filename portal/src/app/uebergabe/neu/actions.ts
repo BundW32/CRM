@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 
@@ -20,6 +21,8 @@ export async function createHandover(formData: FormData) {
     },
   });
   if (!unit) return;
+  // Scope-/Org-Prüfung: nur Einheiten eigener Objekte (verhindert IDOR + Cross-Org).
+  if (!(await canVerwalterAccessProperty(user, unit.propertyId))) redirect("/uebergabe");
 
   const tenant = unit.tenancies[0]?.user;
   const owner = unit.property.ownerships[0]?.user;
@@ -30,6 +33,7 @@ export async function createHandover(formData: FormData) {
       handoverDate: dateStr ? new Date(dateStr) : new Date(),
       unitId,
       createdById: user.id,
+      organizationId: user.organizationId,
       tenantName: tenant?.name ?? null,
       tenantEmail: tenant?.email ?? null,
       tenantPhone: tenant?.phone ?? null,

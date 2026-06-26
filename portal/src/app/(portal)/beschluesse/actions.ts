@@ -47,6 +47,7 @@ export async function createResolution(formData: FormData) {
       description: parsed.data.description,
       deadline: deadline && !Number.isNaN(deadline.getTime()) ? deadline : null,
       createdById: user.id,
+      organizationId: user.organizationId,
     },
   });
 
@@ -117,8 +118,10 @@ export async function closeResolution(formData: FormData) {
   const nein = resolution.votes.filter((v) => v.choice === "NEIN").length;
   const status = ja > nein ? "ANGENOMMEN" : "ABGELEHNT";
 
-  // Laufende Nummer für die Beschlusssammlung vergeben
-  const decidedCount = await db.resolution.count({ where: { number: { not: null } } });
+  // Laufende Nummer für die Beschlusssammlung vergeben (pro Mandant getrennt)
+  const decidedCount = await db.resolution.count({
+    where: { number: { not: null }, organizationId: user.organizationId },
+  });
 
   await db.resolution.update({
     where: { id },

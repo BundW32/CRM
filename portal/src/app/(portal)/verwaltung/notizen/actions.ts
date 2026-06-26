@@ -2,8 +2,8 @@
 import { revalidatePath } from "next/cache";
 import {
   canVerwalterAccessNote,
+  canVerwalterAccessProperty,
   canVerwalterManageUser,
-  propertyIdsForVerwalter,
 } from "@/lib/access";
 import { db } from "@/lib/db";
 import { roleLabels } from "@/lib/labels";
@@ -22,8 +22,8 @@ export type NoteTargets = {
 export async function loadNoteTargets(propertyId: string): Promise<NoteTargets> {
   const user = await requireUser();
   if (user.role !== "VERWALTER" || !propertyId) return { units: [], persons: [] };
-  const allowed = await propertyIdsForVerwalter(user);
-  if (allowed !== null && !allowed.includes(propertyId)) return { units: [], persons: [] };
+  // Org- und Zuweisungsprüfung (verhindert Cross-Org-Lesen der Einheiten/Personen).
+  if (!(await canVerwalterAccessProperty(user, propertyId))) return { units: [], persons: [] };
 
   const [units, owners, tenants] = await Promise.all([
     db.unit.findMany({
@@ -73,17 +73,15 @@ export async function createNote(formData: FormData) {
     resolvedPropertyId = unit?.propertyId ?? resolvedPropertyId;
   }
 
-  // Scope-Prüfung: eingeschränkter Verwalter darf nur eigene Objekte/Personen adressieren.
-  const allowedPropIds = await propertyIdsForVerwalter(user);
-  if (allowedPropIds !== null) {
-    if (resolvedPropertyId && !allowedPropIds.includes(resolvedPropertyId)) return;
-    if (targetUserId && !(await canVerwalterManageUser(user, targetUserId))) return;
-  }
+  // Scope-Prüfung (org-bewusst, gilt auch für SuperAdmin): nur eigene Objekte/Personen.
+  if (resolvedPropertyId && !(await canVerwalterAccessProperty(user, resolvedPropertyId))) return;
+  if (targetUserId && !(await canVerwalterManageUser(user, targetUserId))) return;
 
   await db.note.create({
     data: {
       body,
       authorId: user.id,
+      organizationId: user.organizationId,
       propertyId: resolvedPropertyId,
       unitId: unitId || null,
       targetUserId: targetUserId || null,

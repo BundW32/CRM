@@ -75,6 +75,7 @@ export async function uploadDocument(formData: FormData) {
       propertyId,
       unitId,
       uploadedById: user.id,
+      organizationId: user.organizationId,
       ...upload,
     },
   });
@@ -115,6 +116,7 @@ export async function requestDocument(formData: FormData) {
       propertyId,
       unitId: tenancy?.unitId ?? null,
       createdById: user.id,
+      organizationId: user.organizationId,
     },
   });
 

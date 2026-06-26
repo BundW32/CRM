@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
+import { canVerwalterAccessHandover } from "@/lib/access";
 import { buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
 import { generateHandoverPdf, sendHandoverEmail } from "./actions";
@@ -16,8 +17,9 @@ export default async function AbschlussPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ sent?: string }>;
 }) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const { id } = await params;
+  if (!(await canVerwalterAccessHandover(verwalter, id))) notFound();
   const { sent } = await searchParams;
 
   const handover = await db.handover.findUnique({

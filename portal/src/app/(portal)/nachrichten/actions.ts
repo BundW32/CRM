@@ -111,8 +111,9 @@ export async function startConversation(formData: FormData) {
     }
     recipientIds.add(recipient.id);
   } else {
+    // Mieter/Eigentümer schreiben an die Verwaltung – nur Verwalter der EIGENEN Org.
     const verwalter = await db.user.findMany({
-      where: { role: "VERWALTER", active: true },
+      where: { role: "VERWALTER", active: true, organizationId: user.organizationId },
       select: { id: true },
     });
     verwalter.forEach((v) => recipientIds.add(v.id));
@@ -125,6 +126,7 @@ export async function startConversation(formData: FormData) {
   const conversation = await db.conversation.create({
     data: {
       subject,
+      organizationId: user.organizationId,
       participants: {
         create: [
           { userId: user.id, lastReadAt: new Date() },

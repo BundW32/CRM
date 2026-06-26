@@ -46,6 +46,7 @@ export async function createDocumentSourceConfig(formData: FormData) {
       category: parsed.data.category,
       config: { folderId: parsed.data.folderId },
       createdById: verwalter.id,
+      organizationId: verwalter.organizationId,
     },
   });
 
@@ -60,13 +61,14 @@ export async function deleteDocumentSourceConfig(formData: FormData) {
 
   const cfg = await db.documentSourceConfig.findUnique({
     where: { id },
-    select: { propertyId: true },
+    select: { propertyId: true, organizationId: true },
   });
   if (!cfg) redirect("/verwaltung/dokument-quellen");
 
+  // Org-Wand zuerst: globale Configs (propertyId=null) lassen sich über
+  // canVerwalterAccessProperty nicht org-unterscheiden – daher explizit prüfen.
+  if (cfg.organizationId !== verwalter.organizationId) redirect("/verwaltung/dokument-quellen");
   // Scope-Prüfung: nur eigene Objekte; globale Quellen nur SuperAdmin.
-  // (Schließt das NULL-propertyId-Loch: globale Configs anderer Verwalter
-  // können nicht mehr von eingeschränkten Verwaltern gelöscht werden.)
   if (!(await canVerwalterAccessProperty(verwalter, cfg.propertyId))) {
     redirect("/verwaltung/dokument-quellen");
   }
@@ -84,9 +86,10 @@ export async function triggerSync(formData: FormData) {
   // Scope-Prüfung: nur eigene Objekte; globale Quellen nur SuperAdmin
   const cfg = await db.documentSourceConfig.findUnique({
     where: { id },
-    select: { propertyId: true },
+    select: { propertyId: true, organizationId: true },
   });
   if (!cfg) redirect("/verwaltung/dokument-quellen");
+  if (cfg.organizationId !== verwalter.organizationId) redirect("/verwaltung/dokument-quellen");
   if (!(await canVerwalterAccessProperty(verwalter, cfg.propertyId))) {
     redirect("/verwaltung/dokument-quellen");
   }

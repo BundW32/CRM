@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BwLogo } from "@/components/logo";
 import { buttonSecondaryClass } from "@/components/ui";
+import { canVerwalterManageUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import { portalUrl } from "@/lib/mailer";
 import { formatDate, roleLabels } from "@/lib/labels";
@@ -17,9 +18,12 @@ export default async function ZugangsschreibenPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ pw?: string }>;
 }) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const { id } = await params;
   const { pw } = await searchParams;
+
+  // Scope-/Org-Wand: nur Zugangsschreiben von Nutzern im eigenen Zuständigkeitsbereich.
+  if (!(await canVerwalterManageUser(verwalter, id))) notFound();
 
   const user = await db.user.findUnique({
     where: { id },

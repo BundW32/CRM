@@ -3,12 +3,14 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
+import { canVerwalterAccessHandover } from "@/lib/access";
 import type { HandoverType } from "@/generated/prisma/client";
 
 export async function saveStammdaten(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return;
+  if (!(await canVerwalterAccessHandover(verwalter, id))) redirect("/uebergabe");
 
   const type = String(formData.get("type") ?? "EINZUG") as HandoverType;
 

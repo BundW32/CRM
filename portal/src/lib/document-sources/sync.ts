@@ -51,9 +51,9 @@ export async function syncDocumentSource(
         continue;
       }
 
-      // Deduplizierung über externe ID
+      // Deduplizierung über externe ID (pro Mandant getrennt)
       const exists = await db.document.findFirst({
-        where: { externalRef: file.id },
+        where: { externalRef: file.id, organizationId: config.organizationId },
         select: { id: true },
       });
       if (exists) {
@@ -77,6 +77,7 @@ export async function syncDocumentSource(
             propertyId: config.propertyId ?? null,
             unitId: null,
             uploadedById: triggeredById,
+            organizationId: config.organizationId,
             source: config.source,
             externalRef: file.id,
             ...upload,

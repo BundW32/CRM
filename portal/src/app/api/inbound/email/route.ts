@@ -53,9 +53,10 @@ function normalizeAttachments(body: Record<string, unknown>) {
     .slice(0, 10);
 }
 
-async function notifyVerwalter(subject: string, body: string) {
+async function notifyVerwalter(organizationId: string, subject: string, body: string) {
+  // Nur Verwalter der betroffenen Org benachrichtigen.
   const verwalter = await db.user.findMany({
-    where: { role: "VERWALTER", active: true },
+    where: { role: "VERWALTER", active: true, organizationId },
     select: { email: true },
   });
   await Promise.all(verwalter.map((v) => sendMail(v.email, subject, body)));
@@ -167,14 +168,19 @@ export async function POST(request: Request) {
   if (replyToNumber) {
     const target = await db.ticket.findUnique({ where: { number: replyToNumber } });
     if (target) {
-      // Absender zuordnen: Handwerker > Portal-Nutzer > unbekannt
+      // Absender zuordnen: Handwerker > Portal-Nutzer > unbekannt.
+      // Auf die Org des Ziel-Vorgangs einschränken, damit kein fremder Mandant
+      // als Autor zugeordnet wird (E-Mail-Adressen könnten org-übergreifend kollidieren).
       const craftsman = await db.craftsman.findFirst({
-        where: { email: from, active: true },
+        where: { email: from, active: true, organizationId: target.organizationId },
         select: { id: true, name: true, company: true },
       });
       const user = craftsman
         ? null
-        : await db.user.findUnique({ where: { email: from }, select: { id: true, name: true } });
+        : await db.user.findFirst({
+            where: { email: from, organizationId: target.organizationId },
+            select: { id: true, name: true },
+          });
 
       const uploads = await saveImageAttachments(body);
       const senderLabel = craftsman
@@ -203,6 +209,7 @@ export async function POST(request: Request) {
       await db.ticket.update({ where: { id: target.id }, data: { updatedAt: new Date() } });
 
       await notifyVerwalter(
+        target.organizationId,
         `Vorgang #${target.number}: Antwort per E-Mail`,
         `Zu Vorgang #${target.number} „${target.title}" ist eine E-Mail-Antwort eingegangen.\n\n` +
           `Von: ${senderLabel}${craftsman ? " (Handwerker)" : ""}\n\n` +
@@ -222,6 +229,7 @@ export async function POST(request: Request) {
   let propertyId: string | null = null;
   let unitId: string | null = null;
   let createdById: string;
+  let organizationId: string;
   let senderEmail: string | null = null;
   let senderName: string | null = null;
 
@@ -234,16 +242,19 @@ export async function POST(request: Request) {
     propertyId = tenancy?.unit.propertyId ?? ownership?.propertyId ?? null;
     unitId = tenancy?.unitId ?? null;
     createdById = knownUser.id;
+    organizationId = knownUser.organizationId;
   } else {
-    // Unbekannter Absender: Vorgang trotzdem anlegen (unter dem Verwalter), Absender merken
+    // Unbekannter Absender: Vorgang trotzdem anlegen (unter dem Verwalter), Absender merken.
+    // Die Org des Vorgangs ergibt sich aus dem Fallback-Verwalter.
     const fallback = await db.user.findFirst({
       where: { role: "VERWALTER", active: true },
-      select: { id: true },
+      select: { id: true, organizationId: true },
     });
     if (!fallback) {
       return NextResponse.json({ ok: true, noVerwalter: true });
     }
     createdById = fallback.id;
+    organizationId = fallback.organizationId;
     senderEmail = from;
     senderName = fromName;
   }
@@ -261,6 +272,7 @@ export async function POST(request: Request) {
         propertyId,
         unitId,
         createdById,
+        organizationId,
         senderEmail,
         senderName,
         inboundMessageId: messageId,
@@ -294,6 +306,7 @@ export async function POST(request: Request) {
     );
   } else {
     await notifyVerwalter(
+      ticket.organizationId,
       `Neue Meldung #${ticket.number} (Absender nicht zugeordnet)`,
       `Es ist eine E-Mail-Meldung von einem nicht hinterlegten Absender eingegangen ` +
         `und wurde als Vorgang #${ticket.number} angelegt.\n\n` +

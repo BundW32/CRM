@@ -94,7 +94,12 @@ export default async function TicketDetailPage({
   const comments = ticket.comments.filter((c) => isVerwalter || !c.internal);
   const assignableUsers = isVerwalter
     ? await db.user.findMany({
-        where: { role: { in: ["VERWALTER", "HANDWERKER"] }, active: true },
+        // Nur Verwalter/Handwerker der EIGENEN Org als Zuweisungs-Kandidaten.
+        where: {
+          role: { in: ["VERWALTER", "HANDWERKER"] },
+          active: true,
+          organizationId: user.organizationId,
+        },
         orderBy: [{ role: "asc" }, { name: "asc" }],
       })
     : [];

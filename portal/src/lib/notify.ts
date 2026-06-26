@@ -45,8 +45,9 @@ export async function notifyTenantStatusChange(
 }
 
 export async function notifyVerwalterNewTicket(ticket: Ticket, createdBy: User) {
+  // Nur Verwalter der EIGENEN Org benachrichtigen (keine Cross-Org-Mails).
   const verwalter = await db.user.findMany({
-    where: { role: "VERWALTER", active: true },
+    where: { role: "VERWALTER", active: true, organizationId: ticket.organizationId },
   });
   const link = portalUrl(`/vorgaenge/${ticket.id}`);
   await Promise.all(

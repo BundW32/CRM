@@ -4,7 +4,11 @@ import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { canVerwalterManageUser, userWhereForVerwalter } from "@/lib/access";
+import {
+  canVerwalterManageUser,
+  canVerwalterUseCraftsman,
+  userWhereForVerwalter,
+} from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 
@@ -78,7 +82,7 @@ const craftsmanSchema = z.object({
 });
 
 export async function createCraftsman(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const parsed = craftsmanSchema.safeParse({
     company: formData.get("company") || undefined,
     name: formData.get("name"),
@@ -105,6 +109,7 @@ export async function createCraftsman(formData: FormData) {
       isInternal: formData.get("isInternal") === "on",
       // Magic-Link-Token für das Auftragsportal
       accessToken: crypto.randomBytes(24).toString("hex"),
+      organizationId: verwalter.organizationId,
     },
   });
 
@@ -113,8 +118,10 @@ export async function createCraftsman(formData: FormData) {
 }
 
 export async function toggleCraftsmanActive(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
+  // Scope-/Org-Prüfung: nur Handwerker der eigenen Org (und ggf. zugewiesene).
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect("/verwaltung/kontakte");
   const c = await db.craftsman.findUnique({ where: { id } });
   if (c) {
     await db.craftsman.update({ where: { id }, data: { active: !c.active } });
@@ -124,8 +131,9 @@ export async function toggleCraftsmanActive(formData: FormData) {
 }
 
 export async function toggleCraftsmanInternal(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect("/verwaltung/kontakte");
   const c = await db.craftsman.findUnique({ where: { id } });
   if (c) {
     await db.craftsman.update({ where: { id }, data: { isInternal: !c.isInternal } });
@@ -135,8 +143,9 @@ export async function toggleCraftsmanInternal(formData: FormData) {
 }
 
 export async function deleteCraftsman(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect("/verwaltung/kontakte");
   // Nur löschen, wenn keine Vorgänge zugeordnet sind – sonst nur deaktivieren
   const ticketCount = await db.ticket.count({ where: { craftsmanId: id } });
   if (ticketCount > 0) {

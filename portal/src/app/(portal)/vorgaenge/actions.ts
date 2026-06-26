@@ -133,6 +133,7 @@ export async function createTicket(formData: FormData) {
       propertyId,
       unitId: unitId || null,
       createdById: user.id,
+      organizationId: user.organizationId,
       attachments: { create: uploads },
     },
   });
@@ -772,6 +773,7 @@ export async function uploadRequestedDocument(formData: FormData) {
         propertyId: ticket.propertyId,
         unitId: ticket.unitId,
         uploadedById: verwalter.id,
+        organizationId: ticket.organizationId,
         ...upload,
       },
     }),
@@ -900,6 +902,7 @@ export async function generateCertificate(formData: FormData) {
         propertyId: property.id,
         unitId: ticket.unitId,
         uploadedById: verwalter.id,
+        organizationId: ticket.organizationId,
         ...upload,
       },
     }),

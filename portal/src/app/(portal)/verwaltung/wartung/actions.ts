@@ -66,6 +66,7 @@ export async function createMaintenanceTask(formData: FormData) {
       dueDate: due,
       propertyId,
       craftsmanId,
+      organizationId: verwalter.organizationId,
     },
   });
   revalidatePath("/verwaltung/wartung");
@@ -159,6 +160,7 @@ export async function createTicketFromTask(formData: FormData) {
       createdById: verwalter.id,
       dueAt: computeDueAt("NORMAL"),
       sourceMaintenanceTaskId: id,
+      organizationId: verwalter.organizationId,
     },
   });
 

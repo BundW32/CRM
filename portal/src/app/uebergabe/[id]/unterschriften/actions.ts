@@ -3,12 +3,14 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
+import { canVerwalterAccessHandover } from "@/lib/access";
 import { createHandoverPdf } from "@/lib/handover";
 
 export async function finalizeHandover(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return;
+  if (!(await canVerwalterAccessHandover(verwalter, id))) redirect("/uebergabe");
 
   const tenantSignature = String(formData.get("tenantSignature") ?? "").trim() || null;
   const tenant2Signature = String(formData.get("tenant2Signature") ?? "").trim() || null;

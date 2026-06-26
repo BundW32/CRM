@@ -222,7 +222,7 @@ async function WartungReminder({ user }: { user: User }) {
   const assignedIds = await propertyIdsForVerwalter(user);
   const taskWhere =
     assignedIds === null
-      ? { active: true, dueDate: { lte: soon } }
+      ? { active: true, dueDate: { lte: soon }, organizationId: user.organizationId }
       : { active: true, dueDate: { lte: soon }, property: { id: { in: assignedIds } } };
   const tasks = await db.maintenanceTask.findMany({
     where: taskWhere,

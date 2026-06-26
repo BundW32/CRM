@@ -33,7 +33,7 @@ export async function createAnnouncement(formData: FormData) {
   }
 
   await db.announcement.create({
-    data: { ...parsed.data, createdById: user.id },
+    data: { ...parsed.data, createdById: user.id, organizationId: user.organizationId },
   });
 
   revalidatePath("/infos");

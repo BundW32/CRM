@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
+import { canVerwalterAccessHandover } from "@/lib/access";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
 import {
   ALL_ROOM_CHECK_LABELS,
@@ -25,8 +26,9 @@ export default async function UnterschriftenPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const { id } = await params;
+  if (!(await canVerwalterAccessHandover(verwalter, id))) notFound();
 
   const handover = await db.handover.findUnique({
     where: { id },

@@ -62,7 +62,7 @@ export default async function VerwaltungPage() {
   const assignedIds = await propertyIdsForVerwalter(verwalter);
   const wartungWhere =
     assignedIds === null
-      ? { active: true, dueDate: { lte: new Date() } }
+      ? { active: true, dueDate: { lte: new Date() }, organizationId: verwalter.organizationId }
       : { active: true, dueDate: { lte: new Date() }, property: { id: { in: assignedIds } } };
 
   const [objekte, nutzer, handwerker, wartungFaellig] = await Promise.all([

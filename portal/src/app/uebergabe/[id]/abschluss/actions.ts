@@ -4,23 +4,26 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
+import { canVerwalterAccessHandover } from "@/lib/access";
 import { sendMail } from "@/lib/mailer";
 import { createHandoverPdf, ensureHandoverPdfBuffer } from "@/lib/handover";
 
 export async function generateHandoverPdf(handoverId: string) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
+  if (!(await canVerwalterAccessHandover(verwalter, handoverId))) redirect("/uebergabe");
   await createHandoverPdf(handoverId);
   revalidatePath(`/uebergabe/${handoverId}/abschluss`);
 }
 
 export async function sendHandoverEmail(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
 
   const handoverId = String(formData.get("handoverId") ?? "").trim();
   const recipients = (formData.getAll("emailTo") as string[]).map((e) => e.trim()).filter(Boolean);
   const emailBody = String(formData.get("emailBody") ?? "").trim();
 
   if (!handoverId || recipients.length === 0) return;
+  if (!(await canVerwalterAccessHandover(verwalter, handoverId))) redirect("/uebergabe");
 
   const handover = await db.handover.findUnique({
     where: { id: handoverId },

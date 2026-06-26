@@ -32,10 +32,14 @@ export default async function WartungPage({
   const { fehler } = params;
   const currentPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
   const assignedIds = await propertyIdsForVerwalter(verwalter);
-  const propWhere = assignedIds === null ? {} : { id: { in: assignedIds } };
+  // Org-Filter gilt auch für SuperAdmin (sonst objekt-/mandantenübergreifende Liste).
+  const propWhere =
+    assignedIds === null
+      ? { organizationId: verwalter.organizationId }
+      : { id: { in: assignedIds } };
   const taskWhere =
     assignedIds === null
-      ? { active: true }
+      ? { active: true, organizationId: verwalter.organizationId }
       : { active: true, property: { id: { in: assignedIds } } };
 
   const [total, tasks, properties, craftsmen] = await Promise.all([

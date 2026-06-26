@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageTitle } from "@/components/ui";
 import { db } from "@/lib/db";
-import { propertyWhereForVerwalter } from "@/lib/access";
+import { propertyIdsForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { requireVerwalter } from "@/lib/session";
 import { createDocumentSourceConfig, deleteDocumentSourceConfig, triggerSync } from "./actions";
 
@@ -29,9 +29,17 @@ export default async function DokumentQuellenPage({
   const verwalter = await requireVerwalter();
   const params = await searchParams;
 
+  // Scope-Filter: eingeschränkte Verwalter sehen nur Quellen ihrer Objekte
+  // (globale Quellen ohne Objekt sind SuperAdmin vorbehalten).
+  const allowedIds = await propertyIdsForVerwalter(verwalter);
+  const configWhere =
+    allowedIds === null
+      ? { active: true }
+      : { active: true, propertyId: { in: allowedIds } };
+
   const [configs, properties] = await Promise.all([
     db.documentSourceConfig.findMany({
-      where: { active: true },
+      where: configWhere,
       include: { property: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
     }),

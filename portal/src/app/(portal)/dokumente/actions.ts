@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { notifyDocumentPublished } from "@/lib/notify";
 import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
@@ -51,6 +52,12 @@ export async function uploadDocument(formData: FormData) {
     const unit = await db.unit.findUnique({ where: { id: unitId } });
     if (!unit) redirect("/infos?t=dokumente&fehler=eingabe");
     propertyId = unit.propertyId;
+  }
+
+  // Scope-Prüfung: eingeschränkte Verwalter dürfen Dokumente nur an eigene
+  // Objekte hängen (verhindert Veröffentlichung an fremde Mieter/Eigentümer).
+  if (!(await canVerwalterAccessProperty(user, propertyId))) {
+    redirect("/infos?t=dokumente&fehler=eingabe");
   }
 
   let upload;

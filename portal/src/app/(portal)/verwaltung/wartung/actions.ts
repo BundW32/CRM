@@ -3,7 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { canVerwalterUseCraftsman, propertyIdsForVerwalter } from "@/lib/access";
+import {
+  canVerwalterAccessProperty,
+  canVerwalterUseCraftsman,
+  propertyIdsForVerwalter,
+} from "@/lib/access";
 import { db } from "@/lib/db";
 import { maintenanceIntervalMonths } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
@@ -70,10 +74,14 @@ export async function createMaintenanceTask(formData: FormData) {
 
 // Als erledigt markieren: nächste Fälligkeit berechnen (oder einmalig abschließen)
 export async function completeMaintenanceTask(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   const task = await db.maintenanceTask.findUnique({ where: { id } });
   if (!task) redirect("/verwaltung/wartung");
+  // Scope-Prüfung: nur Aufgaben eigener Objekte (verhindert IDOR)
+  if (!(await canVerwalterAccessProperty(verwalter, task.propertyId))) {
+    redirect("/verwaltung/wartung");
+  }
 
   const months = maintenanceIntervalMonths[task.interval];
   if (months === null) {
@@ -96,10 +104,17 @@ export async function completeMaintenanceTask(formData: FormData) {
 }
 
 export async function deleteMaintenanceTask(formData: FormData) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   if (id) {
-    await db.maintenanceTask.delete({ where: { id } }).catch(() => {});
+    // Scope-Prüfung vor dem Löschen (verhindert objektübergreifendes Löschen)
+    const task = await db.maintenanceTask.findUnique({
+      where: { id },
+      select: { propertyId: true },
+    });
+    if (task && (await canVerwalterAccessProperty(verwalter, task.propertyId))) {
+      await db.maintenanceTask.delete({ where: { id } }).catch(() => {});
+    }
   }
   revalidatePath("/verwaltung/wartung");
   redirect("/verwaltung/wartung");

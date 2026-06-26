@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireUser, requireVerwalter } from "@/lib/session";
@@ -23,6 +24,11 @@ export async function createResolution(formData: FormData) {
     deadline: formData.get("deadline") || undefined,
   });
   if (!parsed.success) {
+    redirect("/beschluesse?fehler=eingabe");
+  }
+
+  // Scope-Prüfung: nur Objekte im Zuständigkeitsbereich des Verwalters
+  if (!(await canVerwalterAccessProperty(user, parsed.data.propertyId))) {
     redirect("/beschluesse?fehler=eingabe");
   }
 
@@ -98,13 +104,14 @@ export async function castVote(formData: FormData) {
 }
 
 export async function closeResolution(formData: FormData) {
-  await requireVerwalter();
+  const user = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   const resolution = await db.resolution.findUnique({
     where: { id },
     include: { votes: true },
   });
   if (!resolution || resolution.status !== "OFFEN") redirect("/beschluesse");
+  if (!(await canVerwalterAccessProperty(user, resolution.propertyId))) redirect("/beschluesse");
 
   const ja = resolution.votes.filter((v) => v.choice === "JA").length;
   const nein = resolution.votes.filter((v) => v.choice === "NEIN").length;
@@ -122,10 +129,14 @@ export async function closeResolution(formData: FormData) {
 }
 
 export async function withdrawResolution(formData: FormData) {
-  await requireVerwalter();
+  const user = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   const resolution = await db.resolution.findUnique({ where: { id } });
-  if (resolution && resolution.status === "OFFEN") {
+  if (
+    resolution &&
+    resolution.status === "OFFEN" &&
+    (await canVerwalterAccessProperty(user, resolution.propertyId))
+  ) {
     await db.resolution.update({
       where: { id },
       data: { status: "ZURUECKGEZOGEN", decidedAt: new Date() },
@@ -136,10 +147,17 @@ export async function withdrawResolution(formData: FormData) {
 }
 
 export async function deleteResolution(formData: FormData) {
-  await requireVerwalter();
+  const user = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   if (id) {
-    await db.resolution.delete({ where: { id } }).catch(() => {});
+    // Scope-Prüfung vor dem Löschen (verhindert objektübergreifendes Löschen)
+    const resolution = await db.resolution.findUnique({
+      where: { id },
+      select: { propertyId: true },
+    });
+    if (resolution && (await canVerwalterAccessProperty(user, resolution.propertyId))) {
+      await db.resolution.delete({ where: { id } }).catch(() => {});
+    }
   }
   revalidatePath("/beschluesse");
   redirect("/beschluesse");

@@ -68,6 +68,43 @@ export async function userWhereForVerwalter(actor: User): Promise<Prisma.UserWhe
 }
 
 /**
+ * Darf der Verwalter auf dieses Objekt zugreifen (lesen/ändern/löschen)?
+ * SuperAdmin: immer. Eingeschränkter Verwalter: nur zugewiesene Objekte.
+ * Objektlose Datensätze (propertyId = null) sind NUR für SuperAdmin zugänglich –
+ * verhindert, dass eingeschränkte Verwalter "globale" Datensätze anderer berühren.
+ * Zentrale Scope-Prüfung für schreibende Actions (Beschlüsse, Aushänge,
+ * Dokumente, Wartung, Einheiten, Dokument-Quellen).
+ */
+export async function canVerwalterAccessProperty(
+  user: User,
+  propertyId: string | null
+): Promise<boolean> {
+  const ids = await propertyIdsForVerwalter(user);
+  if (ids === null) return true;
+  if (!propertyId) return false;
+  return ids.includes(propertyId);
+}
+
+/**
+ * Scope-Prüfung für ein Übergabeprotokoll: löst Einheit → Objekt auf und prüft
+ * gegen die zugewiesenen Objekte. Verhindert IDOR auf Handover-Dateien
+ * (Protokoll-PDF mit Mieter-PII, Raumfotos, Zählerbilder) zwischen Verwaltern.
+ */
+export async function canVerwalterAccessHandover(
+  user: User,
+  handoverId: string
+): Promise<boolean> {
+  const ids = await propertyIdsForVerwalter(user);
+  if (ids === null) return true;
+  const handover = await db.handover.findUnique({
+    where: { id: handoverId },
+    select: { unit: { select: { propertyId: true } } },
+  });
+  if (!handover) return false;
+  return ids.includes(handover.unit.propertyId);
+}
+
+/**
  * Darf dieser Verwalter den angegebenen Nutzer sehen/verwalten?
  * SuperAdmin: immer. Eingeschränkter Verwalter: nur Mieter/Eigentümer
  * seiner zugewiesenen Objekte (sowie sich selbst).

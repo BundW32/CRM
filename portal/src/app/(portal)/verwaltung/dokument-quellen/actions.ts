@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { propertyIdsForVerwalter } from "@/lib/access";
+import { canVerwalterAccessProperty } from "@/lib/access";
 import { requireVerwalter } from "@/lib/session";
 import { syncDocumentSource } from "@/lib/document-sources/sync";
 
@@ -30,10 +30,10 @@ export async function createDocumentSourceConfig(formData: FormData) {
   });
   if (!parsed.success) redirect("/verwaltung/dokument-quellen?fehler=eingabe");
 
-  // Scope-Prüfung: eingeschränkte Verwalter nur auf eigene Objekte
-  const allowedIds = await propertyIdsForVerwalter(verwalter);
+  // Scope-Prüfung: eingeschränkte Verwalter nur auf eigene Objekte.
+  // Globale Quellen (ohne Objekt) sind SuperAdmin vorbehalten.
   const propertyId = parsed.data.propertyId ?? null;
-  if (propertyId && allowedIds !== null && !allowedIds.includes(propertyId)) {
+  if (!(await canVerwalterAccessProperty(verwalter, propertyId))) {
     redirect("/verwaltung/dokument-quellen?fehler=eingabe");
   }
 
@@ -60,16 +60,15 @@ export async function deleteDocumentSourceConfig(formData: FormData) {
 
   const cfg = await db.documentSourceConfig.findUnique({
     where: { id },
-    select: { createdById: true, propertyId: true },
+    select: { propertyId: true },
   });
   if (!cfg) redirect("/verwaltung/dokument-quellen");
 
-  // Scope-Prüfung: nur Ersteller oder SuperAdmin darf löschen
-  if (!verwalter.isSuperAdmin && cfg.createdById !== verwalter.id) {
-    const allowedIds = await propertyIdsForVerwalter(verwalter);
-    if (cfg.propertyId && allowedIds !== null && !allowedIds.includes(cfg.propertyId)) {
-      redirect("/verwaltung/dokument-quellen");
-    }
+  // Scope-Prüfung: nur eigene Objekte; globale Quellen nur SuperAdmin.
+  // (Schließt das NULL-propertyId-Loch: globale Configs anderer Verwalter
+  // können nicht mehr von eingeschränkten Verwaltern gelöscht werden.)
+  if (!(await canVerwalterAccessProperty(verwalter, cfg.propertyId))) {
+    redirect("/verwaltung/dokument-quellen");
   }
 
   await db.documentSourceConfig.delete({ where: { id } }).catch(() => {});
@@ -82,14 +81,13 @@ export async function triggerSync(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) redirect("/verwaltung/dokument-quellen");
 
-  // Scope-Prüfung
+  // Scope-Prüfung: nur eigene Objekte; globale Quellen nur SuperAdmin
   const cfg = await db.documentSourceConfig.findUnique({
     where: { id },
     select: { propertyId: true },
   });
   if (!cfg) redirect("/verwaltung/dokument-quellen");
-  const allowedIds = await propertyIdsForVerwalter(verwalter);
-  if (cfg.propertyId && allowedIds !== null && !allowedIds.includes(cfg.propertyId)) {
+  if (!(await canVerwalterAccessProperty(verwalter, cfg.propertyId))) {
     redirect("/verwaltung/dokument-quellen");
   }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { canViewTicket, documentWhereForUser } from "@/lib/access";
+import { canVerwalterAccessHandover, canViewTicket, documentWhereForUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import { readUpload } from "@/lib/storage";
 import { getUser } from "@/lib/session";
@@ -46,15 +46,16 @@ export async function GET(
     if (document) file = document;
   } else if (kind === "handover-photo" && user?.role === "VERWALTER") {
     const photo = await db.handoverPhoto.findUnique({ where: { id } });
-    if (photo) file = photo;
+    // Scope-Prüfung: nur Protokolle der eigenen Objekte (verhindert IDOR)
+    if (photo && (await canVerwalterAccessHandover(user, photo.handoverId))) file = photo;
   } else if (kind === "handover-meter" && user?.role === "VERWALTER") {
     const meter = await db.handoverMeter.findUnique({ where: { id } });
-    if (meter?.photoStoredName) {
+    if (meter?.photoStoredName && (await canVerwalterAccessHandover(user, meter.handoverId))) {
       file = { storedName: meter.photoStoredName, fileName: `zaehler-${id}.jpg`, mimeType: "image/jpeg" };
     }
   } else if (kind === "handover-pdf" && user?.role === "VERWALTER") {
     const handover = await db.handover.findUnique({ where: { id } });
-    if (handover?.pdfStoredName) {
+    if (handover?.pdfStoredName && (await canVerwalterAccessHandover(user, handover.id))) {
       file = { storedName: handover.pdfStoredName, fileName: `uebergabeprotokoll-${id}.pdf`, mimeType: "application/pdf" };
     }
   }

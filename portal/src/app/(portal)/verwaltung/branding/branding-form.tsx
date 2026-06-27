@@ -7,6 +7,7 @@ import { DEFAULT_PRIMARY, normalizeHex } from "@/lib/branding";
 
 export type BrandingDefaults = {
   name: string;
+  slug: string;
   legalName: string;
   primaryColor: string;
   email: string;
@@ -55,6 +56,23 @@ export function BrandingForm({
             className={inputClass}
           />
         </Field>
+      </div>
+
+      {/* Subdomain / Kennung */}
+      <div>
+        <p className="mb-1.5 text-sm font-medium text-gray-700">Web-Adresse (Subdomain)</p>
+        <input
+          type="text"
+          name="slug"
+          defaultValue={defaults.slug}
+          maxLength={40}
+          placeholder="z. B. muster"
+          className={`${inputClass} font-mono`}
+        />
+        <p className="mt-1 text-[11px] text-gray-400">
+          Wird zu Ihrer Portal-Adresse (z. B. <span className="font-mono">muster.…</span>).
+          Nur Kleinbuchstaben, Ziffern und Bindestriche.
+        </p>
       </div>
 
       {/* Logo */}

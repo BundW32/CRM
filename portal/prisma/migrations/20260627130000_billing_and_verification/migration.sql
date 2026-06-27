@@ -9,3 +9,7 @@ ALTER TABLE "User" ADD COLUMN "emailVerifiedAt" TIMESTAMP(3);
 ALTER TABLE "User" ADD COLUMN "emailVerifyToken" TEXT;
 ALTER TABLE "User" ADD COLUMN "emailVerifyExpiry" TIMESTAMP(3);
 CREATE UNIQUE INDEX "User_emailVerifyToken_key" ON "User"("emailVerifyToken");
+
+-- Bestehende Nutzer gelten als verifiziert (Bestandsschutz; nur neue
+-- Selbstregistrierungen starten unbestätigt).
+UPDATE "User" SET "emailVerifiedAt" = "createdAt";

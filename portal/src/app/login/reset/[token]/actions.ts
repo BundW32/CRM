@@ -32,6 +32,9 @@ export async function resetPassword(formData: FormData) {
       passwordHash: await bcrypt.hash(password, 12),
       passwordResetToken: null,
       passwordResetExpiry: null,
+      // Wer den per E-Mail versandten Link nutzt, hat den Zugriff auf die
+      // Adresse nachgewiesen → als verifiziert markieren (sofern noch nicht).
+      emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
     },
   });
 

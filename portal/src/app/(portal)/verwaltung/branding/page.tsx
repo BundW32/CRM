@@ -22,6 +22,7 @@ export default async function BrandingPage({
 
   const defaults: BrandingDefaults = {
     name: org.name ?? "",
+    slug: org.slug ?? "",
     legalName: org.legalName ?? "",
     primaryColor: org.primaryColor ?? "",
     email: org.email ?? "",

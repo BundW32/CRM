@@ -15,16 +15,24 @@ import {
 import { db } from "@/lib/db";
 import { formatDate, ticketTypeLabels } from "@/lib/labels";
 import { getOrganization, requireUser } from "@/lib/session";
+import { resendVerification } from "./verify-actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ verify?: string }>;
+}) {
   const user = await requireUser();
+  const { verify } = await searchParams;
 
   // SuperAdmins, deren Mandant noch kein Branding (Farbe/Logo) gesetzt hat,
   // bekommen einen Hinweis-Banner zum Onboarding.
   const org = user.isSuperAdmin ? await getOrganization() : null;
   const brandingIncomplete = Boolean(org && !org.primaryColor && !org.logoStoredName);
+  // Hinweis auf ausstehende E-Mail-Bestätigung (Self-Service-Registrierung).
+  const emailUnverified = Boolean(user.email && !user.emailVerifiedAt);
 
   const ticketWhere = await ticketWhereForUser(user);
   const [openTickets, latestTickets, announcements, pinnedNotes] = await Promise.all([
@@ -70,6 +78,29 @@ export default async function DashboardPage() {
       >
         Guten Tag, {user.name}
       </PageTitle>
+
+      {verify === "gesendet" ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Bestätigungs-E-Mail gesendet. Bitte prüfen Sie Ihr Postfach.
+        </p>
+      ) : null}
+
+      {emailUnverified ? (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <span className="text-sm text-amber-900">
+            <span className="font-semibold">E-Mail bestätigen:</span> Wir haben Ihnen einen
+            Bestätigungslink an {user.email} geschickt.
+          </span>
+          <form action={resendVerification}>
+            <button
+              type="submit"
+              className="shrink-0 rounded-lg border border-amber-400 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100"
+            >
+              Erneut senden
+            </button>
+          </form>
+        </div>
+      ) : null}
 
       {brandingIncomplete ? (
         <Link

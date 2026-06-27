@@ -39,6 +39,13 @@ export default async function RegisterPage({
           ) : null}
 
           <form action={registerOrganization} className="space-y-4">
+            {/* Honeypot gegen Bots – für Menschen unsichtbar, nicht ausfüllen. */}
+            <div aria-hidden="true" className="hidden">
+              <label>
+                Website
+                <input type="text" name="hp_url" tabIndex={-1} autoComplete="off" />
+              </label>
+            </div>
             <Field label="Name der Hausverwaltung">
               <input
                 type="text"

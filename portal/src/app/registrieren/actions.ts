@@ -5,6 +5,8 @@ import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { brandingFromOrg } from "@/lib/branding";
+import { portalUrl, sendMail } from "@/lib/mailer";
 import { createSession } from "@/lib/session";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -43,6 +45,12 @@ async function uniqueSlug(base: string): Promise<string> {
 // erstem SuperAdmin an und meldet ihn direkt an. Danach geht es in den
 // Onboarding-Assistenten (Logo, Farbe, Impressum).
 export async function registerOrganization(formData: FormData) {
+  // Honeypot: ein für Menschen unsichtbares Feld. Füllt es ein Bot aus, tun wir
+  // so, als sei alles gut (kein Hinweis auf die Erkennung), legen aber nichts an.
+  if (String(formData.get("hp_url") ?? "").trim()) {
+    redirect("/login");
+  }
+
   const ip = await getClientIp();
   // Missbrauchsschutz: max. 5 Registrierungen pro IP und Stunde.
   if (!(await checkRateLimit(`register:${ip}`, 5, 3600))) {
@@ -67,13 +75,15 @@ export async function registerOrganization(formData: FormData) {
 
   const slug = await uniqueSlug(slugify(parsed.data.company));
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  const verifyToken = crypto.randomBytes(32).toString("hex");
+  const verifyExpiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3); // 3 Tage
 
   // Org + Gründer-SuperAdmin atomisch anlegen.
-  const user = await db.$transaction(async (tx) => {
+  const { user, org } = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({
       data: { slug, name: parsed.data.company },
     });
-    return tx.user.create({
+    const user = await tx.user.create({
       data: {
         name: parsed.data.name,
         email,
@@ -81,9 +91,28 @@ export async function registerOrganization(formData: FormData) {
         passwordHash,
         organizationId: org.id,
         isSuperAdmin: true,
+        emailVerifyToken: verifyToken,
+        emailVerifyExpiry: verifyExpiry,
       },
     });
+    return { user, org };
   });
+
+  // Willkommens- + Bestätigungs-E-Mail (Branding aus der frischen Org).
+  const branding = brandingFromOrg(org);
+  const verifyLink = portalUrl(`/registrieren/bestaetigen/${verifyToken}`);
+  await sendMail(
+    email,
+    "Willkommen – bitte bestätigen Sie Ihre E-Mail-Adresse",
+    `Guten Tag ${parsed.data.name},\n\n` +
+      `willkommen! Für „${parsed.data.company}" wurde ein Verwalter-Konto angelegt.\n\n` +
+      `Bitte bestätigen Sie Ihre E-Mail-Adresse über diesen Link (gültig 3 Tage):\n` +
+      `${verifyLink}\n\n` +
+      `Danach können Sie Ihr Portal unter „Verwaltung → Branding" vollständig einrichten.\n\n` +
+      `Mit freundlichen Grüßen\n${branding.legalName}`,
+    undefined,
+    branding
+  );
 
   await createSession(user.id);
   redirect("/onboarding");

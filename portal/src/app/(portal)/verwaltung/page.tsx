@@ -88,6 +88,7 @@ export default async function VerwaltungPage() {
     ...(verwalter.isSuperAdmin
       ? [
           { href: "/verwaltung/branding", title: "Branding", desc: "Logo, Akzentfarbe und Impressum Ihrer Hausverwaltung" },
+          { href: "/verwaltung/abrechnung", title: "Abrechnung", desc: "Tarif, Status und Abonnement Ihrer Hausverwaltung" },
           { href: "/verwaltung/audit", title: "Audit-Log", desc: "Sicherheitsrelevante Aktionen (Login, DSGVO, Freigaben)" },
         ]
       : []),

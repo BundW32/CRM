@@ -145,6 +145,13 @@ model Organization {
   active         Boolean  @default(true)
   createdAt      DateTime @default(now())
 
+  // Billing / Abonnement (Phase 5 – Gerüst; Preismodell folgt)
+  plan                 String    @default("free") // free | pro | …
+  subscriptionStatus   String    @default("trialing") // trialing | active | past_due | canceled
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  trialEndsAt          DateTime?
+
   users                 User[]
   properties            Property[]
   craftsmen             Craftsman[]
@@ -183,6 +190,10 @@ model User {
   createdAt            DateTime                  @default(now())
   passwordResetToken   String?                   @unique
   passwordResetExpiry  DateTime?
+  // E-Mail-Verifizierung (Phase 5 – Self-Service-Onboarding)
+  emailVerifiedAt      DateTime?
+  emailVerifyToken     String?                   @unique
+  emailVerifyExpiry    DateTime?
   tenancies            Tenancy[]
   ownerships           Ownership[]
   ticketsCreated       Ticket[]                  @relation("TicketCreatedBy")

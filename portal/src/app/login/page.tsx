@@ -81,6 +81,19 @@ export default async function LoginPage({
               Passwort vergessen?
             </a>
           </div>
+
+          {/* Self-Service-Registrierung nur auf der SaaS-Hauptdomain anbieten,
+              nicht auf der gebrandeten Login-Seite eines Mandanten. */}
+          {!tenantOrg ? (
+            <div className="mt-5 border-t border-gray-100 pt-4 text-center">
+              <p className="text-xs text-gray-500">
+                Sind Sie eine Hausverwaltung?{" "}
+                <a href="/registrieren" className="font-medium text-brand-orange hover:underline">
+                  Portal kostenlos einrichten
+                </a>
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-400">

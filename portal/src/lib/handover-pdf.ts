@@ -63,6 +63,8 @@ type HandoverData = {
   managerSignature: string | null;
   rooms: Room[];
   meters: Meter[];
+  // Fallback-Firmenname (Org-Branding), falls managerCompany leer ist.
+  fallbackCompany?: string | null;
 };
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
@@ -311,7 +313,8 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
 
-  const company = (data.managerCompany ?? "").trim() || DEFAULT_COMPANY;
+  const company =
+    (data.managerCompany ?? "").trim() || (data.fallbackCompany ?? "").trim() || DEFAULT_COMPANY;
 
   const firstPage = doc.addPage([PAGE_W, PAGE_H]);
 

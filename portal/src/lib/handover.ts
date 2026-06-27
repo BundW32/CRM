@@ -1,6 +1,7 @@
 // Server-seitige Hilfsfunktionen rund um Wohnungsübergaben (PDF-Erzeugung).
 // Wird aus den Server-Actions der /uebergabe-Schritte verwendet.
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { saveBuffer, readUpload } from "@/lib/storage";
 import { generateHandoverPdfBuffer } from "@/lib/handover-pdf";
 
@@ -21,9 +22,14 @@ export async function createHandoverPdf(
   });
   if (!handover) return null;
 
+  // Org-Branding als Fallback für den Protokollführer (Verwaltung), falls am
+  // Übergabe-Datensatz keine managerCompany hinterlegt ist.
+  const branding = await getBrandingForOrg(handover.organizationId);
+
   const buffer = await generateHandoverPdfBuffer({
     ...handover,
     checklist: (handover.checklist ?? null) as Record<string, string> | null,
+    fallbackCompany: branding.legalName,
   });
 
   const unitLabel = handover.unit.label.replace(/[^a-zA-Z0-9]/g, "_");

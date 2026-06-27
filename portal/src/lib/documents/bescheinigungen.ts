@@ -113,10 +113,20 @@ async function drawSignature(
   line(ctx, `Unterschrift${unterzeichner ? ` – ${unterzeichner}` : ""}`, { size: 9, color: GRAY });
 }
 
-function header(ctx: Ctx, title: string, subtitle: string) {
+// Briefkopf der ausstellenden Hausverwaltung (org-spezifisch).
+export type DocumentIssuer = {
+  legalName: string; // Firmenname in der Kopfzeile
+  contactLine: string; // „Straße · PLZ Ort · E-Mail"
+};
+
+function header(ctx: Ctx, title: string, subtitle: string, issuer: DocumentIssuer) {
   ctx.page.drawRectangle({ x: 0, y: A4[1] - 6, width: A4[0], height: 6, color: GREEN });
-  line(ctx, "B & W Immobilien Management UG (haftungsbeschränkt)", { size: 10, bold: true, color: GREEN, gap: 2 });
-  line(ctx, "Goethestraße 42 · 45964 Gladbeck · info@bundwimmobilien.de", { size: 8, color: GRAY, gap: 16 });
+  line(ctx, issuer.legalName, { size: 10, bold: true, color: GREEN, gap: 2 });
+  if (issuer.contactLine) {
+    line(ctx, issuer.contactLine, { size: 8, color: GRAY, gap: 16 });
+  } else {
+    space(ctx, 16);
+  }
   line(ctx, title, { size: 16, bold: true, gap: 4 });
   line(ctx, subtitle, { size: 10, color: GRAY, gap: 16 });
 }
@@ -225,6 +235,7 @@ export type WohnungsgeberInput = {
   mieterNamen: string[];
   einzugsdatum: Date | null;
   ausstellungsdatum: Date;
+  ort: string; // Ausstellungsort (Sitz der Verwaltung/Wohnungsgeber)
   unterzeichner: string;
   signature: SignatureImage;
 };
@@ -409,7 +420,7 @@ export async function generateWohnungsgeberbescheinigung(input: WohnungsgeberInp
 
   const SIG_COL = ML + CW / 2 + 10;
 
-  page.drawText(`Ort, Datum:  Gladbeck, ${fmtDateShort(input.ausstellungsdatum)}`, {
+  page.drawText(`Ort, Datum:  ${input.ort ? `${input.ort}, ` : ""}${fmtDateShort(input.ausstellungsdatum)}`, {
     x: ML, y, size: 9, font, color: BLACK,
   });
   page.drawText("Unterschrift des Wohnungsgebers:", { x: SIG_COL, y, size: 9, font, color: BLACK });
@@ -448,6 +459,7 @@ export type MietbescheinigungInput = {
   ort: string;
   ausstellungsdatum: Date;
   unterzeichner: string;
+  issuer: DocumentIssuer; // Briefkopf der ausstellenden Verwaltung
   signature: SignatureImage;
 };
 
@@ -458,7 +470,7 @@ export async function generateMietbescheinigung(input: MietbescheinigungInput): 
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const ctx: Ctx = { page, font, bold, y: A4[1] - MARGIN };
 
-  header(ctx, "Mietbescheinigung", "Bestätigung des Mietverhältnisses");
+  header(ctx, "Mietbescheinigung", "Bestätigung des Mietverhältnisses", input.issuer);
 
   line(ctx, "Mieter(in)", { bold: true, gap: 4 });
   for (const n of input.mieterNamen) line(ctx, n, { gap: 2 });

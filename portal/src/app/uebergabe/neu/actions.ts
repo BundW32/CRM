@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { requireVerwalter } from "@/lib/session";
 
 export async function createHandover(formData: FormData) {
@@ -26,6 +27,7 @@ export async function createHandover(formData: FormData) {
 
   const tenant = unit.tenancies[0]?.user;
   const owner = unit.property.ownerships[0]?.user;
+  const branding = await getBrandingForOrg(user.organizationId);
 
   const handover = await db.handover.create({
     data: {
@@ -39,7 +41,7 @@ export async function createHandover(formData: FormData) {
       tenantPhone: tenant?.phone ?? null,
       ownerName: owner?.name ?? null,
       ownerEmail: owner?.email ?? null,
-      managerCompany: "B&W Immobilien Management UG",
+      managerCompany: branding.legalName,
       managerName: user.name,
       managerEmail: user.email ?? null,
     },

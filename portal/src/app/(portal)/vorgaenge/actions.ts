@@ -842,14 +842,24 @@ export async function generateCertificate(formData: FormData) {
   });
   const owner = ownership?.user ?? null;
 
+  // Branding der ausstellenden Hausverwaltung (Briefkopf + Fallback-Wohnungsgeber).
+  const branding = await getBrandingForOrg(ticket.organizationId);
+  const brandingPlzOrt = [branding.zip, branding.city].filter(Boolean).join(" ");
+
   const wohnungAnschrift = `${property.street}, ${unit ? unit.label + ", " : ""}${property.zip} ${property.city}`;
-  const wohnungsgeberName = owner?.name ?? "B&W Immobilien Management UG (haftungsbeschränkt)";
-  const wohnungsgeberStrasse = owner?.street ?? "Goethestraße 42";
-  const wohnungsgeberPlzOrt = owner?.zip && owner?.city ? `${owner.zip} ${owner.city}` : "45964 Gladbeck";
+  const wohnungsgeberName = owner?.name ?? branding.legalName;
+  const wohnungsgeberStrasse = owner?.street ?? branding.street ?? "";
+  const wohnungsgeberPlzOrt =
+    owner?.zip && owner?.city ? `${owner.zip} ${owner.city}` : brandingPlzOrt;
   const wohnungStrasse = property.street;
   const wohnungPlzOrt = `${property.zip} ${property.city}`;
   const wohnungZusatz = unit?.label ?? "";
-  const unterzeichner = owner?.name ?? "B&W Immobilien Management UG";
+  const unterzeichner = owner?.name ?? branding.legalName;
+  const ausstellungsOrt = branding.city ?? "";
+  const issuer = {
+    legalName: branding.legalName,
+    contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
+  };
 
   // Unterschrift (Eigentümer bevorzugt, sonst Verwalter)
   const sigSource = owner?.signatureStoredName ?? verwalter.signatureStoredName ?? null;
@@ -887,6 +897,7 @@ export async function generateCertificate(formData: FormData) {
       mieterNamen,
       einzugsdatum: mietbeginn,
       ausstellungsdatum,
+      ort: ausstellungsOrt,
       unterzeichner,
       signature,
     });
@@ -897,9 +908,10 @@ export async function generateCertificate(formData: FormData) {
       wohnungAnschrift,
       mietbeginn,
       vermieterName: wohnungsgeberName,
-      ort: "Gladbeck",
+      ort: ausstellungsOrt,
       ausstellungsdatum,
       unterzeichner,
+      issuer,
       signature,
     });
   }

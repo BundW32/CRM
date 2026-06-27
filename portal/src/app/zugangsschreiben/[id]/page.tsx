@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BwLogo } from "@/components/logo";
 import { buttonSecondaryClass } from "@/components/ui";
+import { LetterHead, letterFooterLine } from "@/components/letter-branding";
 import { canVerwalterManageUser } from "@/lib/access";
 import { db } from "@/lib/db";
+import { brandingFromOrg, orgLogoUrl } from "@/lib/branding";
 import { portalUrl } from "@/lib/mailer";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
@@ -37,6 +38,10 @@ export default async function ZugangsschreibenPage({
   });
   if (!user) notFound();
 
+  const org = await db.organization.findUnique({ where: { id: user.organizationId } });
+  const branding = brandingFromOrg(org);
+  const logoUrl = org ? orgLogoUrl(org) : "/bw-logo.png";
+
   const loginName = user.email ?? user.username ?? "—";
   const loginUrl = portalUrl("/login");
 
@@ -66,18 +71,7 @@ export default async function ZugangsschreibenPage({
 
       {/* Das eigentliche A4-Schreiben */}
       <div className="print-sheet mx-auto max-w-3xl rounded-lg border border-gray-200 bg-white p-12 shadow-sm">
-        <div className="mb-10 flex items-start justify-between">
-          <BwLogo />
-          <div className="text-right text-xs text-gray-500">
-            <p className="font-semibold text-brand-green">
-              B&amp;W Immobilien Management UG
-            </p>
-            <p>Goethestraße 42</p>
-            <p>45964 Gladbeck</p>
-            <p>info@bundwimmobilien.de</p>
-            <p>www.bundwimmobilien.de</p>
-          </div>
-        </div>
+        <LetterHead branding={branding} logoUrl={logoUrl} />
 
         {/* Anschriftfeld */}
         <div className="mb-10 text-sm text-gray-800">
@@ -96,11 +90,11 @@ export default async function ZugangsschreibenPage({
         </div>
 
         <p className="mb-6 text-right text-xs text-gray-500">
-          Gladbeck, {formatDate(new Date())}
+          {branding.city ? `${branding.city}, ` : ""}{formatDate(new Date())}
         </p>
 
         <h1 className="mb-4 text-lg font-bold text-brand-green">
-          Ihr persönlicher Zugang zum B&amp;W Kundenportal
+          Ihr persönlicher Zugang zum Kundenportal
         </h1>
 
         <div className="space-y-4 text-sm leading-relaxed text-gray-800">
@@ -153,22 +147,21 @@ export default async function ZugangsschreibenPage({
             Anmeldung. Sie werden automatisch dazu aufgefordert. Bewahren Sie dieses
             Schreiben sorgfältig auf und geben Sie Ihre Zugangsdaten nicht an Dritte weiter.
           </p>
-          <p>
-            Bei Fragen erreichen Sie uns unter info@bundwimmobilien.de. Wir helfen Ihnen
-            gerne weiter.
-          </p>
+          {branding.email ? (
+            <p>
+              Bei Fragen erreichen Sie uns unter {branding.email}. Wir helfen Ihnen gerne
+              weiter.
+            </p>
+          ) : null}
           <p className="pt-4">
             Mit freundlichen Grüßen
             <br />
-            <span className="font-semibold text-brand-green">
-              B&amp;W Immobilien Management UG
-            </span>
+            <span className="font-semibold text-brand-green">{branding.legalName}</span>
           </p>
         </div>
 
         <div className="mt-12 border-t border-gray-200 pt-4 text-center text-[10px] text-gray-400">
-          B&amp;W Immobilien Management UG (haftungsbeschränkt) · Goethestraße 42, 45964
-          Gladbeck · info@bundwimmobilien.de · www.bundwimmobilien.de
+          {letterFooterLine(branding)}
         </div>
       </div>
     </main>

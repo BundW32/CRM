@@ -1,7 +1,7 @@
 import { Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
 import { formatDate, roleLabels } from "@/lib/labels";
-import { requireUser } from "@/lib/session";
+import { getOrganization, requireUser } from "@/lib/session";
 import { changePassword } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,7 @@ export default async function AccountPage({
 }) {
   const user = await requireUser();
   const { fehler, ok } = await searchParams;
+  const org = await getOrganization();
 
   return (
     <>
@@ -51,8 +52,8 @@ export default async function AccountPage({
             </div>
           </dl>
           <p className="mt-4 text-xs text-gray-500">
-            Änderungen an Name oder E-Mail-Adresse übernimmt die Verwaltung für
-            Sie: info@bundwimmobilien.de
+            Änderungen an Name oder E-Mail-Adresse übernimmt die Verwaltung für Sie
+            {org?.email ? `: ${org.email}` : "."}
           </p>
           <div className="mt-4 border-t border-gray-100 pt-4">
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}

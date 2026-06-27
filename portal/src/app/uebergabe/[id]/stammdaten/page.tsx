@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessHandover } from "@/lib/access";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
@@ -28,6 +29,8 @@ export default async function StammdatenPage({
     include: { unit: { include: { property: true } } },
   });
   if (!handover) notFound();
+
+  const branding = await getBrandingForOrg(handover.organizationId);
 
   return (
     <div className="pb-10 animate-page-in">
@@ -60,7 +63,7 @@ export default async function StammdatenPage({
             ownerName: handover.ownerName ?? "",
             ownerEmail: handover.ownerEmail ?? "",
             ownerPhone: handover.ownerPhone ?? "",
-            managerCompany: handover.managerCompany ?? "B&W Immobilien Management UG",
+            managerCompany: handover.managerCompany ?? branding.legalName,
             managerName: handover.managerName ?? "",
             managerEmail: handover.managerEmail ?? "",
             managerPhone: handover.managerPhone ?? "",

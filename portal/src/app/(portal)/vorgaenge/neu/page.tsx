@@ -1,7 +1,7 @@
 import { Card, PageTitle } from "@/components/ui";
 import { propertyWhereForVerwalter, ticketTargetsForUser } from "@/lib/access";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/session";
+import { getOrganization, requireUser } from "@/lib/session";
 import { NeuerVorgangForm } from "./NeuerVorgangForm";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +34,7 @@ export default async function NewTicketPage({
   const targets = isVerwalter ? [] : await ticketTargetsForUser(user);
 
   const hasTargets = isVerwalter ? verwalterProperties.length > 0 : targets.length > 0;
+  const org = await getOrganization();
 
   return (
     <>
@@ -50,8 +51,8 @@ export default async function NewTicketPage({
       {!hasTargets ? (
         <Card>
           <p className="text-sm text-gray-600">
-            Ihnen ist noch kein Objekt zugeordnet. Bitte wenden Sie sich an die
-            Verwaltung: info@bundwimmobilien.de
+            Ihnen ist noch kein Objekt zugeordnet. Bitte wenden Sie sich an Ihre Verwaltung
+            {org?.email ? `: ${org.email}` : "."}
           </p>
         </Card>
       ) : (

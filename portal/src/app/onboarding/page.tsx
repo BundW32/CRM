@@ -24,6 +24,7 @@ export default async function OnboardingPage({
     primaryColor: org.primaryColor ?? "",
     email: org.email ?? "",
     phone: org.phone ?? "",
+    website: org.website ?? "",
     street: org.street ?? "",
     zip: org.zip ?? "",
     city: org.city ?? "",

@@ -11,6 +11,7 @@ export type BrandingDefaults = {
   primaryColor: string;
   email: string;
   phone: string;
+  website: string;
   street: string;
   zip: string;
   city: string;
@@ -133,6 +134,16 @@ export function BrandingForm({
               name="phone"
               defaultValue={defaults.phone}
               maxLength={50}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Webseite">
+            <input
+              type="text"
+              name="website"
+              defaultValue={defaults.website}
+              maxLength={200}
+              placeholder="www.beispiel.de"
               className={inputClass}
             />
           </Field>

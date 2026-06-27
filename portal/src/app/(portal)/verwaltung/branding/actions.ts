@@ -20,6 +20,7 @@ async function saveBranding(formData: FormData): Promise<void> {
     primaryColor: string | null;
     email: string | null;
     phone: string | null;
+    website: string | null;
     street: string | null;
     zip: string | null;
     city: string | null;
@@ -29,6 +30,7 @@ async function saveBranding(formData: FormData): Promise<void> {
     primaryColor: normalizeHex(String(formData.get("primaryColor") ?? "")),
     email: String(formData.get("email") ?? "").trim().slice(0, 200) || null,
     phone: String(formData.get("phone") ?? "").trim().slice(0, 50) || null,
+    website: String(formData.get("website") ?? "").trim().slice(0, 200) || null,
     street: String(formData.get("street") ?? "").trim().slice(0, 200) || null,
     zip: String(formData.get("zip") ?? "").trim().slice(0, 20) || null,
     city: String(formData.get("city") ?? "").trim().slice(0, 100) || null,

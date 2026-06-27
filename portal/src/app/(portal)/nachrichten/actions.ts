@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { canVerwalterManageUser, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { sendPushToUsers } from "@/lib/push";
 import { requireUser } from "@/lib/session";
@@ -68,13 +69,15 @@ async function notifyParticipants(
   });
   const link = portalUrl(`/nachrichten/${conversationId}`);
   await Promise.all(
-    parts.map((p) =>
+    parts.map(async (p) =>
       sendMail(
         p.user.email,
         `Neue Nachricht: ${subject}`,
-        `Sie haben eine neue Nachricht im B&W Kundenportal erhalten:\n\n` +
+        `Sie haben eine neue Nachricht im Kundenportal erhalten:\n\n` +
           `„${preview}"\n\n` +
-          `Zur Nachricht: ${link}`
+          `Zur Nachricht: ${link}`,
+        undefined,
+        await getBrandingForOrg(p.user.organizationId)
       )
     )
   );

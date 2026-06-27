@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireUser, requireVerwalter } from "@/lib/session";
 
@@ -57,6 +58,7 @@ export async function createResolution(formData: FormData) {
     include: { user: true },
   });
   const link = portalUrl("/beschluesse");
+  const branding = await getBrandingForOrg(user.organizationId);
   await Promise.all(
     owners.map((o) =>
       sendMail(
@@ -64,7 +66,9 @@ export async function createResolution(formData: FormData) {
         `Neue Abstimmung: ${parsed.data.title}`,
         `Es liegt ein neuer Umlaufbeschluss zur Abstimmung vor:\n\n` +
           `„${parsed.data.title}"\n\n` +
-          `Bitte stimmen Sie im Portal ab: ${link}`
+          `Bitte stimmen Sie im Portal ab: ${link}`,
+        undefined,
+        branding
       )
     )
   );

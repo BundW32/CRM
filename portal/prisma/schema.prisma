@@ -138,6 +138,7 @@ model Organization {
   // Kontakt / Impressum
   email          String?
   phone          String?
+  website        String? // z. B. "www.beispiel.de" (E-Mail-/Dokument-Fußzeile)
   street         String?
   zip            String?
   city           String?

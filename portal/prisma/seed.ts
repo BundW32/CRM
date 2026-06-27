@@ -20,6 +20,8 @@ async function main() {
       legalName: "B&W Immobilien Management UG (haftungsbeschränkt)",
       primaryColor: "#f69018",
       email: "info@bundwimmobilien.de",
+      phone: "+49 151 29468127",
+      website: "www.bundwimmobilien.de",
       street: "Goethestraße 42",
       zip: "45964",
       city: "Gladbeck",

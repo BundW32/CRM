@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import type { Craftsman, Ticket } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { sendPushToUsers } from "@/lib/push";
 import { MEDIA_TYPES, saveUpload } from "@/lib/storage";
@@ -26,10 +27,17 @@ async function notifyVerwalter(ticket: Ticket, text: string) {
     where: { role: "VERWALTER", active: true, organizationId: ticket.organizationId },
     select: { id: true, email: true },
   });
+  const branding = await getBrandingForOrg(ticket.organizationId);
   const link = portalUrl(`/vorgaenge/${ticket.id}`);
   await Promise.all(
     verwalter.map((v) =>
-      sendMail(v.email, `Vorgang #${ticket.number}: Update vom Handwerker`, `${text}\n\nZum Vorgang: ${link}`)
+      sendMail(
+        v.email,
+        `Vorgang #${ticket.number}: Update vom Handwerker`,
+        `${text}\n\nZum Vorgang: ${link}`,
+        undefined,
+        branding
+      )
     )
   );
   await sendPushToUsers(

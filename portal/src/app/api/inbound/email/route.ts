@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { notifyVerwalterNewTicket } from "@/lib/notify";
 import { IMAGE_TYPES, saveBuffer } from "@/lib/storage";
@@ -59,7 +60,8 @@ async function notifyVerwalter(organizationId: string, subject: string, body: st
     where: { role: "VERWALTER", active: true, organizationId },
     select: { email: true },
   });
-  await Promise.all(verwalter.map((v) => sendMail(v.email, subject, body)));
+  const branding = await getBrandingForOrg(organizationId);
+  await Promise.all(verwalter.map((v) => sendMail(v.email, subject, body, undefined, branding)));
 }
 
 // Vorgangsnummer aus dem Betreff lesen (z. B. "Re: Auftrag #42: …" → 42).
@@ -295,14 +297,17 @@ export async function POST(request: Request) {
 
   if (knownUser) {
     await notifyVerwalterNewTicket(triaged, knownUser);
+    const branding = await getBrandingForOrg(ticket.organizationId);
     await sendMail(
       from,
       `Ihre Meldung #${ticket.number} ist eingegangen`,
       `Guten Tag ${knownUser.name},\n\n` +
-        `Ihre Meldung „${subject}" ist bei der B&W Immobilien Management UG eingegangen und ` +
+        `Ihre Meldung „${subject}" ist bei der ${branding.legalName} eingegangen und ` +
         `wird unter der Vorgangsnummer #${ticket.number} bearbeitet.\n\n` +
         `Sie können den Stand jederzeit im Kundenportal verfolgen.\n\n` +
-        `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      undefined,
+      branding
     );
   } else {
     await notifyVerwalter(

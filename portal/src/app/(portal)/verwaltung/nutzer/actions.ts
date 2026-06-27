@@ -9,6 +9,7 @@ import type { User } from "@/generated/prisma/client";
 import { canVerwalterManageUser, propertyIdsForVerwalter } from "@/lib/access";
 import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, deleteBlob, saveBuffer, saveUpload } from "@/lib/storage";
@@ -198,15 +199,18 @@ export async function createUser(formData: FormData) {
         : parsed.data.salutation === "Frau"
         ? `Sehr geehrte Frau ${parsed.data.lastName},`
         : `Guten Tag ${name},`;
+    const branding = await getBrandingForOrg(actor.organizationId);
     await sendMail(
       email!,
-      "Ihr Zugang zum B&W Kundenportal",
+      "Ihr Zugang zum Kundenportal",
       `${greeting}\n\n` +
-        `Sie wurden zum Kundenportal der B&W Immobilien Management UG eingeladen.\n\n` +
+        `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.\n\n` +
         `Klicken Sie auf folgenden Link, um Ihren Zugang einzurichten (gültig 7 Tage):\n` +
         `${link}\n\n` +
         `Nach der Einrichtung können Sie sich jederzeit unter ${portalUrl("/login")} anmelden.\n\n` +
-        `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      undefined,
+      branding
     );
 
     revalidatePath("/verwaltung/nutzer");
@@ -335,13 +339,16 @@ export async function resendInvite(formData: FormData) {
   });
 
   const link = portalUrl(`/login/reset/${inviteToken}?einladung=1`);
+  const branding = await getBrandingForOrg(user.organizationId);
   await sendMail(
     user.email,
-    "Ihr Zugang zum B&W Kundenportal (Erinnerung)",
+    "Ihr Zugang zum Kundenportal (Erinnerung)",
     `Guten Tag ${user.name},\n\n` +
-      `Hier ist Ihr Einladungslink zum B&W Kundenportal (gültig 7 Tage):\n` +
+      `Hier ist Ihr Einladungslink zum Kundenportal (gültig 7 Tage):\n` +
       `${link}\n\n` +
-      `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+      `Mit freundlichen Grüßen\n${branding.legalName}`,
+    undefined,
+    branding
   );
 
   revalidatePath("/verwaltung/nutzer");

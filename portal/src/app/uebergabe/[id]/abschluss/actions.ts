@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessHandover } from "@/lib/access";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { sendMail } from "@/lib/mailer";
 import { createHandoverPdf, ensureHandoverPdfBuffer } from "@/lib/handover";
 
@@ -39,8 +40,9 @@ export async function sendHandoverEmail(formData: FormData) {
     { filename: "Uebergabeprotokoll.pdf", content: pdfBuffer, contentType: "application/pdf" },
   ];
 
+  const branding = await getBrandingForOrg(verwalter.organizationId);
   for (const to of recipients) {
-    await sendMail(to, subject, emailBody, attachments);
+    await sendMail(to, subject, emailBody, attachments, branding);
   }
 
   revalidatePath(`/uebergabe/${handoverId}/abschluss`);

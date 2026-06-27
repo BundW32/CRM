@@ -69,3 +69,107 @@ export function orgLogoUrl(org: {
 }): string {
   return org.logoStoredName ? `/api/files/org-logo/${org.id}` : "/bw-logo.png";
 }
+
+// ── Zentrale Branding-Strings für E-Mails & Dokumente ──────────────────────
+// Eine vollständig aufgelöste Branding-Sicht einer Organisation. Wird überall
+// dort verwendet, wo Texte/Logos einer Hausverwaltung erscheinen (E-Mails,
+// PDFs, Schreiben). Fehlt der Org-Kontext, greift DEFAULT_BRANDING.
+export type OrgBranding = {
+  slug: string;
+  displayName: string; // Anzeigename (z. B. „B&W Immobilien")
+  legalName: string; // vollständiger Firmenname (Fußzeile/Unterschrift)
+  email: string | null;
+  phone: string | null;
+  telHref: string | null; // normalisiert für tel:-Links
+  website: string | null;
+  street: string | null;
+  zip: string | null;
+  city: string | null;
+  addressLine: string | null; // „Straße · PLZ Ort"
+  primaryColor: string;
+  logoStoredName: string | null;
+  isDefault: boolean; // true = Fallback (kein konkreter Mandant aufgelöst)
+};
+
+// Fallback-Branding (entspricht den bisherigen, fest verdrahteten B&W-Daten).
+// Greift nur, wenn keine Organisation aufgelöst werden kann.
+export const DEFAULT_BRANDING: OrgBranding = {
+  slug: "bw",
+  displayName: "B&W Immobilien Management",
+  legalName: "B&W Immobilien Management UG (haftungsbeschränkt)",
+  email: "info@bundwimmobilien.de",
+  phone: "+49 151 29468127",
+  telHref: "+4915129468127",
+  website: "www.bundwimmobilien.de",
+  street: "Goethestraße 42",
+  zip: "45964",
+  city: "Gladbeck",
+  addressLine: "Goethestraße 42 · 45964 Gladbeck",
+  primaryColor: DEFAULT_PRIMARY,
+  logoStoredName: null,
+  isDefault: true,
+};
+
+function telHrefFrom(phone: string | null): string | null {
+  if (!phone) return null;
+  const cleaned = phone.replace(/[^\d+]/g, "");
+  return cleaned.length >= 4 ? cleaned : null;
+}
+
+function addressLineFrom(
+  street: string | null,
+  zip: string | null,
+  city: string | null
+): string | null {
+  const cityLine = [zip, city].filter(Boolean).join(" ");
+  return [street, cityLine].filter(Boolean).join(" · ") || null;
+}
+
+// Felder einer Organisation, die fürs Branding gebraucht werden.
+type OrgBrandingSource = {
+  slug: string;
+  name: string;
+  legalName: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  street: string | null;
+  zip: string | null;
+  city: string | null;
+  primaryColor: string | null;
+  logoStoredName: string | null;
+};
+
+// Löst eine Organisation in ein vollständiges Branding auf. Bei null (kein
+// Mandant ermittelbar) greift DEFAULT_BRANDING. Bei vorhandener Org werden NUR
+// deren Daten genutzt (keine B&W-Fallbacks für Adresse/E-Mail) – fehlende
+// Felder bleiben leer und werden in der Ausgabe weggelassen.
+export function brandingFromOrg(org: OrgBrandingSource | null | undefined): OrgBranding {
+  if (!org) return DEFAULT_BRANDING;
+  return {
+    slug: org.slug,
+    displayName: org.name,
+    legalName: org.legalName?.trim() || org.name,
+    email: org.email?.trim() || null,
+    phone: org.phone?.trim() || null,
+    telHref: telHrefFrom(org.phone),
+    website: org.website?.trim() || null,
+    street: org.street?.trim() || null,
+    zip: org.zip?.trim() || null,
+    city: org.city?.trim() || null,
+    addressLine: addressLineFrom(org.street, org.zip, org.city),
+    primaryColor: normalizeHex(org.primaryColor) ?? DEFAULT_PRIMARY,
+    logoStoredName: org.logoStoredName,
+    isDefault: false,
+  };
+}
+
+// Logo-URL für E-Mails/externe Kontexte (absolute URL nötig). Eigenes Logo des
+// Mandanten über die öffentliche Branding-Route; für das Standard-Branding das
+// statische B&W-Logo; sonst null (Empfänger sieht den Namen als Text).
+export function emailLogoUrl(b: OrgBranding, base: string): string | null {
+  if (!base) return null;
+  if (b.logoStoredName) return `${base}/api/branding/${encodeURIComponent(b.slug)}/logo`;
+  if (b.isDefault) return `${base}/bw-logo.png`;
+  return null;
+}

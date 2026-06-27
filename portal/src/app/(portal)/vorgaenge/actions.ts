@@ -12,6 +12,7 @@ import {
   ticketTargetsForUser,
 } from "@/lib/access";
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { ticketPriorityLabels } from "@/lib/labels";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import {
@@ -432,13 +433,16 @@ export async function confirmAppointment(formData: FormData) {
     },
   });
   if (ticket.craftsman?.email) {
+    const branding = await getBrandingForOrg(ticket.organizationId);
     await sendMail(
       ticket.craftsman.email,
       `Termin bestätigt – Auftrag #${ticket.number}`,
       `Guten Tag ${ticket.craftsman.name},\n\n` +
         `Ihr Terminvorschlag für Vorgang #${ticket.number} „${ticket.title}" wurde bestätigt:\n` +
         `${ticket.appointmentNote}\n\n` +
-        `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      undefined,
+      branding
     );
   }
   // Mieter über den bestätigten Termin informieren (verständliche Sprache)
@@ -478,13 +482,16 @@ export async function declineAppointment(formData: FormData) {
     },
   });
   if (ticket.craftsman?.email) {
+    const branding = await getBrandingForOrg(ticket.organizationId);
     await sendMail(
       ticket.craftsman.email,
       `Bitte neuen Termin vorschlagen – Auftrag #${ticket.number}`,
       `Guten Tag ${ticket.craftsman.name},\n\n` +
         `Ihr Terminvorschlag für Vorgang #${ticket.number} „${ticket.title}" (${abgelehnt}) ` +
         `passt leider nicht. Bitte schlagen Sie über das Auftragsportal einen neuen Termin vor.\n\n` +
-        `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      undefined,
+      branding
     );
   }
   revalidatePath(`/vorgaenge/${ticketId}`);
@@ -621,14 +628,17 @@ export async function reopenTicket(formData: FormData) {
   });
   // Beauftragten Handwerker über die Nacharbeit informieren
   if (ticket.craftsman?.email) {
+    const branding = await getBrandingForOrg(ticket.organizationId);
     await sendMail(
       ticket.craftsman.email,
       `Nacharbeit erforderlich – Auftrag #${ticket.number}`,
       `Guten Tag ${ticket.craftsman.name},\n\n` +
         `der Vorgang #${ticket.number} „${ticket.title}" wurde noch nicht abgenommen` +
         `${note ? `:\n\n${note}` : "."}\n\n` +
-        `Bitte stimmen Sie sich mit der B&W Immobilien Management UG ab.\n\n` +
-        `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+        `Bitte stimmen Sie sich mit der ${branding.legalName} ab.\n\n` +
+        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      undefined,
+      branding
     );
   }
   revalidatePath(`/vorgaenge/${ticketId}`);
@@ -698,19 +708,22 @@ export async function notifyCraftsman(formData: FormData) {
   });
 
   // E-Mail nach erfolgreichem Commit – externe Side-Effects nie im Transaction-Block
+  const branding = await getBrandingForOrg(ticket.organizationId);
   await sendMail(
     ticket.craftsman.email,
     `Auftrag #${ticket.number}: ${ticket.title}`,
     `Guten Tag ${ticket.craftsman.name},\n\n` +
-      `die B&W Immobilien Management UG möchte Sie mit folgendem Vorgang beauftragen:\n\n` +
+      `die ${branding.legalName} möchte Sie mit folgendem Vorgang beauftragen:\n\n` +
       `Vorgang #${ticket.number} – ${ticket.title}\n` +
       `Priorität: ${ticketPriorityLabels[ticket.priority]}\n\n` +
       `Beschreibung:\n${ticket.description}\n\n` +
       `${ortsangabe}\n\n` +
       `Auftrag annehmen, Termin vorschlagen oder Rückfragen stellen:\n` +
       `${portalUrl(`/auftraege/${token}`)}\n\n` +
-      `Mit freundlichen Grüßen\nB&W Immobilien Management UG\n` +
-      `info@bundwimmobilien.de`
+      `Mit freundlichen Grüßen\n${branding.legalName}` +
+      (branding.email ? `\n${branding.email}` : ""),
+    undefined,
+    branding
   );
 
   // Mieter über die Beauftragung informieren

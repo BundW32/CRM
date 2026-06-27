@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireVerwalter } from "@/lib/session";
 
@@ -65,14 +66,17 @@ async function inviteOrLetter(opts: {
         organizationId: opts.organizationId,
       },
     });
+    const branding = await getBrandingForOrg(opts.organizationId);
     await sendMail(
       opts.email,
-      "Ihr Zugang zum B&W Kundenportal",
+      "Ihr Zugang zum Kundenportal",
       `Guten Tag ${opts.name},\n\n` +
-        `Sie wurden zum Kundenportal der B&W Immobilien Management UG eingeladen.\n\n` +
+        `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.\n\n` +
         `Zugang einrichten (gültig 7 Tage):\n` +
         `${portalUrl(`/login/reset/${inviteToken}?einladung=1`)}\n\n` +
-        `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      undefined,
+      branding
     );
     return { id: user.id, pw: "" };
   }

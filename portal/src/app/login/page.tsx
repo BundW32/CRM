@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
 import { buttonClass, inputClass, Field } from "@/components/ui";
-import { BwLogo } from "@/components/logo";
+import { BrandTheme } from "@/components/brand-theme";
+import { BwLogo, OrgLogo } from "@/components/logo";
 import { db } from "@/lib/db";
+import { publicOrgLogoUrl } from "@/lib/branding";
 import { getUser } from "@/lib/session";
+import { getTenantOrg } from "@/lib/tenant";
 import { login } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -17,11 +20,27 @@ export default async function LoginPage({
   if ((await db.user.count()) === 0) redirect("/setup");
   const { fehler } = await searchParams;
 
+  // Mandanten-Branding anhand der Subdomain (sofern vorhanden).
+  const tenantOrg = await getTenantOrg();
+  const tenantLogo = tenantOrg ? publicOrgLogoUrl(tenantOrg) : null;
+
   return (
     <main className="flex flex-1 items-center justify-center p-4">
+      {tenantOrg ? <BrandTheme primaryColor={tenantOrg.primaryColor} /> : null}
       <div className="w-full max-w-sm animate-page-in">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-          <BwLogo className="mx-auto mb-1 h-20 w-auto" />
+          {tenantOrg ? (
+            // Eigenes Logo des Mandanten, sonst nur der Name (kein B&W-Logo).
+            tenantLogo ? (
+              <OrgLogo src={tenantLogo} alt={tenantOrg.name} className="mx-auto mb-1 h-20 w-auto" />
+            ) : (
+              <p className="mb-1 text-center text-2xl font-bold text-brand-green">
+                {tenantOrg.name}
+              </p>
+            )
+          ) : (
+            <BwLogo className="mx-auto mb-1 h-20 w-auto" />
+          )}
           <p className="mb-6 text-center text-sm font-medium text-gray-400">
             Kundenportal
           </p>
@@ -66,8 +85,11 @@ export default async function LoginPage({
 
         <p className="mt-6 text-center text-xs text-gray-400">
           Noch keinen Zugang? Wenden Sie sich an{" "}
-          <a href="mailto:info@bundwimmobilien.de" className="hover:underline">
-            info@bundwimmobilien.de
+          <a
+            href={`mailto:${tenantOrg?.email ?? "info@bundwimmobilien.de"}`}
+            className="hover:underline"
+          >
+            {tenantOrg?.email ?? "info@bundwimmobilien.de"}
           </a>
         </p>
         <p className="mt-2 text-center text-xs text-gray-400">

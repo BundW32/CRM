@@ -164,6 +164,16 @@ export function brandingFromOrg(org: OrgBrandingSource | null | undefined): OrgB
   };
 }
 
+// Öffentliche (unauthentifizierte) Logo-URL pro Mandant – für Login/öffentliche
+// Seiten, wo die session-gebundene Route /api/files/org-logo nicht greift.
+// Gibt null zurück, wenn der Mandant kein eigenes Logo hat.
+export function publicOrgLogoUrl(org: {
+  slug: string;
+  logoStoredName: string | null;
+}): string | null {
+  return org.logoStoredName ? `/api/branding/${encodeURIComponent(org.slug)}/logo` : null;
+}
+
 // Logo-URL für E-Mails/externe Kontexte (absolute URL nötig). Eigenes Logo des
 // Mandanten über die öffentliche Branding-Route; für das Standard-Branding das
 // statische B&W-Logo; sonst null (Empfänger sieht den Namen als Text).

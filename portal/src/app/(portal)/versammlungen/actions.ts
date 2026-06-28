@@ -7,7 +7,7 @@ import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
-import { saveBuffer } from "@/lib/storage";
+import { deleteBlob, saveBuffer } from "@/lib/storage";
 import { requireVerwalter } from "@/lib/session";
 import { generateMeetingProtocol } from "@/lib/documents/meeting-protocol";
 
@@ -62,8 +62,6 @@ export async function addAgendaItem(formData: FormData) {
   const type = String(formData.get("type") ?? "INFO") === "BESCHLUSS" ? "BESCHLUSS" : "INFO";
   if (!title) redirect(`/versammlungen/${meetingId}`);
 
-  const count = await db.meetingAgendaItem.count({ where: { meetingId } });
-
   // Beschluss-TOP: verknüpften Beschluss (OFFEN) anlegen → vorhandene Abstimmlogik.
   let resolutionId: string | null = null;
   if (type === "BESCHLUSS") {
@@ -79,8 +77,16 @@ export async function addAgendaItem(formData: FormData) {
     resolutionId = resolution.id;
   }
 
-  await db.meetingAgendaItem.create({
-    data: { meetingId, sortOrder: count, title, description, type, resolutionId },
+  // sortOrder atomar bestimmen (max+1), sonst kollidieren parallele TOP-Anlagen.
+  await db.$transaction(async (tx) => {
+    const max = await tx.meetingAgendaItem.aggregate({
+      where: { meetingId },
+      _max: { sortOrder: true },
+    });
+    const nextSort = (max._max.sortOrder ?? -1) + 1;
+    await tx.meetingAgendaItem.create({
+      data: { meetingId, sortOrder: nextSort, title, description, type, resolutionId },
+    });
   });
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}`);
@@ -261,7 +267,12 @@ export async function sendInvitation(formData: FormData) {
 
   await db.ownersMeeting.update({
     where: { id: meetingId },
-    data: { invitationSentAt: new Date(), status: "EINBERUFEN" },
+    data: {
+      invitationSentAt: new Date(),
+      // Nur aus „Geplant" heraus einberufen – eine bereits durchgeführte
+      // Versammlung darf durch erneutes Senden nicht zurückgestuft werden.
+      ...(meeting.status === "GEPLANT" ? { status: "EINBERUFEN" as const } : {}),
+    },
   });
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}?eingeladen=${owners.length}`);
@@ -339,6 +350,20 @@ export async function generateProtocol(formData: FormData) {
     where: { id: meetingId },
     data: { protocolDocumentId: doc.id, status: "DURCHGEFUEHRT" },
   });
+
+  // Idempotenz: ein zuvor erzeugtes Protokoll ersetzen, statt es als verwaistes,
+  // weiterhin herunterladbares Dokument liegen zu lassen.
+  const oldDocId = meeting.protocolDocumentId;
+  if (oldDocId && oldDocId !== doc.id) {
+    const old = await db.document.findFirst({
+      where: { id: oldDocId, organizationId: verwalter.organizationId },
+      select: { storedName: true },
+    });
+    if (old) {
+      await deleteBlob(old.storedName).catch(() => {});
+      await db.document.delete({ where: { id: oldDocId } }).catch(() => {});
+    }
+  }
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}?protokoll=1`);
 }

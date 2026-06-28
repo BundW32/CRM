@@ -44,8 +44,10 @@ export default async function MeetingDetailPage({
   const { id } = await params;
   const { eingeladen, protokoll, fehler } = await searchParams;
 
-  const meeting = await db.ownersMeeting.findUnique({
-    where: { id },
+  // Mandanten-Wand direkt in der Query (Defense-in-Depth): nur Versammlungen der
+  // eigenen Organisation werden überhaupt geladen.
+  const meeting = await db.ownersMeeting.findFirst({
+    where: { id, organizationId: user.organizationId },
     include: {
       property: { select: { id: true, name: true, organizationId: true } },
       agendaItems: {

@@ -7,6 +7,7 @@ import {
   GENERAL_CHECKLIST_LABELS,
   ROOM_TYPE_LABELS,
 } from "@/lib/handover-checks";
+import { encodeWinAnsi } from "@/lib/documents/pdf-text";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -128,14 +129,10 @@ function numFmt(n: number | null): string {
   return n != null ? String(n).replace(".", ",") : "";
 }
 
-// Keeps German umlauts (Latin-1/WinAnsi), strips non-Latin-1 chars.
+// Macht Text für die Standard-Schrift (WinAnsi) sicher – inkl. astraler Emoji,
+// die der frühere Bereichs-Filter nicht erfasst hat. Siehe lib/documents/pdf-text.
 function enc(s: string): string {
-  return s
-    .replace(/→/g, "->")
-    .replace(/←/g, "<-")
-    .replace(/✓/g, "x")
-    .replace(/[–—]/g, "-")
-    .replace(/[Ā-￿]/g, "?");
+  return encodeWinAnsi(s);
 }
 
 // ─── PageWriter ───────────────────────────────────────────────────────────────

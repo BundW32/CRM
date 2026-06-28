@@ -2,6 +2,7 @@
 // Listet alle gefassten Beschlüsse eines Objekts fortlaufend nummeriert auf.
 // Aufbau analog zu lib/documents/bescheinigungen.ts (pdf-lib, A4, Helvetica).
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import { encodeWinAnsi } from "./pdf-text";
 
 const A4: [number, number] = [595.28, 841.89];
 const ML = 50;
@@ -57,7 +58,18 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): 
   return lines;
 }
 
-export async function generateBeschlussSammlung(input: BeschlussSammlungInput): Promise<Buffer> {
+export async function generateBeschlussSammlung(rawInput: BeschlussSammlungInput): Promise<Buffer> {
+  // Nutzergenerierte Texte für die Standard-Schrift (WinAnsi) absichern.
+  const input: BeschlussSammlungInput = {
+    ...rawInput,
+    propertyName: encodeWinAnsi(rawInput.propertyName),
+    issuer: {
+      legalName: encodeWinAnsi(rawInput.issuer.legalName),
+      contactLine: encodeWinAnsi(rawInput.issuer.contactLine),
+    },
+    entries: rawInput.entries.map((e) => ({ ...e, title: encodeWinAnsi(e.title) })),
+  };
+
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);

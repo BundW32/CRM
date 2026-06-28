@@ -35,37 +35,42 @@ export async function GET(request: Request) {
   });
   if (!property) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
-  const resolutions = await db.resolution.findMany({
-    where: { propertyId, status: { not: "OFFEN" } },
-    orderBy: [{ number: "asc" }, { decidedAt: "asc" }],
-    include: { votes: { select: { choice: true } } },
-  });
+  try {
+    const resolutions = await db.resolution.findMany({
+      where: { propertyId, status: { not: "OFFEN" } },
+      orderBy: [{ number: "asc" }, { decidedAt: "asc" }],
+      include: { votes: { select: { choice: true } } },
+    });
 
-  const branding = await getBrandingForOrg(property.organizationId);
-  const pdf = await generateBeschlussSammlung({
-    propertyName: property.name,
-    issuer: {
-      legalName: branding.legalName,
-      contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-    },
-    entries: resolutions.map((r) => ({
-      number: r.number,
-      title: r.title,
-      decidedAt: r.decidedAt,
-      status: r.status as "ANGENOMMEN" | "ABGELEHNT" | "ZURUECKGEZOGEN" | "OFFEN",
-      ja: r.votes.filter((v) => v.choice === "JA").length,
-      nein: r.votes.filter((v) => v.choice === "NEIN").length,
-      enthaltung: r.votes.filter((v) => v.choice === "ENTHALTUNG").length,
-    })),
-    generatedAt: new Date(),
-  });
+    const branding = await getBrandingForOrg(property.organizationId);
+    const pdf = await generateBeschlussSammlung({
+      propertyName: property.name,
+      issuer: {
+        legalName: branding.legalName,
+        contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
+      },
+      entries: resolutions.map((r) => ({
+        number: r.number,
+        title: r.title,
+        decidedAt: r.decidedAt,
+        status: r.status as "ANGENOMMEN" | "ABGELEHNT" | "ZURUECKGEZOGEN" | "OFFEN",
+        ja: r.votes.filter((v) => v.choice === "JA").length,
+        nein: r.votes.filter((v) => v.choice === "NEIN").length,
+        enthaltung: r.votes.filter((v) => v.choice === "ENTHALTUNG").length,
+      })),
+      generatedAt: new Date(),
+    });
 
-  const fileName = `Beschluss-Sammlung_${property.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-  return new NextResponse(new Uint8Array(pdf), {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${fileName}"`,
-      "Cache-Control": "private, no-store",
-    },
-  });
+    const fileName = `Beschluss-Sammlung_${property.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+    return new NextResponse(new Uint8Array(pdf), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="${fileName}"`,
+        "Cache-Control": "private, no-store",
+      },
+    });
+  } catch (err) {
+    console.error("Beschluss-Sammlung-Export fehlgeschlagen", err);
+    return NextResponse.json({ error: "Export fehlgeschlagen" }, { status: 500 });
+  }
 }

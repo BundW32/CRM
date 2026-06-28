@@ -16,37 +16,48 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Objekt nicht gefunden" }, { status: 404 });
   }
 
-  const property = await db.property.findUnique({
-    where: { id: propertyId },
-    select: { name: true },
-  });
-  const owners = await db.ownership.findMany({
-    where: { propertyId },
-    include: { user: { select: { name: true, email: true } } },
-    orderBy: { user: { name: "asc" } },
-  });
-  const totalMea = owners.reduce((s, o) => s + (o.mea ?? 0), 0);
+  try {
+    const property = await db.property.findUnique({
+      where: { id: propertyId },
+      select: { name: true },
+    });
+    const owners = await db.ownership.findMany({
+      where: { propertyId },
+      include: { user: { select: { name: true, email: true } } },
+      orderBy: { user: { name: "asc" } },
+    });
+    const totalMea = owners.reduce((s, o) => s + (o.mea ?? 0), 0);
 
-  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
-  const rows = [
-    ["Eigentümer", "E-Mail", "MEA", "Stimmanteil %"].map(esc).join(";"),
-    ...owners.map((o) => {
-      const share =
-        totalMea > 0 && o.mea != null ? ((o.mea / totalMea) * 100).toFixed(2) : "";
-      return [o.user.name, o.user.email ?? "", o.mea?.toString() ?? "", share]
-        .map((v) => esc(String(v)))
-        .join(";");
-    }),
-    ["Summe", "", totalMea.toString(), ""].map(esc).join(";"),
-  ];
-  // BOM für korrekte Umlaut-Darstellung in Excel.
-  const csv = "﻿" + rows.join("\r\n");
-  const fileName = `Eigentuemerliste_${(property?.name ?? "Objekt").replace(/[^a-zA-Z0-9]/g, "_")}.csv`;
+    // CSV-Escaping + Schutz vor Formel-Injection: Zellen, die mit =,+,-,@ oder
+    // einem Steuerzeichen beginnen, werden mit ' entwertet (Excel/LibreOffice
+    // würden sie sonst als Formel ausführen).
+    const esc = (v: string) => {
+      const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
+    const rows = [
+      ["Eigentümer", "E-Mail", "MEA", "Stimmanteil %"].map(esc).join(";"),
+      ...owners.map((o) => {
+        const share =
+          totalMea > 0 && o.mea != null ? ((o.mea / totalMea) * 100).toFixed(2) : "";
+        return [o.user.name, o.user.email ?? "", o.mea?.toString() ?? "", share]
+          .map((v) => esc(String(v)))
+          .join(";");
+      }),
+      ["Summe", "", totalMea.toString(), ""].map(esc).join(";"),
+    ];
+    // BOM für korrekte Umlaut-Darstellung in Excel.
+    const csv = "﻿" + rows.join("\r\n");
+    const fileName = `Eigentuemerliste_${(property?.name ?? "Objekt").replace(/[^a-zA-Z0-9]/g, "_")}.csv`;
 
-  return new NextResponse(csv, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${fileName}"`,
-    },
-  });
+    return new NextResponse(csv, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${fileName}"`,
+      },
+    });
+  } catch (err) {
+    console.error("Eigentümer-CSV-Export fehlgeschlagen", err);
+    return NextResponse.json({ error: "Export fehlgeschlagen" }, { status: 500 });
+  }
 }

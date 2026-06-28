@@ -2,6 +2,7 @@
 // Inhalte richten sich nach den gesetzlichen Vorgaben (z. B. § 19 BMG).
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
 import { prepareSignaturePng } from "./signature";
+import { encodeWinAnsi } from "./pdf-text";
 
 const A4: [number, number] = [595.28, 841.89];
 // Constants for Mietbescheinigung (legacy helper set)
@@ -240,7 +241,21 @@ export type WohnungsgeberInput = {
   signature: SignatureImage;
 };
 
-export async function generateWohnungsgeberbescheinigung(input: WohnungsgeberInput): Promise<Buffer> {
+export async function generateWohnungsgeberbescheinigung(rawInput: WohnungsgeberInput): Promise<Buffer> {
+  // Nutzergenerierte Texte für die Standard-Schrift (WinAnsi) absichern.
+  const input: WohnungsgeberInput = {
+    ...rawInput,
+    wohnungsgeberName: encodeWinAnsi(rawInput.wohnungsgeberName),
+    wohnungsgeberStrasse: encodeWinAnsi(rawInput.wohnungsgeberStrasse),
+    wohnungsgeberPlzOrt: encodeWinAnsi(rawInput.wohnungsgeberPlzOrt),
+    wohnungStrasse: encodeWinAnsi(rawInput.wohnungStrasse),
+    wohnungPlzOrt: encodeWinAnsi(rawInput.wohnungPlzOrt),
+    wohnungZusatz: encodeWinAnsi(rawInput.wohnungZusatz),
+    mieterNamen: rawInput.mieterNamen.map(encodeWinAnsi),
+    ort: encodeWinAnsi(rawInput.ort),
+    unterzeichner: encodeWinAnsi(rawInput.unterzeichner),
+  };
+
   const pdf = await PDFDocument.create();
   const page = pdf.addPage(A4);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -463,7 +478,21 @@ export type MietbescheinigungInput = {
   signature: SignatureImage;
 };
 
-export async function generateMietbescheinigung(input: MietbescheinigungInput): Promise<Buffer> {
+export async function generateMietbescheinigung(rawInput: MietbescheinigungInput): Promise<Buffer> {
+  // Nutzergenerierte Texte für die Standard-Schrift (WinAnsi) absichern.
+  const input: MietbescheinigungInput = {
+    ...rawInput,
+    mieterNamen: rawInput.mieterNamen.map(encodeWinAnsi),
+    wohnungAnschrift: encodeWinAnsi(rawInput.wohnungAnschrift),
+    vermieterName: encodeWinAnsi(rawInput.vermieterName),
+    ort: encodeWinAnsi(rawInput.ort),
+    unterzeichner: encodeWinAnsi(rawInput.unterzeichner),
+    issuer: {
+      legalName: encodeWinAnsi(rawInput.issuer.legalName),
+      contactLine: encodeWinAnsi(rawInput.issuer.contactLine),
+    },
+  };
+
   const pdf = await PDFDocument.create();
   const page = pdf.addPage(A4);
   const font = await pdf.embedFont(StandardFonts.Helvetica);

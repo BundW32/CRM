@@ -1,6 +1,7 @@
 // PDF-Generator für das Versammlungsprotokoll (Eigentümerversammlung, light).
 // Aufbau analog zu lib/documents/beschluss-sammlung.ts (pdf-lib, A4).
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import { encodeWinAnsi } from "./pdf-text";
 
 const A4: [number, number] = [595.28, 841.89];
 const ML = 50;
@@ -29,6 +30,7 @@ export type MeetingProtocolInput = {
 };
 
 function fmtDateTime(d: Date): string {
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "—";
   const date = `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
   const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   return `${date}, ${time} Uhr`;
@@ -50,7 +52,27 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): 
   return lines;
 }
 
-export async function generateMeetingProtocol(input: MeetingProtocolInput): Promise<Buffer> {
+export async function generateMeetingProtocol(rawInput: MeetingProtocolInput): Promise<Buffer> {
+  // Nutzergenerierte Texte für die Standard-Schrift (WinAnsi) absichern, damit
+  // Sonderzeichen/Emoji den Export nicht zum Absturz bringen.
+  const input: MeetingProtocolInput = {
+    ...rawInput,
+    propertyName: encodeWinAnsi(rawInput.propertyName),
+    issuer: {
+      legalName: encodeWinAnsi(rawInput.issuer.legalName),
+      contactLine: encodeWinAnsi(rawInput.issuer.contactLine),
+    },
+    meetingTitle: encodeWinAnsi(rawInput.meetingTitle),
+    location: rawInput.location == null ? null : encodeWinAnsi(rawInput.location),
+    attendance: rawInput.attendance == null ? null : encodeWinAnsi(rawInput.attendance),
+    items: rawInput.items.map((it) => ({
+      ...it,
+      title: encodeWinAnsi(it.title),
+      description: it.description == null ? null : encodeWinAnsi(it.description),
+      result: it.result == null ? null : encodeWinAnsi(it.result),
+    })),
+  };
+
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);

@@ -152,6 +152,11 @@ model Organization {
   stripeSubscriptionId String?
   trialEndsAt          DateTime?
 
+  // Rechtliches / Akquise (Phase 6 – Gerüst)
+  termsAcceptedAt      DateTime? // Zeitpunkt der AGB-/AVV-Zustimmung bei Registrierung
+  termsVersion         String? // Version der akzeptierten Rechtsdokumente
+  referralSource       String? // Herkunft der Registrierung (z. B. "hausmatch")
+
   users                 User[]
   properties            Property[]
   craftsmen             Craftsman[]

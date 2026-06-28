@@ -8,14 +8,15 @@ const errorMessages: Record<string, string> = {
   eingabe: "Bitte alle Felder ausfüllen (Passwort mind. 10 Zeichen).",
   email: "Diese E-Mail-Adresse ist bereits vergeben.",
   limit: "Zu viele Registrierungen. Bitte versuchen Sie es später erneut.",
+  agb: "Bitte stimmen Sie AGB und AVV zu, um fortzufahren.",
 };
 
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; ref?: string }>;
 }) {
-  const { fehler } = await searchParams;
+  const { fehler, ref } = await searchParams;
 
   return (
     <main className="flex flex-1 items-center justify-center p-4">
@@ -46,6 +47,8 @@ export default async function RegisterPage({
                 <input type="text" name="hp_url" tabIndex={-1} autoComplete="off" />
               </label>
             </div>
+            {/* Herkunft der Registrierung (z. B. von HausMatch verlinkt). */}
+            {ref ? <input type="hidden" name="ref" value={ref} /> : null}
             <Field label="Name der Hausverwaltung">
               <input
                 type="text"
@@ -73,6 +76,30 @@ export default async function RegisterPage({
                 className={inputClass}
               />
             </Field>
+            <label className="flex items-start gap-2 text-xs text-gray-600">
+              <input
+                type="checkbox"
+                name="terms"
+                value="1"
+                required
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
+              />
+              <span>
+                Ich akzeptiere die{" "}
+                <Link href="/agb" target="_blank" className="text-brand-green hover:underline">
+                  AGB
+                </Link>{" "}
+                und den{" "}
+                <Link href="/avv" target="_blank" className="text-brand-green hover:underline">
+                  AVV
+                </Link>{" "}
+                und habe die{" "}
+                <Link href="/datenschutz-saas" target="_blank" className="text-brand-green hover:underline">
+                  Datenschutzhinweise
+                </Link>{" "}
+                gelesen.
+              </span>
+            </label>
             <button type="submit" className={`${buttonClass} w-full py-2.5`}>
               Konto erstellen
             </button>

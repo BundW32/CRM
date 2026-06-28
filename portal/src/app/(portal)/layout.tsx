@@ -94,6 +94,14 @@ export default async function PortalLayout({
         ·{" "}
         <Link href="/datenschutz" className="hover:text-brand-orange">
           Datenschutz
+        </Link>{" "}
+        ·{" "}
+        <Link href="/agb" className="hover:text-brand-orange">
+          AGB
+        </Link>{" "}
+        ·{" "}
+        <Link href="/avv" className="hover:text-brand-orange">
+          AVV
         </Link>
       </footer>
       <InstallHint />

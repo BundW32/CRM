@@ -10,6 +10,10 @@ import { portalUrl, sendMail } from "@/lib/mailer";
 import { createSession } from "@/lib/session";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
+// Version der bei der Registrierung akzeptierten Rechtsdokumente (AGB/AVV).
+// Bei inhaltlichen Änderungen hochzählen → erneute Zustimmung einholbar.
+const TERMS_VERSION = "2026-06-28";
+
 const registerSchema = z.object({
   company: z.string().trim().min(2).max(200),
   name: z.string().trim().min(2).max(200),
@@ -51,6 +55,11 @@ export async function registerOrganization(formData: FormData) {
     redirect("/login");
   }
 
+  // Zustimmung zu AGB/AVV ist Pflicht (Nachweis wird auf der Org gespeichert).
+  if (String(formData.get("terms") ?? "") !== "1") {
+    redirect("/registrieren?fehler=agb");
+  }
+
   const ip = await getClientIp();
   // Missbrauchsschutz: max. 5 Registrierungen pro IP und Stunde.
   if (!(await checkRateLimit(`register:${ip}`, 5, 3600))) {
@@ -77,11 +86,23 @@ export async function registerOrganization(formData: FormData) {
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
   const verifyToken = crypto.randomBytes(32).toString("hex");
   const verifyExpiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3); // 3 Tage
+  // Herkunft nur in eng begrenzter, unbedenklicher Form übernehmen.
+  const referralSource =
+    String(formData.get("ref") ?? "")
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "")
+      .slice(0, 40) || null;
 
   // Org + Gründer-SuperAdmin atomisch anlegen.
   const { user, org } = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({
-      data: { slug, name: parsed.data.company },
+      data: {
+        slug,
+        name: parsed.data.company,
+        termsAcceptedAt: new Date(),
+        termsVersion: TERMS_VERSION,
+        referralSource,
+      },
     });
     const user = await tx.user.create({
       data: {

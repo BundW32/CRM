@@ -26,21 +26,52 @@ const statusTone: Record<string, string> = {
 function Tally({
   votes,
   eligible,
+  principle,
+  eligibleMea,
 }: {
-  votes: { choice: "JA" | "NEIN" | "ENTHALTUNG" }[];
+  votes: { choice: "JA" | "NEIN" | "ENTHALTUNG"; weight: number }[];
   eligible: number;
+  principle: "KOPF" | "MEA";
+  eligibleMea: number;
 }) {
-  const ja = votes.filter((v) => v.choice === "JA").length;
-  const nein = votes.filter((v) => v.choice === "NEIN").length;
-  const enth = votes.filter((v) => v.choice === "ENTHALTUNG").length;
+  const count = (c: string) => votes.filter((v) => v.choice === c).length;
+  const wsum = (c: string) =>
+    votes.filter((v) => v.choice === c).reduce((s, v) => s + v.weight, 0);
+  const isMea = principle === "MEA";
+  const missingMea = isMea && votes.some((v) => v.weight === 0);
   return (
-    <p className="mt-2 text-xs text-gray-500">
-      Ja: <strong className="text-gray-800">{ja}</strong> · Nein:{" "}
-      <strong className="text-gray-800">{nein}</strong> · Enthaltung:{" "}
-      <strong className="text-gray-800">{enth}</strong> · abgegeben {votes.length}
-      {eligible > 0 ? ` von ${eligible} Eigentümern` : ""}
-    </p>
+    <div className="mt-2 text-xs text-gray-500">
+      <p>
+        Ja: <strong className="text-gray-800">{count("JA")}</strong> · Nein:{" "}
+        <strong className="text-gray-800">{count("NEIN")}</strong> · Enthaltung:{" "}
+        <strong className="text-gray-800">{count("ENTHALTUNG")}</strong> · abgegeben{" "}
+        {votes.length}
+        {eligible > 0 ? ` von ${eligible} Eigentümern` : ""}
+      </p>
+      {isMea ? (
+        <p className="mt-0.5">
+          Nach MEA – Ja: <strong className="text-gray-800">{wsum("JA")}</strong> · Nein:{" "}
+          <strong className="text-gray-800">{wsum("NEIN")}</strong> · Enthaltung:{" "}
+          <strong className="text-gray-800">{wsum("ENTHALTUNG")}</strong>
+          {eligibleMea > 0 ? ` von ${eligibleMea} MEA` : ""}
+          {missingMea ? <span className="text-amber-600"> · MEA unvollständig</span> : null}
+        </p>
+      ) : null}
+    </div>
   );
+}
+
+// Stimmen einer Abstimmung mit dem MEA-Gewicht des jeweiligen Eigentümers
+// anreichern (0, wenn kein MEA hinterlegt ist).
+function weightedVotes(
+  votes: { choice: "JA" | "NEIN" | "ENTHALTUNG"; userId: string }[],
+  propertyId: string,
+  meaMap: Map<string, number>,
+) {
+  return votes.map((v) => ({
+    choice: v.choice,
+    weight: meaMap.get(`${propertyId}:${v.userId}`) ?? 0,
+  }));
 }
 
 export default async function BeschluessePage({
@@ -92,6 +123,20 @@ export default async function BeschluessePage({
     _count: { _all: true },
   });
   const ownerCountMap = new Map(ownerCounts.map((o) => [o.propertyId, o._count._all]));
+
+  // MEA je Eigentümer/Objekt für die gewichtete Auszählung (Wertprinzip).
+  const ownershipMea = await db.ownership.findMany({
+    where: { propertyId: { in: propIds } },
+    select: { propertyId: true, userId: true, mea: true },
+  });
+  const meaMap = new Map<string, number>();
+  const meaTotalMap = new Map<string, number>();
+  for (const o of ownershipMea) {
+    if (o.mea != null) {
+      meaMap.set(`${o.propertyId}:${o.userId}`, o.mea);
+      meaTotalMap.set(o.propertyId, (meaTotalMap.get(o.propertyId) ?? 0) + o.mea);
+    }
+  }
 
   const open = resolutions.filter((r) => r.status === "OFFEN");
   const decided = resolutions.filter((r) => r.status !== "OFFEN");
@@ -145,7 +190,12 @@ export default async function BeschluessePage({
                   </div>
                   <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">{r.description}</p>
 
-                  <Tally votes={r.votes} eligible={ownerCountMap.get(r.propertyId) ?? 0} />
+                  <Tally
+                    votes={weightedVotes(r.votes, r.propertyId, meaMap)}
+                    eligible={ownerCountMap.get(r.propertyId) ?? 0}
+                    principle={r.property.votingPrinciple}
+                    eligibleMea={meaTotalMap.get(r.propertyId) ?? 0}
+                  />
 
                   {/* Eigentümer: abstimmen */}
                   {!isVerwalter ? (
@@ -242,7 +292,12 @@ export default async function BeschluessePage({
                       {r.decidedAt ? ` · entschieden am ${formatDate(r.decidedAt)}` : ""}
                     </p>
                     <p className="mt-1 text-sm text-gray-700">{r.description}</p>
-                    <Tally votes={r.votes} eligible={ownerCountMap.get(r.propertyId) ?? 0} />
+                    <Tally
+                    votes={weightedVotes(r.votes, r.propertyId, meaMap)}
+                    eligible={ownerCountMap.get(r.propertyId) ?? 0}
+                    principle={r.property.votingPrinciple}
+                    eligibleMea={meaTotalMap.get(r.propertyId) ?? 0}
+                  />
                   </li>
                 ))}
               </ul>

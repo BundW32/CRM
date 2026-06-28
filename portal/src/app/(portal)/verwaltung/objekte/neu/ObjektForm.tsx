@@ -42,6 +42,12 @@ export function ObjektForm() {
               <option value="WEG">WEG (Eigentümergemeinschaft)</option>
             </select>
           </Field>
+          <Field label="Stimmprinzip (nur WEG)">
+            <select name="votingPrinciple" defaultValue="KOPF" className={inputClass}>
+              <option value="KOPF">Kopfprinzip – eine Stimme je Eigentümer</option>
+              <option value="MEA">Wertprinzip – Stimmgewicht nach Miteigentumsanteilen</option>
+            </select>
+          </Field>
           <Field label="Straße und Hausnummer *">
             <input type="text" name="street" required minLength={2} className={inputClass} />
           </Field>

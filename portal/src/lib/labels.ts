@@ -35,6 +35,12 @@ export function orgNounFor(accountType: string): string {
   return accountType === "selbstverwalter" ? "WEG / Ihr Objekt" : "Hausverwaltung";
 }
 
+// Stimmprinzip einer WEG.
+export const votingPrincipleLabels: Record<string, string> = {
+  KOPF: "Kopfprinzip (eine Stimme je Eigentümer)",
+  MEA: "Wertprinzip (Stimmgewicht nach Miteigentumsanteilen)",
+};
+
 export const ticketTypeLabels: Record<TicketType, string> = {
   SCHADEN: "Schadensmeldung",
   ANFRAGE: "Anfrage",

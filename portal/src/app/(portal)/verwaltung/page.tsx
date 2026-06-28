@@ -49,6 +49,11 @@ const tiles = [
     desc: "Interne Notizen zu Objekten, Einheiten und Personen",
   },
   {
+    href: "/verwaltung/eigentuemer",
+    title: "Eigentümer & MEA",
+    desc: "Miteigentumsanteile und Stimmprinzip je WEG-Objekt (Eigentümerliste, CSV)",
+  },
+  {
     href: "/uebergabe",
     title: "Wohnungsübergabe",
     desc: "Übergabeprotokoll digital erstellen, unterschreiben und als PDF exportieren",

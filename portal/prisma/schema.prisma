@@ -116,6 +116,14 @@ enum ManagementType {
   WEG
 }
 
+// Stimmprinzip einer WEG bei Abstimmungen:
+//   KOPF = ein Eigentümer, eine Stimme (gesetzlicher Standard)
+//   MEA  = Stimmgewicht nach Miteigentumsanteilen (Wertprinzip)
+enum VotingPrinciple {
+  KOPF
+  MEA
+}
+
 // Herkunft eines Dokuments – manueller Upload oder automatischer Sync
 enum DocumentSource {
   UPLOAD // manueller Upload (Standard)
@@ -263,6 +271,7 @@ model Property {
   zip                 String
   city                String
   managementType      ManagementType       @default(MIETVERWALTUNG)
+  votingPrinciple     VotingPrinciple      @default(KOPF) // Stimmprinzip (nur WEG)
   // Optionale Stammdaten zum Objekt
   buildYear           Int? // Baujahr
   livingArea          Float? // Gesamtwohnfläche in m²
@@ -341,6 +350,7 @@ model Ownership {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  mea        Int? // Miteigentumsanteil (z. B. von 1000) – für Stimmgewicht bei WEG
 
   @@unique([userId, propertyId])
   @@index([propertyId])

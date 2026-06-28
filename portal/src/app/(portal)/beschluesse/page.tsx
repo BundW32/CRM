@@ -77,6 +77,9 @@ function VoteSummary({
           <strong className={outcome.suggestion === "ANGENOMMEN" ? "text-green-700" : "text-red-700"}>
             {outcome.suggestion === "ANGENOMMEN" ? "Angenommen" : "Abgelehnt"}
           </strong>
+          {!outcome.reliable ? (
+            <span className="ml-1 text-amber-600">(unverbindlich – Daten prüfen)</span>
+          ) : null}
         </p>
       ) : null}
       {outcome.warnings.map((w, i) => (

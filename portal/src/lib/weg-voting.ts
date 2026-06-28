@@ -33,6 +33,10 @@ export type OutcomeResult = {
   cast: number; // ja + nein (Enthaltungen ausgenommen)
   warnings: string[];
   rule: string; // Kurzbeschreibung der angewandten Regel
+  // false, wenn dem Ergebnis Eingangsdaten fehlen (Stimmgewicht ohne MEA,
+  // fehlende MEA-Summe bei doppelt qualifizierter Mehrheit). Dann ist der
+  // Vorschlag NICHT belastbar und der Verwalter muss manuell prüfen.
+  reliable: boolean;
 };
 
 export const MAJORITY_LABELS: Record<MajorityType, string> = {
@@ -52,6 +56,7 @@ export const MAJORITY_HINTS: Record<MajorityType, string> = {
 
 export function computeOutcome(input: OutcomeInput): OutcomeResult {
   const warnings: string[] = [];
+  let reliable = true;
   const sum = (c: VoteChoice) =>
     input.votes.filter((v) => v.choice === c).reduce((s, v) => s + v.weight, 0);
   const ja = sum("JA");
@@ -61,6 +66,7 @@ export function computeOutcome(input: OutcomeInput): OutcomeResult {
 
   if (input.votes.some((v) => v.choice !== "ENTHALTUNG" && v.missingWeight)) {
     warnings.push("Für einzelne Stimmen ist kein Stimmgewicht hinterlegt – Ergebnis prüfen.");
+    reliable = false;
   }
 
   let accepted = false;
@@ -71,15 +77,18 @@ export function computeOutcome(input: OutcomeInput): OutcomeResult {
       accepted = ja > nein;
       break;
     case "DREIVIERTEL":
-      accepted = cast > 0 && ja >= 0.75 * cast;
+      // ja/cast >= 3/4  ⇔  4*ja >= 3*cast (Ganzzahl-Vergleich, keine FP-Drift).
+      accepted = cast > 0 && 4 * ja >= 3 * cast;
       break;
     case "DOPPELT_QUALIFIZIERT": {
-      const stimmenOk = cast > 0 && ja > (2 / 3) * cast;
+      // ja/cast > 2/3  ⇔  3*ja > 2*cast; meaJa/meaTotal > 1/2  ⇔  2*meaJa > meaTotal.
+      const stimmenOk = cast > 0 && 3 * ja > 2 * cast;
       const meaTotal = input.meaTotal ?? 0;
       const meaJa = input.meaJa ?? 0;
-      const meaOk = meaTotal > 0 && meaJa > 0.5 * meaTotal;
+      const meaOk = meaTotal > 0 && 2 * meaJa > meaTotal;
       if (meaTotal <= 0) {
         warnings.push("Keine Miteigentumsanteile hinterlegt – MEA-Hälfte nicht prüfbar.");
+        reliable = false;
       }
       accepted = stimmenOk && meaOk;
       rule += ` (Ja-Stimmen ${ja}/${cast}, Ja-MEA ${meaJa}/${meaTotal}).`;
@@ -92,6 +101,7 @@ export function computeOutcome(input: OutcomeInput): OutcomeResult {
         input.ballotsCast === input.eligibleCount;
       if (!fullTurnout) {
         warnings.push("Nicht alle Eigentümer haben abgestimmt – Allstimmigkeit unsicher.");
+        reliable = false;
       }
       accepted = nein === 0 && enthaltung === 0 && ja > 0 && fullTurnout;
       break;
@@ -106,6 +116,7 @@ export function computeOutcome(input: OutcomeInput): OutcomeResult {
     cast,
     warnings,
     rule,
+    reliable,
   };
 }
 

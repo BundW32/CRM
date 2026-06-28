@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { canVerwalterAccessProperty } from "@/lib/access";
+import { canVerwalterAccessProperty, canVoteOnProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
@@ -95,13 +95,12 @@ export async function castVote(formData: FormData) {
 
   const resolution = await db.resolution.findUnique({ where: { id: resolutionId } });
   if (!resolution || resolution.status !== "OFFEN") redirect("/beschluesse");
+  // Mandanten-Wand: nur Beschlüsse der eigenen Organisation.
+  if (resolution.organizationId !== user.organizationId) redirect("/beschluesse");
 
-  // Nur Eigentümer des betreffenden Objekts dürfen abstimmen
-  const ownership = await db.ownership.findFirst({
-    where: { userId: user.id, propertyId: resolution.propertyId },
-  });
-  if (!ownership && user.role !== "VERWALTER") redirect("/beschluesse");
-  if (!ownership) redirect("/beschluesse"); // Verwalter ohne Eigentum stimmt nicht ab
+  // Stimmberechtigt ist ausschließlich, wer Eigentümer des Objekts ist
+  // (rollenunabhängig: auch der interne Verwalter, sofern er Eigentum hält).
+  if (!(await canVoteOnProperty(user.id, resolution.propertyId))) redirect("/beschluesse");
 
   await db.resolutionVote.upsert({
     where: { resolutionId_userId: { resolutionId, userId: user.id } },
@@ -135,14 +134,25 @@ export async function closeResolution(formData: FormData) {
     status = ja > nein ? "ANGENOMMEN" : "ABGELEHNT";
   }
 
-  // Laufende Nummer für die Beschlusssammlung vergeben (pro Mandant getrennt)
-  const decidedCount = await db.resolution.count({
-    where: { number: { not: null }, organizationId: user.organizationId },
-  });
-
-  await db.resolution.update({
-    where: { id },
-    data: { status, decidedAt: new Date(), number: decidedCount + 1 },
+  // Laufende Nummer für die Beschluss-Sammlung vergeben – fortlaufend PRO OBJEKT
+  // (§ 24 Abs. 7 WEG: je WEG eine eigene Sammlung). Zählen + Schreiben atomar in
+  // einer Transaktion, damit gleichzeitige Schließungen keine Nummer doppeln.
+  await db.$transaction(async (tx) => {
+    const current = await tx.resolution.findFirst({
+      where: { id, status: "OFFEN" },
+      select: { id: true },
+    });
+    if (!current) return; // zwischenzeitlich bereits geschlossen
+    const last = await tx.resolution.findFirst({
+      where: { propertyId: resolution.propertyId, number: { not: null } },
+      orderBy: { number: "desc" },
+      select: { number: true },
+    });
+    const nextNumber = (last?.number ?? 0) + 1;
+    await tx.resolution.update({
+      where: { id },
+      data: { status, decidedAt: new Date(), number: nextNumber },
+    });
   });
   revalidatePath("/beschluesse");
   redirect(`/beschluesse#${id}`);

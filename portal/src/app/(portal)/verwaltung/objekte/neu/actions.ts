@@ -114,8 +114,8 @@ export async function createObjekt(formData: FormData) {
 
   const managementType =
     String(formData.get("managementType") ?? "") === "WEG" ? "WEG" : "MIETVERWALTUNG";
-  const votingPrinciple =
-    String(formData.get("votingPrinciple") ?? "") === "MEA" ? "MEA" : "KOPF";
+  const vpRaw = String(formData.get("votingPrinciple") ?? "");
+  const votingPrinciple = vpRaw === "MEA" ? "MEA" : vpRaw === "OBJEKT" ? "OBJEKT" : "KOPF";
 
   // ── Objekt anlegen (inkl. optionaler Stammdaten) ────────────────────
   const property = await db.property.create({

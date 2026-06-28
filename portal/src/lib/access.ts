@@ -27,6 +27,28 @@ export async function ownsWegProperty(userId: string) {
   return count > 0;
 }
 
+// ── Selbstverwaltung (WEG ohne externen Verwalter) ──────────────────────────
+// Selbstverwaltete Org? (accountType). Nimmt das (ggf. schon geladene) Org-Objekt.
+export function isSelfManaged(org: { accountType: string } | null | undefined): boolean {
+  return org?.accountType === "selbstverwalter";
+}
+
+// Darf der Nutzer über Beschlüsse dieses Objekts abstimmen? Rollenunabhängig –
+// allein die Eigentümerstellung (Ownership) zählt. So kann auch ein interner
+// Verwalter (VERWALTER-User, der zugleich Eigentümer ist) mitstimmen.
+export async function canVoteOnProperty(userId: string, propertyId: string): Promise<boolean> {
+  const count = await db.ownership.count({ where: { userId, propertyId } });
+  return count > 0;
+}
+
+// Darf der Nutzer dieses Objekt administrieren (Beschlüsse/Versammlungen anlegen,
+// Anträge übernehmen)? Professionelle Verwalter im Scope ODER – in einer
+// selbstverwalteten Org – der interne Verwalter (VERWALTER-User mit Zugriff).
+export async function canAdministerProperty(user: User, propertyId: string): Promise<boolean> {
+  if (user.role !== "VERWALTER") return false;
+  return canVerwalterAccessProperty(user, propertyId);
+}
+
 /**
  * Gibt die zugewiesenen Property-IDs eines Verwalters zurück.
  * null = Super-Admin, kein Filter → sieht alles.

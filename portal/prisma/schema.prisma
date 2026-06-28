@@ -116,12 +116,27 @@ enum ManagementType {
   WEG
 }
 
-// Stimmprinzip einer WEG bei Abstimmungen:
-//   KOPF = ein Eigentümer, eine Stimme (gesetzlicher Standard)
-//   MEA  = Stimmgewicht nach Miteigentumsanteilen (Wertprinzip)
+// Stimmprinzip einer WEG bei Abstimmungen (§25 WEG; konkret regelt es die
+// Gemeinschaftsordnung):
+//   KOPF   = ein Eigentümer, eine Stimme (gesetzlicher Standard)
+//   MEA    = Stimmgewicht nach Miteigentumsanteilen (Wertprinzip)
+//   OBJEKT = eine Stimme je Einheit (Objektprinzip)
 enum VotingPrinciple {
   KOPF
   MEA
+  OBJEKT
+}
+
+// Erforderliche Mehrheit eines Beschlusses:
+//   EINFACH              = Mehrheit der abgegebenen Stimmen (Standard)
+//   DREIVIERTEL          = qualifizierte 3/4-Mehrheit (z. B. laut GO)
+//   DOPPELT_QUALIFIZIERT = §21 II: > 2/3 der Stimmen UND > 1/2 aller MEA
+//   ALLSTIMMIG           = Zustimmung aller Eigentümer (Vereinbarung)
+enum MajorityType {
+  EINFACH
+  DREIVIERTEL
+  DOPPELT_QUALIFIZIERT
+  ALLSTIMMIG
 }
 
 // Herkunft eines Dokuments – manueller Upload oder automatischer Sync
@@ -353,7 +368,9 @@ model Ownership {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  mea        Int? // Miteigentumsanteil (z. B. von 1000) – für Stimmgewicht bei WEG
+  mea        Int? // Miteigentumsanteil (z. B. von 1000) – Stimmgewicht beim Wertprinzip
+  voteUnits  Int? // Anzahl Stimmen beim Objektprinzip (Einheiten dieses Eigentümers)
+  isBoardMember Boolean @default(false) // Mitglied des Verwaltungsbeirats (Selbstverwaltung)
 
   @@unique([userId, propertyId])
   @@index([propertyId])
@@ -679,6 +696,7 @@ model Resolution {
   title       String
   description String
   status      ResolutionStatus @default(OFFEN)
+  majority    MajorityType     @default(EINFACH) // erforderliche Mehrheit
   deadline    DateTime?
   createdById String
   createdBy   User             @relation("ResolutionCreatedBy", fields: [createdById], references: [id])

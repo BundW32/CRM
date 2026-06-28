@@ -9,11 +9,14 @@ import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireUser, requireVerwalter } from "@/lib/session";
 
+const MAJORITIES = ["EINFACH", "DREIVIERTEL", "DOPPELT_QUALIFIZIERT", "ALLSTIMMIG"] as const;
+
 const createSchema = z.object({
   propertyId: z.string().min(1),
   title: z.string().trim().min(3).max(200),
   description: z.string().trim().min(3).max(5000),
   deadline: z.string().optional(),
+  majority: z.enum(MAJORITIES).default("EINFACH"),
 });
 
 export async function createResolution(formData: FormData) {
@@ -23,6 +26,7 @@ export async function createResolution(formData: FormData) {
     title: formData.get("title"),
     description: formData.get("description"),
     deadline: formData.get("deadline") || undefined,
+    majority: formData.get("majority") || undefined,
   });
   if (!parsed.success) {
     redirect("/beschluesse?fehler=eingabe");
@@ -46,6 +50,7 @@ export async function createResolution(formData: FormData) {
       propertyId: parsed.data.propertyId,
       title: parsed.data.title,
       description: parsed.data.description,
+      majority: parsed.data.majority,
       deadline: deadline && !Number.isNaN(deadline.getTime()) ? deadline : null,
       createdById: user.id,
       organizationId: user.organizationId,
@@ -118,9 +123,17 @@ export async function closeResolution(formData: FormData) {
   if (!resolution || resolution.status !== "OFFEN") redirect("/beschluesse");
   if (!(await canVerwalterAccessProperty(user, resolution.propertyId))) redirect("/beschluesse");
 
-  const ja = resolution.votes.filter((v) => v.choice === "JA").length;
-  const nein = resolution.votes.filter((v) => v.choice === "NEIN").length;
-  const status = ja > nein ? "ANGENOMMEN" : "ABGELEHNT";
+  // Ergebnis wird vom Verwalter festgestellt (die Oberfläche schlägt es anhand
+  // Stimmprinzip + Mehrheit vor). Fallback: einfache Mehrheit der Köpfe.
+  const confirmed = String(formData.get("result") ?? "");
+  let status: "ANGENOMMEN" | "ABGELEHNT";
+  if (confirmed === "ANGENOMMEN" || confirmed === "ABGELEHNT") {
+    status = confirmed;
+  } else {
+    const ja = resolution.votes.filter((v) => v.choice === "JA").length;
+    const nein = resolution.votes.filter((v) => v.choice === "NEIN").length;
+    status = ja > nein ? "ANGENOMMEN" : "ABGELEHNT";
+  }
 
   // Laufende Nummer für die Beschlusssammlung vergeben (pro Mandant getrennt)
   const decidedCount = await db.resolution.count({

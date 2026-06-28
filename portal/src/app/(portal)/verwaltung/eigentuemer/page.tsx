@@ -84,6 +84,7 @@ export default async function EigentuemerPage({
                   >
                     <option value="KOPF">Kopfprinzip (eine Stimme je Eigentümer)</option>
                     <option value="MEA">Wertprinzip (nach Miteigentumsanteilen)</option>
+                    <option value="OBJEKT">Objektprinzip (eine Stimme je Einheit)</option>
                   </select>
                 </label>
                 <button type="submit" className={buttonSecondaryClass}>
@@ -129,16 +130,30 @@ export default async function EigentuemerPage({
                               ) : null}
                             </td>
                             <td className="px-3 py-2" colSpan={2}>
-                              <form action={updateOwnershipMea} className="flex items-center gap-2">
+                              <form action={updateOwnershipMea} className="flex flex-wrap items-center gap-2">
                                 <input type="hidden" name="ownershipId" value={o.id} />
-                                <input
-                                  type="number"
-                                  name="mea"
-                                  min={0}
-                                  defaultValue={o.mea ?? ""}
-                                  placeholder="z. B. 250"
-                                  className={`${inputClass} w-28`}
-                                />
+                                <label className="text-xs text-gray-400">
+                                  MEA
+                                  <input
+                                    type="number"
+                                    name="mea"
+                                    min={0}
+                                    defaultValue={o.mea ?? ""}
+                                    placeholder="z. B. 250"
+                                    className={`${inputClass} ml-1 w-24`}
+                                  />
+                                </label>
+                                <label className="text-xs text-gray-400">
+                                  Einheiten
+                                  <input
+                                    type="number"
+                                    name="voteUnits"
+                                    min={0}
+                                    defaultValue={o.voteUnits ?? ""}
+                                    placeholder="z. B. 1"
+                                    className={`${inputClass} ml-1 w-16`}
+                                  />
+                                </label>
                                 <button type="submit" className="text-xs text-brand-green hover:underline">
                                   Speichern
                                 </button>
@@ -159,8 +174,9 @@ export default async function EigentuemerPage({
                     </tbody>
                   </table>
                   <p className="mt-3 text-xs text-gray-400">
-                    Miteigentumsanteile (z. B. von 1.000) bestimmen beim Wertprinzip das
-                    Stimmgewicht. Beim Kopfprinzip hat jeder Eigentümer eine Stimme.
+                    Stimmgewicht je Stimmprinzip: Kopfprinzip = eine Stimme je Eigentümer ·
+                    Wertprinzip = nach Miteigentumsanteilen (MEA) · Objektprinzip = nach
+                    Einheiten. Pflegen Sie die jeweils passende Spalte.
                   </p>
                 </div>
               )}

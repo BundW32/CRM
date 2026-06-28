@@ -26,10 +26,15 @@ export async function updateOwnershipMea(formData: FormData) {
     redirect("/verwaltung/eigentuemer");
   }
 
-  const raw = String(formData.get("mea") ?? "").trim();
-  const parsed = raw === "" ? null : Math.max(0, Math.min(10_000_000, parseInt(raw, 10) || 0));
+  const parseInt0 = (key: string) => {
+    const raw = String(formData.get(key) ?? "").trim();
+    return raw === "" ? null : Math.max(0, Math.min(10_000_000, parseInt(raw, 10) || 0));
+  };
 
-  await db.ownership.update({ where: { id }, data: { mea: parsed } });
+  await db.ownership.update({
+    where: { id },
+    data: { mea: parseInt0("mea"), voteUnits: parseInt0("voteUnits") },
+  });
   revalidatePath("/verwaltung/eigentuemer");
   redirect(backTo(ownership.propertyId));
 }
@@ -42,7 +47,8 @@ export async function updateVotingPrinciple(formData: FormData) {
   if (!(await canVerwalterAccessProperty(actor, propertyId))) {
     redirect("/verwaltung/eigentuemer");
   }
-  const principle = String(formData.get("votingPrinciple") ?? "") === "MEA" ? "MEA" : "KOPF";
+  const vpRaw = String(formData.get("votingPrinciple") ?? "");
+  const principle = vpRaw === "MEA" ? "MEA" : vpRaw === "OBJEKT" ? "OBJEKT" : "KOPF";
   await db.property.update({ where: { id: propertyId }, data: { votingPrinciple: principle } });
   revalidatePath("/verwaltung/eigentuemer");
   redirect(backTo(propertyId));

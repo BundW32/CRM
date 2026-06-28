@@ -39,6 +39,7 @@ export function orgNounFor(accountType: string): string {
 export const votingPrincipleLabels: Record<string, string> = {
   KOPF: "Kopfprinzip (eine Stimme je Eigentümer)",
   MEA: "Wertprinzip (Stimmgewicht nach Miteigentumsanteilen)",
+  OBJEKT: "Objektprinzip (eine Stimme je Einheit)",
 };
 
 export const ticketTypeLabels: Record<TicketType, string> = {

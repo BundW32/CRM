@@ -46,6 +46,7 @@ export function ObjektForm() {
             <select name="votingPrinciple" defaultValue="KOPF" className={inputClass}>
               <option value="KOPF">Kopfprinzip – eine Stimme je Eigentümer</option>
               <option value="MEA">Wertprinzip – Stimmgewicht nach Miteigentumsanteilen</option>
+              <option value="OBJEKT">Objektprinzip – eine Stimme je Einheit</option>
             </select>
           </Field>
           <Field label="Straße und Hausnummer *">

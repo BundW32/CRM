@@ -22,6 +22,7 @@ const navByRole = {
     { href: "/dashboard", label: "Übersicht" },
     { href: "/vorgaenge", label: "Vorgänge" },
     { href: "/beschluesse", label: "Beschlüsse" },
+    { href: "/versammlungen", label: "Versammlungen" },
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
     { href: "/zaehler", label: "Zähler" },
@@ -33,6 +34,7 @@ const navByRole = {
     { href: "/infos", label: "Infos" },
     { href: "/zaehler", label: "Zähler" },
     { href: "/beschluesse", label: "Beschlüsse" },
+    { href: "/versammlungen", label: "Versammlungen" },
     { href: "/verwaltung", label: "Verwaltung" },
   ],
   HANDWERKER: [
@@ -48,9 +50,9 @@ export default async function PortalLayout({
   if (user.mustChangePassword) redirect("/passwort-festlegen");
   const org = await getOrganization();
   let nav: ReadonlyArray<{ href: string; label: string }> = navByRole[user.role];
-  // Eigentümer ohne WEG-Objekt sehen keine Beschlüsse
+  // Eigentümer ohne WEG-Objekt sehen keine Beschlüsse/Versammlungen
   if (user.role === "EIGENTUEMER" && !(await ownsWegProperty(user.id))) {
-    nav = nav.filter((item) => item.href !== "/beschluesse");
+    nav = nav.filter((item) => item.href !== "/beschluesse" && item.href !== "/versammlungen");
   }
 
   const orgName = org?.name ?? "Kundenportal";

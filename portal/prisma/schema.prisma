@@ -178,6 +178,7 @@ model Organization {
   resolutions           Resolution[]
   handovers             Handover[]
   documentSourceConfigs DocumentSourceConfig[]
+  ownersMeetings        OwnersMeeting[]
 }
 
 model User {
@@ -221,6 +222,7 @@ model User {
   meterReadings        MeterReading[]
   resolutionsCreated   Resolution[]              @relation("ResolutionCreatedBy")
   resolutionVotes      ResolutionVote[]
+  ownersMeetingsCreated OwnersMeeting[]          @relation("MeetingCreatedBy")
   pushSubscriptions    PushSubscription[]
   notesAuthored        Note[]
   notesAbout           Note[]                    @relation("NotesAboutUser")
@@ -293,6 +295,7 @@ model Property {
   internalNotes         Note[]
   propertyAssignments   PropertyAssignment[]
   documentSourceConfigs DocumentSourceConfig[]
+  ownersMeetings        OwnersMeeting[]
 
   @@index([organizationId])
 }
@@ -682,9 +685,59 @@ model Resolution {
   createdAt   DateTime         @default(now())
   decidedAt   DateTime?
   votes       ResolutionVote[]
+  agendaItems MeetingAgendaItem[]
 
   @@index([propertyId])
   @@index([organizationId])
+}
+
+// ── Eigentümerversammlung (WEG, „light") ──────────────────────────────────────
+
+enum MeetingStatus {
+  GEPLANT
+  EINBERUFEN
+  DURCHGEFUEHRT
+  ABGESAGT
+}
+
+enum AgendaItemType {
+  INFO
+  BESCHLUSS
+}
+
+model OwnersMeeting {
+  id                 String              @id @default(cuid())
+  organizationId     String
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId         String
+  property           Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  title              String
+  scheduledAt        DateTime
+  location           String?
+  status             MeetingStatus       @default(GEPLANT)
+  invitationSentAt   DateTime?
+  protocolDocumentId String? // Id des erzeugten Protokoll-Dokuments
+  createdById        String
+  createdBy          User                @relation("MeetingCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime            @default(now())
+  agendaItems        MeetingAgendaItem[]
+
+  @@index([organizationId])
+  @@index([propertyId])
+}
+
+model MeetingAgendaItem {
+  id           String         @id @default(cuid())
+  meetingId    String
+  meeting      OwnersMeeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  sortOrder    Int
+  title        String
+  description  String?
+  type         AgendaItemType @default(INFO)
+  resolutionId String? // bei type BESCHLUSS: verknüpfter Beschluss
+  resolution   Resolution?    @relation(fields: [resolutionId], references: [id], onDelete: SetNull)
+
+  @@index([meetingId])
 }
 
 model ResolutionVote {

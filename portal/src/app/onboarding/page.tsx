@@ -43,7 +43,8 @@ export default async function OnboardingPage({
             Richten Sie Ihr Portal ein
           </h1>
           <p className="mx-auto mb-6 max-w-lg text-center text-sm text-gray-600">
-            Geben Sie Ihrem Kundenportal das Erscheinungsbild Ihrer Hausverwaltung – mit
+            Geben Sie Ihrem Kundenportal das Erscheinungsbild{" "}
+            {org.accountType === "selbstverwalter" ? "Ihrer WEG" : "Ihrer Hausverwaltung"} – mit
             eigenem Logo, Ihrer Farbe und Ihren Kontaktdaten. Sie können alles später unter
             <span className="font-medium"> Verwaltung → Branding</span> ändern.
           </p>

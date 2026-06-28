@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Field, buttonClass, inputClass } from "@/components/ui";
+import { AccountTypeFields } from "./account-type-fields";
 import { registerOrganization } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -23,14 +24,14 @@ export default async function RegisterPage({
       <div className="w-full max-w-md animate-page-in">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
           <p className="mb-1 text-center text-sm font-medium text-gray-400">
-            Hausverwaltung registrieren
+            Kostenlos registrieren
           </p>
           <h1 className="mb-2 text-center text-xl font-bold text-brand-green">
             Ihr eigenes Kundenportal
           </h1>
           <p className="mx-auto mb-6 max-w-sm text-center text-sm text-gray-600">
-            Legen Sie kostenlos Ihr Verwalter-Konto an. Im Anschluss richten Sie Logo,
-            Farbe und Impressum Ihrer Hausverwaltung ein.
+            Für Hausverwaltungen und selbstverwaltende WEGs. Legen Sie kostenlos Ihr Konto
+            an – im Anschluss richten Sie Logo, Farbe und Daten ein.
           </p>
 
           {fehler ? (
@@ -49,17 +50,7 @@ export default async function RegisterPage({
             </div>
             {/* Herkunft der Registrierung (z. B. von HausMatch verlinkt). */}
             {ref ? <input type="hidden" name="ref" value={ref} /> : null}
-            <Field label="Name der Hausverwaltung">
-              <input
-                type="text"
-                name="company"
-                required
-                minLength={2}
-                maxLength={200}
-                placeholder="z. B. Muster Hausverwaltung GmbH"
-                className={inputClass}
-              />
-            </Field>
+            <AccountTypeFields />
             <Field label="Ihr Name">
               <input type="text" name="name" required minLength={2} className={inputClass} />
             </Field>

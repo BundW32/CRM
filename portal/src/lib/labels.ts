@@ -21,6 +21,20 @@ export const roleLabels: Record<Role, string> = {
   HANDWERKER: "Handwerker",
 };
 
+// Kontotyp einer Organisation (Selbstverwalter-Feinschliff). Bestimmt nur die
+// Ansprache/Texte – die interne Rollenlogik bleibt unverändert (VERWALTER).
+export type AccountType = "verwaltung" | "selbstverwalter";
+
+export const accountTypeLabels: Record<AccountType, string> = {
+  verwaltung: "Hausverwaltung",
+  selbstverwalter: "Selbstverwaltung",
+};
+
+// Bezeichnung der „Einheit", die die Organisation verwaltet – für Ansprache.
+export function orgNounFor(accountType: string): string {
+  return accountType === "selbstverwalter" ? "WEG / Ihr Objekt" : "Hausverwaltung";
+}
+
 export const ticketTypeLabels: Record<TicketType, string> = {
   SCHADEN: "Schadensmeldung",
   ANFRAGE: "Anfrage",

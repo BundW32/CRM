@@ -92,6 +92,11 @@ export async function registerOrganization(formData: FormData) {
       .toLowerCase()
       .replace(/[^a-z0-9_-]/g, "")
       .slice(0, 40) || null;
+  // Kontotyp: nur die zwei erlaubten Werte, sonst Standard „verwaltung".
+  const accountType =
+    String(formData.get("accountType") ?? "") === "selbstverwalter"
+      ? "selbstverwalter"
+      : "verwaltung";
 
   // Org + Gründer-SuperAdmin atomisch anlegen.
   const { user, org } = await db.$transaction(async (tx) => {
@@ -99,6 +104,7 @@ export async function registerOrganization(formData: FormData) {
       data: {
         slug,
         name: parsed.data.company,
+        accountType,
         termsAcceptedAt: new Date(),
         termsVersion: TERMS_VERSION,
         referralSource,

@@ -132,6 +132,7 @@ model Organization {
   slug           String   @unique // für spätere Subdomain/Custom-Domain (z. B. "bw")
   name           String // Anzeigename der Hausverwaltung
   legalName      String? // vollständiger Firmenname (Impressum)
+  accountType    String   @default("verwaltung") // verwaltung | selbstverwalter
   // White-Label-Theming (Phase 4.4)
   logoStoredName String?
   primaryColor   String? // z. B. "#E8740C"

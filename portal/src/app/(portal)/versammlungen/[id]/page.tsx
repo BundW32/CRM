@@ -5,9 +5,26 @@ import { canVerwalterAccessProperty, ownedProperties } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
-import { addAgendaItem, deleteAgendaItem, deleteMeeting, generateProtocol, sendInvitation } from "../actions";
+import {
+  addAgendaItem,
+  cancelMeeting,
+  deleteAgendaItem,
+  deleteMeeting,
+  generateProtocol,
+  moveAgendaItem,
+  sendInvitation,
+  updateAgendaItem,
+  updateAttendance,
+  updateMeeting,
+} from "../actions";
 
 export const dynamic = "force-dynamic";
+
+// Date → Wert für <input type="datetime-local"> (YYYY-MM-DDTHH:MM).
+function toLocalInput(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 const statusLabel: Record<string, string> = {
   GEPLANT: "Geplant",
@@ -21,11 +38,11 @@ export default async function MeetingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ eingeladen?: string; protokoll?: string }>;
+  searchParams: Promise<{ eingeladen?: string; protokoll?: string; fehler?: string }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { eingeladen, protokoll } = await searchParams;
+  const { eingeladen, protokoll, fehler } = await searchParams;
 
   const meeting = await db.ownersMeeting.findUnique({
     where: { id },
@@ -74,6 +91,11 @@ export default async function MeetingDetailPage({
           Protokoll erstellt und für Eigentümer bereitgestellt.
         </p>
       ) : null}
+      {fehler ? (
+        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          Bitte Titel und einen gültigen Termin angeben.
+        </p>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
@@ -100,13 +122,41 @@ export default async function MeetingDetailPage({
                         ) : null}
                       </span>
                       {isVerwalter ? (
-                        <form action={deleteAgendaItem}>
-                          <input type="hidden" name="meetingId" value={meeting.id} />
-                          <input type="hidden" name="itemId" value={it.id} />
-                          <button type="submit" className="text-xs text-red-600 hover:underline">
-                            entfernen
-                          </button>
-                        </form>
+                        <div className="flex items-center gap-2">
+                          <form action={moveAgendaItem}>
+                            <input type="hidden" name="meetingId" value={meeting.id} />
+                            <input type="hidden" name="itemId" value={it.id} />
+                            <input type="hidden" name="direction" value="up" />
+                            <button
+                              type="submit"
+                              disabled={i === 0}
+                              className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                              aria-label="nach oben"
+                            >
+                              ↑
+                            </button>
+                          </form>
+                          <form action={moveAgendaItem}>
+                            <input type="hidden" name="meetingId" value={meeting.id} />
+                            <input type="hidden" name="itemId" value={it.id} />
+                            <input type="hidden" name="direction" value="down" />
+                            <button
+                              type="submit"
+                              disabled={i === meeting.agendaItems.length - 1}
+                              className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                              aria-label="nach unten"
+                            >
+                              ↓
+                            </button>
+                          </form>
+                          <form action={deleteAgendaItem}>
+                            <input type="hidden" name="meetingId" value={meeting.id} />
+                            <input type="hidden" name="itemId" value={it.id} />
+                            <button type="submit" className="text-xs text-red-600 hover:underline">
+                              entfernen
+                            </button>
+                          </form>
+                        </div>
                       ) : null}
                     </div>
                     {it.description ? (
@@ -119,6 +169,34 @@ export default async function MeetingDetailPage({
                           zur Abstimmung
                         </Link>
                       </p>
+                    ) : null}
+                    {isVerwalter ? (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600">
+                          bearbeiten
+                        </summary>
+                        <form action={updateAgendaItem} className="mt-2 space-y-2">
+                          <input type="hidden" name="meetingId" value={meeting.id} />
+                          <input type="hidden" name="itemId" value={it.id} />
+                          <input
+                            type="text"
+                            name="title"
+                            defaultValue={it.title}
+                            required
+                            minLength={2}
+                            className={inputClass}
+                          />
+                          <textarea
+                            name="description"
+                            defaultValue={it.description ?? ""}
+                            rows={2}
+                            className={inputClass}
+                          />
+                          <button type="submit" className="text-xs text-brand-green hover:underline">
+                            Speichern
+                          </button>
+                        </form>
+                      </details>
                     ) : null}
                   </li>
                 ))}
@@ -164,6 +242,46 @@ export default async function MeetingDetailPage({
               </form>
             </Card>
 
+            <Card title="Eckdaten & Anwesenheit">
+              <form action={updateMeeting} className="space-y-3">
+                <input type="hidden" name="meetingId" value={meeting.id} />
+                <Field label="Titel">
+                  <input type="text" name="title" defaultValue={meeting.title} required className={inputClass} />
+                </Field>
+                <Field label="Termin">
+                  <input
+                    type="datetime-local"
+                    name="scheduledAt"
+                    defaultValue={toLocalInput(meeting.scheduledAt)}
+                    required
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Ort (optional)">
+                  <input type="text" name="location" defaultValue={meeting.location ?? ""} className={inputClass} />
+                </Field>
+                <button type="submit" className={buttonSecondaryClass}>
+                  Eckdaten speichern
+                </button>
+              </form>
+
+              <form action={updateAttendance} className="mt-4 space-y-2 border-t border-gray-100 pt-4">
+                <input type="hidden" name="meetingId" value={meeting.id} />
+                <Field label="Anwesenheit / Vertretung (fürs Protokoll)">
+                  <textarea
+                    name="attendanceNote"
+                    defaultValue={meeting.attendanceNote ?? ""}
+                    rows={2}
+                    placeholder="z. B. 5 von 8 Eigentümern anwesend, 1 per Vollmacht vertreten"
+                    className={inputClass}
+                  />
+                </Field>
+                <button type="submit" className="text-xs text-brand-green hover:underline">
+                  Anwesenheit speichern
+                </button>
+              </form>
+            </Card>
+
             <Card title="Aktionen">
               <div className="space-y-3">
                 <form action={sendInvitation}>
@@ -178,12 +296,24 @@ export default async function MeetingDetailPage({
                     Protokoll erstellen (PDF)
                   </button>
                 </form>
-                <form action={deleteMeeting}>
-                  <input type="hidden" name="meetingId" value={meeting.id} />
-                  <button type="submit" className="text-xs text-red-600 hover:underline">
-                    Versammlung löschen
-                  </button>
-                </form>
+                <div className="flex items-center justify-between border-t border-gray-100 pt-3">
+                  {meeting.status !== "ABGESAGT" ? (
+                    <form action={cancelMeeting}>
+                      <input type="hidden" name="meetingId" value={meeting.id} />
+                      <button type="submit" className="text-xs text-amber-700 hover:underline">
+                        Versammlung absagen
+                      </button>
+                    </form>
+                  ) : (
+                    <span className="text-xs text-gray-400">Abgesagt</span>
+                  )}
+                  <form action={deleteMeeting}>
+                    <input type="hidden" name="meetingId" value={meeting.id} />
+                    <button type="submit" className="text-xs text-red-600 hover:underline">
+                      Löschen
+                    </button>
+                  </form>
+                </div>
               </div>
             </Card>
           </div>

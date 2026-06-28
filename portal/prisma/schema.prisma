@@ -716,6 +716,7 @@ model OwnersMeeting {
   location           String?
   status             MeetingStatus       @default(GEPLANT)
   invitationSentAt   DateTime?
+  attendanceNote     String? // Anwesenheits-/Vertretungsvermerk fürs Protokoll
   protocolDocumentId String? // Id des erzeugten Protokoll-Dokuments
   createdById        String
   createdBy          User                @relation("MeetingCreatedBy", fields: [createdById], references: [id])

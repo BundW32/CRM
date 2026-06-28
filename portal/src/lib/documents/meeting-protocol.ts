@@ -23,6 +23,7 @@ export type MeetingProtocolInput = {
   meetingTitle: string;
   scheduledAt: Date;
   location: string | null;
+  attendance: string | null;
   items: ProtocolAgendaItem[];
   generatedAt: Date;
 };
@@ -80,6 +81,12 @@ export async function generateMeetingProtocol(input: MeetingProtocolInput): Prom
   if (input.location) {
     page.drawText(`Ort: ${input.location}`, { x: ML, y, size: 9, font, color: GRAY });
     y -= 12;
+  }
+  if (input.attendance) {
+    for (const line of wrapText(`Anwesenheit: ${input.attendance}`, font, 9, CW)) {
+      page.drawText(line, { x: ML, y, size: 9, font, color: GRAY });
+      y -= 12;
+    }
   }
   y -= 4;
   page.drawLine({ start: { x: ML, y }, end: { x: ML + CW, y }, thickness: 0.5, color: GRAY });

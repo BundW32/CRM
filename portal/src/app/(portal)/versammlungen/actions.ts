@@ -109,6 +109,119 @@ export async function deleteAgendaItem(formData: FormData) {
   redirect(`/versammlungen/${meetingId}`);
 }
 
+export async function updateAgendaItem(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const meetingId = String(formData.get("meetingId") ?? "").trim();
+  const itemId = String(formData.get("itemId") ?? "").trim();
+  const meeting = await meetingInScope(verwalter, meetingId);
+  if (!meeting || !itemId) redirect("/versammlungen");
+
+  const title = String(formData.get("title") ?? "").trim().slice(0, 200);
+  const description = String(formData.get("description") ?? "").trim().slice(0, 2000) || null;
+  if (!title) redirect(`/versammlungen/${meetingId}`);
+
+  const item = await db.meetingAgendaItem.findFirst({
+    where: { id: itemId, meetingId },
+    select: { resolutionId: true },
+  });
+  if (!item) redirect(`/versammlungen/${meetingId}`);
+
+  // Kind an die validierte meetingId binden.
+  await db.meetingAgendaItem.updateMany({
+    where: { id: itemId, meetingId },
+    data: { title, description },
+  });
+  // Verknüpften, noch offenen Beschluss titelgleich halten.
+  if (item.resolutionId) {
+    await db.resolution.updateMany({
+      where: { id: item.resolutionId, status: "OFFEN" },
+      data: { title, description: description ?? title },
+    });
+  }
+  revalidatePath(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}`);
+}
+
+// TOP nach oben/unten verschieben (sortOrder mit Nachbarn tauschen).
+export async function moveAgendaItem(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const meetingId = String(formData.get("meetingId") ?? "").trim();
+  const itemId = String(formData.get("itemId") ?? "").trim();
+  const dir = String(formData.get("direction") ?? "");
+  const meeting = await meetingInScope(verwalter, meetingId);
+  if (!meeting || !itemId || (dir !== "up" && dir !== "down")) redirect("/versammlungen");
+
+  const items = await db.meetingAgendaItem.findMany({
+    where: { meetingId },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true, sortOrder: true },
+  });
+  const idx = items.findIndex((it) => it.id === itemId);
+  const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+  if (idx < 0 || swapIdx < 0 || swapIdx >= items.length) {
+    redirect(`/versammlungen/${meetingId}`);
+  }
+  const a = items[idx];
+  const b = items[swapIdx];
+  await db.$transaction([
+    db.meetingAgendaItem.updateMany({ where: { id: a.id, meetingId }, data: { sortOrder: b.sortOrder } }),
+    db.meetingAgendaItem.updateMany({ where: { id: b.id, meetingId }, data: { sortOrder: a.sortOrder } }),
+  ]);
+  revalidatePath(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}`);
+}
+
+// Versammlung absagen (Status ABGESAGT).
+export async function cancelMeeting(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const meetingId = String(formData.get("meetingId") ?? "").trim();
+  const meeting = await meetingInScope(verwalter, meetingId);
+  if (!meeting) redirect("/versammlungen");
+  await db.ownersMeeting.update({ where: { id: meetingId }, data: { status: "ABGESAGT" } });
+  revalidatePath(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}`);
+}
+
+// Eckdaten ändern (Titel/Termin/Ort). Eine abgesagte Versammlung wird dabei
+// wieder auf „Geplant" gesetzt.
+export async function updateMeeting(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const meetingId = String(formData.get("meetingId") ?? "").trim();
+  const meeting = await meetingInScope(verwalter, meetingId);
+  if (!meeting) redirect("/versammlungen");
+
+  const title = String(formData.get("title") ?? "").trim().slice(0, 200);
+  const scheduledStr = String(formData.get("scheduledAt") ?? "");
+  const location = String(formData.get("location") ?? "").trim().slice(0, 200) || null;
+  if (!title || !scheduledStr) redirect(`/versammlungen/${meetingId}?fehler=eingabe`);
+  const scheduledAt = new Date(scheduledStr);
+  if (Number.isNaN(scheduledAt.getTime())) redirect(`/versammlungen/${meetingId}?fehler=eingabe`);
+
+  await db.ownersMeeting.update({
+    where: { id: meetingId },
+    data: {
+      title,
+      scheduledAt,
+      location,
+      ...(meeting.status === "ABGESAGT" ? { status: "GEPLANT" as const } : {}),
+    },
+  });
+  revalidatePath(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}`);
+}
+
+// Anwesenheits-/Vertretungsvermerk speichern (fürs Protokoll).
+export async function updateAttendance(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const meetingId = String(formData.get("meetingId") ?? "").trim();
+  const meeting = await meetingInScope(verwalter, meetingId);
+  if (!meeting) redirect("/versammlungen");
+  const note = String(formData.get("attendanceNote") ?? "").trim().slice(0, 1000) || null;
+  await db.ownersMeeting.update({ where: { id: meetingId }, data: { attendanceNote: note } });
+  revalidatePath(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}`);
+}
+
 export async function sendInvitation(formData: FormData) {
   const verwalter = await requireVerwalter();
   const meetingId = String(formData.get("meetingId") ?? "").trim();
@@ -186,6 +299,7 @@ export async function generateProtocol(formData: FormData) {
     meetingTitle: meeting.title,
     scheduledAt: meeting.scheduledAt,
     location: meeting.location,
+    attendance: meeting.attendanceNote,
     items: items.map((it, i) => {
       let result: string | null = null;
       if (it.type === "BESCHLUSS" && it.resolution) {

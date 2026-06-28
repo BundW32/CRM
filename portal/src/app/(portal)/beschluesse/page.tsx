@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels, voteChoiceLabels } from "@/lib/labels";
@@ -148,7 +148,15 @@ export default async function BeschluessePage({
 
   return (
     <>
-      <PageTitle>Beschlüsse &amp; Abstimmungen</PageTitle>
+      <PageTitle
+        action={
+          <a href="/beschluesse/sammlung" className={buttonSecondaryClass}>
+            Beschluss-Sammlung
+          </a>
+        }
+      >
+        Beschlüsse &amp; Abstimmungen
+      </PageTitle>
 
       {fehler ? (
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">

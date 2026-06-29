@@ -5,7 +5,7 @@ import { NavProgress } from "@/components/nav-progress";
 import { PageTransition } from "@/components/page-transition";
 import { PortalHeader } from "@/components/portal-header";
 import { BrandTheme } from "@/components/brand-theme";
-import { ownsWegProperty } from "@/lib/access";
+import { isSelfManaged, ownsWegProperty } from "@/lib/access";
 import { orgLogoUrl } from "@/lib/branding";
 import { roleLabels } from "@/lib/labels";
 import { getOrganization, requireUser } from "@/lib/session";
@@ -51,8 +51,17 @@ export default async function PortalLayout({
   const org = await getOrganization();
   let nav: ReadonlyArray<{ href: string; label: string }> = navByRole[user.role];
   // Eigentümer ohne WEG-Objekt sehen keine Beschlüsse/Versammlungen
-  if (user.role === "EIGENTUEMER" && !(await ownsWegProperty(user.id))) {
+  const ownsWeg = user.role === "EIGENTUEMER" ? await ownsWegProperty(user.id) : false;
+  if (user.role === "EIGENTUEMER" && !ownsWeg) {
     nav = nav.filter((item) => item.href !== "/beschluesse" && item.href !== "/versammlungen");
+  }
+  // Selbstverwaltung: „Anträge" für den internen Verwalter und für Eigentümer mit
+  // WEG-Objekt ergänzen (nur in selbstverwalteten Organisationen).
+  if (isSelfManaged(org)) {
+    const showMotions = user.role === "VERWALTER" || (user.role === "EIGENTUEMER" && ownsWeg);
+    if (showMotions && !nav.some((item) => item.href === "/antraege")) {
+      nav = [...nav, { href: "/antraege", label: "Anträge" }];
+    }
   }
 
   const orgName = org?.name ?? "Kundenportal";

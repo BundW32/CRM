@@ -145,6 +145,24 @@ enum DocumentSource {
   GDRIVE // Google Drive Sync
 }
 
+// Art eines Eigentümer-Antrags (Selbstverwaltung):
+//   BESCHLUSSANTRAG = Antrag auf einen (Umlauf-)Beschluss
+//   VERSAMMLUNG     = Verlangen einer (außerordentlichen) Versammlung (§24 II WEG)
+enum MotionType {
+  BESCHLUSSANTRAG
+  VERSAMMLUNG
+}
+
+// Status eines Eigentümer-Antrags:
+//   EINGEREICHT = liegt dem internen Verwalter zur Prüfung vor
+//   UEBERNOMMEN = als Umlaufbeschluss oder Versammlungs-TOP übernommen
+//   ABGELEHNT   = vom internen Verwalter abgelehnt (mit Begründung)
+enum MotionStatus {
+  EINGEREICHT
+  UEBERNOMMEN
+  ABGELEHNT
+}
+
 // ── Mandant (White-Label) ─────────────────────────────────────────────────────
 // Oberste Mandanten-Einheit: eine Hausverwaltung. Alle mandantentragenden
 // Tabellen hängen über organizationId an genau einer Organisation. Der Org-Filter
@@ -194,6 +212,7 @@ model Organization {
   handovers             Handover[]
   documentSourceConfigs DocumentSourceConfig[]
   ownersMeetings        OwnersMeeting[]
+  ownerMotions          OwnerMotion[]
 }
 
 model User {
@@ -238,6 +257,8 @@ model User {
   resolutionsCreated   Resolution[]              @relation("ResolutionCreatedBy")
   resolutionVotes      ResolutionVote[]
   ownersMeetingsCreated OwnersMeeting[]          @relation("MeetingCreatedBy")
+  motionsSubmitted     OwnerMotion[]             @relation("MotionSubmittedBy")
+  motionsDecided       OwnerMotion[]             @relation("MotionDecidedBy")
   pushSubscriptions    PushSubscription[]
   notesAuthored        Note[]
   notesAbout           Note[]                    @relation("NotesAboutUser")
@@ -311,6 +332,7 @@ model Property {
   propertyAssignments   PropertyAssignment[]
   documentSourceConfigs DocumentSourceConfig[]
   ownersMeetings        OwnersMeeting[]
+  ownerMotions          OwnerMotion[]
 
   @@index([organizationId])
 }
@@ -704,6 +726,7 @@ model Resolution {
   decidedAt   DateTime?
   votes       ResolutionVote[]
   agendaItems MeetingAgendaItem[]
+  ownerMotions OwnerMotion[]
 
   @@index([propertyId])
   @@index([organizationId])
@@ -740,6 +763,7 @@ model OwnersMeeting {
   createdBy          User                @relation("MeetingCreatedBy", fields: [createdById], references: [id])
   createdAt          DateTime            @default(now())
   agendaItems        MeetingAgendaItem[]
+  ownerMotions       OwnerMotion[]
 
   @@index([organizationId])
   @@index([propertyId])
@@ -770,6 +794,37 @@ model ResolutionVote {
   createdAt    DateTime   @default(now())
 
   @@unique([resolutionId, userId])
+}
+
+// ── Eigentümer-Antrag (Selbstverwaltung, Stufe B) ─────────────────────────────
+// Ein Eigentümer reicht einen Beschlussantrag oder das Verlangen einer
+// (außerordentlichen) Versammlung ein; der interne Verwalter übernimmt ihn als
+// Umlaufbeschluss / Versammlungs-TOP oder lehnt ihn (mit Begründung) ab.
+model OwnerMotion {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  submittedById  String
+  submittedBy    User           @relation("MotionSubmittedBy", fields: [submittedById], references: [id])
+  title          String
+  description    String
+  type           MotionType     @default(BESCHLUSSANTRAG)
+  status         MotionStatus   @default(EINGEREICHT)
+  decisionNote   String? // Begründung bei Ablehnung bzw. Hinweis bei Übernahme
+  resolutionId   String? // bei Übernahme als Umlaufbeschluss
+  resolution     Resolution?    @relation(fields: [resolutionId], references: [id], onDelete: SetNull)
+  meetingId      String? // bei Übernahme in eine Versammlung
+  meeting        OwnersMeeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  decidedById    String?
+  decidedBy      User?          @relation("MotionDecidedBy", fields: [decidedById], references: [id])
+  decidedAt      DateTime?
+  createdAt      DateTime       @default(now())
+
+  @@index([organizationId])
+  @@index([propertyId])
+  @@index([submittedById])
 }
 
 // ── Wohnungsübergabe ──────────────────────────────────────────────────────────

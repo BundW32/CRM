@@ -7,7 +7,7 @@ import {
   GENERAL_CHECKLIST_LABELS,
   ROOM_TYPE_LABELS,
 } from "@/lib/handover-checks";
-import { encodeWinAnsi } from "@/lib/documents/pdf-text";
+import { encodeWinAnsi, wrapText } from "@/lib/documents/pdf-text";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -171,23 +171,18 @@ class PageWriter {
   }
 
   text(t: string, size = 9, bold = false, color = C.text, x = MARGIN) {
-    this.ensureSpace(this.lineH);
-    this.page.drawText(enc(t), { x, y: this.y, size, font: bold ? this.fontBold : this.font, color });
-    this.y -= this.lineH;
+    // enc() normalisiert CR/CRLF → \n; mehrzeilige Strings zeilenweise zeichnen,
+    // damit y korrekt mitläuft (sonst überlappt Folgeinhalt).
+    for (const line of enc(t).split("\n")) {
+      this.ensureSpace(this.lineH);
+      this.page.drawText(line, { x, y: this.y, size, font: bold ? this.fontBold : this.font, color });
+      this.y -= this.lineH;
+    }
   }
 
   private wrap(t: string, size: number, maxW: number, f: PDFFont): string[] {
-    const lines: string[] = [];
-    for (const raw of t.split(/\r?\n/)) {
-      const words = raw.split(/\s+/).filter(Boolean);
-      let cur = "";
-      for (const w of words) {
-        const test = cur ? `${cur} ${w}` : w;
-        if (cur && f.widthOfTextAtSize(test, size) > maxW) { lines.push(cur); cur = w; }
-        else cur = test;
-      }
-      lines.push(cur || "");
-    }
+    // Gemeinsame Umbruch-Logik (bricht auch überlange Einzelwörter hart um).
+    const lines = wrapText(t, f, size, maxW);
     return lines.length ? lines : [""];
   }
 

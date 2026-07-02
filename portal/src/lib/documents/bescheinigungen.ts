@@ -2,7 +2,7 @@
 // Inhalte richten sich nach den gesetzlichen Vorgaben (z. B. § 19 BMG).
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
 import { prepareSignaturePng } from "./signature";
-import { encodeWinAnsi } from "./pdf-text";
+import { encodeWinAnsi, wrapText } from "./pdf-text";
 
 const A4: [number, number] = [595.28, 841.89];
 // Constants for Mietbescheinigung (legacy helper set)
@@ -207,24 +207,6 @@ function drawFormSection(
   return boxBottom;
 }
 
-// Wraps text at maxWidth (in points). Single words wider than maxWidth are placed on their own line.
-function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
-      current = candidate;
-    } else {
-      if (current) lines.push(current);
-      current = word;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
-}
-
 // ── Wohnungsgeberbestätigung (§ 19 Abs. 3 BMG) ─────────────────────────────
 export type WohnungsgeberInput = {
   wohnungsgeberName: string;
@@ -387,7 +369,9 @@ export async function generateWohnungsgeberbescheinigung(rawInput: Wohnungsgeber
   page.drawText("Familienname", { x: ML + 4, y: y - TABLE_HEADER_H + 4, size: 8, font: bold, color: rgb(0.1, 0.1, 0.1) });
   page.drawText("Vorname(n)", { x: ML + COL1_W + 4, y: y - TABLE_HEADER_H + 4, size: 8, font: bold, color: rgb(0.1, 0.1, 0.1) });
 
-  // Data rows
+  // Data rows – die Tabelle hat feste 6 Zeilen; überzählige Personen kommen auf
+  // eine Anlage (siehe unten), niemals stillschweigend weglassen.
+  const hasMorePersons = input.mieterNamen.length > TOTAL_ROWS;
   let rowY = y - TABLE_HEADER_H;
   for (let i = 0; i < TOTAL_ROWS; i++) {
     rowY -= TABLE_ROW_H;
@@ -404,9 +388,12 @@ export async function generateWohnungsgeberbescheinigung(rawInput: Wohnungsgeber
   }
   y = tableBottom - 8;
 
-  // "Weitere Personen" checkbox
-  drawCheckbox(page, ML, y, false);
-  page.drawText("weitere Personen – siehe Rückseite", { x: ML + 14, y: y - 8, size: 9, font, color: BLACK });
+  // "Weitere Personen" – angekreuzt, sobald mehr als 6 Personen einziehen.
+  drawCheckbox(page, ML, y, hasMorePersons);
+  page.drawText(
+    hasMorePersons ? "weitere Personen - siehe Anlage" : "weitere Personen - siehe Rückseite",
+    { x: ML + 14, y: y - 8, size: 9, font, color: BLACK },
+  );
   y -= 20;
 
   // ── Rechtstext ────────────────────────────────────────────────────────────
@@ -461,6 +448,26 @@ export async function generateWohnungsgeberbescheinigung(rawInput: Wohnungsgeber
   page.drawText("Unterschrift des Wohnungsgebers oder des Wohnungseigentümers", {
     x: SIG_COL, y, size: 7, font, color: GRAY,
   });
+
+  // ── Anlage: alle Personen (falls mehr als in die Tabelle passen) ──────────
+  // Verhindert, dass Personen ab Nr. 7 stillschweigend aus einer gesetzlich
+  // vorgeschriebenen Bescheinigung (§ 19 BMG) verschwinden.
+  if (hasMorePersons) {
+    let listPage = pdf.addPage(A4);
+    let ay = A4[1] - 50;
+    listPage.drawText("Anlage zur Wohnungsgeberbestätigung", { x: ML, y: ay, size: 14, font: bold, color: BLACK });
+    ay -= 18;
+    listPage.drawText("Vollständige Liste der eingezogenen Personen", { x: ML, y: ay, size: 9, font, color: GRAY });
+    ay -= 24;
+    input.mieterNamen.forEach((name, i) => {
+      if (ay < 60) {
+        listPage = pdf.addPage(A4);
+        ay = A4[1] - 50;
+      }
+      listPage.drawText(`${i + 1}.  ${name}`, { x: ML, y: ay, size: 10, font, color: BLACK });
+      ay -= 16;
+    });
+  }
 
   return Buffer.from(await pdf.save());
 }

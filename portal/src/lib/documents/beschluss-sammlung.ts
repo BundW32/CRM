@@ -1,8 +1,8 @@
 // PDF-Generator für die Beschluss-Sammlung einer WEG (§ 24 Abs. 7 WEG).
 // Listet alle gefassten Beschlüsse eines Objekts fortlaufend nummeriert auf.
 // Aufbau analog zu lib/documents/bescheinigungen.ts (pdf-lib, A4, Helvetica).
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
-import { encodeWinAnsi } from "./pdf-text";
+import { PDFDocument, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import { encodeWinAnsi, wrapText } from "./pdf-text";
 
 const A4: [number, number] = [595.28, 841.89];
 const ML = 50;
@@ -39,23 +39,6 @@ const STATUS_LABELS: Record<string, string> = {
 function fmtDate(d: Date | null): string {
   if (!d) return "—";
   return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
-}
-
-function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
-      current = candidate;
-    } else {
-      if (current) lines.push(current);
-      current = word;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
 }
 
 export async function generateBeschlussSammlung(rawInput: BeschlussSammlungInput): Promise<Buffer> {

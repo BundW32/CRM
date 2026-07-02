@@ -1,7 +1,7 @@
 // PDF-Generator für das Versammlungsprotokoll (Eigentümerversammlung, light).
 // Aufbau analog zu lib/documents/beschluss-sammlung.ts (pdf-lib, A4).
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
-import { encodeWinAnsi } from "./pdf-text";
+import { PDFDocument, PDFPage, StandardFonts, rgb } from "pdf-lib";
+import { encodeWinAnsi, wrapText } from "./pdf-text";
 
 const A4: [number, number] = [595.28, 841.89];
 const ML = 50;
@@ -34,22 +34,6 @@ function fmtDateTime(d: Date): string {
   const date = `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
   const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   return `${date}, ${time} Uhr`;
-}
-
-function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) current = candidate;
-    else {
-      if (current) lines.push(current);
-      current = word;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
 }
 
 export async function generateMeetingProtocol(rawInput: MeetingProtocolInput): Promise<Buffer> {

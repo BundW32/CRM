@@ -25,7 +25,9 @@ export async function GET(request: Request) {
     allowed = Boolean(inScope);
   } else if (user.role === "EIGENTUEMER") {
     const owned = await ownedProperties(user.id);
-    allowed = owned.some((p) => p.id === propertyId);
+    // Defense-in-Depth: zusätzlich zur Eigentümerschaft die Org prüfen (Ownership
+    // sollte nie mandantenübergreifend sein – hier trotzdem hart abgesichert).
+    allowed = owned.some((p) => p.id === propertyId && p.organizationId === user.organizationId);
   }
   if (!allowed) return NextResponse.json({ error: "Nicht berechtigt" }, { status: 403 });
 

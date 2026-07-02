@@ -9,6 +9,7 @@ import { brandingFromOrg } from "@/lib/branding";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { createSession } from "@/lib/session";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { isReservedSlug } from "@/lib/slug";
 
 // Version der bei der Registrierung akzeptierten Rechtsdokumente (AGB/AVV).
 // Bei inhaltlichen Änderungen hochzählen → erneute Zustimmung einholbar.
@@ -36,6 +37,8 @@ function slugify(name: string): string {
 async function uniqueSlug(base: string): Promise<string> {
   for (let i = 0; i < 5; i++) {
     const candidate = i === 0 ? base : `${base}-${crypto.randomBytes(2).toString("hex")}`;
+    // Reservierte Slugs (www/app/portal/admin/api) nie vergeben – nächster Versuch.
+    if (isReservedSlug(candidate)) continue;
     const exists = await db.organization.findUnique({
       where: { slug: candidate },
       select: { id: true },

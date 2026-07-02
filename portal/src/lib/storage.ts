@@ -138,6 +138,17 @@ export async function readUpload(storedName: string): Promise<Buffer> {
   }
   // Vercel Blob (https://) – private blobs benötigen den Bearer-Token
   if (storedName.startsWith("https://")) {
+    // Den Lese-/Schreib-Token NUR an Vercel-Blob-Hosts senden. Sollte je eine
+    // fremde URL in storedName gelangen (Import/DB-Manipulation), würde er sonst
+    // an einen beliebigen Host geleakt (SSRF + Credential-Exfiltration).
+    let host: string;
+    try {
+      host = new URL(storedName).hostname;
+    } catch {
+      throw new Error("Ungültige Datei-URL.");
+    }
+    const isBlobHost = host === "blob.vercel-storage.com" || host.endsWith(".blob.vercel-storage.com");
+    if (!isBlobHost) throw new Error("Nicht erlaubter Speicher-Host.");
     const token = process.env.BLOB_READ_WRITE_TOKEN;
     const res = await fetch(storedName, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},

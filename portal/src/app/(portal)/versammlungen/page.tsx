@@ -37,7 +37,9 @@ export default async function VersammlungenPage({
   if (isVerwalter) {
     propWhere = { ...(await propertyWhereForVerwalter(user)), managementType: "WEG" as const };
   } else {
-    const owned = await ownedProperties(user.id);
+    const owned = (await ownedProperties(user.id)).filter(
+      (p) => p.organizationId === user.organizationId,
+    );
     propWhere = { id: { in: owned.map((p) => p.id) }, managementType: "WEG" as const };
   }
   const properties = await db.property.findMany({

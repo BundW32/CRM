@@ -28,15 +28,26 @@ async function ensureCanManageUser(actor: User, targetUserId: string) {
 }
 
 async function ensurePropertyInScope(actor: User, propertyId: string) {
+  // Mandanten-Wand IMMER prüfen – auch für SuperAdmin (sonst ließe sich ein
+  // Objekt einer fremden Org zuordnen). Danach die Zuweisungs-Beschränkung.
+  const prop = await db.property.findUnique({
+    where: { id: propertyId },
+    select: { organizationId: true },
+  });
+  if (!prop || prop.organizationId !== actor.organizationId) redirect("/verwaltung/nutzer");
   const ids = await propertyIdsForVerwalter(actor);
   if (ids !== null && !ids.includes(propertyId)) redirect("/verwaltung/nutzer");
 }
 
 async function ensureUnitInScope(actor: User, unitId: string) {
+  // Org der Einheit (über das Objekt) IMMER prüfen – auch für SuperAdmin.
+  const unit = await db.unit.findUnique({
+    where: { id: unitId },
+    select: { propertyId: true, property: { select: { organizationId: true } } },
+  });
+  if (!unit || unit.property.organizationId !== actor.organizationId) redirect("/verwaltung/nutzer");
   const ids = await propertyIdsForVerwalter(actor);
-  if (ids === null) return;
-  const unit = await db.unit.findUnique({ where: { id: unitId }, select: { propertyId: true } });
-  if (!unit || !ids.includes(unit.propertyId)) redirect("/verwaltung/nutzer");
+  if (ids !== null && !ids.includes(unit.propertyId)) redirect("/verwaltung/nutzer");
 }
 
 // Der Begünstigte (z. B. neuer Eigentümer/Mieter) muss zur selben Organisation
@@ -150,9 +161,11 @@ export async function createUser(formData: FormData) {
     if (parsed.data.role !== "MIETER" && parsed.data.role !== "EIGENTUEMER") {
       redirect("/verwaltung/nutzer?fehler=eingabe");
     }
-    if (parsed.data.unitId) await ensureUnitInScope(actor, parsed.data.unitId);
-    if (parsed.data.propertyId) await ensurePropertyInScope(actor, parsed.data.propertyId);
   }
+  // Mandanten-Wand für Ziel-Objekt/-Einheit IMMER (auch SuperAdmin): verhindert,
+  // dass ein neuer Mieter/Eigentümer an ein Objekt einer fremden Org gehängt wird.
+  if (parsed.data.unitId) await ensureUnitInScope(actor, parsed.data.unitId);
+  if (parsed.data.propertyId) await ensurePropertyInScope(actor, parsed.data.propertyId);
 
   const email = parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null;
   const name = `${parsed.data.firstName} ${parsed.data.lastName}`.trim();

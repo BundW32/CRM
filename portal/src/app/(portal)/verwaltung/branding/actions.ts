@@ -7,10 +7,7 @@ import { requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 import { normalizeHex } from "@/lib/branding";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
-
-// Reservierte Subdomains (müssen mit RESERVED_SUBDOMAINS in src/proxy.ts
-// konsistent bleiben).
-const RESERVED_SLUGS = new Set(["www", "app", "portal", "admin", "api"]);
+import { RESERVED_SLUGS } from "@/lib/slug";
 
 function normalizeSlug(input: string): string {
   return input

@@ -28,7 +28,9 @@ export default async function BeschlussSammlungPage({
   if (user.role === "VERWALTER") {
     propWhere = { ...(await propertyWhereForVerwalter(user)), managementType: "WEG" as const };
   } else {
-    const owned = await ownedProperties(user.id);
+    const owned = (await ownedProperties(user.id)).filter(
+      (p) => p.organizationId === user.organizationId,
+    );
     propWhere = { id: { in: owned.map((p) => p.id) }, managementType: "WEG" as const };
   }
   const properties = await db.property.findMany({

@@ -110,7 +110,10 @@ export default async function BeschluessePage({
     const propWhere = await propertyWhereForVerwalter(user);
     where = { property: propWhere };
   } else {
-    const props = await ownedProperties(user.id);
+    // Defense-in-Depth: Eigentum zusätzlich auf die eigene Org einschränken.
+    const props = (await ownedProperties(user.id)).filter(
+      (p) => p.organizationId === user.organizationId,
+    );
     where = { propertyId: { in: props.map((p) => p.id) } };
   }
 

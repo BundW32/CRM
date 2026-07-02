@@ -80,13 +80,19 @@ export async function generateMeetingProtocol(rawInput: MeetingProtocolInput): P
 
   page.drawText("Protokoll der Eigentümerversammlung", { x: ML, y, size: 15, font: bold, color: BLACK });
   y -= 18;
-  page.drawText(input.propertyName, { x: ML, y, size: 10, font, color: GRAY });
-  y -= 13;
-  page.drawText(`${input.meetingTitle} · ${fmtDateTime(input.scheduledAt)}`, { x: ML, y, size: 9, font, color: GRAY });
-  y -= 12;
-  if (input.location) {
-    page.drawText(`Ort: ${input.location}`, { x: ML, y, size: 9, font, color: GRAY });
+  for (const line of wrapText(input.propertyName, font, 10, CW)) {
+    page.drawText(line, { x: ML, y, size: 10, font, color: GRAY });
+    y -= 13;
+  }
+  for (const line of wrapText(`${input.meetingTitle} · ${fmtDateTime(input.scheduledAt)}`, font, 9, CW)) {
+    page.drawText(line, { x: ML, y, size: 9, font, color: GRAY });
     y -= 12;
+  }
+  if (input.location) {
+    for (const line of wrapText(`Ort: ${input.location}`, font, 9, CW)) {
+      page.drawText(line, { x: ML, y, size: 9, font, color: GRAY });
+      y -= 12;
+    }
   }
   if (input.attendance) {
     for (const line of wrapText(`Anwesenheit: ${input.attendance}`, font, 9, CW)) {

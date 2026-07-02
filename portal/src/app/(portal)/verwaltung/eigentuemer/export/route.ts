@@ -30,16 +30,20 @@ export async function GET(request: Request) {
 
     // CSV-Escaping + Schutz vor Formel-Injection: Zellen, die mit =,+,-,@ oder
     // einem Steuerzeichen beginnen, werden mit ' entwertet (Excel/LibreOffice
-    // würden sie sonst als Formel ausführen).
+    // würden sie sonst als Formel ausführen). Reine Zahlen (auch negative/mit
+    // Dezimalkomma) bleiben unangetastet, damit Excel sie als Zahl behandelt.
+    const isPlainNumber = (v: string) => /^-?\d+(?:[.,]\d+)?$/.test(v);
     const esc = (v: string) => {
-      const safe = /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
+      const safe = !isPlainNumber(v) && /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
       return `"${safe.replace(/"/g, '""')}"`;
     };
+    // Deutsches Zahlenformat: Dezimalkomma statt Punkt (Excel-DE sortiert/rechnet
+    // sonst nicht mit der Spalte).
+    const deDecimal = (n: number) => n.toFixed(2).replace(".", ",");
     const rows = [
       ["Eigentümer", "E-Mail", "MEA", "Stimmanteil %"].map(esc).join(";"),
       ...owners.map((o) => {
-        const share =
-          totalMea > 0 && o.mea != null ? ((o.mea / totalMea) * 100).toFixed(2) : "";
+        const share = totalMea > 0 && o.mea != null ? deDecimal((o.mea / totalMea) * 100) : "";
         return [o.user.name, o.user.email ?? "", o.mea?.toString() ?? "", share]
           .map((v) => esc(String(v)))
           .join(";");

@@ -105,29 +105,39 @@ export default async function BeschluessePage({
   const currentPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
   const isVerwalter = user.role === "VERWALTER";
 
-  let where = {};
+  let baseWhere: Record<string, unknown> = {};
   if (isVerwalter) {
     const propWhere = await propertyWhereForVerwalter(user);
-    where = { property: propWhere };
+    baseWhere = { property: propWhere };
   } else {
     // Defense-in-Depth: Eigentum zusätzlich auf die eigene Org einschränken.
     const props = (await ownedProperties(user.id)).filter(
       (p) => p.organizationId === user.organizationId,
     );
-    where = { propertyId: { in: props.map((p) => p.id) } };
+    baseWhere = { propertyId: { in: props.map((p) => p.id) } };
   }
 
-  const [total, resolutions] = await Promise.all([
-    db.resolution.count({ where }),
+  const include = { property: true, votes: { include: { user: true } } } as const;
+  // Laufende Abstimmungen IMMER vollständig laden (nie paginieren – sonst könnte
+  // eine ältere offene Abstimmung auf Seite 2 rutschen und übersehen werden).
+  // Nur die entschiedenen Beschlüsse werden paginiert.
+  const [open, decidedTotal, decided] = await Promise.all([
     db.resolution.findMany({
-      where,
+      where: { ...baseWhere, status: "OFFEN" },
+      orderBy: { createdAt: "desc" },
+      include,
+    }),
+    db.resolution.count({ where: { ...baseWhere, status: { not: "OFFEN" } } }),
+    db.resolution.findMany({
+      where: { ...baseWhere, status: { not: "OFFEN" } },
       orderBy: { createdAt: "desc" },
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
-      include: { property: true, votes: { include: { user: true } } },
+      include,
     }),
   ]);
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const resolutions = [...open, ...decided];
+  const totalPages = Math.max(1, Math.ceil(decidedTotal / PAGE_SIZE));
 
   function pageHref(p: number) {
     const sp = new URLSearchParams();
@@ -207,9 +217,6 @@ export default async function BeschluessePage({
     select: { propertyId: true },
   });
   const ownedIds = new Set(myOwnership.map((o) => o.propertyId));
-
-  const open = resolutions.filter((r) => r.status === "OFFEN");
-  const decided = resolutions.filter((r) => r.status !== "OFFEN");
 
   // Nur WEG-Objekte können Umlaufbeschlüsse haben
   const properties = isVerwalter
@@ -431,7 +438,7 @@ export default async function BeschluessePage({
                 <span />
               )}
               <span className="text-xs text-gray-400">
-                Seite {currentPage} von {totalPages} · {total} Einträge
+                Seite {currentPage} von {totalPages} · {decidedTotal} Einträge
               </span>
               {currentPage < totalPages ? (
                 <a

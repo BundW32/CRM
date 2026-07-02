@@ -41,7 +41,7 @@ export default async function BeschlussSammlungPage({
 
   const resolutions = selected
     ? await db.resolution.findMany({
-        where: { propertyId: selected.id, status: { not: "OFFEN" } },
+        where: { propertyId: selected.id, status: { in: ["ANGENOMMEN", "ABGELEHNT"] } },
         orderBy: [{ number: "asc" }, { decidedAt: "asc" }],
         include: { votes: { select: { choice: true } } },
       })

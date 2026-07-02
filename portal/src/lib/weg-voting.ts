@@ -20,6 +20,9 @@ export type OutcomeInput = {
   // Für DOPPELT_QUALIFIZIERT: MEA der Ja-Stimmen und Summe ALLER MEA.
   meaJa?: number;
   meaTotal?: number;
+  // true, wenn nicht für alle Eigentümer ein MEA hinterlegt ist – dann ist die
+  // „Hälfte aller MEA"-Prüfung (DOPPELT_QUALIFIZIERT) nicht belastbar.
+  meaIncomplete?: boolean;
   // Für ALLSTIMMIG: wie viele Eigentümer es gibt und wie viele abgestimmt haben.
   eligibleCount?: number;
   ballotsCast?: number;
@@ -59,12 +62,19 @@ export function computeOutcome(input: OutcomeInput): OutcomeResult {
   let reliable = true;
   const sum = (c: VoteChoice) =>
     input.votes.filter((v) => v.choice === c).reduce((s, v) => s + v.weight, 0);
+  const heads = (c: VoteChoice) => input.votes.filter((v) => v.choice === c).length;
   const ja = sum("JA");
   const nein = sum("NEIN");
   const enthaltung = sum("ENTHALTUNG");
   const cast = ja + nein; // Basis: nur abgegebene Ja/Nein
 
-  if (input.votes.some((v) => v.choice !== "ENTHALTUNG" && v.missingWeight)) {
+  // Fehlendes Stimmgewicht verfälscht die gewichteten Mehrheiten. Bei
+  // ALLSTIMMIG spielen Gewichte keine Rolle (dort wird nach Köpfen gezählt),
+  // daher dort keine Unzuverlässigkeit deswegen.
+  if (
+    input.majority !== "ALLSTIMMIG" &&
+    input.votes.some((v) => v.choice !== "ENTHALTUNG" && v.missingWeight)
+  ) {
     warnings.push("Für einzelne Stimmen ist kein Stimmgewicht hinterlegt – Ergebnis prüfen.");
     reliable = false;
   }
@@ -89,12 +99,22 @@ export function computeOutcome(input: OutcomeInput): OutcomeResult {
       if (meaTotal <= 0) {
         warnings.push("Keine Miteigentumsanteile hinterlegt – MEA-Hälfte nicht prüfbar.");
         reliable = false;
+      } else if (input.meaIncomplete) {
+        warnings.push(
+          "MEA nicht für alle Eigentümer gepflegt – die Hälfte-aller-MEA-Prüfung ist nicht belastbar.",
+        );
+        reliable = false;
       }
       accepted = stimmenOk && meaOk;
       rule += ` (Ja-Stimmen ${ja}/${cast}, Ja-MEA ${meaJa}/${meaTotal}).`;
       break;
     }
     case "ALLSTIMMIG": {
+      // Allstimmigkeit wird PRO KOPF geprüft (jede Person muss zustimmen),
+      // Stimmgewichte sind hier irrelevant – ein Nein mit Gewicht 0 zählt.
+      const headJa = heads("JA");
+      const headNein = heads("NEIN");
+      const headEnth = heads("ENTHALTUNG");
       const fullTurnout =
         input.eligibleCount != null &&
         input.ballotsCast != null &&
@@ -103,7 +123,7 @@ export function computeOutcome(input: OutcomeInput): OutcomeResult {
         warnings.push("Nicht alle Eigentümer haben abgestimmt – Allstimmigkeit unsicher.");
         reliable = false;
       }
-      accepted = nein === 0 && enthaltung === 0 && ja > 0 && fullTurnout;
+      accepted = headNein === 0 && headEnth === 0 && headJa > 0 && fullTurnout;
       break;
     }
   }

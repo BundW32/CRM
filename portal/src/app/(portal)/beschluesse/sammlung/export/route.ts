@@ -36,8 +36,10 @@ export async function GET(request: Request) {
   if (!property) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
   try {
+    // Nur GEFASSTE Beschlüsse (§24 VII WEG) – zurückgezogene/offene gehören nicht
+    // in die Sammlung.
     const resolutions = await db.resolution.findMany({
-      where: { propertyId, status: { not: "OFFEN" } },
+      where: { propertyId, status: { in: ["ANGENOMMEN", "ABGELEHNT"] } },
       orderBy: [{ number: "asc" }, { decidedAt: "asc" }],
       include: { votes: { select: { choice: true } } },
     });

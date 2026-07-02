@@ -149,31 +149,52 @@ export default async function BeschluessePage({
   });
   const ownerInfo = new Map<string, { mea: number | null; voteUnits: number | null }>();
   const meaTotalMap = new Map<string, number>();
+  // Objekte, bei denen NICHT für jeden Eigentümer ein MEA hinterlegt ist – dann
+  // ist die „Hälfte aller MEA"-Prüfung (doppelt qualifiziert) nicht belastbar.
+  const meaIncompleteSet = new Set<string>();
   for (const o of ownershipData) {
     ownerInfo.set(`${o.propertyId}:${o.userId}`, { mea: o.mea, voteUnits: o.voteUnits });
     if (o.mea != null) {
       meaTotalMap.set(o.propertyId, (meaTotalMap.get(o.propertyId) ?? 0) + o.mea);
+    } else {
+      meaIncompleteSet.add(o.propertyId);
     }
   }
 
   // Pro Beschluss: Stimmen nach Stimmprinzip gewichten und Ergebnis vorberechnen.
+  // Stimmen von Nutzern, die am Objekt kein aktuelles Eigentum (mehr) haben,
+  // werden nicht gewertet (z. B. nach Eigentümerwechsel während der Abstimmung).
   function outcomeFor(r: (typeof resolutions)[number]): OutcomeResult {
-    const weighted = r.votes.map((v) => {
+    const currentVotes = r.votes.filter((v) => ownerInfo.has(`${r.propertyId}:${v.userId}`));
+    const exOwnerCount = r.votes.length - currentVotes.length;
+    const weighted = currentVotes.map((v) => {
       const info = ownerInfo.get(`${r.propertyId}:${v.userId}`) ?? { mea: null, voteUnits: null };
       const { weight, missing } = weightFor(r.property.votingPrinciple, info);
       return { choice: v.choice, weight, missingWeight: missing };
     });
-    const meaJa = r.votes
+    const meaJa = currentVotes
       .filter((v) => v.choice === "JA")
       .reduce((s, v) => s + (ownerInfo.get(`${r.propertyId}:${v.userId}`)?.mea ?? 0), 0);
-    return computeOutcome({
+    const result = computeOutcome({
       votes: weighted,
       majority: r.majority,
       meaJa,
       meaTotal: meaTotalMap.get(r.propertyId) ?? 0,
+      meaIncomplete: meaIncompleteSet.has(r.propertyId),
       eligibleCount: ownerCountMap.get(r.propertyId) ?? 0,
-      ballotsCast: r.votes.length,
+      ballotsCast: currentVotes.length,
     });
+    if (exOwnerCount > 0) {
+      return {
+        ...result,
+        reliable: false,
+        warnings: [
+          ...result.warnings,
+          `${exOwnerCount} Stimme(n) ehemaliger Eigentümer wurden nicht gewertet.`,
+        ],
+      };
+    }
+    return result;
   }
 
   // Objekte, deren Eigentümer der aktuelle Nutzer ist → darf dort mitstimmen
@@ -208,7 +229,13 @@ export default async function BeschluessePage({
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {fehler === "keinweg"
             ? "Umlaufbeschlüsse sind nur für WEG-Objekte möglich."
-            : "Bitte Objekt, Titel und Beschlusstext ausfüllen."}
+            : fehler === "frist"
+              ? "Die Abstimmungsfrist ist abgelaufen bzw. liegt in der Vergangenheit."
+              : fehler === "ergebnis"
+                ? "Bitte ein Ergebnis (angenommen/abgelehnt) auswählen."
+                : fehler === "gefasst"
+                  ? "Ein bereits gefasster Beschluss kann nicht gelöscht werden."
+                  : "Bitte Objekt, Titel und Beschlusstext ausfüllen."}
         </p>
       ) : null}
 
@@ -223,6 +250,7 @@ export default async function BeschluessePage({
             open.map((r) => {
               const myVote = r.votes.find((v) => v.userId === user.id);
               const outcome = outcomeFor(r);
+              const expired = r.deadline != null && r.deadline < new Date();
               return (
                 <div
                   key={r.id}
@@ -255,9 +283,16 @@ export default async function BeschluessePage({
                     showSuggestion
                   />
 
+                  {/* Frist abgelaufen: keine Stimmabgabe mehr möglich. */}
+                  {expired ? (
+                    <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-amber-600">
+                      Frist abgelaufen – die Ergebnisfeststellung durch die Verwaltung steht aus.
+                    </p>
+                  ) : null}
+
                   {/* Abstimmen: jeder Eigentümer dieses Objekts (auch ein interner
-                      Verwalter, der zugleich Eigentümer ist). */}
-                  {ownedIds.has(r.propertyId) ? (
+                      Verwalter, der zugleich Eigentümer ist), solange die Frist läuft. */}
+                  {ownedIds.has(r.propertyId) && !expired ? (
                     <form action={castVote} className="mt-3 space-y-2 border-t border-gray-100 pt-3">
                       <input type="hidden" name="resolutionId" value={r.id} />
                       {myVote ? (

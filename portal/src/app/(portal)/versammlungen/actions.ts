@@ -309,6 +309,21 @@ export async function sendInvitation(formData: FormData) {
   // Einladungen nur für planbare Versammlungen (nicht abgesagt/durchgeführt).
   if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
 
+  // Doppelklick-/Mehrfachversand-Schutz: den Versand-Zeitstempel ATOMAR
+  // beanspruchen (nur wer die Sperrfrist von 2 Minuten „gewinnt", verschickt).
+  // Verhindert doppelte Massen-Mails an die gesamte WEG.
+  const claimed = await db.ownersMeeting.updateMany({
+    where: {
+      id: meetingId,
+      OR: [
+        { invitationSentAt: null },
+        { invitationSentAt: { lt: new Date(Date.now() - 2 * 60 * 1000) } },
+      ],
+    },
+    data: { invitationSentAt: new Date() },
+  });
+  if (claimed.count !== 1) redirect(`/versammlungen/${meetingId}?fehler=gerade_versendet`);
+
   const [property, items, owners, branding] = await Promise.all([
     db.property.findUnique({ where: { id: meeting.propertyId }, select: { name: true } }),
     db.meetingAgendaItem.findMany({ where: { meetingId }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
@@ -340,15 +355,15 @@ export async function sendInvitation(formData: FormData) {
     ),
   );
 
-  await db.ownersMeeting.update({
-    where: { id: meetingId },
-    data: {
-      invitationSentAt: new Date(),
-      // Nur aus „Geplant" heraus einberufen – eine bereits durchgeführte
-      // Versammlung darf durch erneutes Senden nicht zurückgestuft werden.
-      ...(meeting.status === "GEPLANT" ? { status: "EINBERUFEN" as const } : {}),
-    },
-  });
+  // invitationSentAt wurde bereits beim atomaren Claim gesetzt; hier nur noch
+  // der Status-Übergang: nur aus „Geplant" heraus einberufen – eine bereits
+  // durchgeführte Versammlung darf nicht zurückgestuft werden.
+  if (meeting.status === "GEPLANT") {
+    await db.ownersMeeting.updateMany({
+      where: { id: meetingId, status: "GEPLANT" },
+      data: { status: "EINBERUFEN" },
+    });
+  }
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}?eingeladen=${owners.length}`);
 }

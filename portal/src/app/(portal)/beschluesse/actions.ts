@@ -111,11 +111,34 @@ export async function castVote(formData: FormData) {
   // (rollenunabhängig: auch der interne Verwalter, sofern er Eigentum hält).
   if (!(await canVoteOnProperty(user.id, resolution.propertyId))) redirect("/beschluesse");
 
-  await db.resolutionVote.upsert({
-    where: { resolutionId_userId: { resolutionId, userId: user.id } },
-    create: { resolutionId, userId: user.id, choice, comment },
-    update: { choice, comment },
-  });
+  // Stimme schreiben und den Status DANACH erneut prüfen (in einer Transaktion):
+  // Schließt der Verwalter den Beschluss zwischen unserer Statusprüfung oben und
+  // dem Schreiben, sieht die Nachprüfung (READ COMMITTED) den neuen Status und
+  // die Transaktion rollt die Stimme zurück – so kann keine Stimme mehr auf
+  // einem bereits geschlossenen Beschluss landen und die im PDF festgehaltenen
+  // Zählungen nachträglich verändern.
+  let closedMeanwhile = false;
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.resolutionVote.upsert({
+        where: { resolutionId_userId: { resolutionId, userId: user.id } },
+        create: { resolutionId, userId: user.id, choice, comment },
+        update: { choice, comment },
+      });
+      const still = await tx.resolution.findFirst({
+        where: { id: resolutionId, status: "OFFEN" },
+        select: { id: true },
+      });
+      if (!still) throw new Error("RESOLUTION_CLOSED");
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === "RESOLUTION_CLOSED") {
+      closedMeanwhile = true;
+    } else {
+      throw err;
+    }
+  }
+  if (closedMeanwhile) redirect(`/beschluesse?fehler=geschlossen#${resolutionId}`);
 
   revalidatePath("/beschluesse");
   redirect(`/beschluesse#${resolutionId}`);

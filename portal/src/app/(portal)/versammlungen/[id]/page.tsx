@@ -107,7 +107,9 @@ export default async function MeetingDetailPage({
                 ? "Eine durchgeführte Versammlung kann nicht geändert oder abgesagt werden."
                 : fehler === "protokoll"
                   ? "Das Protokoll konnte nicht erstellt werden. Bitte erneut versuchen."
-                  : "Bitte Titel und einen gültigen Termin angeben."}
+                  : fehler === "gerade_versendet"
+                    ? "Die Einladung wurde gerade erst versendet – bitte kurz warten, bevor Sie erneut senden."
+                    : "Bitte Titel und einen gültigen Termin angeben."}
         </p>
       ) : null}
       {hinweis === "neuterminieren" ? (

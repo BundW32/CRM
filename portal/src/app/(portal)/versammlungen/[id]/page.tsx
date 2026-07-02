@@ -38,11 +38,11 @@ export default async function MeetingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ eingeladen?: string; protokoll?: string; fehler?: string }>;
+  searchParams: Promise<{ eingeladen?: string; protokoll?: string; fehler?: string; hinweis?: string }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { eingeladen, protokoll, fehler } = await searchParams;
+  const { eingeladen, protokoll, fehler, hinweis } = await searchParams;
 
   // Mandanten-Wand direkt in der Query (Defense-in-Depth): nur Versammlungen der
   // eigenen Organisation werden überhaupt geladen.
@@ -71,6 +71,10 @@ export default async function MeetingDetailPage({
     redirect("/dashboard");
   }
 
+  // Abgeschlossen (durchgeführt/abgesagt) → Tagesordnung & Einladung eingefroren.
+  const closed = meeting.status === "DURCHGEFUEHRT" || meeting.status === "ABGESAGT";
+  const canEditAgenda = isVerwalter && !closed;
+
   return (
     <>
       <PageTitle
@@ -95,7 +99,20 @@ export default async function MeetingDetailPage({
       ) : null}
       {fehler ? (
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          Bitte Titel und einen gültigen Termin angeben.
+          {fehler === "gesperrt"
+            ? "Die Versammlung ist abgeschlossen – Tagesordnung und Einladung sind gesperrt."
+            : fehler === "abgesagt"
+              ? "Für eine abgesagte Versammlung kann kein Protokoll erstellt werden."
+              : fehler === "durchgefuehrt"
+                ? "Eine durchgeführte Versammlung kann nicht geändert oder abgesagt werden."
+                : fehler === "protokoll"
+                  ? "Das Protokoll konnte nicht erstellt werden. Bitte erneut versuchen."
+                  : "Bitte Titel und einen gültigen Termin angeben."}
+        </p>
+      ) : null}
+      {hinweis === "neuterminieren" ? (
+        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+          Termin geändert – bitte die Einladung erneut an die Eigentümer senden.
         </p>
       ) : null}
 
@@ -123,7 +140,7 @@ export default async function MeetingDetailPage({
                           </span>
                         ) : null}
                       </span>
-                      {isVerwalter ? (
+                      {canEditAgenda ? (
                         <div className="flex items-center gap-2">
                           <form action={moveAgendaItem}>
                             <input type="hidden" name="meetingId" value={meeting.id} />
@@ -172,7 +189,7 @@ export default async function MeetingDetailPage({
                         </Link>
                       </p>
                     ) : null}
-                    {isVerwalter ? (
+                    {canEditAgenda ? (
                       <details className="mt-2">
                         <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600">
                           bearbeiten
@@ -220,6 +237,13 @@ export default async function MeetingDetailPage({
 
         {isVerwalter ? (
           <div className="space-y-4">
+            {closed ? (
+              <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                Diese Versammlung ist {statusLabel[meeting.status].toLowerCase()} – Tagesordnung
+                und Einladung sind gesperrt.
+              </p>
+            ) : null}
+            {canEditAgenda ? (
             <Card title="Tagesordnungspunkt hinzufügen">
               <form action={addAgendaItem} className="space-y-3">
                 <input type="hidden" name="meetingId" value={meeting.id} />
@@ -243,6 +267,7 @@ export default async function MeetingDetailPage({
                 </p>
               </form>
             </Card>
+            ) : null}
 
             <Card title="Eckdaten & Anwesenheit">
               <form action={updateMeeting} className="space-y-3">
@@ -286,20 +311,26 @@ export default async function MeetingDetailPage({
 
             <Card title="Aktionen">
               <div className="space-y-3">
-                <form action={sendInvitation}>
-                  <input type="hidden" name="meetingId" value={meeting.id} />
-                  <button type="submit" className={`${buttonClass} w-full`}>
-                    Einladung an Eigentümer senden
-                  </button>
-                </form>
-                <form action={generateProtocol}>
-                  <input type="hidden" name="meetingId" value={meeting.id} />
-                  <button type="submit" className={`${buttonSecondaryClass} w-full`}>
-                    Protokoll erstellen (PDF)
-                  </button>
-                </form>
+                {/* Einladung nur für planbare Versammlungen. */}
+                {!closed ? (
+                  <form action={sendInvitation}>
+                    <input type="hidden" name="meetingId" value={meeting.id} />
+                    <button type="submit" className={`${buttonClass} w-full`}>
+                      {meeting.invitationSentAt ? "Einladung erneut senden" : "Einladung an Eigentümer senden"}
+                    </button>
+                  </form>
+                ) : null}
+                {/* Protokoll nicht für abgesagte Versammlungen. */}
+                {meeting.status !== "ABGESAGT" ? (
+                  <form action={generateProtocol}>
+                    <input type="hidden" name="meetingId" value={meeting.id} />
+                    <button type="submit" className={`${buttonSecondaryClass} w-full`}>
+                      {meeting.protocolDocumentId ? "Protokoll neu erstellen (PDF)" : "Protokoll erstellen (PDF)"}
+                    </button>
+                  </form>
+                ) : null}
                 <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-                  {meeting.status !== "ABGESAGT" ? (
+                  {meeting.status === "GEPLANT" || meeting.status === "EINBERUFEN" ? (
                     <form action={cancelMeeting}>
                       <input type="hidden" name="meetingId" value={meeting.id} />
                       <button type="submit" className="text-xs text-amber-700 hover:underline">
@@ -307,7 +338,7 @@ export default async function MeetingDetailPage({
                       </button>
                     </form>
                   ) : (
-                    <span className="text-xs text-gray-400">Abgesagt</span>
+                    <span className="text-xs text-gray-400">{statusLabel[meeting.status]}</span>
                   )}
                   <form action={deleteMeeting}>
                     <input type="hidden" name="meetingId" value={meeting.id} />

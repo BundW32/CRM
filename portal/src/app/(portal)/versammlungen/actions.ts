@@ -22,6 +22,13 @@ async function meetingInScope(verwalter: User, meetingId: string) {
   return meeting;
 }
 
+// Eine durchgeführte oder abgesagte Versammlung ist „abgeschlossen": Tagesordnung
+// und Einladung sind eingefroren, sonst würde ein bereits veröffentlichtes
+// Protokoll von der Realität abweichen.
+function isMeetingClosed(status: string): boolean {
+  return status === "DURCHGEFUEHRT" || status === "ABGESAGT";
+}
+
 export async function createMeeting(formData: FormData) {
   const verwalter = await requireVerwalter();
   const propertyId = String(formData.get("propertyId") ?? "").trim();
@@ -56,6 +63,8 @@ export async function addAgendaItem(formData: FormData) {
   const meetingId = String(formData.get("meetingId") ?? "").trim();
   const meeting = await meetingInScope(verwalter, meetingId);
   if (!meeting) redirect("/versammlungen");
+
+  if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
 
   const title = String(formData.get("title") ?? "").trim().slice(0, 200);
   const description = String(formData.get("description") ?? "").trim().slice(0, 2000) || null;
@@ -98,18 +107,30 @@ export async function deleteAgendaItem(formData: FormData) {
   const itemId = String(formData.get("itemId") ?? "").trim();
   const meeting = await meetingInScope(verwalter, meetingId);
   if (!meeting || !itemId) redirect("/versammlungen");
+  if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
 
-  // Kind an die validierte meetingId binden.
+  // Kind an die validierte meetingId binden; Stimmzahl des verknüpften Beschlusses
+  // laden, um bereits abgegebene Stimmen nicht zu vernichten.
   const item = await db.meetingAgendaItem.findFirst({
     where: { id: itemId, meetingId },
-    select: { resolutionId: true },
+    select: { resolutionId: true, resolution: { select: { status: true, _count: { select: { votes: true } } } } },
   });
   if (item) {
-    await db.meetingAgendaItem.deleteMany({ where: { id: itemId, meetingId } });
-    // Verknüpften, noch offenen Beschluss mit aufräumen.
-    if (item.resolutionId) {
-      await db.resolution.deleteMany({ where: { id: item.resolutionId, status: "OFFEN" } });
-    }
+    await db.$transaction(async (tx) => {
+      await tx.meetingAgendaItem.deleteMany({ where: { id: itemId, meetingId } });
+      if (item.resolutionId && item.resolution?.status === "OFFEN") {
+        if (item.resolution._count.votes > 0) {
+          // Es wurde schon abgestimmt → Beschluss zurückziehen statt löschen
+          // (Stimmen bleiben nachvollziehbar erhalten).
+          await tx.resolution.updateMany({
+            where: { id: item.resolutionId, status: "OFFEN" },
+            data: { status: "ZURUECKGEZOGEN", decidedAt: new Date() },
+          });
+        } else {
+          await tx.resolution.deleteMany({ where: { id: item.resolutionId, status: "OFFEN" } });
+        }
+      }
+    });
   }
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}`);
@@ -121,6 +142,7 @@ export async function updateAgendaItem(formData: FormData) {
   const itemId = String(formData.get("itemId") ?? "").trim();
   const meeting = await meetingInScope(verwalter, meetingId);
   if (!meeting || !itemId) redirect("/versammlungen");
+  if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
 
   const title = String(formData.get("title") ?? "").trim().slice(0, 200);
   const description = String(formData.get("description") ?? "").trim().slice(0, 2000) || null;
@@ -156,6 +178,7 @@ export async function moveAgendaItem(formData: FormData) {
   const dir = String(formData.get("direction") ?? "");
   const meeting = await meetingInScope(verwalter, meetingId);
   if (!meeting || !itemId || (dir !== "up" && dir !== "down")) redirect("/versammlungen");
+  if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
 
   const items = await db.meetingAgendaItem.findMany({
     where: { meetingId },
@@ -187,7 +210,48 @@ export async function cancelMeeting(formData: FormData) {
   const meetingId = String(formData.get("meetingId") ?? "").trim();
   const meeting = await meetingInScope(verwalter, meetingId);
   if (!meeting) redirect("/versammlungen");
-  await db.ownersMeeting.update({ where: { id: meetingId }, data: { status: "ABGESAGT" } });
+  // Eine durchgeführte Versammlung (mit Protokoll) kann nicht abgesagt werden.
+  if (meeting.status === "DURCHGEFUEHRT") redirect(`/versammlungen/${meetingId}?fehler=durchgefuehrt`);
+  if (meeting.status === "ABGESAGT") redirect(`/versammlungen/${meetingId}`);
+
+  // Absagen + offene Beschluss-TOPs zurückziehen (keine Abstimmung für eine
+  // abgesagte Versammlung) – in einer Transaktion.
+  await db.$transaction(async (tx) => {
+    await tx.ownersMeeting.update({ where: { id: meetingId }, data: { status: "ABGESAGT" } });
+    const items = await tx.meetingAgendaItem.findMany({
+      where: { meetingId, resolutionId: { not: null } },
+      select: { resolutionId: true },
+    });
+    const resIds = items.map((it) => it.resolutionId!).filter(Boolean);
+    if (resIds.length > 0) {
+      await tx.resolution.updateMany({
+        where: { id: { in: resIds }, status: "OFFEN" },
+        data: { status: "ZURUECKGEZOGEN", decidedAt: new Date() },
+      });
+    }
+  });
+
+  // Wurde bereits eingeladen, die Eigentümer über die Absage informieren.
+  if (meeting.invitationSentAt) {
+    const [property, owners, branding] = await Promise.all([
+      db.property.findUnique({ where: { id: meeting.propertyId }, select: { name: true } }),
+      db.ownership.findMany({ where: { propertyId: meeting.propertyId }, include: { user: true } }),
+      getBrandingForOrg(verwalter.organizationId),
+    ]);
+    await Promise.all(
+      owners.map((o) =>
+        sendMail(
+          o.user.email,
+          `Absage der Eigentümerversammlung – ${property?.name ?? ""}`,
+          `Guten Tag ${o.user.name},\n\n` +
+            `die für „${meeting.title}" geplante Eigentümerversammlung wurde abgesagt.\n\n` +
+            `Mit freundlichen Grüßen\n${branding.legalName}`,
+          undefined,
+          branding,
+        ).catch(() => {}),
+      ),
+    );
+  }
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}`);
 }
@@ -199,6 +263,8 @@ export async function updateMeeting(formData: FormData) {
   const meetingId = String(formData.get("meetingId") ?? "").trim();
   const meeting = await meetingInScope(verwalter, meetingId);
   if (!meeting) redirect("/versammlungen");
+  // Eine durchgeführte Versammlung nicht mehr umdatieren (Protokoll ist fix).
+  if (meeting.status === "DURCHGEFUEHRT") redirect(`/versammlungen/${meetingId}?fehler=durchgefuehrt`);
 
   const title = String(formData.get("title") ?? "").trim().slice(0, 200);
   const scheduledStr = String(formData.get("scheduledAt") ?? "");
@@ -216,8 +282,11 @@ export async function updateMeeting(formData: FormData) {
       ...(meeting.status === "ABGESAGT" ? { status: "GEPLANT" as const } : {}),
     },
   });
+  // Wurde bereits eingeladen und der Termin geändert → Hinweis, erneut einzuladen.
+  const rescheduled =
+    meeting.status === "EINBERUFEN" && scheduledAt.getTime() !== meeting.scheduledAt.getTime();
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}${rescheduled ? "?hinweis=neuterminieren" : ""}`);
 }
 
 // Anwesenheits-/Vertretungsvermerk speichern (fürs Protokoll).
@@ -237,6 +306,8 @@ export async function sendInvitation(formData: FormData) {
   const meetingId = String(formData.get("meetingId") ?? "").trim();
   const meeting = await meetingInScope(verwalter, meetingId);
   if (!meeting) redirect("/versammlungen");
+  // Einladungen nur für planbare Versammlungen (nicht abgesagt/durchgeführt).
+  if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
 
   const [property, items, owners, branding] = await Promise.all([
     db.property.findUnique({ where: { id: meeting.propertyId }, select: { name: true } }),
@@ -287,7 +358,28 @@ export async function generateProtocol(formData: FormData) {
   const meetingId = String(formData.get("meetingId") ?? "").trim();
   const meeting = await meetingInScope(verwalter, meetingId);
   if (!meeting) redirect("/versammlungen");
+  // Für eine abgesagte Versammlung wird kein Protokoll erstellt.
+  if (meeting.status === "ABGESAGT") redirect(`/versammlungen/${meetingId}?fehler=abgesagt`);
 
+  try {
+    await buildAndStoreProtocol(verwalter, meeting);
+  } catch (err) {
+    console.error("Protokoll-Erzeugung fehlgeschlagen", err);
+    redirect(`/versammlungen/${meetingId}?fehler=protokoll`);
+  }
+  revalidatePath(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?protokoll=1`);
+}
+
+// Erzeugt das Protokoll-PDF, legt es als Dokument ab und markiert die Versammlung
+// als durchgeführt. Bricht das Meeting-Update ab (z. B. weil die Versammlung
+// zwischenzeitlich gelöscht/abgesagt wurde), wird das gerade erzeugte Dokument
+// wieder entfernt, damit kein verwaistes Protokoll zurückbleibt.
+async function buildAndStoreProtocol(
+  verwalter: User,
+  meeting: { id: string; propertyId: string; title: string; scheduledAt: Date; location: string | null; attendanceNote: string | null; protocolDocumentId: string | null },
+) {
+  const meetingId = meeting.id;
   const [property, items, branding] = await Promise.all([
     db.property.findUnique({ where: { id: meeting.propertyId }, select: { name: true } }),
     db.meetingAgendaItem.findMany({
@@ -350,13 +442,22 @@ export async function generateProtocol(formData: FormData) {
     },
   });
 
-  await db.ownersMeeting.update({
-    where: { id: meetingId },
+  // Meeting-Update BEDINGT: nur wenn die Versammlung noch existiert und nicht
+  // abgesagt ist. Schlägt das fehl (0 Zeilen), das gerade erzeugte Dokument samt
+  // Blob wieder entfernen, statt ein verwaistes Protokoll zurückzulassen.
+  const updated = await db.ownersMeeting.updateMany({
+    where: { id: meetingId, status: { not: "ABGESAGT" } },
     data: { protocolDocumentId: doc.id, status: "DURCHGEFUEHRT" },
   });
+  if (updated.count !== 1) {
+    await deleteBlob(upload.storedName).catch(() => {});
+    await db.document.delete({ where: { id: doc.id } }).catch(() => {});
+    throw new Error("Versammlung nicht mehr aktualisierbar (abgesagt/gelöscht).");
+  }
 
-  // Idempotenz: ein zuvor erzeugtes Protokoll ersetzen, statt es als verwaistes,
-  // weiterhin herunterladbares Dokument liegen zu lassen.
+  // Idempotenz: ein zuvor erzeugtes Protokoll ERST NACH erfolgreichem Update
+  // ersetzen, statt es als verwaistes, weiterhin herunterladbares Dokument
+  // liegen zu lassen.
   const oldDocId = meeting.protocolDocumentId;
   if (oldDocId && oldDocId !== doc.id) {
     const old = await db.document.findFirst({
@@ -368,8 +469,6 @@ export async function generateProtocol(formData: FormData) {
       await db.document.delete({ where: { id: oldDocId } }).catch(() => {});
     }
   }
-  revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}?protokoll=1`);
 }
 
 export async function deleteMeeting(formData: FormData) {
@@ -377,7 +476,38 @@ export async function deleteMeeting(formData: FormData) {
   const meetingId = String(formData.get("meetingId") ?? "").trim();
   const meeting = await meetingInScope(verwalter, meetingId);
   if (!meeting) redirect("/versammlungen");
-  await db.ownersMeeting.delete({ where: { id: meetingId } });
+
+  // Aufräumen VOR dem Löschen: verknüpfte offene Beschlüsse und das Protokoll-
+  // Dokument. Entschiedene Beschlüsse bleiben (Beschluss-Sammlung, §24 VII WEG).
+  const items = await db.meetingAgendaItem.findMany({
+    where: { meetingId, resolutionId: { not: null } },
+    select: { resolutionId: true },
+  });
+  const openResIds = items.map((it) => it.resolutionId!).filter(Boolean);
+
+  // Blob des Protokoll-Dokuments vorab ermitteln (Löschen außerhalb der tx).
+  let protocolBlob: string | null = null;
+  if (meeting.protocolDocumentId) {
+    const doc = await db.document.findFirst({
+      where: { id: meeting.protocolDocumentId, organizationId: verwalter.organizationId },
+      select: { storedName: true },
+    });
+    protocolBlob = doc?.storedName ?? null;
+  }
+
+  await db.$transaction(async (tx) => {
+    if (openResIds.length > 0) {
+      await tx.resolution.deleteMany({ where: { id: { in: openResIds }, status: "OFFEN" } });
+    }
+    if (meeting.protocolDocumentId) {
+      await tx.document.deleteMany({
+        where: { id: meeting.protocolDocumentId, organizationId: verwalter.organizationId },
+      });
+    }
+    await tx.ownersMeeting.delete({ where: { id: meetingId } });
+  });
+  if (protocolBlob) await deleteBlob(protocolBlob).catch(() => {});
+
   revalidatePath("/versammlungen");
   redirect("/versammlungen");
 }

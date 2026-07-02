@@ -10,10 +10,10 @@ export const dynamic = "force-dynamic";
 export default async function EigentuemerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ objekt?: string }>;
+  searchParams: Promise<{ objekt?: string; fehler?: string }>;
 }) {
   const verwalter = await requireVerwalter();
-  const { objekt } = await searchParams;
+  const { objekt, fehler } = await searchParams;
 
   // Nur WEG-Objekte im eigenen Zuständigkeitsbereich.
   const properties = await db.property.findMany({
@@ -32,6 +32,12 @@ export default async function EigentuemerPage({
       })
     : [];
   const totalMea = owners.reduce((s, o) => s + (o.mea ?? 0), 0);
+
+  // Läuft am gewählten Objekt eine Abstimmung? Dann Stimmgewichte/-prinzip sperren.
+  const openVotes = selected
+    ? await db.resolution.count({ where: { propertyId: selected.id, status: "OFFEN" } })
+    : 0;
+  const locked = openVotes > 0;
 
   return (
     <>
@@ -72,6 +78,21 @@ export default async function EigentuemerPage({
 
           {selected ? (
             <Card title={selected.name}>
+              {locked ? (
+                <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  An diesem Objekt läuft aktuell eine Abstimmung. Stimmgewichte und
+                  Stimmprinzip sind gesperrt, damit abgegebene Stimmen nicht rückwirkend
+                  umgewichtet werden.{" "}
+                  <Link href="/beschluesse" className="underline">
+                    Zu den Abstimmungen
+                  </Link>
+                </p>
+              ) : null}
+              {fehler === "offen" ? (
+                <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                  Änderung nicht möglich – am Objekt läuft eine Abstimmung.
+                </p>
+              ) : null}
               {/* Stimmprinzip */}
               <form action={updateVotingPrinciple} className="mb-4 flex flex-wrap items-end gap-2">
                 <input type="hidden" name="propertyId" value={selected.id} />
@@ -80,6 +101,7 @@ export default async function EigentuemerPage({
                   <select
                     name="votingPrinciple"
                     defaultValue={selected.votingPrinciple}
+                    disabled={locked}
                     className={`${inputClass} mt-1 w-auto`}
                   >
                     <option value="KOPF">Kopfprinzip (eine Stimme je Eigentümer)</option>
@@ -87,7 +109,7 @@ export default async function EigentuemerPage({
                     <option value="OBJEKT">Objektprinzip (eine Stimme je Einheit)</option>
                   </select>
                 </label>
-                <button type="submit" className={buttonSecondaryClass}>
+                <button type="submit" className={buttonSecondaryClass} disabled={locked}>
                   Übernehmen
                 </button>
                 <a
@@ -140,6 +162,7 @@ export default async function EigentuemerPage({
                                     min={0}
                                     defaultValue={o.mea ?? ""}
                                     placeholder="z. B. 250"
+                                    disabled={locked}
                                     className={`${inputClass} ml-1 w-24`}
                                   />
                                 </label>
@@ -151,10 +174,15 @@ export default async function EigentuemerPage({
                                     min={0}
                                     defaultValue={o.voteUnits ?? ""}
                                     placeholder="z. B. 1"
+                                    disabled={locked}
                                     className={`${inputClass} ml-1 w-16`}
                                   />
                                 </label>
-                                <button type="submit" className="text-xs text-brand-green hover:underline">
+                                <button
+                                  type="submit"
+                                  disabled={locked}
+                                  className="text-xs text-brand-green hover:underline disabled:text-gray-300"
+                                >
                                   Speichern
                                 </button>
                                 <span className="text-xs text-gray-400">{share}</span>

@@ -142,24 +142,35 @@ export async function closeResolution(formData: FormData) {
 
   // Laufende Nummer für die Beschluss-Sammlung vergeben – fortlaufend PRO OBJEKT
   // (§ 24 Abs. 7 WEG: je WEG eine eigene Sammlung). Zählen + Schreiben atomar in
-  // einer Transaktion, damit gleichzeitige Schließungen keine Nummer doppeln.
-  await db.$transaction(async (tx) => {
-    const current = await tx.resolution.findFirst({
-      where: { id, status: "OFFEN" },
-      select: { id: true },
-    });
-    if (!current) return; // zwischenzeitlich bereits geschlossen
-    const last = await tx.resolution.findFirst({
-      where: { propertyId: resolution.propertyId, number: { not: null } },
-      orderBy: { number: "desc" },
-      select: { number: true },
-    });
-    const nextNumber = (last?.number ?? 0) + 1;
-    await tx.resolution.update({
-      where: { id },
-      data: { status, decidedAt: new Date(), number: nextNumber },
-    });
-  });
+  // einer Transaktion; der Unique-Index [propertyId, number] verhindert Doppel-
+  // nummern (Prisma-Transaktionen laufen auf READ COMMITTED, daher können zwei
+  // gleichzeitige Schließungen dieselbe Nummer lesen) – bei P2002 neu versuchen.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      await db.$transaction(async (tx) => {
+        const current = await tx.resolution.findFirst({
+          where: { id, status: "OFFEN" },
+          select: { id: true },
+        });
+        if (!current) return; // zwischenzeitlich bereits geschlossen
+        const last = await tx.resolution.findFirst({
+          where: { propertyId: resolution.propertyId, number: { not: null } },
+          orderBy: { number: "desc" },
+          select: { number: true },
+        });
+        const nextNumber = (last?.number ?? 0) + 1;
+        await tx.resolution.update({
+          where: { id },
+          data: { status, decidedAt: new Date(), number: nextNumber },
+        });
+      });
+      break; // erfolgreich (oder bereits geschlossen) – keine Wiederholung
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      if (code === "P2002" && attempt < 3) continue; // Nummer-Kollision → neu vergeben
+      throw err;
+    }
+  }
   revalidatePath("/beschluesse");
   redirect(`/beschluesse#${id}`);
 }

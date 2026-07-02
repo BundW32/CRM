@@ -48,6 +48,7 @@ const errorText: Record<string, string> = {
   eingabe: "Bitte Titel und Begründung vollständig ausfüllen.",
   keinweg: "Anträge sind nur für WEG-Objekte möglich.",
   versammlung: "Bitte eine planbare Versammlung dieses Objekts wählen.",
+  typ: "Ein Verlangen einer Versammlung kann nicht als Umlaufbeschluss übernommen werden.",
 };
 
 export default async function AntraegePage({
@@ -132,13 +133,16 @@ export default async function AntraegePage({
                     <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">{m.description}</p>
 
                     <div className="mt-3 flex flex-col gap-2 border-t border-gray-100 pt-3 sm:flex-row sm:flex-wrap sm:items-end">
-                      {/* Als Umlaufbeschluss übernehmen */}
-                      <form action={adoptMotionAsResolution}>
-                        <input type="hidden" name="motionId" value={m.id} />
-                        <button type="submit" className={buttonSecondaryClass}>
-                          Als Umlaufbeschluss
-                        </button>
-                      </form>
+                      {/* Als Umlaufbeschluss übernehmen – nur für Beschlussanträge,
+                          nicht für ein Versammlungs-Verlangen. */}
+                      {m.type !== "VERSAMMLUNG" ? (
+                        <form action={adoptMotionAsResolution}>
+                          <input type="hidden" name="motionId" value={m.id} />
+                          <button type="submit" className={buttonSecondaryClass}>
+                            Als Umlaufbeschluss
+                          </button>
+                        </form>
+                      ) : null}
 
                       {/* Zu Versammlung hinzufügen */}
                       {meetings.length > 0 ? (

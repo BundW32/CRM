@@ -51,7 +51,7 @@ export default async function MeetingDetailPage({
     include: {
       property: { select: { id: true, name: true, organizationId: true } },
       agendaItems: {
-        orderBy: { sortOrder: "asc" },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
         include: { resolution: { include: { votes: { select: { choice: true } } } } },
       },
     },

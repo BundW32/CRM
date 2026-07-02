@@ -159,20 +159,24 @@ export async function moveAgendaItem(formData: FormData) {
 
   const items = await db.meetingAgendaItem.findMany({
     where: { meetingId },
-    orderBy: { sortOrder: "asc" },
-    select: { id: true, sortOrder: true },
+    // Deterministische Reihenfolge auch bei doppelten sortOrder-Werten.
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    select: { id: true },
   });
   const idx = items.findIndex((it) => it.id === itemId);
   const swapIdx = dir === "up" ? idx - 1 : idx + 1;
   if (idx < 0 || swapIdx < 0 || swapIdx >= items.length) {
     redirect(`/versammlungen/${meetingId}`);
   }
-  const a = items[idx];
-  const b = items[swapIdx];
-  await db.$transaction([
-    db.meetingAgendaItem.updateMany({ where: { id: a.id, meetingId }, data: { sortOrder: b.sortOrder } }),
-    db.meetingAgendaItem.updateMany({ where: { id: b.id, meetingId }, data: { sortOrder: a.sortOrder } }),
-  ]);
+  // Ziel-Reihenfolge bilden und ALLE TOPs lückenlos 0..n-1 neu nummerieren –
+  // heilt eventuelle Duplikate/Lücken statt nur zwei Werte zu tauschen.
+  const reordered = items.map((it) => it.id);
+  [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+  await db.$transaction(
+    reordered.map((id, i) =>
+      db.meetingAgendaItem.updateMany({ where: { id, meetingId }, data: { sortOrder: i } }),
+    ),
+  );
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}`);
 }
@@ -236,7 +240,7 @@ export async function sendInvitation(formData: FormData) {
 
   const [property, items, owners, branding] = await Promise.all([
     db.property.findUnique({ where: { id: meeting.propertyId }, select: { name: true } }),
-    db.meetingAgendaItem.findMany({ where: { meetingId }, orderBy: { sortOrder: "asc" } }),
+    db.meetingAgendaItem.findMany({ where: { meetingId }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] }),
     db.ownership.findMany({ where: { propertyId: meeting.propertyId }, include: { user: true } }),
     getBrandingForOrg(verwalter.organizationId),
   ]);
@@ -288,7 +292,7 @@ export async function generateProtocol(formData: FormData) {
     db.property.findUnique({ where: { id: meeting.propertyId }, select: { name: true } }),
     db.meetingAgendaItem.findMany({
       where: { meetingId },
-      orderBy: { sortOrder: "asc" },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
       include: { resolution: { include: { votes: { select: { choice: true } } } } },
     }),
     getBrandingForOrg(verwalter.organizationId),

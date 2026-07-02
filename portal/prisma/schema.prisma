@@ -728,6 +728,7 @@ model Resolution {
   agendaItems MeetingAgendaItem[]
   ownerMotions OwnerMotion[]
 
+  @@unique([propertyId, number]) // lückenlose, kollisionsfreie Beschluss-Sammlung (§24 VII WEG); mehrere NULLs erlaubt
   @@index([propertyId])
   @@index([organizationId])
 }

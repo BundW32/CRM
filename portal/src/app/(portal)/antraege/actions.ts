@@ -76,6 +76,20 @@ async function loadOpenMotionForAdmin(verwalter: User, formData: FormData) {
   return { verwalter, motion };
 }
 
+// Beansprucht einen noch offenen Antrag atomar (EINGEREICHT → neuer Status).
+// Verhindert Doppel-Entscheidungen (Doppelklick/zwei Verwalter): nur der erste
+// updateMany trifft eine Zeile. Rückgabe: true = beansprucht, false = zu spät.
+async function claimMotion(
+  motionId: string,
+  data: { status: "UEBERNOMMEN" | "ABGELEHNT"; decidedById: string; decisionNote?: string | null },
+): Promise<boolean> {
+  const res = await db.ownerMotion.updateMany({
+    where: { id: motionId, status: "EINGEREICHT" },
+    data: { ...data, decidedAt: new Date() },
+  });
+  return res.count === 1;
+}
+
 // Benachrichtigt den Einreicher über die Entscheidung zu seinem Antrag.
 async function notifySubmitter(
   organizationId: string,
@@ -95,6 +109,15 @@ export async function adoptMotionAsResolution(formData: FormData) {
   if (!loaded) redirect("/antraege");
   const { motion } = loaded;
 
+  // Ein Verlangen einer Versammlung ist kein Beschlusstext – es kann nicht als
+  // Umlaufbeschluss übernommen werden (nur auf eine Versammlung gesetzt werden).
+  if (motion.type === "VERSAMMLUNG") redirect("/antraege?fehler=typ");
+
+  // Antrag zuerst atomar beanspruchen (verhindert Doppel-Übernahme).
+  if (!(await claimMotion(motion.id, { status: "UEBERNOMMEN", decidedById: verwalter.id }))) {
+    redirect("/antraege");
+  }
+
   const resolution = await db.resolution.create({
     data: {
       propertyId: motion.propertyId,
@@ -105,14 +128,10 @@ export async function adoptMotionAsResolution(formData: FormData) {
     },
   });
 
+  // resolutionId am (bereits beanspruchten) Antrag nachtragen.
   await db.ownerMotion.update({
     where: { id: motion.id },
-    data: {
-      status: "UEBERNOMMEN",
-      resolutionId: resolution.id,
-      decidedById: verwalter.id,
-      decidedAt: new Date(),
-    },
+    data: { resolutionId: resolution.id },
   });
 
   // Eigentümer über die neue Abstimmung informieren (wie bei createResolution).
@@ -162,6 +181,11 @@ export async function adoptMotionToMeeting(formData: FormData) {
   });
   if (!meeting) redirect("/antraege?fehler=versammlung");
 
+  // Antrag zuerst atomar beanspruchen (verhindert Doppel-Übernahme).
+  if (!(await claimMotion(motion.id, { status: "UEBERNOMMEN", decidedById: verwalter.id }))) {
+    redirect("/antraege");
+  }
+
   const isBeschluss = motion.type === "BESCHLUSSANTRAG";
 
   // Beschluss-TOP: verknüpften Beschluss (OFFEN) anlegen.
@@ -198,14 +222,10 @@ export async function adoptMotionToMeeting(formData: FormData) {
     });
   });
 
+  // Verknüpfungen (Versammlung + ggf. Beschluss) am Antrag nachtragen.
   await db.ownerMotion.update({
     where: { id: motion.id },
-    data: {
-      status: "UEBERNOMMEN",
-      meetingId,
-      decidedById: verwalter.id,
-      decidedAt: new Date(),
-    },
+    data: { meetingId, resolutionId },
   });
 
   await notifySubmitter(
@@ -230,15 +250,10 @@ export async function rejectMotion(formData: FormData) {
 
   const note = String(formData.get("note") ?? "").trim().slice(0, 2000) || null;
 
-  await db.ownerMotion.update({
-    where: { id: motion.id },
-    data: {
-      status: "ABGELEHNT",
-      decisionNote: note,
-      decidedById: verwalter.id,
-      decidedAt: new Date(),
-    },
-  });
+  // Atomar beanspruchen (verhindert Ablehnung eines bereits übernommenen Antrags).
+  if (!(await claimMotion(motion.id, { status: "ABGELEHNT", decidedById: verwalter.id, decisionNote: note }))) {
+    redirect("/antraege");
+  }
 
   await notifySubmitter(
     verwalter.organizationId,

@@ -36,6 +36,9 @@ async function main() {
       name: "B&W Verwaltung",
       role: "VERWALTER",
       isSuperAdmin: true,
+      // Plattform-Betreiber-Zugang (/plattform). Wirkt NUR, wenn zusätzlich die
+      // Env-Variable PLATFORM_ADMIN_EMAILS diese E-Mail enthält (doppelte Wand).
+      isPlatformAdmin: true,
       organizationId: org.id,
       passwordHash: await bcrypt.hash("BundW-Start2026!", 12),
     },

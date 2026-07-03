@@ -6,6 +6,7 @@ import { PageTransition } from "@/components/page-transition";
 import { PortalHeader } from "@/components/portal-header";
 import { BrandTheme } from "@/components/brand-theme";
 import { isSelfManaged, ownsWegProperty } from "@/lib/access";
+import { isPlatformAdminUser } from "@/lib/platform";
 import { orgLogoUrl } from "@/lib/branding";
 import { roleLabels } from "@/lib/labels";
 import { getOrganization, requireUser } from "@/lib/session";
@@ -62,6 +63,10 @@ export default async function PortalLayout({
     if (showMotions && !nav.some((item) => item.href === "/antraege")) {
       nav = [...nav, { href: "/antraege", label: "Anträge" }];
     }
+  }
+  // Plattform-Betreiber (B&W): Zugang zum internen Betreiber-Bereich.
+  if (isPlatformAdminUser(user)) {
+    nav = [...nav, { href: "/plattform", label: "Plattform" }];
   }
 
   const orgName = org?.name ?? "Kundenportal";

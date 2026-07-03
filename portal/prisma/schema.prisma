@@ -199,6 +199,9 @@ model Organization {
   termsVersion         String? // Version der akzeptierten Rechtsdokumente
   referralSource       String? // Herkunft der Registrierung (z. B. "hausmatch")
 
+  // Interne Notiz des Plattform-Betreibers zu diesem Kunden (nur /plattform sichtbar)
+  platformNote         String?
+
   users                 User[]
   properties            Property[]
   craftsmen             Craftsman[]
@@ -213,6 +216,7 @@ model Organization {
   documentSourceConfigs DocumentSourceConfig[]
   ownersMeetings        OwnersMeeting[]
   ownerMotions          OwnerMotion[]
+  platformInvoices      PlatformInvoice[]
 }
 
 model User {
@@ -264,10 +268,15 @@ model User {
   notesAbout           Note[]                    @relation("NotesAboutUser")
   handoversCreated     Handover[]                @relation("HandoverCreatedBy")
   isSuperAdmin              Boolean                   @default(false)
+  // Plattform-Betreiber (B&W) – Zugang zu /plattform. NUR per DB/Seed setzbar,
+  // niemals über eine Oberfläche. Zusätzlich muss die E-Mail in der Env-Variable
+  // PLATFORM_ADMIN_EMAILS stehen (doppelte Wand, siehe lib/platform.ts).
+  isPlatformAdmin           Boolean                   @default(false)
   propertyAssignments       PropertyAssignment[]
   craftsmanAssignments      CraftsmanAssignment[]
   auditLogs                 AuditLog[]
   documentSourceConfigs     DocumentSourceConfig[]
+  platformInvoicesCreated   PlatformInvoice[]         @relation("PlatformInvoiceCreatedBy")
 
   @@index([role])
   @@index([role, active])
@@ -826,6 +835,53 @@ model OwnerMotion {
   @@index([organizationId])
   @@index([propertyId])
   @@index([submittedById])
+}
+
+// ── Plattform-Rechnung (Betreiber → Kunde) ────────────────────────────────────
+// Manuelles Rechnungsmodul des Plattform-Betreibers (B&W) an die Verwaltungen.
+// Stripe folgt später; bis dahin werden Rechnungen hier erstellt und der Status
+// manuell gepflegt. Nummern sind fortlaufend PRO JAHR (BW-JAHR-NNNN), lückenlos.
+enum PlatformInvoiceStatus {
+  ENTWURF
+  OFFEN
+  BEZAHLT
+  STORNIERT
+}
+
+model PlatformInvoice {
+  id             String                @id @default(cuid())
+  organizationId String
+  // KEIN Cascade: Rechnungen sind Belege und bleiben auch erhalten, wenn eine
+  // Organisation gelöscht würde (in der Praxis wird sie nur deaktiviert).
+  organization   Organization          @relation(fields: [organizationId], references: [id])
+  year           Int
+  number         Int // fortlaufend pro Jahr
+  title          String
+  vatRate        Int                   @default(19) // USt-Satz in Prozent
+  status         PlatformInvoiceStatus @default(ENTWURF)
+  issuedAt       DateTime? // gesetzt beim Übergang ENTWURF → OFFEN
+  dueAt          DateTime?
+  paidAt         DateTime? // gesetzt beim Übergang → BEZAHLT
+  createdById    String?
+  createdBy      User?                 @relation("PlatformInvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime              @default(now())
+  items          PlatformInvoiceItem[]
+
+  @@unique([year, number])
+  @@index([organizationId])
+  @@index([status])
+}
+
+model PlatformInvoiceItem {
+  id             String          @id @default(cuid())
+  invoiceId      String
+  invoice        PlatformInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description    String
+  quantity       Int             @default(1)
+  unitPriceCents Int // Einzelpreis netto in Cent
+  position       Int             @default(0)
+
+  @@index([invoiceId])
 }
 
 // ── Wohnungsübergabe ──────────────────────────────────────────────────────────

@@ -35,6 +35,13 @@ export type SubscriptionStatus =
   | "past_due"
   | "canceled";
 
+export const SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
+  "trialing",
+  "active",
+  "past_due",
+  "canceled",
+];
+
 const STATUS_LABELS: Record<SubscriptionStatus, string> = {
   trialing: "Testphase",
   active: "Aktiv",

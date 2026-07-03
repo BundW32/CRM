@@ -44,8 +44,16 @@ export const getUser = cache(async () => {
   try {
     const { payload } = await jwtVerify(token, secret());
     if (typeof payload.sub !== "string") return null;
-    const user = await db.user.findUnique({ where: { id: payload.sub } });
-    return user && user.active ? user : null;
+    const record = await db.user.findUnique({
+      where: { id: payload.sub },
+      include: { organization: { select: { active: true } } },
+    });
+    if (!record || !record.active) return null;
+    // Deaktivierte Organisation sperrt alle ihre Nutzer aus – AUSSER
+    // Plattform-Betreiber (sie sind selbst Mitglied einer Org und dürfen nie
+    // versehentlich ausgesperrt werden).
+    if (!record.organization.active && !record.isPlatformAdmin) return null;
+    return record;
   } catch {
     return null;
   }

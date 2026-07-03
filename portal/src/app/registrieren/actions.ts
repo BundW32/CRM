@@ -10,6 +10,7 @@ import { portalUrl, sendMail } from "@/lib/mailer";
 import { createSession } from "@/lib/session";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { isReservedSlug } from "@/lib/slug";
+import { trialDays } from "@/lib/platform";
 
 // Version der bei der Registrierung akzeptierten Rechtsdokumente (AGB/AVV).
 // Bei inhaltlichen Änderungen hochzählen → erneute Zustimmung einholbar.
@@ -101,6 +102,9 @@ export async function registerOrganization(formData: FormData) {
       ? "selbstverwalter"
       : "verwaltung";
 
+  // Testphase: 30 Tage, über HausMatch 90 Tage ("drei Monate gratis").
+  const trialEndsAt = new Date(Date.now() + trialDays(referralSource) * 86_400_000);
+
   // Org + Gründer-SuperAdmin atomisch anlegen.
   const { user, org } = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({
@@ -111,6 +115,7 @@ export async function registerOrganization(formData: FormData) {
         termsAcceptedAt: new Date(),
         termsVersion: TERMS_VERSION,
         referralSource,
+        trialEndsAt,
       },
     });
     const user = await tx.user.create({

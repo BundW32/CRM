@@ -1,7 +1,6 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -26,13 +25,24 @@ export async function login(formData: FormData) {
   let user = null;
   if (kennung) {
     user = kennung.includes("@")
-      ? await db.user.findUnique({ where: { email: kennung } })
-      : await db.user.findUnique({ where: { username: kennung } });
+      ? await db.user.findUnique({
+          where: { email: kennung },
+          include: { organization: { select: { active: true } } },
+        })
+      : await db.user.findUnique({
+          where: { username: kennung },
+          include: { organization: { select: { active: true } } },
+        });
   }
+
+  // Deaktivierte Organisation sperrt den Login (außer Plattform-Betreiber). Wie
+  // ein falsches Passwort behandeln – keine Auskunft über den Grund (kein Leak).
+  const orgBlocked = user ? !user.organization.active && !user.isPlatformAdmin : false;
 
   if (
     !user ||
     !user.active ||
+    orgBlocked ||
     !(await bcrypt.compare(password, user.passwordHash))
   ) {
     await logAudit({ action: AUDIT.LOGIN_FAILED, meta: { kennung: kennung || null }, ip });

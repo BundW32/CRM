@@ -88,3 +88,22 @@ export function formatCents(cents: number): string {
     cents / 100,
   );
 }
+
+export type PlatformInvoiceStatusValue = "ENTWURF" | "OFFEN" | "BEZAHLT" | "STORNIERT";
+
+// Erlaubte Status-Übergänge (GoBD: kein Löschen; BEZAHLT/STORNIERT sind Endzustände).
+export const INVOICE_TRANSITIONS: Record<PlatformInvoiceStatusValue, PlatformInvoiceStatusValue[]> = {
+  ENTWURF: ["OFFEN", "STORNIERT"],
+  OFFEN: ["BEZAHLT", "STORNIERT"],
+  BEZAHLT: [],
+  STORNIERT: [],
+};
+
+// Brutto (Netto-Positionssumme + USt) in Cent.
+export function invoiceGrossCents(
+  vatRate: number,
+  items: { quantity: number; unitPriceCents: number }[],
+): number {
+  const net = items.reduce((s, it) => s + it.quantity * it.unitPriceCents, 0);
+  return net + Math.round(net * (vatRate / 100));
+}

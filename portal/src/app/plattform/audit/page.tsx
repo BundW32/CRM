@@ -1,16 +1,164 @@
 import { PageTitle } from "@/components/ui";
+import { db } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/platform";
+import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
-export default async function AuditPlaceholder() {
+// Mandantenübergreifende Ansicht – inkl. Plattform-Aktionen und System-Einträgen.
+const ACTION_LABELS: Record<string, string> = {
+  LOGIN_SUCCESS: "Login",
+  LOGIN_FAILED: "Login fehlgeschlagen",
+  PASSWORD_RESET_REQUEST: "Passwort-Reset angefordert",
+  USER_ANONYMIZED: "Nutzer anonymisiert (DSGVO)",
+  TICKET_CLOSED: "Vorgang geschlossen",
+  TICKET_REOPENED: "Vorgang wieder geöffnet",
+  TICKET_EXTERNAL_RELEASED: "Externe Beauftragung freigegeben",
+  DSGVO_EXPORT: "DSGVO-Datenexport",
+  PLATFORM_ACCESS: "Plattform-Zugriff",
+  PLATFORM_ORG_DEACTIVATED: "Verwaltung deaktiviert",
+  PLATFORM_ORG_REACTIVATED: "Verwaltung reaktiviert",
+  PLATFORM_ORG_PLAN_CHANGED: "Tarif/Status geändert",
+  PLATFORM_TRIAL_EXTENDED: "Testphase verlängert",
+  PLATFORM_NOTE_SAVED: "Notiz gespeichert",
+  PLATFORM_INVOICE_CREATED: "Rechnung erstellt",
+  PLATFORM_INVOICE_STATUS: "Rechnungsstatus geändert",
+  PLATFORM_INVOICE_DOWNLOADED: "Rechnung heruntergeladen",
+};
+
+// Chips: die wichtigsten Filter (nicht jede Aktion, um die Leiste kurz zu halten).
+const FILTER_ACTIONS = [
+  "PLATFORM_ORG_DEACTIVATED",
+  "PLATFORM_ORG_PLAN_CHANGED",
+  "PLATFORM_TRIAL_EXTENDED",
+  "PLATFORM_INVOICE_CREATED",
+  "PLATFORM_INVOICE_STATUS",
+  "LOGIN_FAILED",
+  "USER_ANONYMIZED",
+];
+
+function actionClass(action: string) {
+  if (action === "LOGIN_FAILED") return "text-red-600";
+  if (action.startsWith("PLATFORM_ORG_DEACT") || action === "USER_ANONYMIZED") return "text-red-700 font-semibold";
+  if (action.startsWith("PLATFORM_")) return "text-brand-green font-medium";
+  return "text-gray-800";
+}
+
+export default async function PlatformAuditPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ action?: string; system?: string; seite?: string }>;
+}) {
   await requirePlatformAdmin();
+  const { action: filterAction, system, seite } = await searchParams;
+  const page = Math.max(1, parseInt(seite ?? "1", 10));
+  const pageSize = 50;
+  const skip = (page - 1) * pageSize;
+
+  // KEIN Org-Filter (Betreiber-Sicht). Optional: nur System-Einträge (kein Akteur).
+  const where: Prisma.AuditLogWhereInput = {};
+  if (filterAction) where.action = filterAction;
+  if (system === "1") where.actorId = null;
+
+  const [total, logs] = await Promise.all([
+    db.auditLog.count({ where }),
+    db.auditLog.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: pageSize,
+      include: {
+        actor: { select: { name: true, organization: { select: { name: true, slug: true } } } },
+      },
+    }),
+  ]);
+  const totalPages = Math.ceil(total / pageSize);
+
+  const chipCls = (active: boolean) =>
+    `rounded-full border px-3 py-1 text-xs font-medium transition ${
+      active ? "border-brand-orange bg-brand-orange text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+    }`;
+
   return (
     <>
-      <PageTitle>Audit-Log</PageTitle>
-      <p className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
-        Wird in Kürze verfügbar.
-      </p>
+      <PageTitle>Audit-Log (plattformweit)</PageTitle>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <a href="/plattform/audit" className={chipCls(!filterAction && system !== "1")}>Alle</a>
+        <a href="/plattform/audit?system=1" className={chipCls(system === "1")}>System</a>
+        {FILTER_ACTIONS.map((a) => (
+          <a key={a} href={`/plattform/audit?action=${a}`} className={chipCls(filterAction === a)}>
+            {ACTION_LABELS[a] ?? a}
+          </a>
+        ))}
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <th className="px-4 py-3">Zeitpunkt</th>
+              <th className="px-4 py-3">Aktion</th>
+              <th className="px-4 py-3">Akteur</th>
+              <th className="px-4 py-3">Verwaltung</th>
+              <th className="px-4 py-3">Details</th>
+              <th className="px-4 py-3">IP</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {logs.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">Keine Einträge gefunden.</td></tr>
+            ) : (
+              logs.map((log) => (
+                <tr key={log.id} className="hover:bg-gray-50">
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
+                    {log.createdAt.toLocaleString("de-DE", {
+                      day: "2-digit", month: "2-digit", year: "numeric",
+                      hour: "2-digit", minute: "2-digit", second: "2-digit",
+                    })}
+                  </td>
+                  <td className={`px-4 py-3 text-xs ${actionClass(log.action)}`}>
+                    {ACTION_LABELS[log.action] ?? log.action}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-700">
+                    {log.actor?.name ?? <span className="italic text-gray-400">System</span>}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-600">
+                    {log.actor?.organization?.name ?? <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-500">
+                    {log.meta ? (
+                      <span className="font-mono">
+                        {Object.entries(log.meta as Record<string, unknown>)
+                          .filter(([, v]) => v != null)
+                          .map(([k, v]) => `${k}: ${String(v).slice(0, 40)}`)
+                          .join(", ")}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-400">{log.ip ?? "—"}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
+          <span>{skip + 1}–{Math.min(skip + pageSize, total)} von {total} Einträgen</span>
+          <div className="flex gap-2">
+            {page > 1 && (
+              <a href={`/plattform/audit?${filterAction ? `action=${filterAction}&` : ""}${system === "1" ? "system=1&" : ""}seite=${page - 1}`} className="rounded border border-gray-200 px-3 py-1 hover:bg-gray-50">← zurück</a>
+            )}
+            {page < totalPages && (
+              <a href={`/plattform/audit?${filterAction ? `action=${filterAction}&` : ""}${system === "1" ? "system=1&" : ""}seite=${page + 1}`} className="rounded border border-gray-200 px-3 py-1 hover:bg-gray-50">weiter →</a>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

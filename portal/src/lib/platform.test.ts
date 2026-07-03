@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  INVOICE_TRANSITIONS,
   computeTrialEnd,
   formatCents,
   formatInvoiceNumber,
+  invoiceGrossCents,
   isPlatformAdminUser,
   parseAdminAllowlist,
   trialDays,
@@ -72,5 +74,30 @@ describe("formatCents", () => {
   it("deutsche Währungsdarstellung", () => {
     expect(formatCents(123450)).toMatch(/1\.234,50/);
     expect(formatCents(0)).toMatch(/0,00/);
+  });
+});
+
+describe("invoiceGrossCents", () => {
+  it("summiert Positionen und schlägt USt auf", () => {
+    // 2 × 4900 + 1 × 1000 = 10800 netto; 19% = 2052; brutto 12852.
+    expect(
+      invoiceGrossCents(19, [
+        { quantity: 2, unitPriceCents: 4900 },
+        { quantity: 1, unitPriceCents: 1000 },
+      ]),
+    ).toBe(12852);
+  });
+  it("0% USt = netto", () => {
+    expect(invoiceGrossCents(0, [{ quantity: 1, unitPriceCents: 5000 }])).toBe(5000);
+  });
+});
+
+describe("INVOICE_TRANSITIONS", () => {
+  it("erlaubt sinnvolle Übergänge und sperrt Endzustände", () => {
+    expect(INVOICE_TRANSITIONS.ENTWURF).toContain("OFFEN");
+    expect(INVOICE_TRANSITIONS.OFFEN).toContain("BEZAHLT");
+    expect(INVOICE_TRANSITIONS.ENTWURF).not.toContain("BEZAHLT");
+    expect(INVOICE_TRANSITIONS.BEZAHLT).toEqual([]);
+    expect(INVOICE_TRANSITIONS.STORNIERT).toEqual([]);
   });
 });

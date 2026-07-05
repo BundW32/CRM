@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 const tiles = [
   { href: "/plattform/organisationen", title: "Verwaltungen", desc: "Alle registrierten Kunden – Stammdaten, Nutzung, Tarif, Aktionen" },
   { href: "/plattform/rechnungen", title: "Rechnungen", desc: "Rechnungen erstellen, als PDF exportieren und Zahlungen erfassen" },
+  { href: "/plattform/statistik", title: "Auswertungen", desc: "Neuanmeldungen & Umsatz im Zeitverlauf, CSV-/DATEV-Export" },
   { href: "/plattform/audit", title: "Audit-Log", desc: "Sicherheitsrelevante Ereignisse mandantenübergreifend" },
 ];
 

@@ -6,6 +6,7 @@ import { PLANS, SUBSCRIPTION_STATUSES, type PlanId, type SubscriptionStatus } fr
 import { db } from "@/lib/db";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { computeTrialEnd, requirePlatformAdmin } from "@/lib/platform";
+import { setImpersonation } from "@/lib/session";
 import { getClientIp } from "@/lib/rate-limit";
 
 function backTo(id: string) {
@@ -105,6 +106,35 @@ export async function extendTrial(formData: FormData) {
   });
   revalidatePath(backTo(id));
   redirect(backTo(id));
+}
+
+// „Als Kunde ansehen" (Support-Impersonation): meldet den Betreiber als den
+// primären Administrator (SuperAdmin) der Verwaltung an. Die echte Betreiber-
+// Session bleibt bestehen; ein Banner + „Beenden" führen zurück.
+export async function startImpersonation(formData: FormData) {
+  const admin = await requirePlatformAdmin();
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) redirect("/plattform/organisationen");
+  if (id === admin.organizationId) redirect(`${backTo(id)}?fehler=eigene`);
+
+  // Zielnutzer: aktiver SuperAdmin der Verwaltung (bevorzugt mit E-Mail).
+  const target = await db.user.findFirst({
+    where: { organizationId: id, isSuperAdmin: true, active: true },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, name: true },
+  });
+  if (!target) redirect(`${backTo(id)}?fehler=kein_admin`);
+
+  await setImpersonation(target.id);
+  await logAudit({
+    actorId: admin.id,
+    action: AUDIT.PLATFORM_IMPERSONATE_START,
+    targetType: "User",
+    targetId: target.id,
+    meta: { organizationId: id },
+    ip: await getClientIp(),
+  });
+  redirect("/dashboard");
 }
 
 // Interne Kundennotiz speichern.

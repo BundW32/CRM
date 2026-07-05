@@ -3,9 +3,15 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { db } from "./db";
+import { isPlatformAdminUser } from "./platform-admin";
 
 const COOKIE_NAME = "bw_session";
 const SESSION_DAYS = 7;
+// Impersonation ("Als Kunde ansehen"): ein zusätzlicher, kurzlebiger Cookie ÜBER
+// der echten Betreiber-Session. Die echte Session (bw_session) bleibt der
+// Plattform-Admin – so kann man sich nie aussperren; Beenden = Cookie löschen.
+const IMPERSONATE_COOKIE = "bw_impersonate";
+const IMPERSONATE_HOURS = 2;
 
 function secret() {
   const value = process.env.SESSION_SECRET;
@@ -34,30 +40,53 @@ export async function createSession(userId: string) {
 export async function destroySession() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
+  cookieStore.delete(IMPERSONATE_COOKIE);
 }
 
-// Pro Request gecacht: Session lesen und Nutzer laden
-export const getUser = cache(async () => {
+// Lädt einen Nutzer inkl. Org-Aktiv-Status. `requireOrgActive=false` erlaubt das
+// Laden trotz deaktivierter Org (für Impersonation in einen gesperrten Kunden).
+async function loadUser(id: string, requireOrgActive = true) {
+  const record = await db.user.findUnique({
+    where: { id },
+    include: { organization: { select: { active: true } } },
+  });
+  if (!record || !record.active) return null;
+  if (requireOrgActive && !record.organization.active && !record.isPlatformAdmin) return null;
+  return record;
+}
+
+function verifyToken(token: string | undefined): Promise<string | null> {
+  if (!token) return Promise.resolve(null);
+  return jwtVerify(token, secret())
+    .then(({ payload }) => (typeof payload.sub === "string" ? payload.sub : null))
+    .catch(() => null);
+}
+
+export type SessionContext = {
+  realUser: Awaited<ReturnType<typeof loadUser>>;
+  user: Awaited<ReturnType<typeof loadUser>>;
+  impersonating: boolean;
+};
+
+// Pro Request gecacht: echte Session + ggf. aktive Impersonation auflösen.
+export const getSession = cache(async (): Promise<SessionContext> => {
   const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify(token, secret());
-    if (typeof payload.sub !== "string") return null;
-    const record = await db.user.findUnique({
-      where: { id: payload.sub },
-      include: { organization: { select: { active: true } } },
-    });
-    if (!record || !record.active) return null;
-    // Deaktivierte Organisation sperrt alle ihre Nutzer aus – AUSSER
-    // Plattform-Betreiber (sie sind selbst Mitglied einer Org und dürfen nie
-    // versehentlich ausgesperrt werden).
-    if (!record.organization.active && !record.isPlatformAdmin) return null;
-    return record;
-  } catch {
-    return null;
+  const realId = await verifyToken(cookieStore.get(COOKIE_NAME)?.value);
+  const realUser = realId ? await loadUser(realId) : null;
+  if (!realUser) return { realUser: null, user: null, impersonating: false };
+
+  // Impersonation nur wirksam, wenn die ECHTE Session ein Plattform-Betreiber ist
+  // (wird bei jedem Request neu geprüft – verlorene Rechte beenden sie sofort).
+  const impId = await verifyToken(cookieStore.get(IMPERSONATE_COOKIE)?.value);
+  if (impId && impId !== realUser.id && isPlatformAdminUser(realUser)) {
+    const target = await loadUser(impId, false);
+    if (target) return { realUser, user: target, impersonating: true };
   }
+  return { realUser, user: realUser, impersonating: false };
 });
+
+// Pro Request gecacht: der EFFEKTIVE Nutzer (bei Impersonation der Kunde).
+export const getUser = cache(async () => (await getSession()).user);
 
 export async function requireUser() {
   const user = await getUser();
@@ -65,7 +94,32 @@ export async function requireUser() {
   return user;
 }
 
-// Pro Request gecacht: die Organisation (Mandant) des angemeldeten Nutzers.
+// Startet eine Impersonation: signierten Cookie mit der Ziel-User-Id setzen.
+// Der Aufrufer MUSS vorher als Plattform-Admin verifiziert sein.
+export async function setImpersonation(targetUserId: string) {
+  const token = await new SignJWT({ sub: targetUserId })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${IMPERSONATE_HOURS}h`)
+    .sign(secret());
+  const cookieStore = await cookies();
+  cookieStore.set(IMPERSONATE_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * IMPERSONATE_HOURS,
+  });
+}
+
+// Beendet die Impersonation (Cookie löschen). Immer sicher – reaktiviert nur die
+// eigene echte Session.
+export async function clearImpersonation() {
+  const cookieStore = await cookies();
+  cookieStore.delete(IMPERSONATE_COOKIE);
+}
+
+// Pro Request gecacht: die Organisation (Mandant) des EFFEKTIVEN Nutzers.
 // Liefert die Branding-/Impressum-Daten für Layout, Logo und Theming.
 export const getOrganization = cache(async () => {
   const user = await getUser();

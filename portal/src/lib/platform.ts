@@ -1,29 +1,13 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 
 // ── Plattform-Betreiber-Ebene (B&W) ──────────────────────────────────────────
 // Zugang zu /plattform ist doppelt abgesichert: (1) User.isPlatformAdmin (nur per
 // DB/Seed setzbar, nie über eine Oberfläche) UND (2) die E-Mail muss in der
 // Server-Env PLATFORM_ADMIN_EMAILS (kommagetrennt) stehen. Beides muss gelten.
-
-// Parst die Allowlist aus der Env: trennt an Kommas, trimmt, klein, leere raus.
-export function parseAdminAllowlist(raw: string | undefined | null): string[] {
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-// Ist dieser Nutzer ein Plattform-Betreiber? Flag UND E-Mail in der Allowlist.
-export function isPlatformAdminUser(
-  user: { isPlatformAdmin: boolean; email: string | null },
-): boolean {
-  if (!user.isPlatformAdmin) return false;
-  if (!user.email) return false;
-  const allow = parseAdminAllowlist(process.env.PLATFORM_ADMIN_EMAILS);
-  return allow.includes(user.email.trim().toLowerCase());
-}
+// Die puren Prüf-Helfer liegen in platform-admin.ts (kein Zirkular-Import).
+export { isPlatformAdminUser, parseAdminAllowlist } from "@/lib/platform-admin";
 
 // Guard für alle /plattform-Seiten und -Server-Actions. Bei fehlender Berechtigung
 // kommentarlos zurück ins normale Portal. Loggt NICHT (das übernimmt das Layout

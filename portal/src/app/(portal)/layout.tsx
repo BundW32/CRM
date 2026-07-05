@@ -5,11 +5,12 @@ import { NavProgress } from "@/components/nav-progress";
 import { PageTransition } from "@/components/page-transition";
 import { PortalHeader } from "@/components/portal-header";
 import { BrandTheme } from "@/components/brand-theme";
+import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { isSelfManaged, ownsWegProperty } from "@/lib/access";
 import { isPlatformAdminUser } from "@/lib/platform";
 import { orgLogoUrl } from "@/lib/branding";
 import { roleLabels } from "@/lib/labels";
-import { getOrganization, requireUser } from "@/lib/session";
+import { getOrganization, getSession, requireUser } from "@/lib/session";
 
 const navByRole = {
   MIETER: [
@@ -49,6 +50,7 @@ export default async function PortalLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await requireUser();
   if (user.mustChangePassword) redirect("/passwort-festlegen");
+  const session = await getSession();
   const org = await getOrganization();
   let nav: ReadonlyArray<{ href: string; label: string }> = navByRole[user.role];
   // Eigentümer ohne WEG-Objekt sehen keine Beschlüsse/Versammlungen
@@ -80,6 +82,9 @@ export default async function PortalLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
+      {session.impersonating ? (
+        <ImpersonationBanner customerName={user.name} adminName={session.realUser?.name ?? "Betreiber"} />
+      ) : null}
       <BrandTheme primaryColor={org?.primaryColor ?? null} />
       <NavProgress />
       <PortalHeader

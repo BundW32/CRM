@@ -10,13 +10,15 @@ import {
   savePlatformNote,
   setOrganizationActive,
   setOrganizationPlan,
+  startImpersonation,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
 
 const errorText: Record<string, string> = {
-  eigene: "Die eigene Organisation kann nicht deaktiviert werden.",
+  eigene: "Die eigene Organisation kann nicht deaktiviert/angesehen werden.",
   eingabe: "Ungültige Eingabe.",
+  kein_admin: "Kein aktiver Administrator-Zugang vorhanden – Support-Ansicht nicht möglich.",
 };
 
 export default async function OrganisationDetailPage({
@@ -201,6 +203,21 @@ export default async function OrganisationDetailPage({
               </form>
             </div>
           </Card>
+
+          {org.id !== admin.organizationId ? (
+            <Card title="Support">
+              <p className="mb-2 text-sm text-gray-600">
+                Als Administrator dieser Verwaltung ins Portal wechseln (mit Banner &
+                Protokollierung).
+              </p>
+              <form action={startImpersonation}>
+                <input type="hidden" name="id" value={org.id} />
+                <button type="submit" className={buttonClass} disabled={org.users.length === 0}>
+                  Als Kunde ansehen
+                </button>
+              </form>
+            </Card>
+          ) : null}
 
           <Card title="Status">
             {org.id === admin.organizationId ? (

@@ -395,7 +395,7 @@ async function buildAndStoreProtocol(
   meeting: { id: string; propertyId: string; title: string; scheduledAt: Date; location: string | null; attendanceNote: string | null; protocolDocumentId: string | null },
 ) {
   const meetingId = meeting.id;
-  const [property, items, branding] = await Promise.all([
+  const [property, items, branding, board] = await Promise.all([
     db.property.findUnique({ where: { id: meeting.propertyId }, select: { name: true } }),
     db.meetingAgendaItem.findMany({
       where: { meetingId },
@@ -403,7 +403,13 @@ async function buildAndStoreProtocol(
       include: { resolution: { include: { votes: { select: { choice: true } } } } },
     }),
     getBrandingForOrg(verwalter.organizationId),
+    db.ownership.findMany({
+      where: { propertyId: meeting.propertyId, isBoardMember: true },
+      select: { user: { select: { name: true } } },
+      orderBy: { user: { name: "asc" } },
+    }),
   ]);
+  const boardMembers = board.map((b) => b.user.name);
 
   const statusLabel: Record<string, string> = {
     ANGENOMMEN: "Angenommen",
@@ -422,6 +428,7 @@ async function buildAndStoreProtocol(
     scheduledAt: meeting.scheduledAt,
     location: meeting.location,
     attendance: meeting.attendanceNote,
+    boardMembers,
     items: items.map((it, i) => {
       let result: string | null = null;
       if (it.type === "BESCHLUSS" && it.resolution) {

@@ -25,6 +25,7 @@ export type MeetingProtocolInput = {
   scheduledAt: Date;
   location: string | null;
   attendance: string | null;
+  boardMembers?: string[]; // Verwaltungsbeirat (Namen)
   items: ProtocolAgendaItem[];
   generatedAt: Date;
 };
@@ -49,6 +50,7 @@ export async function generateMeetingProtocol(rawInput: MeetingProtocolInput): P
     meetingTitle: encodeWinAnsi(rawInput.meetingTitle),
     location: rawInput.location == null ? null : encodeWinAnsi(rawInput.location),
     attendance: rawInput.attendance == null ? null : encodeWinAnsi(rawInput.attendance),
+    boardMembers: rawInput.boardMembers?.map(encodeWinAnsi),
     items: rawInput.items.map((it) => ({
       ...it,
       title: encodeWinAnsi(it.title),
@@ -96,6 +98,12 @@ export async function generateMeetingProtocol(rawInput: MeetingProtocolInput): P
   }
   if (input.attendance) {
     for (const line of wrapText(`Anwesenheit: ${input.attendance}`, font, 9, CW)) {
+      page.drawText(line, { x: ML, y, size: 9, font, color: GRAY });
+      y -= 12;
+    }
+  }
+  if (input.boardMembers && input.boardMembers.length > 0) {
+    for (const line of wrapText(`Verwaltungsbeirat: ${input.boardMembers.join(", ")}`, font, 9, CW)) {
       page.drawText(line, { x: ML, y, size: 9, font, color: GRAY });
       y -= 12;
     }

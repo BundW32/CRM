@@ -3,7 +3,7 @@ import { Card, PageTitle, buttonSecondaryClass, inputClass } from "@/components/
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { updateOwnershipMea, updateVotingPrinciple } from "./actions";
+import { updateBoardMember, updateOwnershipMea, updateVotingPrinciple } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -146,10 +146,24 @@ export default async function EigentuemerPage({
                         return (
                           <tr key={o.id}>
                             <td className="px-3 py-2 text-gray-800">
-                              {o.user.name}
+                              <span className="flex flex-wrap items-center gap-2">
+                                {o.user.name}
+                                {o.isBoardMember ? (
+                                  <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-xs font-medium text-brand-green">
+                                    Beirat
+                                  </span>
+                                ) : null}
+                              </span>
                               {o.user.email ? (
                                 <span className="block text-xs text-gray-400">{o.user.email}</span>
                               ) : null}
+                              <form action={updateBoardMember} className="mt-1">
+                                <input type="hidden" name="ownershipId" value={o.id} />
+                                <input type="hidden" name="isBoardMember" value={o.isBoardMember ? "0" : "1"} />
+                                <button type="submit" className="text-xs text-gray-400 hover:text-brand-green hover:underline">
+                                  {o.isBoardMember ? "aus Beirat entfernen" : "zum Beirat hinzufügen"}
+                                </button>
+                              </form>
                             </td>
                             <td className="px-3 py-2" colSpan={2}>
                               <form action={updateOwnershipMea} className="flex flex-wrap items-center gap-2">

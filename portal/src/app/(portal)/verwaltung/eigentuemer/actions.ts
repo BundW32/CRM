@@ -56,6 +56,23 @@ export async function updateOwnershipMea(formData: FormData) {
   redirect(backTo(ownership.propertyId));
 }
 
+// Kennzeichnet einen Eigentümer als Mitglied des Verwaltungsbeirats (oder entfernt
+// die Kennzeichnung). Unabhängig von laufenden Abstimmungen (kein Stimmgewicht).
+export async function updateBoardMember(formData: FormData) {
+  const actor = await requireVerwalter();
+  const id = String(formData.get("ownershipId") ?? "").trim();
+  if (!id) redirect("/verwaltung/eigentuemer");
+  const ownership = await db.ownership.findUnique({ where: { id }, select: { propertyId: true } });
+  if (!ownership) redirect("/verwaltung/eigentuemer");
+  if (!(await canVerwalterAccessProperty(actor, ownership.propertyId))) {
+    redirect("/verwaltung/eigentuemer");
+  }
+  const isBoardMember = String(formData.get("isBoardMember") ?? "") === "1";
+  await db.ownership.update({ where: { id }, data: { isBoardMember } });
+  revalidatePath("/verwaltung/eigentuemer");
+  redirect(backTo(ownership.propertyId));
+}
+
 // Ändert das Stimmprinzip eines Objekts (KOPF/MEA/OBJEKT).
 export async function updateVotingPrinciple(formData: FormData) {
   const actor = await requireVerwalter();

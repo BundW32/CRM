@@ -34,8 +34,8 @@ const navByRole = {
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
     { href: "/zaehler", label: "Zähler" },
-    { href: "/beschluesse", label: "Beschlüsse" },
-    { href: "/versammlungen", label: "Versammlungen" },
+    // Beschlüsse & Versammlungen erreicht der Verwalter über den Verwaltung-Hub
+    // (hält die obere Leiste schlank).
     { href: "/verwaltung", label: "Verwaltung" },
   ],
   HANDWERKER: [

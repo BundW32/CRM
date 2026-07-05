@@ -54,6 +54,16 @@ const tiles = [
     desc: "Miteigentumsanteile und Stimmprinzip je WEG-Objekt (Eigentümerliste, CSV)",
   },
   {
+    href: "/beschluesse",
+    title: "Beschlüsse",
+    desc: "Umlaufbeschlüsse & Abstimmungen der WEG, Beschluss-Sammlung",
+  },
+  {
+    href: "/versammlungen",
+    title: "Versammlungen",
+    desc: "Eigentümerversammlungen: Einladung, Tagesordnung, Protokoll",
+  },
+  {
     href: "/uebergabe",
     title: "Wohnungsübergabe",
     desc: "Übergabeprotokoll digital erstellen, unterschreiben und als PDF exportieren",

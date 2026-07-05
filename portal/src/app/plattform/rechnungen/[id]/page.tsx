@@ -5,8 +5,9 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { INVOICE_TRANSITIONS, formatCents, formatInvoiceNumber, requirePlatformAdmin } from "@/lib/platform";
 import { isMailEnabled } from "@/lib/mailer";
+import { canRemindAgain, isOverdue, reminderLevelLabel } from "@/lib/dunning";
 import type { PlatformInvoiceStatus } from "@/generated/prisma/client";
-import { sendInvoiceEmail, setInvoiceStatus } from "../actions";
+import { sendInvoiceEmail, sendReminder, setInvoiceStatus } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,9 @@ export default async function RechnungDetailPage({
   const vat = Math.round(net * (inv.vatRate / 100));
   const gross = net + vat;
   const nextStates = INVOICE_TRANSITIONS[inv.status];
+  const now = new Date();
+  const overdue = isOverdue(inv, now);
+  const canRemind = mailReady && overdue && canRemindAgain(inv.lastReminderAt, now);
 
   return (
     <>
@@ -93,6 +97,10 @@ export default async function RechnungDetailPage({
               {inv.dueAt ? <> · fällig {formatDate(inv.dueAt)}</> : null}
               {inv.paidAt ? <> · bezahlt {formatDate(inv.paidAt)}</> : null}
               {inv.sentAt ? <> · versendet {formatDate(inv.sentAt)}</> : null}
+              {inv.reminderLevel > 0 ? (
+                <> · {reminderLevelLabel(inv.reminderLevel)}{inv.lastReminderAt ? ` (${formatDate(inv.lastReminderAt)})` : ""}</>
+              ) : null}
+              {overdue ? <> · <span className="font-medium text-red-600">überfällig</span></> : null}
             </p>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
@@ -137,6 +145,14 @@ export default async function RechnungDetailPage({
             </form>
             {!mailReady ? (
               <p className="mt-1 text-xs text-amber-600">E-Mail-Versand nicht konfiguriert (SMTP).</p>
+            ) : null}
+            {overdue ? (
+              <form action={sendReminder} className="mt-2">
+                <input type="hidden" name="id" value={inv.id} />
+                <button type="submit" disabled={!canRemind} className={`${buttonSecondaryClass} w-full disabled:opacity-50`}>
+                  Mahnung senden ({reminderLevelLabel(Math.min(inv.reminderLevel + 1, 3))})
+                </button>
+              </form>
             ) : null}
             {nextStates.length > 0 ? (
               <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">

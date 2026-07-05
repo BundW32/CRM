@@ -863,6 +863,9 @@ model PlatformInvoice {
   dueAt          DateTime?
   paidAt         DateTime? // gesetzt beim Übergang → BEZAHLT
   sentAt         DateTime? // letzter erfolgreicher E-Mail-Versand an den Kunden
+  // Mahnwesen: 0 = keine, 1 = Zahlungserinnerung, 2 = 1. Mahnung, 3 = 2. Mahnung.
+  reminderLevel  Int                   @default(0)
+  lastReminderAt DateTime?
   createdById    String?
   createdBy      User?                 @relation("PlatformInvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt      DateTime              @default(now())

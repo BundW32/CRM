@@ -7,7 +7,14 @@ import { db } from "@/lib/db";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { INVOICE_TRANSITIONS, formatCents, formatInvoiceNumber, invoiceGrossCents, requirePlatformAdmin } from "@/lib/platform";
 import { loadInvoiceForPdf, mailInvoicePdf } from "@/lib/platform-invoice-service";
+import { canRemindAgain, isOverdue, nextReminderLevel, reminderCopy } from "@/lib/dunning";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+
+function ddmmyyyy(d: Date | null): string {
+  return d
+    ? `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`
+    : "—";
+}
 
 // Betreff + Text der Rechnungs-E-Mail (B&W als Aussteller).
 function invoiceMailBody(invoice: NonNullable<Awaited<ReturnType<typeof loadInvoiceForPdf>>>) {
@@ -48,6 +55,72 @@ async function sendAndMarkSent(
     });
   }
   return result;
+}
+
+// ── Mahnwesen ─────────────────────────────────────────────────────────────────
+type ReminderResult = "sent" | "not_overdue" | "too_soon" | "no_recipient" | "mail_disabled" | "not_found";
+
+// Mahnt eine einzelne Rechnung (eine Stufe höher). Prüft Überfälligkeit +
+// Mindestabstand; versendet Rechnungs-PDF mit Mahntext, erhöht die Stufe.
+async function remindOne(invoiceId: string, actorId: string, now: Date): Promise<ReminderResult> {
+  const invoice = await loadInvoiceForPdf(invoiceId);
+  if (!invoice) return "not_found";
+  if (!isOverdue(invoice, now)) return "not_overdue";
+  if (!canRemindAgain(invoice.lastReminderAt, now)) return "too_soon";
+
+  const level = nextReminderLevel(invoice.reminderLevel);
+  const { subject, text } = reminderCopy(level, {
+    invoiceNo: formatInvoiceNumber(invoice.year, invoice.number),
+    grossFormatted: formatCents(invoiceGrossCents(invoice.vatRate, invoice.items)),
+    dueDateFormatted: ddmmyyyy(invoice.dueAt),
+  });
+  const result = await mailInvoicePdf(invoice, subject, text);
+  if (result !== "sent") return result;
+
+  await db.platformInvoice.update({
+    where: { id: invoiceId },
+    data: { reminderLevel: level, lastReminderAt: now },
+  });
+  await logAudit({
+    actorId,
+    action: AUDIT.PLATFORM_INVOICE_REMINDER,
+    targetType: "PlatformInvoice",
+    targetId: invoiceId,
+    meta: { level },
+    ip: await getClientIp(),
+  });
+  return "sent";
+}
+
+// Eine überfällige Rechnung mahnen (Button je Zeile/Detail).
+export async function sendReminder(formData: FormData) {
+  const admin = await requirePlatformAdmin();
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) redirect("/plattform/rechnungen");
+  const result = await remindOne(id, admin.id, new Date());
+  revalidatePath("/plattform/rechnungen");
+  revalidatePath(`/plattform/rechnungen/${id}`);
+  redirect(`/plattform/rechnungen?mahnung=${result}`);
+}
+
+// Alle fälligen (und wieder mahnbaren) Rechnungen auf einmal mahnen.
+export async function sendAllDueReminders() {
+  const admin = await requirePlatformAdmin();
+  if (!(await checkRateLimit(`dunning-bulk:${admin.id}`, 3, 3600))) {
+    redirect("/plattform/rechnungen?mahnung=limit");
+  }
+  const now = new Date();
+  const due = await db.platformInvoice.findMany({
+    where: { status: "OFFEN", dueAt: { lt: now } },
+    select: { id: true },
+  });
+  let sent = 0;
+  for (const inv of due) {
+    const r = await remindOne(inv.id, admin.id, now);
+    if (r === "sent") sent++;
+  }
+  revalidatePath("/plattform/rechnungen");
+  redirect(`/plattform/rechnungen?gemahnt=${sent}`);
 }
 
 // Rechnung (erneut) per E-Mail an den Kunden senden.

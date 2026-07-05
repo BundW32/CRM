@@ -1,18 +1,26 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Card, PageTitle, buttonSecondaryClass } from "@/components/ui";
-import { PLANS, planLabel, subscriptionStatusLabel } from "@/lib/billing";
+import { Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { PLANS, isBillingEnabled, planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { formatDate } from "@/lib/labels";
 import { getOrganization, requireVerwalter } from "@/lib/session";
+import { openBillingPortal, startCheckout } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function BillingPage() {
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ erfolg?: string; abbruch?: string; fehler?: string }>;
+}) {
   const verwalter = await requireVerwalter();
   if (!verwalter.isSuperAdmin) redirect("/verwaltung");
 
   const org = await getOrganization();
   if (!org) redirect("/verwaltung");
+
+  const sp = await searchParams;
+  const billingReady = isBillingEnabled();
 
   return (
     <>
@@ -46,10 +54,43 @@ export default async function BillingPage() {
           ) : null}
         </dl>
 
-        <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
-          Die Online-Buchung und Zahlungsabwicklung wird derzeit eingerichtet. Sie nutzen das
-          Portal bis dahin uneingeschränkt. Bei Fragen zur Abrechnung wenden Sie sich an uns.
-        </div>
+        {sp.erfolg ? (
+          <p className="mt-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+            Vielen Dank! Ihr Abo wird nun aktiviert – das kann einen Moment dauern.
+          </p>
+        ) : null}
+        {sp.abbruch ? (
+          <p className="mt-4 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600">
+            Vorgang abgebrochen – es wurde nichts berechnet.
+          </p>
+        ) : null}
+        {sp.fehler ? (
+          <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            {sp.fehler === "kein_kunde"
+              ? "Noch kein Abo vorhanden – bitte zuerst upgraden."
+              : "Die Zahlungsabwicklung ist derzeit nicht verfügbar."}
+          </p>
+        ) : null}
+
+        {billingReady ? (
+          <div className="mt-6 flex flex-wrap gap-2">
+            {org.plan !== "pro" ? (
+              <form action={startCheckout}>
+                <button type="submit" className={buttonClass}>Auf Pro upgraden</button>
+              </form>
+            ) : null}
+            {org.stripeCustomerId ? (
+              <form action={openBillingPortal}>
+                <button type="submit" className={buttonSecondaryClass}>Abo verwalten</button>
+              </form>
+            ) : null}
+          </div>
+        ) : (
+          <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+            Die Online-Buchung und Zahlungsabwicklung wird derzeit eingerichtet. Sie nutzen das
+            Portal bis dahin uneingeschränkt. Bei Fragen zur Abrechnung wenden Sie sich an uns.
+          </div>
+        )}
       </Card>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">

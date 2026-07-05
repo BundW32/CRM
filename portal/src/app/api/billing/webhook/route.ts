@@ -1,17 +1,91 @@
 import { NextResponse } from "next/server";
+import type Stripe from "stripe";
+import { db } from "@/lib/db";
 import { isBillingEnabled } from "@/lib/billing";
+import type { SubscriptionStatus } from "@/lib/billing";
+import { stripeOrNull, stripeWebhookSecret } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
 
-// Platzhalter für den Stripe-Webhook (Phase 5 – Gerüst).
-// Sobald die Stripe-Anbindung steht, werden hier die Events verifiziert
-// (Signaturprüfung mit STRIPE_WEBHOOK_SECRET) und auf die Organisation
-// gemappt (subscriptionStatus/plan/stripe*-Felder aktualisieren).
-export async function POST() {
-  if (!isBillingEnabled()) {
+// Stripe-Abo-Status → unser subscriptionStatus.
+function mapStatus(s: Stripe.Subscription.Status): SubscriptionStatus {
+  switch (s) {
+    case "active":
+      return "active";
+    case "trialing":
+      return "trialing";
+    case "past_due":
+    case "unpaid":
+      return "past_due";
+    default:
+      return "canceled";
+  }
+}
+
+export async function POST(request: Request) {
+  const stripe = stripeOrNull();
+  const secret = stripeWebhookSecret();
+  if (!isBillingEnabled() || !stripe || !secret) {
     // Ohne konfiguriertes Stripe ist der Endpoint bewusst inaktiv.
     return NextResponse.json({ error: "Billing nicht konfiguriert" }, { status: 501 });
   }
-  // TODO(Phase 5): Stripe-Event verifizieren und verarbeiten.
+
+  const sig = request.headers.get("stripe-signature");
+  if (!sig) return NextResponse.json({ error: "Signatur fehlt" }, { status: 400 });
+
+  const raw = await request.text();
+  let event: Stripe.Event;
+  try {
+    event = stripe.webhooks.constructEvent(raw, sig, secret);
+  } catch (err) {
+    console.error("Stripe-Webhook: Signatur ungültig", err);
+    return NextResponse.json({ error: "Ungültige Signatur" }, { status: 400 });
+  }
+
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const organizationId = session.client_reference_id;
+        if (organizationId) {
+          await db.organization.updateMany({
+            where: { id: organizationId },
+            data: {
+              plan: "pro",
+              subscriptionStatus: "active",
+              stripeCustomerId: typeof session.customer === "string" ? session.customer : null,
+              stripeSubscriptionId:
+                typeof session.subscription === "string" ? session.subscription : null,
+            },
+          });
+        }
+        break;
+      }
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+        const status = event.type === "customer.subscription.deleted" ? "canceled" : mapStatus(sub.status);
+        const customerId = typeof sub.customer === "string" ? sub.customer : null;
+        // Zuordnung über die Subscription-Id, ersatzweise über die Customer-Id.
+        await db.organization.updateMany({
+          where: customerId
+            ? { OR: [{ stripeSubscriptionId: sub.id }, { stripeCustomerId: customerId }] }
+            : { stripeSubscriptionId: sub.id },
+          data: {
+            subscriptionStatus: status,
+            ...(status === "canceled" ? { plan: "free" } : {}),
+          },
+        });
+        break;
+      }
+      default:
+        // Andere Events ignorieren wir bewusst.
+        break;
+    }
+  } catch (err) {
+    console.error("Stripe-Webhook-Verarbeitung fehlgeschlagen", err);
+    return NextResponse.json({ error: "Verarbeitung fehlgeschlagen" }, { status: 500 });
+  }
+
   return NextResponse.json({ received: true });
 }

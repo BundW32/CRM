@@ -1,5 +1,6 @@
 import { PageTitle } from "@/components/ui";
-import { requireVerwalter } from "@/lib/session";
+import { isSelfManaged } from "@/lib/access";
+import { getOrganization, requireVerwalter } from "@/lib/session";
 import { ObjektForm } from "./ObjektForm";
 
 export const dynamic = "force-dynamic";
@@ -11,14 +12,15 @@ export default async function NeuesObjektPage({
 }) {
   await requireVerwalter();
   const { fehler } = await searchParams;
+  const selfManaged = isSelfManaged(await getOrganization());
 
   return (
     <>
       <PageTitle>Objekt anlegen</PageTitle>
       <p className="mb-6 max-w-3xl text-sm text-gray-300">
-        Legen Sie ein Objekt mit allen Stammdaten, Einheiten, dem Eigentümer und den
-        Mietern an. Alle Zugänge werden erstellt — mit E-Mail-Einladung oder als
-        druckbares Zugangsschreiben.
+        {selfManaged
+          ? "Legen Sie Ihr WEG-Objekt mit Einheiten an und tragen Sie anschließend die Eigentümer mit ihren Miteigentumsanteilen ein."
+          : "Legen Sie ein Objekt mit allen Stammdaten, Einheiten, dem Eigentümer und den Mietern an. Alle Zugänge werden erstellt — mit E-Mail-Einladung oder als druckbares Zugangsschreiben."}
       </p>
 
       {fehler ? (
@@ -27,7 +29,7 @@ export default async function NeuesObjektPage({
         </p>
       ) : null}
 
-      <ObjektForm />
+      <ObjektForm defaultManagementType={selfManaged ? "WEG" : "MIETVERWALTUNG"} />
     </>
   );
 }

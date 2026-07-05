@@ -136,14 +136,21 @@ export async function registerOrganization(formData: FormData) {
   // Willkommens- + Bestätigungs-E-Mail (Branding aus der frischen Org).
   const branding = brandingFromOrg(org);
   const verifyLink = portalUrl(`/registrieren/bestaetigen/${verifyToken}`);
+  const selfManaged = accountType === "selbstverwalter";
+  const introLine = selfManaged
+    ? `willkommen! Für Ihre WEG „${parsed.data.company}" wurde ein Selbstverwaltungs-Zugang angelegt.\n\n`
+    : `willkommen! Für „${parsed.data.company}" wurde ein Verwalter-Konto angelegt.\n\n`;
+  const nextStepLine = selfManaged
+    ? `Danach legen Sie unter „WEG-Verwaltung" Ihr Objekt an und tragen die Eigentümer mit ihren Miteigentumsanteilen ein.\n\n`
+    : `Danach können Sie Ihr Portal unter „Verwaltung → Branding" vollständig einrichten.\n\n`;
   await sendMail(
     email,
     "Willkommen – bitte bestätigen Sie Ihre E-Mail-Adresse",
     `Guten Tag ${parsed.data.name},\n\n` +
-      `willkommen! Für „${parsed.data.company}" wurde ein Verwalter-Konto angelegt.\n\n` +
+      introLine +
       `Bitte bestätigen Sie Ihre E-Mail-Adresse über diesen Link (gültig 3 Tage):\n` +
       `${verifyLink}\n\n` +
-      `Danach können Sie Ihr Portal unter „Verwaltung → Branding" vollständig einrichten.\n\n` +
+      nextStepLine +
       `Mit freundlichen Grüßen\n${branding.legalName}`,
     undefined,
     branding

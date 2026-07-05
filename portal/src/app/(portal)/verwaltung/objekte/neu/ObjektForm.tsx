@@ -11,7 +11,7 @@ type TenantRow = { name: string; email: string; phone: string; unit: string };
 let rowKey = 0;
 const nextKey = () => `r${rowKey++}`;
 
-export function ObjektForm() {
+export function ObjektForm({ defaultManagementType = "MIETVERWALTUNG" }: { defaultManagementType?: "MIETVERWALTUNG" | "WEG" }) {
   const [units, setUnits] = useState<Array<UnitRow & { key: string }>>([
     { key: nextKey(), label: "", floor: "" },
   ]);
@@ -37,7 +37,7 @@ export function ObjektForm() {
             />
           </Field>
           <Field label="Verwaltungsart *">
-            <select name="managementType" required defaultValue="MIETVERWALTUNG" className={inputClass}>
+            <select name="managementType" required defaultValue={defaultManagementType} className={inputClass}>
               <option value="MIETVERWALTUNG">Mietverwaltung (Miethaus)</option>
               <option value="WEG">WEG (Eigentümergemeinschaft)</option>
             </select>

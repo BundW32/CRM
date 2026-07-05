@@ -5,6 +5,7 @@ import { PropertyStats } from "@/components/property-stats";
 import { Card, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
 import {
   announcementWhereForUser,
+  isSelfManaged,
   noteWhereForVerwalter,
   ownedProperties,
   propertyIdsForVerwalter,
@@ -16,6 +17,7 @@ import { db } from "@/lib/db";
 import { formatDate, ticketTypeLabels } from "@/lib/labels";
 import { getOrganization, requireUser } from "@/lib/session";
 import { resendVerification } from "./verify-actions";
+import { SelfManagedDashboard } from "./SelfManagedDashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -26,11 +28,18 @@ export default async function DashboardPage({
 }) {
   const user = await requireUser();
   const { verify } = await searchParams;
+  const org = await getOrganization();
+
+  // Selbstverwaltete WEG: eigene WEG-Übersicht statt der Ticket-Statistik.
+  if (isSelfManaged(org) && (user.role === "VERWALTER" || user.role === "EIGENTUEMER")) {
+    return <SelfManagedDashboard user={user} />;
+  }
 
   // SuperAdmins, deren Mandant noch kein Branding (Farbe/Logo) gesetzt hat,
   // bekommen einen Hinweis-Banner zum Onboarding.
-  const org = user.isSuperAdmin ? await getOrganization() : null;
-  const brandingIncomplete = Boolean(org && !org.primaryColor && !org.logoStoredName);
+  const brandingIncomplete = Boolean(
+    user.isSuperAdmin && org && !org.primaryColor && !org.logoStoredName,
+  );
   // Hinweis auf ausstehende E-Mail-Bestätigung (Self-Service-Registrierung).
   const emailUnverified = Boolean(user.email && !user.emailVerifiedAt);
 

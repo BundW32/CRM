@@ -45,6 +45,32 @@ const navByRole = {
   ],
 } as const;
 
+// Selbstverwaltete WEGs bekommen eine eigene, abgespeckte WEG-Navigation – ohne
+// professionelle Verwalter-Werkzeuge (Vorgänge, Zähler, Handwerker, Wartung …).
+const selfManagedNav = {
+  // Interner Verwalter (aus der Eigentümergemeinschaft) – darf zusätzlich verwalten.
+  VERWALTER: [
+    { href: "/dashboard", label: "Übersicht" },
+    { href: "/beschluesse", label: "Beschlüsse" },
+    { href: "/versammlungen", label: "Versammlungen" },
+    { href: "/antraege", label: "Anträge" },
+    { href: "/gemeinschaft", label: "Gemeinschaft" },
+    { href: "/verwaltung", label: "Verwaltung" },
+    { href: "/nachrichten", label: "Nachrichten" },
+    { href: "/infos", label: "Infos" },
+  ],
+  // Reguläre Eigentümer der Gemeinschaft.
+  EIGENTUEMER: [
+    { href: "/dashboard", label: "Übersicht" },
+    { href: "/beschluesse", label: "Beschlüsse" },
+    { href: "/versammlungen", label: "Versammlungen" },
+    { href: "/antraege", label: "Anträge" },
+    { href: "/gemeinschaft", label: "Gemeinschaft" },
+    { href: "/nachrichten", label: "Nachrichten" },
+    { href: "/infos", label: "Infos" },
+  ],
+} as const;
+
 export default async function PortalLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -52,18 +78,24 @@ export default async function PortalLayout({
   if (user.mustChangePassword) redirect("/passwort-festlegen");
   const session = await getSession();
   const org = await getOrganization();
-  let nav: ReadonlyArray<{ href: string; label: string }> = navByRole[user.role];
-  // Eigentümer ohne WEG-Objekt sehen keine Beschlüsse/Versammlungen
   const ownsWeg = user.role === "EIGENTUEMER" ? await ownsWegProperty(user.id) : false;
-  if (user.role === "EIGENTUEMER" && !ownsWeg) {
-    nav = nav.filter((item) => item.href !== "/beschluesse" && item.href !== "/versammlungen");
-  }
-  // Selbstverwaltung: „Anträge" für den internen Verwalter und für Eigentümer mit
-  // WEG-Objekt ergänzen (nur in selbstverwalteten Organisationen).
-  if (isSelfManaged(org)) {
-    const showMotions = user.role === "VERWALTER" || (user.role === "EIGENTUEMER" && ownsWeg);
-    if (showMotions && !nav.some((item) => item.href === "/antraege")) {
-      nav = [...nav, { href: "/antraege", label: "Anträge" }];
+  const selfManaged = isSelfManaged(org);
+
+  let nav: ReadonlyArray<{ href: string; label: string }>;
+  if (selfManaged && (user.role === "VERWALTER" || user.role === "EIGENTUEMER")) {
+    // Eigene WEG-Selbstverwaltungs-Oberfläche (kein professionelles Werkzeug).
+    nav = selfManagedNav[user.role];
+    // Eigentümer ohne WEG-Objekt: WEG-spezifische Punkte ausblenden.
+    if (user.role === "EIGENTUEMER" && !ownsWeg) {
+      nav = nav.filter(
+        (item) => !["/beschluesse", "/versammlungen", "/antraege", "/gemeinschaft"].includes(item.href),
+      );
+    }
+  } else {
+    // Professionelles Profil (unverändert).
+    nav = navByRole[user.role];
+    if (user.role === "EIGENTUEMER" && !ownsWeg) {
+      nav = nav.filter((item) => item.href !== "/beschluesse" && item.href !== "/versammlungen");
     }
   }
   // Plattform-Betreiber (B&W): Zugang zum internen Betreiber-Bereich.

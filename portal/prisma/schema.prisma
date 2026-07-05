@@ -862,6 +862,7 @@ model PlatformInvoice {
   issuedAt       DateTime? // gesetzt beim Übergang ENTWURF → OFFEN
   dueAt          DateTime?
   paidAt         DateTime? // gesetzt beim Übergang → BEZAHLT
+  sentAt         DateTime? // letzter erfolgreicher E-Mail-Versand an den Kunden
   createdById    String?
   createdBy      User?                 @relation("PlatformInvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt      DateTime              @default(now())

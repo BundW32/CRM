@@ -5,8 +5,64 @@ import { revalidatePath } from "next/cache";
 import type { PlatformInvoiceStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { AUDIT, logAudit } from "@/lib/audit";
-import { INVOICE_TRANSITIONS, requirePlatformAdmin } from "@/lib/platform";
-import { getClientIp } from "@/lib/rate-limit";
+import { INVOICE_TRANSITIONS, formatCents, formatInvoiceNumber, invoiceGrossCents, requirePlatformAdmin } from "@/lib/platform";
+import { loadInvoiceForPdf, mailInvoicePdf } from "@/lib/platform-invoice-service";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+
+// Betreff + Text der Rechnungs-E-Mail (B&W als Aussteller).
+function invoiceMailBody(invoice: NonNullable<Awaited<ReturnType<typeof loadInvoiceForPdf>>>) {
+  const nr = formatInvoiceNumber(invoice.year, invoice.number);
+  const gross = invoiceGrossCents(invoice.vatRate, invoice.items);
+  const due = invoice.dueAt
+    ? `${String(invoice.dueAt.getDate()).padStart(2, "0")}.${String(invoice.dueAt.getMonth() + 1).padStart(2, "0")}.${invoice.dueAt.getFullYear()}`
+    : null;
+  const subject = `Rechnung ${nr}`;
+  const text =
+    `Guten Tag,\n\n` +
+    `anbei erhalten Sie die Rechnung ${nr}${invoice.title ? ` (${invoice.title})` : ""}.\n\n` +
+    `Rechnungsbetrag: ${formatCents(gross)}\n` +
+    (due ? `Zahlbar bis: ${due}\n` : "") +
+    `\nDie Rechnung finden Sie als PDF im Anhang.\n\n` +
+    `Mit freundlichen Grüßen`;
+  return { subject, text };
+}
+
+// Versendet die Rechnung als PDF-Anhang an den Kunden und vermerkt sentAt.
+// Gibt eine Statuskennung für die Fehleranzeige zurück (kein Redirect).
+async function sendAndMarkSent(
+  invoiceId: string,
+  actorId: string,
+): Promise<"sent" | "no_recipient" | "mail_disabled" | "not_found"> {
+  const invoice = await loadInvoiceForPdf(invoiceId);
+  if (!invoice) return "not_found";
+  const { subject, text } = invoiceMailBody(invoice);
+  const result = await mailInvoicePdf(invoice, subject, text);
+  if (result === "sent") {
+    await db.platformInvoice.update({ where: { id: invoiceId }, data: { sentAt: new Date() } });
+    await logAudit({
+      actorId,
+      action: AUDIT.PLATFORM_INVOICE_SENT,
+      targetType: "PlatformInvoice",
+      targetId: invoiceId,
+      ip: await getClientIp(),
+    });
+  }
+  return result;
+}
+
+// Rechnung (erneut) per E-Mail an den Kunden senden.
+export async function sendInvoiceEmail(formData: FormData) {
+  const admin = await requirePlatformAdmin();
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) redirect("/plattform/rechnungen");
+  // Leichte Drossel gegen versehentliches Mehrfach-Senden.
+  if (!(await checkRateLimit(`invmail:${id}`, 3, 3600))) {
+    redirect(`/plattform/rechnungen/${id}?hinweis=limit`);
+  }
+  const result = await sendAndMarkSent(id, admin.id);
+  revalidatePath(`/plattform/rechnungen/${id}`);
+  redirect(`/plattform/rechnungen/${id}?${result === "sent" ? "hinweis=gesendet" : `fehler=${result}`}`);
+}
 
 function parseCents(raw: string): number {
   // Akzeptiert "12,50" oder "12.50" → Cent.
@@ -101,7 +157,7 @@ export async function setInvoiceStatus(formData: FormData) {
 
   const invoice = await db.platformInvoice.findUnique({
     where: { id },
-    select: { status: true, issuedAt: true, dueAt: true },
+    select: { status: true, issuedAt: true, dueAt: true, sentAt: true },
   });
   if (!invoice) redirect("/plattform/rechnungen");
   if (!INVOICE_TRANSITIONS[invoice.status].includes(next)) {
@@ -130,6 +186,15 @@ export async function setInvoiceStatus(formData: FormData) {
     meta: { from: invoice.status, to: next },
     ip: await getClientIp(),
   });
+
+  // Beim Stellen (ENTWURF → OFFEN) die Rechnung automatisch per E-Mail versenden,
+  // sofern noch nicht versendet. Ein fehlender Empfänger/SMTP blockiert nicht –
+  // der Betreiber kann später manuell „erneut senden".
+  let mailHint = "";
+  if (next === "OFFEN" && !invoice.sentAt) {
+    const result = await sendAndMarkSent(id, admin.id);
+    if (result !== "sent") mailHint = `?hinweis=nicht_gesendet`;
+  }
   revalidatePath(`/plattform/rechnungen/${id}`);
-  redirect(`/plattform/rechnungen/${id}`);
+  redirect(`/plattform/rechnungen/${id}${mailHint}`);
 }

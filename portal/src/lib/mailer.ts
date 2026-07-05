@@ -4,6 +4,12 @@ import nodemailer from "nodemailer";
 import { DEFAULT_BRANDING, emailLogoUrl, type OrgBranding } from "./branding";
 export { portalUrl } from "./url";
 
+// Ist der E-Mail-Versand konfiguriert? (Ohne SMTP_HOST ein kontrollierter No-Op –
+// die UI kann so einen Hinweis zeigen, statt einen stillen „Versand" vorzugaukeln.)
+export function isMailEnabled(): boolean {
+  return Boolean(process.env.SMTP_HOST);
+}
+
 function transport() {
   if (!process.env.SMTP_HOST) return null;
   return nodemailer.createTransport({

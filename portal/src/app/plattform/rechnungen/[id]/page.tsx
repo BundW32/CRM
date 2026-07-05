@@ -4,8 +4,9 @@ import { Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { INVOICE_TRANSITIONS, formatCents, formatInvoiceNumber, requirePlatformAdmin } from "@/lib/platform";
+import { isMailEnabled } from "@/lib/mailer";
 import type { PlatformInvoiceStatus } from "@/generated/prisma/client";
-import { setInvoiceStatus } from "../actions";
+import { sendInvoiceEmail, setInvoiceStatus } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -27,11 +28,12 @@ export default async function RechnungDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; hinweis?: string }>;
 }) {
   await requirePlatformAdmin();
   const { id } = await params;
-  const { fehler } = await searchParams;
+  const { fehler, hinweis } = await searchParams;
+  const mailReady = isMailEnabled();
 
   const inv = await db.platformInvoice.findUnique({
     where: { id },
@@ -59,9 +61,26 @@ export default async function RechnungDetailPage({
         {formatInvoiceNumber(inv.year, inv.number)}
       </PageTitle>
 
-      {fehler === "status" ? (
+      {fehler ? (
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          Dieser Status-Übergang ist nicht erlaubt.
+          {fehler === "status"
+            ? "Dieser Status-Übergang ist nicht erlaubt."
+            : fehler === "no_recipient"
+              ? "Kein Empfänger hinterlegt (weder Org-E-Mail noch Administrator mit E-Mail)."
+              : fehler === "mail_disabled"
+                ? "E-Mail-Versand ist nicht konfiguriert (SMTP fehlt)."
+                : "E-Mail-Versand fehlgeschlagen."}
+        </p>
+      ) : null}
+      {hinweis ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          {hinweis === "gesendet"
+            ? "Rechnung per E-Mail versendet."
+            : hinweis === "limit"
+              ? "Bitte kurz warten – die Rechnung wurde gerade erst versendet."
+              : hinweis === "nicht_gesendet"
+                ? "Status gesetzt, aber die E-Mail konnte nicht versendet werden (Empfänger/SMTP prüfen)."
+                : ""}
         </p>
       ) : null}
 
@@ -73,6 +92,7 @@ export default async function RechnungDetailPage({
               {inv.issuedAt ? <> · gestellt {formatDate(inv.issuedAt)}</> : null}
               {inv.dueAt ? <> · fällig {formatDate(inv.dueAt)}</> : null}
               {inv.paidAt ? <> · bezahlt {formatDate(inv.paidAt)}</> : null}
+              {inv.sentAt ? <> · versendet {formatDate(inv.sentAt)}</> : null}
             </p>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
@@ -109,6 +129,15 @@ export default async function RechnungDetailPage({
             <a href={`/api/plattform/rechnungen/${inv.id}/pdf`} target="_blank" rel="noreferrer" className={`${buttonClass} w-full`}>
               PDF öffnen
             </a>
+            <form action={sendInvoiceEmail} className="mt-2">
+              <input type="hidden" name="id" value={inv.id} />
+              <button type="submit" disabled={!mailReady} className={`${buttonSecondaryClass} w-full`}>
+                {inv.sentAt ? "Erneut per E-Mail senden" : "Per E-Mail senden"}
+              </button>
+            </form>
+            {!mailReady ? (
+              <p className="mt-1 text-xs text-amber-600">E-Mail-Versand nicht konfiguriert (SMTP).</p>
+            ) : null}
             {nextStates.length > 0 ? (
               <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
                 {nextStates.map((s) => (

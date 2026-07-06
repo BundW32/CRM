@@ -298,6 +298,10 @@ export async function anonymizeUser(formData: FormData) {
   await db.$transaction([
     db.acknowledgement.deleteMany({ where: { userId: id } }),
     db.conversationParticipant.deleteMany({ where: { userId: id } }),
+    // Verwaiste Eigentümer-/Mietverhältnisse entfernen: ein gelöschter Nutzer soll
+    // nicht länger als „Gelöschter Nutzer" in Eigentümer-/Kontaktlisten erscheinen.
+    db.ownership.deleteMany({ where: { userId: id } }),
+    db.tenancy.deleteMany({ where: { userId: id } }),
     db.user.update({
       where: { id },
       data: {
@@ -310,6 +314,7 @@ export async function anonymizeUser(formData: FormData) {
         phone: null,
         preferredContact: null,
         active: false,
+        anonymizedAt: new Date(),
         mustChangePassword: false,
         passwordResetToken: null,
         passwordResetExpiry: null,

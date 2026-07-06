@@ -247,6 +247,9 @@ model User {
   emailVerifiedAt      DateTime?
   emailVerifyToken     String?                   @unique
   emailVerifyExpiry    DateTime?
+  // DSGVO-Löschung durch Anonymisierung (Art. 17): markiert einen entpersonalisierten
+  // Datensatz, damit er aus Kontakt-/Eigentümerlisten ausgeblendet werden kann.
+  anonymizedAt         DateTime?
   tenancies            Tenancy[]
   ownerships           Ownership[]
   ticketsCreated       Ticket[]                  @relation("TicketCreatedBy")

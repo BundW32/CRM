@@ -35,6 +35,8 @@ export async function searchContactPersons(query: string): Promise<ContactPerson
     where: {
       AND: [
         { role: { in: ["MIETER", "EIGENTUEMER"] } },
+        // DSGVO-anonymisierte Nutzer nicht im Kontaktbuch anzeigen.
+        { anonymizedAt: null },
         ...(q
           ? [
               {

@@ -27,16 +27,15 @@ describe("parseAdminAllowlist", () => {
 });
 
 describe("isPlatformAdminUser", () => {
-  it("verlangt Flag UND E-Mail in der Allowlist", () => {
+  it("erlaubt nur E-Mails aus der Allowlist (case-insensitiv)", () => {
     vi.stubEnv("PLATFORM_ADMIN_EMAILS", "chef@bw.de");
-    expect(isPlatformAdminUser({ isPlatformAdmin: true, email: "Chef@BW.de" })).toBe(true);
-    expect(isPlatformAdminUser({ isPlatformAdmin: false, email: "chef@bw.de" })).toBe(false);
-    expect(isPlatformAdminUser({ isPlatformAdmin: true, email: "andere@bw.de" })).toBe(false);
-    expect(isPlatformAdminUser({ isPlatformAdmin: true, email: null })).toBe(false);
+    expect(isPlatformAdminUser({ email: "Chef@BW.de" })).toBe(true);
+    expect(isPlatformAdminUser({ email: "andere@bw.de" })).toBe(false);
+    expect(isPlatformAdminUser({ email: null })).toBe(false);
   });
   it("ohne Env-Allowlist immer false", () => {
     vi.stubEnv("PLATFORM_ADMIN_EMAILS", "");
-    expect(isPlatformAdminUser({ isPlatformAdmin: true, email: "chef@bw.de" })).toBe(false);
+    expect(isPlatformAdminUser({ email: "chef@bw.de" })).toBe(false);
   });
 });
 

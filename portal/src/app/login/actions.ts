@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { createSession, destroySession } from "@/lib/session";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -37,7 +38,7 @@ export async function login(formData: FormData) {
 
   // Deaktivierte Organisation sperrt den Login (außer Plattform-Betreiber). Wie
   // ein falsches Passwort behandeln – keine Auskunft über den Grund (kein Leak).
-  const orgBlocked = user ? !user.organization.active && !user.isPlatformAdmin : false;
+  const orgBlocked = user ? !user.organization.active && !isPlatformAdminUser(user) : false;
 
   if (
     !user ||

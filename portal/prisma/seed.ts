@@ -36,8 +36,9 @@ async function main() {
       name: "B&W Verwaltung",
       role: "VERWALTER",
       isSuperAdmin: true,
-      // Plattform-Betreiber-Zugang (/plattform). Wirkt NUR, wenn zusätzlich die
-      // Env-Variable PLATFORM_ADMIN_EMAILS diese E-Mail enthält (doppelte Wand).
+      // Plattform-Betreiber-Zugang (/plattform) wird über die Env-Variable
+      // PLATFORM_ADMIN_EMAILS gesteuert (diese E-Mail muss dort stehen). Das Flag
+      // ist nur noch informativ und für das Gating nicht mehr erforderlich.
       isPlatformAdmin: true,
       organizationId: org.id,
       passwordHash: await bcrypt.hash("BundW-Start2026!", 12),

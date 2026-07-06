@@ -10,11 +10,11 @@ export function parseAdminAllowlist(raw: string | undefined | null): string[] {
     .filter(Boolean);
 }
 
-// Ist dieser Nutzer ein Plattform-Betreiber? Flag UND E-Mail in der Allowlist.
-export function isPlatformAdminUser(
-  user: { isPlatformAdmin: boolean; email: string | null },
-): boolean {
-  if (!user.isPlatformAdmin) return false;
+// Ist dieser Nutzer ein Plattform-Betreiber? Der Zugang wird allein über die
+// Env-Allowlist PLATFORM_ADMIN_EMAILS (kommagetrennt) gesteuert – nur wer Zugriff auf
+// die Server-Umgebung (Vercel) hat, kann diese Liste ändern. Das genügt als
+// Sicherheitswand; ein zusätzliches DB-Flag ist nicht nötig.
+export function isPlatformAdminUser(user: { email: string | null }): boolean {
   if (!user.email) return false;
   const allow = parseAdminAllowlist(process.env.PLATFORM_ADMIN_EMAILS);
   return allow.includes(user.email.trim().toLowerCase());

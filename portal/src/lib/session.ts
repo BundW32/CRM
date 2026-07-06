@@ -51,7 +51,7 @@ async function loadUser(id: string, requireOrgActive = true) {
     include: { organization: { select: { active: true } } },
   });
   if (!record || !record.active) return null;
-  if (requireOrgActive && !record.organization.active && !record.isPlatformAdmin) return null;
+  if (requireOrgActive && !record.organization.active && !isPlatformAdminUser(record)) return null;
   return record;
 }
 

@@ -59,7 +59,7 @@ export async function loadNoteTargets(propertyId: string): Promise<NoteTargets> 
 export async function createNote(formData: FormData) {
   const user = await requireUser();
   if (user.role !== "VERWALTER") return;
-  const body = String(formData.get("body") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim().slice(0, 5000);
   if (!body) return;
   const propertyId = (formData.get("propertyId") as string | null) || undefined;
   const unitId = (formData.get("unitId") as string | null) || undefined;

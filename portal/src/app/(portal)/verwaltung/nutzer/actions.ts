@@ -324,6 +324,36 @@ export async function anonymizeUser(formData: FormData) {
     }),
   ]);
 
+  // DSGVO Art. 17: In Wohnungsübergabe-Protokollen werden Personendaten als
+  // Freitext-Schnappschuss gespeichert (kein Fremdschlüssel auf den Nutzer). Diese
+  // Kopien anhand der (jetzt gelöschten) E-Mail-Adresse mitlöschen – je Rolle nur die
+  // Felder, deren E-Mail übereinstimmt.
+  const oldEmail = user.email;
+  if (oldEmail) {
+    const org = user.organizationId;
+    await db.$transaction([
+      db.handover.updateMany({
+        where: { organizationId: org, tenantEmail: oldEmail },
+        data: {
+          tenantName: null,
+          tenantEmail: null,
+          tenantPhone: null,
+          tenantAddress: null,
+          tenantBirthDate: null,
+          tenantSignature: null,
+        },
+      }),
+      db.handover.updateMany({
+        where: { organizationId: org, ownerEmail: oldEmail },
+        data: { ownerName: null, ownerEmail: null, ownerPhone: null },
+      }),
+      db.handover.updateMany({
+        where: { organizationId: org, managerEmail: oldEmail },
+        data: { managerName: null, managerEmail: null, managerPhone: null },
+      }),
+    ]);
+  }
+
   revalidatePath("/verwaltung/nutzer");
   redirect("/verwaltung/nutzer?anonymisiert=1");
 }

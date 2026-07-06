@@ -10,7 +10,7 @@ export async function resetPassword(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const passwordConfirm = String(formData.get("passwordConfirm") ?? "");
 
-  if (!token || password.length < 8 || password !== passwordConfirm) {
+  if (!token || password.length < 10 || password !== passwordConfirm) {
     redirect(`/login/reset/${token}?fehler=eingabe`);
   }
 

@@ -14,7 +14,9 @@ export async function saveStammdaten(formData: FormData) {
 
   const type = String(formData.get("type") ?? "EINZUG") as HandoverType;
 
-  const strField = (name: string) => String(formData.get(name) ?? "").trim() || null;
+  // Freitextfelder auf eine großzügige Obergrenze begrenzen (verhindert
+  // unbegrenzte Speicherlast; deckt Namen/Adressen ebenso wie Notizen ab).
+  const strField = (name: string) => String(formData.get(name) ?? "").trim().slice(0, 2000) || null;
   const intField = (name: string) => {
     const v = String(formData.get(name) ?? "").trim();
     return v !== "" ? Math.trunc(Number(v)) : null;

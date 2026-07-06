@@ -1,4 +1,5 @@
-import { Card, EmptyState, PageTitle } from "@/components/ui";
+import Link from "next/link";
+import { Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
 import { noteWhereForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
@@ -74,7 +75,15 @@ export default async function NotizenPage({
 
   return (
     <>
-      <PageTitle>Notizen</PageTitle>
+      <PageTitle
+        action={
+          <Link href="/verwaltung" className={buttonSecondaryClass}>
+            ← Verwaltung
+          </Link>
+        }
+      >
+        Notizen
+      </PageTitle>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Note list – takes up 2 columns on large screens */}

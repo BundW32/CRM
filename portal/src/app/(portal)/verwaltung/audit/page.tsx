@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { PageTitle } from "@/components/ui";
+import { PageTitle, buttonSecondaryClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 
@@ -60,7 +61,15 @@ export default async function AuditPage({
 
   return (
     <>
-      <PageTitle>Audit-Log</PageTitle>
+      <PageTitle
+        action={
+          <Link href="/verwaltung" className={buttonSecondaryClass}>
+            ← Verwaltung
+          </Link>
+        }
+      >
+        Audit-Log
+      </PageTitle>
 
       {/* Filter */}
       <form method="GET" className="mb-4 flex flex-wrap gap-2">

@@ -1,4 +1,5 @@
-import { PageTitle } from "@/components/ui";
+import Link from "next/link";
+import { PageTitle, buttonSecondaryClass } from "@/components/ui";
 import { isSelfManaged } from "@/lib/access";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { ObjektForm } from "./ObjektForm";
@@ -16,7 +17,15 @@ export default async function NeuesObjektPage({
 
   return (
     <>
-      <PageTitle>Objekt anlegen</PageTitle>
+      <PageTitle
+        action={
+          <Link href="/verwaltung" className={buttonSecondaryClass}>
+            ← Verwaltung
+          </Link>
+        }
+      >
+        Objekt anlegen
+      </PageTitle>
       <p className="mb-6 max-w-3xl text-sm text-gray-300">
         {selfManaged
           ? "Legen Sie Ihr WEG-Objekt mit Einheiten an und tragen Sie anschließend die Eigentümer mit ihren Miteigentumsanteilen ein."

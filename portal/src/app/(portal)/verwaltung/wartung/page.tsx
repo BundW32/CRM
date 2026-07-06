@@ -1,4 +1,5 @@
-import { Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import Link from "next/link";
+import { Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter, propertyIdsForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -79,7 +80,15 @@ export default async function WartungPage({
 
   return (
     <>
-      <PageTitle>Wartung &amp; Prüfungen</PageTitle>
+      <PageTitle
+        action={
+          <Link href="/verwaltung" className={buttonSecondaryClass}>
+            ← Verwaltung
+          </Link>
+        }
+      >
+        Wartung &amp; Prüfungen
+      </PageTitle>
       <p className="mb-6 max-w-3xl text-sm text-gray-300">
         Wiederkehrende Wartungen und Prüfungen (z. B. Heizung, Rauchmelder,
         Legionellenprüfung) mit Fälligkeitsdatum. Überfällige Einträge sind rot,

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PageTitle } from "@/components/ui";
+import { PageTitle, buttonSecondaryClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { propertyIdsForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { requireVerwalter } from "@/lib/session";
@@ -56,7 +56,7 @@ export default async function DokumentQuellenPage({
     <>
       <PageTitle
         action={
-          <Link href="/verwaltung" className="text-sm text-gray-500 hover:text-gray-700">
+          <Link href="/verwaltung" className={buttonSecondaryClass}>
             ← Verwaltung
           </Link>
         }

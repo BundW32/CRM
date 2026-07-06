@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
-import { Card, PageTitle, inputClass } from "@/components/ui";
+import { Card, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -138,7 +138,15 @@ export default async function UsersPage({
 
   return (
     <>
-      <PageTitle>Nutzer</PageTitle>
+      <PageTitle
+        action={
+          <Link href="/verwaltung" className={buttonSecondaryClass}>
+            ← Verwaltung
+          </Link>
+        }
+      >
+        Nutzer
+      </PageTitle>
 
       {eingeladen ? (
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">

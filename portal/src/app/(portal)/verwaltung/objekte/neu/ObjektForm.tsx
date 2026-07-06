@@ -7,22 +7,62 @@ import { createObjekt } from "./actions";
 
 type UnitRow = { label: string; floor: string };
 type TenantRow = { name: string; email: string; phone: string; unit: string };
+type ExistingProperty = { name: string; street: string; zip: string; city: string };
 
 let rowKey = 0;
 const nextKey = () => `r${rowKey++}`;
 
-export function ObjektForm({ defaultManagementType = "MIETVERWALTUNG" }: { defaultManagementType?: "MIETVERWALTUNG" | "WEG" }) {
+const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+export function ObjektForm({
+  defaultManagementType = "MIETVERWALTUNG",
+  existing = [],
+}: {
+  defaultManagementType?: "MIETVERWALTUNG" | "WEG";
+  existing?: ExistingProperty[];
+}) {
   const [units, setUnits] = useState<Array<UnitRow & { key: string }>>([
     { key: nextKey(), label: "", floor: "" },
   ]);
   const [tenants, setTenants] = useState<Array<TenantRow & { key: string }>>([]);
+  const [name, setName] = useState("");
+  const [street, setStreet] = useState("");
+  const [zip, setZip] = useState("");
 
   const unitOptions = units
     .map((u) => u.label.trim())
     .filter((l) => l.length > 0);
 
+  // Mögliche Dublette: gleiche Adresse (Straße + PLZ) oder identischer Name.
+  const duplicates = existing.filter((p) => {
+    const sameAddress =
+      street.trim() !== "" && norm(p.street) === norm(street) && norm(p.zip) === norm(zip);
+    const sameName = name.trim() !== "" && norm(p.name) === norm(name);
+    return sameAddress || sameName;
+  });
+
   return (
     <form action={createObjekt} className="space-y-6">
+      {duplicates.length > 0 ? (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="font-medium">Mögliche Dublette</p>
+          <p className="mt-0.5">
+            Es gibt bereits {duplicates.length === 1 ? "ein Objekt" : `${duplicates.length} Objekte`}{" "}
+            mit ähnlichen Angaben:
+          </p>
+          <ul className="mt-1 list-disc pl-5">
+            {duplicates.slice(0, 5).map((p, i) => (
+              <li key={i}>
+                {p.name} · {p.street}, {p.zip} {p.city}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs">
+            Sie können das Objekt trotzdem anlegen – bitte prüfen Sie aber, ob es nicht bereits
+            erfasst ist.
+          </p>
+        </div>
+      ) : null}
       {/* 1. Objektdaten */}
       <Card title="1. Objektdaten">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -32,6 +72,8 @@ export function ObjektForm({ defaultManagementType = "MIETVERWALTUNG" }: { defau
               name="name"
               required
               minLength={2}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder="z. B. Goethestraße 42"
               className={inputClass}
             />
@@ -50,10 +92,27 @@ export function ObjektForm({ defaultManagementType = "MIETVERWALTUNG" }: { defau
             </select>
           </Field>
           <Field label="Straße und Hausnummer *">
-            <input type="text" name="street" required minLength={2} className={inputClass} />
+            <input
+              type="text"
+              name="street"
+              required
+              minLength={2}
+              value={street}
+              onChange={(e) => setStreet(e.target.value)}
+              className={inputClass}
+            />
           </Field>
           <Field label="PLZ *">
-            <input type="text" name="zip" required minLength={4} maxLength={10} className={inputClass} />
+            <input
+              type="text"
+              name="zip"
+              required
+              minLength={4}
+              maxLength={10}
+              value={zip}
+              onChange={(e) => setZip(e.target.value)}
+              className={inputClass}
+            />
           </Field>
           <Field label="Ort *">
             <input type="text" name="city" required minLength={2} className={inputClass} />

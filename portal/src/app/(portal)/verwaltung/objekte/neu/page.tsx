@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageTitle, buttonSecondaryClass } from "@/components/ui";
 import { isSelfManaged } from "@/lib/access";
+import { db } from "@/lib/db";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { ObjektForm } from "./ObjektForm";
 
@@ -11,9 +12,16 @@ export default async function NeuesObjektPage({
 }: {
   searchParams: Promise<{ fehler?: string }>;
 }) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const { fehler } = await searchParams;
   const selfManaged = isSelfManaged(await getOrganization());
+
+  // Bestehende Objekte der Org – dient der Dubletten-Warnung im Formular.
+  const existing = await db.property.findMany({
+    where: { organizationId: verwalter.organizationId },
+    select: { name: true, street: true, zip: true, city: true },
+    orderBy: { name: "asc" },
+  });
 
   return (
     <>
@@ -38,7 +46,10 @@ export default async function NeuesObjektPage({
         </p>
       ) : null}
 
-      <ObjektForm defaultManagementType={selfManaged ? "WEG" : "MIETVERWALTUNG"} />
+      <ObjektForm
+        defaultManagementType={selfManaged ? "WEG" : "MIETVERWALTUNG"}
+        existing={existing}
+      />
     </>
   );
 }

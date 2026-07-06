@@ -53,7 +53,9 @@ export default async function KontaktePage({
       ) : null}
       {fehler ? (
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          Bitte Pflichtfelder (Name, Gewerk) korrekt ausfüllen.
+          {fehler === "email"
+            ? "Diese E-Mail-Adresse wird bereits von einer anderen Person verwendet."
+            : "Bitte Pflichtfelder (Name, Gewerk) korrekt ausfüllen."}
         </p>
       ) : null}
 

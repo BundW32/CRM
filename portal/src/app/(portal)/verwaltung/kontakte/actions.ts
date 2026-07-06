@@ -157,22 +157,82 @@ export async function deleteCraftsman(formData: FormData) {
   redirect("/verwaltung/kontakte");
 }
 
+const personSchema = z.object({
+  name: z.string().trim().min(2).max(200),
+  email: z.string().trim().toLowerCase().email().optional().or(z.literal("")),
+  phone: z.string().trim().max(50).optional(),
+});
+
 export async function updatePersonContact(formData: FormData) {
   const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
-  const phoneRaw = String(formData.get("phone") ?? "").trim();
   const pcRaw = String(formData.get("preferredContact") ?? "");
   const preferredContact = (CONTACT_METHODS as readonly string[]).includes(pcRaw)
     ? (pcRaw as (typeof CONTACT_METHODS)[number])
     : null;
 
   // Scope-Prüfung: nur Personen im eigenen Zuständigkeitsbereich bearbeiten.
-  if (id && (await canVerwalterManageUser(verwalter, id))) {
-    await db.user.update({
-      where: { id },
-      data: { phone: phoneRaw || null, preferredContact },
-    });
+  if (!id || !(await canVerwalterManageUser(verwalter, id))) {
+    redirect("/verwaltung/kontakte");
   }
+
+  const parsed = personSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email") || undefined,
+    phone: formData.get("phone") || undefined,
+  });
+  if (!parsed.success) {
+    redirect("/verwaltung/kontakte?fehler=eingabe");
+  }
+  const email = parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null;
+
+  // E-Mail-Eindeutigkeit: nicht die Adresse einer anderen Person übernehmen.
+  if (email) {
+    const existing = await db.user.findUnique({ where: { email }, select: { id: true } });
+    if (existing && existing.id !== id) {
+      redirect("/verwaltung/kontakte?fehler=email");
+    }
+  }
+
+  await db.user.update({
+    where: { id },
+    data: { name: parsed.data.name, email, phone: parsed.data.phone || null, preferredContact },
+  });
+  revalidatePath("/verwaltung/kontakte");
+  redirect("/verwaltung/kontakte");
+}
+
+export async function updateCraftsman(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const id = String(formData.get("id") ?? "");
+  // Scope-/Org-Prüfung: nur Handwerker der eigenen Org (und ggf. zugewiesene).
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect("/verwaltung/kontakte");
+
+  const parsed = craftsmanSchema.safeParse({
+    company: formData.get("company") || undefined,
+    name: formData.get("name"),
+    trade: formData.get("trade"),
+    email: formData.get("email") || undefined,
+    phone: formData.get("phone") || undefined,
+    preferredContact: formData.get("preferredContact") || "TELEFON",
+    notes: formData.get("notes") || undefined,
+  });
+  if (!parsed.success) {
+    redirect("/verwaltung/kontakte?fehler=eingabe");
+  }
+
+  await db.craftsman.update({
+    where: { id },
+    data: {
+      company: parsed.data.company || null,
+      name: parsed.data.name,
+      trade: parsed.data.trade,
+      email: parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null,
+      phone: parsed.data.phone || null,
+      preferredContact: parsed.data.preferredContact,
+      notes: parsed.data.notes || null,
+    },
+  });
   revalidatePath("/verwaltung/kontakte");
   redirect("/verwaltung/kontakte");
 }

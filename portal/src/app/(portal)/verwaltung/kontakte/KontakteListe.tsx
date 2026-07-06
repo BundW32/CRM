@@ -9,6 +9,7 @@ import {
   searchContactPersons,
   toggleCraftsmanActive,
   toggleCraftsmanInternal,
+  updateCraftsman,
   updatePersonContact,
   type ContactPerson,
 } from "./actions";
@@ -149,6 +150,62 @@ export function KontakteListe({ craftsmen }: { craftsmen: CraftsmanRow[] }) {
                           </button>
                         </form>
                       </span>
+                      <details className="mt-2 basis-full">
+                        <summary className="cursor-pointer text-xs text-brand-orange hover:underline select-none">
+                          Bearbeiten
+                        </summary>
+                        <form action={updateCraftsman} className="mt-2 grid gap-2 sm:grid-cols-2">
+                          <input type="hidden" name="id" value={c.id} />
+                          <label>
+                            <span className="mb-1 block text-xs text-gray-500">Firma (optional)</span>
+                            <input type="text" name="company" defaultValue={c.company ?? ""} className={inputClass} />
+                          </label>
+                          <label>
+                            <span className="mb-1 block text-xs text-gray-500">Ansprechpartner / Name</span>
+                            <input type="text" name="name" required minLength={2} defaultValue={c.name} className={inputClass} />
+                          </label>
+                          <label>
+                            <span className="mb-1 block text-xs text-gray-500">Gewerk</span>
+                            <select name="trade" required defaultValue={c.trade} className={inputClass}>
+                              {TRADE_ORDER.map((t) => (
+                                <option key={t} value={t}>
+                                  {tradeLabels[t]}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label>
+                            <span className="mb-1 block text-xs text-gray-500">Bevorzugter Kontaktweg</span>
+                            <select name="preferredContact" required defaultValue={c.preferredContact} className={inputClass}>
+                              {Object.entries(contactMethodLabels).map(([v, l]) => (
+                                <option key={v} value={v}>
+                                  {l}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label>
+                            <span className="mb-1 block text-xs text-gray-500">Telefon</span>
+                            <input type="tel" name="phone" defaultValue={c.phone ?? ""} className={inputClass} />
+                          </label>
+                          <label>
+                            <span className="mb-1 block text-xs text-gray-500">E-Mail</span>
+                            <input type="email" name="email" defaultValue={c.email ?? ""} className={inputClass} />
+                          </label>
+                          <label className="sm:col-span-2">
+                            <span className="mb-1 block text-xs text-gray-500">Notizen (optional)</span>
+                            <textarea name="notes" rows={2} defaultValue={c.notes ?? ""} className={inputClass} />
+                          </label>
+                          <div className="sm:col-span-2">
+                            <button
+                              type="submit"
+                              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                              Speichern
+                            </button>
+                          </div>
+                        </form>
+                      </details>
                     </li>
                   ))}
                 </ul>
@@ -239,36 +296,38 @@ function PersonenListe({ query }: { query: string }) {
 function PersonCard({ person: p }: { person: ContactPerson }) {
   return (
     <li className="py-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-medium text-gray-900">
-          {p.name}
-          <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-            {p.role === "EIGENTUEMER" ? "Eigentümer" : "Mieter"}
-          </span>
-        </span>
-        <span className="text-xs text-gray-500">
-          {p.email ? (
-            <a href={`mailto:${p.email}`} className="hover:text-brand-orange hover:underline">
-              {p.email}
-            </a>
-          ) : (
-            "keine E-Mail"
-          )}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-gray-900">{p.name}</span>
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+          {p.role === "EIGENTUEMER" ? "Eigentümer" : "Mieter"}
         </span>
       </div>
-      <form
-        action={updatePersonContact}
-        className="mt-2 flex flex-wrap items-end gap-2"
-      >
+      <form action={updatePersonContact} className="mt-2 grid gap-2 sm:grid-cols-2">
         <input type="hidden" name="id" value={p.id} />
-        <label className="flex-1">
-          <span className="mb-1 block text-xs text-gray-500">Telefon</span>
+        <label>
+          <span className="mb-1 block text-xs text-gray-500">Name</span>
           <input
-            type="tel"
-            name="phone"
-            defaultValue={p.phone ?? ""}
+            type="text"
+            name="name"
+            required
+            minLength={2}
+            defaultValue={p.name}
             className={inputClass}
           />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs text-gray-500">E-Mail</span>
+          <input
+            type="email"
+            name="email"
+            defaultValue={p.email ?? ""}
+            placeholder="keine E-Mail"
+            className={inputClass}
+          />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs text-gray-500">Telefon</span>
+          <input type="tel" name="phone" defaultValue={p.phone ?? ""} className={inputClass} />
         </label>
         <label>
           <span className="mb-1 block text-xs text-gray-500">Bevorzugter Kontakt</span>
@@ -285,12 +344,14 @@ function PersonCard({ person: p }: { person: ContactPerson }) {
             ))}
           </select>
         </label>
-        <button
-          type="submit"
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Speichern
-        </button>
+        <div className="sm:col-span-2">
+          <button
+            type="submit"
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Speichern
+          </button>
+        </div>
       </form>
     </li>
   );

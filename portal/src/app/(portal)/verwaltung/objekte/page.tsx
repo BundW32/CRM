@@ -1,10 +1,9 @@
-import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
-import { SubmitButton } from "@/components/submit-button";
+import Link from "next/link";
+import { EmptyState, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
-import { createUnit } from "./actions";
 import { PropertyRow } from "./property-row";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +37,7 @@ export default async function PropertiesPage({
       }
     : propWhere;
 
-  const [total, properties, allProperties] = await Promise.all([
+  const [total, properties] = await Promise.all([
     db.property.count({ where: combinedWhere }),
     db.property.findMany({
       where: combinedWhere,
@@ -51,11 +50,6 @@ export default async function PropertiesPage({
         },
         ownerships: { include: { user: true } },
       },
-    }),
-    db.property.findMany({
-      where: propWhere,
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
     }),
   ]);
 
@@ -73,9 +67,14 @@ export default async function PropertiesPage({
     <>
       <PageTitle
         action={
-          <a href="/verwaltung/objekte/neu" className={buttonClass}>
-            + Objekt anlegen
-          </a>
+          <span className="flex flex-wrap items-center gap-2">
+            <Link href="/verwaltung" className={buttonSecondaryClass}>
+              ← Verwaltung
+            </Link>
+            <a href="/verwaltung/objekte/neu" className={buttonClass}>
+              + Objekt anlegen
+            </a>
+          </span>
         }
       >
         Objekte
@@ -83,7 +82,7 @@ export default async function PropertiesPage({
 
       {eingerichtet ? (
         <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
-          Objekt wurde angelegt. Mieter können Sie jetzt unter „Nutzer" hinzufügen.
+          Objekt wurde angelegt. Mieter können Sie jetzt unter „Nutzer“ hinzufügen.
         </p>
       ) : null}
       {fehler ? (
@@ -92,9 +91,8 @@ export default async function PropertiesPage({
         </p>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          {/* Search bar */}
+      <div className="space-y-4">
+        {/* Search bar */}
           <form method="get" className="flex items-center gap-2">
             <input
               type="search"
@@ -218,48 +216,6 @@ export default async function PropertiesPage({
               )}
             </div>
           ) : null}
-        </div>
-
-        <div className="space-y-5">
-          <Card title="Schnell ein ganzes Objekt anlegen">
-            <p className="text-sm text-gray-600">
-              Objekt mit Stammdaten, Einheiten, Eigentümer und Mietern in einem Schritt erfassen.
-            </p>
-            <a href="/verwaltung/objekte/neu" className={`${buttonClass} mt-3`}>
-              + Objekt anlegen
-            </a>
-          </Card>
-
-          <Card title="Neue Einheit">
-            <form action={createUnit} className="space-y-3">
-              <Field label="Objekt">
-                <select name="propertyId" required className={inputClass} defaultValue="">
-                  <option value="" disabled>
-                    – bitte wählen –
-                  </option>
-                  {allProperties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Bezeichnung">
-                <input
-                  type="text"
-                  name="label"
-                  required
-                  className={inputClass}
-                  placeholder="z. B. WE 03, 1. OG links"
-                />
-              </Field>
-              <Field label="Etage (optional)">
-                <input type="text" name="floor" className={inputClass} />
-              </Field>
-              <SubmitButton pendingLabel="Wird angelegt…">Anlegen</SubmitButton>
-            </form>
-          </Card>
-        </div>
       </div>
     </>
   );

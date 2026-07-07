@@ -41,6 +41,11 @@ export async function GET(
       preferredContact: true,
       active: true,
       createdAt: true,
+      salutation: true,
+      street: true,
+      zip: true,
+      city: true,
+      notesAbout: { select: { body: true, createdAt: true } },
       tenancies: { include: { unit: { include: { property: true } } } },
       ownerships: { include: { property: true } },
       ticketsCreated: {
@@ -58,11 +63,31 @@ export async function GET(
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   }
 
+  // Wohnungsübergabe-Protokolle mit Personenbezug (Freitext-Schnappschuss per E-Mail).
+  const uebergaben = user.email
+    ? await db.handover.findMany({
+        where: {
+          organizationId: current.organizationId,
+          OR: [{ tenantEmail: user.email }, { ownerEmail: user.email }],
+        },
+        select: {
+          handoverDate: true,
+          type: true,
+          tenantName: true,
+          tenantEmail: true,
+          tenantPhone: true,
+          tenantAddress: true,
+          ownerName: true,
+          ownerEmail: true,
+        },
+      })
+    : [];
+
   const payload = {
     exportiertAm: new Date().toISOString(),
     hinweis:
       "Dieser Export enthält die zu Ihrer Person im B&W Kundenportal gespeicherten Daten (DSGVO Art. 20).",
-    daten: user,
+    daten: { ...user, uebergaben },
   };
 
   await logAudit({

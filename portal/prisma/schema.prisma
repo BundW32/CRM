@@ -197,6 +197,8 @@ model Organization {
   // Rechtliches / Akquise (Phase 6 – Gerüst)
   termsAcceptedAt      DateTime? // Zeitpunkt der AGB-/AVV-Zustimmung bei Registrierung
   termsVersion         String? // Version der akzeptierten Rechtsdokumente
+  termsAcceptedIp      String? // IP zum Zeitpunkt der Zustimmung (Nachweis)
+  termsAcceptedUserAgent String? // User-Agent zum Zeitpunkt der Zustimmung (Nachweis)
   referralSource       String? // Herkunft der Registrierung (z. B. "hausmatch")
 
   // Interne Notiz des Plattform-Betreibers zu diesem Kunden (nur /plattform sichtbar)

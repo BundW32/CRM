@@ -63,17 +63,33 @@ export default function DatenschutzPage() {
               Auftragsverarbeitung nach Art. 28 DSGVO bestehen:
             </p>
             <ul className="list-disc pl-5">
-              <li>Hosting/Betrieb der Anwendung: Vercel (Region Frankfurt/EU)</li>
-              <li>Datenbank: Vercel Postgres / Neon (EU-Region)</li>
-              <li>Datei-Speicher: Vercel Blob (EU-Region)</li>
-              <li>E-Mail-Versand: Google Workspace</li>
+              <li>Hosting/Betrieb der Anwendung: Vercel Inc.</li>
+              <li>Datenbank: Neon (PostgreSQL, EU-Region)</li>
+              <li>Datei-Speicher: Vercel Blob (Dokumente, Fotos, Unterschriften)</li>
+              <li>E-Mail-Versand: Google (Gmail / Google Workspace)</li>
+              <li>
+                KI-gestützte Vorqualifizierung eingehender Meldungen – optional, nur bei
+                Aktivierung durch die Verwaltung: Google (Gemini API)
+              </li>
+              <li>Optionaler Dokumenten-Import aus Google Drive</li>
+              <li>
+                Push-Benachrichtigungen (optional, je nach Gerät/Browser): Push-Dienste von
+                Google, Apple oder Mozilla
+              </li>
             </ul>
+            <p className="mt-2">
+              Einzelne Dienste (u. a. Google) können Daten außerhalb der EU (USA)
+              verarbeiten. Soweit dies der Fall ist, erfolgt die Übermittlung auf Grundlage
+              geeigneter Garantien (Standardvertragsklauseln bzw. Angemessenheitsbeschluss).
+            </p>
           </Section>
 
           <Section title="5. Speicherdauer">
             <p>
               Daten werden für die Dauer des Verwaltungsverhältnisses und im Rahmen gesetzlicher
               Aufbewahrungsfristen gespeichert und anschließend gelöscht bzw. anonymisiert.
+              IP-Adressen in internen Sicherheitsprotokollen werden spätestens nach 90 Tagen
+              entfernt.
             </p>
           </Section>
 

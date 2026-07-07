@@ -49,11 +49,13 @@ export default function SaasDatenschutzPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="4. E-Mail-Versand">
+      <LegalSection title="4. Eingesetzte Dienstleister">
         <p>
-          Zur Zustellung von Benachrichtigungen, Einladungen und Bestätigungen setzen wir
-          einen E-Mail-Dienst ein. Es werden nur die für den Versand erforderlichen Daten
-          übermittelt.
+          Zum Betrieb der Plattform setzen wir ein: Vercel (Hosting/Anwendungsbetrieb und
+          Datei-Speicher „Blob“), Neon (Datenbank, EU-Region), Google (Gmail / Google
+          Workspace) für den E-Mail-Versand sowie Stripe für die Zahlungsabwicklung
+          kostenpflichtiger Tarife. Es werden jeweils nur die erforderlichen Daten
+          übermittelt; mit den Dienstleistern bestehen Verträge zur Auftragsverarbeitung.
         </p>
       </LegalSection>
 

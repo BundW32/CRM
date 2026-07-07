@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { brandingFromOrg } from "@/lib/branding";
@@ -65,6 +66,7 @@ export async function registerOrganization(formData: FormData) {
   }
 
   const ip = await getClientIp();
+  const userAgent = (await headers()).get("user-agent")?.slice(0, 500) ?? null;
   // Missbrauchsschutz: max. 5 Registrierungen pro IP und Stunde.
   if (!(await checkRateLimit(`register:${ip}`, 5, 3600))) {
     redirect("/registrieren?fehler=limit");
@@ -114,6 +116,8 @@ export async function registerOrganization(formData: FormData) {
         accountType,
         termsAcceptedAt: new Date(),
         termsVersion: TERMS_VERSION,
+        termsAcceptedIp: ip,
+        termsAcceptedUserAgent: userAgent,
         referralSource,
         trialEndsAt,
       },

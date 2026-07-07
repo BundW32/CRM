@@ -291,7 +291,8 @@ export async function anonymizeUser(formData: FormData) {
     action: AUDIT.USER_ANONYMIZED,
     targetType: "User",
     targetId: id,
-    meta: { name: user.name, email: user.email },
+    // DSGVO: keine Klardaten des Gelöschten dauerhaft im Audit-Log speichern.
+    meta: { targetUserId: id },
     ip,
   });
 
@@ -302,6 +303,8 @@ export async function anonymizeUser(formData: FormData) {
     // nicht länger als „Gelöschter Nutzer" in Eigentümer-/Kontaktlisten erscheinen.
     db.ownership.deleteMany({ where: { userId: id } }),
     db.tenancy.deleteMany({ where: { userId: id } }),
+    // Interne Notizen ÜBER die gelöschte Person entfernen.
+    db.note.deleteMany({ where: { targetUserId: id } }),
     db.user.update({
       where: { id },
       data: {
@@ -313,6 +316,9 @@ export async function anonymizeUser(formData: FormData) {
         username: null,
         phone: null,
         preferredContact: null,
+        street: null,
+        zip: null,
+        city: null,
         active: false,
         anonymizedAt: new Date(),
         mustChangePassword: false,
@@ -341,6 +347,10 @@ export async function anonymizeUser(formData: FormData) {
           tenantAddress: null,
           tenantBirthDate: null,
           tenantSignature: null,
+          // Zweiter Mieter im selben Protokoll (kein eigenes E-Mail-Feld) mitlöschen.
+          tenant2Name: null,
+          tenant2BirthDate: null,
+          tenant2Signature: null,
         },
       }),
       db.handover.updateMany({

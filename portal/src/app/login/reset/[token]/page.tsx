@@ -6,7 +6,7 @@ import { resetPassword } from "./actions";
 export const dynamic = "force-dynamic";
 
 const errorMessages: Record<string, string> = {
-  eingabe: "Bitte geben Sie ein Passwort mit mindestens 8 Zeichen ein. Beide Felder müssen übereinstimmen.",
+  eingabe: "Bitte geben Sie ein Passwort mit mindestens 10 Zeichen ein. Beide Felder müssen übereinstimmen.",
   abgelaufen: "Dieser Link ist ungültig oder abgelaufen. Bitte fordern Sie einen neuen an.",
 };
 
@@ -74,12 +74,12 @@ export default async function ResetPasswordPage({
               </p>
               <form action={resetPassword} className="space-y-4">
                 <input type="hidden" name="token" value={token} />
-                <Field label="Passwort (mind. 8 Zeichen)">
+                <Field label="Passwort (mind. 10 Zeichen)">
                   <input
                     type="password"
                     name="password"
                     required
-                    minLength={8}
+                    minLength={10}
                     autoComplete="new-password"
                     className={inputClass}
                   />
@@ -89,7 +89,7 @@ export default async function ResetPasswordPage({
                     type="password"
                     name="passwordConfirm"
                     required
-                    minLength={8}
+                    minLength={10}
                     autoComplete="new-password"
                     className={inputClass}
                   />

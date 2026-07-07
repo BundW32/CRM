@@ -29,3 +29,21 @@ export function BwLogoCompact({ className = "h-10 w-auto" }: { className?: strin
     />
   );
 }
+
+// Organisationslogo (White-Label). `src` zeigt entweder auf das eigene Logo
+// der Organisation (über /api/files/org-logo/…) oder fällt auf das B&W-Logo
+// zurück. Die Maße sind unbekannt, daher wird die Höhe per className gesteuert.
+export function OrgLogo({
+  src,
+  alt,
+  className = "h-10 w-auto",
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={alt} className={className} />
+  );
+}

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { notifyVerwalterNewTicket } from "@/lib/notify";
-import { saveBuffer } from "@/lib/storage";
+import { IMAGE_TYPES, saveBuffer } from "@/lib/storage";
 import { applyTriage } from "@/lib/triage";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -52,12 +54,42 @@ function normalizeAttachments(body: Record<string, unknown>) {
     .slice(0, 10);
 }
 
-async function notifyVerwalter(subject: string, body: string) {
+async function notifyVerwalter(organizationId: string, subject: string, body: string) {
+  // Nur Verwalter der betroffenen Org benachrichtigen.
   const verwalter = await db.user.findMany({
-    where: { role: "VERWALTER", active: true },
+    where: { role: "VERWALTER", active: true, organizationId },
     select: { email: true },
   });
-  await Promise.all(verwalter.map((v) => sendMail(v.email, subject, body)));
+  const branding = await getBrandingForOrg(organizationId);
+  await Promise.all(verwalter.map((v) => sendMail(v.email, subject, body, undefined, branding)));
+}
+
+// Vorgangsnummer aus dem Betreff lesen (z. B. "Re: Auftrag #42: …" → 42).
+// Alle ausgehenden Mails tragen die Nummer als "#NNN" im Betreff, daher
+// taugt das als zuverlässiger Anker für Antworten.
+function extractTicketNumber(subject: string): number | null {
+  const m = subject.match(/#(\d{1,9})\b/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// Nur Bild-Anhänge aus dem Webhook-Body in den Storage schreiben.
+async function saveImageAttachments(body: Record<string, unknown>) {
+  const uploads: Awaited<ReturnType<typeof saveBuffer>>[] = [];
+  for (const att of normalizeAttachments(body)) {
+    const type = att.type.split(";")[0].trim().toLowerCase(); // "image/jpeg; name=…" → "image/jpeg"
+    // Nur explizit erlaubte Bildtypen (keine SVG o. Ä. – Allowlist, nicht der
+    // vom Absender behauptete Typ).
+    if (!IMAGE_TYPES.includes(type)) continue;
+    try {
+      const buf = Buffer.from(att.b64, "base64");
+      uploads.push(await saveBuffer(buf, att.name, type, IMAGE_TYPES));
+    } catch {
+      // ungeeignete Anhänge (z. B. zu groß) überspringen
+    }
+  }
+  return uploads;
 }
 
 export async function POST(request: Request) {
@@ -65,6 +97,17 @@ export async function POST(request: Request) {
   if (!secret) {
     return NextResponse.json({ error: "Inbound nicht konfiguriert" }, { status: 503 });
   }
+
+  const ip =
+    request.headers.get("x-real-ip") ??
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "unknown";
+
+  // Rate limit: 60 Webhook-Aufrufe pro IP pro Minute
+  if (!(await checkRateLimit(`inbound:${ip}`, 60, 60))) {
+    return NextResponse.json({ error: "Zu viele Anfragen" }, { status: 429 });
+  }
+
   const url = new URL(request.url);
   const token = url.searchParams.get("token") ?? request.headers.get("x-inbound-secret");
   if (token !== secret) {
@@ -103,12 +146,82 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ignored: "kein Absender" });
   }
 
-  // Idempotenz: wurde diese Mail schon zu einem Ticket verarbeitet?
+  // Idempotenz: wurde diese Mail schon verarbeitet (als Vorgang ODER Kommentar)?
   if (messageId) {
-    const existing = await db.ticket.findUnique({ where: { inboundMessageId: messageId } });
-    if (existing) {
-      return NextResponse.json({ ok: true, duplicate: true, ticketId: existing.id });
+    const existingTicket = await db.ticket.findUnique({
+      where: { inboundMessageId: messageId },
+    });
+    if (existingTicket) {
+      return NextResponse.json({ ok: true, duplicate: true, ticketId: existingTicket.id });
     }
+    const existingComment = await db.ticketComment.findUnique({
+      where: { inboundMessageId: messageId },
+      select: { ticketId: true },
+    });
+    if (existingComment) {
+      return NextResponse.json({ ok: true, duplicate: true, ticketId: existingComment.ticketId });
+    }
+  }
+
+  // Antwort auf einen bestehenden Vorgang? Vorgangsnummer aus dem Betreff lesen
+  // und – falls vorhanden – die Mail als Kommentar anhängen statt einen neuen
+  // Vorgang anzulegen. So landen Handwerker-Antworten automatisch am richtigen Auftrag.
+  const replyToNumber = extractTicketNumber(subject);
+  if (replyToNumber) {
+    const target = await db.ticket.findUnique({ where: { number: replyToNumber } });
+    if (target) {
+      // Absender zuordnen: Handwerker > Portal-Nutzer > unbekannt.
+      // Auf die Org des Ziel-Vorgangs einschränken, damit kein fremder Mandant
+      // als Autor zugeordnet wird (E-Mail-Adressen könnten org-übergreifend kollidieren).
+      const craftsman = await db.craftsman.findFirst({
+        where: { email: from, active: true, organizationId: target.organizationId },
+        select: { id: true, name: true, company: true },
+      });
+      const user = craftsman
+        ? null
+        : await db.user.findFirst({
+            where: { email: from, organizationId: target.organizationId },
+            select: { id: true, name: true },
+          });
+
+      const uploads = await saveImageAttachments(body);
+      const senderLabel = craftsman
+        ? `${craftsman.company ? `${craftsman.company} / ` : ""}${craftsman.name}`
+        : user
+          ? user.name
+          : `${fromName ? `${fromName} ` : ""}<${from}>`;
+      const commentBody =
+        (craftsman || user
+          ? text || "(kein Text)"
+          : `Antwort per E-Mail von ${senderLabel}:\n\n${text || "(kein Text)"}`).slice(0, 5000);
+
+      await db.ticketComment.create({
+        data: {
+          ticketId: target.id,
+          authorId: user?.id ?? null,
+          craftsmanAuthorId: craftsman?.id ?? null,
+          body: commentBody,
+          internal: false,
+          inboundMessageId: messageId,
+          ...(uploads.length > 0
+            ? { attachments: { create: uploads.map((u) => ({ ...u, ticketId: target.id })) } }
+            : {}),
+        },
+      });
+      await db.ticket.update({ where: { id: target.id }, data: { updatedAt: new Date() } });
+
+      await notifyVerwalter(
+        target.organizationId,
+        `Vorgang #${target.number}: Antwort per E-Mail`,
+        `Zu Vorgang #${target.number} „${target.title}" ist eine E-Mail-Antwort eingegangen.\n\n` +
+          `Von: ${senderLabel}${craftsman ? " (Handwerker)" : ""}\n\n` +
+          `${text || "(kein Text)"}\n\n` +
+          `Zum Vorgang: ${portalUrl(`/vorgaenge/${target.id}`)}`
+      );
+
+      return NextResponse.json({ ok: true, comment: true, ticketId: target.id, number: target.number });
+    }
+    // Nummer im Betreff, aber kein passender Vorgang → wie eine neue Meldung behandeln
   }
 
   // Absender bestimmen
@@ -118,6 +231,7 @@ export async function POST(request: Request) {
   let propertyId: string | null = null;
   let unitId: string | null = null;
   let createdById: string;
+  let organizationId: string;
   let senderEmail: string | null = null;
   let senderName: string | null = null;
 
@@ -130,32 +244,25 @@ export async function POST(request: Request) {
     propertyId = tenancy?.unit.propertyId ?? ownership?.propertyId ?? null;
     unitId = tenancy?.unitId ?? null;
     createdById = knownUser.id;
+    organizationId = knownUser.organizationId;
   } else {
-    // Unbekannter Absender: Vorgang trotzdem anlegen (unter dem Verwalter), Absender merken
+    // Unbekannter Absender: Vorgang trotzdem anlegen (unter dem Verwalter), Absender merken.
+    // Die Org des Vorgangs ergibt sich aus dem Fallback-Verwalter.
     const fallback = await db.user.findFirst({
       where: { role: "VERWALTER", active: true },
-      select: { id: true },
+      select: { id: true, organizationId: true },
     });
     if (!fallback) {
       return NextResponse.json({ ok: true, noVerwalter: true });
     }
     createdById = fallback.id;
+    organizationId = fallback.organizationId;
     senderEmail = from;
     senderName = fromName;
   }
 
   // Anhänge (nur Bilder) speichern – ContentType tolerant, direkt aus dem Buffer
-  const uploads: Awaited<ReturnType<typeof saveBuffer>>[] = [];
-  for (const att of normalizeAttachments(body)) {
-    const type = att.type.split(";")[0].trim().toLowerCase(); // z. B. "image/jpeg; name=…" → "image/jpeg"
-    if (!type.startsWith("image/")) continue; // nur Bilder als Vorgangs-Foto
-    try {
-      const buf = Buffer.from(att.b64, "base64");
-      uploads.push(await saveBuffer(buf, att.name, type, [type]));
-    } catch {
-      // ungeeignete Anhänge (z. B. zu groß) überspringen
-    }
-  }
+  const uploads = await saveImageAttachments(body);
 
   let ticket;
   try {
@@ -167,6 +274,7 @@ export async function POST(request: Request) {
         propertyId,
         unitId,
         createdById,
+        organizationId,
         senderEmail,
         senderName,
         inboundMessageId: messageId,
@@ -189,17 +297,21 @@ export async function POST(request: Request) {
 
   if (knownUser) {
     await notifyVerwalterNewTicket(triaged, knownUser);
+    const branding = await getBrandingForOrg(ticket.organizationId);
     await sendMail(
       from,
       `Ihre Meldung #${ticket.number} ist eingegangen`,
       `Guten Tag ${knownUser.name},\n\n` +
-        `Ihre Meldung „${subject}" ist bei der B&W Immobilien Management UG eingegangen und ` +
+        `Ihre Meldung „${subject}" ist bei der ${branding.legalName} eingegangen und ` +
         `wird unter der Vorgangsnummer #${ticket.number} bearbeitet.\n\n` +
         `Sie können den Stand jederzeit im Kundenportal verfolgen.\n\n` +
-        `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      undefined,
+      branding
     );
   } else {
     await notifyVerwalter(
+      ticket.organizationId,
       `Neue Meldung #${ticket.number} (Absender nicht zugeordnet)`,
       `Es ist eine E-Mail-Meldung von einem nicht hinterlegten Absender eingegangen ` +
         `und wurde als Vorgang #${ticket.number} angelegt.\n\n` +

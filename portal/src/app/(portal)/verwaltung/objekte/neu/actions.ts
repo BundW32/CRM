@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireVerwalter } from "@/lib/session";
 
@@ -37,12 +38,18 @@ async function inviteOrLetter(opts: {
   email: string | null;
   phone: string | null;
   role: "EIGENTUEMER" | "MIETER";
+  organizationId: string;
 }): Promise<{ id: string; pw: string } | null> {
   // Existiert bereits ein Nutzer mit dieser E-Mail, wird dieser mit dem Objekt
-  // verknüpft (kein neuer Zugang, keine erneute Einladung).
+  // verknüpft – aber nur, wenn er zur SELBEN Org gehört (sonst kein Cross-Org-Link).
   if (opts.email) {
-    const exists = await db.user.findUnique({ where: { email: opts.email } });
-    if (exists) return { id: exists.id, pw: "" };
+    const exists = await db.user.findUnique({
+      where: { email: opts.email },
+      select: { id: true, organizationId: true },
+    });
+    if (exists) {
+      return exists.organizationId === opts.organizationId ? { id: exists.id, pw: "" } : null;
+    }
   }
 
   if (opts.email) {
@@ -56,16 +63,20 @@ async function inviteOrLetter(opts: {
         passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12),
         passwordResetToken: inviteToken,
         passwordResetExpiry: new Date(Date.now() + INVITE_TTL_MS),
+        organizationId: opts.organizationId,
       },
     });
+    const branding = await getBrandingForOrg(opts.organizationId);
     await sendMail(
       opts.email,
-      "Ihr Zugang zum B&W Kundenportal",
+      "Ihr Zugang zum Kundenportal",
       `Guten Tag ${opts.name},\n\n` +
-        `Sie wurden zum Kundenportal der B&W Immobilien Management UG eingeladen.\n\n` +
+        `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.\n\n` +
         `Zugang einrichten (gültig 7 Tage):\n` +
         `${portalUrl(`/login/reset/${inviteToken}?einladung=1`)}\n\n` +
-        `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      undefined,
+      branding
     );
     return { id: user.id, pw: "" };
   }
@@ -81,13 +92,17 @@ async function inviteOrLetter(opts: {
       role: opts.role,
       passwordHash: await bcrypt.hash(tempPassword, 12),
       mustChangePassword: true,
+      organizationId: opts.organizationId,
     },
   });
   return { id: user.id, pw: tempPassword };
 }
 
 export async function createObjekt(formData: FormData) {
-  await requireVerwalter();
+  const actor = await requireVerwalter();
+  // Neue Objekte anzulegen ist eine Stammdaten-Aktion – nur SuperAdmin der Org
+  // (eingeschränkte Verwalter verwalten nur ihre zugewiesenen Bestandsobjekte).
+  if (!actor.isSuperAdmin) redirect("/verwaltung/objekte");
 
   const name = String(formData.get("name") ?? "").trim();
   const street = String(formData.get("street") ?? "").trim();
@@ -99,6 +114,8 @@ export async function createObjekt(formData: FormData) {
 
   const managementType =
     String(formData.get("managementType") ?? "") === "WEG" ? "WEG" : "MIETVERWALTUNG";
+  const vpRaw = String(formData.get("votingPrinciple") ?? "");
+  const votingPrinciple = vpRaw === "MEA" ? "MEA" : vpRaw === "OBJEKT" ? "OBJEKT" : "KOPF";
 
   // ── Objekt anlegen (inkl. optionaler Stammdaten) ────────────────────
   const property = await db.property.create({
@@ -108,6 +125,8 @@ export async function createObjekt(formData: FormData) {
       zip,
       city,
       managementType,
+      votingPrinciple,
+      organizationId: actor.organizationId,
       buildYear: optInt(formData.get("buildYear")),
       livingArea: optFloat(formData.get("livingArea")),
       floors: optInt(formData.get("floors")),
@@ -150,6 +169,7 @@ export async function createObjekt(formData: FormData) {
       email: eigEmailRaw && eigEmailRaw.includes("@") ? eigEmailRaw : null,
       phone: optStr(formData.get("eigPhone"), 50),
       role: "EIGENTUEMER",
+      organizationId: actor.organizationId,
     });
     if (result) {
       // catch: bereits bestehende Verknüpfung (Unique-Constraint) ignorieren
@@ -177,6 +197,7 @@ export async function createObjekt(formData: FormData) {
       email: tEmailRaw && tEmailRaw.includes("@") ? tEmailRaw : null,
       phone: tenantPhones[i] ? tenantPhones[i].slice(0, 50) : null,
       role: "MIETER",
+      organizationId: actor.organizationId,
     });
     if (result) {
       const unitId = tenantUnits[i] ? unitLabelToId.get(tenantUnits[i]) : undefined;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
+import { Card, Field, PageTitle, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
@@ -69,9 +70,7 @@ export default async function ConversationPage({
           <Field label="Antworten">
             <textarea name="body" required minLength={1} maxLength={5000} rows={3} className={inputClass} />
           </Field>
-          <button type="submit" className={buttonClass}>
-            Senden
-          </button>
+          <SubmitButton pendingLabel="Wird gesendet…">Senden</SubmitButton>
         </form>
       </Card>
 

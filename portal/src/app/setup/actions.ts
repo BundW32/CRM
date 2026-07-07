@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -28,15 +29,30 @@ export async function createFirstAdmin(formData: FormData) {
     redirect("/setup?fehler=1");
   }
 
+  // Bootstrap: zuerst die Organisation (Mandant) anlegen, dann den Gründer-Admin
+  // als SuperAdmin dieser Org. (Self-Service-Onboarding weiterer Mandanten: Phase 5.)
+  const slugBase =
+    parsed.data.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "org";
+  const org = await db.organization.create({
+    data: { slug: `${slugBase}-${crypto.randomBytes(3).toString("hex")}`, name: parsed.data.name },
+  });
+
   const user = await db.user.create({
     data: {
       name: parsed.data.name,
       email: parsed.data.email.toLowerCase(),
       role: "VERWALTER",
       passwordHash: await bcrypt.hash(parsed.data.password, 12),
+      organizationId: org.id,
+      isSuperAdmin: true,
     },
   });
 
   await createSession(user.id);
-  redirect("/dashboard");
+  // Direkt in den Onboarding-Assistenten (Logo, Farbe, Impressum festlegen).
+  redirect("/onboarding");
 }

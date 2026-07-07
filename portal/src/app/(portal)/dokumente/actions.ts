@@ -3,7 +3,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
+import { notifyDocumentPublished } from "@/lib/notify";
 import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
 import { requireUser, requireVerwalter } from "@/lib/session";
 
@@ -52,6 +54,12 @@ export async function uploadDocument(formData: FormData) {
     propertyId = unit.propertyId;
   }
 
+  // Scope-Prüfung: eingeschränkte Verwalter dürfen Dokumente nur an eigene
+  // Objekte hängen (verhindert Veröffentlichung an fremde Mieter/Eigentümer).
+  if (!(await canVerwalterAccessProperty(user, propertyId))) {
+    redirect("/infos?t=dokumente&fehler=eingabe");
+  }
+
   let upload;
   try {
     upload = await saveUpload(file, DOCUMENT_TYPES);
@@ -59,7 +67,7 @@ export async function uploadDocument(formData: FormData) {
     redirect("/infos?t=dokumente&fehler=datei");
   }
 
-  await db.document.create({
+  const doc = await db.document.create({
     data: {
       title: parsed.data.title,
       category: parsed.data.category,
@@ -67,9 +75,13 @@ export async function uploadDocument(formData: FormData) {
       propertyId,
       unitId,
       uploadedById: user.id,
+      organizationId: user.organizationId,
       ...upload,
     },
   });
+
+  // Mieter/Eigentümer im Scope über das neue Dokument informieren
+  await notifyDocumentPublished(doc.id);
 
   revalidatePath("/infos");
   redirect("/infos?t=dokumente");
@@ -104,6 +116,7 @@ export async function requestDocument(formData: FormData) {
       propertyId,
       unitId: tenancy?.unitId ?? null,
       createdById: user.id,
+      organizationId: user.organizationId,
     },
   });
 

@@ -2,14 +2,58 @@
 // Fehler werden geloggt, blockieren aber keine Nutzeraktion.
 import type { Ticket, User } from "@/generated/prisma/client";
 import { db } from "./db";
+import { getBrandingForOrg } from "./branding-server";
 import { portalUrl, sendMail } from "./mailer";
 import { sendPush, sendPushToUsers } from "./push";
 import { ticketStatusLabels, ticketTypeLabels, tradeLabels } from "./labels";
 
+// Sendet eine verständliche Statusmail an den/die Mieter der betreffenden
+// Einheit – übersetzt technische Statusbezeichnungen in Alltagssprache.
+// Schickt nur an Mieter mit E-Mail-Adresse; überspringt den Ticket-Ersteller
+// (der bekommt die Benachrichtigung ohnehin über notifyCreatorStatusChange).
+export async function notifyTenantStatusChange(
+  ticketId: string,
+  subject: string,
+  body: string
+): Promise<void> {
+  try {
+    const ticket = await db.ticket.findUnique({
+      where: { id: ticketId },
+      select: { unitId: true, createdById: true, number: true, organizationId: true },
+    });
+    if (!ticket?.unitId) return;
+    const branding = await getBrandingForOrg(ticket.organizationId);
+
+    const tenancies = await db.tenancy.findMany({
+      where: { unitId: ticket.unitId, active: true },
+      select: { user: { select: { id: true, email: true, name: true } } },
+    });
+
+    await Promise.all(
+      tenancies
+        .map((t) => t.user)
+        .filter((u) => u.email && u.id !== ticket.createdById)
+        .map((u) =>
+          sendMail(
+            u.email!,
+            subject,
+            `Guten Tag ${u.name},\n\n${body}\n\nMit freundlichen Grüßen\n${branding.legalName}`,
+            undefined,
+            branding
+          ).catch(() => {})
+        )
+    );
+  } catch {
+    // Fehler dürfen die Hauptaktion nicht unterbrechen
+  }
+}
+
 export async function notifyVerwalterNewTicket(ticket: Ticket, createdBy: User) {
+  // Nur Verwalter der EIGENEN Org benachrichtigen (keine Cross-Org-Mails).
   const verwalter = await db.user.findMany({
-    where: { role: "VERWALTER", active: true },
+    where: { role: "VERWALTER", active: true, organizationId: ticket.organizationId },
   });
+  const branding = await getBrandingForOrg(ticket.organizationId);
   const link = portalUrl(`/vorgaenge/${ticket.id}`);
   await Promise.all(
     verwalter.map((v) =>
@@ -24,7 +68,9 @@ export async function notifyVerwalterNewTicket(ticket: Ticket, createdBy: User) 
               ? `Kategorie: ${ticket.category}\n`
               : "") +
           `Betreff: ${ticket.title}\n\n` +
-          `Zum Vorgang: ${link}`
+          `Zum Vorgang: ${link}`,
+        undefined,
+        branding
       )
     )
   );
@@ -49,7 +95,9 @@ export async function notifyCreatorStatusChange(ticketId: string, actor: User) {
     `Vorgang #${ticket.number}: Status jetzt „${ticketStatusLabels[ticket.status]}“`,
     `Der Status Ihres Vorgangs „${ticket.title}“ wurde auf ` +
       `„${ticketStatusLabels[ticket.status]}“ geändert.\n\n` +
-      `Zum Vorgang: ${portalUrl(`/vorgaenge/${ticket.id}`)}`
+      `Zum Vorgang: ${portalUrl(`/vorgaenge/${ticket.id}`)}`,
+    undefined,
+    await getBrandingForOrg(ticket.organizationId)
   );
   await sendPush(ticket.createdById, {
     title: `Vorgang #${ticket.number}: ${ticketStatusLabels[ticket.status]}`,
@@ -68,7 +116,9 @@ export async function notifyCreatorNewComment(ticketId: string, actor: User) {
     ticket.createdBy.email,
     `Neue Antwort zu Vorgang #${ticket.number}`,
     `${actor.name} hat auf Ihren Vorgang „${ticket.title}“ geantwortet.\n\n` +
-      `Zum Vorgang: ${portalUrl(`/vorgaenge/${ticket.id}`)}`
+      `Zum Vorgang: ${portalUrl(`/vorgaenge/${ticket.id}`)}`,
+    undefined,
+    await getBrandingForOrg(ticket.organizationId)
   );
   await sendPush(ticket.createdById, {
     title: `Neue Antwort zu Vorgang #${ticket.number}`,
@@ -84,7 +134,9 @@ export async function notifyAssignee(ticketId: string, assignee: User) {
     assignee.email,
     `Ihnen wurde Vorgang #${ticket.number} zugewiesen`,
     `Vorgang „${ticket.title}“ wurde Ihnen zugewiesen.\n\n` +
-      `Zum Vorgang: ${portalUrl(`/vorgaenge/${ticket.id}`)}`
+      `Zum Vorgang: ${portalUrl(`/vorgaenge/${ticket.id}`)}`,
+    undefined,
+    await getBrandingForOrg(ticket.organizationId)
   );
   await sendPush(assignee.id, {
     title: `Vorgang #${ticket.number} zugewiesen`,
@@ -93,16 +145,89 @@ export async function notifyAssignee(ticketId: string, assignee: User) {
   });
 }
 
+// Benachrichtigt Mieter/Eigentümer über ein neu bereitgestelltes Dokument.
+// Wichtig: NUR im Objekt-/Einheiten-Scope. Bei objektlosen ("globalen") Dokumenten
+// wird bewusst NICHT benachrichtigt, um Benachrichtigungs-Spam zu vermeiden.
+export async function notifyDocumentPublished(documentId: string): Promise<void> {
+  try {
+    const doc = await db.document.findUnique({ where: { id: documentId } });
+    // Ohne Objekt-/Einheiten-Bezug keine Massenmail an alle Nutzer
+    if (!doc || (!doc.propertyId && !doc.unitId)) return;
+
+    const wantMieter = doc.audience === "MIETER" || doc.audience === "ALLE";
+    const wantEigentuemer = doc.audience === "EIGENTUEMER" || doc.audience === "ALLE";
+
+    type Recipient = { id: string; email: string | null; name: string; active: boolean };
+    const recipients = new Map<string, Recipient>();
+
+    if (wantMieter) {
+      const tenancies = await db.tenancy.findMany({
+        where: {
+          active: true,
+          ...(doc.unitId
+            ? { unitId: doc.unitId }
+            : { unit: { propertyId: doc.propertyId! } }),
+        },
+        select: { user: { select: { id: true, email: true, name: true, active: true } } },
+      });
+      for (const t of tenancies) recipients.set(t.user.id, t.user);
+    }
+
+    if (wantEigentuemer && doc.propertyId) {
+      const ownerships = await db.ownership.findMany({
+        where: { propertyId: doc.propertyId },
+        select: { user: { select: { id: true, email: true, name: true, active: true } } },
+      });
+      for (const o of ownerships) recipients.set(o.user.id, o.user);
+    }
+
+    // Hochladenden Verwalter ausschließen, Inaktive überspringen
+    const targets = [...recipients.values()].filter(
+      (u) => u.active && u.id !== doc.uploadedById
+    );
+    if (targets.length === 0) return;
+
+    const branding = await getBrandingForOrg(doc.organizationId);
+    const link = portalUrl("/infos?t=dokumente");
+    await Promise.all(
+      targets
+        .filter((u) => u.email)
+        .map((u) =>
+          sendMail(
+            u.email!,
+            `Neues Dokument verfügbar: ${doc.title}`,
+            `Guten Tag ${u.name},\n\n` +
+              `Ihre Hausverwaltung hat ein neues Dokument für Sie bereitgestellt:\n` +
+              `„${doc.title}"\n\n` +
+              `Sie finden es im Portal unter Infos → Dokumente:\n${link}\n\n` +
+              `Mit freundlichen Grüßen\n${branding.legalName}`,
+            undefined,
+            branding
+          ).catch(() => {})
+        )
+    );
+    await sendPushToUsers(
+      targets.map((u) => u.id),
+      { title: "Neues Dokument verfügbar", body: doc.title, url: "/infos?t=dokumente" }
+    );
+  } catch {
+    // Benachrichtigung darf den Upload nie blockieren
+  }
+}
+
 export async function notifyWelcome(user: User) {
+  const branding = await getBrandingForOrg(user.organizationId);
   await sendMail(
     user.email,
-    "Ihr Zugang zum B&W Kundenportal",
+    "Ihr Zugang zum Kundenportal",
     `Guten Tag ${user.name},\n\n` +
-      `für Sie wurde ein Zugang zum Kundenportal der B&W Immobilien Management UG angelegt.\n` +
+      `für Sie wurde ein Zugang zum Kundenportal der ${branding.legalName} angelegt.\n` +
       `Anmeldung: ${portalUrl("/login")}\n` +
       `Benutzername: ${user.email}\n\n` +
       `Ihr Start-Passwort erhalten Sie persönlich von Ihrer Verwaltung. ` +
       `Bitte ändern Sie es nach der ersten Anmeldung unter „Konto“.\n\n` +
-      `Mit freundlichen Grüßen\nB&W Immobilien Management UG`
+      `Mit freundlichen Grüßen\n${branding.legalName}`,
+    undefined,
+    branding
   );
 }

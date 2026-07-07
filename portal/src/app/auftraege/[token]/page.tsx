@@ -89,28 +89,45 @@ export default async function AuftraegePage({
 
               {t.attachments.length > 0 ? (
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {t.attachments.map((a) => (
-                    <a
-                      key={a.id}
-                      href={`/api/files/anhang/${a.id}?token=${token}`}
-                      target="_blank"
-                      className="block overflow-hidden rounded-md border border-gray-200"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={`/api/files/anhang/${a.id}?token=${token}`}
-                        alt={a.fileName}
-                        className="h-28 w-full object-cover"
-                      />
-                    </a>
-                  ))}
+                  {t.attachments.map((a) =>
+                    a.mimeType.startsWith("video/") ? (
+                      <div key={a.id} className="overflow-hidden rounded-md border border-gray-200">
+                        <video
+                          src={`/api/files/anhang/${a.id}?token=${token}`}
+                          controls
+                          preload="metadata"
+                          className="h-28 w-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <a
+                        key={a.id}
+                        href={`/api/files/anhang/${a.id}?token=${token}`}
+                        target="_blank"
+                        className="block overflow-hidden rounded-md border border-gray-200"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`/api/files/anhang/${a.id}?token=${token}`}
+                          alt={a.fileName}
+                          className="h-28 w-full object-cover"
+                        />
+                      </a>
+                    )
+                  )}
                 </div>
               ) : null}
 
               {t.appointmentNote ? (
-                <p className="mt-3 rounded-md bg-brand-orange-light px-3 py-2 text-xs text-brand-green-dark">
-                  Ihr Terminvorschlag: {t.appointmentNote}
-                </p>
+                t.appointmentConfirmedAt ? (
+                  <p className="mt-3 rounded-md bg-green-50 px-3 py-2 text-xs text-green-800">
+                    ✓ Termin bestätigt: {t.appointmentNote}
+                  </p>
+                ) : (
+                  <p className="mt-3 rounded-md bg-brand-orange-light px-3 py-2 text-xs text-brand-green-dark">
+                    Ihr Terminvorschlag (wartet auf Bestätigung): {t.appointmentNote}
+                  </p>
+                )
               ) : null}
 
               {t.comments.length > 0 ? (
@@ -124,21 +141,32 @@ export default async function AuftraegePage({
                       <p className="whitespace-pre-wrap text-sm text-gray-800">{c.body}</p>
                       {c.attachments.length > 0 ? (
                         <div className="mt-2 grid grid-cols-3 gap-2">
-                          {c.attachments.map((a) => (
-                            <a
-                              key={a.id}
-                              href={`/api/files/anhang/${a.id}?token=${token}`}
-                              target="_blank"
-                              className="block overflow-hidden rounded border border-gray-200"
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={`/api/files/anhang/${a.id}?token=${token}`}
-                                alt={a.fileName}
-                                className="h-20 w-full object-cover"
-                              />
-                            </a>
-                          ))}
+                          {c.attachments.map((a) =>
+                            a.mimeType.startsWith("video/") ? (
+                              <div key={a.id} className="overflow-hidden rounded border border-gray-200">
+                                <video
+                                  src={`/api/files/anhang/${a.id}?token=${token}`}
+                                  controls
+                                  preload="metadata"
+                                  className="h-20 w-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <a
+                                key={a.id}
+                                href={`/api/files/anhang/${a.id}?token=${token}`}
+                                target="_blank"
+                                className="block overflow-hidden rounded border border-gray-200"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={`/api/files/anhang/${a.id}?token=${token}`}
+                                  alt={a.fileName}
+                                  className="h-20 w-full object-cover"
+                                />
+                              </a>
+                            )
+                          )}
                         </div>
                       ) : null}
                     </div>
@@ -201,7 +229,7 @@ export default async function AuftraegePage({
                   type="file"
                   name="photos"
                   multiple
-                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm"
                   className="block w-full text-xs text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-orange-dark"
                 />
                 <button className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">

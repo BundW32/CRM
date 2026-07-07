@@ -1,34 +1,50 @@
-import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
-import { ownedProperties, tenantUnits } from "@/lib/access";
+import { Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
+import { SubmitButton } from "@/components/submit-button";
+import { ownedProperties, propertyWhereForVerwalter, tenantUnits } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, meterTypeLabels } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 import { createMeter, deleteMeter, submitReading } from "./actions";
+import { MeterTargetPicker } from "./meter-target-picker";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 30;
 
 export default async function ZaehlerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
+  searchParams: Promise<{ fehler?: string; gespeichert?: string; page?: string }>;
 }) {
   const user = await requireUser();
-  const { fehler, gespeichert } = await searchParams;
+  const { fehler, gespeichert, page } = await searchParams;
+  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
   const isVerwalter = user.role === "VERWALTER";
   const isMieter = user.role === "MIETER";
+
+  // Einmalig den Property-Scope für Verwalter berechnen
+  const verwalterPropWhere = isVerwalter ? await propertyWhereForVerwalter(user) : null;
 
   // Relevante Zähler und Erfassungsrechte je nach Rolle
   const myUnitIds = new Set<string>();
   const myPropIds = new Set<string>();
-  let where = {};
+  let meterWhere = {};
   if (isMieter) {
-    const units = await tenantUnits(user.id);
-    units.forEach((u) => myUnitIds.add(u.id));
-    where = { unitId: { in: [...myUnitIds] } };
-  } else if (!isVerwalter) {
+    const myUnits = await tenantUnits(user.id);
+    myUnits.forEach((u) => myUnitIds.add(u.id));
+    meterWhere = { unitId: { in: [...myUnitIds] } };
+  } else if (isVerwalter) {
+    meterWhere = {
+      OR: [
+        { property: verwalterPropWhere ?? {} },
+        { unit: { property: verwalterPropWhere ?? {} } },
+      ],
+    };
+  } else {
     const props = await ownedProperties(user.id);
     props.forEach((p) => myPropIds.add(p.id));
-    where = {
+    meterWhere = {
       OR: [
         { propertyId: { in: [...myPropIds] } },
         { unit: { propertyId: { in: [...myPropIds] } } },
@@ -36,15 +52,25 @@ export default async function ZaehlerPage({
     };
   }
 
-  const meters = await db.meter.findMany({
-    where,
-    orderBy: { createdAt: "asc" },
-    include: {
-      unit: { include: { property: true } },
-      property: true,
-      readings: { orderBy: { readingDate: "desc" }, take: 3, include: { createdBy: true } },
-    },
-  });
+  const [totalMeters, meters] = await Promise.all([
+    db.meter.count({ where: meterWhere }),
+    db.meter.findMany({
+      where: meterWhere,
+      orderBy: { createdAt: "asc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: {
+        unit: { include: { property: true } },
+        property: true,
+        readings: { orderBy: { readingDate: "desc" }, take: 3, include: { createdBy: true } },
+      },
+    }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(totalMeters / PAGE_SIZE));
+
+  function pageHref(p: number) {
+    return p > 1 ? `/zaehler?page=${p}` : "/zaehler";
+  }
 
   function canSubmit(m: (typeof meters)[number]) {
     if (isVerwalter) return true;
@@ -62,12 +88,16 @@ export default async function ZaehlerPage({
     groups.get(key)!.push(m);
   }
 
-  const [units, properties] = isVerwalter
-    ? await Promise.all([
-        db.unit.findMany({ include: { property: true }, orderBy: { label: "asc" } }),
-        db.property.findMany({ orderBy: { name: "asc" } }),
-      ])
-    : [[], []];
+  // Nur die Objektliste ausliefern; Einheiten lädt das Formular bei Objektauswahl
+  // on demand nach (skaliert auch bei sehr großen Beständen).
+  const properties =
+    isVerwalter && verwalterPropWhere !== null
+      ? await db.property.findMany({
+          where: verwalterPropWhere,
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
+        })
+      : [];
 
   return (
     <>
@@ -147,12 +177,12 @@ export default async function ZaehlerPage({
                             <span className="mb-1 block text-xs text-gray-500">Datum</span>
                             <input type="date" name="readingDate" className={`${inputClass} w-40`} />
                           </label>
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                          <PendingButton
+                            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                            pendingLabel="Wird gespeichert…"
                           >
                             Speichern
-                          </button>
+                          </PendingButton>
                         </form>
                       ) : null}
                     </li>
@@ -161,32 +191,43 @@ export default async function ZaehlerPage({
               </Card>
             ))
           )}
+
+          {totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between">
+              {currentPage > 1 ? (
+                <a
+                  href={pageHref(currentPage - 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  ← Zurück
+                </a>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-gray-400">
+                Seite {currentPage} von {totalPages} · {totalMeters} Zähler
+              </span>
+              {currentPage < totalPages ? (
+                <a
+                  href={pageHref(currentPage + 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Weiter →
+                </a>
+              ) : (
+                <span />
+              )}
+            </div>
+          ) : null}
         </div>
 
         {isVerwalter ? (
           <Card title="Zähler anlegen">
-            {units.length === 0 && properties.length === 0 ? (
+            {properties.length === 0 ? (
               <p className="text-sm text-gray-500">Legen Sie zuerst Objekte mit Einheiten an.</p>
             ) : (
               <form action={createMeter} className="space-y-3">
-                <Field label="Zuordnung">
-                  <select name="target" required className={inputClass}>
-                    <optgroup label="Allgemein (ganzes Objekt)">
-                      {properties.map((p) => (
-                        <option key={`prop-${p.id}`} value={`prop:${p.id}`}>
-                          {p.name} – Allgemein
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Einheiten">
-                      {units.map((u) => (
-                        <option key={`unit-${u.id}`} value={`unit:${u.id}`}>
-                          {u.property.name} – {u.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </select>
-                </Field>
+                <MeterTargetPicker properties={properties} />
                 <Field label="Zählerart">
                   <select name="type" required className={inputClass} defaultValue="STROM">
                     {Object.entries(meterTypeLabels).map(([v, l]) => (
@@ -202,9 +243,7 @@ export default async function ZaehlerPage({
                 <Field label="Einbauort (optional)">
                   <input type="text" name="location" className={inputClass} placeholder="z. B. Keller" />
                 </Field>
-                <button type="submit" className={buttonClass}>
-                  Anlegen
-                </button>
+                <SubmitButton pendingLabel="Wird angelegt…">Anlegen</SubmitButton>
                 <p className="text-xs text-gray-500">
                   Allgemeinzähler (z. B. Allgemeinstrom, Hauswasser) können Eigentümer und
                   Verwalter ablesen; Einheitszähler der jeweilige Mieter.

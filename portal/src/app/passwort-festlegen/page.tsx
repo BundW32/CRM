@@ -28,17 +28,17 @@ export default async function PasswortFestlegenPage({
 
           {fehler ? (
             <p className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">
-              Bitte mindestens 8 Zeichen eingeben. Beide Felder müssen übereinstimmen.
+              Bitte mindestens 10 Zeichen eingeben. Beide Felder müssen übereinstimmen.
             </p>
           ) : null}
 
           <form action={setInitialPassword} className="space-y-4">
-            <Field label="Neues Passwort (mind. 8 Zeichen)">
+            <Field label="Neues Passwort (mind. 10 Zeichen)">
               <input
                 type="password"
                 name="password"
                 required
-                minLength={8}
+                minLength={10}
                 autoComplete="new-password"
                 className={inputClass}
               />
@@ -48,7 +48,7 @@ export default async function PasswortFestlegenPage({
                 type="password"
                 name="passwordConfirm"
                 required
-                minLength={8}
+                minLength={10}
                 autoComplete="new-password"
                 className={inputClass}
               />

@@ -1,24 +1,50 @@
 import Link from "next/link";
 import type { User } from "@/generated/prisma/client";
+import { CountUp } from "@/components/count-up";
 import { PropertyStats } from "@/components/property-stats";
 import { Card, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
 import {
   announcementWhereForUser,
+  isSelfManaged,
+  noteWhereForVerwalter,
   ownedProperties,
+  propertyIdsForVerwalter,
+  propertyWhereForVerwalter,
   tenantUnits,
   ticketWhereForUser,
 } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, ticketTypeLabels } from "@/lib/labels";
-import { requireUser } from "@/lib/session";
+import { getOrganization, requireUser } from "@/lib/session";
+import { resendVerification } from "./verify-actions";
+import { SelfManagedDashboard } from "./SelfManagedDashboard";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ verify?: string }>;
+}) {
   const user = await requireUser();
+  const { verify } = await searchParams;
+  const org = await getOrganization();
+
+  // Selbstverwaltete WEG: eigene WEG-Übersicht statt der Ticket-Statistik.
+  if (isSelfManaged(org) && (user.role === "VERWALTER" || user.role === "EIGENTUEMER")) {
+    return <SelfManagedDashboard user={user} />;
+  }
+
+  // SuperAdmins, deren Mandant noch kein Branding (Farbe/Logo) gesetzt hat,
+  // bekommen einen Hinweis-Banner zum Onboarding.
+  const brandingIncomplete = Boolean(
+    user.isSuperAdmin && org && !org.primaryColor && !org.logoStoredName,
+  );
+  // Hinweis auf ausstehende E-Mail-Bestätigung (Self-Service-Registrierung).
+  const emailUnverified = Boolean(user.email && !user.emailVerifiedAt);
 
   const ticketWhere = await ticketWhereForUser(user);
-  const [openTickets, latestTickets, announcements] = await Promise.all([
+  const [openTickets, latestTickets, announcements, pinnedNotes] = await Promise.all([
     db.ticket.count({
       where: { ...ticketWhere, status: { notIn: ["ERLEDIGT", "GESCHLOSSEN"] } },
     }),
@@ -34,6 +60,18 @@ export default async function DashboardPage() {
       take: 3,
       include: { property: true },
     }),
+    user.role === "VERWALTER"
+      ? db.note.findMany({
+          where: { AND: [{ pinned: true }, await noteWhereForVerwalter(user)] },
+          orderBy: { updatedAt: "desc" },
+          take: 3,
+          include: {
+            property: true,
+            unit: { include: { property: true } },
+            targetUser: true,
+          },
+        })
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -50,6 +88,44 @@ export default async function DashboardPage() {
         Guten Tag, {user.name}
       </PageTitle>
 
+      {verify === "gesendet" ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Bestätigungs-E-Mail gesendet. Bitte prüfen Sie Ihr Postfach.
+        </p>
+      ) : null}
+
+      {emailUnverified ? (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <span className="text-sm text-amber-900">
+            <span className="font-semibold">E-Mail bestätigen:</span> Wir haben Ihnen einen
+            Bestätigungslink an {user.email} geschickt.
+          </span>
+          <form action={resendVerification}>
+            <button
+              type="submit"
+              className="shrink-0 rounded-lg border border-amber-400 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100"
+            >
+              Erneut senden
+            </button>
+          </form>
+        </div>
+      ) : null}
+
+      {brandingIncomplete ? (
+        <Link
+          href="/onboarding"
+          className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-brand-orange/40 bg-brand-orange-light px-4 py-3 transition hover:shadow-md"
+        >
+          <span className="text-sm text-brand-green">
+            <span className="font-semibold">Portal einrichten:</span> Hinterlegen Sie Logo,
+            Farbe und Impressum Ihrer Hausverwaltung.
+          </span>
+          <span className="shrink-0 text-sm font-medium text-brand-orange-dark">
+            Jetzt einrichten →
+          </span>
+        </Link>
+      ) : null}
+
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           <Card title={`Aktuelle Vorgänge (${openTickets} offen)`}>
@@ -61,7 +137,7 @@ export default async function DashboardPage() {
                   <li key={ticket.id}>
                     <Link
                       href={`/vorgaenge/${ticket.id}`}
-                      className="flex flex-wrap items-center justify-between gap-2 py-3 hover:bg-gray-50"
+                      className="flex flex-wrap items-center justify-between gap-2 py-3 transition-all hover:bg-gray-50 hover:-translate-y-px"
                     >
                       <span>
                         <span className="block text-sm font-medium text-gray-900">
@@ -82,28 +158,64 @@ export default async function DashboardPage() {
             )}
           </Card>
 
-          {user.role === "VERWALTER" ? <VerwalterStats /> : null}
-          {user.role === "VERWALTER" ? <WartungReminder /> : null}
+          {user.role === "VERWALTER" ? <VerwalterStats user={user} /> : null}
+          {user.role === "VERWALTER" ? <WartungReminder user={user} /> : null}
           {user.role === "MIETER" ? <MieterWohnung userId={user.id} /> : null}
         </div>
 
-        <Card title="Aktuelle Aushänge">
-          {announcements.length === 0 ? (
-            <EmptyState>Keine Aushänge vorhanden.</EmptyState>
-          ) : (
-            <ul className="space-y-4">
-              {announcements.map((a) => (
-                <li key={a.id}>
-                  <p className="text-sm font-medium text-gray-900">{a.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {a.property.name} · {formatDate(a.createdAt)}
-                  </p>
-                  <p className="mt-1 line-clamp-3 text-sm text-gray-600">{a.body}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        <div className="space-y-5">
+          <Card title="Aktuelle Aushänge">
+            {announcements.length === 0 ? (
+              <EmptyState>Keine Aushänge vorhanden.</EmptyState>
+            ) : (
+              <ul className="space-y-4">
+                {announcements.map((a) => (
+                  <li key={a.id}>
+                    <p className="text-sm font-medium text-gray-900">{a.title}</p>
+                    <p className="text-xs text-gray-500">
+                      {a.property.name} · {formatDate(a.createdAt)}
+                    </p>
+                    <p className="mt-1 line-clamp-3 text-sm text-gray-600">{a.body}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          {user.role === "VERWALTER" ? (
+            <Card title="Pinnwand">
+              {pinnedNotes.length === 0 ? (
+                <EmptyState>Keine gepinnten Notizen.</EmptyState>
+              ) : (
+                <ul className="space-y-3">
+                  {pinnedNotes.map((note) => {
+                    const contextLabel = note.property
+                      ? note.property.name
+                      : note.unit
+                        ? `${note.unit.label} · ${note.unit.property.name}`
+                        : note.targetUser
+                          ? note.targetUser.name
+                          : null;
+                    return (
+                      <li key={note.id}>
+                        <p className="line-clamp-3 text-sm text-gray-900">{note.body}</p>
+                        {contextLabel ? (
+                          <p className="mt-0.5 text-xs text-gray-400">{contextLabel}</p>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <Link
+                href="/verwaltung/notizen"
+                className="mt-3 inline-block text-sm text-brand-green hover:underline"
+              >
+                Alle Notizen →
+              </Link>
+            </Card>
+          ) : null}
+        </div>
       </div>
 
       {user.role === "VERWALTER" || user.role === "EIGENTUEMER" ? (
@@ -116,7 +228,7 @@ export default async function DashboardPage() {
 async function StatistikSection({ user }: { user: User }) {
   const properties =
     user.role === "VERWALTER"
-      ? await db.property.findMany({ orderBy: { name: "asc" } })
+      ? await db.property.findMany({ where: await propertyWhereForVerwalter(user), orderBy: { name: "asc" } })
       : await ownedProperties(user.id);
   if (properties.length === 0) return null;
   return (
@@ -133,12 +245,14 @@ async function StatistikSection({ user }: { user: User }) {
   );
 }
 
-async function VerwalterStats() {
+async function VerwalterStats({ user }: { user: User }) {
+  const ticketWhere = await ticketWhereForUser(user);
+  const propWhere = await propertyWhereForVerwalter(user);
   const [neu, inBearbeitung, beauftragt, objekte] = await Promise.all([
-    db.ticket.count({ where: { status: "NEU" } }),
-    db.ticket.count({ where: { status: "IN_BEARBEITUNG" } }),
-    db.ticket.count({ where: { status: "BEAUFTRAGT" } }),
-    db.property.count(),
+    db.ticket.count({ where: { ...ticketWhere, status: "NEU" } }),
+    db.ticket.count({ where: { ...ticketWhere, status: "IN_BEARBEITUNG" } }),
+    db.ticket.count({ where: { ...ticketWhere, status: "BEAUFTRAGT" } }),
+    db.property.count({ where: propWhere }),
   ]);
   const stats = [
     { label: "Neue Vorgänge", value: neu },
@@ -154,7 +268,7 @@ async function VerwalterStats() {
           className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
         >
           <span className="absolute inset-x-0 top-0 h-1 bg-brand-orange" />
-          <p className="text-3xl font-bold tracking-tight text-brand-green">{s.value}</p>
+          <p className="text-3xl font-bold tracking-tight text-brand-green"><CountUp value={s.value} /></p>
           <p className="mt-1 text-xs font-medium text-gray-500">{s.label}</p>
         </div>
       ))}
@@ -162,11 +276,16 @@ async function VerwalterStats() {
   );
 }
 
-async function WartungReminder() {
+async function WartungReminder({ user }: { user: User }) {
   const soon = new Date();
   soon.setDate(soon.getDate() + 14);
+  const assignedIds = await propertyIdsForVerwalter(user);
+  const taskWhere =
+    assignedIds === null
+      ? { active: true, dueDate: { lte: soon }, organizationId: user.organizationId }
+      : { active: true, dueDate: { lte: soon }, property: { id: { in: assignedIds } } };
   const tasks = await db.maintenanceTask.findMany({
-    where: { active: true, dueDate: { lte: soon } },
+    where: taskWhere,
     orderBy: { dueDate: "asc" },
     take: 6,
     include: { property: true },

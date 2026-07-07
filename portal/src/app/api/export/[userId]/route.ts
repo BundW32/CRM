@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { canVerwalterManageUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/session";
+import { AUDIT, logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +19,14 @@ export async function GET(
   const { userId: raw } = await params;
   const userId = raw === "me" ? current.id : raw;
 
-  if (current.role !== "VERWALTER" && userId !== current.id) {
-    return NextResponse.json({ error: "Nicht erlaubt" }, { status: 403 });
+  // Fremddaten: nur Verwalter – und eingeschränkte Verwalter nur im eigenen Scope.
+  if (userId !== current.id) {
+    if (current.role !== "VERWALTER") {
+      return NextResponse.json({ error: "Nicht erlaubt" }, { status: 403 });
+    }
+    if (!(await canVerwalterManageUser(current, userId))) {
+      return NextResponse.json({ error: "Nicht erlaubt" }, { status: 403 });
+    }
   }
 
   const user = await db.user.findUnique({
@@ -56,6 +64,17 @@ export async function GET(
       "Dieser Export enthält die zu Ihrer Person im B&W Kundenportal gespeicherten Daten (DSGVO Art. 20).",
     daten: user,
   };
+
+  await logAudit({
+    actorId: current.id,
+    action: AUDIT.DSGVO_EXPORT,
+    targetType: "User",
+    targetId: userId,
+    ip:
+      _request.headers.get("x-real-ip") ??
+      _request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      "unknown",
+  });
 
   return new NextResponse(JSON.stringify(payload, null, 2), {
     headers: {

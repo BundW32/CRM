@@ -1,9 +1,16 @@
 import { redirect } from "next/navigation";
-import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
-import { ownedProperties } from "@/lib/access";
+import { Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels, voteChoiceLabels } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
+import {
+  computeOutcome,
+  weightFor,
+  MAJORITY_LABELS,
+  type MajorityType,
+  type OutcomeResult,
+} from "@/lib/weg-voting";
 import {
   castVote,
   closeResolution,
@@ -14,6 +21,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 30;
+
 const statusTone: Record<string, string> = {
   OFFEN: "bg-blue-100 text-blue-800",
   ANGENOMMEN: "bg-green-100 text-green-800",
@@ -21,49 +30,121 @@ const statusTone: Record<string, string> = {
   ZURUECKGEZOGEN: "bg-gray-200 text-gray-700",
 };
 
-function Tally({
-  votes,
+// Zusammenfassung einer Abstimmung: Kopf-Zählung, Gewichtung nach Stimmprinzip,
+// erforderliche Mehrheit und (bei laufenden) der berechnete Ergebnis-Vorschlag.
+function VoteSummary({
+  rawVotes,
+  outcome,
+  principle,
+  majority,
   eligible,
+  eligibleMea,
+  showSuggestion,
 }: {
-  votes: { choice: "JA" | "NEIN" | "ENTHALTUNG" }[];
+  rawVotes: { choice: "JA" | "NEIN" | "ENTHALTUNG" }[];
+  outcome: OutcomeResult;
+  principle: string;
+  majority: MajorityType;
   eligible: number;
+  eligibleMea: number;
+  showSuggestion: boolean;
 }) {
-  const ja = votes.filter((v) => v.choice === "JA").length;
-  const nein = votes.filter((v) => v.choice === "NEIN").length;
-  const enth = votes.filter((v) => v.choice === "ENTHALTUNG").length;
+  const head = (c: string) => rawVotes.filter((v) => v.choice === c).length;
+  const weightLabel = principle === "MEA" ? "MEA" : principle === "OBJEKT" ? "Einheiten" : "";
   return (
-    <p className="mt-2 text-xs text-gray-500">
-      Ja: <strong className="text-gray-800">{ja}</strong> · Nein:{" "}
-      <strong className="text-gray-800">{nein}</strong> · Enthaltung:{" "}
-      <strong className="text-gray-800">{enth}</strong> · abgegeben {votes.length}
-      {eligible > 0 ? ` von ${eligible} Eigentümern` : ""}
-    </p>
+    <div className="mt-2 space-y-0.5 text-xs text-gray-500">
+      <p>
+        Ja: <strong className="text-gray-800">{head("JA")}</strong> · Nein:{" "}
+        <strong className="text-gray-800">{head("NEIN")}</strong> · Enthaltung:{" "}
+        <strong className="text-gray-800">{head("ENTHALTUNG")}</strong> · abgegeben{" "}
+        {rawVotes.length}
+        {eligible > 0 ? ` von ${eligible} Eigentümern` : ""}
+      </p>
+      {principle !== "KOPF" ? (
+        <p>
+          Nach {weightLabel} – Ja: <strong className="text-gray-800">{outcome.ja}</strong> · Nein:{" "}
+          <strong className="text-gray-800">{outcome.nein}</strong> · Enthaltung:{" "}
+          <strong className="text-gray-800">{outcome.enthaltung}</strong>
+          {principle === "MEA" && eligibleMea > 0 ? ` von ${eligibleMea} MEA` : ""}
+        </p>
+      ) : null}
+      <p>
+        Erforderlich: <strong className="text-gray-700">{MAJORITY_LABELS[majority]}</strong>
+      </p>
+      {showSuggestion ? (
+        <p>
+          Voraussichtlich:{" "}
+          <strong className={outcome.suggestion === "ANGENOMMEN" ? "text-green-700" : "text-red-700"}>
+            {outcome.suggestion === "ANGENOMMEN" ? "Angenommen" : "Abgelehnt"}
+          </strong>
+          {!outcome.reliable ? (
+            <span className="ml-1 text-amber-600">(unverbindlich – Daten prüfen)</span>
+          ) : null}
+        </p>
+      ) : null}
+      {outcome.warnings.map((w, i) => (
+        <p key={i} className="text-amber-600">
+          {w}
+        </p>
+      ))}
+    </div>
   );
 }
 
 export default async function BeschluessePage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; page?: string }>;
 }) {
   const user = await requireUser();
   if (user.role !== "VERWALTER" && user.role !== "EIGENTUEMER") {
     redirect("/dashboard");
   }
-  const { fehler } = await searchParams;
+  const params = await searchParams;
+  const { fehler } = params;
+  const currentPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
   const isVerwalter = user.role === "VERWALTER";
 
-  let where = {};
-  if (!isVerwalter) {
-    const props = await ownedProperties(user.id);
-    where = { propertyId: { in: props.map((p) => p.id) } };
+  let baseWhere: Record<string, unknown> = {};
+  if (isVerwalter) {
+    const propWhere = await propertyWhereForVerwalter(user);
+    baseWhere = { property: propWhere };
+  } else {
+    // Defense-in-Depth: Eigentum zusätzlich auf die eigene Org einschränken.
+    const props = (await ownedProperties(user.id)).filter(
+      (p) => p.organizationId === user.organizationId,
+    );
+    baseWhere = { propertyId: { in: props.map((p) => p.id) } };
   }
 
-  const resolutions = await db.resolution.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    include: { property: true, votes: { include: { user: true } } },
-  });
+  const include = { property: true, votes: { include: { user: true } } } as const;
+  // Laufende Abstimmungen IMMER vollständig laden (nie paginieren – sonst könnte
+  // eine ältere offene Abstimmung auf Seite 2 rutschen und übersehen werden).
+  // Nur die entschiedenen Beschlüsse werden paginiert.
+  const [open, decidedTotal, decided] = await Promise.all([
+    db.resolution.findMany({
+      where: { ...baseWhere, status: "OFFEN" },
+      orderBy: { createdAt: "desc" },
+      include,
+    }),
+    db.resolution.count({ where: { ...baseWhere, status: { not: "OFFEN" } } }),
+    db.resolution.findMany({
+      where: { ...baseWhere, status: { not: "OFFEN" } },
+      orderBy: { createdAt: "desc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include,
+    }),
+  ]);
+  const resolutions = [...open, ...decided];
+  const totalPages = Math.max(1, Math.ceil(decidedTotal / PAGE_SIZE));
+
+  function pageHref(p: number) {
+    const sp = new URLSearchParams();
+    if (p > 1) sp.set("page", String(p));
+    const q = sp.toString();
+    return `/beschluesse${q ? `?${q}` : ""}`;
+  }
 
   const propIds = [...new Set(resolutions.map((r) => r.propertyId))];
   const ownerCounts = await db.ownership.groupBy({
@@ -73,23 +154,100 @@ export default async function BeschluessePage({
   });
   const ownerCountMap = new Map(ownerCounts.map((o) => [o.propertyId, o._count._all]));
 
-  const open = resolutions.filter((r) => r.status === "OFFEN");
-  const decided = resolutions.filter((r) => r.status !== "OFFEN");
+  // Stimmgewichte je Eigentümer/Objekt (MEA für Wertprinzip, voteUnits für
+  // Objektprinzip) + MEA-Summe je Objekt (für die doppelt qualifizierte Mehrheit).
+  const ownershipData = await db.ownership.findMany({
+    where: { propertyId: { in: propIds } },
+    select: { propertyId: true, userId: true, mea: true, voteUnits: true },
+  });
+  const ownerInfo = new Map<string, { mea: number | null; voteUnits: number | null }>();
+  const meaTotalMap = new Map<string, number>();
+  // Objekte, bei denen NICHT für jeden Eigentümer ein MEA hinterlegt ist – dann
+  // ist die „Hälfte aller MEA"-Prüfung (doppelt qualifiziert) nicht belastbar.
+  const meaIncompleteSet = new Set<string>();
+  for (const o of ownershipData) {
+    ownerInfo.set(`${o.propertyId}:${o.userId}`, { mea: o.mea, voteUnits: o.voteUnits });
+    if (o.mea != null) {
+      meaTotalMap.set(o.propertyId, (meaTotalMap.get(o.propertyId) ?? 0) + o.mea);
+    } else {
+      meaIncompleteSet.add(o.propertyId);
+    }
+  }
+
+  // Pro Beschluss: Stimmen nach Stimmprinzip gewichten und Ergebnis vorberechnen.
+  // Stimmen von Nutzern, die am Objekt kein aktuelles Eigentum (mehr) haben,
+  // werden nicht gewertet (z. B. nach Eigentümerwechsel während der Abstimmung).
+  function outcomeFor(r: (typeof resolutions)[number]): OutcomeResult {
+    const currentVotes = r.votes.filter((v) => ownerInfo.has(`${r.propertyId}:${v.userId}`));
+    const exOwnerCount = r.votes.length - currentVotes.length;
+    const weighted = currentVotes.map((v) => {
+      const info = ownerInfo.get(`${r.propertyId}:${v.userId}`) ?? { mea: null, voteUnits: null };
+      const { weight, missing } = weightFor(r.property.votingPrinciple, info);
+      return { choice: v.choice, weight, missingWeight: missing };
+    });
+    const meaJa = currentVotes
+      .filter((v) => v.choice === "JA")
+      .reduce((s, v) => s + (ownerInfo.get(`${r.propertyId}:${v.userId}`)?.mea ?? 0), 0);
+    const result = computeOutcome({
+      votes: weighted,
+      majority: r.majority,
+      meaJa,
+      meaTotal: meaTotalMap.get(r.propertyId) ?? 0,
+      meaIncomplete: meaIncompleteSet.has(r.propertyId),
+      eligibleCount: ownerCountMap.get(r.propertyId) ?? 0,
+      ballotsCast: currentVotes.length,
+    });
+    if (exOwnerCount > 0) {
+      return {
+        ...result,
+        reliable: false,
+        warnings: [
+          ...result.warnings,
+          `${exOwnerCount} Stimme(n) ehemaliger Eigentümer wurden nicht gewertet.`,
+        ],
+      };
+    }
+    return result;
+  }
+
+  // Objekte, deren Eigentümer der aktuelle Nutzer ist → darf dort mitstimmen
+  // (rollenunabhängig; interner Verwalter = Verwalter UND Eigentümer).
+  const myOwnership = await db.ownership.findMany({
+    where: { userId: user.id, propertyId: { in: propIds } },
+    select: { propertyId: true },
+  });
+  const ownedIds = new Set(myOwnership.map((o) => o.propertyId));
 
   // Nur WEG-Objekte können Umlaufbeschlüsse haben
   const properties = isVerwalter
-    ? await db.property.findMany({ where: { managementType: "WEG" }, orderBy: { name: "asc" } })
+    ? await db.property.findMany({ where: { ...await propertyWhereForVerwalter(user), managementType: "WEG" }, orderBy: { name: "asc" } })
     : [];
 
   return (
     <>
-      <PageTitle>Beschlüsse &amp; Abstimmungen</PageTitle>
+      <PageTitle
+        action={
+          <a href="/beschluesse/sammlung" className={buttonSecondaryClass}>
+            Beschluss-Sammlung
+          </a>
+        }
+      >
+        Beschlüsse &amp; Abstimmungen
+      </PageTitle>
 
       {fehler ? (
         <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {fehler === "keinweg"
             ? "Umlaufbeschlüsse sind nur für WEG-Objekte möglich."
-            : "Bitte Objekt, Titel und Beschlusstext ausfüllen."}
+            : fehler === "frist"
+              ? "Die Abstimmungsfrist ist abgelaufen bzw. liegt in der Vergangenheit."
+              : fehler === "geschlossen"
+                ? "Die Abstimmung wurde soeben geschlossen – Ihre Stimme wurde nicht mehr gewertet."
+                : fehler === "ergebnis"
+                ? "Bitte ein Ergebnis (angenommen/abgelehnt) auswählen."
+                : fehler === "gefasst"
+                  ? "Ein bereits gefasster Beschluss kann nicht gelöscht werden."
+                  : "Bitte Objekt, Titel und Beschlusstext ausfüllen."}
         </p>
       ) : null}
 
@@ -103,6 +261,8 @@ export default async function BeschluessePage({
           ) : (
             open.map((r) => {
               const myVote = r.votes.find((v) => v.userId === user.id);
+              const outcome = outcomeFor(r);
+              const expired = r.deadline != null && r.deadline < new Date();
               return (
                 <div
                   key={r.id}
@@ -125,10 +285,26 @@ export default async function BeschluessePage({
                   </div>
                   <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">{r.description}</p>
 
-                  <Tally votes={r.votes} eligible={ownerCountMap.get(r.propertyId) ?? 0} />
+                  <VoteSummary
+                    rawVotes={r.votes}
+                    outcome={outcome}
+                    principle={r.property.votingPrinciple}
+                    majority={r.majority}
+                    eligible={ownerCountMap.get(r.propertyId) ?? 0}
+                    eligibleMea={meaTotalMap.get(r.propertyId) ?? 0}
+                    showSuggestion
+                  />
 
-                  {/* Eigentümer: abstimmen */}
-                  {!isVerwalter ? (
+                  {/* Frist abgelaufen: keine Stimmabgabe mehr möglich. */}
+                  {expired ? (
+                    <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-amber-600">
+                      Frist abgelaufen – die Ergebnisfeststellung durch die Verwaltung steht aus.
+                    </p>
+                  ) : null}
+
+                  {/* Abstimmen: jeder Eigentümer dieses Objekts (auch ein interner
+                      Verwalter, der zugleich Eigentümer ist), solange die Frist läuft. */}
+                  {ownedIds.has(r.propertyId) && !expired ? (
                     <form action={castVote} className="mt-3 space-y-2 border-t border-gray-100 pt-3">
                       <input type="hidden" name="resolutionId" value={r.id} />
                       {myVote ? (
@@ -157,7 +333,10 @@ export default async function BeschluessePage({
                         </button>
                       </div>
                     </form>
-                  ) : (
+                  ) : null}
+
+                  {/* Verwaltung (prof. oder interner Verwalter): Stimmen + Steuerung */}
+                  {isVerwalter ? (
                     <div className="mt-3 border-t border-gray-100 pt-3">
                       {r.votes.length > 0 ? (
                         <ul className="mb-3 space-y-1 text-xs text-gray-500">
@@ -169,13 +348,24 @@ export default async function BeschluessePage({
                           ))}
                         </ul>
                       ) : null}
-                      <div className="flex flex-wrap items-center gap-3">
-                        <form action={closeResolution}>
-                          <input type="hidden" name="id" value={r.id} />
-                          <button type="submit" className={buttonClass}>
-                            Abstimmung schließen
-                          </button>
-                        </form>
+                      {/* Schließen mit Ergebnis-Feststellung: der berechnete
+                          Vorschlag ist vorausgewählt, kann aber übersteuert werden. */}
+                      <form action={closeResolution} className="flex flex-wrap items-center gap-2">
+                        <input type="hidden" name="id" value={r.id} />
+                        <span className="text-xs text-gray-500">Feststellen als:</span>
+                        <select
+                          name="result"
+                          defaultValue={outcome.suggestion}
+                          className={`${inputClass} w-auto`}
+                        >
+                          <option value="ANGENOMMEN">Angenommen</option>
+                          <option value="ABGELEHNT">Abgelehnt</option>
+                        </select>
+                        <button type="submit" className={buttonClass}>
+                          Schließen
+                        </button>
+                      </form>
+                      <div className="mt-2 flex flex-wrap items-center gap-3">
                         <form action={withdrawResolution}>
                           <input type="hidden" name="id" value={r.id} />
                           <button type="submit" className="text-xs text-gray-500 hover:underline">
@@ -190,7 +380,7 @@ export default async function BeschluessePage({
                         </form>
                       </div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               );
             })
@@ -222,12 +412,48 @@ export default async function BeschluessePage({
                       {r.decidedAt ? ` · entschieden am ${formatDate(r.decidedAt)}` : ""}
                     </p>
                     <p className="mt-1 text-sm text-gray-700">{r.description}</p>
-                    <Tally votes={r.votes} eligible={ownerCountMap.get(r.propertyId) ?? 0} />
+                    <VoteSummary
+                      rawVotes={r.votes}
+                      outcome={outcomeFor(r)}
+                      principle={r.property.votingPrinciple}
+                      majority={r.majority}
+                      eligible={ownerCountMap.get(r.propertyId) ?? 0}
+                      eligibleMea={meaTotalMap.get(r.propertyId) ?? 0}
+                      showSuggestion={false}
+                    />
                   </li>
                 ))}
               </ul>
             </div>
           )}
+
+          {totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between">
+              {currentPage > 1 ? (
+                <a
+                  href={pageHref(currentPage - 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  ← Zurück
+                </a>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-gray-400">
+                Seite {currentPage} von {totalPages} · {decidedTotal} Einträge
+              </span>
+              {currentPage < totalPages ? (
+                <a
+                  href={pageHref(currentPage + 1)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Weiter →
+                </a>
+              ) : (
+                <span />
+              )}
+            </div>
+          ) : null}
         </div>
 
         {isVerwalter ? (
@@ -253,6 +479,16 @@ export default async function BeschluessePage({
                 </Field>
                 <Field label="Beschlusstext">
                   <textarea name="description" required minLength={3} rows={6} className={inputClass} />
+                </Field>
+                <Field label="Erforderliche Mehrheit">
+                  <select name="majority" defaultValue="EINFACH" className={inputClass}>
+                    <option value="EINFACH">Einfache Mehrheit (Standard)</option>
+                    <option value="DREIVIERTEL">Qualifizierte 3/4-Mehrheit</option>
+                    <option value="DOPPELT_QUALIFIZIERT">
+                      Doppelt qualifiziert (§21 II: 2/3 Stimmen + 1/2 MEA)
+                    </option>
+                    <option value="ALLSTIMMIG">Allstimmigkeit (alle Eigentümer)</option>
+                  </select>
                 </Field>
                 <Field label="Frist (optional)">
                   <input type="date" name="deadline" className={inputClass} />

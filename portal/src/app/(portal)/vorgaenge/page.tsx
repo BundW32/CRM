@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { TicketStatus } from "@/generated/prisma/client";
 import { EmptyState, PageTitle, StatusBadge, buttonClass, inputClass } from "@/components/ui";
-import { ticketWhereForUser } from "@/lib/access";
+import { propertyWhereForVerwalter, ticketWhereForUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
   formatDate,
@@ -25,17 +25,17 @@ const statusFilters: TicketStatus[] = [
 export default async function TicketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; propertyId?: string }>;
+  searchParams: Promise<{ status?: string; propertyId?: string; page?: string }>;
 }) {
   const user = await requireUser();
-  const { status, propertyId } = await searchParams;
+  const { status, propertyId, page } = await searchParams;
   const statusFilter = statusFilters.find((s) => s === status);
 
   const where = await ticketWhereForUser(user);
 
   const properties =
     user.role === "VERWALTER"
-      ? await db.property.findMany({ orderBy: { name: "asc" } })
+      ? await db.property.findMany({ where: await propertyWhereForVerwalter(user), orderBy: { name: "asc" } })
       : [];
 
   const propertyFilter =
@@ -43,21 +43,41 @@ export default async function TicketsPage({
       ? properties.find((p) => p.id === propertyId)
       : undefined;
 
-  const tickets = await db.ticket.findMany({
-    where: {
-      ...where,
-      ...(statusFilter ? { status: statusFilter } : {}),
-      ...(propertyFilter ? { propertyId: propertyFilter.id } : {}),
-    },
-    orderBy: { updatedAt: "desc" },
-    include: { property: true, unit: true, createdBy: true, assignedTo: true },
-  });
+  const ticketWhere = {
+    ...where,
+    ...(statusFilter ? { status: statusFilter } : {}),
+    ...(propertyFilter ? { propertyId: propertyFilter.id } : {}),
+  };
+
+  const PAGE_SIZE = 25;
+  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
+
+  const [total, tickets] = await Promise.all([
+    db.ticket.count({ where: ticketWhere }),
+    db.ticket.findMany({
+      where: ticketWhere,
+      orderBy: { updatedAt: "desc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: { property: true, unit: true, createdBy: true, assignedTo: true },
+    }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   function filterHref(params: { status?: string; propertyId?: string }) {
     const p = new URLSearchParams();
     if (params.status) p.set("status", params.status);
     if (params.propertyId) p.set("propertyId", params.propertyId);
     const q = p.toString();
+    return `/vorgaenge${q ? `?${q}` : ""}`;
+  }
+
+  function pageHref(p: number) {
+    const sp = new URLSearchParams();
+    if (statusFilter) sp.set("status", statusFilter);
+    if (propertyFilter) sp.set("propertyId", propertyFilter.id);
+    if (p > 1) sp.set("page", String(p));
+    const q = sp.toString();
     return `/vorgaenge${q ? `?${q}` : ""}`;
   }
 
@@ -133,7 +153,7 @@ export default async function TicketsPage({
               <li key={ticket.id}>
                 <Link
                   href={`/vorgaenge/${ticket.id}`}
-                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-gray-50"
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 transition-all hover:bg-gray-50 hover:-translate-y-px"
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-gray-900">
@@ -168,6 +188,34 @@ export default async function TicketsPage({
           </ul>
         </div>
       )}
+
+      {totalPages > 1 ? (
+        <div className="mt-4 flex items-center justify-between">
+          {currentPage > 1 ? (
+            <Link
+              href={pageHref(currentPage - 1)}
+              className="rounded-lg border border-white/20 bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white"
+            >
+              ← Zurück
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span className="text-xs text-gray-300">
+            Seite {currentPage} von {totalPages} · {total} Vorgänge
+          </span>
+          {currentPage < totalPages ? (
+            <Link
+              href={pageHref(currentPage + 1)}
+              className="rounded-lg border border-white/20 bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white"
+            >
+              Weiter →
+            </Link>
+          ) : (
+            <span />
+          )}
+        </div>
+      ) : null}
     </>
   );
 }

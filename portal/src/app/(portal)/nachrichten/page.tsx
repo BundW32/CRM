@@ -1,11 +1,15 @@
 import Link from "next/link";
-import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
+import { Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
-import { formatDate, roleLabels } from "@/lib/labels";
+import { formatDate } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 import { startConversation } from "./actions";
+import { EmpfaengerSelect } from "./EmpfaengerSelect";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 30;
 
 const errorMessages: Record<string, string> = {
   eingabe: "Bitte Betreff und Nachricht ausfüllen.",
@@ -15,27 +19,33 @@ const errorMessages: Record<string, string> = {
 export default async function NachrichtenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; page?: string }>;
 }) {
   const user = await requireUser();
-  const { fehler } = await searchParams;
+  const { fehler, page } = await searchParams;
   const isVerwalter = user.role === "VERWALTER";
 
-  const conversations = await db.conversation.findMany({
-    where: { participants: { some: { userId: user.id } } },
-    orderBy: { updatedAt: "desc" },
-    include: {
-      participants: { include: { user: true } },
-      messages: { orderBy: { createdAt: "desc" }, take: 1 },
-    },
-  });
+  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
+  const convWhere = { participants: { some: { userId: user.id } } };
 
-  const recipients = isVerwalter
-    ? await db.user.findMany({
-        where: { role: { in: ["MIETER", "EIGENTUEMER"] }, active: true },
-        orderBy: [{ role: "asc" }, { name: "asc" }],
-      })
-    : [];
+  const [total, conversations] = await Promise.all([
+    db.conversation.count({ where: convWhere }),
+    db.conversation.findMany({
+      where: convWhere,
+      orderBy: { updatedAt: "desc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: {
+        participants: { include: { user: true } },
+        messages: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
+    }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  function pageHref(p: number) {
+    return p > 1 ? `/nachrichten?page=${p}` : "/nachrichten";
+  }
 
   return (
     <>
@@ -93,22 +103,41 @@ export default async function NachrichtenPage({
               </ul>
             </div>
           )}
+
+          {totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between">
+              {currentPage > 1 ? (
+                <Link
+                  href={pageHref(currentPage - 1)}
+                  className="rounded-lg border border-white/20 bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white"
+                >
+                  ← Zurück
+                </Link>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-gray-300">
+                Seite {currentPage} von {totalPages} · {total} Konversationen
+              </span>
+              {currentPage < totalPages ? (
+                <Link
+                  href={pageHref(currentPage + 1)}
+                  className="rounded-lg border border-white/20 bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white"
+                >
+                  Weiter →
+                </Link>
+              ) : (
+                <span />
+              )}
+            </div>
+          ) : null}
         </div>
 
         <Card title={isVerwalter ? "Neue Nachricht" : "Nachricht an die Verwaltung"}>
           <form action={startConversation} className="space-y-3">
             {isVerwalter ? (
               <Field label="Empfänger">
-                <select name="recipientId" required className={inputClass} defaultValue="">
-                  <option value="" disabled>
-                    – bitte wählen –
-                  </option>
-                  {recipients.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} ({roleLabels[r.role]})
-                    </option>
-                  ))}
-                </select>
+                <EmpfaengerSelect />
               </Field>
             ) : null}
             <Field label="Betreff">
@@ -117,9 +146,7 @@ export default async function NachrichtenPage({
             <Field label="Nachricht">
               <textarea name="body" required minLength={1} maxLength={5000} rows={5} className={inputClass} />
             </Field>
-            <button type="submit" className={buttonClass}>
-              Senden
-            </button>
+            <SubmitButton pendingLabel="Wird gesendet…">Senden</SubmitButton>
           </form>
         </Card>
       </div>

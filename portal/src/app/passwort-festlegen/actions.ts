@@ -10,7 +10,7 @@ export async function setInitialPassword(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const passwordConfirm = String(formData.get("passwordConfirm") ?? "");
 
-  if (password.length < 8 || password !== passwordConfirm) {
+  if (password.length < 10 || password !== passwordConfirm) {
     redirect("/passwort-festlegen?fehler=eingabe");
   }
 

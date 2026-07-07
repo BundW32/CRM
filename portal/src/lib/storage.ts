@@ -1,20 +1,33 @@
-// Datei-Ablage: Vercel Blob (wenn BLOB_READ_WRITE_TOKEN gesetzt ist, z. B. in
-// Produktion) oder lokales Dateisystem (Entwicklung). `storedName` enthält
-// entweder die Blob-URL oder den lokalen Dateinamen.
+// Datei-Ablage: Vercel Blob (wenn BLOB_READ_WRITE_TOKEN gesetzt ist) oder
+// Base64-Data-URL in der Datenbank (Fallback für Preview-Deployments / lokale
+// Entwicklung ohne Blob). Lokale UUID-Dateinamen (Altdaten) werden weiterhin
+// aus dem Dateisystem gelesen.
 import crypto from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
-import { put } from "@vercel/blob";
+import { del, put } from "@vercel/blob";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
+// Ohne Blob werden Dateien als Data-URL in der DB gespeichert – Limit: 5 MB
+const DATA_URL_MAX_SIZE = 5 * 1024 * 1024;
 
 export const IMAGE_TYPES = [
   "image/jpeg",
+  "image/jpg", // browser alias for JPEG
   "image/png",
   "image/webp",
   "image/heic",
   "image/heif",
 ];
+
+export const VIDEO_TYPES = [
+  "video/mp4",
+  "video/quicktime", // iPhone .mov
+  "video/webm",
+  "video/x-msvideo", // .avi
+];
+
+export const MEDIA_TYPES = [...IMAGE_TYPES, ...VIDEO_TYPES];
 
 export const DOCUMENT_TYPES = [...IMAGE_TYPES, "application/pdf"];
 
@@ -29,7 +42,7 @@ function uploadDir() {
 export async function saveUpload(file: File, allowedTypes: string[]) {
   if (file.size === 0) throw new Error("Die Datei ist leer.");
   if (file.size > MAX_FILE_SIZE) {
-    throw new Error("Die Datei ist größer als 10 MB.");
+    throw new Error("Die Datei ist größer als 100 MB.");
   }
   if (!allowedTypes.includes(file.type)) {
     throw new Error(`Dateityp ${file.type || "unbekannt"} ist nicht erlaubt.`);
@@ -43,15 +56,25 @@ export async function saveUpload(file: File, allowedTypes: string[]) {
   const meta = { fileName: file.name, mimeType: file.type, size: file.size };
 
   if (blobEnabled()) {
-    // Die Blob-URL ist zufällig und nicht erratbar; ausgeliefert wird trotzdem
-    // ausschließlich über /api/files/** mit Berechtigungsprüfung.
     const blob = await put(`uploads/${fileId}`, file, {
-      access: "public",
+      access: "private",
       contentType: file.type,
     });
     return { storedName: blob.url, ...meta };
   }
 
+  if (process.env.VERCEL) {
+    // Vercel ohne Blob: als Data-URL in der DB ablegen (max. 5 MB)
+    if (file.size > DATA_URL_MAX_SIZE) {
+      throw new Error(
+        `Für Dateien über 5 MB muss Vercel Blob konfiguriert sein (BLOB_READ_WRITE_TOKEN).`
+      );
+    }
+    const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+    return { storedName: `data:${file.type};base64,${base64}`, ...meta };
+  }
+
+  // Lokale Entwicklung: Dateisystem
   await mkdir(uploadDir(), { recursive: true });
   await writeFile(
     path.join(uploadDir(), fileId),
@@ -60,8 +83,7 @@ export async function saveUpload(file: File, allowedTypes: string[]) {
   return { storedName: fileId, ...meta };
 }
 
-// Speichert direkt aus einem Buffer (z. B. Base64-Anhänge aus eingehenden E-Mails),
-// ohne das auf dem Server ggf. nicht global verfügbare `File`-Objekt zu benötigen.
+// Speichert direkt aus einem Buffer (z. B. generierte PDFs, E-Mail-Anhänge).
 export async function saveBuffer(
   buffer: Buffer,
   fileName: string,
@@ -70,7 +92,7 @@ export async function saveBuffer(
 ) {
   const size = buffer.byteLength;
   if (size === 0) throw new Error("Die Datei ist leer.");
-  if (size > MAX_FILE_SIZE) throw new Error("Die Datei ist größer als 10 MB.");
+  if (size > MAX_FILE_SIZE) throw new Error("Die Datei ist größer als 100 MB.");
   if (!allowedTypes.includes(mimeType)) {
     throw new Error(`Dateityp ${mimeType || "unbekannt"} ist nicht erlaubt.`);
   }
@@ -84,25 +106,72 @@ export async function saveBuffer(
 
   if (blobEnabled()) {
     const blob = await put(`uploads/${fileId}`, buffer, {
-      access: "public",
+      access: "private",
       contentType: mimeType,
     });
     return { storedName: blob.url, ...meta };
   }
 
+  if (process.env.VERCEL) {
+    // Vercel ohne Blob: als Data-URL in der DB ablegen (max. 5 MB)
+    if (size > DATA_URL_MAX_SIZE) {
+      throw new Error(
+        `Für Dateien über 5 MB muss Vercel Blob konfiguriert sein (BLOB_READ_WRITE_TOKEN).`
+      );
+    }
+    const base64 = buffer.toString("base64");
+    return { storedName: `data:${mimeType};base64,${base64}`, ...meta };
+  }
+
+  // Lokale Entwicklung: Dateisystem
   await mkdir(uploadDir(), { recursive: true });
   await writeFile(path.join(uploadDir(), fileId), buffer);
   return { storedName: fileId, ...meta };
 }
 
 export async function readUpload(storedName: string): Promise<Buffer> {
+  // Data-URL (in DB gespeicherter Fallback)
+  if (storedName.startsWith("data:")) {
+    const commaIdx = storedName.indexOf(",");
+    if (commaIdx === -1) throw new Error("Ungültiger Data-URL.");
+    return Buffer.from(storedName.slice(commaIdx + 1), "base64");
+  }
+  // Vercel Blob (https://) – private blobs benötigen den Bearer-Token
   if (storedName.startsWith("https://")) {
-    const res = await fetch(storedName);
+    // Den Lese-/Schreib-Token NUR an Vercel-Blob-Hosts senden. Sollte je eine
+    // fremde URL in storedName gelangen (Import/DB-Manipulation), würde er sonst
+    // an einen beliebigen Host geleakt (SSRF + Credential-Exfiltration).
+    let host: string;
+    try {
+      host = new URL(storedName).hostname;
+    } catch {
+      throw new Error("Ungültige Datei-URL.");
+    }
+    const isBlobHost = host === "blob.vercel-storage.com" || host.endsWith(".blob.vercel-storage.com");
+    if (!isBlobHost) throw new Error("Nicht erlaubter Speicher-Host.");
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const res = await fetch(storedName, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!res.ok) throw new Error("Datei nicht abrufbar.");
     return Buffer.from(await res.arrayBuffer());
   }
+  // Legacy-Dateiname (lokale Entwicklung / Altdaten)
   if (!/^[a-f0-9-]+(\.[a-z0-9]+)?$/.test(storedName)) {
     throw new Error("Ungültiger Dateiname.");
   }
   return readFile(path.join(uploadDir(), storedName));
+}
+
+// Löscht eine gespeicherte Datei (z. B. bei DSGVO-Anonymisierung).
+// Data-URLs liegen in der DB und brauchen keinen separaten Löschaufruf.
+// Lokale Entwicklungsdateien werden bewusst nicht gelöscht.
+export async function deleteBlob(storedName: string): Promise<void> {
+  if (!storedName || !storedName.startsWith("https://")) return;
+  if (!blobEnabled()) return;
+  try {
+    await del(storedName);
+  } catch {
+    // Blob bereits gelöscht oder nicht gefunden – kein Fehler
+  }
 }

@@ -2,10 +2,60 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { canVerwalterManageUser, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
+import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { sendPushToUsers } from "@/lib/push";
 import { requireUser } from "@/lib/session";
+
+export type RecipientResult = {
+  id: string;
+  name: string;
+  role: "MIETER" | "EIGENTUEMER";
+  propertyName: string | null;
+};
+
+const RECIPIENT_PAGE_SIZE = 25;
+
+/**
+ * Sucht Empfänger (Mieter/Eigentümer) für einen Verwalter **serverseitig** und
+ * gedeckelt – statt alle (potenziell zehntausende) Empfänger ins Formular zu
+ * laden. Ohne Suchbegriff werden die ersten Treffer im Scope geliefert.
+ */
+export async function searchRecipients(query: string): Promise<RecipientResult[]> {
+  const user = await requireUser();
+  if (user.role !== "VERWALTER") return [];
+  const q = query.trim();
+
+  const raw = await db.user.findMany({
+    where: {
+      AND: [
+        { role: { in: ["MIETER", "EIGENTUEMER"] }, active: true },
+        ...(q ? [{ name: { contains: q, mode: "insensitive" as const } }] : []),
+        await userWhereForVerwalter(user),
+      ],
+    },
+    orderBy: [{ role: "asc" }, { name: "asc" }],
+    take: RECIPIENT_PAGE_SIZE,
+    include: {
+      tenancies: {
+        where: { active: true },
+        include: { unit: { include: { property: { select: { name: true } } } } },
+        take: 1,
+      },
+      ownerships: { include: { property: { select: { name: true } } }, take: 1 },
+    },
+  });
+
+  return raw.map((r) => ({
+    id: r.id,
+    name: r.name,
+    role: r.role as "MIETER" | "EIGENTUEMER",
+    propertyName:
+      r.tenancies[0]?.unit.property.name ?? r.ownerships[0]?.property.name ?? null,
+  }));
+}
 
 async function notifyParticipants(
   conversationId: string,
@@ -19,13 +69,15 @@ async function notifyParticipants(
   });
   const link = portalUrl(`/nachrichten/${conversationId}`);
   await Promise.all(
-    parts.map((p) =>
+    parts.map(async (p) =>
       sendMail(
         p.user.email,
         `Neue Nachricht: ${subject}`,
-        `Sie haben eine neue Nachricht im B&W Kundenportal erhalten:\n\n` +
+        `Sie haben eine neue Nachricht im Kundenportal erhalten:\n\n` +
           `„${preview}"\n\n` +
-          `Zur Nachricht: ${link}`
+          `Zur Nachricht: ${link}`,
+        undefined,
+        await getBrandingForOrg(p.user.organizationId)
       )
     )
   );
@@ -55,10 +107,16 @@ export async function startConversation(formData: FormData) {
     if (!recipient || !recipient.active || recipient.role === "VERWALTER") {
       redirect("/nachrichten?fehler=empfaenger");
     }
+    // Eingeschränkte Verwalter dürfen nur Empfänger im eigenen
+    // Zuständigkeitsbereich anschreiben (SuperAdmin: immer erlaubt).
+    if (!(await canVerwalterManageUser(user, recipient.id))) {
+      redirect("/nachrichten?fehler=empfaenger");
+    }
     recipientIds.add(recipient.id);
   } else {
+    // Mieter/Eigentümer schreiben an die Verwaltung – nur Verwalter der EIGENEN Org.
     const verwalter = await db.user.findMany({
-      where: { role: "VERWALTER", active: true },
+      where: { role: "VERWALTER", active: true, organizationId: user.organizationId },
       select: { id: true },
     });
     verwalter.forEach((v) => recipientIds.add(v.id));
@@ -71,6 +129,7 @@ export async function startConversation(formData: FormData) {
   const conversation = await db.conversation.create({
     data: {
       subject,
+      organizationId: user.organizationId,
       participants: {
         create: [
           { userId: user.id, lastReadAt: new Date() },

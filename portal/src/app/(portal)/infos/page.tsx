@@ -1,7 +1,9 @@
 import Link from "next/link";
 import type { User } from "@/generated/prisma/client";
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
-import { announcementWhereForUser, documentWhereForUser } from "@/lib/access";
+import { PropertyUnitFields } from "@/components/property-unit-fields";
+import { SubmitButton } from "@/components/submit-button";
+import { announcementWhereForUser, documentWhereForUser, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
   audienceLabels,
@@ -24,13 +26,15 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 30;
+
 export default async function InfosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ t?: string; fehler?: string }>;
+  searchParams: Promise<{ t?: string; fehler?: string; apage?: string; dpage?: string }>;
 }) {
   const user = await requireUser();
-  const { t, fehler } = await searchParams;
+  const { t, fehler, apage, dpage } = await searchParams;
   const tab = t === "dokumente" ? "dokumente" : "aushaenge";
   const isVerwalter = user.role === "VERWALTER";
 
@@ -73,23 +77,44 @@ export default async function InfosPage({
       ) : null}
 
       {tab === "aushaenge" ? (
-        <AushaengeTab user={user} isVerwalter={isVerwalter} />
+        <AushaengeTab user={user} isVerwalter={isVerwalter} page={apage} />
       ) : (
-        <DokumenteTab user={user} isVerwalter={isVerwalter} />
+        <DokumenteTab user={user} isVerwalter={isVerwalter} page={dpage} />
       )}
     </>
   );
 }
 
-async function AushaengeTab({ user, isVerwalter }: { user: User; isVerwalter: boolean }) {
+async function AushaengeTab({
+  user,
+  isVerwalter,
+  page,
+}: {
+  user: User;
+  isVerwalter: boolean;
+  page?: string;
+}) {
+  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
+  const announcementWhere = await announcementWhereForUser(user);
+  const total = await db.announcement.count({ where: announcementWhere });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const announcements = await db.announcement.findMany({
-    where: await announcementWhereForUser(user),
+    where: announcementWhere,
     orderBy: { createdAt: "desc" },
+    skip: (currentPage - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
     include: { property: true, acknowledgements: { include: { user: true } } },
   });
   const properties = isVerwalter
-    ? await db.property.findMany({ orderBy: { name: "asc" } })
+    ? await db.property.findMany({ where: await propertyWhereForVerwalter(user), orderBy: { name: "asc" } })
     : [];
+
+  function pageHref(p: number) {
+    const sp = new URLSearchParams();
+    sp.set("t", "aushaenge");
+    if (p > 1) sp.set("apage", String(p));
+    return `/infos?${sp.toString()}`;
+  }
 
   return (
     <div className="grid gap-5 lg:grid-cols-3">
@@ -142,6 +167,34 @@ async function AushaengeTab({ user, isVerwalter }: { user: User; isVerwalter: bo
             </Card>
           ))
         )}
+
+        {totalPages > 1 ? (
+          <div className="mt-4 flex items-center justify-between">
+            {currentPage > 1 ? (
+              <a
+                href={pageHref(currentPage - 1)}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                ← Zurück
+              </a>
+            ) : (
+              <span />
+            )}
+            <span className="text-xs text-gray-400">
+              Seite {currentPage} von {totalPages} · {total} Einträge
+            </span>
+            {currentPage < totalPages ? (
+              <a
+                href={pageHref(currentPage + 1)}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Weiter →
+              </a>
+            ) : (
+              <span />
+            )}
+          </div>
+        ) : null}
       </div>
 
       {isVerwalter ? (
@@ -181,14 +234,40 @@ async function AushaengeTab({ user, isVerwalter }: { user: User; isVerwalter: bo
   );
 }
 
-async function DokumenteTab({ user, isVerwalter }: { user: User; isVerwalter: boolean }) {
+async function DokumenteTab({
+  user,
+  isVerwalter,
+  page,
+}: {
+  user: User;
+  isVerwalter: boolean;
+  page?: string;
+}) {
+  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
+  const documentWhere = await documentWhereForUser(user);
+  const total = await db.document.count({ where: documentWhere });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const documents = await db.document.findMany({
-    where: await documentWhereForUser(user),
+    where: documentWhere,
     orderBy: { createdAt: "desc" },
+    skip: (currentPage - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
     include: { property: true, unit: true, acknowledgements: { include: { user: true } } },
   });
+
+  function pageHref(p: number) {
+    const sp = new URLSearchParams();
+    sp.set("t", "dokumente");
+    if (p > 1) sp.set("dpage", String(p));
+    return `/infos?${sp.toString()}`;
+  }
+
   const properties = isVerwalter
-    ? await db.property.findMany({ include: { units: true }, orderBy: { name: "asc" } })
+    ? await db.property.findMany({
+        where: await propertyWhereForVerwalter(user),
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      })
     : [];
 
   return (
@@ -212,13 +291,22 @@ async function DokumenteTab({ user, isVerwalter }: { user: User; isVerwalter: bo
                         · {formatDate(doc.createdAt)} · {formatBytes(doc.size)}
                       </span>
                     </a>
-                    <a
-                      href={`/api/files/dokument/${doc.id}`}
-                      target="_blank"
-                      className="shrink-0 text-sm text-brand-green"
-                    >
-                      Öffnen →
-                    </a>
+                    <span className="flex shrink-0 items-center gap-3">
+                      <a
+                        href={`/api/files/dokument/${doc.id}`}
+                        target="_blank"
+                        className="text-sm text-brand-green"
+                      >
+                        Öffnen →
+                      </a>
+                      {/* Direkter Download – funktioniert zuverlässig auch auf dem Handy */}
+                      <a
+                        href={`/api/files/dokument/${doc.id}?download=1`}
+                        className="text-sm text-gray-500 hover:text-brand-green"
+                      >
+                        Herunterladen
+                      </a>
+                    </span>
                   </div>
                   <div className="mt-2">
                     {isVerwalter ? (
@@ -247,6 +335,34 @@ async function DokumenteTab({ user, isVerwalter }: { user: User; isVerwalter: bo
             </ul>
           </div>
         )}
+
+        {totalPages > 1 ? (
+          <div className="mt-4 flex items-center justify-between">
+            {currentPage > 1 ? (
+              <a
+                href={pageHref(currentPage - 1)}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                ← Zurück
+              </a>
+            ) : (
+              <span />
+            )}
+            <span className="text-xs text-gray-400">
+              Seite {currentPage} von {totalPages} · {total} Einträge
+            </span>
+            {currentPage < totalPages ? (
+              <a
+                href={pageHref(currentPage + 1)}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Weiter →
+              </a>
+            ) : (
+              <span />
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-5">
@@ -274,28 +390,10 @@ async function DokumenteTab({ user, isVerwalter }: { user: User; isVerwalter: bo
                   ))}
                 </select>
               </Field>
-              <Field label="Objekt (optional)">
-                <select name="propertyId" className={inputClass} defaultValue="">
-                  <option value="">– Allgemein –</option>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Einheit (optional, überschreibt Objekt)">
-                <select name="unitId" className={inputClass} defaultValue="">
-                  <option value="">– Keine –</option>
-                  {properties.flatMap((p) =>
-                    p.units.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {p.name} – {u.label}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </Field>
+              <PropertyUnitFields
+                properties={properties.map((p) => ({ id: p.id, name: p.name }))}
+                unitLabel="Einheit (optional, überschreibt Objekt)"
+              />
               <Field label="Datei (PDF oder Bild, max. 10 MB)">
                 <input
                   type="file"
@@ -305,9 +403,7 @@ async function DokumenteTab({ user, isVerwalter }: { user: User; isVerwalter: bo
                   className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
                 />
               </Field>
-              <button type="submit" className={buttonClass}>
-                Hochladen
-              </button>
+              <SubmitButton pendingLabel="Wird hochgeladen…">Hochladen</SubmitButton>
             </form>
           </Card>
         ) : (

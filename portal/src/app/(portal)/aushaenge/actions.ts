@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireUser, requireVerwalter } from "@/lib/session";
 
@@ -26,8 +27,13 @@ export async function createAnnouncement(formData: FormData) {
     redirect("/infos?t=aushaenge&fehler=eingabe");
   }
 
+  // Scope-Prüfung: nur Objekte im Zuständigkeitsbereich
+  if (!(await canVerwalterAccessProperty(user, parsed.data.propertyId))) {
+    redirect("/infos?t=aushaenge&fehler=eingabe");
+  }
+
   await db.announcement.create({
-    data: { ...parsed.data, createdById: user.id },
+    data: { ...parsed.data, createdById: user.id, organizationId: user.organizationId },
   });
 
   revalidatePath("/infos");
@@ -48,10 +54,17 @@ export async function acknowledgeAnnouncement(formData: FormData) {
 }
 
 export async function deleteAnnouncement(formData: FormData) {
-  await requireVerwalter();
+  const user = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   if (id) {
-    await db.announcement.delete({ where: { id } }).catch(() => {});
+    // Scope-Prüfung vor dem Löschen
+    const announcement = await db.announcement.findUnique({
+      where: { id },
+      select: { propertyId: true },
+    });
+    if (announcement && (await canVerwalterAccessProperty(user, announcement.propertyId))) {
+      await db.announcement.delete({ where: { id } }).catch(() => {});
+    }
   }
   revalidatePath("/infos");
   redirect("/infos?t=aushaenge");

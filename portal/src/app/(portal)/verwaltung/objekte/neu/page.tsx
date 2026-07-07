@@ -1,5 +1,8 @@
-import { PageTitle } from "@/components/ui";
-import { requireVerwalter } from "@/lib/session";
+import Link from "next/link";
+import { PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { isSelfManaged } from "@/lib/access";
+import { db } from "@/lib/db";
+import { getOrganization, requireVerwalter } from "@/lib/session";
 import { ObjektForm } from "./ObjektForm";
 
 export const dynamic = "force-dynamic";
@@ -9,16 +12,32 @@ export default async function NeuesObjektPage({
 }: {
   searchParams: Promise<{ fehler?: string }>;
 }) {
-  await requireVerwalter();
+  const verwalter = await requireVerwalter();
   const { fehler } = await searchParams;
+  const selfManaged = isSelfManaged(await getOrganization());
+
+  // Bestehende Objekte der Org – dient der Dubletten-Warnung im Formular.
+  const existing = await db.property.findMany({
+    where: { organizationId: verwalter.organizationId },
+    select: { name: true, street: true, zip: true, city: true },
+    orderBy: { name: "asc" },
+  });
 
   return (
     <>
-      <PageTitle>Objekt anlegen</PageTitle>
+      <PageTitle
+        action={
+          <Link href="/verwaltung" className={buttonSecondaryClass}>
+            ← Verwaltung
+          </Link>
+        }
+      >
+        Objekt anlegen
+      </PageTitle>
       <p className="mb-6 max-w-3xl text-sm text-gray-300">
-        Legen Sie ein Objekt mit allen Stammdaten, Einheiten, dem Eigentümer und den
-        Mietern an. Alle Zugänge werden erstellt — mit E-Mail-Einladung oder als
-        druckbares Zugangsschreiben.
+        {selfManaged
+          ? "Legen Sie Ihr WEG-Objekt mit Einheiten an und tragen Sie anschließend die Eigentümer mit ihren Miteigentumsanteilen ein."
+          : "Legen Sie ein Objekt mit allen Stammdaten, Einheiten, dem Eigentümer und den Mietern an. Alle Zugänge werden erstellt — mit E-Mail-Einladung oder als druckbares Zugangsschreiben."}
       </p>
 
       {fehler ? (
@@ -27,7 +46,10 @@ export default async function NeuesObjektPage({
         </p>
       ) : null}
 
-      <ObjektForm />
+      <ObjektForm
+        defaultManagementType={selfManaged ? "WEG" : "MIETVERWALTUNG"}
+        existing={existing}
+      />
     </>
   );
 }

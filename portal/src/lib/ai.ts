@@ -1,5 +1,9 @@
-// KI-Triage über die Google-Gemini-API. Ohne GEMINI_API_KEY deaktiviert
-// (wie SMTP/Push ohne Konfiguration). Fehler blockieren nie eine Aktion.
+// KI-Triage über die Google-Gemini-API. DSGVO: Es werden Freitext-Inhalte
+// (Titel/Beschreibung) an Google (US) gesendet. Daher standardmäßig AUS und nur
+// aktiv, wenn der Betreiber es ausdrücklich freigibt (AI_TRIAGE_ENABLED="true") UND
+// ein GEMINI_API_KEY gesetzt ist. Bei Aktivierung sind AVV + EU-Datenzusatz mit
+// Google sowie eine Offenlegung in der Datenschutzerklärung erforderlich.
+// Fehler blockieren nie eine Aktion.
 import type { TicketPriority, Trade } from "@/generated/prisma/client";
 import { tradeLabels } from "./labels";
 
@@ -16,6 +20,9 @@ export async function classifyTicket(input: {
   title: string;
   description: string;
 }): Promise<TriageResult | null> {
+  // DSGVO: Opt-in-Pflicht. Ohne ausdrückliche Freigabe werden KEINE Inhalte an
+  // Google gesendet (auch wenn ein Key vorhanden wäre).
+  if (process.env.AI_TRIAGE_ENABLED !== "true") return null;
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
   const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";

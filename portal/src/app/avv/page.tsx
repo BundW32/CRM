@@ -61,14 +61,22 @@ export default function AvvPage() {
 
       <LegalSection title="4. Unterauftragsverhältnisse (Subprozessoren)">
         <p>
-          Der Verantwortliche stimmt der Einbindung folgender Kategorien von Subprozessoren
-          zu (Stand: Entwurf, finale Liste folgt):
+          Der Verantwortliche stimmt der Einbindung folgender Subprozessoren zu:
         </p>
         <ul className="list-disc space-y-1 pl-5">
-          <li>Hosting / Anwendungsbetrieb (Cloud-Plattform);</li>
-          <li>Datei-/Objektspeicher für Uploads;</li>
-          <li>E-Mail-Versand (SMTP-/Zustelldienst);</li>
-          <li>ggf. KI-gestützte Vorqualifizierung von Vorgängen (Triage).</li>
+          <li>Hosting / Anwendungsbetrieb: Vercel Inc. (USA), Server-Region EU;</li>
+          <li>Datenbank: Neon (PostgreSQL), EU-Region;</li>
+          <li>Datei-/Objektspeicher für Uploads: Vercel Blob;</li>
+          <li>E-Mail-Versand: Google (Gmail / Google Workspace);</li>
+          <li>Optionaler Dokumenten-Import: Google Drive;</li>
+          <li>
+            Optionale KI-gestützte Vorqualifizierung von Vorgängen: Google (Gemini API) –
+            nur bei Aktivierung durch die Verwaltung;
+          </li>
+          <li>
+            Push-Benachrichtigungen: geräteabhängige Push-Dienste von Google, Apple bzw.
+            Mozilla.
+          </li>
         </ul>
         <p>
           Für jeden Subprozessor sind Sitz, Verarbeitungsort und – bei Drittlandbezug –

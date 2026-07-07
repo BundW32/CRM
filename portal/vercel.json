@@ -1,4 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "prisma db execute --file prisma/repair_failed_migration.sql || true && prisma migrate deploy && next build"
+  "buildCommand": "prisma db execute --file prisma/repair_failed_migration.sql || true && prisma migrate deploy && next build",
+  "crons": [
+    {
+      "path": "/api/cron/cleanup",
+      "schedule": "0 3 * * *"
+    }
+  ]
 }

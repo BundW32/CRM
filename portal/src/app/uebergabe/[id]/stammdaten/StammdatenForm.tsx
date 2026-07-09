@@ -204,7 +204,7 @@ export function StammdatenForm({
           <button
             type="button"
             onClick={() => setShowTenant2(true)}
-            className="flex items-center gap-1.5 text-sm font-medium text-brand-orange hover:text-brand-orange-dark active:scale-95 transition-all"
+            className="flex items-center gap-1.5 text-sm font-medium text-brand-orange hover:text-brand-orange-dark active:scale-[0.98] transition-all"
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />

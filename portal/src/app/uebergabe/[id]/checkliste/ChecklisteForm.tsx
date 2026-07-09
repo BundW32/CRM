@@ -60,7 +60,7 @@ function CheckRow({
           <button
             type="button"
             onClick={() => setShowNote((s) => !s)}
-            className={`ml-1 rounded-lg px-2 py-1 text-xs transition-all active:scale-95 ${
+            className={`ml-1 rounded-lg px-2 py-1 text-xs transition-all active:scale-[0.98] ${
               showNote || note
                 ? "bg-brand-orange/10 text-brand-orange font-medium"
                 : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"

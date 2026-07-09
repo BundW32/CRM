@@ -215,7 +215,7 @@ export default async function UsersPage({
               </label>
               <button
                 type="submit"
-                className="rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-green-dark shadow-sm transition-all hover:bg-brand-orange-dark active:scale-95"
+                className="rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-green-dark shadow-sm transition-all hover:bg-brand-orange-dark active:scale-[0.98]"
               >
                 Filtern
               </button>

@@ -76,7 +76,7 @@ export function SignatureSection({
         <div className="flex justify-end">
           <button
             type="submit"
-            className="inline-flex items-center justify-center rounded-lg bg-brand-green px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-green-dark active:scale-95 active:shadow-none"
+            className="inline-flex items-center justify-center rounded-lg bg-brand-green px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-green-dark active:scale-[0.98] active:shadow-none"
           >
             Abschließen und PDF erstellen →
           </button>

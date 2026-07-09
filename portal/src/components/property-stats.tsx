@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui";
 import { StatTile } from "@/components/stat-tile";
 import { db } from "@/lib/db";
-import { ticketStatusLabels, tradeLabels } from "@/lib/labels";
+import { ticketStatusBarColor, ticketStatusLabels, tradeLabels } from "@/lib/labels";
 
 // Detaillierte Kennzahlen je Objekt – wird auf der Übersicht (Dashboard) genutzt.
 export async function PropertyStats({
@@ -79,6 +79,7 @@ export async function PropertyStats({
                   label={ticketStatusLabels[s.status]}
                   value={s._count._all}
                   max={totalTickets}
+                  color={ticketStatusBarColor[s.status]}
                 />
               ))}
             </ul>
@@ -115,16 +116,29 @@ export async function PropertyStats({
   );
 }
 
-function Bar({ label, value, max }: { label: string; value: number; max: number }) {
+function Bar({
+  label,
+  value,
+  max,
+  color = "bg-brand-green",
+}: {
+  label: string;
+  value: number;
+  max: number;
+  color?: string;
+}) {
   const width = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0;
   return (
     <li className="text-sm">
-      <div className="mb-0.5 flex justify-between text-gray-600">
-        <span>{label}</span>
-        <span>{value}</span>
+      <div className="mb-1 flex justify-between">
+        <span className="text-gray-700">{label}</span>
+        <span className="font-semibold tabular-nums text-gray-900">{value}</span>
       </div>
-      <div className="h-2 rounded-full bg-gray-100">
-        <div className="h-2 rounded-full bg-brand-green" style={{ width: `${width}%` }} />
+      <div className="h-2.5 overflow-hidden rounded-full bg-gray-100">
+        <div
+          className={`h-full rounded-full ${color} transition-[width] duration-500`}
+          style={{ width: `${width}%` }}
+        />
       </div>
     </li>
   );

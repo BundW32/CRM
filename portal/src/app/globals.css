@@ -14,6 +14,31 @@
   --color-shell-2: #241d18;
   --color-shell-3: #2f2620;
 
+  /* ── Schrift ── Plus Jakarta Sans (Display) + Inter (Text), selbst-gehostet.
+     Die Utilities `font-sans` (Standard) und `font-display` werden hieraus erzeugt. */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Plus Jakarta Sans", var(--font-sans);
+
+  /* ── Semantische Statusfarben (getrennt vom Marken-Akzent) ── */
+  --color-good: #1f7a54;
+  --color-good-light: #e4f2ea;
+  --color-warn: #b26a09;
+  --color-warn-light: #fdf0df;
+  --color-critical: #c23b2e;
+  --color-critical-light: #fbe7e3;
+
+  /* ── Radius-Skala – vereinheitlicht die bisher gemischten Werte ── */
+  --radius-sm: 0.5rem;   /* 8px  – Inputs, Badges */
+  --radius-md: 0.75rem;  /* 12px – Buttons, kleine Kacheln */
+  --radius-lg: 1rem;     /* 16px – Karten */
+  --radius-xl: 1.25rem;  /* 20px – Hero-/Akzentflächen */
+
+  /* ── Elevation – konsistente Schatten statt Ad-hoc-Werte ── */
+  --shadow-e1: 0 1px 2px rgba(24, 20, 15, 0.08);
+  --shadow-e2: 0 1px 2px rgba(24, 20, 15, 0.06), 0 12px 28px -12px rgba(24, 20, 15, 0.18);
+  --shadow-e3: 0 24px 50px -18px rgba(24, 20, 15, 0.28);
+
   /* ── Micro-Interaction Animations ── */
   --animate-page-in: pageIn 0.22s ease-out;
   --animate-slide-down: slideDown 0.16s cubic-bezier(0.16, 1, 0.3, 1);
@@ -66,20 +91,73 @@
   100% { transform: scale(1); opacity: 1; }
 }
 
+/* ── Selbst-gehostete Schriften (woff2, latin) ────────────────────────────
+   Kein Google-CDN, kein Layout-Shift beim Laden (font-display: swap). */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/inter-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/inter-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/inter-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/inter-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/jakarta-600.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/jakarta-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/fonts/jakarta-800.woff2") format("woff2");
+}
+
 html {
   background-color: var(--color-shell);
 }
 
 body {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Kräftige, eng laufende Überschriften – angelehnt an den Website-Stil */
+/* Kräftige, eng laufende Überschriften im Display-Stil (Plus Jakarta Sans) */
 h1,
 h2,
 h3 {
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  letter-spacing: -0.025em;
 }
 
 /* Warmer, weicher Hintergrund-Verlauf. Über ein fixiertes Pseudo-Element gelöst,

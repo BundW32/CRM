@@ -2,23 +2,32 @@ import type { ReactNode } from "react";
 import type { TicketStatus } from "@/generated/prisma/client";
 import { ticketStatusLabels, ticketStatusStyles } from "@/lib/labels";
 
+// Gemeinsamer, gut sichtbarer Fokus-Ring (Tastaturbedienung) – markenfarben.
+const focusRing =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-orange";
+
+// Basis aller Buttons: dezenter Press (0.98 statt 0.95), cursor-pointer (Tailwind v4
+// setzt Buttons sonst auf default), einheitliche Radien und Fokus-Ringe.
+const buttonBase =
+  `inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none ${focusRing}`;
+
 export const inputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition duration-150 focus:border-brand-orange focus:outline-none focus:ring-2 focus:ring-brand-orange/30";
 
 // Primäraktion: Orange mit dunkler Schrift – wie die CTAs auf der Website (gut lesbar)
 export const buttonClass =
-  "inline-flex items-center justify-center rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-green-dark shadow-sm transition-all hover:bg-brand-orange-dark active:scale-95 active:shadow-none disabled:opacity-50 disabled:pointer-events-none";
+  `${buttonBase} bg-brand-orange font-semibold text-brand-green-dark shadow-e1 hover:bg-brand-orange-dark hover:shadow-e2 active:shadow-none`;
 
 // Alias – bleibt aus Kompatibilitätsgründen erhalten
 export const buttonOrangeClass = buttonClass;
 
 // Sekundär (auf hellen Flächen)
 export const buttonSecondaryClass =
-  "inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-all hover:bg-gray-50 active:scale-95 active:shadow-none disabled:opacity-50 disabled:pointer-events-none";
+  `${buttonBase} border border-gray-300 bg-white font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50 active:shadow-none`;
 
 // Outline-Variante für dunkle Flächen (oranger Rand, wie „Potenzial Analyse")
 export const buttonOutlineClass =
-  "inline-flex items-center justify-center rounded-lg border border-brand-orange/60 bg-transparent px-4 py-2 text-sm font-semibold text-brand-orange transition-all hover:bg-brand-orange/10 active:scale-95 active:shadow-none disabled:opacity-50 disabled:pointer-events-none";
+  `${buttonBase} border border-brand-orange/60 bg-transparent font-semibold text-brand-orange hover:bg-brand-orange/10 active:shadow-none`;
 
 export function PageTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (

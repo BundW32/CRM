@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels, voteChoiceLabels } from "@/lib/labels";
@@ -236,7 +236,7 @@ export default async function BeschluessePage({
       </PageTitle>
 
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           {fehler === "keinweg"
             ? "Umlaufbeschlüsse sind nur für WEG-Objekte möglich."
             : fehler === "frist"
@@ -248,7 +248,7 @@ export default async function BeschluessePage({
                 : fehler === "gefasst"
                   ? "Ein bereits gefasster Beschluss kann nicht gelöscht werden."
                   : "Bitte Objekt, Titel und Beschlusstext ausfüllen."}
-        </p>
+        </Alert>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">

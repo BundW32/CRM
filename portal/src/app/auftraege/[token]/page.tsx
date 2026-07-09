@@ -1,4 +1,5 @@
 import { BwLogo } from "@/components/logo";
+import { Alert } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate, ticketStatusLabels, tradeLabels } from "@/lib/labels";
 import {
@@ -120,9 +121,9 @@ export default async function AuftraegePage({
 
               {t.appointmentNote ? (
                 t.appointmentConfirmedAt ? (
-                  <p className="mt-3 rounded-md bg-green-50 px-3 py-2 text-xs text-green-800">
+                  <Alert variant="success" className="mt-3">
                     ✓ Termin bestätigt: {t.appointmentNote}
-                  </p>
+                  </Alert>
                 ) : (
                   <p className="mt-3 rounded-md bg-brand-orange-light px-3 py-2 text-xs text-brand-green-dark">
                     Ihr Terminvorschlag (wartet auf Bestätigung): {t.appointmentNote}

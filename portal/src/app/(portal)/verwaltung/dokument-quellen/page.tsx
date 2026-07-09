@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { Alert, PageTitle, buttonSecondaryClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { propertyIdsForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { requireVerwalter } from "@/lib/session";
@@ -71,35 +71,35 @@ export default async function DokumentQuellenPage({
       </p>
 
       {!gdriveReady && (
-        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <Alert variant="warning" className="mb-6">
           <strong>Hinweis:</strong> Die Umgebungsvariable{" "}
           <code className="rounded bg-amber-100 px-1">GDRIVE_SERVICE_ACCOUNT_JSON</code> ist nicht
           gesetzt — Google Drive Sync ist deaktiviert. Bitte ein Service-Account-JSON hinterlegen.
-        </div>
+        </Alert>
       )}
 
       {params.fehler === "eingabe" && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           Ungültige Eingabe. Bitte alle Pflichtfelder ausfüllen.
-        </div>
+        </Alert>
       )}
 
       {params.sync === "ok" && (
-        <div className="mb-4 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        <Alert variant="success" className="mb-4">
           Sync abgeschlossen.{" "}
           {params.imported && Number(params.imported) > 0
             ? `${params.imported} neue Dokument(e) importiert.`
             : "Keine neuen Dokumente gefunden."}
-        </div>
+        </Alert>
       )}
 
       {params.sync === "fehler" && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           Sync mit Fehlern abgeschlossen.{" "}
           {params.imported && Number(params.imported) > 0
             ? `${params.imported} Dokument(e) importiert, aber einige Dateien konnten nicht verarbeitet werden.`
             : "Keine Dokumente importiert."}
-        </div>
+        </Alert>
       )}
 
       {/* Bestehende Quellen */}

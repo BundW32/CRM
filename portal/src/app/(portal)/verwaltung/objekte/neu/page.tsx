@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { Alert, PageTitle, buttonSecondaryClass } from "@/components/ui";
 import { isSelfManaged } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getOrganization, requireVerwalter } from "@/lib/session";
@@ -41,9 +41,9 @@ export default async function NeuesObjektPage({
       </p>
 
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           Bitte füllen Sie mindestens die Pflichtfelder zum Objekt aus.
-        </p>
+        </Alert>
       ) : null}
 
       <ObjektForm

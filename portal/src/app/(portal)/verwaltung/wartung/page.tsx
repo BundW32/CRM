@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter, propertyIdsForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -96,9 +96,9 @@ export default async function WartungPage({
       </p>
 
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           Bitte Titel, Intervall und Fälligkeitsdatum angeben.
-        </p>
+        </Alert>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">

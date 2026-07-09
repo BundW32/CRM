@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
@@ -79,19 +79,19 @@ export default async function EigentuemerPage({
           {selected ? (
             <Card title={selected.name}>
               {locked ? (
-                <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                <Alert variant="warning" className="mb-4">
                   An diesem Objekt läuft aktuell eine Abstimmung. Stimmgewichte und
                   Stimmprinzip sind gesperrt, damit abgegebene Stimmen nicht rückwirkend
                   umgewichtet werden.{" "}
                   <Link href="/beschluesse" className="underline">
                     Zu den Abstimmungen
                   </Link>
-                </p>
+                </Alert>
               ) : null}
               {fehler === "offen" ? (
-                <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                <Alert variant="error" className="mb-4">
                   Änderung nicht möglich – am Objekt läuft eine Abstimmung.
-                </p>
+                </Alert>
               ) : null}
               {/* Stimmprinzip */}
               <form action={updateVotingPrinciple} className="mb-4 flex flex-wrap items-end gap-2">

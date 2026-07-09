@@ -1,4 +1,4 @@
-import { buttonClass, Field, inputClass } from "@/components/ui";
+import { Alert, buttonClass, Field, inputClass } from "@/components/ui";
 import { BwLogo } from "@/components/logo";
 import { requireUser } from "@/lib/session";
 import { setInitialPassword } from "./actions";
@@ -27,9 +27,9 @@ export default async function PasswortFestlegenPage({
           </p>
 
           {fehler ? (
-            <p className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">
+            <Alert variant="error" className="mb-4">
               Bitte mindestens 10 Zeichen eingeben. Beide Felder müssen übereinstimmen.
-            </p>
+            </Alert>
           ) : null}
 
           <form action={setInitialPassword} className="space-y-4">

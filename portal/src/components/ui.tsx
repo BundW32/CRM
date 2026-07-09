@@ -135,17 +135,20 @@ export function Alert({
   title,
   children,
   action,
+  className = "",
 }: {
   variant?: AlertVariant;
   title?: ReactNode;
   children?: ReactNode;
   action?: ReactNode;
+  /** Zusätzliche Klassen, z. B. Außenabstände (mb-4). */
+  className?: string;
 }) {
   const s = alertStyles[variant];
   return (
     <div
       role={variant === "error" ? "alert" : "status"}
-      className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-sm ${s.box}`}
+      className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-sm ${s.box} ${className}`}
     >
       <span className={`shrink-0 ${s.icon}`}>{s.node}</span>
       <div className="min-w-0 flex-1">

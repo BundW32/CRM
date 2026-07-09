@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Card, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { Alert, Card, PageTitle, buttonSecondaryClass } from "@/components/ui";
 import { orgLogoUrl } from "@/lib/branding";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { BrandingForm, type BrandingDefaults } from "./branding-form";
@@ -47,12 +47,12 @@ export default async function BrandingPage({
       </PageTitle>
 
       {gespeichert ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Branding gespeichert. Logo, Farbe und Impressum sind aktualisiert.
-        </p>
+        </Alert>
       ) : null}
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{fehler}</p>
+        <Alert variant="error" className="mb-4">{fehler}</Alert>
       ) : null}
 
       <Card>

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import {
+import { Alert,
   Card,
   EmptyState,
   Field,
@@ -104,10 +104,10 @@ export default async function AntraegePage({
       <PageTitle>Anträge</PageTitle>
 
       {flash ? (
-        <div className="mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">{flash}</div>
+        <Alert variant="success" className="mb-4">{flash}</Alert>
       ) : null}
       {error ? (
-        <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <Alert variant="error" className="mb-4">{error}</Alert>
       ) : null}
 
       {/* Review-Bereich (interner Verwalter) */}

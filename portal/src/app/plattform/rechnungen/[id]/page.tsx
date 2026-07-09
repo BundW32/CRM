@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { INVOICE_TRANSITIONS, formatCents, formatInvoiceNumber, requirePlatformAdmin } from "@/lib/platform";
@@ -66,7 +66,7 @@ export default async function RechnungDetailPage({
       </PageTitle>
 
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           {fehler === "status"
             ? "Dieser Status-Übergang ist nicht erlaubt."
             : fehler === "no_recipient"
@@ -74,10 +74,10 @@ export default async function RechnungDetailPage({
               : fehler === "mail_disabled"
                 ? "E-Mail-Versand ist nicht konfiguriert (SMTP fehlt)."
                 : "E-Mail-Versand fehlgeschlagen."}
-        </p>
+        </Alert>
       ) : null}
       {hinweis ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           {hinweis === "gesendet"
             ? "Rechnung per E-Mail versendet."
             : hinweis === "limit"
@@ -85,7 +85,7 @@ export default async function RechnungDetailPage({
               : hinweis === "nicht_gesendet"
                 ? "Status gesetzt, aber die E-Mail konnte nicht versendet werden (Empfänger/SMTP prüfen)."
                 : ""}
-        </p>
+        </Alert>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">

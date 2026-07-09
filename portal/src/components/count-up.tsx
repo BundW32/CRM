@@ -7,7 +7,9 @@ export function CountUp({ value }: { value: number }) {
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (value === 0) { setDisplayed(0); return; }
+    // Bewusst kein synchrones setState im Effect-Body: die Animation läuft
+    // vollständig über requestAnimationFrame (auch der Null-Fall setzt 0 im
+    // rAF-Callback, nicht synchron).
     const duration = 600;
     const start = performance.now();
     function step(now: number) {

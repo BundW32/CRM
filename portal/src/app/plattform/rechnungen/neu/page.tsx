@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/platform";
 import { createInvoice } from "../actions";
@@ -39,9 +39,9 @@ export default async function NeueRechnungPage({
       </PageTitle>
 
       {sp.fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           {errorText[sp.fehler] ?? "Eingabe prüfen."}
-        </p>
+        </Alert>
       ) : null}
 
       <Card>

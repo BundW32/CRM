@@ -1,4 +1,4 @@
-import { buttonClass, Field, inputClass } from "@/components/ui";
+import { Alert, buttonClass, Field, inputClass } from "@/components/ui";
 import { BwLogo } from "@/components/logo";
 import { requestPasswordReset } from "./actions";
 
@@ -20,11 +20,11 @@ export default async function ForgotPasswordPage({
 
           {gesendet ? (
             <div className="space-y-4">
-              <p className="rounded-md bg-green-50 px-3 py-3 text-sm text-green-800">
+              <Alert variant="success">
                 Falls die eingegebene E-Mail-Adresse in unserem System bekannt ist,
                 wurde ein Link zum Zurücksetzen verschickt. Bitte prüfen Sie Ihr
                 Postfach (und den Spam-Ordner).
-              </p>
+              </Alert>
               <a href="/login" className="block text-center text-sm text-brand-green hover:underline">
                 Zurück zur Anmeldung
               </a>
@@ -32,9 +32,9 @@ export default async function ForgotPasswordPage({
           ) : (
             <>
               {fehler ? (
-                <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                <Alert variant="error" className="mb-4">
                   Bitte geben Sie eine gültige E-Mail-Adresse ein.
-                </p>
+                </Alert>
               ) : null}
               <p className="mb-4 text-sm text-gray-600">
                 Geben Sie Ihre E-Mail-Adresse ein. Wir senden Ihnen einen Link, mit dem

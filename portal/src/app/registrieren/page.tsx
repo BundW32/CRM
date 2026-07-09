@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Field, buttonClass, inputClass } from "@/components/ui";
+import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { AccountTypeFields } from "./account-type-fields";
 import { registerOrganization } from "./actions";
 
@@ -35,9 +35,9 @@ export default async function RegisterPage({
           </p>
 
           {fehler ? (
-            <p className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">
+            <Alert variant="error" className="mb-4">
               {errorMessages[fehler] ?? "Die Registrierung konnte nicht verarbeitet werden."}
-            </p>
+            </Alert>
           ) : null}
 
           <form action={registerOrganization} className="space-y-4">

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { buttonSecondaryClass } from "@/components/ui";
+import { Alert, buttonSecondaryClass } from "@/components/ui";
 import { LetterHead, letterFooterLine } from "@/components/letter-branding";
 import { canVerwalterManageUser } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -62,11 +62,11 @@ export default async function ZugangsschreibenPage({
       </div>
 
       {!pw ? (
-        <div className="no-print mx-auto mb-4 max-w-3xl rounded-md bg-amber-50 px-6 py-3 text-sm text-amber-800">
+        <Alert variant="warning" className="no-print mx-auto mb-4 max-w-3xl">
           Das Erst-Passwort kann aus Sicherheitsgründen nur direkt nach der Erstellung
           angezeigt werden. Über „Nutzer → Zugangsschreiben neu erstellen“ können Sie ein
           neues Erst-Passwort erzeugen.
-        </div>
+        </Alert>
       ) : null}
 
       {/* Das eigentliche A4-Schreiben */}

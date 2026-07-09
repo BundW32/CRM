@@ -1,4 +1,4 @@
-import { Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { SubmitButton } from "@/components/submit-button";
 import { ownedProperties, propertyWhereForVerwalter, tenantUnits } from "@/lib/access";
@@ -104,16 +104,16 @@ export default async function ZaehlerPage({
       <PageTitle>Zählerstände</PageTitle>
 
       {gespeichert ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Zählerstand gespeichert. Vielen Dank!
-        </p>
+        </Alert>
       ) : null}
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           {fehler === "wert"
             ? "Bitte einen gültigen Zählerstand (Zahl) eingeben."
             : "Bitte alle Pflichtfelder ausfüllen."}
-        </p>
+        </Alert>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">

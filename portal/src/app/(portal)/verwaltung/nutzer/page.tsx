@@ -2,10 +2,10 @@ import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { Card, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
-import { propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
+import { isSelfManaged, propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, roleLabels, tradeLabels } from "@/lib/labels";
-import { requireVerwalter } from "@/lib/session";
+import { getOrganization, requireVerwalter } from "@/lib/session";
 import { AddTenancyForm } from "./add-tenancy-form";
 import { CraftsmanAssignPicker } from "./craftsman-assign";
 import { NewUserForm } from "./new-user-form";
@@ -54,6 +54,7 @@ export default async function UsersPage({
   }>;
 }) {
   const verwalter = await requireVerwalter();
+  const selfManaged = isSelfManaged(await getOrganization());
   const { fehler, msg, eingeladen, anonymisiert, stammdaten, q, rolle, objekt, page } =
     await searchParams;
 
@@ -591,7 +592,11 @@ export default async function UsersPage({
         </div>
 
         <Card title="Neuen Nutzer anlegen">
-          <NewUserForm properties={propsForNewUser} isSuperAdmin={verwalter.isSuperAdmin} />
+          <NewUserForm
+            properties={propsForNewUser}
+            isSuperAdmin={verwalter.isSuperAdmin}
+            selfManaged={selfManaged}
+          />
         </Card>
       </div>
     </>

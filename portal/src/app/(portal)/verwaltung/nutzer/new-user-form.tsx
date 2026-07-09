@@ -14,11 +14,13 @@ type Property = { id: string; name: string };
 export function NewUserForm({
   properties,
   isSuperAdmin,
+  selfManaged = false,
 }: {
   properties: Property[];
   isSuperAdmin: boolean;
+  selfManaged?: boolean;
 }) {
-  const [role, setRole] = useState("MIETER");
+  const [role, setRole] = useState(selfManaged ? "EIGENTUEMER" : "MIETER");
   const [propertyId, setPropertyId] = useState("");
   const [unitId, setUnitId] = useState("");
   const [units, setUnits] = useState<UnitOption[]>([]);
@@ -79,12 +81,14 @@ export function NewUserForm({
           value={role}
           onChange={(e) => setRole(e.target.value)}
         >
-          <option value="MIETER">Mieter</option>
+          {/* Selbstverwaltung: keine Mieter/Handwerker-Konten (kein professionelles
+              Mietverhältnis) – nur Eigentümer und (für den internen Admin) Verwalter. */}
+          {!selfManaged ? <option value="MIETER">Mieter</option> : null}
           <option value="EIGENTUEMER">Eigentümer</option>
           {isSuperAdmin ? (
             <>
               <option value="VERWALTER">Verwalter</option>
-              <option value="HANDWERKER">Handwerker</option>
+              {!selfManaged ? <option value="HANDWERKER">Handwerker</option> : null}
             </>
           ) : null}
         </select>

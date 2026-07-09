@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { Building2, ClipboardCheck, Clock, Inbox } from "lucide-react";
+import { Building2, ClipboardCheck, Clock, Home, Inbox, Megaphone, Pin } from "lucide-react";
 import type { User } from "@/generated/prisma/client";
 import { PropertyStats } from "@/components/property-stats";
 import { StatTile } from "@/components/stat-tile";
-import { Card, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
+import { Alert, Card, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
 import {
   announcementWhereForUser,
   isSelfManaged,
@@ -90,25 +90,31 @@ export default async function DashboardPage({
       </PageTitle>
 
       {verify === "gesendet" ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
-          Bestätigungs-E-Mail gesendet. Bitte prüfen Sie Ihr Postfach.
-        </p>
+        <div className="mb-4">
+          <Alert variant="success">
+            Bestätigungs-E-Mail gesendet. Bitte prüfen Sie Ihr Postfach.
+          </Alert>
+        </div>
       ) : null}
 
       {emailUnverified ? (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
-          <span className="text-sm text-amber-900">
-            <span className="font-semibold">E-Mail bestätigen:</span> Wir haben Ihnen einen
-            Bestätigungslink an {user.email} geschickt.
-          </span>
-          <form action={resendVerification}>
-            <button
-              type="submit"
-              className="shrink-0 rounded-lg border border-amber-400 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100"
-            >
-              Erneut senden
-            </button>
-          </form>
+        <div className="mb-5">
+          <Alert
+            variant="warning"
+            title="E-Mail bestätigen:"
+            action={
+              <form action={resendVerification}>
+                <button
+                  type="submit"
+                  className="shrink-0 rounded-lg border border-amber-400 px-3 py-1.5 text-sm font-medium text-amber-900 transition hover:bg-amber-100"
+                >
+                  Erneut senden
+                </button>
+              </form>
+            }
+          >
+            Wir haben Ihnen einen Bestätigungslink an {user.email} geschickt.
+          </Alert>
         </div>
       ) : null}
 
@@ -134,7 +140,9 @@ export default async function DashboardPage({
         <div className="space-y-5 lg:col-span-2">
           <Card title={`Aktuelle Vorgänge (${openTickets} offen)`}>
             {latestTickets.length === 0 ? (
-              <EmptyState>Es liegen noch keine Vorgänge vor.</EmptyState>
+              <EmptyState icon={<Inbox className="h-5 w-5" />}>
+                Es liegen noch keine Vorgänge vor.
+              </EmptyState>
             ) : (
               <ul className="divide-y divide-gray-100">
                 {latestTickets.map((ticket) => (
@@ -169,7 +177,9 @@ export default async function DashboardPage({
         <div className="space-y-5">
           <Card title="Aktuelle Aushänge">
             {announcements.length === 0 ? (
-              <EmptyState>Keine Aushänge vorhanden.</EmptyState>
+              <EmptyState icon={<Megaphone className="h-5 w-5" />}>
+                Keine Aushänge vorhanden.
+              </EmptyState>
             ) : (
               <ul className="space-y-4">
                 {announcements.map((a) => (
@@ -188,7 +198,7 @@ export default async function DashboardPage({
           {user.role === "VERWALTER" ? (
             <Card title="Pinnwand">
               {pinnedNotes.length === 0 ? (
-                <EmptyState>Keine gepinnten Notizen.</EmptyState>
+                <EmptyState icon={<Pin className="h-5 w-5" />}>Keine gepinnten Notizen.</EmptyState>
               ) : (
                 <ul className="space-y-3">
                   {pinnedNotes.map((note) => {
@@ -329,7 +339,9 @@ async function MieterWohnung({ userId }: { userId: string }) {
   return (
     <Card title="Ihre Wohnung">
       {units.length === 0 ? (
-        <EmptyState>Ihnen ist noch keine Wohnung zugeordnet.</EmptyState>
+        <EmptyState icon={<Home className="h-5 w-5" />}>
+          Ihnen ist noch keine Wohnung zugeordnet.
+        </EmptyState>
       ) : (
         <ul className="space-y-2">
           {units.map((u) => (

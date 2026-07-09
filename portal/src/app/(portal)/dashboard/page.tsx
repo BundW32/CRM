@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { Building2, ClipboardCheck, Clock, Inbox } from "lucide-react";
 import type { User } from "@/generated/prisma/client";
-import { CountUp } from "@/components/count-up";
 import { PropertyStats } from "@/components/property-stats";
+import { StatTile } from "@/components/stat-tile";
 import { Card, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
 import {
   announcementWhereForUser,
@@ -126,7 +127,10 @@ export default async function DashboardPage({
         </Link>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      {/* Kennzahlen zuerst – der Verwalter erfasst den Zustand auf einen Blick. */}
+      {user.role === "VERWALTER" ? <VerwalterStats user={user} /> : null}
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
           <Card title={`Aktuelle Vorgänge (${openTickets} offen)`}>
             {latestTickets.length === 0 ? (
@@ -158,7 +162,6 @@ export default async function DashboardPage({
             )}
           </Card>
 
-          {user.role === "VERWALTER" ? <VerwalterStats user={user} /> : null}
           {user.role === "VERWALTER" ? <WartungReminder user={user} /> : null}
           {user.role === "MIETER" ? <MieterWohnung userId={user.id} /> : null}
         </div>
@@ -254,23 +257,17 @@ async function VerwalterStats({ user }: { user: User }) {
     db.ticket.count({ where: { ...ticketWhere, status: "BEAUFTRAGT" } }),
     db.property.count({ where: propWhere }),
   ]);
+  const iconClass = "h-[18px] w-[18px]";
   const stats = [
-    { label: "Neue Vorgänge", value: neu },
-    { label: "In Bearbeitung", value: inBearbeitung },
-    { label: "Beauftragt", value: beauftragt },
-    { label: "Objekte", value: objekte },
+    { label: "Neue Vorgänge", value: neu, icon: <Inbox className={iconClass} />, href: "/vorgaenge?status=NEU" },
+    { label: "In Bearbeitung", value: inBearbeitung, icon: <Clock className={iconClass} />, href: "/vorgaenge?status=IN_BEARBEITUNG" },
+    { label: "Beauftragt", value: beauftragt, icon: <ClipboardCheck className={iconClass} />, href: "/vorgaenge?status=BEAUFTRAGT" },
+    { label: "Objekte", value: objekte, icon: <Building2 className={iconClass} /> },
   ];
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
       {stats.map((s) => (
-        <div
-          key={s.label}
-          className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
-        >
-          <span className="absolute inset-x-0 top-0 h-1 bg-brand-orange" />
-          <p className="text-3xl font-bold tracking-tight text-brand-green"><CountUp value={s.value} /></p>
-          <p className="mt-1 text-xs font-medium text-gray-500">{s.label}</p>
-        </div>
+        <StatTile key={s.label} label={s.label} value={s.value} icon={s.icon} href={s.href} />
       ))}
     </div>
   );

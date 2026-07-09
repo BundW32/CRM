@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui";
-import { CountUp } from "@/components/count-up";
+import { StatTile } from "@/components/stat-tile";
 import { db } from "@/lib/db";
 import { ticketStatusLabels, tradeLabels } from "@/lib/labels";
 
@@ -50,48 +50,20 @@ export async function PropertyStats({
         ).toFixed(1)
       : null;
 
-  const kpis = [
-    { label: "Einheiten", value: String(unitCount), link: null },
-    { label: "Vermietungsquote", value: occupancy !== null ? `${occupancy} %` : "–", link: null },
-    {
-      label: "Offene Vorgänge",
-      value: String(openTickets),
-      link: `/vorgaenge?propertyId=${propertyId}`,
-    },
-    {
-      label: "Vorgänge gesamt",
-      value: String(totalTickets),
-      link: `/vorgaenge?propertyId=${propertyId}`,
-    },
-    { label: "Ø Bearbeitungszeit", value: avgDays !== null ? `${avgDays} Tage` : "–", link: null },
+  const kpis: { label: string; value: number | string; href?: string }[] = [
+    { label: "Einheiten", value: unitCount },
+    { label: "Vermietungsquote", value: occupancy !== null ? `${occupancy} %` : "–" },
+    { label: "Offene Vorgänge", value: openTickets, href: `/vorgaenge?propertyId=${propertyId}` },
+    { label: "Vorgänge gesamt", value: totalTickets, href: `/vorgaenge?propertyId=${propertyId}` },
+    { label: "Ø Bearbeitungszeit", value: avgDays !== null ? `${avgDays} Tage` : "–" },
   ];
 
   return (
     <Card title={name}>
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {kpis.map((k) => {
-          const numVal = parseInt(k.value, 10);
-          const isNum = !isNaN(numVal) && !k.value.includes(" ") && !k.value.includes("%");
-          const display = isNum ? <CountUp value={numVal} /> : k.value;
-          const tileClass =
-            "rounded-md bg-gray-50 p-3 text-center transition-all hover:-translate-y-0.5 hover:shadow-md" +
-            (k.link ? " cursor-pointer hover:bg-orange-50" : "");
-          const inner = (
-            <>
-              <p className="text-xl font-semibold text-gray-900">{display}</p>
-              <p className="text-xs text-gray-500">{k.label}</p>
-            </>
-          );
-          return k.link ? (
-            <a key={k.label} href={k.link} className={tileClass}>
-              {inner}
-            </a>
-          ) : (
-            <div key={k.label} className={tileClass}>
-              {inner}
-            </div>
-          );
-        })}
+        {kpis.map((k) => (
+          <StatTile key={k.label} label={k.label} value={k.value} href={k.href} />
+        ))}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

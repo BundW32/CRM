@@ -247,6 +247,8 @@ function RoomCard({
               <div className="flex flex-wrap gap-2 mb-3">
                 {room.photos.map((photo) => (
                   <div key={photo.id} className="relative group">
+                    {/* Dynamische, API-gelieferte Foto-Vorschau – <img> ist hier bewusst gewählt */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={`/api/files/handover-photo/${photo.id}`}
                       alt={photo.fileName}

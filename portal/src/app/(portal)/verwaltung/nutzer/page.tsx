@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
-import { Card, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { isSelfManaged, propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -150,25 +150,25 @@ export default async function UsersPage({
       </PageTitle>
 
       {eingeladen ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Einladungs-E-Mail wurde versandt (sofern SMTP konfiguriert ist).
-        </p>
+        </Alert>
       ) : null}
       {anonymisiert ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Der Nutzer wurde anonymisiert (DSGVO-Löschung). Personenbezogene Daten wurden entfernt.
-        </p>
+        </Alert>
       ) : null}
       {stammdaten ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Stammdaten/Unterschrift gespeichert.
-        </p>
+        </Alert>
       ) : null}
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           {errorMessages[fehler] ?? "Aktion fehlgeschlagen."}
           {msg ? <span className="mt-1 block text-xs text-red-500">Details: {msg}</span> : null}
-        </p>
+        </Alert>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -216,7 +216,7 @@ export default async function UsersPage({
               </label>
               <button
                 type="submit"
-                className="rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-green-dark shadow-sm transition-all hover:bg-brand-orange-dark active:scale-95"
+                className="rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-green-dark shadow-sm transition-all hover:bg-brand-orange-dark active:scale-[0.98]"
               >
                 Filtern
               </button>

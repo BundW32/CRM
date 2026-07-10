@@ -109,6 +109,8 @@ export function ZaehlerClient({ handoverId, initialMeters }: { handoverId: strin
             {/* Foto */}
             <div className="mt-4">
               {meter.photoStoredName && (
+                /* Dynamische, API-gelieferte Zählerfoto-Vorschau – <img> ist hier bewusst gewählt */
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={`/api/files/handover-meter/${meter.id}`}
                   alt="Zählerfoto"

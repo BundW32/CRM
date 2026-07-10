@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { User } from "@/generated/prisma/client";
-import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { PropertyUnitFields } from "@/components/property-unit-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { announcementWhereForUser, documentWhereForUser, propertyWhereForVerwalter } from "@/lib/access";
@@ -67,13 +67,13 @@ export default async function InfosPage({
       </div>
 
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           {fehler === "datei"
             ? "Nur PDF oder Bilder bis 10 MB sind erlaubt."
             : fehler === "anfrage"
               ? "Bitte ein Dokument wählen oder kurz beschreiben."
               : "Bitte alle Pflichtfelder korrekt ausfüllen."}
-        </p>
+        </Alert>
       ) : null}
 
       {tab === "aushaenge" ? (

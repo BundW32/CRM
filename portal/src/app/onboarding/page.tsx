@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Alert } from "@/components/ui";
 import { orgLogoUrl } from "@/lib/branding";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { BrandingForm, type BrandingDefaults } from "@/app/(portal)/verwaltung/branding/branding-form";
@@ -50,7 +51,7 @@ export default async function OnboardingPage({
           </p>
 
           {fehler ? (
-            <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{fehler}</p>
+            <Alert variant="error" className="mb-4">{fehler}</Alert>
           ) : null}
 
           <BrandingForm

@@ -29,6 +29,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="de" className="h-full antialiased">
+      <head>
+        {/* Wichtigste Schriftschnitte vorladen – vermeidet FOIT/Layout-Shift */}
+        <link rel="preload" href="/fonts/inter-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/inter-600.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/jakarta-700.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+      </head>
       <body className="bw-shell-bg flex min-h-full flex-col text-gray-100">
         <ServiceWorkerRegister />
         {children}

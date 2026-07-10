@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { formatCents, formatInvoiceNumber, invoiceGrossCents, requirePlatformAdmin } from "@/lib/platform";
@@ -97,12 +97,12 @@ export default async function RechnungenPage({
       </PageTitle>
 
       {sp.gemahnt ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           {sp.gemahnt} Mahnung(en) versendet.
-        </p>
+        </Alert>
       ) : null}
       {sp.mahnung ? (
-        <p className="mb-4 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800">
+        <Alert variant="info" className="mb-4">
           {sp.mahnung === "sent"
             ? "Mahnung versendet."
             : sp.mahnung === "too_soon"
@@ -116,7 +116,7 @@ export default async function RechnungenPage({
                     : sp.mahnung === "limit"
                       ? "Bitte kurz warten – Sammel-Mahnung gerade ausgeführt."
                       : "Mahnung nicht möglich."}
-        </p>
+        </Alert>
       ) : null}
 
       <div className="mb-4 grid grid-cols-2 gap-4 sm:max-w-md">

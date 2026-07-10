@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { EmptyState, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, EmptyState, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
@@ -81,14 +81,14 @@ export default async function PropertiesPage({
       </PageTitle>
 
       {eingerichtet ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Objekt wurde angelegt. Mieter können Sie jetzt unter „Nutzer“ hinzufügen.
-        </p>
+        </Alert>
       ) : null}
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           Bitte alle Pflichtfelder korrekt ausfüllen.
-        </p>
+        </Alert>
       ) : null}
 
       <div className="space-y-4">

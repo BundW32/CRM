@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { canVerwalterAccessProperty, ownedProperties } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels } from "@/lib/labels";
@@ -88,17 +88,17 @@ export default async function MeetingDetailPage({
       </PageTitle>
 
       {eingeladen ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Einladung an {eingeladen} Eigentümer versendet.
-        </p>
+        </Alert>
       ) : null}
       {protokoll ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Protokoll erstellt und für Eigentümer bereitgestellt.
-        </p>
+        </Alert>
       ) : null}
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           {fehler === "gesperrt"
             ? "Die Versammlung ist abgeschlossen – Tagesordnung und Einladung sind gesperrt."
             : fehler === "abgesagt"
@@ -110,12 +110,12 @@ export default async function MeetingDetailPage({
                   : fehler === "gerade_versendet"
                     ? "Die Einladung wurde gerade erst versendet – bitte kurz warten, bevor Sie erneut senden."
                     : "Bitte Titel und einen gültigen Termin angeben."}
-        </p>
+        </Alert>
       ) : null}
       {hinweis === "neuterminieren" ? (
-        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">
+        <Alert variant="warning" className="mb-4">
           Termin geändert – bitte die Einladung erneut an die Eigentümer senden.
-        </p>
+        </Alert>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">

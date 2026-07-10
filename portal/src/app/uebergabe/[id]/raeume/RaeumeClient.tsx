@@ -95,7 +95,7 @@ function RoomCheckRow({
           <button
             type="button"
             onClick={() => setShowNote((s) => !s)}
-            className={`ml-0.5 rounded-lg px-2 py-1 text-xs transition-all active:scale-95 ${
+            className={`ml-0.5 rounded-lg px-2 py-1 text-xs transition-all active:scale-[0.98] ${
               showNote || note ? "bg-brand-orange/10 text-brand-orange font-medium" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
             }`}
             title={showNote ? "Notiz verbergen" : "Notiz hinzufügen"}
@@ -189,7 +189,7 @@ function RoomCard({
             <button
               type="submit"
               title="Raum entfernen"
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 active:scale-95 transition-all"
+              className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 active:scale-[0.98] transition-all"
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a1 1 0 01-1 1H6a1 1 0 01-1-1V6" strokeLinecap="round" strokeLinejoin="round" />
@@ -200,7 +200,7 @@ function RoomCard({
             type="button"
             onClick={onToggle}
             title={open ? "Zuklappen" : "Zustand erfassen"}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 active:scale-95 transition-all"
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 active:scale-[0.98] transition-all"
           >
             <svg viewBox="0 0 24 24" className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
@@ -247,6 +247,8 @@ function RoomCard({
               <div className="flex flex-wrap gap-2 mb-3">
                 {room.photos.map((photo) => (
                   <div key={photo.id} className="relative group">
+                    {/* Dynamische, API-gelieferte Foto-Vorschau – <img> ist hier bewusst gewählt */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={`/api/files/handover-photo/${photo.id}`}
                       alt={photo.fileName}
@@ -324,7 +326,7 @@ export function RaeumeClient({ handoverId, initialRooms }: { handoverId: string;
               <input type="hidden" name="roomType" value={q.type} />
               <button
                 type="submit"
-                className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-brand-orange/40 hover:bg-brand-orange/5 hover:text-brand-orange-dark active:scale-95 transition-all"
+                className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-brand-orange/40 hover:bg-brand-orange/5 hover:text-brand-orange-dark active:scale-[0.98] transition-all"
               >
                 <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />

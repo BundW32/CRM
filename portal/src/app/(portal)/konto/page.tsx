@@ -1,4 +1,4 @@
-import { Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { Alert, Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { getOrganization, requireUser } from "@/lib/session";
@@ -71,14 +71,14 @@ export default async function AccountPage({
 
         <Card title="Passwort ändern">
           {fehler ? (
-            <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <Alert variant="error" className="mb-3">
               {errorMessages[fehler] ?? "Passwortänderung fehlgeschlagen."}
-            </p>
+            </Alert>
           ) : null}
           {ok ? (
-            <p className="mb-3 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+            <Alert variant="success" className="mb-3">
               Ihr Passwort wurde geändert.
-            </p>
+            </Alert>
           ) : null}
           <form action={changePassword} className="space-y-3">
             <Field label="Aktuelles Passwort">

@@ -200,7 +200,7 @@ export function BrandingForm({
       </div>
 
       <div className="flex justify-end">
-        <PendingButton className="inline-flex items-center justify-center rounded-lg bg-brand-green px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-green-dark active:scale-95 disabled:opacity-50">
+        <PendingButton className="inline-flex items-center justify-center rounded-lg bg-brand-green px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-green-dark active:scale-[0.98] disabled:opacity-50">
           {submitLabel}
         </PendingButton>
       </div>

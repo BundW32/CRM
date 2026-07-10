@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { buttonClass, inputClass, Field } from "@/components/ui";
+import { Alert, buttonClass, inputClass, Field } from "@/components/ui";
 import { BrandTheme } from "@/components/brand-theme";
 import { BwLogo, OrgLogo } from "@/components/logo";
 import { db } from "@/lib/db";
@@ -41,16 +41,19 @@ export default async function LoginPage({
           ) : (
             <BwLogo className="mx-auto mb-1 h-20 w-auto" />
           )}
-          <p className="mb-6 text-center text-sm font-medium text-gray-400">
+          <p className="mb-4 text-center text-sm font-medium text-gray-400">
             Kundenportal
+          </p>
+          <p className="mx-auto mb-6 max-w-[16rem] text-center text-[13px] leading-relaxed text-gray-500">
+            Ihr sicherer Zugang zu Vorgängen, Dokumenten und Nachrichten.
           </p>
           <h1 className="mb-5 text-center text-lg font-semibold text-gray-800">
             Anmelden
           </h1>
           {fehler ? (
-            <p className="mb-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700">
-              Anmeldedaten oder Passwort sind falsch.
-            </p>
+            <div className="mb-4">
+              <Alert variant="error">Anmeldedaten oder Passwort sind falsch.</Alert>
+            </div>
           ) : null}
           <form action={login} className="space-y-4">
             <Field label="E-Mail-Adresse oder Benutzername">

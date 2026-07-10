@@ -3,11 +3,47 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import {
+  Building2,
+  ClipboardList,
+  FileText,
+  Gauge,
+  Gavel,
+  Info,
+  LayoutDashboard,
+  LayoutGrid,
+  MessageSquare,
+  Users,
+  UserRound,
+} from "lucide-react";
 import { logout } from "@/app/login/actions";
 import { OrgLogo } from "@/components/logo";
 import { NavLink } from "@/components/nav";
 
 type NavItem = { href: string; label: string };
+
+// Icon je Navigationsziel – im Mobil-Menü genutzt (verbessert die Scanbarkeit);
+// die Desktop-Leiste bleibt bewusst textbasiert und schlank.
+const navIcons: Record<string, LucideIcon> = {
+  "/dashboard": LayoutDashboard,
+  "/vorgaenge": ClipboardList,
+  "/beschluesse": Gavel,
+  "/versammlungen": Users,
+  "/antraege": FileText,
+  "/gemeinschaft": Users,
+  "/nachrichten": MessageSquare,
+  "/infos": Info,
+  "/zaehler": Gauge,
+  "/verwaltung": Building2,
+  "/plattform": LayoutGrid,
+  "/konto": UserRound,
+};
+
+function NavIcon({ href }: { href: string }) {
+  const Icon = navIcons[href];
+  return Icon ? <Icon className="h-[18px] w-[18px] shrink-0" /> : null;
+}
 
 export function PortalHeader({
   nav,
@@ -139,12 +175,13 @@ export function PortalHeader({
                     <Link
                       href={item.href}
                       onClick={() => setMenuOpen(false)}
-                      className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                         isActive(item.href)
                           ? "bg-brand-orange-light text-brand-orange-dark"
                           : "text-gray-700 hover:bg-gray-100"
                       }`}
                     >
+                      <NavIcon href={item.href} />
                       {item.label}
                     </Link>
                   </li>
@@ -153,12 +190,13 @@ export function PortalHeader({
                   <Link
                     href="/konto"
                     onClick={() => setMenuOpen(false)}
-                    className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                       isActive("/konto")
                         ? "bg-brand-orange-light text-brand-orange-dark"
                         : "text-gray-700 hover:bg-gray-100"
                     }`}
                   >
+                    <NavIcon href="/konto" />
                     Konto
                   </Link>
                 </li>

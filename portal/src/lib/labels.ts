@@ -65,6 +65,16 @@ export const ticketStatusStyles: Record<TicketStatus, string> = {
   GESCHLOSSEN: "bg-gray-200 text-gray-700",
 };
 
+// Solide Balkenfarbe je Status – harmoniert mit den Badge-Farben oben, damit
+// Diagramme und Badges dieselbe Farbsprache sprechen (zugänglich, ≥3:1).
+export const ticketStatusBarColor: Record<TicketStatus, string> = {
+  NEU: "bg-blue-500",
+  IN_BEARBEITUNG: "bg-amber-500",
+  BEAUFTRAGT: "bg-purple-500",
+  ERLEDIGT: "bg-emerald-500",
+  GESCHLOSSEN: "bg-gray-400",
+};
+
 export const ticketPriorityLabels: Record<TicketPriority, string> = {
   NIEDRIG: "Niedrig",
   NORMAL: "Normal",

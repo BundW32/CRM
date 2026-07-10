@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Field, buttonClass, inputClass } from "@/components/ui";
+import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { BwLogo } from "@/components/logo";
 import { db } from "@/lib/db";
 import { createFirstAdmin } from "./actions";
@@ -29,9 +29,9 @@ export default async function SetupPage({
             Verwalter-Zugang an — danach verwalten Sie alles im Portal.
           </p>
           {fehler ? (
-            <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <Alert variant="error" className="mb-4">
               Bitte alle Felder ausfüllen (Passwort mind. 10 Zeichen).
-            </p>
+            </Alert>
           ) : null}
           <form action={createFirstAdmin} className="space-y-4">
             <Field label="Name">

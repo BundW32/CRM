@@ -13,7 +13,7 @@ function AssignSubmit({ count }: { count: number }) {
     <button
       type="submit"
       disabled={pending || count === 0}
-      className="rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-green-dark transition-all hover:bg-brand-orange-dark active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+      className="rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-green-dark transition-all hover:bg-brand-orange-dark active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
     >
       {pending
         ? "Wird zugewiesen…"

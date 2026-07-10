@@ -1,4 +1,4 @@
-import { buttonClass, Field, inputClass } from "@/components/ui";
+import { Alert, buttonClass, Field, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { BwLogo } from "@/components/logo";
 import { resetPassword } from "./actions";
@@ -43,11 +43,11 @@ export default async function ResetPasswordPage({
 
           {fehler === "abgelaufen" || !user ? (
             <div className="space-y-4">
-              <p className="rounded-md bg-red-50 px-3 py-3 text-sm text-red-700">
+              <Alert variant="error">
                 {isInvite
                   ? "Dieser Einladungslink ist abgelaufen oder ungültig. Bitte wenden Sie sich an die Verwaltung."
                   : errorMessages.abgelaufen}
-              </p>
+              </Alert>
               {!isInvite ? (
                 <a
                   href="/login/forgot"
@@ -63,9 +63,9 @@ export default async function ResetPasswordPage({
           ) : (
             <>
               {fehler ? (
-                <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                <Alert variant="error" className="mb-4">
                   {errorMessages[fehler] ?? "Fehler beim Speichern."}
-                </p>
+                </Alert>
               ) : null}
               <p className="mb-4 text-sm text-gray-600">
                 {isInvite

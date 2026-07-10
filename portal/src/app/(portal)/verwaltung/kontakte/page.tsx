@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -56,16 +56,16 @@ export default async function KontaktePage({
       </PageTitle>
 
       {angelegt ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Handwerker wurde im Kontaktbuch gespeichert.
-        </p>
+        </Alert>
       ) : null}
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           {fehler === "email"
             ? "Diese E-Mail-Adresse wird bereits von einer anderen Person verwendet."
             : "Bitte Pflichtfelder (Name, Gewerk) korrekt ausfüllen."}
-        </p>
+        </Alert>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">

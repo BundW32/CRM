@@ -12,7 +12,7 @@ import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireVerwalter } from "@/lib/session";
-import { IMAGE_TYPES, deleteBlob, saveBuffer, saveUpload } from "@/lib/storage";
+import { IMAGE_TYPES, deleteBlob, saveBuffer } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";

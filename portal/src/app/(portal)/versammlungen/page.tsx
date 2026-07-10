@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
@@ -60,11 +60,11 @@ export default async function VersammlungenPage({
       <PageTitle>Eigentümerversammlungen</PageTitle>
 
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           {fehler === "keinweg"
             ? "Versammlungen sind nur für WEG-Objekte möglich."
             : "Bitte Objekt, Titel und Termin ausfüllen."}
-        </p>
+        </Alert>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">

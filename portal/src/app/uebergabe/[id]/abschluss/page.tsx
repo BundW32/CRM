@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessHandover } from "@/lib/access";
-import { buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { Alert, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
 import { generateHandoverPdf, sendHandoverEmail } from "./actions";
 
@@ -112,9 +112,9 @@ ${handover.managerName ?? ""}`.trim();
             <h2 className="font-semibold text-gray-900">Protokoll per E-Mail versenden</h2>
 
             {sent && (
-              <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">
+              <Alert variant="success">
                 ✓ Protokoll an {sent} Empfänger gesendet.
-              </div>
+              </Alert>
             )}
 
             <form action={sendHandoverEmail} className="space-y-4">

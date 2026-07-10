@@ -17,7 +17,7 @@ function Counter({ value, onChange }: { value: number; onChange: (n: number) => 
       <button
         type="button"
         onClick={() => onChange(Math.max(0, value - 1))}
-        className="w-7 h-7 rounded-md border border-gray-300 bg-white flex items-center justify-center text-gray-600 hover:bg-gray-100 active:scale-95 transition-all select-none"
+        className="w-7 h-7 rounded-md border border-gray-300 bg-white flex items-center justify-center text-gray-600 hover:bg-gray-100 active:scale-[0.98] transition-all select-none"
         aria-label="Verringern"
       >
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -28,7 +28,7 @@ function Counter({ value, onChange }: { value: number; onChange: (n: number) => 
       <button
         type="button"
         onClick={() => onChange(value + 1)}
-        className="w-7 h-7 rounded-md border border-gray-300 bg-white flex items-center justify-center text-gray-600 hover:bg-gray-100 active:scale-95 transition-all select-none"
+        className="w-7 h-7 rounded-md border border-gray-300 bg-white flex items-center justify-center text-gray-600 hover:bg-gray-100 active:scale-[0.98] transition-all select-none"
         aria-label="Erhöhen"
       >
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -128,7 +128,7 @@ export function KeysSection({
             <button
               type="button"
               onClick={() => removeCustomKey(k.id)}
-              className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 active:scale-95 transition-all"
+              className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 active:scale-[0.98] transition-all"
               aria-label="Entfernen"
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -141,7 +141,7 @@ export function KeysSection({
         <button
           type="button"
           onClick={addCustomKey}
-          className="flex items-center gap-1.5 text-sm font-medium text-brand-orange hover:text-brand-orange-dark active:scale-95 transition-all"
+          className="flex items-center gap-1.5 text-sm font-medium text-brand-orange hover:text-brand-orange-dark active:scale-[0.98] transition-all"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />

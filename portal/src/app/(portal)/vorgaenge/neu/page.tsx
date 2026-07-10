@@ -1,4 +1,4 @@
-import { Card, PageTitle } from "@/components/ui";
+import { Alert, Card, PageTitle } from "@/components/ui";
 import { propertyWhereForVerwalter, ticketTargetsForUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getOrganization, requireUser } from "@/lib/session";
@@ -43,9 +43,9 @@ export default async function NewTicketPage({
       </PageTitle>
 
       {fehler ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           {errorMessages[fehler] ?? "Die Eingabe konnte nicht verarbeitet werden."}
-        </p>
+        </Alert>
       ) : null}
 
       {!hasTargets ? (

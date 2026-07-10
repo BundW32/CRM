@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { buttonSecondaryClass } from "@/components/ui";
+import { Alert, buttonSecondaryClass } from "@/components/ui";
 import { LetterHead, letterFooterLine } from "@/components/letter-branding";
 import { db } from "@/lib/db";
 import { brandingFromOrg, orgLogoUrl } from "@/lib/branding";
@@ -72,11 +72,11 @@ export default async function BatchZugangsschreibenPage({
         </div>
       </div>
 
-      <div className="no-print mx-auto mb-4 max-w-3xl rounded-md bg-amber-50 px-6 py-3 text-sm text-amber-800">
+      <Alert variant="warning" className="no-print mx-auto mb-4 max-w-3xl">
         Drucken Sie alle Schreiben jetzt aus. Die Erst-Passwörter werden aus
         Sicherheitsgründen nicht gespeichert und können später nur durch neue Schreiben
         ersetzt werden.
-      </div>
+      </Alert>
 
       {letters.map(({ user, pw }, idx) => {
         const loginName = user.email ?? user.username ?? "—";

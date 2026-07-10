@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
+import { Alert,
   Card,
   Field,
   PageTitle,
@@ -132,6 +132,8 @@ export default async function TicketDetailPage({
   const suggestedUnits: UnitOption[] = suggestedPropertyId
     ? await loadUnitsForProperty(suggestedPropertyId)
     : [];
+  // Zeitpunkt einmal beim Rendern bestimmen (kein Date.now() direkt im JSX).
+  const now = new Date().getTime();
 
   return (
     <>
@@ -140,79 +142,79 @@ export default async function TicketDetailPage({
       </PageTitle>
 
       {beauftragt ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Der Handwerker wurde per E-Mail beauftragt (sofern SMTP konfiguriert ist).
-        </p>
+        </Alert>
       ) : null}
       {bereitgestellt ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Dokument hochgeladen und für den Anfragenden bereitgestellt. Der Vorgang wurde
           als erledigt markiert.
-        </p>
+        </Alert>
       ) : null}
       {zugeordnet ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Vorgang wurde dem Objekt/der Einheit zugeordnet.
-        </p>
+        </Alert>
       ) : null}
       {freigegeben ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Externe Beauftragung freigegeben. Sie können den externen Handwerker jetzt
           beauftragen.
-        </p>
+        </Alert>
       ) : null}
       {termin === "bestaetigt" ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Termin bestätigt. Der Handwerker wurde informiert (sofern SMTP konfiguriert ist).
-        </p>
+        </Alert>
       ) : null}
       {termin === "abgelehnt" ? (
-        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <Alert variant="warning" className="mb-4">
           Terminvorschlag abgelehnt. Der Handwerker wurde um einen neuen Termin gebeten.
-        </p>
+        </Alert>
       ) : null}
       {abschluss === "gemeldet" ? (
-        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <Alert variant="warning" className="mb-4">
           Erledigung dokumentiert. Der Vorgang wartet jetzt auf Ihre Abschluss-Bestätigung.
-        </p>
+        </Alert>
       ) : null}
       {abschluss === "bestaetigt" ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Abschluss bestätigt – der Vorgang ist geschlossen.
-        </p>
+        </Alert>
       ) : null}
       {abschluss === "geoeffnet" ? (
-        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <Alert variant="warning" className="mb-4">
           Vorgang wieder geöffnet. Der Handwerker wurde über die Nacharbeit informiert
           (sofern SMTP konfiguriert ist).
-        </p>
+        </Alert>
       ) : null}
       {fehler === "freigabe" ? (
-        <p className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <Alert variant="warning" className="mb-4">
           Externe Handwerker dürfen erst nach Freigabe beauftragt werden. Bitte zuerst
           prüfen, ob die Arbeit intern (Eigenleistung) erledigt werden kann, und dann
           „Externe Beauftragung freigeben“ wählen.
-        </p>
+        </Alert>
       ) : null}
       {fehler === "keine_email" ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           Für diesen Handwerker ist keine E-Mail-Adresse hinterlegt. Bitte im Kontaktbuch
           ergänzen oder telefonisch beauftragen.
-        </p>
+        </Alert>
       ) : null}
       {fehler === "datei" || fehler === "titel" ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           {fehler === "datei"
             ? "Bitte eine gültige Datei (PDF, Bild oder Video, max. 100 MB) wählen."
             : "Bitte einen Titel für das Dokument angeben."}
-        </p>
+        </Alert>
       ) : null}
       {fehler === "cert" ? (
-        <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="error" className="mb-4">
           Die Bescheinigung konnte nicht automatisch erstellt werden. Bitte prüfen Sie, ob
           dem Vorgang ein Objekt zugeordnet ist.
           {msg ? <span className="mt-1 block text-xs text-red-500">Details: {msg}</span> : null}
-        </p>
+        </Alert>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -392,13 +394,13 @@ export default async function TicketDetailPage({
                   value={
                     <span
                       className={
-                        ticket.dueAt.getTime() < Date.now()
+                        ticket.dueAt.getTime() < now
                           ? "font-semibold text-red-600"
                           : ""
                       }
                     >
                       {formatDate(ticket.dueAt)}
-                      {ticket.dueAt.getTime() < Date.now() ? " · überfällig" : ""}
+                      {ticket.dueAt.getTime() < now ? " · überfällig" : ""}
                     </span>
                   }
                 />
@@ -841,9 +843,9 @@ export default async function TicketDetailPage({
                     </div>
                   ) : ticket.externalReleasedAt ? (
                     <div className="mt-3">
-                      <p className="mb-2 rounded-md bg-green-50 px-3 py-2 text-xs text-green-800">
+                      <Alert variant="success" className="mb-2">
                         Externe Beauftragung freigegeben am {formatDate(ticket.externalReleasedAt)}.
-                      </p>
+                      </Alert>
                       {ticket.craftsman.email ? (
                         <form action={notifyCraftsman}>
                           <input type="hidden" name="ticketId" value={ticket.id} />

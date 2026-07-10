@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { PLANS, isBillingEnabled, planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { formatDate } from "@/lib/labels";
 import { getOrganization, requireVerwalter } from "@/lib/session";
@@ -55,9 +55,9 @@ export default async function BillingPage({
         </dl>
 
         {sp.erfolg ? (
-          <p className="mt-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          <Alert variant="success" className="mt-4">
             Vielen Dank! Ihr Abo wird nun aktiviert – das kann einen Moment dauern.
-          </p>
+          </Alert>
         ) : null}
         {sp.abbruch ? (
           <p className="mt-4 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600">
@@ -65,11 +65,11 @@ export default async function BillingPage({
           </p>
         ) : null}
         {sp.fehler ? (
-          <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <Alert variant="error" className="mt-4">
             {sp.fehler === "kein_kunde"
               ? "Noch kein Abo vorhanden – bitte zuerst upgraden."
               : "Die Zahlungsabwicklung ist derzeit nicht verfügbar."}
-          </p>
+          </Alert>
         ) : null}
 
         {billingReady ? (

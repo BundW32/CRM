@@ -19,10 +19,10 @@ const errorMessages: Record<string, string> = {
 export default async function NachrichtenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; page?: string }>;
+  searchParams: Promise<{ fehler?: string; page?: string; gesendet?: string }>;
 }) {
   const user = await requireUser();
-  const { fehler, page } = await searchParams;
+  const { fehler, page, gesendet } = await searchParams;
   const isVerwalter = user.role === "VERWALTER";
 
   const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
@@ -55,6 +55,11 @@ export default async function NachrichtenPage({
         <Alert variant="error" className="mb-4">
           {errorMessages[fehler] ?? "Aktion fehlgeschlagen."}
         </Alert>
+      ) : null}
+      {gesendet ? (
+        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+          Nachricht an {gesendet} Empfänger gesendet (je ein eigener Verlauf).
+        </p>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-3">

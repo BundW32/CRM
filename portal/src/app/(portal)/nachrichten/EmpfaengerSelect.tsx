@@ -1,117 +1,198 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { inputClass } from "@/components/ui";
-import { roleLabels } from "@/lib/labels";
-import { searchRecipients, type RecipientResult } from "./actions";
+import {
+  listRecipientProperties,
+  recipientsForProperty,
+  type RecipientProperty,
+  type RecipientResult,
+} from "./actions";
 
 /**
- * Empfänger-Auswahl per **serverseitiger Suche**. Statt alle Mieter/Eigentümer
- * (potenziell zehntausende) ins Formular zu laden, wird bei Eingabe gedeckelt im
- * Scope des Verwalters gesucht. Die Auswahl wird in einem verborgenen Feld
- * `recipientId` gespeichert.
+ * Strukturierte, skalierbare Empfänger-Auswahl für Verwalter:
+ * 1. Objekt wählen → 2. Empfänger des Objekts werden geladen → 3. live filtern
+ * und per Klick mehrere auswählen. Ausgewählte bleiben auch beim Objektwechsel
+ * erhalten (Sammel-Nachricht an mehrere). Pro Auswahl wird ein verstecktes Feld
+ * `recipientId` ausgegeben; der Server erstellt je Empfänger einen eigenen Thread.
  */
 export function EmpfaengerSelect() {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<RecipientResult[]>([]);
-  const [selected, setSelected] = useState<RecipientResult | null>(null);
-  const [open, setOpen] = useState(false);
+  const [properties, setProperties] = useState<RecipientProperty[]>([]);
+  const [propertyId, setPropertyId] = useState("");
+  const [recipients, setRecipients] = useState<RecipientResult[]>([]);
+  const [filter, setFilter] = useState("");
+  const [selected, setSelected] = useState<Map<string, RecipientResult>>(new Map());
   const [pending, startTransition] = useTransition();
   const reqRef = useRef(0);
 
-  // Debounced Suche bei Eingabe (solange keine feste Auswahl getroffen wurde).
+  // Objektliste einmalig laden.
   useEffect(() => {
-    if (selected) return;
-    const handle = setTimeout(() => {
-      const req = ++reqRef.current;
-      startTransition(async () => {
-        const found = await searchRecipients(query);
-        if (reqRef.current === req) setResults(found);
-      });
-    }, 200);
-    return () => clearTimeout(handle);
-  }, [query, selected]);
+    startTransition(async () => {
+      setProperties(await listRecipientProperties());
+    });
+  }, []);
 
-  function choose(r: RecipientResult) {
-    setSelected(r);
-    setOpen(false);
-    setQuery("");
+  // Empfänger des gewählten Objekts laden (Leeren passiert im Change-Handler).
+  useEffect(() => {
+    if (!propertyId) return;
+    const req = ++reqRef.current;
+    startTransition(async () => {
+      const found = await recipientsForProperty(propertyId);
+      if (reqRef.current === req) setRecipients(found);
+    });
+  }, [propertyId]);
+
+  // Live-Filter (rein clientseitig auf den geladenen Empfängern des Objekts).
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return recipients;
+    return recipients.filter((r) => r.name.toLowerCase().includes(q));
+  }, [recipients, filter]);
+
+  function toggle(r: RecipientResult) {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (next.has(r.id)) next.delete(r.id);
+      else next.set(r.id, r);
+      return next;
+    });
   }
 
-  function clear() {
-    setSelected(null);
-    setResults([]);
-    setOpen(true);
+  function remove(id: string) {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
   }
 
-  if (selected) {
-    return (
-      <div className="flex items-center justify-between gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2">
-        <span className="min-w-0 truncate text-sm text-gray-900">
-          <span className="font-medium">{selected.name}</span>
-          <span className="text-gray-500">
-            {" "}
-            · {roleLabels[selected.role]}
-            {selected.propertyName ? ` · ${selected.propertyName}` : ""}
-          </span>
-        </span>
-        <button
-          type="button"
-          onClick={clear}
-          className="shrink-0 text-sm text-gray-400 hover:text-brand-orange hover:underline"
-        >
-          ändern
-        </button>
-        <input type="hidden" name="recipientId" value={selected.id} />
-      </div>
-    );
+  function selectAllFiltered() {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      for (const r of filtered) next.set(r.id, r);
+      return next;
+    });
   }
+
+  const selectedList = [...selected.values()];
 
   return (
-    <div className="space-y-1.5">
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        placeholder="Name suchen …"
-        className={inputClass}
-        autoComplete="off"
-      />
-      {open ? (
-        <div className="max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          {pending && results.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-gray-400">Wird gesucht …</p>
-          ) : results.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-gray-400">
-              {query.trim() ? "Keine Treffer." : "Tippen, um zu suchen …"}
-            </p>
-          ) : (
-            <ul className="divide-y divide-gray-100">
-              {results.map((r) => (
-                <li key={r.id}>
-                  <button
-                    type="button"
-                    onClick={() => choose(r)}
-                    className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
-                  >
-                    <span className="font-medium text-gray-900">{r.name}</span>
-                    <span className="block text-xs text-gray-500">
-                      {roleLabels[r.role]}
-                      {r.propertyName ? ` · ${r.propertyName}` : ""}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+    <div className="space-y-2">
+      {/* Ausgewählte Empfänger als Chips */}
+      {selectedList.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {selectedList.map((r) => (
+            <span
+              key={r.id}
+              className="inline-flex items-center gap-1 rounded-full bg-brand-orange-light px-2.5 py-1 text-xs font-medium text-brand-orange-dark"
+            >
+              {r.name}
+              <button
+                type="button"
+                onClick={() => remove(r.id)}
+                className="text-brand-orange-dark/70 hover:text-brand-orange-dark"
+                aria-label={`${r.name} entfernen`}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+          <button
+            type="button"
+            onClick={() => setSelected(new Map())}
+            className="text-xs text-gray-400 hover:text-brand-orange hover:underline"
+          >
+            alle entfernen
+          </button>
         </div>
       ) : null}
-      {/* leeres Feld erzwingt serverseitige Empfänger-Validierung, falls nichts gewählt */}
-      <input type="hidden" name="recipientId" value="" />
+
+      {/* 1. Objekt wählen */}
+      <select
+        value={propertyId}
+        onChange={(e) => {
+          const value = e.target.value;
+          setPropertyId(value);
+          setFilter("");
+          if (!value) setRecipients([]);
+        }}
+        className={inputClass}
+      >
+        <option value="">— Objekt wählen —</option>
+        {properties.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+
+      {/* 2. + 3. Empfänger filtern und auswählen */}
+      {propertyId ? (
+        <>
+          <input
+            type="search"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Nach Name filtern …"
+            className={inputClass}
+            autoComplete="off"
+          />
+          <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white">
+            {pending && recipients.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-gray-400">Wird geladen …</p>
+            ) : filtered.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-gray-400">
+                {recipients.length === 0
+                  ? "Keine Empfänger an diesem Objekt."
+                  : "Keine Treffer."}
+              </p>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {filtered.map((r) => {
+                  const checked = selected.has(r.id);
+                  return (
+                    <li key={r.id}>
+                      <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggle(r)}
+                          className="h-4 w-4 accent-brand-orange"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium text-gray-900">{r.name}</span>
+                          <span className="block truncate text-xs text-gray-500">
+                            {r.role === "EIGENTUEMER" ? "Eigentümer" : "Mieter"}
+                            {r.detail && r.role === "MIETER" ? ` · ${r.detail}` : ""}
+                          </span>
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+          {filtered.length > 0 ? (
+            <button
+              type="button"
+              onClick={selectAllFiltered}
+              className="text-xs text-brand-orange hover:underline"
+            >
+              Alle {filter.trim() ? "gefilterten " : ""}auswählen
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <p className="text-xs text-gray-400">
+          Zuerst ein Objekt wählen, dann Empfänger auswählen (mehrere möglich).
+        </p>
+      )}
+
+      {/* Versteckte Felder: je ausgewähltem Empfänger eine ID. */}
+      {selectedList.map((r) => (
+        <input key={r.id} type="hidden" name="recipientId" value={r.id} />
+      ))}
     </div>
   );
 }

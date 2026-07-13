@@ -8,6 +8,10 @@
   --color-brand-orange: #f69018;
   --color-brand-orange-dark: #dd7d0c;
   --color-brand-orange-light: #fef1e0;
+  /* Barrierefreie Orange-Variante für Text auf HELLEN Flächen (Marken-Orange
+     selbst erreicht als kleine Schrift auf Weiß keine 4,5:1). Nur für Text auf
+     weiß/hell verwenden – auf dunklem Shell weiterhin --color-brand-orange. */
+  --color-brand-orange-ink: #8f5407;
 
   /* ── Dunkler Rahmen (Shell) – warmes Dunkelbraun, angelehnt an die Website ── */
   --color-shell: #1a1512;

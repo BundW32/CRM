@@ -4,9 +4,11 @@ import { InstallHint } from "@/components/install-hint";
 import { NavProgress } from "@/components/nav-progress";
 import { PageTransition } from "@/components/page-transition";
 import { PortalHeader } from "@/components/portal-header";
+import { AssistantWidget } from "@/components/assistant-widget";
 import { BrandTheme } from "@/components/brand-theme";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { isSelfManaged, ownsWegProperty } from "@/lib/access";
+import { canUseAssistant, isAssistantEnabled } from "@/lib/assistant";
 import { isPlatformAdminUser } from "@/lib/platform";
 import { orgLogoUrl } from "@/lib/branding";
 import { roleLabels } from "@/lib/labels";
@@ -102,6 +104,9 @@ export default async function PortalLayout({
   if (isPlatformAdminUser(user)) {
     nav = [...nav, { href: "/plattform", label: "Plattform" }];
   }
+  // KI-Assistent erscheint als schwebende Bubble (unten rechts), nicht in der
+  // Navigation – nur bei Feature-Freigabe und passender Rolle.
+  const showAssistant = isAssistantEnabled() && canUseAssistant(user);
 
   const orgName = org?.name ?? "Kundenportal";
   const logoUrl = org ? orgLogoUrl(org) : "/bw-logo.png";
@@ -158,6 +163,7 @@ export default async function PortalLayout({
         </Link>
       </footer>
       <InstallHint />
+      {showAssistant ? <AssistantWidget /> : null}
     </div>
   );
 }

@@ -90,7 +90,7 @@ export default async function UebergabeOverviewPage() {
           <h2 className="text-xs font-semibold text-white/50 uppercase tracking-widest mb-3 flex items-center gap-2">
             In Bearbeitung
             {entwurf.length > 0 && (
-              <span className="inline-flex items-center justify-center rounded-full bg-brand-orange/20 text-brand-orange text-xs font-bold w-5 h-5">
+              <span className="inline-flex items-center justify-center rounded-full bg-brand-orange/20 text-brand-orange-ink text-xs font-bold w-5 h-5">
                 {entwurf.length}
               </span>
             )}

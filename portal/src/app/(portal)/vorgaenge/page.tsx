@@ -129,7 +129,7 @@ export default async function TicketsPage({
                 </option>
               ))}
             </select>
-            <button type="submit" className="text-sm font-medium text-brand-orange hover:underline">
+            <button type="submit" className="text-sm font-medium text-brand-orange-ink hover:underline">
               Filtern
             </button>
             {propertyFilter ? (

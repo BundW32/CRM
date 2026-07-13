@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   LayoutGrid,
   MessageSquare,
+  Sparkles,
   Users,
   UserRound,
 } from "lucide-react";
@@ -27,6 +28,7 @@ type NavItem = { href: string; label: string };
 // die Desktop-Leiste bleibt bewusst textbasiert und schlank.
 const navIcons: Record<string, LucideIcon> = {
   "/dashboard": LayoutDashboard,
+  "/assistent": Sparkles,
   "/vorgaenge": ClipboardList,
   "/beschluesse": Gavel,
   "/versammlungen": Users,

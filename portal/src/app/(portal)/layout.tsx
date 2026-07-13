@@ -7,6 +7,7 @@ import { PortalHeader } from "@/components/portal-header";
 import { BrandTheme } from "@/components/brand-theme";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { isSelfManaged, ownsWegProperty } from "@/lib/access";
+import { canUseAssistant, isAssistantEnabled } from "@/lib/assistant";
 import { isPlatformAdminUser } from "@/lib/platform";
 import { orgLogoUrl } from "@/lib/branding";
 import { roleLabels } from "@/lib/labels";
@@ -97,6 +98,11 @@ export default async function PortalLayout({
     if (user.role === "EIGENTUEMER" && !ownsWeg) {
       nav = nav.filter((item) => item.href !== "/beschluesse" && item.href !== "/versammlungen");
     }
+  }
+  // KI-Assistent: nur bei Feature-Freigabe und passender Rolle, direkt nach der
+  // Übersicht platziert (Flaggschiff-Funktion, gut sichtbar).
+  if (isAssistantEnabled() && canUseAssistant(user)) {
+    nav = [nav[0], { href: "/assistent", label: "Assistent" }, ...nav.slice(1)];
   }
   // Plattform-Betreiber (B&W): Zugang zum internen Betreiber-Bereich.
   if (isPlatformAdminUser(user)) {

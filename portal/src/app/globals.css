@@ -122,6 +122,20 @@ h3 {
   }
 }
 
+/* Einheitliche Select-Optik: nativen Pfeil ersetzen, damit alle Auswahlfelder
+   markenkonform aussehen und in der Höhe zu den Text-Eingaben passen (statt der
+   uneinheitlichen OS-Darstellung auf Safari/iPad). */
+select:not([multiple]) {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.6' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 1.15rem 1.15rem;
+  padding-right: 2.25rem;
+}
+
 /* Druckansicht: nur das Zugangsschreiben drucken */
 @media print {
   .no-print {

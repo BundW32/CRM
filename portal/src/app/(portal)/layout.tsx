@@ -4,6 +4,7 @@ import { InstallHint } from "@/components/install-hint";
 import { NavProgress } from "@/components/nav-progress";
 import { PageTransition } from "@/components/page-transition";
 import { PortalHeader } from "@/components/portal-header";
+import { AssistantWidget } from "@/components/assistant-widget";
 import { BrandTheme } from "@/components/brand-theme";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { isSelfManaged, ownsWegProperty } from "@/lib/access";
@@ -99,15 +100,13 @@ export default async function PortalLayout({
       nav = nav.filter((item) => item.href !== "/beschluesse" && item.href !== "/versammlungen");
     }
   }
-  // KI-Assistent: nur bei Feature-Freigabe und passender Rolle, direkt nach der
-  // Übersicht platziert (Flaggschiff-Funktion, gut sichtbar).
-  if (isAssistantEnabled() && canUseAssistant(user)) {
-    nav = [nav[0], { href: "/assistent", label: "Assistent" }, ...nav.slice(1)];
-  }
   // Plattform-Betreiber (B&W): Zugang zum internen Betreiber-Bereich.
   if (isPlatformAdminUser(user)) {
     nav = [...nav, { href: "/plattform", label: "Plattform" }];
   }
+  // KI-Assistent erscheint als schwebende Bubble (unten rechts), nicht in der
+  // Navigation – nur bei Feature-Freigabe und passender Rolle.
+  const showAssistant = isAssistantEnabled() && canUseAssistant(user);
 
   const orgName = org?.name ?? "Kundenportal";
   const logoUrl = org ? orgLogoUrl(org) : "/bw-logo.png";
@@ -164,6 +163,7 @@ export default async function PortalLayout({
         </Link>
       </footer>
       <InstallHint />
+      {showAssistant ? <AssistantWidget /> : null}
     </div>
   );
 }

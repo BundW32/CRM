@@ -91,6 +91,9 @@ export async function retrieveContext(user: User, question: string, limit = 14):
   const out: Candidate[] = [];
   const wegWhere = await wegPropertyWhere(user);
 
+  // Objektname als Präfix, damit die KI Aussagen dem richtigen Objekt zuordnet.
+  const objTag = (name?: string | null) => (name ? `[${name}] ` : "");
+
   const [announcements, documents, tickets] = await Promise.all([
     db.announcement.findMany({
       where: await announcementWhereForUser(user),
@@ -102,21 +105,37 @@ export async function retrieveContext(user: User, question: string, limit = 14):
       where: await documentWhereForUser(user),
       orderBy: { createdAt: "desc" },
       take: 30,
-      select: { id: true, title: true, category: true, createdAt: true },
+      select: {
+        id: true,
+        title: true,
+        category: true,
+        createdAt: true,
+        property: { select: { name: true } },
+      },
     }),
     db.ticket.findMany({
       where: await ticketWhereForUser(user),
       orderBy: { updatedAt: "desc" },
       take: 30,
-      select: { id: true, number: true, title: true, description: true, status: true, updatedAt: true },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        description: true,
+        status: true,
+        updatedAt: true,
+        property: { select: { name: true } },
+      },
     }),
   ]);
 
   for (const a of announcements) {
-    out.push(cand("Aushang", a.title, "/infos", `${a.property?.name ?? ""} — ${a.body}`, a.createdAt, ts));
+    out.push(cand("Aushang", a.title, "/infos", `${objTag(a.property?.name)}${a.body}`, a.createdAt, ts));
   }
   for (const d of documents) {
-    out.push(cand("Dokument", d.title, "/infos", documentCategoryLabels[d.category], d.createdAt, ts));
+    out.push(
+      cand("Dokument", d.title, "/infos", `${objTag(d.property?.name)}${documentCategoryLabels[d.category]}`, d.createdAt, ts),
+    );
   }
   for (const t of tickets) {
     out.push(
@@ -124,7 +143,7 @@ export async function retrieveContext(user: User, question: string, limit = 14):
         "Vorgang",
         `#${t.number} · ${t.title}`,
         `/vorgaenge/${t.id}`,
-        `${ticketStatusLabels[t.status]} — ${t.description}`,
+        `${objTag(t.property?.name)}${ticketStatusLabels[t.status]} — ${t.description}`,
         t.updatedAt,
         ts,
       ),
@@ -137,35 +156,53 @@ export async function retrieveContext(user: User, question: string, limit = 14):
         where: wegWhere,
         orderBy: { createdAt: "desc" },
         take: 30,
-        select: { id: true, number: true, title: true, description: true, status: true, createdAt: true },
+        select: {
+          id: true,
+          number: true,
+          title: true,
+          description: true,
+          status: true,
+          createdAt: true,
+          property: { select: { name: true } },
+        },
       }),
       db.ownersMeeting.findMany({
         where: wegWhere as Prisma.OwnersMeetingWhereInput,
         orderBy: { scheduledAt: "desc" },
         take: 20,
-        include: { agendaItems: { select: { title: true, description: true } } },
+        include: {
+          agendaItems: { select: { title: true, description: true } },
+          property: { select: { name: true } },
+        },
       }),
       db.ownerMotion.findMany({
         where: wegWhere as Prisma.OwnerMotionWhereInput,
         orderBy: { createdAt: "desc" },
         take: 20,
-        select: { id: true, title: true, description: true, status: true, createdAt: true },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          status: true,
+          createdAt: true,
+          property: { select: { name: true } },
+        },
       }),
     ]);
     for (const r of resolutions) {
       const nr = r.number ? `Nr. ${r.number} · ` : "";
       out.push(
-        cand("Beschluss", `${nr}${r.title}`, "/beschluesse", `${r.status} — ${r.description}`, r.createdAt, ts),
+        cand("Beschluss", `${nr}${r.title}`, "/beschluesse", `${objTag(r.property?.name)}${r.status} — ${r.description}`, r.createdAt, ts),
       );
     }
     for (const m of meetings) {
       const tops = m.agendaItems.map((i) => i.title + (i.description ? `: ${i.description}` : "")).join(" | ");
       out.push(
-        cand("Versammlung", m.title, `/versammlungen/${m.id}`, `${m.status} — TOPs: ${tops}`, m.scheduledAt, ts),
+        cand("Versammlung", m.title, `/versammlungen/${m.id}`, `${objTag(m.property?.name)}${m.status} — TOPs: ${tops}`, m.scheduledAt, ts),
       );
     }
     for (const mo of motions) {
-      out.push(cand("Antrag", mo.title, "/antraege", `${mo.status} — ${mo.description}`, mo.createdAt, ts));
+      out.push(cand("Antrag", mo.title, "/antraege", `${objTag(mo.property?.name)}${mo.status} — ${mo.description}`, mo.createdAt, ts));
     }
   }
 

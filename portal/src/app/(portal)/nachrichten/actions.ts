@@ -2,7 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { canVerwalterManageUser, userWhereForVerwalter } from "@/lib/access";
+import {
+  canVerwalterAccessProperty,
+  canVerwalterManageUser,
+  propertyWhereForVerwalter,
+  userWhereForVerwalter,
+} from "@/lib/access";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
@@ -14,7 +19,10 @@ export type RecipientResult = {
   name: string;
   role: "MIETER" | "EIGENTUEMER";
   propertyName: string | null;
+  detail?: string; // z. B. Wohnungsbezeichnung (Mieter) oder "Eigentümer"
 };
+
+export type RecipientProperty = { id: string; name: string };
 
 const RECIPIENT_PAGE_SIZE = 25;
 
@@ -87,8 +95,73 @@ async function notifyParticipants(
   );
 }
 
-// Neue Konversation starten. Verwalter wählt einen Empfänger; Mieter/Eigentümer
-// schreiben an die Verwaltung (alle aktiven Verwalter).
+// Empfänger-Objekte im Scope des Verwalters (für die strukturierte Auswahl).
+export async function listRecipientProperties(): Promise<RecipientProperty[]> {
+  const user = await requireUser();
+  if (user.role !== "VERWALTER") return [];
+  return db.property.findMany({
+    where: await propertyWhereForVerwalter(user),
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+// Empfänger (Mieter + Eigentümer) eines konkreten Objekts – gedeckelt je Objekt,
+// scope-geprüft. So bleibt die Auswahl auch bei sehr vielen Nutzern übersichtlich.
+export async function recipientsForProperty(propertyId: string): Promise<RecipientResult[]> {
+  const user = await requireUser();
+  if (user.role !== "VERWALTER") return [];
+  if (!propertyId || !(await canVerwalterAccessProperty(user, propertyId))) return [];
+
+  const prop = await db.property.findUnique({
+    where: { id: propertyId },
+    select: { name: true },
+  });
+  const propName = prop?.name ?? null;
+
+  const [owners, tenancies] = await Promise.all([
+    db.ownership.findMany({
+      where: { propertyId },
+      include: { user: { select: { id: true, name: true, active: true } } },
+      orderBy: { user: { name: "asc" } },
+    }),
+    db.tenancy.findMany({
+      where: { active: true, unit: { propertyId } },
+      include: {
+        user: { select: { id: true, name: true, active: true } },
+        unit: { select: { label: true } },
+      },
+      orderBy: { user: { name: "asc" } },
+    }),
+  ]);
+
+  const map = new Map<string, RecipientResult>();
+  for (const o of owners) {
+    if (!o.user.active) continue;
+    map.set(o.user.id, {
+      id: o.user.id,
+      name: o.user.name,
+      role: "EIGENTUEMER",
+      propertyName: propName,
+      detail: "Eigentümer",
+    });
+  }
+  for (const t of tenancies) {
+    if (!t.user.active || map.has(t.user.id)) continue;
+    map.set(t.user.id, {
+      id: t.user.id,
+      name: t.user.name,
+      role: "MIETER",
+      propertyName: propName,
+      detail: t.unit.label,
+    });
+  }
+  return [...map.values()];
+}
+
+// Neue Konversation starten. Verwalter kann mehrere Empfänger wählen – dann wird je
+// Empfänger ein EIGENER Thread erstellt (Datenschutz: Empfänger sehen sich nicht
+// gegenseitig). Mieter/Eigentümer schreiben an die Verwaltung (alle aktiven Verwalter).
 export async function startConversation(formData: FormData) {
   const user = await requireUser();
   const subject = String(formData.get("subject") ?? "").trim().slice(0, 200);
@@ -97,32 +170,52 @@ export async function startConversation(formData: FormData) {
     redirect("/nachrichten?fehler=eingabe");
   }
 
-  // Empfänger bestimmen
-  const recipientIds = new Set<string>();
   if (user.role === "VERWALTER") {
-    const recipientId = String(formData.get("recipientId") ?? "");
-    const recipient = recipientId
-      ? await db.user.findUnique({ where: { id: recipientId } })
-      : null;
-    if (!recipient || !recipient.active || recipient.role === "VERWALTER") {
+    const rawIds = formData.getAll("recipientId").map((v) => String(v)).filter(Boolean);
+    const uniqueIds = [...new Set(rawIds)].filter((id) => id !== user.id);
+
+    // Jeden Empfänger einzeln validieren (aktiv, kein Verwalter, im Scope).
+    const valid: string[] = [];
+    for (const rid of uniqueIds) {
+      const recipient = await db.user.findUnique({ where: { id: rid } });
+      if (!recipient || !recipient.active || recipient.role === "VERWALTER") continue;
+      if (!(await canVerwalterManageUser(user, recipient.id))) continue;
+      valid.push(recipient.id);
+    }
+    if (valid.length === 0) {
       redirect("/nachrichten?fehler=empfaenger");
     }
-    // Eingeschränkte Verwalter dürfen nur Empfänger im eigenen
-    // Zuständigkeitsbereich anschreiben (SuperAdmin: immer erlaubt).
-    if (!(await canVerwalterManageUser(user, recipient.id))) {
-      redirect("/nachrichten?fehler=empfaenger");
+
+    const createdIds: string[] = [];
+    for (const rid of valid) {
+      const conv = await db.conversation.create({
+        data: {
+          subject,
+          organizationId: user.organizationId,
+          participants: {
+            create: [{ userId: user.id, lastReadAt: new Date() }, { userId: rid }],
+          },
+          messages: { create: { authorId: user.id, body } },
+        },
+      });
+      await notifyParticipants(conv.id, user.id, subject, body);
+      createdIds.push(conv.id);
     }
-    recipientIds.add(recipient.id);
-  } else {
-    // Mieter/Eigentümer schreiben an die Verwaltung – nur Verwalter der EIGENEN Org.
-    const verwalter = await db.user.findMany({
-      where: { role: "VERWALTER", active: true, organizationId: user.organizationId },
-      select: { id: true },
-    });
-    verwalter.forEach((v) => recipientIds.add(v.id));
+
+    revalidatePath("/nachrichten");
+    if (createdIds.length === 1) {
+      redirect(`/nachrichten/${createdIds[0]}`);
+    }
+    redirect(`/nachrichten?gesendet=${createdIds.length}`);
   }
-  recipientIds.delete(user.id);
-  if (recipientIds.size === 0) {
+
+  // Mieter/Eigentümer → Verwaltung (alle aktiven Verwalter der eigenen Org).
+  const verwalter = await db.user.findMany({
+    where: { role: "VERWALTER", active: true, organizationId: user.organizationId },
+    select: { id: true },
+  });
+  const recipientIds = verwalter.map((v) => v.id).filter((id) => id !== user.id);
+  if (recipientIds.length === 0) {
     redirect("/nachrichten?fehler=empfaenger");
   }
 
@@ -133,7 +226,7 @@ export async function startConversation(formData: FormData) {
       participants: {
         create: [
           { userId: user.id, lastReadAt: new Date() },
-          ...[...recipientIds].map((id) => ({ userId: id })),
+          ...recipientIds.map((id) => ({ userId: id })),
         ],
       },
       messages: { create: { authorId: user.id, body } },

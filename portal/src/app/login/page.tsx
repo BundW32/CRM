@@ -41,7 +41,7 @@ export default async function LoginPage({
           ) : (
             <BwLogo className="mx-auto mb-1 h-20 w-auto" />
           )}
-          <p className="mb-4 text-center text-sm font-medium text-gray-400">
+          <p className="mb-4 text-center text-sm font-medium text-gray-500">
             Kundenportal
           </p>
           <p className="mx-auto mb-6 max-w-[16rem] text-center text-[13px] leading-relaxed text-gray-500">
@@ -91,7 +91,7 @@ export default async function LoginPage({
             <div className="mt-5 border-t border-gray-100 pt-4 text-center">
               <p className="text-xs text-gray-500">
                 Hausverwaltung oder selbstverwaltende WEG?{" "}
-                <a href="/registrieren" className="font-medium text-brand-orange hover:underline">
+                <a href="/registrieren" className="font-medium text-brand-orange-ink hover:underline">
                   Portal kostenlos einrichten
                 </a>
               </p>

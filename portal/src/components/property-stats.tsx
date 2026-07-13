@@ -107,7 +107,7 @@ export async function PropertyStats({
       <div className="mt-4 text-right">
         <a
           href={`/vorgaenge?propertyId=${propertyId}`}
-          className="text-sm text-brand-orange hover:underline"
+          className="text-sm text-brand-orange-ink hover:underline"
         >
           Alle Vorgänge →
         </a>

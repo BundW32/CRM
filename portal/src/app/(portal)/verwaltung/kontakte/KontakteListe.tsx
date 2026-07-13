@@ -151,7 +151,7 @@ export function KontakteListe({ craftsmen }: { craftsmen: CraftsmanRow[] }) {
                         </form>
                       </span>
                       <details className="mt-2 basis-full">
-                        <summary className="cursor-pointer text-xs text-brand-orange hover:underline select-none">
+                        <summary className="cursor-pointer text-xs text-brand-orange-ink hover:underline select-none">
                           Bearbeiten
                         </summary>
                         <form action={updateCraftsman} className="mt-2 grid gap-2 sm:grid-cols-2">

@@ -62,7 +62,7 @@ function CheckRow({
             onClick={() => setShowNote((s) => !s)}
             className={`ml-1 rounded-lg px-2 py-1 text-xs transition-all active:scale-[0.98] ${
               showNote || note
-                ? "bg-brand-orange/10 text-brand-orange font-medium"
+                ? "bg-brand-orange/10 text-brand-orange-ink font-medium"
                 : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
             }`}
             title={showNote ? "Notiz verbergen" : "Notiz hinzufügen"}

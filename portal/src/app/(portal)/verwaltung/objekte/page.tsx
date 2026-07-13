@@ -103,7 +103,7 @@ export default async function PropertiesPage({
             />
             <button
               type="submit"
-              className="text-sm font-medium text-brand-orange hover:underline"
+              className="text-sm font-medium text-brand-orange-ink hover:underline"
             >
               Suchen
             </button>

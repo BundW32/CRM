@@ -1,7 +1,12 @@
 import type {
   Audience,
+  BookingKind,
   ContactMethod,
+  CostCategory,
+  DistributionKey,
   DocumentCategory,
+  LaborShareType,
+  LedgerAccountKind,
   MaintenanceInterval,
   ManagementType,
   MeterType,
@@ -11,6 +16,7 @@ import type {
   TicketStatus,
   TicketType,
   Trade,
+  UnitType,
   VoteChoice,
 } from "@/generated/prisma/client";
 
@@ -177,10 +183,62 @@ export const maintenanceIntervalMonths: Record<MaintenanceInterval, number | nul
   EINMALIG: null,
 };
 
+// ── WEG-Finanzen ─────────────────────────────────────────────────────────────
+
+export const unitTypeLabels: Record<UnitType, string> = {
+  WOHNUNG: "Wohnung",
+  TEILEIGENTUM: "Teileigentum",
+  STELLPLATZ: "Stellplatz",
+  SONSTIGES: "Sonstiges",
+};
+
+export const distributionKeyLabels: Record<DistributionKey, string> = {
+  MEA: "Miteigentumsanteile (MEA)",
+  FLAECHE: "Wohn-/Nutzfläche",
+  EINHEITEN: "Einheiten (gleichmäßig)",
+  PERSONEN: "Personenzahl",
+  VERBRAUCH: "Verbrauch",
+  FESTBETRAG: "Festbetrag",
+  INDIVIDUELL: "Individuell je Einheit",
+};
+
+export const costCategoryLabels: Record<CostCategory, string> = {
+  BETRIEBSKOSTEN: "Betriebskosten",
+  INSTANDHALTUNG: "Instandhaltung",
+  VERWALTUNG: "Verwaltung",
+  RUECKLAGENZUFUEHRUNG: "Rücklagenzuführung",
+  SONSTIGES: "Sonstiges",
+};
+
+export const laborShareTypeLabels: Record<LaborShareType, string> = {
+  KEINE: "kein §35a-Lohnanteil",
+  HAUSHALTSNAHE_DIENSTLEISTUNG: "haushaltsnahe Dienstleistung (§35a)",
+  HANDWERKERLEISTUNG: "Handwerkerleistung (§35a)",
+};
+
+export const ledgerAccountKindLabels: Record<LedgerAccountKind, string> = {
+  GIRO: "Girokonto (laufend)",
+  RUECKLAGE: "Erhaltungsrücklage",
+};
+
+export const bookingKindLabels: Record<BookingKind, string> = {
+  EINNAHME: "Einnahme",
+  AUSGABE: "Ausgabe",
+  UMBUCHUNG: "Umbuchung",
+};
+
 export function formatDate(date: Date) {
   return new Intl.DateTimeFormat("de-DE", {
     dateStyle: "medium",
     timeStyle: "short",
+  }).format(date);
+}
+
+// Nur das Datum, ohne Uhrzeit (Buchungstag, Stichtage) – stets Europe/Berlin.
+export function formatDateOnly(date: Date) {
+  return new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "medium",
+    timeZone: "Europe/Berlin",
   }).format(date);
 }
 

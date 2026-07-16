@@ -75,6 +75,11 @@ const tiles = [
 // professionellen Werkzeuge (Handwerker, Wartung, Dokument-Quellen, Übergabe).
 const selfManagedTiles = [
   {
+    href: "/verwaltung/weg",
+    title: "Finanzen & Buchhaltung",
+    desc: "Konten, Buchungen mit Belegen, Kostenarten, Umlageschlüssel, CSV-Bankimport",
+  },
+  {
     href: "/verwaltung/eigentuemer",
     title: "Eigentümer & Stimmrecht",
     desc: "Eigentümer, Miteigentumsanteile (MEA), Stimmprinzip und Verwaltungsbeirat",
@@ -152,7 +157,7 @@ export default async function VerwaltungPage() {
       ? { active: true, dueDate: { lte: new Date() }, organizationId: verwalter.organizationId }
       : { active: true, dueDate: { lte: new Date() }, property: { id: { in: assignedIds } } };
 
-  const [objekte, nutzer, handwerker, wartungFaellig] = await Promise.all([
+  const [objekte, nutzer, handwerker, wartungFaellig, wegObjekte] = await Promise.all([
     db.property.count({ where: await propertyWhereForVerwalter(verwalter) }),
     db.user.count({
       where: {
@@ -161,6 +166,9 @@ export default async function VerwaltungPage() {
     }),
     db.craftsman.count({ where: { active: true, ...(await craftsmanWhereForVerwalter(verwalter)) } }),
     db.maintenanceTask.count({ where: wartungWhere }),
+    db.property.count({
+      where: { ...(await propertyWhereForVerwalter(verwalter)), managementType: "WEG" },
+    }),
   ]);
 
   const counts: Record<string, string> = {
@@ -172,6 +180,16 @@ export default async function VerwaltungPage() {
 
   const allTiles = [
     ...tiles,
+    // WEG-Finanzbereich nur zeigen, wenn es WEG-Objekte im Scope gibt.
+    ...(wegObjekte > 0
+      ? [
+          {
+            href: "/verwaltung/weg",
+            title: "WEG-Finanzen",
+            desc: "Konten, Buchungen mit Belegen, Kostenarten & Umlageschlüssel, CSV-Bankimport",
+          },
+        ]
+      : []),
     ...(verwalter.isSuperAdmin
       ? [
           { href: "/verwaltung/branding", title: "Branding", desc: "Logo, Akzentfarbe und Impressum Ihrer Hausverwaltung" },

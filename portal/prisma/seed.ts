@@ -1,9 +1,11 @@
 // Legt einen ersten Verwalter-Zugang und Demo-Daten an.
 // Aufruf: npm run db:seed
 import "dotenv/config";
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { WEG_COST_CATALOG } from "../src/lib/weg/cost-catalog";
 
 const db = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
@@ -104,11 +106,123 @@ async function main() {
     },
   });
 
+  // ── Demo-WEG „Musterstraße 12" (Selbstverwaltung, Finanz-Fundament) ────────
+  // 6 Einheiten mit MEA/Fläche/Personen, Giro + Rücklage mit Anfangsbeständen,
+  // Kostenarten aus dem Standardkatalog, Beispielbuchungen inkl. einer
+  // Umbuchung in die Erhaltungsrücklage.
+  const weg = await db.property.upsert({
+    where: { immoware24Id: "demo-weg-1" },
+    update: {},
+    create: {
+      name: "WEG Musterstraße 12",
+      street: "Musterstraße 12",
+      zip: "45964",
+      city: "Gladbeck",
+      immoware24Id: "demo-weg-1",
+      organizationId: org.id,
+      managementType: "WEG",
+      meaTotal: 1000,
+      fiscalYearStartMonth: 1,
+      units: {
+        create: [
+          { label: "WE 01, EG links", floor: "EG", unitType: "WOHNUNG", mea: 180, livingArea: 72.5, personCount: 2, orderIndex: 1 },
+          { label: "WE 02, EG rechts", floor: "EG", unitType: "WOHNUNG", mea: 175, livingArea: 70.2, personCount: 1, orderIndex: 2 },
+          { label: "WE 03, 1. OG links", floor: "1. OG", unitType: "WOHNUNG", mea: 180, livingArea: 72.5, personCount: 3, orderIndex: 3 },
+          { label: "WE 04, 1. OG rechts", floor: "1. OG", unitType: "WOHNUNG", mea: 175, livingArea: 70.2, personCount: 2, orderIndex: 4 },
+          { label: "WE 05, DG", floor: "DG", unitType: "WOHNUNG", mea: 240, livingArea: 96.4, personCount: 4, orderIndex: 5 },
+          { label: "TE 06, Stellplatz", floor: "Außen", unitType: "STELLPLATZ", mea: 50, livingArea: null, personCount: null, orderIndex: 6 },
+        ],
+      },
+    },
+  });
+
+  // Kostenarten aus dem Standardkatalog (idempotent: nur wenn noch keine da sind)
+  const existingCostTypes = await db.costType.count({ where: { propertyId: weg.id } });
+  if (existingCostTypes === 0) {
+    await db.costType.createMany({
+      data: WEG_COST_CATALOG.map((e, i) => ({
+        organizationId: org.id,
+        propertyId: weg.id,
+        name: e.name,
+        category: e.category,
+        distributionKey: e.distributionKey,
+        laborShareType: e.laborShareType,
+        recoverableBetrKV: e.recoverableBetrKV,
+        orderIndex: i,
+      })),
+    });
+  }
+
+  // Konten + Buchungen (idempotent über vorhandene Konten)
+  const existingAccounts = await db.ledgerAccount.count({ where: { propertyId: weg.id } });
+  if (existingAccounts === 0) {
+    const admin = await db.user.findUniqueOrThrow({ where: { email: "admin@bundwimmobilien.de" } });
+    const giro = await db.ledgerAccount.create({
+      data: {
+        organizationId: org.id,
+        propertyId: weg.id,
+        name: "Girokonto WEG",
+        kind: "GIRO",
+        iban: "DE02120300000000202051",
+        openingBalanceCents: 412_350, // 4.123,50 €
+        openingBalanceDate: new Date(Date.UTC(2026, 0, 1)),
+      },
+    });
+    const ruecklage = await db.ledgerAccount.create({
+      data: {
+        organizationId: org.id,
+        propertyId: weg.id,
+        name: "Erhaltungsrücklage (Tagesgeld)",
+        kind: "RUECKLAGE",
+        openingBalanceCents: 1_875_000, // 18.750,00 €
+        openingBalanceDate: new Date(Date.UTC(2026, 0, 1)),
+      },
+    });
+
+    const hausmeister = await db.costType.findFirst({ where: { propertyId: weg.id, name: "Hausmeister" } });
+    const versicherung = await db.costType.findFirst({ where: { propertyId: weg.id, name: "Gebäudeversicherung" } });
+    await db.booking.createMany({
+      data: [
+        {
+          organizationId: org.id, propertyId: weg.id, accountId: giro.id, createdById: admin.id,
+          kind: "EINNAHME", bookingDate: new Date(Date.UTC(2026, 0, 5)), amountCents: 145_000,
+          text: "Hausgeld Januar (alle Einheiten)", counterparty: "Eigentümer",
+        },
+        {
+          organizationId: org.id, propertyId: weg.id, accountId: giro.id, createdById: admin.id,
+          kind: "AUSGABE", bookingDate: new Date(Date.UTC(2026, 0, 12)), amountCents: 38_500,
+          text: "Hausmeister Januar", counterparty: "Hausmeisterservice Ruhr",
+          costTypeId: hausmeister?.id ?? null,
+        },
+        {
+          organizationId: org.id, propertyId: weg.id, accountId: giro.id, createdById: admin.id,
+          kind: "AUSGABE", bookingDate: new Date(Date.UTC(2026, 1, 1)), amountCents: 96_200,
+          text: "Gebäudeversicherung Jahresbeitrag", counterparty: "Versicherung AG",
+          costTypeId: versicherung?.id ?? null,
+        },
+      ],
+    });
+    // Umbuchung Giro → Rücklage (Gegenbuchungspaar)
+    const transferGroupId = crypto.randomUUID();
+    const transferCommon = {
+      organizationId: org.id, propertyId: weg.id, createdById: admin.id,
+      kind: "UMBUCHUNG" as const, bookingDate: new Date(Date.UTC(2026, 1, 15)),
+      amountCents: 50_000, text: "Zuführung Erhaltungsrücklage Februar", transferGroupId,
+    };
+    await db.booking.createMany({
+      data: [
+        { ...transferCommon, accountId: giro.id, transferOut: true },
+        { ...transferCommon, accountId: ruecklage.id, transferOut: false },
+      ],
+    });
+  }
+
   console.log("Seed abgeschlossen:");
   console.log("  Verwalter:  admin@bundwimmobilien.de / BundW-Start2026!");
   console.log(`  Eigentümer: ${eigentuemer.email} / Demo-2026!`);
   console.log(`  Mieter:     ${mieter.email} / Demo-2026!`);
   console.log(`  Handwerker: ${handwerker.email} / Demo-2026!`);
+  console.log(`  Demo-WEG:   ${weg.name} (Finanzen unter /verwaltung/weg)`);
 }
 
 main()

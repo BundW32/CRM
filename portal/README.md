@@ -75,12 +75,33 @@ Demo-Zugänge aus dem Seed (nicht in Produktion einspielen):
 | Mieter     | mieter@demo.de             | Demo-2026!        |
 | Handwerker | handwerker@demo.de         | Demo-2026!        |
 
+### WEG-Selbstverwaltung testen (Finanz-Fundament)
+
+Der Seed legt die Demo-WEG **„WEG Musterstraße 12“** an: 6 Einheiten mit
+MEA/Fläche/Personen (MEA-Summe 1000/1000), Girokonto + getrennte
+Erhaltungsrücklage mit Anfangsbeständen, Kostenarten aus dem
+WEG-Standardkatalog und Beispielbuchungen inkl. einer Umbuchung in die
+Rücklage.
+
+Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
+
+- **Stammdaten**: Einheiten (MEA-Summenprüfung), Kostenarten & Umlageschlüssel
+  (inkl. §35a-/BetrKV-Flags), Konten
+- **Buchhaltung**: Kontensalden (Rücklage strikt getrennt), Buchung mit
+  Beleg-Upload, Umbuchung Giro ↔ Rücklage, **CSV-Bankimport** (Sparkasse/
+  Volksbank, Spalten-Mapping-Assistent, Duplikaterkennung) — komplett ohne
+  externe API-Keys
+
+Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
+
 ## Nächste Ausbaustufen
 
 - **Immoware24-Sync**: vorbereitet in `src/lib/immoware24.ts` +
   `Property.immoware24Id`; wartet auf den API-Zugang von Immoware24
+- **WEG-Finanzen Stufe 2**: Wirtschaftsplan-Assistent, Hausgeld-Sollstellungen
+  & offene Posten, Jahresabrechnung/Einzelabrechnungen, §35a-Ausweis,
+  Vermögensbericht (setzt auf `src/lib/weg/distribution.ts` auf)
 - Passwort-Reset per E-Mail, Mehr-Faktor-Login
-- Digitale Umlaufbeschlüsse / Eigentümerversammlungen (WEG)
 - Schlagwort-Automatisierung (Kategorie → automatische Handwerker-Beauftragung)
 - Maklerservice-Modul (Interessenten, Exposé-Anfragen), Modernisierungs-Projekte
 

@@ -105,3 +105,42 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
     Wirtschaftsjahr; Umbuchungen (Rücklagenzuführung) fließen nicht ein, da
     sie keiner Kostenart zugeordnet sind — der Planwert der Rücklagenzuführung
     ist ohnehin eine bewusste Entscheidung der Gemeinschaft.
+
+## Schritt 3 — Jahresabrechnung, §35a, Vermögensbericht (16.07.2026)
+
+24. **Eigentümerschaft je Einheit (`UnitOwnership`) getrennt vom objektweiten
+    `Ownership`**: Letzteres trägt Stimmrecht/MEA am Objekt, ersteres die
+    tagesgenaue einheitsbezogene Zuordnung (validFrom/validTo, sharePercent)
+    für die zeitanteilige Abrechnung. Beide bleiben nebeneinander bestehen —
+    keine Migration des Bestands, additive Erweiterung.
+25. **Jahresabrechnung live gerechnet im Entwurf, Snapshot bei FERTIG**:
+    Solange ENTWURF, rechnet `computeStatementView` bei jedem Aufruf frisch aus
+    der Buchhaltung (immer aktuell). Beim Fertigstellen wird das komplette
+    View-Model als JSON in `AnnualStatement.snapshot` eingefroren und danach
+    ausschließlich der Snapshot gerendert — revisionssicher, unabhängig von
+    späteren Buchungsänderungen.
+26. **Harte Plausibilitätsprüfung als Fertigstell-Voraussetzung**: Für jedes
+    aktive Konto muss der gemeldete Endbestand (laut Kontoauszug) exakt dem
+    rechnerischen Endbestand entsprechen (Anfangsbestand + Einnahmen − Ausgaben
+    ± Umbuchungen). Zusätzlich muss die Verteilungs-Prüfliste leer sein. Ohne
+    beides bleibt der Statuswechsel gesperrt (häufigster Anfechtungsgrund).
+27. **Betrag positiv + Richtung** zieht sich durch: Kontostände über
+    vorzeichenrichtige Summierung (`signedSum`), Umbuchungen je Konto über
+    `transferOut`. Anfangsbestand eines Jahres = openingBalance + alle
+    Buchungen VOR dem Wirtschaftsjahr (nicht nur das Feld) — so stimmt die
+    Abrechnung auch für Folgejahre ohne erneutes Setzen des Anfangsbestands.
+28. **VERBRAUCH/INDIVIDUELL/FESTBETRAG brauchen manuelle Verteilung**
+    (`StatementUnitAmount`), z. B. Heizkosten aus der Messdienst-Abrechnung.
+    Plausibilität: Σ je Kostenart muss centgenau dem Ist-Betrag entsprechen,
+    sonst Prüffehler. Strikte Schlüssel (MEA/Fläche/Einheiten/Personen) werden
+    automatisch verteilt; scheitert ein Schlüssel an fehlenden Stammdaten (z. B.
+    Aufzug/FLAECHE beim Stellplatz ohne Fläche), landet er als Prüffehler in der
+    Liste statt die Abrechnung abzubrechen.
+29. **§35a-Ausweis = begünstigte Aufwendungen je Einheit** aus den geflaggten
+    Kostenarten (haushaltsnah/Handwerker getrennt), mit UI-Hinweis, dass
+    steuerlich der Lohn-/Fahrtkostenanteil laut Rechnung maßgeblich ist
+    (Muster, keine Steuerberatung).
+30. **Abrechnungsspitze gegen das SOLL** (beschlossene Vorschüsse aus
+    `DuePosting`), nicht gegen tatsächliche Zahlungen — so verlangt es § 28
+    Abs. 2 WEG. Zahlungsrückstände bleiben davon getrennt offene Forderungen
+    (im Vermögensbericht als „Forderungen" ausgewiesen).

@@ -313,6 +313,44 @@ async function main() {
     });
   }
 
+  // Eigentümerschaft je Einheit inkl. Eigentümerwechsel zum 01.07.2026 (WE 03)
+  const existingUnitOwnerships = await db.unitOwnership.count({
+    where: { unit: { propertyId: weg.id } },
+  });
+  if (existingUnitOwnerships === 0) {
+    const kaeufer = await db.user.upsert({
+      where: { email: "kaeufer@demo.de" },
+      update: {},
+      create: {
+        email: "kaeufer@demo.de",
+        name: "Klaus Käufer",
+        role: "EIGENTUEMER",
+        organizationId: org.id,
+        passwordHash: await bcrypt.hash("Demo-2026!", 12),
+        ownerships: { create: { propertyId: weg.id } },
+      },
+    });
+    const erika = await db.user.findUniqueOrThrow({ where: { email: "eigentuemer@demo.de" } });
+    const wegUnits = await db.unit.findMany({
+      where: { propertyId: weg.id },
+      select: { id: true, label: true },
+      orderBy: { orderIndex: "asc" },
+    });
+    const since2020 = new Date(Date.UTC(2020, 0, 1));
+    const wechsel = new Date(Date.UTC(2026, 6, 1)); // 01.07.2026
+    await db.unitOwnership.createMany({
+      data: wegUnits.flatMap((u) =>
+        u.label.startsWith("WE 03")
+          ? [
+              // Eigentümerwechsel zum 01.07.: Erika verkauft an Klaus
+              { organizationId: org.id, unitId: u.id, userId: erika.id, validFrom: since2020, validTo: wechsel },
+              { organizationId: org.id, unitId: u.id, userId: kaeufer.id, validFrom: wechsel },
+            ]
+          : [{ organizationId: org.id, unitId: u.id, userId: erika.id, validFrom: since2020 }],
+      ),
+    });
+  }
+
   console.log("Seed abgeschlossen:");
   console.log("  Verwalter:  admin@bundwimmobilien.de / BundW-Start2026!");
   console.log(`  Eigentümer: ${eigentuemer.email} / Demo-2026!`);

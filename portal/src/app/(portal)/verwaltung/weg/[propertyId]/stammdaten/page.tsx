@@ -19,7 +19,16 @@ import {
 } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
-import { adoptCostCatalog, saveAccount, saveCostType, saveFinanceSettings, saveUnitFinanceData } from "./actions";
+import { formatDateOnly } from "@/lib/labels";
+import {
+  addUnitOwnership,
+  adoptCostCatalog,
+  endUnitOwnership,
+  saveAccount,
+  saveCostType,
+  saveFinanceSettings,
+  saveUnitFinanceData,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +48,7 @@ export default async function WegStammdatenPage({
   const { property } = await requireWegProperty(propertyId);
   const sp = await searchParams;
 
-  const [units, costTypes, accounts] = await Promise.all([
+  const [units, costTypes, accounts, ownerships, ownerCandidates] = await Promise.all([
     db.unit.findMany({
       where: { propertyId: property.id },
       orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
@@ -52,7 +61,24 @@ export default async function WegStammdatenPage({
       where: { propertyId: property.id },
       orderBy: { createdAt: "asc" },
     }),
+    db.unitOwnership.findMany({
+      where: { unit: { propertyId: property.id } },
+      include: { user: { select: { name: true } }, unit: { select: { label: true } } },
+      orderBy: [{ unit: { orderIndex: "asc" } }, { validFrom: "asc" }],
+    }),
+    // Kandidaten: Eigentümer der eigenen Organisation
+    db.user.findMany({
+      where: { organizationId: property.organizationId, role: "EIGENTUEMER", active: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
+  const ownershipsByUnit = new Map<string, typeof ownerships>();
+  for (const o of ownerships) {
+    const list = ownershipsByUnit.get(o.unitId) ?? [];
+    list.push(o);
+    ownershipsByUnit.set(o.unitId, list);
+  }
 
   // MEA-Summenprüfung: Σ Zähler der Einheiten muss den Nenner ergeben.
   const meaSum = units.reduce((sum, u) => sum + (u.mea ?? 0), 0);
@@ -223,6 +249,94 @@ export default async function WegStammdatenPage({
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </Card>
+
+        {/* Eigentümerschaft je Einheit (tagesgenau) */}
+        <Card title="Eigentümer je Einheit (tagesgenau — Grundlage der Jahresabrechnung)">
+          {units.length === 0 ? (
+            <EmptyState>Dieses Objekt hat noch keine Einheiten.</EmptyState>
+          ) : (
+            <div className="grid gap-4">
+              {units.map((u) => {
+                const list = ownershipsByUnit.get(u.id) ?? [];
+                return (
+                  <div key={u.id} className="rounded-xl border border-gray-200 p-3">
+                    <h3 className="text-sm font-semibold text-gray-900">{u.label}</h3>
+                    {list.length === 0 ? (
+                      <p className="mt-1 text-sm text-amber-700">
+                        Kein Eigentümer erfasst — für die zeitanteilige Abrechnung erforderlich.
+                      </p>
+                    ) : (
+                      <ul className="mt-2 grid gap-1">
+                        {list.map((o) => (
+                          <li
+                            key={o.id}
+                            className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-700"
+                          >
+                            <span>
+                              {o.user.name}
+                              {o.sharePercent !== 100 ? ` (${o.sharePercent} %)` : ""} · seit{" "}
+                              {formatDateOnly(o.validFrom)}
+                              {o.validTo ? ` bis ${formatDateOnly(o.validTo)}` : " (laufend)"}
+                            </span>
+                            {!o.validTo ? (
+                              <form action={endUnitOwnership} className="flex items-center gap-1.5">
+                                <input type="hidden" name="propertyId" value={property.id} />
+                                <input type="hidden" name="ownershipId" value={o.id} />
+                                <input
+                                  type="date"
+                                  name="validTo"
+                                  className={`${inputClass} w-auto py-1 text-xs`}
+                                  aria-label={`Eigentümerschaft von ${o.user.name} beenden zum`}
+                                />
+                                <button type="submit" className="text-xs text-red-600 underline">
+                                  beenden / löschen
+                                </button>
+                              </form>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <form action={addUnitOwnership} className="mt-3 flex flex-wrap items-end gap-2">
+                      <input type="hidden" name="propertyId" value={property.id} />
+                      <input type="hidden" name="unitId" value={u.id} />
+                      <Field label="Eigentümer">
+                        <select name="userId" className={`${inputClass} w-auto`} required>
+                          <option value="">— wählen —</option>
+                          {ownerCandidates.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="Gültig ab">
+                        <input type="date" name="validFrom" className={`${inputClass} w-auto`} required />
+                      </Field>
+                      <Field label="Anteil (%)">
+                        <input
+                          name="sharePercent"
+                          type="number"
+                          min={1}
+                          max={100}
+                          defaultValue={100}
+                          className={`${inputClass} w-20`}
+                        />
+                      </Field>
+                      <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700">
+                        <input type="checkbox" name="endPrevious" />
+                        Wechsel (Vor-Eigentümer zum Stichtag beenden)
+                      </label>
+                      <button type="submit" className={buttonSecondaryClass}>
+                        Eintragen
+                      </button>
+                    </form>
+                  </div>
+                );
+              })}
             </div>
           )}
         </Card>

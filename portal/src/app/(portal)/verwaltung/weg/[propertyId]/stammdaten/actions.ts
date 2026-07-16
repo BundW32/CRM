@@ -219,6 +219,115 @@ export async function saveCostType(formData: FormData) {
   back(property.id, "gespeichert=kostenart");
 }
 
+// ── Eigentümerschaft je Einheit (tagesgenau, für die Jahresabrechnung) ───────
+
+const ownershipSchema = z.object({
+  propertyId: z.string().min(1),
+  unitId: z.string().min(1),
+  userId: z.string().min(1),
+  validFrom: z.string().min(1),
+  sharePercent: z.coerce.number().min(0.01).max(100),
+});
+
+// Trägt einen Eigentümer für eine Einheit ein. Ein zeitgleich laufender
+// 100%-Eintrag desselben Nutzers wird nicht dupliziert; ein Eigentümerwechsel
+// beendet automatisch offene Vor-Eigentümerschaften zum Stichtag (validTo).
+export async function addUnitOwnership(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const parsed = ownershipSchema.safeParse({
+    propertyId: formData.get("propertyId"),
+    unitId: formData.get("unitId"),
+    userId: formData.get("userId"),
+    validFrom: formData.get("validFrom"),
+    sharePercent: formData.get("sharePercent") || "100",
+  });
+  if (!parsed.success) redirect("/verwaltung/weg");
+  const property = await loadWegProperty(verwalter, parsed.data.propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const unit = await db.unit.findFirst({
+    where: { id: parsed.data.unitId, propertyId: property.id },
+    select: { id: true },
+  });
+  if (!unit) back(property.id, "fehler=einheit");
+  // Nutzer muss zur Org gehören (typisch: Eigentümer des Objekts)
+  const user = await db.user.findFirst({
+    where: { id: parsed.data.userId, organizationId: verwalter.organizationId },
+    select: { id: true },
+  });
+  if (!user) back(property.id, "fehler=eigentuemer");
+
+  const validFrom = new Date(parsed.data.validFrom);
+  if (isNaN(validFrom.getTime())) back(property.id, "fehler=datum");
+
+  const endPrevious = formData.get("endPrevious") === "on";
+  await db.$transaction(async (tx) => {
+    if (endPrevious) {
+      // Eigentümerwechsel: offene Einträge dieser Einheit zum Stichtag beenden
+      await tx.unitOwnership.updateMany({
+        where: { unitId: unit.id, validTo: null, validFrom: { lt: validFrom } },
+        data: { validTo: validFrom },
+      });
+    }
+    await tx.unitOwnership.create({
+      data: {
+        organizationId: verwalter.organizationId,
+        unitId: unit.id,
+        userId: user.id,
+        validFrom,
+        sharePercent: parsed.data.sharePercent,
+      },
+    });
+  });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_UNIT_OWNERSHIP_SAVED,
+    targetType: "Unit",
+    targetId: unit.id,
+    meta: { userId: user.id, validFrom: parsed.data.validFrom, endPrevious },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+  back(property.id, "gespeichert=eigentuemer");
+}
+
+// Beendet eine laufende Eigentümerschaft zum Stichtag (oder löscht einen
+// fehlerhaften Eintrag, wenn kein Datum übergeben wird).
+export async function endUnitOwnership(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const ownershipId = String(formData.get("ownershipId") ?? "");
+  const validToRaw = String(formData.get("validTo") ?? "").trim();
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const ownership = await db.unitOwnership.findFirst({
+    where: {
+      id: ownershipId,
+      organizationId: verwalter.organizationId,
+      unit: { propertyId: property.id },
+    },
+    select: { id: true, unitId: true },
+  });
+  if (!ownership) back(property.id, "fehler=eigentuemer");
+
+  if (validToRaw) {
+    const validTo = new Date(validToRaw);
+    if (isNaN(validTo.getTime())) back(property.id, "fehler=datum");
+    await db.unitOwnership.update({ where: { id: ownership.id }, data: { validTo } });
+  } else {
+    await db.unitOwnership.delete({ where: { id: ownership.id } });
+  }
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_UNIT_OWNERSHIP_SAVED,
+    targetType: "Unit",
+    targetId: ownership.unitId,
+    meta: { ownershipId: ownership.id, validTo: validToRaw || "gelöscht" },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+  back(property.id, "gespeichert=eigentuemer");
+}
+
 // ── Konten ───────────────────────────────────────────────────────────────────
 
 const accountSchema = z.object({

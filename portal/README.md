@@ -98,6 +98,13 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
 - **Hausgeld & offene Posten**: Rückstandsliste je Einheit (Soll/Ist/Saldo),
   Zahlungseingänge den Einheiten zuordnen (mit Vorschlag aus dem
   Verwendungszweck)
+- **Jahresabrechnung** (§ 28 Abs. 2 WEG): Gesamtabrechnung mit harter
+  Kontenprüfung (Endbestand laut Kontoauszug muss aufgehen), Einzelabrechnungen
+  je Einheit nach Umlageschlüsseln inkl. **manueller Heizkosten-Verteilung**,
+  **Abrechnungsspitze** (Nachschuss/Guthaben), **§35a-Ausweis** je Einheit,
+  **Vermögensbericht** (§ 28 Abs. 4 WEG) und **tagesgenaue Aufteilung bei
+  Eigentümerwechsel**. Fertigstellen friert das Ergebnis revisionssicher ein.
+  Eigentümer je Einheit (mit Stichtag) werden in den Stammdaten gepflegt.
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 
@@ -105,10 +112,9 @@ Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 
 - **Immoware24-Sync**: vorbereitet in `src/lib/immoware24.ts` +
   `Property.immoware24Id`; wartet auf den API-Zugang von Immoware24
-- **WEG-Finanzen Stufe 3**: Jahresabrechnung/Einzelabrechnungen (inkl.
-  Abrechnungsspitze nach § 28 Abs. 2 WEG), §35a-Ausweis, Vermögensbericht,
-  Mahnwesen, Sonderumlagen, Eigentümerschaft je Einheit mit Stichtag
-  (zeitanteilige Abrechnung bei Eigentümerwechsel)
+- **WEG-Finanzen Stufe 4**: Mahnwesen (Zahlungserinnerung → Mahnung als PDF),
+  Sonderumlagen, PDF-Erzeugung (Einladung, Protokoll, Einzelabrechnung),
+  Messdienst-Import (ista/Techem), SEPA-pain.008-Export, Open-Banking-Adapter
 - Passwort-Reset per E-Mail, Mehr-Faktor-Login
 - Schlagwort-Automatisierung (Kategorie → automatische Handwerker-Beauftragung)
 - Maklerservice-Modul (Interessenten, Exposé-Anfragen), Modernisierungs-Projekte

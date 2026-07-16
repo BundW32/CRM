@@ -80,6 +80,12 @@ export default async function WegOverviewPage() {
                 >
                   Hausgeld
                 </Link>
+                <Link
+                  href={`/verwaltung/weg/${p.id}/jahresabrechnung`}
+                  className={buttonSecondaryClass}
+                >
+                  Jahresabrechnung
+                </Link>
               </div>
             </Card>
           ))}

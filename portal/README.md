@@ -75,12 +75,47 @@ Demo-Zugänge aus dem Seed (nicht in Produktion einspielen):
 | Mieter     | mieter@demo.de             | Demo-2026!        |
 | Handwerker | handwerker@demo.de         | Demo-2026!        |
 
+### WEG-Selbstverwaltung testen (Finanz-Fundament)
+
+Der Seed legt die Demo-WEG **„WEG Musterstraße 12“** an: 6 Einheiten mit
+MEA/Fläche/Personen (MEA-Summe 1000/1000), Girokonto + getrennte
+Erhaltungsrücklage mit Anfangsbeständen, Kostenarten aus dem
+WEG-Standardkatalog und Beispielbuchungen inkl. einer Umbuchung in die
+Rücklage.
+
+Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
+
+- **Stammdaten**: Einheiten (MEA-Summenprüfung), Kostenarten & Umlageschlüssel
+  (inkl. §35a-/BetrKV-Flags), Konten
+- **Buchhaltung**: Kontensalden (Rücklage strikt getrennt), Buchung mit
+  Beleg-Upload, Umbuchung Giro ↔ Rücklage, **CSV-Bankimport** (Sparkasse/
+  Volksbank, Spalten-Mapping-Assistent, Duplikaterkennung) — komplett ohne
+  externe API-Keys
+- **Wirtschaftsplan** (§ 28 Abs. 1 WEG): Assistent mit Vorjahres-Istwerten,
+  Einzelwirtschaftspläne je Einheit nach Umlageschlüsseln, Beschlussvorlage;
+  der Beschluss erzeugt automatisch 12 monatliche Sollstellungen je Einheit
+  (centgenau). Demo: beschlossener Plan 2026 („ETV 10.12.2025, TOP 3")
+- **Hausgeld & offene Posten**: Rückstandsliste je Einheit (Soll/Ist/Saldo),
+  Zahlungseingänge den Einheiten zuordnen (mit Vorschlag aus dem
+  Verwendungszweck)
+- **Jahresabrechnung** (§ 28 Abs. 2 WEG): Gesamtabrechnung mit harter
+  Kontenprüfung (Endbestand laut Kontoauszug muss aufgehen), Einzelabrechnungen
+  je Einheit nach Umlageschlüsseln inkl. **manueller Heizkosten-Verteilung**,
+  **Abrechnungsspitze** (Nachschuss/Guthaben), **§35a-Ausweis** je Einheit,
+  **Vermögensbericht** (§ 28 Abs. 4 WEG) und **tagesgenaue Aufteilung bei
+  Eigentümerwechsel**. Fertigstellen friert das Ergebnis revisionssicher ein.
+  Eigentümer je Einheit (mit Stichtag) werden in den Stammdaten gepflegt.
+
+Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
+
 ## Nächste Ausbaustufen
 
 - **Immoware24-Sync**: vorbereitet in `src/lib/immoware24.ts` +
   `Property.immoware24Id`; wartet auf den API-Zugang von Immoware24
+- **WEG-Finanzen Stufe 4**: Mahnwesen (Zahlungserinnerung → Mahnung als PDF),
+  Sonderumlagen, PDF-Erzeugung (Einladung, Protokoll, Einzelabrechnung),
+  Messdienst-Import (ista/Techem), SEPA-pain.008-Export, Open-Banking-Adapter
 - Passwort-Reset per E-Mail, Mehr-Faktor-Login
-- Digitale Umlaufbeschlüsse / Eigentümerversammlungen (WEG)
 - Schlagwort-Automatisierung (Kategorie → automatische Handwerker-Beauftragung)
 - Maklerservice-Modul (Interessenten, Exposé-Anfragen), Modernisierungs-Projekte
 

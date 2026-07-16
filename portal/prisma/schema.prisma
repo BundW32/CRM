@@ -139,6 +139,68 @@ enum MajorityType {
   ALLSTIMMIG
 }
 
+// ── WEG-Finanzfundament ──────────────────────────────────────────────────────
+
+// Art einer Einheit (Sondereigentum)
+enum UnitType {
+  WOHNUNG
+  TEILEIGENTUM
+  STELLPLATZ
+  SONSTIGES
+}
+
+// Umlageschlüssel je Kostenart
+enum DistributionKey {
+  MEA
+  FLAECHE
+  EINHEITEN
+  PERSONEN
+  VERBRAUCH
+  FESTBETRAG
+  INDIVIDUELL
+}
+
+// Grobe Kategorie einer Kostenart
+enum CostCategory {
+  BETRIEBSKOSTEN
+  INSTANDHALTUNG
+  VERWALTUNG
+  RUECKLAGENZUFUEHRUNG
+  SONSTIGES
+}
+
+// §35a EStG — Lohnanteil-Klassifizierung einer Kostenart
+enum LaborShareType {
+  KEINE
+  HAUSHALTSNAHE_DIENSTLEISTUNG
+  HANDWERKERLEISTUNG
+}
+
+// Kontoart – Erhaltungsrücklage strikt getrennt vom laufenden Konto
+enum LedgerAccountKind {
+  GIRO
+  RUECKLAGE
+}
+
+// Buchungsrichtung; Betrag immer positiv, Richtung über kind
+enum BookingKind {
+  EINNAHME
+  AUSGABE
+  UMBUCHUNG
+}
+
+// Status eines Wirtschaftsplans (§ 28 Abs. 1 WEG)
+enum PlanStatus {
+  ENTWURF
+  BESCHLOSSEN
+}
+
+// Status einer Jahresabrechnung (§ 28 Abs. 2 WEG) — FERTIG ist unveränderlich
+enum StatementStatus {
+  ENTWURF
+  FERTIG
+}
+
 // Herkunft eines Dokuments – manueller Upload oder automatischer Sync
 enum DocumentSource {
   UPLOAD // manueller Upload (Standard)
@@ -219,6 +281,14 @@ model Organization {
   ownersMeetings        OwnersMeeting[]
   ownerMotions          OwnerMotion[]
   platformInvoices      PlatformInvoice[]
+  costTypes             CostType[]
+  ledgerAccounts        LedgerAccount[]
+  bookings              Booking[]
+  bankImportBatches     BankImportBatch[]
+  economicPlans         EconomicPlan[]
+  duePostings           DuePosting[]
+  unitOwnerships        UnitOwnership[]
+  annualStatements      AnnualStatement[]
 }
 
 model User {
@@ -282,6 +352,11 @@ model User {
   auditLogs                 AuditLog[]
   documentSourceConfigs     DocumentSourceConfig[]
   platformInvoicesCreated   PlatformInvoice[]         @relation("PlatformInvoiceCreatedBy")
+  bookingsCreated           Booking[]                 @relation("BookingCreatedBy")
+  bankImportsCreated        BankImportBatch[]         @relation("BankImportCreatedBy")
+  economicPlansCreated      EconomicPlan[]            @relation("EconomicPlanCreatedBy")
+  statementsCreated         AnnualStatement[]         @relation("StatementCreatedBy")
+  unitOwnerships            UnitOwnership[]
 
   @@index([role])
   @@index([role, active])
@@ -324,6 +399,9 @@ model Property {
   city                String
   managementType      ManagementType       @default(MIETVERWALTUNG)
   votingPrinciple     VotingPrinciple      @default(KOPF) // Stimmprinzip (nur WEG)
+  // WEG-Finanzstammdaten
+  meaTotal            Int? // MEA-Nenner (Summe aller Anteile, z. B. 1000)
+  fiscalYearStartMonth Int                 @default(1) // Wirtschaftsjahr-Beginn (1 = Januar)
   // Optionale Stammdaten zum Objekt
   buildYear           Int? // Baujahr
   livingArea          Float? // Gesamtwohnfläche in m²
@@ -347,6 +425,13 @@ model Property {
   documentSourceConfigs DocumentSourceConfig[]
   ownersMeetings        OwnersMeeting[]
   ownerMotions          OwnerMotion[]
+  costTypes             CostType[]
+  ledgerAccounts        LedgerAccount[]
+  bookings              Booking[]
+  bankImportBatches     BankImportBatch[]
+  economicPlans         EconomicPlan[]
+  duePostings           DuePosting[]
+  annualStatements      AnnualStatement[]
 
   @@index([organizationId])
 }
@@ -357,6 +442,16 @@ model Unit {
   property      Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   label         String // z. B. "WE 03, 1. OG links"
   floor         String?
+  // WEG-Finanzstammdaten (Kostenverteilung — NICHT Ownership.mea = Stimmgewicht)
+  unitType      UnitType   @default(WOHNUNG)
+  mea           Int? // MEA-Zähler dieser Einheit (Nenner: Property.meaTotal)
+  livingArea    Float? // Wohn-/Nutzfläche in m²
+  personCount   Int? // Personenzahl (Umlageschlüssel PERSONEN)
+  orderIndex    Int        @default(0)
+  duePostings   DuePosting[]
+  hausgeldPayments Booking[] // zugeordnete Zahlungseingänge (Hausgeld)
+  unitOwnerships UnitOwnership[]
+  statementUnitAmounts StatementUnitAmount[]
   tenancies     Tenancy[]
   tickets       Ticket[]
   documents     Document[]
@@ -1098,4 +1193,264 @@ model AuditLog {
   @@index([actorId])
   @@index([createdAt])
   @@index([action])
+}
+
+// ── WEG-Finanzfundament: Kostenarten, Konten, Buchungen ─────────────────────
+
+// Kostenart einer WEG (z. B. Hausmeister, Gebäudeversicherung). Vorbefüllbar aus
+// dem WEG-Standardkatalog (src/lib/weg/cost-catalog.ts), danach frei editierbar.
+model CostType {
+  id                String          @id @default(cuid())
+  organizationId    String
+  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId        String
+  property          Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name              String
+  category          CostCategory    @default(BETRIEBSKOSTEN)
+  distributionKey   DistributionKey @default(MEA)
+  laborShareType    LaborShareType  @default(KEINE) // §35a EStG
+  recoverableBetrKV Boolean         @default(false) // umlagefähig nach BetrKV (Mieter)
+  active            Boolean         @default(true)
+  orderIndex        Int             @default(0)
+  createdAt         DateTime        @default(now())
+  bookings          Booking[]
+  planItems         EconomicPlanItem[]
+  statementUnitAmounts StatementUnitAmount[]
+
+  @@index([propertyId])
+}
+
+// Geldkonto der Gemeinschaft. Erhaltungsrücklage (RUECKLAGE) strikt getrennt
+// vom laufenden Girokonto ausweisen (§ 19 Abs. 2 Nr. 4 WEG).
+model LedgerAccount {
+  id                  String            @id @default(cuid())
+  organizationId      String
+  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId          String
+  property            Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name                String
+  kind                LedgerAccountKind @default(GIRO)
+  iban                String?
+  openingBalanceCents Int               @default(0) // Anfangsbestand in Cent
+  openingBalanceDate  DateTime? // Stichtag des Anfangsbestands
+  active              Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  bookings            Booking[]
+  importBatches       BankImportBatch[]
+  statementChecks     StatementAccountCheck[]
+
+  @@index([propertyId])
+}
+
+// Einnahme/Ausgabe/Umbuchung. Betrag IMMER positiv (Integer-Cent), die Richtung
+// steckt in kind. Kontostand = Anfangsbestand + Σ EINNAHME − Σ AUSGABE
+// (UMBUCHUNGen zählen je Konto als Einnahme bzw. Ausgabe der Gegenseite,
+// verbunden über transferGroupId).
+model Booking {
+  id              String           @id @default(cuid())
+  organizationId  String
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId      String
+  property        Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  accountId       String
+  account         LedgerAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  costTypeId      String?
+  costType        CostType?        @relation(fields: [costTypeId], references: [id], onDelete: SetNull)
+  // Zahlungszuordnung: Hausgeld-Eingang einer Einheit zugeordnet (offene Posten)
+  unitId          String?
+  unit            Unit?            @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  kind            BookingKind
+  bookingDate     DateTime
+  valueDate       DateTime? // Wertstellung (aus Bankimport)
+  amountCents     Int // immer positiv; Richtung über kind
+  text            String
+  counterparty    String? // Zahlungspartner
+  reference       String? // Verwendungszweck
+  // Bankimport / Duplikaterkennung
+  importBatchId   String?
+  importBatch     BankImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  dedupeHash      String? // Hash aus Konto+Datum+Betrag+Verwendungszweck
+  // Umbuchung Giro<->Rücklage: zwei Gegenbuchungen (je Konto eine) mit
+  // gemeinsamer transferGroupId; beide kind=UMBUCHUNG, Richtung über transferOut.
+  transferGroupId String?
+  transferOut     Boolean? // nur bei UMBUCHUNG: true = Geld verlässt dieses Konto
+  // Beleg (gleiche Storage-Konvention wie Handover: storedName/fileName/mimeType)
+  belegStoredName String?
+  belegFileName   String?
+  belegMimeType   String?
+  createdById     String
+  createdBy       User             @relation("BookingCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime         @default(now())
+
+  @@unique([accountId, dedupeHash]) // verhindert Doppelimport (NULL = manuell, mehrfach erlaubt)
+  @@index([propertyId])
+  @@index([accountId])
+  @@index([costTypeId])
+  @@index([importBatchId])
+  @@index([unitId])
+}
+
+// Ein CSV-Import-Vorgang (für Anzeige + Rückgängig)
+model BankImportBatch {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        LedgerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  fileName       String
+  source         String        @default("CSV") // CSV | CAMT053 | MT940 (später)
+  rowsTotal      Int
+  rowsImported   Int
+  rowsSkipped    Int
+  createdById    String
+  createdBy      User          @relation("BankImportCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime      @default(now())
+  bookings       Booking[]
+
+  @@index([accountId])
+  @@index([propertyId])
+}
+
+// ── WEG-Finanzen Stufe 2: Wirtschaftsplan & Hausgeld-Sollstellungen ──────────
+
+// Wirtschaftsplan (§ 28 Abs. 1 WEG): jährliche Vorschüsse (Hausgeld) und
+// Rücklagenzuführung. Nach Beschluss unveränderlich; der Beschluss erzeugt die
+// monatlichen Sollstellungen je Einheit.
+model EconomicPlan {
+  id             String             @id @default(cuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  year           Int // Wirtschaftsjahr, das in diesem Kalenderjahr beginnt
+  status         PlanStatus         @default(ENTWURF)
+  resolvedAt     DateTime? // Datum des Beschlusses (Versammlung/Umlauf)
+  resolutionNote String? // Verweis, z. B. "ETV 12.03.2026, TOP 4"
+  createdById    String
+  createdBy      User               @relation("EconomicPlanCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime           @default(now())
+  items          EconomicPlanItem[]
+  duePostings    DuePosting[]
+
+  @@unique([propertyId, year])
+  @@index([propertyId])
+}
+
+// Planposition je Kostenart (Jahres-Planwert in Cent). previousActualCents hält
+// den Vorjahres-Istwert zum Vergleich fest (Stand bei Plan-Erstellung).
+model EconomicPlanItem {
+  id                  String       @id @default(cuid())
+  planId              String
+  plan                EconomicPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  costTypeId          String
+  costType            CostType     @relation(fields: [costTypeId], references: [id], onDelete: Cascade)
+  amountCents         Int // Jahres-Planwert (immer positiv)
+  previousActualCents Int? // Istwert des Vorjahres (informativ)
+
+  @@unique([planId, costTypeId])
+  @@index([costTypeId])
+}
+
+// Sollstellung: monatliche Hausgeld-Forderung je Einheit aus dem beschlossenen
+// Wirtschaftsplan (später auch Sonderumlagen). Offene Posten = Σ fällige
+// Sollstellungen − Σ zugeordnete Zahlungseingänge (Booking.unitId).
+model DuePosting {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId         String
+  unit           Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  planId         String?
+  plan           EconomicPlan? @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dueDate        DateTime // Fälligkeit (1. des Monats)
+  periodYear     Int
+  periodMonth    Int // 1–12 (Kalendermonat)
+  amountCents    Int
+  source         String        @default("WIRTSCHAFTSPLAN") // WIRTSCHAFTSPLAN | SONDERUMLAGE (später)
+  createdAt      DateTime      @default(now())
+
+  @@unique([planId, unitId, periodYear, periodMonth])
+  @@index([propertyId])
+  @@index([unitId])
+}
+
+// ── WEG-Finanzen Stufe 3: Eigentümerschaft je Einheit & Jahresabrechnung ─────
+
+// Tagesgenaue Eigentümerschaft einer Einheit (Eigentümerwechsel!). Ergänzt das
+// objektweite Ownership (Stimmrecht) um die einheitsbezogene Zuordnung für die
+// zeitanteilige Abrechnung. sharePercent für Miteigentümer derselben Einheit.
+model UnitOwnership {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  unitId         String
+  unit           Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  validFrom      DateTime
+  validTo        DateTime? // null = bis heute
+  sharePercent   Float        @default(100) // Anteil bei Miteigentum derselben Einheit
+  createdAt      DateTime     @default(now())
+
+  @@index([unitId])
+  @@index([userId])
+}
+
+// Jahresabrechnung (§ 28 Abs. 2 WEG). ENTWURF wird live aus der Buchhaltung
+// gerechnet; FERTIG friert das Ergebnis als Snapshot ein (revisionssicher).
+model AnnualStatement {
+  id             String                  @id @default(cuid())
+  organizationId String
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  year           Int // Wirtschaftsjahr, das in diesem Kalenderjahr beginnt
+  status         StatementStatus         @default(ENTWURF)
+  finalizedAt    DateTime?
+  snapshot       Json? // eingefrorenes Ergebnis bei FERTIG
+  createdById    String
+  createdBy      User                    @relation("StatementCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime                @default(now())
+  unitAmounts    StatementUnitAmount[]
+  accountChecks  StatementAccountCheck[]
+
+  @@unique([propertyId, year])
+  @@index([propertyId])
+}
+
+// Manuelle Verteilung je Einheit für Kostenarten mit Schlüssel VERBRAUCH /
+// INDIVIDUELL / FESTBETRAG (z. B. Heizkosten aus der Messdienst-Abrechnung).
+// Plausibilität: Σ je Kostenart muss dem Gesamtbetrag der Kostenart entsprechen.
+model StatementUnitAmount {
+  id          String          @id @default(cuid())
+  statementId String
+  statement   AnnualStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  costTypeId  String
+  costType    CostType        @relation(fields: [costTypeId], references: [id], onDelete: Cascade)
+  unitId      String
+  unit        Unit            @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  amountCents Int
+
+  @@unique([statementId, costTypeId, unitId])
+  @@index([unitId])
+  @@index([costTypeId])
+}
+
+// Harte Plausibilitätsprüfung der Gesamtabrechnung: je Konto der tatsächliche
+// Endbestand laut Kontoauszug. FERTIG nur, wenn rechnerischer Endbestand ==
+// gemeldeter Endbestand für alle Konten (häufigster Anfechtungsgrund).
+model StatementAccountCheck {
+  id                String          @id @default(cuid())
+  statementId       String
+  statement         AnnualStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  accountId         String
+  account           LedgerAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  reportedEndCents  Int // Endbestand laut Kontoauszug
+
+  @@unique([statementId, accountId])
+  @@index([accountId])
 }

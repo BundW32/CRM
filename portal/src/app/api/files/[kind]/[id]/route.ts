@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { canVerwalterAccessHandover, canViewTicket, documentWhereForUser } from "@/lib/access";
+import {
+  canVerwalterAccessHandover,
+  canVerwalterAccessProperty,
+  canViewTicket,
+  documentWhereForUser,
+} from "@/lib/access";
 import { db } from "@/lib/db";
 import { readUpload } from "@/lib/storage";
 import { getUser } from "@/lib/session";
@@ -52,6 +57,29 @@ export async function GET(
     const meter = await db.handoverMeter.findUnique({ where: { id } });
     if (meter?.photoStoredName && (await canVerwalterAccessHandover(user, meter.handoverId))) {
       file = { storedName: meter.photoStoredName, fileName: `zaehler-${id}.jpg`, mimeType: "image/jpeg" };
+    }
+  } else if (kind === "beleg" && user?.role === "VERWALTER") {
+    // Buchungsbeleg (WEG-Buchhaltung): nur Verwalter im Objekt-Scope (IDOR-Schutz)
+    const booking = await db.booking.findUnique({
+      where: { id },
+      select: {
+        propertyId: true,
+        organizationId: true,
+        belegStoredName: true,
+        belegFileName: true,
+        belegMimeType: true,
+      },
+    });
+    if (
+      booking?.belegStoredName &&
+      booking.organizationId === user.organizationId &&
+      (await canVerwalterAccessProperty(user, booking.propertyId))
+    ) {
+      file = {
+        storedName: booking.belegStoredName,
+        fileName: booking.belegFileName ?? `beleg-${id}.pdf`,
+        mimeType: booking.belegMimeType ?? "application/pdf",
+      };
     }
   } else if (kind === "org-logo" && user) {
     // Logo der eigenen Organisation (Branding). Nur das Logo des eigenen

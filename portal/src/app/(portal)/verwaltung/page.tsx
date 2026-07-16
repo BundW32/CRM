@@ -77,7 +77,7 @@ const selfManagedTiles = [
   {
     href: "/verwaltung/weg",
     title: "Finanzen & Buchhaltung",
-    desc: "Konten, Buchungen mit Belegen, Kostenarten, Umlageschlüssel, CSV-Bankimport",
+    desc: "Konten, Buchungen, Wirtschaftsplan, Hausgeld & offene Posten, CSV-Bankimport",
   },
   {
     href: "/verwaltung/eigentuemer",
@@ -186,7 +186,7 @@ export default async function VerwaltungPage() {
           {
             href: "/verwaltung/weg",
             title: "WEG-Finanzen",
-            desc: "Konten, Buchungen mit Belegen, Kostenarten & Umlageschlüssel, CSV-Bankimport",
+            desc: "Konten, Buchungen, Wirtschaftsplan, Hausgeld & offene Posten, CSV-Bankimport",
           },
         ]
       : []),

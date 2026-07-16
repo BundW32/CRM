@@ -69,3 +69,39 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
 16. **MEA-Summenprüfung als Warnung, nicht als Speicher-Blocker**: Beim
     Speichern einzelner Einheiten wäre ein harter Block falsch (Zwischenstände).
     Die Stammdaten-Seite zeigt eine deutliche Warnbox, solange Σ mea ≠ meaTotal.
+
+## Schritt 2 — Wirtschaftsplan & Hausgeld (16.07.2026)
+
+17. **Vorschuss-Gewichte ≠ Abrechnungs-Gewichte** (`advanceWeightsForKey`):
+    Für den Wirtschaftsplan werden VERBRAUCH/FESTBETRAG/INDIVIDUELL nach MEA
+    verteilt (übliche Praxis — die Jahresabrechnung korrigiert später
+    centgenau), und bei FLAECHE/PERSONEN zählen fehlende Werte als 0 (ein
+    Stellplatz ohne Wohnfläche trägt Reinigungskosten nicht mit). Die strikte
+    `weightsForKey` bleibt unverändert für die spätere Abrechnung.
+18. **Monatsraten über `distributeByWeight` mit 12 gleichen Gewichten**:
+    12 Raten summieren centgenau auf den Jahresvorschuss (Differenzen max.
+    1 Cent zwischen den Raten) — kein „letzter Monat korrigiert"-Sonderfall.
+19. **Beschluss als Statuswechsel mit Datum + Verweis** statt harter Kopplung
+    an das Versammlungs-/Umlaufmodul: Der Plan wird „als beschlossen markiert"
+    (Datum, Freitext-Verweis z. B. „ETV …, TOP 4"). Eine automatische
+    Verknüpfung TOP ↔ Plan ist ein späterer Ausbauschritt; der Mustertext der
+    Beschlussvorlage liegt auf der Planseite.
+20. **Sollstellungen entstehen beim Beschluss** (12 je Einheit, fällig zum 1.
+    des Monats, Kalendermonate des Wirtschaftsjahres). Erneutes Beschließen
+    ersetzt vorhandene Sollstellungen des Plans (deleteMany + createMany in
+    einer Transaktion) — idempotent.
+21. **Offene Posten je Einheit, nicht je Eigentümer**: Das Bestandsschema
+    verknüpft Eigentum (`Ownership`) mit dem Objekt, nicht mit der Einheit.
+    Eine tagesgenaue Eigentümerschaft je Einheit (`Eigentümerschaft` mit
+    gültigVon/gültigBis aus dem Build-Auftrag) ist ein bewusst verschobenes
+    Schema-Delta — nötig spätestens für die zeitanteilige Jahresabrechnung.
+22. **Zahlungszuordnung als `Booking.unitId`** statt eigener Zuordnungstabelle
+    Zahlung↔Sollstellung: Saldo je Einheit (Σ fällige Sollstellungen − Σ
+    zugeordnete Eingänge) genügt für Rückstandsliste und Mahnwesen des MVP;
+    eine Einzelzuordnung je Monat kann später ergänzt werden, ohne Daten zu
+    verlieren. Zuordnungs-Vorschlag: Einheiten-Kurzlabel („WE 01") im
+    Verwendungszweck.
+23. **Vorjahres-Istwerte = Σ AUSGABE-Buchungen je Kostenart** im vorherigen
+    Wirtschaftsjahr; Umbuchungen (Rücklagenzuführung) fließen nicht ein, da
+    sie keiner Kostenart zugeordnet sind — der Planwert der Rücklagenzuführung
+    ist ohnehin eine bewusste Entscheidung der Gemeinschaft.

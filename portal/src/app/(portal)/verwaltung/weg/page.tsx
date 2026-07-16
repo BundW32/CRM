@@ -68,6 +68,18 @@ export default async function WegOverviewPage() {
                 >
                   Buchhaltung
                 </Link>
+                <Link
+                  href={`/verwaltung/weg/${p.id}/wirtschaftsplan`}
+                  className={buttonSecondaryClass}
+                >
+                  Wirtschaftsplan
+                </Link>
+                <Link
+                  href={`/verwaltung/weg/${p.id}/hausgeld`}
+                  className={buttonSecondaryClass}
+                >
+                  Hausgeld
+                </Link>
               </div>
             </Card>
           ))}

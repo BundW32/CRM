@@ -91,6 +91,13 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   Beleg-Upload, Umbuchung Giro ↔ Rücklage, **CSV-Bankimport** (Sparkasse/
   Volksbank, Spalten-Mapping-Assistent, Duplikaterkennung) — komplett ohne
   externe API-Keys
+- **Wirtschaftsplan** (§ 28 Abs. 1 WEG): Assistent mit Vorjahres-Istwerten,
+  Einzelwirtschaftspläne je Einheit nach Umlageschlüsseln, Beschlussvorlage;
+  der Beschluss erzeugt automatisch 12 monatliche Sollstellungen je Einheit
+  (centgenau). Demo: beschlossener Plan 2026 („ETV 10.12.2025, TOP 3")
+- **Hausgeld & offene Posten**: Rückstandsliste je Einheit (Soll/Ist/Saldo),
+  Zahlungseingänge den Einheiten zuordnen (mit Vorschlag aus dem
+  Verwendungszweck)
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 
@@ -98,9 +105,10 @@ Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 
 - **Immoware24-Sync**: vorbereitet in `src/lib/immoware24.ts` +
   `Property.immoware24Id`; wartet auf den API-Zugang von Immoware24
-- **WEG-Finanzen Stufe 2**: Wirtschaftsplan-Assistent, Hausgeld-Sollstellungen
-  & offene Posten, Jahresabrechnung/Einzelabrechnungen, §35a-Ausweis,
-  Vermögensbericht (setzt auf `src/lib/weg/distribution.ts` auf)
+- **WEG-Finanzen Stufe 3**: Jahresabrechnung/Einzelabrechnungen (inkl.
+  Abrechnungsspitze nach § 28 Abs. 2 WEG), §35a-Ausweis, Vermögensbericht,
+  Mahnwesen, Sonderumlagen, Eigentümerschaft je Einheit mit Stichtag
+  (zeitanteilige Abrechnung bei Eigentümerwechsel)
 - Passwort-Reset per E-Mail, Mehr-Faktor-Login
 - Schlagwort-Automatisierung (Kategorie → automatische Handwerker-Beauftragung)
 - Maklerservice-Modul (Interessenten, Exposé-Anfragen), Modernisierungs-Projekte

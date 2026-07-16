@@ -6,6 +6,11 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { WEG_COST_CATALOG } from "../src/lib/weg/cost-catalog";
+import {
+  computeUnitAdvances,
+  fiscalYearMonths,
+  monthlyInstallments,
+} from "../src/lib/weg/economic-plan";
 
 const db = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
@@ -213,6 +218,97 @@ async function main() {
       data: [
         { ...transferCommon, accountId: giro.id, transferOut: true },
         { ...transferCommon, accountId: ruecklage.id, transferOut: false },
+      ],
+    });
+  }
+
+  // Beschlossener Wirtschaftsplan 2026 mit Sollstellungen + Zahlungs-Demo
+  const existingPlans = await db.economicPlan.count({ where: { propertyId: weg.id } });
+  if (existingPlans === 0) {
+    const admin = await db.user.findUniqueOrThrow({ where: { email: "admin@bundwimmobilien.de" } });
+    const costTypes = await db.costType.findMany({ where: { propertyId: weg.id } });
+    const byName = (name: string) => costTypes.find((c) => c.name === name);
+    // Jahres-Planwerte (Cent) für ein realistisches kleines Objekt
+    const planValues: [string, number][] = [
+      ["Hausmeister", 480_000],
+      ["Gebäudeversicherung", 96_000],
+      ["Allgemeinstrom", 72_000],
+      ["Treppenhausreinigung", 144_000],
+      ["Müllabfuhr", 108_000],
+      ["Zuführung Erhaltungsrücklage", 600_000],
+    ];
+    const items = planValues
+      .map(([name, amountCents]) => ({ costType: byName(name), amountCents }))
+      .filter((i) => i.costType);
+
+    const plan = await db.economicPlan.create({
+      data: {
+        organizationId: org.id,
+        propertyId: weg.id,
+        year: 2026,
+        status: "BESCHLOSSEN",
+        resolvedAt: new Date(Date.UTC(2025, 11, 10)),
+        resolutionNote: "ETV 10.12.2025, TOP 3",
+        createdById: admin.id,
+        items: {
+          create: items.map((i) => ({
+            costTypeId: i.costType!.id,
+            amountCents: i.amountCents,
+            previousActualCents: Math.round(i.amountCents * 0.95),
+          })),
+        },
+      },
+    });
+
+    const units = await db.unit.findMany({
+      where: { propertyId: weg.id },
+      select: { id: true, label: true, mea: true, livingArea: true, personCount: true },
+      orderBy: { orderIndex: "asc" },
+    });
+    const advances = computeUnitAdvances(
+      items.map((i) => ({
+        costTypeId: i.costType!.id,
+        distributionKey: i.costType!.distributionKey,
+        amountCents: i.amountCents,
+      })),
+      units,
+    );
+    const months = fiscalYearMonths(2026, 1);
+    await db.duePosting.createMany({
+      data: units.flatMap((u) => {
+        const rates = monthlyInstallments(advances.perUnit.get(u.id) ?? 0);
+        return months.map((m, i) => ({
+          organizationId: org.id,
+          propertyId: weg.id,
+          unitId: u.id,
+          planId: plan.id,
+          dueDate: new Date(Date.UTC(m.year, m.month - 1, 1)),
+          periodYear: m.year,
+          periodMonth: m.month,
+          amountCents: rates[i],
+          source: "WIRTSCHAFTSPLAN",
+        }));
+      }),
+    });
+
+    // Zahlungseingänge: einer bereits zugeordnet, einer mit Vorschlag (per Text)
+    const giroAcc = await db.ledgerAccount.findFirstOrThrow({
+      where: { propertyId: weg.id, kind: "GIRO" },
+    });
+    const we1 = units.find((u) => u.label.startsWith("WE 01"));
+    const we1Monthly = monthlyInstallments(advances.perUnit.get(we1!.id) ?? 0)[0];
+    await db.booking.createMany({
+      data: [
+        {
+          organizationId: org.id, propertyId: weg.id, accountId: giroAcc.id, createdById: admin.id,
+          kind: "EINNAHME", bookingDate: new Date(Date.UTC(2026, 0, 3)), amountCents: we1Monthly,
+          text: "Hausgeld Januar", counterparty: "Erika Eigentümerin", unitId: we1!.id,
+        },
+        {
+          organizationId: org.id, propertyId: weg.id, accountId: giroAcc.id, createdById: admin.id,
+          kind: "EINNAHME", bookingDate: new Date(Date.UTC(2026, 1, 3)), amountCents: we1Monthly,
+          text: "Hausgeld Februar WE 01", counterparty: "Erika Eigentümerin",
+        },
       ],
     });
   }

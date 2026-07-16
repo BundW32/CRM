@@ -189,6 +189,12 @@ enum BookingKind {
   UMBUCHUNG
 }
 
+// Status eines Wirtschaftsplans (§ 28 Abs. 1 WEG)
+enum PlanStatus {
+  ENTWURF
+  BESCHLOSSEN
+}
+
 // Herkunft eines Dokuments – manueller Upload oder automatischer Sync
 enum DocumentSource {
   UPLOAD // manueller Upload (Standard)
@@ -273,6 +279,8 @@ model Organization {
   ledgerAccounts        LedgerAccount[]
   bookings              Booking[]
   bankImportBatches     BankImportBatch[]
+  economicPlans         EconomicPlan[]
+  duePostings           DuePosting[]
 }
 
 model User {
@@ -338,6 +346,7 @@ model User {
   platformInvoicesCreated   PlatformInvoice[]         @relation("PlatformInvoiceCreatedBy")
   bookingsCreated           Booking[]                 @relation("BookingCreatedBy")
   bankImportsCreated        BankImportBatch[]         @relation("BankImportCreatedBy")
+  economicPlansCreated      EconomicPlan[]            @relation("EconomicPlanCreatedBy")
 
   @@index([role])
   @@index([role, active])
@@ -410,6 +419,8 @@ model Property {
   ledgerAccounts        LedgerAccount[]
   bookings              Booking[]
   bankImportBatches     BankImportBatch[]
+  economicPlans         EconomicPlan[]
+  duePostings           DuePosting[]
 
   @@index([organizationId])
 }
@@ -426,6 +437,8 @@ model Unit {
   livingArea    Float? // Wohn-/Nutzfläche in m²
   personCount   Int? // Personenzahl (Umlageschlüssel PERSONEN)
   orderIndex    Int        @default(0)
+  duePostings   DuePosting[]
+  hausgeldPayments Booking[] // zugeordnete Zahlungseingänge (Hausgeld)
   tenancies     Tenancy[]
   tickets       Ticket[]
   documents     Document[]
@@ -1188,6 +1201,7 @@ model CostType {
   orderIndex        Int             @default(0)
   createdAt         DateTime        @default(now())
   bookings          Booking[]
+  planItems         EconomicPlanItem[]
 
   @@index([propertyId])
 }
@@ -1227,6 +1241,9 @@ model Booking {
   account         LedgerAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
   costTypeId      String?
   costType        CostType?        @relation(fields: [costTypeId], references: [id], onDelete: SetNull)
+  // Zahlungszuordnung: Hausgeld-Eingang einer Einheit zugeordnet (offene Posten)
+  unitId          String?
+  unit            Unit?            @relation(fields: [unitId], references: [id], onDelete: SetNull)
   kind            BookingKind
   bookingDate     DateTime
   valueDate       DateTime? // Wertstellung (aus Bankimport)
@@ -1255,6 +1272,7 @@ model Booking {
   @@index([accountId])
   @@index([costTypeId])
   @@index([importBatchId])
+  @@index([unitId])
 }
 
 // Ein CSV-Import-Vorgang (für Anzeige + Rückgängig)
@@ -1278,4 +1296,69 @@ model BankImportBatch {
 
   @@index([accountId])
   @@index([propertyId])
+}
+
+// ── WEG-Finanzen Stufe 2: Wirtschaftsplan & Hausgeld-Sollstellungen ──────────
+
+// Wirtschaftsplan (§ 28 Abs. 1 WEG): jährliche Vorschüsse (Hausgeld) und
+// Rücklagenzuführung. Nach Beschluss unveränderlich; der Beschluss erzeugt die
+// monatlichen Sollstellungen je Einheit.
+model EconomicPlan {
+  id             String             @id @default(cuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  year           Int // Wirtschaftsjahr, das in diesem Kalenderjahr beginnt
+  status         PlanStatus         @default(ENTWURF)
+  resolvedAt     DateTime? // Datum des Beschlusses (Versammlung/Umlauf)
+  resolutionNote String? // Verweis, z. B. "ETV 12.03.2026, TOP 4"
+  createdById    String
+  createdBy      User               @relation("EconomicPlanCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime           @default(now())
+  items          EconomicPlanItem[]
+  duePostings    DuePosting[]
+
+  @@unique([propertyId, year])
+  @@index([propertyId])
+}
+
+// Planposition je Kostenart (Jahres-Planwert in Cent). previousActualCents hält
+// den Vorjahres-Istwert zum Vergleich fest (Stand bei Plan-Erstellung).
+model EconomicPlanItem {
+  id                  String       @id @default(cuid())
+  planId              String
+  plan                EconomicPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  costTypeId          String
+  costType            CostType     @relation(fields: [costTypeId], references: [id], onDelete: Cascade)
+  amountCents         Int // Jahres-Planwert (immer positiv)
+  previousActualCents Int? // Istwert des Vorjahres (informativ)
+
+  @@unique([planId, costTypeId])
+  @@index([costTypeId])
+}
+
+// Sollstellung: monatliche Hausgeld-Forderung je Einheit aus dem beschlossenen
+// Wirtschaftsplan (später auch Sonderumlagen). Offene Posten = Σ fällige
+// Sollstellungen − Σ zugeordnete Zahlungseingänge (Booking.unitId).
+model DuePosting {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId         String
+  unit           Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  planId         String?
+  plan           EconomicPlan? @relation(fields: [planId], references: [id], onDelete: Cascade)
+  dueDate        DateTime // Fälligkeit (1. des Monats)
+  periodYear     Int
+  periodMonth    Int // 1–12 (Kalendermonat)
+  amountCents    Int
+  source         String        @default("WIRTSCHAFTSPLAN") // WIRTSCHAFTSPLAN | SONDERUMLAGE (später)
+  createdAt      DateTime      @default(now())
+
+  @@unique([planId, unitId, periodYear, periodMonth])
+  @@index([propertyId])
+  @@index([unitId])
 }

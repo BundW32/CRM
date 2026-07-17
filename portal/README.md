@@ -100,6 +100,9 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   Verwendungszweck); **Mahnwesen** (Zahlungserinnerung → 1./2. Mahnung als
   DIN-A4-Brief mit Fensterumschlag-Adresse, „als versendet markieren",
   Eskalation nur über versendete Schreiben, keine automatischen Gebühren)
+- **Sonderumlagen**: einmalige Umlage nach Schlüssel (MEA/Fläche/Einheiten/
+  Personen) centgenau auf die Einheiten verteilt; erzeugt Sollstellungen, die
+  in die offenen Posten und das Mahnwesen einfließen
 - **Jahresabrechnung** (§ 28 Abs. 2 WEG): Gesamtabrechnung mit harter
   Kontenprüfung (Endbestand laut Kontoauszug muss aufgehen), Einzelabrechnungen
   je Einheit nach Umlageschlüsseln inkl. **manueller Heizkosten-Verteilung**,
@@ -114,9 +117,9 @@ Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 
 - **Immoware24-Sync**: vorbereitet in `src/lib/immoware24.ts` +
   `Property.immoware24Id`; wartet auf den API-Zugang von Immoware24
-- **WEG-Finanzen Stufe 5**: Sonderumlagen, Einladungs-PDF mit Fristenrechner,
-  Prüfpflichten-Katalog, Messdienst-Import (ista/Techem), SEPA-pain.008-Export,
-  Open-Banking-Adapter
+- **WEG-Finanzen Stufe 5**: Einladungs-PDF mit Fristenrechner,
+  Prüfpflichten-Katalog, Erhaltungsplanung, Messdienst-Import (ista/Techem),
+  SEPA-pain.008-Export, Open-Banking-Adapter, Vermieter-Zusatzmodul
 - Passwort-Reset per E-Mail, Mehr-Faktor-Login
 - Schlagwort-Automatisierung (Kategorie → automatische Handwerker-Beauftragung)
 - Maklerservice-Modul (Interessenten, Exposé-Anfragen), Modernisierungs-Projekte

@@ -290,6 +290,7 @@ model Organization {
   unitOwnerships        UnitOwnership[]
   annualStatements      AnnualStatement[]
   hausgeldMahnungen     HausgeldMahnung[]
+  sonderumlagen         Sonderumlage[]
 }
 
 model User {
@@ -359,6 +360,7 @@ model User {
   statementsCreated         AnnualStatement[]         @relation("StatementCreatedBy")
   unitOwnerships            UnitOwnership[]
   mahnungenCreated          HausgeldMahnung[]         @relation("MahnungCreatedBy")
+  sonderumlagenCreated      Sonderumlage[]            @relation("SonderumlageCreatedBy")
 
   @@index([role])
   @@index([role, active])
@@ -435,6 +437,7 @@ model Property {
   duePostings           DuePosting[]
   annualStatements      AnnualStatement[]
   hausgeldMahnungen     HausgeldMahnung[]
+  sonderumlagen         Sonderumlage[]
 
   @@index([organizationId])
 }
@@ -1370,15 +1373,18 @@ model DuePosting {
   unit           Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
   planId         String?
   plan           EconomicPlan? @relation(fields: [planId], references: [id], onDelete: Cascade)
-  dueDate        DateTime // Fälligkeit (1. des Monats)
+  sonderumlageId String?
+  sonderumlage   Sonderumlage? @relation(fields: [sonderumlageId], references: [id], onDelete: Cascade)
+  dueDate        DateTime // Fälligkeit (1. des Monats bzw. Fälligkeit der Sonderumlage)
   periodYear     Int
   periodMonth    Int // 1–12 (Kalendermonat)
   amountCents    Int
-  source         String        @default("WIRTSCHAFTSPLAN") // WIRTSCHAFTSPLAN | SONDERUMLAGE (später)
+  source         String        @default("WIRTSCHAFTSPLAN") // WIRTSCHAFTSPLAN | SONDERUMLAGE
   createdAt      DateTime      @default(now())
 
   @@unique([planId, unitId, periodYear, periodMonth])
   @@index([propertyId])
+  @@index([sonderumlageId])
   @@index([unitId])
 }
 
@@ -1483,5 +1489,30 @@ model HausgeldMahnung {
   createdAt       DateTime     @default(now())
 
   @@index([unitId])
+  @@index([propertyId])
+}
+
+// ── WEG-Sonderumlage (§ 28 WEG i. V. m. Beschluss) ───────────────────────────
+// Einmalige Umlage (z. B. für eine größere Erhaltungsmaßnahme), beschlossen und
+// nach einem Schlüssel auf die Einheiten verteilt. Erzeugt Sollstellungen
+// (DuePosting, source=SONDERUMLAGE), die in die offenen Posten und das
+// Mahnwesen einfließen. Löschen entfernt die zugehörigen Sollstellungen.
+model Sonderumlage {
+  id               String          @id @default(cuid())
+  organizationId   String
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId       String
+  property         Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  title            String
+  purpose          String? // Zweck/Verwendung (z. B. "Dachsanierung")
+  totalAmountCents Int
+  distributionKey  DistributionKey @default(MEA)
+  dueDate          DateTime
+  resolutionNote   String? // Beschluss-Verweis (z. B. "ETV 12.03.2026, TOP 5")
+  createdById      String
+  createdBy        User            @relation("SonderumlageCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime        @default(now())
+  duePostings      DuePosting[]
+
   @@index([propertyId])
 }

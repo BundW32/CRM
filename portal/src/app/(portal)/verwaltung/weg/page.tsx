@@ -81,6 +81,12 @@ export default async function WegOverviewPage() {
                   Hausgeld
                 </Link>
                 <Link
+                  href={`/verwaltung/weg/${p.id}/sonderumlagen`}
+                  className={buttonSecondaryClass}
+                >
+                  Sonderumlagen
+                </Link>
+                <Link
                   href={`/verwaltung/weg/${p.id}/jahresabrechnung`}
                   className={buttonSecondaryClass}
                 >

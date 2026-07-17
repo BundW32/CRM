@@ -161,3 +161,17 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
     dient als Fristen-/Zustellnachweis im Selbstdruck-Fallback und schaltet
     die nächste Mahnstufe frei — identisches Prinzip wie im Build-Auftrag für
     Einladungen gefordert.
+
+## Schritt 5 — Sonderumlagen (17.07.2026)
+
+34. **Sonderumlage als eigenes Modell + `DuePosting.source=SONDERUMLAGE`**
+    statt eigener Forderungstabelle: Die Sollstellungen laufen so ohne
+    Sonderweg in die bestehende Offene-Posten- und Mahnwesen-Logik ein (die
+    nur nach `dueDate`/Einheit gruppieren, unabhängig von der Quelle).
+35. **Einstufig „anlegen & verteilen"** (kein Entwurf/Beschluss-Statuswechsel
+    wie beim Wirtschaftsplan): Eine Sonderumlage ist ein einzelner Betrag mit
+    einem Schlüssel — der Beschluss wird als Freitext-Verweis erfasst, das
+    Löschen (Cascade) macht sie rückgängig. Das hält den Flow schlank.
+36. **Nur strikte Schlüssel** (MEA/Fläche/Einheiten/Personen): VERBRAUCH/
+    FESTBETRAG/INDIVIDUELL ergeben für eine einmalige Umlage keinen Sinn.
+    Verteilung über dieselbe centgenaue Engine (`distributeByWeight`).

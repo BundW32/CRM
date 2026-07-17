@@ -324,8 +324,22 @@ Muster — ersetzt keine Rechtsberatung.`;
 
         {/* Einzelabrechnungen */}
         <Card title="Einzelabrechnungen & Abrechnungsspitze (§ 28 Abs. 2 WEG)">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-gray-500">
+              Jede Einzelabrechnung lässt sich als druckfertiges PDF (DIN A4) an den jeweiligen
+              Eigentümer geben.
+            </p>
+            <a
+              href={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/pdf`}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonSecondaryClass}
+            >
+              Alle Einzelabrechnungen als PDF
+            </a>
+          </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
                   <th className="py-2 pr-3">Einheit</th>
@@ -334,6 +348,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                   <th className="py-2 pr-3 text-right">Abrechnungsspitze</th>
                   <th className="py-2 pr-3 text-right">§35a haushaltsnah</th>
                   <th className="py-2 pr-3 text-right">§35a Handwerker</th>
+                  <th className="py-2 pr-3 text-right">PDF</th>
                 </tr>
               </thead>
               <tbody>
@@ -373,6 +388,16 @@ Muster — ersetzt keine Rechtsberatung.`;
                       </td>
                       <td className="py-2 pr-3 text-right text-gray-600">
                         {euro(labor?.handwerker)}
+                      </td>
+                      <td className="py-2 pr-3 text-right">
+                        <a
+                          href={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/pdf?einheit=${u.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm underline"
+                        >
+                          PDF
+                        </a>
                       </td>
                     </tr>
                   );

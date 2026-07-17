@@ -4,6 +4,7 @@ import {
   canVerwalterAccessProperty,
   canViewTicket,
   documentWhereForUser,
+  ownsProperty,
 } from "@/lib/access";
 import { db } from "@/lib/db";
 import { readUpload } from "@/lib/storage";
@@ -58,8 +59,9 @@ export async function GET(
     if (meter?.photoStoredName && (await canVerwalterAccessHandover(user, meter.handoverId))) {
       file = { storedName: meter.photoStoredName, fileName: `zaehler-${id}.jpg`, mimeType: "image/jpeg" };
     }
-  } else if (kind === "beleg" && user?.role === "VERWALTER") {
-    // Buchungsbeleg (WEG-Buchhaltung): nur Verwalter im Objekt-Scope (IDOR-Schutz)
+  } else if (kind === "beleg" && (user?.role === "VERWALTER" || user?.role === "EIGENTUEMER")) {
+    // Buchungsbeleg (WEG-Buchhaltung): Verwalter im Objekt-Scope ODER Eigentümer
+    // des Objekts (Belegeinsicht). Immer IDOR-/Org-gesichert.
     const booking = await db.booking.findUnique({
       where: { id },
       select: {
@@ -70,16 +72,18 @@ export async function GET(
         belegMimeType: true,
       },
     });
-    if (
-      booking?.belegStoredName &&
-      booking.organizationId === user.organizationId &&
-      (await canVerwalterAccessProperty(user, booking.propertyId))
-    ) {
-      file = {
-        storedName: booking.belegStoredName,
-        fileName: booking.belegFileName ?? `beleg-${id}.pdf`,
-        mimeType: booking.belegMimeType ?? "application/pdf",
-      };
+    if (booking?.belegStoredName && booking.organizationId === user.organizationId) {
+      const allowed =
+        user.role === "VERWALTER"
+          ? await canVerwalterAccessProperty(user, booking.propertyId)
+          : await ownsProperty(user.id, booking.propertyId, user.organizationId);
+      if (allowed) {
+        file = {
+          storedName: booking.belegStoredName,
+          fileName: booking.belegFileName ?? `beleg-${id}.pdf`,
+          mimeType: booking.belegMimeType ?? "application/pdf",
+        };
+      }
     }
   } else if (kind === "org-logo" && user) {
     // Logo der eigenen Organisation (Branding). Nur das Logo des eigenen

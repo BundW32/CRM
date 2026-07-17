@@ -180,6 +180,51 @@ export async function createObjekt(formData: FormData) {
     }
   }
 
+  // ── WEG-Eigentümer je Einheit ───────────────────────────────────────
+  // In einer WEG gehört jede Einheit einem eigenen Eigentümer. Legt je Zeile
+  // einen Eigentümer an und verknüpft ihn mit der Einheit (UnitOwnership,
+  // Grundlage der zeitanteiligen Abrechnung) UND objektweit (Ownership, für
+  // Stimmrecht/MEA und Belegeinsicht).
+  if (managementType === "WEG") {
+    const ownerNames = formData.getAll("wegOwnerName").map((v) => String(v).trim());
+    const ownerEmails = formData.getAll("wegOwnerEmail").map((v) => String(v).trim().toLowerCase());
+    const ownerPhones = formData.getAll("wegOwnerPhone").map((v) => String(v).trim());
+    const ownerUnits = formData.getAll("wegOwnerUnit").map((v) => String(v).trim());
+    const ownerCount = Math.min(ownerNames.length, MAX_TENANTS);
+    for (let i = 0; i < ownerCount; i++) {
+      const oName = ownerNames[i];
+      if (!oName || oName.length < 2) continue;
+      const unitId = ownerUnits[i] ? unitLabelToId.get(ownerUnits[i]) : undefined;
+      if (!unitId) continue; // ohne Einheit keine WEG-Eigentümerschaft
+
+      const oEmailRaw = ownerEmails[i] ?? "";
+      const result = await inviteOrLetter({
+        name: oName,
+        email: oEmailRaw && oEmailRaw.includes("@") ? oEmailRaw : null,
+        phone: ownerPhones[i] ? ownerPhones[i].slice(0, 50) : null,
+        role: "EIGENTUEMER",
+        organizationId: actor.organizationId,
+      });
+      if (result) {
+        await db.unitOwnership
+          .create({
+            data: {
+              organizationId: actor.organizationId,
+              unitId,
+              userId: result.id,
+              validFrom: new Date(),
+            },
+          })
+          .catch(() => {});
+        // Objektweite Eigentümerschaft (idempotent über Unique userId+propertyId)
+        await db.ownership
+          .create({ data: { userId: result.id, propertyId: property.id } })
+          .catch(() => {});
+        if (result.pw) letterUsers.push(result);
+      }
+    }
+  }
+
   // ── Mieter (optional, je eine Karte) ────────────────────────────────
   const tenantNames = formData.getAll("tenantName").map((v) => String(v).trim());
   const tenantEmails = formData.getAll("tenantEmail").map((v) => String(v).trim().toLowerCase());

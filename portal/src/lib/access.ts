@@ -19,12 +19,56 @@ export async function ownedProperties(userId: string) {
   return ownerships.map((o) => o.property);
 }
 
-// Besitzt der Eigentümer mindestens ein WEG-Objekt? (für die Beschluss-Navigation)
+// Besitzt der Eigentümer mindestens ein WEG-Objekt? (für die WEG-Navigation).
+// Zählt objektweite Ownership ODER Einheiteneigentum (UnitOwnership).
 export async function ownsWegProperty(userId: string) {
-  const count = await db.ownership.count({
-    where: { userId, property: { managementType: "WEG" } },
+  const [byProperty, byUnit] = await Promise.all([
+    db.ownership.count({ where: { userId, property: { managementType: "WEG" } } }),
+    db.unitOwnership.count({ where: { userId, unit: { property: { managementType: "WEG" } } } }),
+  ]);
+  return byProperty > 0 || byUnit > 0;
+}
+
+// Gehört dem Eigentümer dieses (WEG-)Objekt? Org-gesichert. Grundlage der
+// Belegeinsicht: jeder Eigentümer darf die Buchhaltung seiner WEG einsehen.
+// Eigentümerstellung zählt über die objektweite Ownership ODER die feinere
+// UnitOwnership (Einheiteneigentümer ist per Definition WEG-Mitglied) – beide
+// können in der Praxis einzeln gepflegt sein.
+export async function ownsProperty(userId: string, propertyId: string, organizationId: string) {
+  const [byProperty, byUnit] = await Promise.all([
+    db.ownership.count({
+      where: { userId, propertyId, property: { organizationId, managementType: "WEG" } },
+    }),
+    db.unitOwnership.count({
+      where: { userId, unit: { propertyId, property: { organizationId, managementType: "WEG" } } },
+    }),
+  ]);
+  return byProperty > 0 || byUnit > 0;
+}
+
+// WEG-Objekte, an denen der Nutzer Eigentümer ist (Ownership ODER UnitOwnership).
+export async function wegPropertiesForOwner(userId: string, organizationId: string) {
+  const props = await db.property.findMany({
+    where: {
+      organizationId,
+      managementType: "WEG",
+      OR: [{ ownerships: { some: { userId } } }, { units: { some: { unitOwnerships: { some: { userId } } } } }],
+    },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
   });
-  return count > 0;
+  return props;
+}
+
+// Einheiten eines Objekts, die dem Nutzer (laut UnitOwnership) zugeordnet sind –
+// unabhängig vom Zeitraum (auch beendete Eigentümerschaften, für Altjahres-
+// Abrechnungen). Für „meine Einzelabrechnung".
+export async function ownedUnitIdsInProperty(userId: string, propertyId: string): Promise<string[]> {
+  const rows = await db.unitOwnership.findMany({
+    where: { userId, unit: { propertyId } },
+    select: { unitId: true },
+  });
+  return [...new Set(rows.map((r) => r.unitId))];
 }
 
 // ── Selbstverwaltung (WEG ohne externen Verwalter) ──────────────────────────

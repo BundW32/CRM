@@ -349,6 +349,13 @@ async function main() {
           : [{ organizationId: org.id, unitId: u.id, userId: erika.id, validFrom: since2020 }],
       ),
     });
+    // Objektweite Eigentümerschaft (Stimmrecht/MEA, Belegeinsicht) – konsistent
+    // zum Objekt-Anlegen-Flow, der beides erzeugt. Erika ist Mehrheitseigentümerin.
+    await db.ownership.upsert({
+      where: { userId_propertyId: { userId: erika.id, propertyId: weg.id } },
+      update: {},
+      create: { userId: erika.id, propertyId: weg.id },
+    });
   }
 
   console.log("Seed abgeschlossen:");

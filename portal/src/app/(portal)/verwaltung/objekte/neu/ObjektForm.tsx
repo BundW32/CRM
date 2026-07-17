@@ -7,6 +7,7 @@ import { createObjekt } from "./actions";
 
 type UnitRow = { label: string; floor: string };
 type TenantRow = { name: string; email: string; phone: string; unit: string };
+type OwnerRow = { name: string; email: string; phone: string; unit: string };
 type ExistingProperty = { name: string; street: string; zip: string; city: string };
 
 let rowKey = 0;
@@ -21,10 +22,13 @@ export function ObjektForm({
   defaultManagementType?: "MIETVERWALTUNG" | "WEG";
   existing?: ExistingProperty[];
 }) {
+  const [managementType, setManagementType] = useState(defaultManagementType);
+  const isWeg = managementType === "WEG";
   const [units, setUnits] = useState<Array<UnitRow & { key: string }>>([
     { key: nextKey(), label: "", floor: "" },
   ]);
   const [tenants, setTenants] = useState<Array<TenantRow & { key: string }>>([]);
+  const [owners, setOwners] = useState<Array<OwnerRow & { key: string }>>([]);
   const [name, setName] = useState("");
   const [street, setStreet] = useState("");
   const [zip, setZip] = useState("");
@@ -79,7 +83,13 @@ export function ObjektForm({
             />
           </Field>
           <Field label="Verwaltungsart *">
-            <select name="managementType" required defaultValue={defaultManagementType} className={inputClass}>
+            <select
+              name="managementType"
+              required
+              value={managementType}
+              onChange={(e) => setManagementType(e.target.value as "MIETVERWALTUNG" | "WEG")}
+              className={inputClass}
+            >
               <option value="MIETVERWALTUNG">Mietverwaltung (Miethaus)</option>
               <option value="WEG">WEG (Eigentümergemeinschaft)</option>
             </select>
@@ -150,7 +160,7 @@ export function ObjektForm({
       <Card title="2. Einheiten">
         <p className="mb-3 text-xs text-gray-500">
           Legen Sie die Wohn- bzw. Gewerbeeinheiten an. Diese stehen anschließend für die
-          Mieter-Zuordnung zur Verfügung.
+          {isWeg ? " Eigentümer-Zuordnung" : " Mieter-Zuordnung"} zur Verfügung.
         </p>
         <div className="space-y-2">
           {units.map((u, i) => (
@@ -207,29 +217,134 @@ export function ObjektForm({
         </button>
       </Card>
 
-      {/* 3. Eigentümer */}
-      <Card title="3. Eigentümer (optional)">
-        <p className="mb-3 text-xs text-gray-500">
-          Mit E-Mail → Einladungslink per Mail. Ohne E-Mail → druckbares Zugangsschreiben.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Name">
-            <input type="text" name="eigName" minLength={2} className={inputClass} />
-          </Field>
-          <Field label="E-Mail (optional)">
-            <input type="email" name="eigEmail" className={inputClass} />
-          </Field>
-          <Field label="Telefon (optional)">
-            <input type="tel" name="eigPhone" className={inputClass} />
-          </Field>
-        </div>
-      </Card>
+      {/* 3. Eigentümer — WEG: je Einheit; Mietverwaltung: ein Objekt-Eigentümer */}
+      {isWeg ? (
+        <Card title="3. Eigentümer je Einheit">
+          <p className="mb-3 text-xs text-gray-500">
+            In einer WEG gehört jede Einheit einem eigenen Eigentümer. Ordnen Sie jeder Einheit
+            ihre(n) Eigentümer zu (Miteigentum: mehrere Zeilen mit derselben Einheit). Mit E-Mail →
+            Einladungslink, ohne E-Mail → druckbares Zugangsschreiben.
+          </p>
+          {owners.length === 0 ? (
+            <p className="mb-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+              Noch keine Eigentümer hinzugefügt.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {owners.map((o, i) => (
+                <div key={o.key} className="rounded-xl border border-gray-200 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-500">Eigentümer {i + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => setOwners((rows) => rows.filter((r) => r.key !== o.key))}
+                      className="text-sm text-gray-400 hover:text-red-600"
+                      aria-label="Eigentümer entfernen"
+                    >
+                      Entfernen
+                    </button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="Name *">
+                      <input
+                        type="text"
+                        name="wegOwnerName"
+                        value={o.name}
+                        onChange={(e) =>
+                          setOwners((rows) =>
+                            rows.map((r) => (r.key === o.key ? { ...r, name: e.target.value } : r))
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Einheit *">
+                      <select
+                        name="wegOwnerUnit"
+                        value={o.unit}
+                        onChange={(e) =>
+                          setOwners((rows) =>
+                            rows.map((r) => (r.key === o.key ? { ...r, unit: e.target.value } : r))
+                          )
+                        }
+                        className={inputClass}
+                      >
+                        <option value="">— wählen —</option>
+                        {unitOptions.map((label) => (
+                          <option key={label} value={label}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="E-Mail (optional)">
+                      <input
+                        type="email"
+                        name="wegOwnerEmail"
+                        value={o.email}
+                        onChange={(e) =>
+                          setOwners((rows) =>
+                            rows.map((r) => (r.key === o.key ? { ...r, email: e.target.value } : r))
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Telefon (optional)">
+                      <input
+                        type="tel"
+                        name="wegOwnerPhone"
+                        value={o.phone}
+                        onChange={(e) =>
+                          setOwners((rows) =>
+                            rows.map((r) => (r.key === o.key ? { ...r, phone: e.target.value } : r))
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() =>
+              setOwners((rows) => [...rows, { key: nextKey(), name: "", email: "", phone: "", unit: "" }])
+            }
+            className="mt-3 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            + Eigentümer hinzufügen
+          </button>
+        </Card>
+      ) : (
+        <Card title="3. Eigentümer (optional)">
+          <p className="mb-3 text-xs text-gray-500">
+            Mit E-Mail → Einladungslink per Mail. Ohne E-Mail → druckbares Zugangsschreiben.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Name">
+              <input type="text" name="eigName" minLength={2} className={inputClass} />
+            </Field>
+            <Field label="E-Mail (optional)">
+              <input type="email" name="eigEmail" className={inputClass} />
+            </Field>
+            <Field label="Telefon (optional)">
+              <input type="tel" name="eigPhone" className={inputClass} />
+            </Field>
+          </div>
+        </Card>
+      )}
 
-      {/* 4. Mieter */}
+      {/* 4. Mieter (optional) — bei WEG nur, wenn ein Eigentümer seine Einheit vermietet */}
       <Card title="4. Mieter (optional)">
         <p className="mb-3 text-xs text-gray-500">
-          Jeder Mieter erhält eine eigene Karte. Mit E-Mail wird ein Einladungslink versendet,
-          ohne E-Mail wird ein Zugangsschreiben zum Drucken erstellt.
+          {isWeg
+            ? "Nur nötig, wenn eine Einheit vermietet ist. Jeder Mieter erhält eine eigene Karte; "
+            : "Jeder Mieter erhält eine eigene Karte. "}
+          Mit E-Mail wird ein Einladungslink versendet, ohne E-Mail wird ein Zugangsschreiben zum
+          Drucken erstellt.
         </p>
         {tenants.length === 0 ? (
           <p className="mb-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">

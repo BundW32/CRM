@@ -234,10 +234,91 @@ select:not([multiple]) {
   }
 }
 
+/* ── Marketing-Seiten: Scroll-Reveals & bewegte Illustrationen ─────────────
+   `.mk-reveal` blendet Abschnitte beim Scrollen ein (Klasse `is-visible` setzt
+   der Reveal-Client-Component per IntersectionObserver). Kind-Animationen mit
+   `.mk-anim` starten pausiert und laufen erst an, wenn der Abschnitt sichtbar
+   wird – so spielen Sequenzen genau einmal beim Hereinscrollen. */
+.mk-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.6s ease-out, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.mk-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+.mk-reveal .mk-anim {
+  animation-play-state: paused;
+}
+.mk-reveal.is-visible .mk-anim {
+  animation-play-state: running;
+}
+
+/* Ruhige Dauer-Animationen (Hero-Illustrationen) */
+@keyframes mkFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+@keyframes mkOrbit {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes mkOrbitCounter {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+@keyframes mkPulseSoft {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+
+/* Einmalige Einblend-Sequenzen (mit animation-delay gestaffelt) */
+@keyframes mkGrowY {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+@keyframes mkGrowX {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@keyframes mkRowIn {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes mkPopIn {
+  0%   { opacity: 0; transform: scale(0.6); }
+  70%  { transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Pendelnde Bewegungen (Endlosschleife) */
+@keyframes mkShuttle {
+  0%, 12%  { transform: translateX(0); opacity: 0; }
+  22%      { opacity: 1; }
+  78%      { opacity: 1; }
+  88%, 100% { transform: translateX(var(--mk-shuttle-x, 9rem)); opacity: 0; }
+}
+@keyframes mkLetterOut {
+  0%, 20%   { transform: translateY(42%); }
+  60%, 100% { transform: translateY(0); }
+}
+/* Drei gestapelte Status-Chips wechseln sich durch (je 1/3 der Zeit sichtbar) */
+@keyframes mkCycle3 {
+  0%, 27%   { opacity: 1; }
+  33%, 94%  { opacity: 0; }
+  100%      { opacity: 1; }
+}
+
 /* Reduzierte Bewegung – Animationen respektvoll deaktivieren */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+  /* Reveals ohne Bewegung sofort zeigen */
+  .mk-reveal {
+    opacity: 1;
+    transform: none;
   }
 }

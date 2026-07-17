@@ -89,9 +89,21 @@ Muster — ersetzt keine Rechtsberatung.`;
     <>
       <PageTitle
         action={
-          <Link href={`/verwaltung/weg/${property.id}/wirtschaftsplan`} className={buttonSecondaryClass}>
-            ← Wirtschaftspläne
-          </Link>
+          <div className="flex gap-2">
+            {!advanceError ? (
+              <a
+                href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf`}
+                target="_blank"
+                rel="noreferrer"
+                className={buttonSecondaryClass}
+              >
+                Als PDF
+              </a>
+            ) : null}
+            <Link href={`/verwaltung/weg/${property.id}/wirtschaftsplan`} className={buttonSecondaryClass}>
+              ← Wirtschaftspläne
+            </Link>
+          </div>
         }
       >
         Wirtschaftsplan {plan.year} · {property.name}

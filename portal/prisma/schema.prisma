@@ -93,6 +93,7 @@ enum MaintenanceInterval {
   HALBJAEHRLICH
   JAEHRLICH
   ZWEIJAEHRLICH
+  DREIJAEHRLICH
   EINMALIG
 }
 
@@ -648,6 +649,10 @@ model MaintenanceTask {
   property         Property?           @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   craftsmanId      String?
   craftsman        Craftsman?          @relation(fields: [craftsmanId], references: [id], onDelete: SetNull)
+  // Herkunft aus dem WEG-Prüfpflichten-Katalog (Idempotenz der Übernahme je Objekt)
+  catalogKey       String?
+  // Letzte per E-Mail-Adapter versendete Fälligkeits-Erinnerung (verhindert Doppelmails)
+  lastReminderAt   DateTime?
   createdAt        DateTime            @default(now())
   generatedTickets Ticket[]
 
@@ -655,6 +660,7 @@ model MaintenanceTask {
   @@index([dueDate])
   @@index([active, dueDate])
   @@index([organizationId])
+  @@index([propertyId, catalogKey])
 }
 
 model TicketComment {

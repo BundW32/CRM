@@ -175,3 +175,34 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
 36. **Nur strikte Schlüssel** (MEA/Fläche/Einheiten/Personen): VERBRAUCH/
     FESTBETRAG/INDIVIDUELL ergeben für eine einmalige Umlage keinen Sinn.
     Verteilung über dieselbe centgenaue Engine (`distributeByWeight`).
+
+## Schritt 6 — Prüfpflichten-Katalog (M-A, 17.07.2026)
+
+37. **Kein neues Modell, sondern `MaintenanceTask` erweitert** (`catalogKey`,
+    `lastReminderAt`): Prüfpflichten SIND wiederkehrende Wartungsaufgaben. So
+    tauchen sie ohne Sonderweg in „Wartung & Prüfungen" auf (inkl. Handwerker-
+    zuordnung/Vorgangserstellung) und die vorhandene „Fällige Wartungen"-
+    Dashboard-Karte zeigt sie automatisch mit. `catalogKey` markiert die
+    Herkunft aus dem Katalog und macht die Übernahme je Objekt idempotent —
+    exakt das Muster von `adoptCostCatalog` (Abgleich per Schlüssel statt
+    Titel, damit umbenannte Einträge nicht doppelt entstehen).
+38. **Neuer Turnus `DREIJAEHRLICH`** statt Behelf über `ZWEIJAEHRLICH`: Die
+    Legionellenprüfung ist nach TrinkwV in der Regel alle 3 Jahre fällig
+    (Rechtssicherheit, Konvention #8). Additive Enum-Erweiterung
+    (`ALTER TYPE … ADD VALUE`) plus Labels/Monate-Map — eine Quelle für den
+    Monatswert bleibt `labels.ts` (`compliance.ts` re-exportiert sie).
+39. **Fälligkeits-Turnus rechnet ab dem späteren von bisheriger Fälligkeit und
+    heute** (`completeCompliance`): Quittiert man eine überfällige Pflicht,
+    darf die nächste Fälligkeit nicht in der Vergangenheit landen; ist sie
+    noch nicht fällig, bleibt der ursprüngliche Rhythmus erhalten (kein
+    schleichendes Nach-hinten-Wandern). `addMonths` mit Monatsend-Korrektur.
+40. **E-Mail-Erinnerung als reiner Beschleuniger** (`compliance-reminder.ts`,
+    Cron `/api/cron/pruefpflichten`, CRON_SECRET-geschützt): Ohne SMTP-Adapter
+    (`isMailEnabled === false`) passiert nichts — die Fälligkeiten stehen
+    ohnehin im Dashboard (Zero-Key, Konvention #1). Anti-Spam über
+    `lastReminderAt` + 7-Tage-Cooldown; Digest je Organisation an deren aktive
+    Verwalter, Vorwarnfenster 14 Tage.
+41. **Turnusse als fachliche Richtwerte mit Muster-Hinweis** („ersetzt keine
+    Rechtsberatung"): TrinkwV/BetrSichV/GEG/DIN 14676/WEG geben die Regelfälle
+    vor, die konkrete Anlage kann abweichen — die Fälligkeit ist je Pflicht
+    frei editierbar.

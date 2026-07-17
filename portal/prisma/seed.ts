@@ -6,6 +6,8 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { WEG_COST_CATALOG } from "../src/lib/weg/cost-catalog";
+import { WEG_COMPLIANCE_CATALOG } from "../src/lib/weg/compliance-catalog";
+import { addMonths } from "../src/lib/weg/compliance";
 import {
   computeUnitAdvances,
   fiscalYearMonths,
@@ -379,6 +381,38 @@ async function main() {
       await db.ownership.updateMany({
         where: { userId, propertyId: weg.id },
         data: { mea: a.mea, voteUnits: a.count },
+      });
+    }
+  }
+
+  // Prüfpflichten-Katalog für die Demo-WEG übernehmen (idempotent über catalogKey).
+  // Zwei Fälligkeiten werden bewusst in die Vergangenheit/nahe Zukunft gelegt,
+  // damit das Dashboard „fällige/überfällige Prüfpflichten" demonstriert.
+  {
+    const existing = await db.maintenanceTask.findMany({
+      where: { propertyId: weg.id, catalogKey: { not: null } },
+      select: { catalogKey: true },
+    });
+    const have = new Set(existing.map((t) => t.catalogKey));
+    const now = new Date();
+    const overrides: Record<string, Date> = {
+      // überfällig
+      RAUCHWARNMELDER: addMonths(now, -1),
+      // in den nächsten Tagen fällig
+      VERSAMMLUNG_PLANEN: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000),
+    };
+    const toCreate = WEG_COMPLIANCE_CATALOG.filter((d) => !have.has(d.key));
+    if (toCreate.length > 0) {
+      await db.maintenanceTask.createMany({
+        data: toCreate.map((d) => ({
+          organizationId: org.id,
+          propertyId: weg.id,
+          title: d.title,
+          description: d.description,
+          interval: d.interval,
+          dueDate: overrides[d.key] ?? addMonths(now, d.initialDueMonths),
+          catalogKey: d.key,
+        })),
       });
     }
   }

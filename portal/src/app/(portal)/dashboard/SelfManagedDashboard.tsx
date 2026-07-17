@@ -4,7 +4,8 @@ import { CountUp } from "@/components/count-up";
 import { Card, EmptyState, PageTitle } from "@/components/ui";
 import { announcementWhereForUser, ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
-import { formatDate } from "@/lib/labels";
+import { formatDate, formatDateOnly } from "@/lib/labels";
+import { classifyDue, dueLabel } from "@/lib/weg/compliance";
 
 // WEG-fokussierte Übersicht für selbstverwaltete Gemeinschaften (interner
 // Verwalter oder Eigentümer) – statt der professionellen Ticket-Statistik.
@@ -22,7 +23,10 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
     : (await ownedProperties(user.id)).filter((p) => p.managementType === "WEG").map((p) => p.id);
 
   const now = new Date();
-  const [openResolutions, nextMeeting, openMotions, announcements] = await Promise.all([
+  // Fällige/überfällige Prüfpflichten (Vorwarnfenster 30 Tage) im Scope.
+  const dueHorizon = new Date(now.getTime());
+  dueHorizon.setDate(dueHorizon.getDate() + 30);
+  const [openResolutions, nextMeeting, openMotions, announcements, complianceDuties] = await Promise.all([
     db.resolution.count({ where: { propertyId: { in: propIds }, status: "OFFEN" } }),
     db.ownersMeeting.findFirst({
       where: { propertyId: { in: propIds }, status: { in: ["GEPLANT", "EINBERUFEN"] }, scheduledAt: { gte: now } },
@@ -38,6 +42,17 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
       orderBy: { createdAt: "desc" },
       take: 3,
       include: { property: true },
+    }),
+    db.maintenanceTask.findMany({
+      where: {
+        propertyId: { in: propIds },
+        active: true,
+        catalogKey: { not: null },
+        dueDate: { lte: dueHorizon },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 6,
+      include: { property: { select: { id: true, name: true } } },
     }),
   ]);
 
@@ -77,6 +92,52 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
           )}
         </Link>
       </div>
+
+      {complianceDuties.length > 0 ? (
+        <div className="mt-6">
+          <Card title="Fällige Prüfpflichten">
+            <ul className="space-y-2">
+              {complianceDuties.map((t) => {
+                const { days, status } = classifyDue(t.dueDate, now);
+                const tone =
+                  status === "overdue"
+                    ? "text-red-600"
+                    : status === "soon"
+                      ? "text-orange-600"
+                      : "text-gray-500";
+                const inner = (
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                    <span className="text-sm font-medium text-gray-800">{t.title}</span>
+                    <span className={`text-xs font-medium ${tone}`}>
+                      fällig {formatDateOnly(t.dueDate)} · {dueLabel(days)}
+                    </span>
+                  </div>
+                );
+                return (
+                  <li key={t.id} className="border-b border-gray-50 pb-2 last:border-0">
+                    {isAdmin && t.property ? (
+                      <Link
+                        href={`/verwaltung/weg/${t.property.id}/pruefpflichten`}
+                        className="block hover:opacity-80"
+                      >
+                        {inner}
+                        <span className="text-xs text-gray-400">{t.property.name}</span>
+                      </Link>
+                    ) : (
+                      <>
+                        {inner}
+                        {t.property ? (
+                          <span className="text-xs text-gray-400">{t.property.name}</span>
+                        ) : null}
+                      </>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card title="Schnellzugriff">

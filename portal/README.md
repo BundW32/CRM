@@ -110,6 +110,13 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   **Vermögensbericht** (§ 28 Abs. 4 WEG) und **tagesgenaue Aufteilung bei
   Eigentümerwechsel**. Fertigstellen friert das Ergebnis revisionssicher ein.
   Eigentümer je Einheit (mit Stichtag) werden in den Stammdaten gepflegt.
+- **Prüfpflichten-Katalog**: vorkonfigurierte wiederkehrende Prüf- und
+  Verwaltungspflichten (Trinkwasser/Legionellen, Rauchwarnmelder, Aufzug,
+  Heizungscheck, Verkehrssicherung/Winterdienst, Versicherungen,
+  Jahresabrechnung, Versammlung) — per Knopfdruck je Objekt übernehmbar,
+  Fälligkeit je Pflicht editierbar. Fällige/überfällige Pflichten erscheinen im
+  Dashboard; optionale E-Mail-Erinnerung über den Mail-Adapter (Fallback: nur
+  Dashboard, ohne API-Key). Nutzt das bestehende Wartungsmodell.
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 
@@ -117,9 +124,10 @@ Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 
 - **Immoware24-Sync**: vorbereitet in `src/lib/immoware24.ts` +
   `Property.immoware24Id`; wartet auf den API-Zugang von Immoware24
-- **WEG-Finanzen Stufe 5**: Einladungs-PDF mit Fristenrechner,
-  Prüfpflichten-Katalog, Erhaltungsplanung, Messdienst-Import (ista/Techem),
-  SEPA-pain.008-Export, Open-Banking-Adapter, Vermieter-Zusatzmodul
+- **WEG-Selbstverwaltung (weiter)**: Einladungs-Assistent mit Fristenrechner &
+  Einladungs-PDF, Erhaltungsplanung, Wirtschaftsplan-PDF für Eigentümer,
+  Verbrauchsinfo, Messdienst-Import (ista/Techem), SEPA-pain.008-Export,
+  Open-Banking-Adapter, Vermieter-Zusatzmodul
 - Passwort-Reset per E-Mail, Mehr-Faktor-Login
 - Schlagwort-Automatisierung (Kategorie → automatische Handwerker-Beauftragung)
 - Maklerservice-Modul (Interessenten, Exposé-Anfragen), Modernisierungs-Projekte

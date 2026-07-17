@@ -141,6 +141,7 @@ export const maintenanceIntervalLabels: Record<MaintenanceInterval, string> = {
   HALBJAEHRLICH: "Halbjährlich",
   JAEHRLICH: "Jährlich",
   ZWEIJAEHRLICH: "Alle 2 Jahre",
+  DREIJAEHRLICH: "Alle 3 Jahre",
   EINMALIG: "Einmalig",
 };
 
@@ -180,6 +181,7 @@ export const maintenanceIntervalMonths: Record<MaintenanceInterval, number | nul
   HALBJAEHRLICH: 6,
   JAEHRLICH: 12,
   ZWEIJAEHRLICH: 24,
+  DREIJAEHRLICH: 36,
   EINMALIG: null,
 };
 

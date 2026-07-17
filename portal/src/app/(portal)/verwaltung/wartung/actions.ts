@@ -22,6 +22,7 @@ const taskSchema = z.object({
     "HALBJAEHRLICH",
     "JAEHRLICH",
     "ZWEIJAEHRLICH",
+    "DREIJAEHRLICH",
     "EINMALIG",
   ]),
   dueDate: z.string().min(1),

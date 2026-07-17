@@ -450,6 +450,23 @@ async function main() {
     }
   }
 
+  // Demo-Erhaltungsmaßnahmen (Erhaltungsplanung). Bewusst so dimensioniert, dass
+  // der geplante Bedarf den Rücklagenstand übersteigt (Unterdeckung sichtbar).
+  {
+    const existing = await db.maintenanceMeasure.count({ where: { propertyId: weg.id } });
+    if (existing === 0) {
+      const admin = await db.user.findUniqueOrThrow({ where: { email: "admin@bundwimmobilien.de" } });
+      const y = new Date().getFullYear();
+      await db.maintenanceMeasure.createMany({
+        data: [
+          { organizationId: org.id, propertyId: weg.id, title: "Fassadenanstrich", trade: "Fassade", targetYear: y + 1, estimatedCents: 1_800_000, createdById: admin.id },
+          { organizationId: org.id, propertyId: weg.id, title: "Dachrinnen erneuern", trade: "Dach", targetYear: y + 2, estimatedCents: 650_000, createdById: admin.id },
+          { organizationId: org.id, propertyId: weg.id, title: "Heizungsanlage austauschen", trade: "Heizung", targetYear: y + 4, estimatedCents: 3_200_000, createdById: admin.id },
+        ],
+      });
+    }
+  }
+
   console.log("Seed abgeschlossen:");
   console.log("  Verwalter:  admin@bundwimmobilien.de / BundW-Start2026!");
   console.log(`  Eigentümer: ${eigentuemer.email} / Demo-2026!`);

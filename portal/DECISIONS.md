@@ -235,3 +235,26 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
 47. **Video-Link nur als Freitext-Abdruck** (`OwnersMeeting.videoLink`): erfüllt
     die Anforderung „Link zur Video-Zuschaltung im PDF" bewusst OHNE Streaming
     oder Live-Abstimmung — das echte Hybrid-/Online-Voting bleibt Modul M-J.
+
+## Schritt 8 — Erhaltungsplanung (M-C, 17.07.2026)
+
+48. **Eigenes Modell `MaintenanceMeasure`** (Titel, Gewerk, Zieljahr,
+    Kostenschätzung in Cent) statt Zweckentfremdung von `MaintenanceTask`: eine
+    langfristig geplante Erhaltungsmaßnahme (§ 19 Abs. 2 Nr. 2 WEG) ist kein
+    terminierter Wartungslauf — sie hat ein Zieljahr und einen Kostenbetrag, aber
+    keinen Turnus/keine Fälligkeit. `done` schließt erledigte Maßnahmen aus dem
+    Bedarf aus. Gewerk als Freitext (Planung ist gröber als der Trade-Katalog).
+49. **Rücklagenstand aus der Buchhaltung hergeleitet, nicht doppelt gepflegt**:
+    Anfangsbestand + Σ Einnahmen − Σ Ausgaben ± Umbuchungen über die
+    RUECKLAGE-Konten (dieselbe Formel wie die Buchhaltungsseite). Eine
+    Gegenüberstellung mit einem separat gepflegten Wert würde zwangsläufig
+    auseinanderlaufen.
+50. **Jährliche Zuführung aus dem beschlossenen Wirtschaftsplan** (Positionen mit
+    Kostenart-Kategorie RUECKLAGENZUFUEHRUNG): macht die Jahresprognose realistisch
+    („leitet den Rücklagenbedarf her") statt nur eine statische Summe
+    gegenüberzustellen. Ohne beschlossenen Plan = 0 (konservativ).
+51. **Prognose als reine, getestete Funktion** (`reserve-plan.ts`,
+    `projectReserve`): rollt Jahr für Jahr Zuführung − geplante Ausgaben auf den
+    Startbestand und meldet das erste Jahr der Unterdeckung. Überfällige
+    Maßnahmen (Zieljahr < laufendes Jahr) werden ins laufende Jahr gezogen, damit
+    kein Bedarf „verschwindet". Alles Integer-Cent.

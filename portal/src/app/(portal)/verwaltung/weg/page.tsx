@@ -98,6 +98,12 @@ export default async function WegOverviewPage() {
                 >
                   Prüfpflichten
                 </Link>
+                <Link
+                  href={`/verwaltung/weg/${p.id}/erhaltungsplanung`}
+                  className={buttonSecondaryClass}
+                >
+                  Erhaltungsplanung
+                </Link>
               </div>
             </Card>
           ))}

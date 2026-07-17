@@ -292,6 +292,7 @@ model Organization {
   annualStatements      AnnualStatement[]
   hausgeldMahnungen     HausgeldMahnung[]
   sonderumlagen         Sonderumlage[]
+  maintenanceMeasures   MaintenanceMeasure[]
 }
 
 model User {
@@ -362,6 +363,7 @@ model User {
   unitOwnerships            UnitOwnership[]
   mahnungenCreated          HausgeldMahnung[]         @relation("MahnungCreatedBy")
   sonderumlagenCreated      Sonderumlage[]            @relation("SonderumlageCreatedBy")
+  maintenanceMeasuresCreated MaintenanceMeasure[]     @relation("MaintenanceMeasureCreatedBy")
 
   @@index([role])
   @@index([role, active])
@@ -439,6 +441,7 @@ model Property {
   annualStatements      AnnualStatement[]
   hausgeldMahnungen     HausgeldMahnung[]
   sonderumlagen         Sonderumlage[]
+  maintenanceMeasures   MaintenanceMeasure[]
 
   @@index([organizationId])
 }
@@ -1524,4 +1527,28 @@ model Sonderumlage {
   duePostings      DuePosting[]
 
   @@index([propertyId])
+}
+
+// ── WEG-Erhaltungsplanung (§ 19 Abs. 2 Nr. 2 WEG) ────────────────────────────
+// Langfristige Maßnahmenliste je Objekt (Titel, Gewerk, Zieljahr, Kosten-
+// schätzung). Aus den Maßnahmen wird der Rücklagenbedarf hergeleitet und dem
+// aktuellen Rücklagenstand (aus der Buchhaltung) gegenübergestellt.
+model MaintenanceMeasure {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  title          String
+  trade          String? // Gewerk (Freitext, z. B. "Dach", "Fassade", "Heizung")
+  targetYear     Int // geplantes Umsetzungsjahr
+  estimatedCents Int // Kostenschätzung (immer positiv)
+  note           String?
+  done           Boolean      @default(false) // erledigt → nicht mehr im Bedarf
+  createdById    String
+  createdBy      User         @relation("MaintenanceMeasureCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@index([propertyId])
+  @@index([propertyId, done])
 }

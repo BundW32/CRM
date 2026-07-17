@@ -126,6 +126,11 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   E-Mail-Adapter **oder** Selbstdruck + „als versendet markieren" (setzt das
   Versanddatum, ohne API-Key). Optionaler Freitext-Link zur Video-Zuschaltung
   (nur Abdruck im PDF — kein Streaming/keine Live-Abstimmung)
+- **Erhaltungsplanung** (§ 19 Abs. 2 Nr. 2 WEG): langfristige Maßnahmenliste je
+  Objekt (Titel, Gewerk, Zieljahr, Kostenschätzung); leitet daraus den
+  Rücklagenbedarf her und stellt ihn dem **aktuellen Rücklagenstand aus der
+  Buchhaltung** gegenüber (Deckung/Unterdeckung). Jahresprognose inkl. der
+  beschlossenen jährlichen Zuführung markiert das erste Jahr einer Unterdeckung
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 

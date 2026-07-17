@@ -115,6 +115,9 @@ export default async function HausgeldPage({
             <Link href={`/verwaltung/weg/${property.id}/buchhaltung`} className={buttonSecondaryClass}>
               Buchhaltung
             </Link>
+            <Link href={`/verwaltung/weg/${property.id}/sonderumlagen`} className={buttonSecondaryClass}>
+              Sonderumlagen
+            </Link>
             <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
               ← WEG-Finanzen
             </Link>

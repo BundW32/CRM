@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { InstallHint } from "@/components/install-hint";
 import { NavProgress } from "@/components/nav-progress";
+import { NumericAutoselect } from "@/components/numeric-autoselect";
 import { PageTransition } from "@/components/page-transition";
 import { PortalHeader } from "@/components/portal-header";
 import { AssistantWidget } from "@/components/assistant-widget";
@@ -128,6 +129,7 @@ export default async function PortalLayout({
       ) : null}
       <BrandTheme primaryColor={org?.primaryColor ?? null} />
       <NavProgress />
+      <NumericAutoselect />
       <PortalHeader
         nav={nav}
         userName={user.name}

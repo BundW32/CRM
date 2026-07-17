@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
 import { WEG_COST_CATALOG } from "@/lib/weg/cost-catalog";
+import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 import { loadWegProperty } from "@/lib/weg/scope";
 
 const UNIT_TYPES = ["WOHNUNG", "TEILEIGENTUM", "STELLPLATZ", "SONSTIGES"] as const;
@@ -108,6 +109,8 @@ export async function saveUnitFinanceData(formData: FormData) {
       personCount: parsed.data.personCount,
     },
   });
+  // Stimmgewichte der Eigentümer aus den (neuen) Einheiten-MEA ableiten.
+  await syncOwnerVotingWeights(property.id);
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_UNIT_SAVED,
@@ -116,6 +119,7 @@ export async function saveUnitFinanceData(formData: FormData) {
     meta: { mea: parsed.data.mea, livingArea: parsed.data.livingArea, personCount: parsed.data.personCount },
   });
   revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+  revalidatePath("/verwaltung/eigentuemer");
   back(property.id, "gespeichert=einheit");
 }
 
@@ -286,7 +290,9 @@ export async function addUnitOwnership(formData: FormData) {
     targetId: unit.id,
     meta: { userId: user.id, validFrom: parsed.data.validFrom, endPrevious },
   });
+  await syncOwnerVotingWeights(property.id);
   revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+  revalidatePath("/verwaltung/eigentuemer");
   back(property.id, "gespeichert=eigentuemer");
 }
 
@@ -324,7 +330,9 @@ export async function endUnitOwnership(formData: FormData) {
     targetId: ownership.unitId,
     meta: { ownershipId: ownership.id, validTo: validToRaw || "gelöscht" },
   });
+  await syncOwnerVotingWeights(property.id);
   revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+  revalidatePath("/verwaltung/eigentuemer");
   back(property.id, "gespeichert=eigentuemer");
 }
 

@@ -3,7 +3,7 @@ import { Alert, Card, PageTitle, buttonSecondaryClass, inputClass } from "@/comp
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { updateBoardMember, updateOwnershipMea, updateVotingPrinciple } from "./actions";
+import { updateBoardMember, updateVotingPrinciple } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -166,41 +166,17 @@ export default async function EigentuemerPage({
                               </form>
                             </td>
                             <td className="px-3 py-2" colSpan={2}>
-                              <form action={updateOwnershipMea} className="flex flex-wrap items-center gap-2">
-                                <input type="hidden" name="ownershipId" value={o.id} />
-                                <label className="text-xs text-gray-400">
-                                  MEA
-                                  <input
-                                    type="number"
-                                    name="mea"
-                                    min={0}
-                                    defaultValue={o.mea ?? ""}
-                                    placeholder="z. B. 250"
-                                    disabled={locked}
-                                    className={`${inputClass} ml-1 w-24`}
-                                  />
-                                </label>
-                                <label className="text-xs text-gray-400">
-                                  Einheiten
-                                  <input
-                                    type="number"
-                                    name="voteUnits"
-                                    min={0}
-                                    defaultValue={o.voteUnits ?? ""}
-                                    placeholder="z. B. 1"
-                                    disabled={locked}
-                                    className={`${inputClass} ml-1 w-16`}
-                                  />
-                                </label>
-                                <button
-                                  type="submit"
-                                  disabled={locked}
-                                  className="text-xs text-brand-green hover:underline disabled:text-gray-300"
-                                >
-                                  Speichern
-                                </button>
+                              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-700">
+                                <span>
+                                  <span className="text-xs text-gray-400">MEA </span>
+                                  {o.mea ?? "—"}
+                                </span>
+                                <span>
+                                  <span className="text-xs text-gray-400">Einheiten </span>
+                                  {o.voteUnits ?? "—"}
+                                </span>
                                 <span className="text-xs text-gray-400">{share}</span>
-                              </form>
+                              </div>
                             </td>
                             <td />
                           </tr>
@@ -216,9 +192,18 @@ export default async function EigentuemerPage({
                     </tbody>
                   </table>
                   <p className="mt-3 text-xs text-gray-400">
-                    Stimmgewicht je Stimmprinzip: Kopfprinzip = eine Stimme je Eigentümer ·
-                    Wertprinzip = nach Miteigentumsanteilen (MEA) · Objektprinzip = nach
-                    Einheiten. Pflegen Sie die jeweils passende Spalte.
+                    MEA und Einheiten je Eigentümer ergeben sich automatisch aus den
+                    Miteigentumsanteilen der Einheiten und der Einheiten-Eigentümerschaft. Gepflegt
+                    werden sie unter{" "}
+                    <Link
+                      href={`/verwaltung/weg/${selected.id}/stammdaten`}
+                      className="text-brand-green hover:underline"
+                    >
+                      WEG-Finanzen → Stammdaten
+                    </Link>{" "}
+                    (Einheiten-MEA und Eigentümer je Einheit) — so vermeiden Sie doppelte Eingaben.
+                    Stimmgewicht je Prinzip: Kopfprinzip = eine Stimme je Eigentümer · Wertprinzip =
+                    nach MEA · Objektprinzip = nach Einheiten.
                   </p>
                 </div>
               )}

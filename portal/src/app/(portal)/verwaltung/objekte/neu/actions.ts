@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireVerwalter } from "@/lib/session";
+import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 
 const MAX_UNITS = 100;
 const MAX_TENANTS = 100;
@@ -223,6 +224,8 @@ export async function createObjekt(formData: FormData) {
         if (result.pw) letterUsers.push(result);
       }
     }
+    // Stimmgewichte (voteUnits/MEA) aus der Einheiten-Eigentümerschaft ableiten.
+    await syncOwnerVotingWeights(property.id);
   }
 
   // ── Mieter (optional, je eine Karte) ────────────────────────────────

@@ -356,6 +356,31 @@ async function main() {
       update: {},
       create: { userId: erika.id, propertyId: weg.id },
     });
+
+    // Stimmgewichte aus den Einheiten-MEA ableiten (wie lib/weg/mea-sync.ts):
+    // Erika hält WE01/02/04/05 + TE06 (820 MEA, 5 Einheiten), Klaus WE03 (180, 1).
+    const now = new Date();
+    const holdings = await db.unitOwnership.findMany({
+      where: {
+        unit: { propertyId: weg.id },
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gt: now } }],
+      },
+      select: { userId: true, sharePercent: true, unit: { select: { mea: true } } },
+    });
+    const agg = new Map<string, { count: number; mea: number }>();
+    for (const h of holdings) {
+      const e = agg.get(h.userId) ?? { count: 0, mea: 0 };
+      e.count += 1;
+      e.mea += Math.round(((h.unit.mea ?? 0) * h.sharePercent) / 100);
+      agg.set(h.userId, e);
+    }
+    for (const [userId, a] of agg) {
+      await db.ownership.updateMany({
+        where: { userId, propertyId: weg.id },
+        data: { mea: a.mea, voteUnits: a.count },
+      });
+    }
   }
 
   console.log("Seed abgeschlossen:");

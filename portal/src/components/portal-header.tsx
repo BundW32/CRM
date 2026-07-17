@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Users,
   UserRound,
+  Wallet,
 } from "lucide-react";
 import { logout } from "@/app/login/actions";
 import { OrgLogo } from "@/components/logo";
@@ -32,6 +33,7 @@ const navIcons: Record<string, LucideIcon> = {
   "/versammlungen": Users,
   "/antraege": FileText,
   "/gemeinschaft": Users,
+  "/finanzen": Wallet,
   "/nachrichten": MessageSquare,
   "/infos": Info,
   "/zaehler": Gauge,

@@ -27,6 +27,7 @@ const navByRole = {
     { href: "/vorgaenge", label: "Vorgänge" },
     { href: "/beschluesse", label: "Beschlüsse" },
     { href: "/versammlungen", label: "Versammlungen" },
+    { href: "/finanzen", label: "Finanzen" },
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
     { href: "/zaehler", label: "Zähler" },
@@ -68,6 +69,7 @@ const selfManagedNav = {
     { href: "/versammlungen", label: "Versammlungen" },
     { href: "/antraege", label: "Anträge" },
     { href: "/gemeinschaft", label: "Gemeinschaft" },
+    { href: "/finanzen", label: "Finanzen" },
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
   ],
@@ -90,14 +92,16 @@ export default async function PortalLayout({
     // Eigentümer ohne WEG-Objekt: WEG-spezifische Punkte ausblenden.
     if (user.role === "EIGENTUEMER" && !ownsWeg) {
       nav = nav.filter(
-        (item) => !["/beschluesse", "/versammlungen", "/antraege", "/gemeinschaft"].includes(item.href),
+        (item) => !["/beschluesse", "/versammlungen", "/antraege", "/gemeinschaft", "/finanzen"].includes(item.href),
       );
     }
   } else {
     // Professionelles Profil (unverändert).
     nav = navByRole[user.role];
     if (user.role === "EIGENTUEMER" && !ownsWeg) {
-      nav = nav.filter((item) => item.href !== "/beschluesse" && item.href !== "/versammlungen");
+      nav = nav.filter(
+        (item) => !["/beschluesse", "/versammlungen", "/finanzen"].includes(item.href),
+      );
     }
   }
   // Plattform-Betreiber (B&W): Zugang zum internen Betreiber-Bereich.

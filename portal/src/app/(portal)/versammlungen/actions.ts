@@ -4,12 +4,14 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { User } from "@/generated/prisma/client";
 import { canVerwalterAccessProperty } from "@/lib/access";
+import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { deleteBlob, saveBuffer } from "@/lib/storage";
 import { requireVerwalter } from "@/lib/session";
 import { generateMeetingProtocol } from "@/lib/documents/meeting-protocol";
+import { MEETING_AGENDA_TEMPLATES } from "@/lib/weg/meeting-agenda-templates";
 
 // Lädt eine Versammlung und prüft, dass das Objekt im Scope des Verwalters liegt.
 async function meetingInScope(verwalter: User, meetingId: string) {
@@ -35,6 +37,7 @@ export async function createMeeting(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim().slice(0, 200);
   const scheduledStr = String(formData.get("scheduledAt") ?? "");
   const location = String(formData.get("location") ?? "").trim().slice(0, 200) || null;
+  const videoLink = String(formData.get("videoLink") ?? "").trim().slice(0, 500) || null;
   if (!propertyId || !title || !scheduledStr) redirect("/versammlungen?fehler=eingabe");
 
   if (!(await canVerwalterAccessProperty(verwalter, propertyId))) redirect("/versammlungen");
@@ -51,6 +54,7 @@ export async function createMeeting(formData: FormData) {
       title,
       scheduledAt,
       location,
+      videoLink,
       createdById: verwalter.id,
     },
   });
@@ -269,6 +273,7 @@ export async function updateMeeting(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim().slice(0, 200);
   const scheduledStr = String(formData.get("scheduledAt") ?? "");
   const location = String(formData.get("location") ?? "").trim().slice(0, 200) || null;
+  const videoLink = String(formData.get("videoLink") ?? "").trim().slice(0, 500) || null;
   if (!title || !scheduledStr) redirect(`/versammlungen/${meetingId}?fehler=eingabe`);
   const scheduledAt = new Date(scheduledStr);
   if (Number.isNaN(scheduledAt.getTime())) redirect(`/versammlungen/${meetingId}?fehler=eingabe`);
@@ -279,6 +284,7 @@ export async function updateMeeting(formData: FormData) {
       title,
       scheduledAt,
       location,
+      videoLink,
       ...(meeting.status === "ABGESAGT" ? { status: "GEPLANT" as const } : {}),
     },
   });
@@ -364,8 +370,102 @@ export async function sendInvitation(formData: FormData) {
       data: { status: "EINBERUFEN" },
     });
   }
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_MEETING_INVITE_SENT,
+    targetType: "OwnersMeeting",
+    targetId: meetingId,
+    meta: { recipients: owners.length },
+  });
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}?eingeladen=${owners.length}`);
+}
+
+// Zero-Key-Fallback zum E-Mail-Versand: „Als versendet markieren". Der Verwalter
+// druckt die Einladungs-PDFs selbst aus und verschickt sie postalisch; dieser
+// Schritt setzt das Versanddatum, ab dem der Fristenrechner rechnet, ohne eine
+// einzige E-Mail zu senden. Gleicher atomarer Doppelklick-Schutz wie beim Versand.
+export async function markInvitationSent(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const meetingId = String(formData.get("meetingId") ?? "").trim();
+  const meeting = await meetingInScope(verwalter, meetingId);
+  if (!meeting) redirect("/versammlungen");
+  if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
+
+  const claimed = await db.ownersMeeting.updateMany({
+    where: {
+      id: meetingId,
+      OR: [
+        { invitationSentAt: null },
+        { invitationSentAt: { lt: new Date(Date.now() - 2 * 60 * 1000) } },
+      ],
+    },
+    data: { invitationSentAt: new Date() },
+  });
+  if (claimed.count !== 1) redirect(`/versammlungen/${meetingId}?fehler=gerade_versendet`);
+
+  if (meeting.status === "GEPLANT") {
+    await db.ownersMeeting.updateMany({
+      where: { id: meetingId, status: "GEPLANT" },
+      data: { status: "EINBERUFEN" },
+    });
+  }
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_MEETING_INVITE_MARKED,
+    targetType: "OwnersMeeting",
+    targetId: meetingId,
+  });
+  revalidatePath(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?markiert=1`);
+}
+
+// Fügt einen Tagesordnungspunkt aus dem Vorlagenkatalog hinzu. Beschluss-Vorlagen
+// erzeugen — wie ein manueller Beschluss-TOP — automatisch eine Abstimmung.
+export async function addAgendaFromTemplate(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const meetingId = String(formData.get("meetingId") ?? "").trim();
+  const key = String(formData.get("templateKey") ?? "").trim();
+  const meeting = await meetingInScope(verwalter, meetingId);
+  if (!meeting) redirect("/versammlungen");
+  if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
+
+  const tpl = MEETING_AGENDA_TEMPLATES.find((t) => t.key === key);
+  if (!tpl) redirect(`/versammlungen/${meetingId}`);
+
+  let resolutionId: string | null = null;
+  if (tpl.type === "BESCHLUSS") {
+    const resolution = await db.resolution.create({
+      data: {
+        propertyId: meeting.propertyId,
+        title: tpl.title,
+        description: tpl.description,
+        createdById: verwalter.id,
+        organizationId: verwalter.organizationId,
+      },
+    });
+    resolutionId = resolution.id;
+  }
+
+  await db.$transaction(async (tx) => {
+    const max = await tx.meetingAgendaItem.aggregate({
+      where: { meetingId },
+      _max: { sortOrder: true },
+    });
+    const nextSort = (max._max.sortOrder ?? -1) + 1;
+    await tx.meetingAgendaItem.create({
+      data: {
+        meetingId,
+        sortOrder: nextSort,
+        title: tpl.title,
+        description: tpl.description,
+        type: tpl.type,
+        resolutionId,
+      },
+    });
+  });
+  revalidatePath(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}`);
 }
 
 export async function generateProtocol(formData: FormData) {

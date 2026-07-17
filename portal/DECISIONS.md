@@ -206,3 +206,32 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
     Rechtsberatung"): TrinkwV/BetrSichV/GEG/DIN 14676/WEG geben die Regelfälle
     vor, die konkrete Anlage kann abweichen — die Fälligkeit ist je Pflicht
     frei editierbar.
+
+## Schritt 7 — Einladungs-Assistent + Fristenrechner + Einladungs-PDF (M-B, 17.07.2026)
+
+42. **Bestehendes Versammlungsmodul erweitert statt Neubau**: Der
+    Einladungs-Assistent hängt an `OwnersMeeting` (Feld `invitationSentAt`
+    existierte bereits als Versanddatum). Der Fristenrechner rechnet ab genau
+    diesem Datum — vor dem Versand ab „heute" (= „wenn ich jetzt einlade").
+43. **Fristenrechner als reine, getestete Funktion** (`meeting-invitation.ts`,
+    `checkInvitationDeadline`): Mindestladefrist 3 Wochen = 21 Kalendertage
+    (§ 24 Abs. 4 WEG), uhrzeitunabhängig über `daysUntilDue`. Warnt bei
+    Unterschreitung mit Angabe der fehlenden Tage und des spätesten
+    Versanddatums — keine Blockade, denn kürzere Ladung ist rechtlich möglich
+    (nur anfechtbar), die Entscheidung bleibt beim Verwalter.
+44. **„Als versendet markieren" getrennt vom E-Mail-Versand** (Zero-Key,
+    Konvention #1): `markInvitationSent` setzt nur das Versanddatum (für den
+    Selbstdruck-/Postweg), `sendInvitation` verschickt zusätzlich E-Mails —
+    beide mit demselben atomaren 2-Minuten-Doppelklick-Schutz. Ohne SMTP zeigt
+    die UI direkt den manuellen Weg (PDF laden → markieren).
+45. **Einladungs-PDF je Empfänger über eine gestreamte Route**
+    (`…/einladung/pdf?owner=<userId>`): fensterumschlag-tauglicher DIN-A4-Brief
+    wie die Mahnung; ohne `owner` ein neutraler „An alle Eigentümer"-Druck. Der
+    Empfänger muss Eigentümer genau dieses Objekts sein (IDOR-Schutz).
+46. **TOP-Vorlagenkatalog** (`meeting-agenda-templates.ts`): fertige TOPs inkl.
+    Beschlussvorschlag; Beschluss-Vorlagen erzeugen — wie ein manueller
+    Beschluss-TOP — automatisch eine Abstimmung (`Resolution`), damit die
+    vorhandene Abstimm-/Protokolllogik ohne Sonderweg greift.
+47. **Video-Link nur als Freitext-Abdruck** (`OwnersMeeting.videoLink`): erfüllt
+    die Anforderung „Link zur Video-Zuschaltung im PDF" bewusst OHNE Streaming
+    oder Live-Abstimmung — das echte Hybrid-/Online-Voting bleibt Modul M-J.

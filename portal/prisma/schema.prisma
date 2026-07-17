@@ -878,6 +878,9 @@ model OwnersMeeting {
   title              String
   scheduledAt        DateTime
   location           String?
+  // Optionaler Freitext-Link zur Video-Zuschaltung (nur Abdruck in Einladung/
+  // Protokoll — KEIN Streaming, keine Live-Abstimmung über das Portal).
+  videoLink          String?
   status             MeetingStatus       @default(GEPLANT)
   invitationSentAt   DateTime?
   attendanceNote     String? // Anwesenheits-/Vertretungsvermerk fürs Protokoll

@@ -127,6 +127,14 @@ export default async function VersammlungenPage({
                 <Field label="Ort (optional)">
                   <input type="text" name="location" className={inputClass} />
                 </Field>
+                <Field label="Link zur Video-Zuschaltung (optional)">
+                  <input
+                    type="text"
+                    name="videoLink"
+                    placeholder="z. B. https://meet.example.org/weg — nur Abdruck in der Einladung"
+                    className={inputClass}
+                  />
+                </Field>
                 <button type="submit" className={buttonClass}>
                   Versammlung anlegen
                 </button>

@@ -117,6 +117,15 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   Fälligkeit je Pflicht editierbar. Fällige/überfällige Pflichten erscheinen im
   Dashboard; optionale E-Mail-Erinnerung über den Mail-Adapter (Fallback: nur
   Dashboard, ohne API-Key). Nutzt das bestehende Wartungsmodell.
+- **Einladungs-Assistent für Eigentümerversammlungen**: **Fristenrechner**
+  (mind. 3 Wochen Ladefrist nach § 24 Abs. 4 WEG, warnt bei Unterschreitung mit
+  spätestem Versanddatum), **TOP-Vorlagenkatalog** mit fertigen
+  Beschlussvorschlägen (Wirtschaftsplan, Jahresabrechnung, Verwalterbestellung,
+  Erhaltungsmaßnahme, Sonderumlage …), **Einladung als DIN-A4-PDF**
+  (fensterumschlag-tauglich, „an alle" oder je Empfänger), Versand per
+  E-Mail-Adapter **oder** Selbstdruck + „als versendet markieren" (setzt das
+  Versanddatum, ohne API-Key). Optionaler Freitext-Link zur Video-Zuschaltung
+  (nur Abdruck im PDF — kein Streaming/keine Live-Abstimmung)
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 

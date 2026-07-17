@@ -417,6 +417,39 @@ async function main() {
     }
   }
 
+  // Demo-Eigentümerversammlung mit Tagesordnung (Einladungs-Assistent). Termin
+  // bewusst knapp (< 3 Wochen), damit der Fristenrechner die Warnung zeigt.
+  {
+    const existing = await db.ownersMeeting.findFirst({
+      where: { propertyId: weg.id },
+      select: { id: true },
+    });
+    if (!existing) {
+      const admin = await db.user.findUniqueOrThrow({ where: { email: "admin@bundwimmobilien.de" } });
+      const scheduledAt = new Date();
+      scheduledAt.setDate(scheduledAt.getDate() + 12);
+      scheduledAt.setHours(18, 30, 0, 0);
+      await db.ownersMeeting.create({
+        data: {
+          organizationId: org.id,
+          propertyId: weg.id,
+          title: "Ordentliche Eigentümerversammlung 2026",
+          scheduledAt,
+          location: "Gemeindesaal, Musterstraße 1, 45964 Gladbeck",
+          videoLink: "https://meet.example.org/weg-musterstrasse-12",
+          createdById: admin.id,
+          agendaItems: {
+            create: [
+              { sortOrder: 0, title: "Begrüßung und Feststellung der Beschlussfähigkeit", type: "INFO" },
+              { sortOrder: 1, title: "Beschluss über die Jahresabrechnung (Abrechnungsspitze)", description: "Die Eigentümer beschließen die Einforderung der Nachschüsse aus der vorgelegten Jahresabrechnung (§ 28 Abs. 2 WEG).", type: "INFO" },
+              { sortOrder: 2, title: "Verschiedenes", type: "INFO" },
+            ],
+          },
+        },
+      });
+    }
+  }
+
   console.log("Seed abgeschlossen:");
   console.log("  Verwalter:  admin@bundwimmobilien.de / BundW-Start2026!");
   console.log(`  Eigentümer: ${eigentuemer.email} / Demo-2026!`);

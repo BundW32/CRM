@@ -176,6 +176,11 @@ export default async function WegStammdatenPage({
 
         {/* Einheiten */}
         <Card title="Einheiten (MEA, Fläche, Personen)">
+          <p className="mb-3 text-xs text-gray-500">
+            Der MEA-Zähler je Einheit ist die zentrale Angabe: Er steuert die Kostenverteilung in
+            Abrechnung und Wirtschaftsplan und bestimmt zugleich das Stimmgewicht der Eigentümer
+            (Wertprinzip). Er muss also nur hier gepflegt werden.
+          </p>
           {units.length === 0 ? (
             <EmptyState>Dieses Objekt hat noch keine Einheiten.</EmptyState>
           ) : (

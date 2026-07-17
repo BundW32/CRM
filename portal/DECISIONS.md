@@ -144,3 +144,20 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
     `DuePosting`), nicht gegen tatsächliche Zahlungen — so verlangt es § 28
     Abs. 2 WEG. Zahlungsrückstände bleiben davon getrennt offene Forderungen
     (im Vermögensbericht als „Forderungen" ausgewiesen).
+
+## Schritt 4 — PDF-Exporte, Belegeinsicht, Mahnwesen (17.07.2026)
+
+31. **Mahnstufen wie im Plattform-Mahnwesen** (`lib/dunning.ts`, Stufen 1–3,
+    keine automatischen Gebühren) statt eines zweiten Stufenmodells — ein
+    Begriffssystem im Produkt. Eskalation nur über VERSENDETE Schreiben:
+    unversendete Entwürfe erhöhen die Stufe nicht und können gelöscht werden;
+    versendete bleiben als Nachweis unlöschbar.
+32. **Rückstand und Empfänger als Snapshot** an der Mahnung (`arrearsCents`,
+    `recipientName/-Address`): Das Schreiben bleibt reproduzierbar, auch wenn
+    danach Zahlungen eingehen oder Eigentümer wechseln. Die Bankverbindung
+    (IBAN des Girokontos) wird dagegen erst beim PDF-Rendern gelesen — sie
+    soll immer aktuell sein.
+33. **„Als versendet markieren" als Pflichtschritt** (Zero-Key): Das Datum
+    dient als Fristen-/Zustellnachweis im Selbstdruck-Fallback und schaltet
+    die nächste Mahnstufe frei — identisches Prinzip wie im Build-Auftrag für
+    Einladungen gefordert.

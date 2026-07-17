@@ -18,43 +18,9 @@ async function hasOpenResolution(propertyId: string): Promise<boolean> {
   return count > 0;
 }
 
-// Setzt den Miteigentumsanteil (MEA) eines Eigentümers an einem Objekt.
-export async function updateOwnershipMea(formData: FormData) {
-  const actor = await requireVerwalter();
-  const id = String(formData.get("ownershipId") ?? "").trim();
-  if (!id) redirect("/verwaltung/eigentuemer");
-
-  const ownership = await db.ownership.findUnique({
-    where: { id },
-    select: { propertyId: true },
-  });
-  if (!ownership) redirect("/verwaltung/eigentuemer");
-  // Scope-/Org-Wand: nur Objekte im eigenen Zuständigkeitsbereich.
-  if (!(await canVerwalterAccessProperty(actor, ownership.propertyId))) {
-    redirect("/verwaltung/eigentuemer");
-  }
-  // Nicht während laufender Abstimmung ändern.
-  if (await hasOpenResolution(ownership.propertyId)) {
-    redirect(`${backTo(ownership.propertyId)}&fehler=offen`);
-  }
-
-  // Nicht-numerische Eingaben werden zu null (nicht stillschweigend 0), damit ein
-  // Tippfehler nicht das Stimmgewicht auf 0 setzt. "0" bleibt eine gültige 0.
-  const parseInt0 = (key: string) => {
-    const raw = String(formData.get(key) ?? "").trim();
-    if (raw === "") return null;
-    const n = Number.parseInt(raw, 10);
-    if (Number.isNaN(n)) return null;
-    return Math.max(0, Math.min(10_000_000, n));
-  };
-
-  await db.ownership.update({
-    where: { id },
-    data: { mea: parseInt0("mea"), voteUnits: parseInt0("voteUnits") },
-  });
-  revalidatePath("/verwaltung/eigentuemer");
-  redirect(backTo(ownership.propertyId));
-}
+// Hinweis: MEA und voteUnits werden nicht mehr hier gepflegt, sondern aus den
+// Einheiten-Miteigentumsanteilen (Unit.mea) und der Einheiten-Eigentümerschaft
+// abgeleitet (siehe lib/weg/mea-sync.ts). Das vermeidet doppelte MEA-Eingaben.
 
 // Kennzeichnet einen Eigentümer als Mitglied des Verwaltungsbeirats (oder entfernt
 // die Kennzeichnung). Unabhängig von laufenden Abstimmungen (kein Stimmgewicht).

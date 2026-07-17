@@ -6,6 +6,10 @@ Verwaltung und Handwerker. Konzept, Wettbewerbsanalyse und Roadmap:
 
 ## Funktionsumfang
 
+- **Öffentliche Startseite** (`/`): erklärt das Problem (kleine WEGs finden
+  keinen Verwalter) und stellt das Portal als Lösung zur Selbstverwaltung vor,
+  mit Registrierungs-CTA. Nur auf der Hauptdomain – Mandanten-Subdomains
+  leiten weiterhin direkt zum gebrandeten Login.
 - **Login & Rollen**: Mieter, Eigentümer, Verwalter, Handwerker (Session-Cookie,
   bcrypt). Ersteinrichtung über `/setup`, solange noch kein Nutzer existiert.
 - **Mieter**: Schäden melden mit Foto-Upload, Status verfolgen, Kommentare (auch

@@ -289,6 +289,7 @@ model Organization {
   duePostings           DuePosting[]
   unitOwnerships        UnitOwnership[]
   annualStatements      AnnualStatement[]
+  hausgeldMahnungen     HausgeldMahnung[]
 }
 
 model User {
@@ -357,6 +358,7 @@ model User {
   economicPlansCreated      EconomicPlan[]            @relation("EconomicPlanCreatedBy")
   statementsCreated         AnnualStatement[]         @relation("StatementCreatedBy")
   unitOwnerships            UnitOwnership[]
+  mahnungenCreated          HausgeldMahnung[]         @relation("MahnungCreatedBy")
 
   @@index([role])
   @@index([role, active])
@@ -432,6 +434,7 @@ model Property {
   economicPlans         EconomicPlan[]
   duePostings           DuePosting[]
   annualStatements      AnnualStatement[]
+  hausgeldMahnungen     HausgeldMahnung[]
 
   @@index([organizationId])
 }
@@ -452,6 +455,7 @@ model Unit {
   hausgeldPayments Booking[] // zugeordnete Zahlungseingänge (Hausgeld)
   unitOwnerships UnitOwnership[]
   statementUnitAmounts StatementUnitAmount[]
+  hausgeldMahnungen HausgeldMahnung[]
   tenancies     Tenancy[]
   tickets       Ticket[]
   documents     Document[]
@@ -1453,4 +1457,31 @@ model StatementAccountCheck {
 
   @@unique([statementId, accountId])
   @@index([accountId])
+}
+
+// ── WEG-Mahnwesen: Hausgeld-Zahlungserinnerung & Mahnungen ───────────────────
+// Stufen wie im Plattform-Mahnwesen (lib/dunning.ts): 1 = Zahlungserinnerung,
+// 2 = 1. Mahnung, 3 = 2. Mahnung. Keine automatischen Gebühren. Rückstand und
+// Empfänger werden beim Erstellen eingefroren (Snapshot) — das PDF bleibt
+// reproduzierbar, auch wenn später Zahlungen eingehen.
+model HausgeldMahnung {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId      String
+  property        Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId          String
+  unit            Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  level           Int // 1–3, siehe lib/dunning.ts
+  arrearsCents    Int // Rückstand zum Erstellzeitpunkt
+  paymentDeadline DateTime // Zahlungsziel
+  recipientName   String // Empfänger-Snapshot (aktuelle Eigentümer der Einheit)
+  recipientAddress String? // Snapshot "Straße\nPLZ Ort" (falls hinterlegt)
+  sentAt          DateTime? // "als versendet markiert" (Fristen-Nachweis)
+  createdById     String
+  createdBy       User         @relation("MahnungCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime     @default(now())
+
+  @@index([unitId])
+  @@index([propertyId])
 }

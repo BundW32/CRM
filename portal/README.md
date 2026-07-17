@@ -97,7 +97,9 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   (centgenau). Demo: beschlossener Plan 2026 („ETV 10.12.2025, TOP 3")
 - **Hausgeld & offene Posten**: Rückstandsliste je Einheit (Soll/Ist/Saldo),
   Zahlungseingänge den Einheiten zuordnen (mit Vorschlag aus dem
-  Verwendungszweck)
+  Verwendungszweck); **Mahnwesen** (Zahlungserinnerung → 1./2. Mahnung als
+  DIN-A4-Brief mit Fensterumschlag-Adresse, „als versendet markieren",
+  Eskalation nur über versendete Schreiben, keine automatischen Gebühren)
 - **Jahresabrechnung** (§ 28 Abs. 2 WEG): Gesamtabrechnung mit harter
   Kontenprüfung (Endbestand laut Kontoauszug muss aufgehen), Einzelabrechnungen
   je Einheit nach Umlageschlüsseln inkl. **manueller Heizkosten-Verteilung**,
@@ -112,9 +114,9 @@ Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 
 - **Immoware24-Sync**: vorbereitet in `src/lib/immoware24.ts` +
   `Property.immoware24Id`; wartet auf den API-Zugang von Immoware24
-- **WEG-Finanzen Stufe 4**: Mahnwesen (Zahlungserinnerung → Mahnung als PDF),
-  Sonderumlagen, PDF-Erzeugung (Einladung, Protokoll, Einzelabrechnung),
-  Messdienst-Import (ista/Techem), SEPA-pain.008-Export, Open-Banking-Adapter
+- **WEG-Finanzen Stufe 5**: Sonderumlagen, Einladungs-PDF mit Fristenrechner,
+  Prüfpflichten-Katalog, Messdienst-Import (ista/Techem), SEPA-pain.008-Export,
+  Open-Banking-Adapter
 - Passwort-Reset per E-Mail, Mehr-Faktor-Login
 - Schlagwort-Automatisierung (Kategorie → automatische Handwerker-Beauftragung)
 - Maklerservice-Modul (Interessenten, Exposé-Anfragen), Modernisierungs-Projekte

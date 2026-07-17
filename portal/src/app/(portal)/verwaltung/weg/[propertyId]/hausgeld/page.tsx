@@ -8,10 +8,11 @@ import {
   inputClass,
 } from "@/components/ui";
 import { db } from "@/lib/db";
+import { reminderLevelLabel } from "@/lib/dunning";
 import { formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
-import { assignPayment } from "./actions";
+import { assignPayment, createMahnung, deleteMahnung, markMahnungSent } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export default async function HausgeldPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{ zugeordnet?: string; geloest?: string; fehler?: string }>;
+  searchParams: Promise<{ zugeordnet?: string; geloest?: string; fehler?: string; gespeichert?: string }>;
 }) {
   const { propertyId } = await params;
   const { property } = await requireWegProperty(propertyId);
@@ -77,6 +78,22 @@ export default async function HausgeldPage({
       take: 20,
     }),
   ]);
+  const mahnungen = await db.hausgeldMahnung.findMany({
+    where: { propertyId: property.id },
+    include: { unit: { select: { label: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+  // Nächste Mahnstufe je Einheit (nur versendete eskalieren) + offene Entwürfe
+  const maxSentByUnit = new Map<string, number>();
+  const draftUnits = new Set<string>();
+  for (const m of mahnungen) {
+    if (m.sentAt) {
+      maxSentByUnit.set(m.unitId, Math.max(maxSentByUnit.get(m.unitId) ?? 0, m.level));
+    } else {
+      draftUnits.add(m.unitId);
+    }
+  }
 
   const dueByUnit = new Map(dueSums.map((d) => [d.unitId, d._sum.amountCents ?? 0]));
   const paidByUnit = new Map(paidSums.map((p) => [p.unitId as string, p._sum.amountCents ?? 0]));
@@ -117,9 +134,26 @@ export default async function HausgeldPage({
           Zuordnung aufgehoben.
         </Alert>
       ) : null}
+      {sp.gespeichert ? (
+        <Alert variant="success" className="mb-4">
+          {sp.gespeichert === "mahnung"
+            ? "Schreiben erstellt — unten als PDF herunterladen und nach dem Versand als versendet markieren."
+            : sp.gespeichert === "versendet"
+              ? "Als versendet markiert."
+              : "Gespeichert."}
+        </Alert>
+      ) : null}
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">
-          Die Zuordnung konnte nicht gespeichert werden.
+          {sp.fehler === "keinrueckstand"
+            ? "Für diese Einheit besteht kein Rückstand."
+            : sp.fehler === "entwurfoffen"
+              ? "Für diese Einheit liegt bereits ein unversendeter Entwurf vor."
+              : sp.fehler === "keineigentuemer"
+                ? "Für diese Einheit ist kein Eigentümer erfasst — bitte in den Stammdaten zuordnen."
+                : sp.fehler === "versendet"
+                  ? "Versendete Schreiben bleiben als Nachweis erhalten und können nicht gelöscht werden."
+                  : "Die Eingabe konnte nicht gespeichert werden."}
         </Alert>
       ) : null}
 
@@ -146,6 +180,7 @@ export default async function HausgeldPage({
                     <th className="py-2 pr-3 text-right">Soll (fällig)</th>
                     <th className="py-2 pr-3 text-right">Gezahlt (zugeordnet)</th>
                     <th className="py-2 pr-3 text-right">Saldo</th>
+                    <th className="py-2 pr-3 text-right">Mahnwesen</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -169,6 +204,26 @@ export default async function HausgeldPage({
                             <span className="block text-xs font-normal text-red-500">Rückstand</span>
                           ) : null}
                         </td>
+                        <td className="py-2 pr-3 text-right">
+                          {saldo < 0 ? (
+                            draftUnits.has(u.id) ? (
+                              <span className="text-xs text-gray-400">Entwurf offen (unten)</span>
+                            ) : (
+                              <form action={createMahnung}>
+                                <input type="hidden" name="propertyId" value={property.id} />
+                                <input type="hidden" name="unitId" value={u.id} />
+                                <button type="submit" className="text-sm text-red-700 underline">
+                                  {reminderLevelLabel(
+                                    Math.min((maxSentByUnit.get(u.id) ?? 0) + 1, 3),
+                                  )}{" "}
+                                  erstellen
+                                </button>
+                              </form>
+                            )
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -184,12 +239,77 @@ export default async function HausgeldPage({
                       {totalPaid - totalDue < 0 ? "−" : "+"}
                       {formatCents(Math.abs(totalPaid - totalDue))}
                     </td>
+                    <td />
                   </tr>
                 </tbody>
               </table>
             </div>
           )}
         </Card>
+
+        {/* Mahnwesen */}
+        {mahnungen.length > 0 ? (
+          <Card title="Mahnwesen — erstellte Schreiben">
+            <p className="mb-3 text-sm text-gray-500">
+              PDF herunterladen, drucken/versenden und anschließend „als versendet markieren“ —
+              erst versendete Schreiben schalten die nächste Mahnstufe frei. Keine automatischen
+              Mahngebühren.
+            </p>
+            <div className="grid gap-2">
+              {mahnungen.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 p-3 text-sm"
+                >
+                  <div>
+                    <span className="font-medium text-gray-900">
+                      {reminderLevelLabel(m.level)} · {m.unit.label}
+                    </span>
+                    <span className="ml-2 text-gray-500">
+                      {formatCents(m.arrearsCents)} · zahlbar bis {formatDateOnly(m.paymentDeadline)}
+                    </span>
+                    <span className="block text-xs text-gray-400">
+                      an {m.recipientName} · erstellt {formatDateOnly(m.createdAt)}
+                      {m.sentAt ? ` · versendet ${formatDateOnly(m.sentAt)}` : " · noch nicht versendet"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <a
+                      href={`/verwaltung/weg/${property.id}/hausgeld/mahnung/${m.id}/pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      PDF
+                    </a>
+                    {!m.sentAt ? (
+                      <>
+                        <form action={markMahnungSent}>
+                          <input type="hidden" name="propertyId" value={property.id} />
+                          <input type="hidden" name="mahnungId" value={m.id} />
+                          <button type="submit" className={buttonSecondaryClass}>
+                            Als versendet markieren
+                          </button>
+                        </form>
+                        <form action={deleteMahnung}>
+                          <input type="hidden" name="propertyId" value={property.id} />
+                          <input type="hidden" name="mahnungId" value={m.id} />
+                          <button type="submit" className="text-xs text-red-600 underline">
+                            Entwurf löschen
+                          </button>
+                        </form>
+                      </>
+                    ) : (
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                        versendet
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        ) : null}
 
         {/* Zahlungseingänge zuordnen */}
         <Card title={`Zahlungseingänge zuordnen (${unassigned.length} offen)`}>

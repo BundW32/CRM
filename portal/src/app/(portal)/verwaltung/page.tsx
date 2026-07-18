@@ -69,6 +69,11 @@ const tiles = [
     title: "Wohnungsübergabe",
     desc: "Übergabeprotokoll digital erstellen, unterschreiben und als PDF exportieren",
   },
+  {
+    href: "/verwaltung/integrationen",
+    title: "Integrationen",
+    desc: "Optionale API-Zugänge (Open Banking, Messdienst) — ohne Schlüssel gilt der manuelle Weg",
+  },
 ];
 
 // Abgespeckter Hub für selbstverwaltete WEGs – nur WEG-relevante Bereiche, keine
@@ -98,6 +103,7 @@ const selfManagedTiles = [
   { href: "/versammlungen", title: "Versammlungen", desc: "Einladung, Tagesordnung, Protokoll" },
   { href: "/antraege", title: "Anträge", desc: "Eigentümer-Anträge einreichen und übernehmen" },
   { href: "/gemeinschaft", title: "Gemeinschaft", desc: "Transparente Leseansicht für alle Eigentümer" },
+  { href: "/verwaltung/integrationen", title: "Integrationen", desc: "Optionale API-Zugänge (Open Banking, Messdienst) — ohne Schlüssel gilt der manuelle Weg" },
 ];
 
 export default async function VerwaltungPage() {

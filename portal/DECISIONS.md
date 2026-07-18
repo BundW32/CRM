@@ -278,3 +278,23 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
     lösen die monatliche Informationspflicht aus (§ 6a HeizkostenV) — additives
     Flag, in der UI markiert. Die Info-Seite ist für die Verbraucher (Mieter/
     Eigentümer) und den Verwalter zugänglich; Zugriff wie im Zählerbereich.
+
+## Schritt 10 — Phase 3 Start: Integrationen + SEPA-Lastschrift (18.07.2026)
+
+56. **Integrationen als Adapter-Register** (`IntegrationSetting`, unique je
+    Org+Bereich): Bereiche mit optionalem API-Zugang (BANKING/MESSDIENST). Ohne
+    hinterlegten Schlüssel zeigt die UI automatisch den manuellen Weg — genau das
+    Zero-Key-Prinzip. SEPA erscheint dort nur als Zero-Key-Hinweis (kein Key).
+57. **Secrets verschlüsselt at rest** (`crypto.ts`, AES-256-GCM, Schlüssel aus
+    `INTEGRATION_ENC_KEY`/`SESSION_SECRET` abgeleitet): API-Keys werden nie im
+    Klartext gespeichert oder an den Client zurückgegeben — die UI zeigt nur die
+    letzten 4 Zeichen. Getestet inkl. Manipulationsschutz (GCM-Tag).
+58. **SEPA-pain.008 als reine, getestete Dateierzeugung** (`weg/sepa.ts`,
+    Zero-Key): pain.008.001.02; Gruppierung nach Sequenz (FRST/RCUR/OOFF) in
+    getrennte `PmtInf`-Blöcke (SEPA-Vorgabe), Beträge aus Integer-Cent,
+    IBAN/BIC-Normalisierung, `NOTPROVIDED` ohne BIC, XML-Escaping. Kontrollsummen
+    und Transaktionszähler pro Gruppe und gesamt.
+59. **Mandat je Einheit** (`SepaMandate`, unique Objekt+Einheit) + Gläubiger-ID am
+    Objekt; die Gläubiger-IBAN kommt aus dem vorhandenen Girokonto. Eingezogen
+    wird der zum Einzugstermin offene Hausgeld-Betrag je Einheit mit aktivem
+    Mandat (Soll − Ist), Auslieferung als gestreamte XML-Datei zum Selbst-Upload.

@@ -497,6 +497,36 @@ async function main() {
     }
   }
 
+  // SEPA-Demo: Gläubiger-ID am Objekt + ein Beispiel-Mandat für die erste Einheit.
+  {
+    if (!weg.sepaCreditorId) {
+      await db.property.update({
+        where: { id: weg.id },
+        data: { sepaCreditorId: "DE98ZZZ09999999999" },
+      });
+    }
+    const existingMandate = await db.sepaMandate.findFirst({ where: { propertyId: weg.id }, select: { id: true } });
+    if (!existingMandate) {
+      const admin = await db.user.findUniqueOrThrow({ where: { email: "admin@bundwimmobilien.de" } });
+      const firstUnit = await db.unit.findFirst({ where: { propertyId: weg.id }, orderBy: { orderIndex: "asc" } });
+      if (firstUnit) {
+        await db.sepaMandate.create({
+          data: {
+            organizationId: org.id,
+            propertyId: weg.id,
+            unitId: firstUnit.id,
+            mandateRef: "HG-DEMO-001",
+            debtorName: "Erika Eigentümerin",
+            iban: "DE02120300000000202051",
+            signedDate: new Date(Date.UTC(2026, 0, 15)),
+            sequence: "FRST",
+            createdById: admin.id,
+          },
+        });
+      }
+    }
+  }
+
   console.log("Seed abgeschlossen:");
   console.log("  Verwalter:  admin@bundwimmobilien.de / BundW-Start2026!");
   console.log(`  Eigentümer: ${eigentuemer.email} / Demo-2026!`);

@@ -137,6 +137,14 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   Portal aus den Zählerständen — jüngste Verbrauchsperiode je Zähler mit Vergleich
   zu Vorperiode und Vorjahr; fernablesbare Zähler (monatliche Pflicht) sind
   gekennzeichnet
+- **Integrationen** (Adapter-Prinzip): Admin-Seite für optionale API-Zugänge
+  (Open Banking, Messdienst). Ohne Schlüssel zeigt die UI automatisch den manuellen
+  Weg — die App bleibt zu 100 % ohne externen Key nutzbar. Schlüssel werden
+  verschlüsselt gespeichert (AES-256-GCM)
+- **SEPA-Lastschrift** (Hausgeldeinzug, Zero-Key): Mandatsverwaltung je Einheit +
+  Gläubiger-ID; erzeugt eine **pain.008-XML-Datei** zum Selbst-Upload ins
+  Online-Banking (kein externer Zugang). Eingezogen wird der offene Hausgeld-Betrag
+  je Einheit mit aktivem Mandat
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 

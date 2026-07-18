@@ -293,6 +293,8 @@ model Organization {
   hausgeldMahnungen     HausgeldMahnung[]
   sonderumlagen         Sonderumlage[]
   maintenanceMeasures   MaintenanceMeasure[]
+  integrationSettings   IntegrationSetting[]
+  sepaMandates          SepaMandate[]
 }
 
 model User {
@@ -364,6 +366,7 @@ model User {
   mahnungenCreated          HausgeldMahnung[]         @relation("MahnungCreatedBy")
   sonderumlagenCreated      Sonderumlage[]            @relation("SonderumlageCreatedBy")
   maintenanceMeasuresCreated MaintenanceMeasure[]     @relation("MaintenanceMeasureCreatedBy")
+  sepaMandatesCreated        SepaMandate[]            @relation("SepaMandateCreatedBy")
 
   @@index([role])
   @@index([role, active])
@@ -409,6 +412,8 @@ model Property {
   // WEG-Finanzstammdaten
   meaTotal            Int? // MEA-Nenner (Summe aller Anteile, z. B. 1000)
   fiscalYearStartMonth Int                 @default(1) // Wirtschaftsjahr-Beginn (1 = Januar)
+  // SEPA-Lastschrift: Gläubiger-Identifikationsnummer der Gemeinschaft (Bundesbank)
+  sepaCreditorId      String?
   // Optionale Stammdaten zum Objekt
   buildYear           Int? // Baujahr
   livingArea          Float? // Gesamtwohnfläche in m²
@@ -442,6 +447,7 @@ model Property {
   hausgeldMahnungen     HausgeldMahnung[]
   sonderumlagen         Sonderumlage[]
   maintenanceMeasures   MaintenanceMeasure[]
+  sepaMandates          SepaMandate[]
 
   @@index([organizationId])
 }
@@ -469,6 +475,7 @@ model Unit {
   meters        Meter[]
   internalNotes Note[]
   handovers     Handover[]
+  sepaMandates  SepaMandate[]
 
   @@index([propertyId])
 }
@@ -1554,4 +1561,58 @@ model MaintenanceMeasure {
 
   @@index([propertyId])
   @@index([propertyId, done])
+}
+
+// ── Integrationen (Phase 3, Adapter-Prinzip) ─────────────────────────────────
+// Optionale API-Zugänge je Bereich (Open Banking, Messdienst …). Zero-Key:
+// ohne Eintrag zeigt die UI automatisch den manuellen Weg. Secrets werden
+// anwendungsseitig verschlüsselt abgelegt (src/lib/crypto.ts), nie im Klartext.
+model IntegrationSetting {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  area           String // BANKING | MESSDIENST | …
+  provider       String? // z. B. "finapi", "gocardless", "ista"
+  enabled        Boolean      @default(false)
+  secretEnc      String? // verschlüsselter API-Key (AES-256-GCM)
+  configJson     Json? // weitere, nicht geheime Konfiguration
+  updatedById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, area])
+  @@index([organizationId])
+}
+
+// ── SEPA-Lastschrift-Mandat (Hausgeldeinzug, M-F) ────────────────────────────
+// Ein Mandat je Einheit: Ermächtigung des Eigentümers zum Einzug des Hausgelds.
+// Der pain.008-Export erzeugt daraus eine XML-Datei zum Selbst-Upload ins
+// Online-Banking (Zero-Key, keine externe API).
+enum SepaSequence {
+  FRST // erstmalige Lastschrift
+  RCUR // wiederkehrend
+  OOFF // einmalig
+}
+
+model SepaMandate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId         String
+  unit           Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  mandateRef     String // eindeutige Mandatsreferenz
+  debtorName     String // Kontoinhaber (Zahlungspflichtiger)
+  iban           String
+  bic            String?
+  signedDate     DateTime // Datum der Mandatsunterschrift
+  sequence       SepaSequence @default(FRST)
+  active         Boolean      @default(true)
+  createdById    String
+  createdBy      User         @relation("SepaMandateCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@unique([propertyId, unitId])
+  @@index([propertyId])
 }

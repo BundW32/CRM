@@ -104,6 +104,12 @@ export default async function WegOverviewPage() {
                 >
                   Erhaltungsplanung
                 </Link>
+                <Link
+                  href={`/verwaltung/weg/${p.id}/lastschrift`}
+                  className={buttonSecondaryClass}
+                >
+                  SEPA-Lastschrift
+                </Link>
               </div>
             </Card>
           ))}

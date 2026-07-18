@@ -70,6 +70,7 @@ const selfManagedNav = {
     { href: "/antraege", label: "Anträge" },
     { href: "/gemeinschaft", label: "Gemeinschaft" },
     { href: "/finanzen", label: "Finanzen" },
+    { href: "/zaehler", label: "Zähler" },
     { href: "/verbrauch", label: "Verbrauch" },
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },

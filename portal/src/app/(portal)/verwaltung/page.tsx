@@ -104,6 +104,7 @@ const selfManagedTiles = [
     title: "Zugänge",
     desc: "Eigentümer-Zugänge anlegen und einladen",
   },
+  { href: "/zaehler", title: "Zähler", desc: "Zählerstände erfassen (Einzel- & Allgemeinzähler), Verbrauch verfolgen" },
   { href: "/beschluesse", title: "Beschlüsse", desc: "Umlaufbeschlüsse, Abstimmung, Beschluss-Sammlung" },
   { href: "/versammlungen", title: "Versammlungen", desc: "Einladung, Tagesordnung, Protokoll" },
   { href: "/antraege", title: "Anträge", desc: "Eigentümer-Anträge einreichen und übernehmen" },

@@ -81,9 +81,13 @@ export default async function PortalLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await requireUser();
   if (user.mustChangePassword) redirect("/passwort-festlegen");
-  const session = await getSession();
-  const org = await getOrganization();
-  const ownsWeg = user.role === "EIGENTUEMER" ? await ownsWegProperty(user.id) : false;
+  // Unabhängige Abfragen parallel laden (spart pro Seitenaufruf eine DB-Runde).
+  // getSession ist bereits gecacht (dedupliziert mit requireUser).
+  const [session, org, ownsWeg] = await Promise.all([
+    getSession(),
+    getOrganization(),
+    user.role === "EIGENTUEMER" ? ownsWegProperty(user.id) : Promise.resolve(false),
+  ]);
   const selfManaged = isSelfManaged(org);
 
   let nav: ReadonlyArray<{ href: string; label: string }>;

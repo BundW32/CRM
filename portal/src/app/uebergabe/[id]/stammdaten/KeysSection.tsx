@@ -96,14 +96,15 @@ export function KeysSection({
 
   return (
     <div className="space-y-4">
-      {/* Standard key types */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Standard key types – auf schmalen Displays einspaltig, sonst zweispaltig
+          (verhindert, dass Label + Zähler über den rechten Rand hinausragen). */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {STANDARD_KEYS.map((k) => (
           <div
             key={k.name}
             className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5"
           >
-            <span className="text-xs font-medium text-gray-700 leading-tight">{k.label}</span>
+            <span className="min-w-0 text-xs font-medium text-gray-700 leading-tight">{k.label}</span>
             <Counter
               value={counts[k.name]}
               onChange={(v) => setCounts((prev) => ({ ...prev, [k.name]: v }))}
@@ -122,7 +123,7 @@ export function KeysSection({
               value={k.label}
               onChange={(e) => updateCustomKey(k.id, { label: e.target.value })}
               placeholder="z. B. Gartenschlüssel"
-              className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-orange focus:outline-none focus:ring-2 focus:ring-brand-orange/30 transition duration-150"
+              className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-orange focus:outline-none focus:ring-2 focus:ring-brand-orange/30 transition duration-150"
             />
             <Counter value={k.count} onChange={(v) => updateCustomKey(k.id, { count: v })} />
             <button

@@ -298,3 +298,19 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
     Objekt; die Gläubiger-IBAN kommt aus dem vorhandenen Girokonto. Eingezogen
     wird der zum Einzugstermin offene Hausgeld-Betrag je Einheit mit aktivem
     Mandat (Soll − Ist), Auslieferung als gestreamte XML-Datei zum Selbst-Upload.
+
+## Schritt 11 — CO2-Kostenaufteilung (M-I, 18.07.2026)
+
+60. **10-Stufen-Modell als reine, getestete Funktion** (`weg/co2.ts`): der
+    Vermieteranteil steigt mit dem spezifischen Ausstoß (kg CO2/m²·a) gemäß
+    CO2KostAufG (Wohngebäude). Stufengrenzen unten einschließlich/oben
+    ausschließlich; Mieter- + Vermieteranteil ergeben stets 100 %.
+61. **Centgenaue Aufteilung**: gebäudeweit wird der Vermieteranteil gerundet, der
+    Mieteranteil ist der Rest (Summe exakt). Auf die Einheiten wird über die
+    vorhandene `distributeByWeight`-Engine nach Wohnfläche verteilt — Einheiten
+    ohne Wohnfläche (z. B. Stellplätze) tragen keine CO2-Heizkosten und werden aus
+    der Flächengewichtung ausgeschlossen.
+62. **Persistiert als Datenbasis** (`Co2Allocation`, unique Objekt+Jahr): erfasst
+    CO2-Kostenanteil und Emissionen aus der Brennstoffrechnung (Ausweispflicht des
+    Lieferanten, § 2 CO2KostAufG). Die eigentliche Weiterverarbeitung für die
+    Mieter-Betriebskostenabrechnung bleibt Modul M-K (Vermieter-Zusatzmodul).

@@ -527,6 +527,27 @@ async function main() {
     }
   }
 
+  // Demo-CO2-Aufteilung (CO2KostAufG): Vorjahr, mittlerer Ausstoß (→ 50/50-Stufe).
+  {
+    const y = new Date().getFullYear() - 1;
+    const existing = await db.co2Allocation.findFirst({ where: { propertyId: weg.id, year: y }, select: { id: true } });
+    if (!existing) {
+      const admin = await db.user.findUniqueOrThrow({ where: { email: "admin@bundwimmobilien.de" } });
+      // Gesamtwohnfläche der Demo-WEG ≈ 381,8 m²; 12.600 kg → ~33 kg/m²·a (Stufe 32–37 = 50/50).
+      await db.co2Allocation.create({
+        data: {
+          organizationId: org.id,
+          propertyId: weg.id,
+          year: y,
+          totalCo2Cents: 62_000, // 620,00 € CO2-Kostenanteil
+          emissionsKg: 12_600,
+          note: "Aus der Brennstoffrechnung (Demo).",
+          createdById: admin.id,
+        },
+      });
+    }
+  }
+
   console.log("Seed abgeschlossen:");
   console.log("  Verwalter:  admin@bundwimmobilien.de / BundW-Start2026!");
   console.log(`  Eigentümer: ${eigentuemer.email} / Demo-2026!`);

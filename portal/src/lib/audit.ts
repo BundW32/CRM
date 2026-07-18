@@ -59,6 +59,8 @@ export const AUDIT = {
   WEG_SEPA_MANDATE_SAVED: "WEG_SEPA_MANDATE_SAVED",
   WEG_SEPA_MANDATE_DELETED: "WEG_SEPA_MANDATE_DELETED",
   WEG_SEPA_EXPORT: "WEG_SEPA_EXPORT",
+  WEG_CO2_SAVED: "WEG_CO2_SAVED",
+  WEG_CO2_DELETED: "WEG_CO2_DELETED",
 } as const;
 
 // Schreibt einen Audit-Log-Eintrag. Wirft nie – ein Logging-Fehler darf den

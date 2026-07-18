@@ -110,6 +110,12 @@ export default async function WegOverviewPage() {
                 >
                   SEPA-Lastschrift
                 </Link>
+                <Link
+                  href={`/verwaltung/weg/${p.id}/co2`}
+                  className={buttonSecondaryClass}
+                >
+                  CO₂-Aufteilung
+                </Link>
               </div>
             </Card>
           ))}

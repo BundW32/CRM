@@ -145,6 +145,11 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   Gläubiger-ID; erzeugt eine **pain.008-XML-Datei** zum Selbst-Upload ins
   Online-Banking (kein externer Zugang). Eingezogen wird der offene Hausgeld-Betrag
   je Einheit mit aktivem Mandat
+- **CO₂-Kostenaufteilung** (CO2KostAufG, Zero-Key): teilt den CO₂-Preis der
+  Heizkosten nach dem 10-Stufen-Modell (Wohngebäude) zwischen Vermieter und Mieter
+  auf — je höher der Ausstoß (kg CO₂/m²·a), desto größer der Vermieteranteil.
+  Centgenaue Aufteilung je Einheit nach Wohnfläche als Datenbasis für vermietende
+  Eigentümer
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 

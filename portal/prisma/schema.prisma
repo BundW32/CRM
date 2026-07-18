@@ -295,6 +295,7 @@ model Organization {
   maintenanceMeasures   MaintenanceMeasure[]
   integrationSettings   IntegrationSetting[]
   sepaMandates          SepaMandate[]
+  co2Allocations        Co2Allocation[]
 }
 
 model User {
@@ -367,6 +368,7 @@ model User {
   sonderumlagenCreated      Sonderumlage[]            @relation("SonderumlageCreatedBy")
   maintenanceMeasuresCreated MaintenanceMeasure[]     @relation("MaintenanceMeasureCreatedBy")
   sepaMandatesCreated        SepaMandate[]            @relation("SepaMandateCreatedBy")
+  co2AllocationsCreated      Co2Allocation[]          @relation("Co2AllocationCreatedBy")
 
   @@index([role])
   @@index([role, active])
@@ -448,6 +450,7 @@ model Property {
   sonderumlagen         Sonderumlage[]
   maintenanceMeasures   MaintenanceMeasure[]
   sepaMandates          SepaMandate[]
+  co2Allocations        Co2Allocation[]
 
   @@index([organizationId])
 }
@@ -1614,5 +1617,28 @@ model SepaMandate {
   createdAt      DateTime     @default(now())
 
   @@unique([propertyId, unitId])
+  @@index([propertyId])
+}
+
+// ── CO2-Kostenaufteilung (CO2KostAufG, M-I) ──────────────────────────────────
+// Erfasst je Objekt und Jahr den CO2-Kostenanteil und die Gesamtemissionen aus
+// der Brennstoffrechnung. Daraus wird nach dem 10-Stufen-Modell (§ 5 CO2KostAufG)
+// der Vermieter-/Mieteranteil hergeleitet — Datenbasis für vermietende Eigentümer.
+model Co2Allocation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  year           Int
+  totalCo2Cents  Int // CO2-Kostenanteil der Heizkosten (aus der Rechnung)
+  emissionsKg    Float // Gesamtemissionen kg CO2 (aus der Rechnung)
+  note           String?
+  createdById    String
+  createdBy      User         @relation("Co2AllocationCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([propertyId, year])
   @@index([propertyId])
 }

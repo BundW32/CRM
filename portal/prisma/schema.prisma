@@ -202,6 +202,13 @@ enum StatementStatus {
   FERTIG
 }
 
+// Prüfvermerk des Verwaltungsbeirats (§ 29 Abs. 3 WEG) auf Wirtschaftsplan bzw.
+// Jahresabrechnung: geprüft und für gut befunden ODER mit Anmerkungen.
+enum BeiratReviewStatus {
+  GEPRUEFT
+  ANMERKUNGEN
+}
+
 // Herkunft eines Dokuments – manueller Upload oder automatischer Sync
 enum DocumentSource {
   UPLOAD // manueller Upload (Standard)
@@ -346,6 +353,8 @@ model User {
   resolutionVotes      ResolutionVote[]          @relation("VoteOwner")
   resolutionVotesCast  ResolutionVote[]          @relation("VoteCastBy")
   beiratTasksCreated   BeiratTask[]              @relation("BeiratTaskCreatedBy")
+  economicPlansReviewed EconomicPlan[]          @relation("EconomicPlanBeiratReview")
+  statementsReviewed   AnnualStatement[]         @relation("StatementBeiratReview")
   ownersMeetingsCreated OwnersMeeting[]          @relation("MeetingCreatedBy")
   motionsSubmitted     OwnerMotion[]             @relation("MotionSubmittedBy")
   motionsDecided       OwnerMotion[]             @relation("MotionDecidedBy")
@@ -1404,6 +1413,12 @@ model EconomicPlan {
   createdAt      DateTime           @default(now())
   items          EconomicPlanItem[]
   duePostings    DuePosting[]
+  // Prüfvermerk des Verwaltungsbeirats (§ 29 III WEG)
+  beiratReviewStatus BeiratReviewStatus?
+  beiratReviewNote   String?
+  beiratReviewById   String?
+  beiratReviewBy     User?              @relation("EconomicPlanBeiratReview", fields: [beiratReviewById], references: [id], onDelete: SetNull)
+  beiratReviewedAt   DateTime?
 
   @@unique([propertyId, year])
   @@index([propertyId])
@@ -1491,6 +1506,12 @@ model AnnualStatement {
   createdAt      DateTime                @default(now())
   unitAmounts    StatementUnitAmount[]
   accountChecks  StatementAccountCheck[]
+  // Prüfvermerk des Verwaltungsbeirats (§ 29 III WEG)
+  beiratReviewStatus BeiratReviewStatus?
+  beiratReviewNote   String?
+  beiratReviewById   String?
+  beiratReviewBy     User?                   @relation("StatementBeiratReview", fields: [beiratReviewById], references: [id], onDelete: SetNull)
+  beiratReviewedAt   DateTime?
 
   @@unique([propertyId, year])
   @@index([propertyId])

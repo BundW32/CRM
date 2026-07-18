@@ -125,6 +125,16 @@ Muster — ersetzt keine Rechtsberatung.`;
         </Alert>
       ) : null}
 
+      {statement.beiratReviewStatus ? (
+        <Alert
+          variant={statement.beiratReviewStatus === "GEPRUEFT" ? "success" : "warning"}
+          title={`Beirat: ${statement.beiratReviewStatus === "GEPRUEFT" ? "geprüft" : "mit Anmerkungen"}`}
+          className="mb-4"
+        >
+          {statement.beiratReviewNote ?? "Prüfvermerk des Verwaltungsbeirats (§ 29 III WEG)."}
+        </Alert>
+      ) : null}
+
       {!isDraft ? (
         <Alert variant="info" className="mb-4">
           Fertiggestellt am {statement.finalizedAt ? formatDateOnly(statement.finalizedAt) : "—"} —

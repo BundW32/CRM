@@ -155,6 +155,37 @@ export default async function FinanzenPage({
   const dueByUnit = new Map(dueSums.map((d) => [d.unitId, d._sum.amountCents ?? 0]));
   const paidByUnit = new Map(paidSums.map((p) => [p.unitId as string, p._sum.amountCents ?? 0]));
 
+  // Beirat-Einsicht: vollständige Rückstandsliste ALLER Einheiten (normale
+  // Eigentümer sehen nur ihre eigene). Nur für Beiratsmitglieder geladen.
+  let boardRueckstaende: { id: string; label: string; soll: number; ist: number; saldo: number }[] | null = null;
+  if (canReview) {
+    const allUnits = await db.unit.findMany({
+      where: { propertyId: selected.id },
+      orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
+      select: { id: true, label: true },
+    });
+    const allUnitIds = allUnits.map((u) => u.id);
+    const [allDue, allPaid] = await Promise.all([
+      db.duePosting.groupBy({
+        by: ["unitId"],
+        where: { unitId: { in: allUnitIds }, dueDate: { lte: now } },
+        _sum: { amountCents: true },
+      }),
+      db.booking.groupBy({
+        by: ["unitId"],
+        where: { unitId: { in: allUnitIds }, kind: "EINNAHME" },
+        _sum: { amountCents: true },
+      }),
+    ]);
+    const dm = new Map(allDue.map((d) => [d.unitId, d._sum.amountCents ?? 0]));
+    const pm = new Map(allPaid.map((p) => [p.unitId as string, p._sum.amountCents ?? 0]));
+    boardRueckstaende = allUnits.map((u) => {
+      const soll = dm.get(u.id) ?? 0;
+      const ist = pm.get(u.id) ?? 0;
+      return { id: u.id, label: u.label, soll, ist, saldo: soll - ist };
+    });
+  }
+
   const euro = (c: number) => formatCents(c);
 
   return (
@@ -329,6 +360,45 @@ export default async function FinanzenPage({
                       </tr>
                     );
                   })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ) : null}
+
+        {/* Rückstände aller Einheiten – nur für den Beirat (§ 29 WEG). */}
+        {boardRueckstaende ? (
+          <Card title="Rückstände aller Einheiten (Beirat-Einsicht)">
+            <p className="mb-3 text-sm text-gray-500">
+              Vollständige Übersicht Soll/Ist je Einheit zur Rechnungsprüfung. Nur für
+              Beiratsmitglieder sichtbar.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[480px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
+                    <th className="py-2 pr-3">Einheit</th>
+                    <th className="py-2 pr-3 text-right">Soll (fällig)</th>
+                    <th className="py-2 pr-3 text-right">Ist (gezahlt)</th>
+                    <th className="py-2 text-right">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {boardRueckstaende.map((r) => (
+                    <tr key={r.id} className="border-b border-gray-50 last:border-0">
+                      <td className="py-2 pr-3 text-gray-800">{r.label}</td>
+                      <td className="py-2 pr-3 text-right text-gray-600">{euro(r.soll)}</td>
+                      <td className="py-2 pr-3 text-right text-gray-600">{euro(r.ist)}</td>
+                      <td
+                        className={`py-2 text-right font-semibold ${
+                          r.saldo > 0 ? "text-red-700" : r.saldo < 0 ? "text-green-700" : "text-gray-700"
+                        }`}
+                      >
+                        {r.saldo > 0 ? "Rückstand " : r.saldo < 0 ? "Guthaben " : ""}
+                        {euro(Math.abs(r.saldo))}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

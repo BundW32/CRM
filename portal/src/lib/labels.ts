@@ -100,6 +100,7 @@ export const audienceLabels: Record<Audience, string> = {
   MIETER: "Mieter",
   EIGENTUEMER: "Eigentümer",
   ALLE: "Alle",
+  BEIRAT: "Beirat",
 };
 
 export const tradeLabels: Record<Trade, string> = {

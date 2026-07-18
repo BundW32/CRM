@@ -397,11 +397,20 @@ export async function documentWhereForUser(user: User): Promise<Prisma.DocumentW
       };
     }
     case "EIGENTUEMER": {
-      const properties = await ownedProperties(user.id);
-      return {
-        audience: { in: ["EIGENTUEMER", "ALLE"] },
-        propertyId: { in: properties.map((p) => p.id) },
-      };
+      const [properties, boardIds] = await Promise.all([
+        ownedProperties(user.id),
+        boardPropertyIdsFor(user.id),
+      ]);
+      const ownedIds = properties.map((p) => p.id);
+      const or: Prisma.DocumentWhereInput[] = [
+        { audience: { in: ["EIGENTUEMER", "ALLE"] }, propertyId: { in: ownedIds } },
+      ];
+      // Beiratsmitglieder sehen zusätzlich die nur für den Beirat bestimmten
+      // Dokumente ihrer Beirats-Objekte.
+      if (boardIds.length > 0) {
+        or.push({ audience: "BEIRAT", propertyId: { in: boardIds } });
+      }
+      return { OR: or };
     }
     default: {
       const units = await tenantUnits(user.id);
@@ -427,11 +436,18 @@ export async function announcementWhereForUser(
       return { organizationId: user.organizationId, propertyId: { in: ids } };
     }
     case "EIGENTUEMER": {
-      const properties = await ownedProperties(user.id);
-      return {
-        audience: { in: ["EIGENTUEMER", "ALLE"] },
-        propertyId: { in: properties.map((p) => p.id) },
-      };
+      const [properties, boardIds] = await Promise.all([
+        ownedProperties(user.id),
+        boardPropertyIdsFor(user.id),
+      ]);
+      const ownedIds = properties.map((p) => p.id);
+      const or: Prisma.AnnouncementWhereInput[] = [
+        { audience: { in: ["EIGENTUEMER", "ALLE"] }, propertyId: { in: ownedIds } },
+      ];
+      if (boardIds.length > 0) {
+        or.push({ audience: "BEIRAT", propertyId: { in: boardIds } });
+      }
+      return { OR: or };
     }
     default: {
       const units = await tenantUnits(user.id);

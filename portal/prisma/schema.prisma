@@ -48,6 +48,7 @@ enum Audience {
   MIETER
   EIGENTUEMER
   ALLE
+  BEIRAT // nur Verwaltungsbeirat des Objekts
 }
 
 // Gewerk eines Handwerkers / Kategorie eines Schadens

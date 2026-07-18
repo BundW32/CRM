@@ -310,12 +310,12 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
 
   const firstPage = doc.addPage([PAGE_W, PAGE_H]);
 
-  const HEADER_H = 72;
-  const SUB_H = 26;
+  // Dezenter, edler Kopf: schlankes Grünband, feine orange Haarlinie statt
+  // breitem Balken, Objektzeile schlicht mit Trennlinie (kein grauer Block).
+  const HEADER_H = 54;
 
-  // Green header bar + orange accent strip
   firstPage.drawRectangle({ x: 0, y: PAGE_H - HEADER_H, width: PAGE_W, height: HEADER_H, color: C.green });
-  firstPage.drawRectangle({ x: 0, y: PAGE_H - HEADER_H - 3, width: PAGE_W, height: 3, color: C.orange });
+  firstPage.drawRectangle({ x: 0, y: PAGE_H - HEADER_H - 2, width: PAGE_W, height: 2, color: C.orange });
 
   // Logo — auf weißer, abgerundeter Fläche, damit ein opaker PNG-Hintergrund
   // nicht hart gegen das dunkle Grün abgeschnitten wirkt.
@@ -324,16 +324,15 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
     const logoPath = path.join(process.cwd(), "public", "bw-logo.png");
     const logoBytes = fs.readFileSync(logoPath);
     const logoImg = await doc.embedPng(logoBytes);
-    const logH = 44;
+    const logH = 32;
     const logW = logoImg.width * (logH / logoImg.height);
-    const pillPad = 6;
-    const pillX = MARGIN - pillPad;
-    const pillY = PAGE_H - HEADER_H + (HEADER_H - logH) / 2 - pillPad;
+    const pillPad = 5;
     firstPage.drawRectangle({
-      x: pillX, y: pillY,
+      x: MARGIN - pillPad,
+      y: PAGE_H - HEADER_H + (HEADER_H - logH) / 2 - pillPad,
       width: logW + pillPad * 2, height: logH + pillPad * 2,
       color: C.white,
-      borderRadius: 6,
+      borderRadius: 5,
     } as Parameters<PDFPage["drawRectangle"]>[0]);
     firstPage.drawImage(logoImg, {
       x: MARGIN,
@@ -341,35 +340,36 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
       width: logW,
       height: logH,
     });
-    logoRight = MARGIN + logW + pillPad * 2 + 10;
+    logoRight = MARGIN + logW + pillPad * 2 + 12;
   } catch { /* logo unavailable */ }
 
   // Title + Typ
   firstPage.drawText("Wohnungsübergabeprotokoll", {
-    x: logoRight, y: PAGE_H - 30, size: 16, font: fontBold, color: C.white,
+    x: logoRight, y: PAGE_H - 23, size: 14, font: fontBold, color: C.white,
   });
   firstPage.drawText(enc(TYPE_LABELS[data.type] ?? data.type), {
-    x: logoRight, y: PAGE_H - 50, size: 10, font, color: C.orange,
+    x: logoRight, y: PAGE_H - 38, size: 9, font, color: C.orange,
   });
   // Protokolldatum oben rechts
   const dateStr = enc(`Protokoll: ${fmt(data.handoverDate)}`);
   const dateW = font.widthOfTextAtSize(dateStr, 9);
   firstPage.drawText(dateStr, {
-    x: PAGE_W - MARGIN - dateW, y: PAGE_H - 36, size: 9, font: fontBold, color: C.white,
+    x: PAGE_W - MARGIN - dateW, y: PAGE_H - 26, size: 9, font: fontBold, color: C.white,
   });
 
-  // Sub-header: Objektzeile
-  firstPage.drawRectangle({ x: 0, y: PAGE_H - HEADER_H - SUB_H - 3, width: PAGE_W, height: SUB_H, color: C.gray });
+  // Objektzeile: schlicht unter dem Kopf mit feiner Trennlinie.
   const prop = data.unit.property;
   const propStr = enc(
     `${prop.name} · ${data.unit.label}` +
     (prop.street ? `  -  ${prop.street}, ${prop.zip ?? ""} ${prop.city ?? ""}` : "")
   );
+  const objY = PAGE_H - HEADER_H - 2 - 20;
   firstPage.drawText(propStr, {
-    x: MARGIN, y: PAGE_H - HEADER_H - 3 - SUB_H + 8, size: 9, font: fontBold, color: C.text,
+    x: MARGIN, y: objY, size: 9, font: fontBold, color: C.text,
   });
+  firstPage.drawRectangle({ x: MARGIN, y: objY - 9, width: CONTENT_W, height: 0.6, color: C.grayMid });
 
-  const startY = PAGE_H - HEADER_H - 3 - SUB_H - 14;
+  const startY = objY - 9 - 20;
   const w = new PageWriter(doc, firstPage, font, fontBold, startY);
 
   // ── Eckdaten ───────────────────────────────────────────────────────────────

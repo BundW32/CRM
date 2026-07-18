@@ -92,6 +92,18 @@ export default async function WegOverviewPage() {
                 >
                   Jahresabrechnung
                 </Link>
+                <Link
+                  href={`/verwaltung/weg/${p.id}/pruefpflichten`}
+                  className={buttonSecondaryClass}
+                >
+                  Prüfpflichten
+                </Link>
+                <Link
+                  href={`/verwaltung/weg/${p.id}/erhaltungsplanung`}
+                  className={buttonSecondaryClass}
+                >
+                  Erhaltungsplanung
+                </Link>
               </div>
             </Card>
           ))}

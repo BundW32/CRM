@@ -110,6 +110,33 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   **Vermögensbericht** (§ 28 Abs. 4 WEG) und **tagesgenaue Aufteilung bei
   Eigentümerwechsel**. Fertigstellen friert das Ergebnis revisionssicher ein.
   Eigentümer je Einheit (mit Stichtag) werden in den Stammdaten gepflegt.
+- **Prüfpflichten-Katalog**: vorkonfigurierte wiederkehrende Prüf- und
+  Verwaltungspflichten (Trinkwasser/Legionellen, Rauchwarnmelder, Aufzug,
+  Heizungscheck, Verkehrssicherung/Winterdienst, Versicherungen,
+  Jahresabrechnung, Versammlung) — per Knopfdruck je Objekt übernehmbar,
+  Fälligkeit je Pflicht editierbar. Fällige/überfällige Pflichten erscheinen im
+  Dashboard; optionale E-Mail-Erinnerung über den Mail-Adapter (Fallback: nur
+  Dashboard, ohne API-Key). Nutzt das bestehende Wartungsmodell.
+- **Einladungs-Assistent für Eigentümerversammlungen**: **Fristenrechner**
+  (mind. 3 Wochen Ladefrist nach § 24 Abs. 4 WEG, warnt bei Unterschreitung mit
+  spätestem Versanddatum), **TOP-Vorlagenkatalog** mit fertigen
+  Beschlussvorschlägen (Wirtschaftsplan, Jahresabrechnung, Verwalterbestellung,
+  Erhaltungsmaßnahme, Sonderumlage …), **Einladung als DIN-A4-PDF**
+  (fensterumschlag-tauglich, „an alle" oder je Empfänger), Versand per
+  E-Mail-Adapter **oder** Selbstdruck + „als versendet markieren" (setzt das
+  Versanddatum, ohne API-Key). Optionaler Freitext-Link zur Video-Zuschaltung
+  (nur Abdruck im PDF — kein Streaming/keine Live-Abstimmung)
+- **Erhaltungsplanung** (§ 19 Abs. 2 Nr. 2 WEG): langfristige Maßnahmenliste je
+  Objekt (Titel, Gewerk, Zieljahr, Kostenschätzung); leitet daraus den
+  Rücklagenbedarf her und stellt ihn dem **aktuellen Rücklagenstand aus der
+  Buchhaltung** gegenüber (Deckung/Unterdeckung). Jahresprognose inkl. der
+  beschlossenen jährlichen Zuführung markiert das erste Jahr einer Unterdeckung
+- **Wirtschaftsplan-PDF für Eigentümer**: jeder Eigentümer lädt den beschlossenen
+  Wirtschaftsplan (Gesamtplan + Einzelwirtschaftspläne) als PDF auf `/finanzen`
+- **Verbrauchsinformation** (§ 6a HeizkostenV): unterjährige Verbrauchsinfo im
+  Portal aus den Zählerständen — jüngste Verbrauchsperiode je Zähler mit Vergleich
+  zu Vorperiode und Vorjahr; fernablesbare Zähler (monatliche Pflicht) sind
+  gekennzeichnet
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 
@@ -117,9 +144,10 @@ Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 
 - **Immoware24-Sync**: vorbereitet in `src/lib/immoware24.ts` +
   `Property.immoware24Id`; wartet auf den API-Zugang von Immoware24
-- **WEG-Finanzen Stufe 5**: Einladungs-PDF mit Fristenrechner,
-  Prüfpflichten-Katalog, Erhaltungsplanung, Messdienst-Import (ista/Techem),
-  SEPA-pain.008-Export, Open-Banking-Adapter, Vermieter-Zusatzmodul
+- **WEG-Selbstverwaltung (weiter)**: Einladungs-Assistent mit Fristenrechner &
+  Einladungs-PDF, Erhaltungsplanung, Wirtschaftsplan-PDF für Eigentümer,
+  Verbrauchsinfo, Messdienst-Import (ista/Techem), SEPA-pain.008-Export,
+  Open-Banking-Adapter, Vermieter-Zusatzmodul
 - Passwort-Reset per E-Mail, Mehr-Faktor-Login
 - Schlagwort-Automatisierung (Kategorie → automatische Handwerker-Beauftragung)
 - Maklerservice-Modul (Interessenten, Exposé-Anfragen), Modernisierungs-Projekte

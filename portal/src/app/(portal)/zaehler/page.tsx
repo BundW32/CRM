@@ -243,6 +243,13 @@ export default async function ZaehlerPage({
                 <Field label="Einbauort (optional)">
                   <input type="text" name="location" className={inputClass} placeholder="z. B. Keller" />
                 </Field>
+                <label className="flex items-start gap-2 text-sm text-gray-700">
+                  <input type="checkbox" name="remoteReadable" className="mt-0.5" />
+                  <span>
+                    Fernablesbar (Funk/Smart) — löst die monatliche Verbrauchsinformation
+                    (§ 6a HeizkostenV) aus.
+                  </span>
+                </label>
                 <SubmitButton pendingLabel="Wird angelegt…">Anlegen</SubmitButton>
                 <p className="text-xs text-gray-500">
                   Allgemeinzähler (z. B. Allgemeinstrom, Hauswasser) können Eigentümer und

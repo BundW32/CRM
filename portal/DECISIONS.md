@@ -175,3 +175,106 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
 36. **Nur strikte Schlüssel** (MEA/Fläche/Einheiten/Personen): VERBRAUCH/
     FESTBETRAG/INDIVIDUELL ergeben für eine einmalige Umlage keinen Sinn.
     Verteilung über dieselbe centgenaue Engine (`distributeByWeight`).
+
+## Schritt 6 — Prüfpflichten-Katalog (M-A, 17.07.2026)
+
+37. **Kein neues Modell, sondern `MaintenanceTask` erweitert** (`catalogKey`,
+    `lastReminderAt`): Prüfpflichten SIND wiederkehrende Wartungsaufgaben. So
+    tauchen sie ohne Sonderweg in „Wartung & Prüfungen" auf (inkl. Handwerker-
+    zuordnung/Vorgangserstellung) und die vorhandene „Fällige Wartungen"-
+    Dashboard-Karte zeigt sie automatisch mit. `catalogKey` markiert die
+    Herkunft aus dem Katalog und macht die Übernahme je Objekt idempotent —
+    exakt das Muster von `adoptCostCatalog` (Abgleich per Schlüssel statt
+    Titel, damit umbenannte Einträge nicht doppelt entstehen).
+38. **Neuer Turnus `DREIJAEHRLICH`** statt Behelf über `ZWEIJAEHRLICH`: Die
+    Legionellenprüfung ist nach TrinkwV in der Regel alle 3 Jahre fällig
+    (Rechtssicherheit, Konvention #8). Additive Enum-Erweiterung
+    (`ALTER TYPE … ADD VALUE`) plus Labels/Monate-Map — eine Quelle für den
+    Monatswert bleibt `labels.ts` (`compliance.ts` re-exportiert sie).
+39. **Fälligkeits-Turnus rechnet ab dem späteren von bisheriger Fälligkeit und
+    heute** (`completeCompliance`): Quittiert man eine überfällige Pflicht,
+    darf die nächste Fälligkeit nicht in der Vergangenheit landen; ist sie
+    noch nicht fällig, bleibt der ursprüngliche Rhythmus erhalten (kein
+    schleichendes Nach-hinten-Wandern). `addMonths` mit Monatsend-Korrektur.
+40. **E-Mail-Erinnerung als reiner Beschleuniger** (`compliance-reminder.ts`,
+    Cron `/api/cron/pruefpflichten`, CRON_SECRET-geschützt): Ohne SMTP-Adapter
+    (`isMailEnabled === false`) passiert nichts — die Fälligkeiten stehen
+    ohnehin im Dashboard (Zero-Key, Konvention #1). Anti-Spam über
+    `lastReminderAt` + 7-Tage-Cooldown; Digest je Organisation an deren aktive
+    Verwalter, Vorwarnfenster 14 Tage.
+41. **Turnusse als fachliche Richtwerte mit Muster-Hinweis** („ersetzt keine
+    Rechtsberatung"): TrinkwV/BetrSichV/GEG/DIN 14676/WEG geben die Regelfälle
+    vor, die konkrete Anlage kann abweichen — die Fälligkeit ist je Pflicht
+    frei editierbar.
+
+## Schritt 7 — Einladungs-Assistent + Fristenrechner + Einladungs-PDF (M-B, 17.07.2026)
+
+42. **Bestehendes Versammlungsmodul erweitert statt Neubau**: Der
+    Einladungs-Assistent hängt an `OwnersMeeting` (Feld `invitationSentAt`
+    existierte bereits als Versanddatum). Der Fristenrechner rechnet ab genau
+    diesem Datum — vor dem Versand ab „heute" (= „wenn ich jetzt einlade").
+43. **Fristenrechner als reine, getestete Funktion** (`meeting-invitation.ts`,
+    `checkInvitationDeadline`): Mindestladefrist 3 Wochen = 21 Kalendertage
+    (§ 24 Abs. 4 WEG), uhrzeitunabhängig über `daysUntilDue`. Warnt bei
+    Unterschreitung mit Angabe der fehlenden Tage und des spätesten
+    Versanddatums — keine Blockade, denn kürzere Ladung ist rechtlich möglich
+    (nur anfechtbar), die Entscheidung bleibt beim Verwalter.
+44. **„Als versendet markieren" getrennt vom E-Mail-Versand** (Zero-Key,
+    Konvention #1): `markInvitationSent` setzt nur das Versanddatum (für den
+    Selbstdruck-/Postweg), `sendInvitation` verschickt zusätzlich E-Mails —
+    beide mit demselben atomaren 2-Minuten-Doppelklick-Schutz. Ohne SMTP zeigt
+    die UI direkt den manuellen Weg (PDF laden → markieren).
+45. **Einladungs-PDF je Empfänger über eine gestreamte Route**
+    (`…/einladung/pdf?owner=<userId>`): fensterumschlag-tauglicher DIN-A4-Brief
+    wie die Mahnung; ohne `owner` ein neutraler „An alle Eigentümer"-Druck. Der
+    Empfänger muss Eigentümer genau dieses Objekts sein (IDOR-Schutz).
+46. **TOP-Vorlagenkatalog** (`meeting-agenda-templates.ts`): fertige TOPs inkl.
+    Beschlussvorschlag; Beschluss-Vorlagen erzeugen — wie ein manueller
+    Beschluss-TOP — automatisch eine Abstimmung (`Resolution`), damit die
+    vorhandene Abstimm-/Protokolllogik ohne Sonderweg greift.
+47. **Video-Link nur als Freitext-Abdruck** (`OwnersMeeting.videoLink`): erfüllt
+    die Anforderung „Link zur Video-Zuschaltung im PDF" bewusst OHNE Streaming
+    oder Live-Abstimmung — das echte Hybrid-/Online-Voting bleibt Modul M-J.
+
+## Schritt 8 — Erhaltungsplanung (M-C, 17.07.2026)
+
+48. **Eigenes Modell `MaintenanceMeasure`** (Titel, Gewerk, Zieljahr,
+    Kostenschätzung in Cent) statt Zweckentfremdung von `MaintenanceTask`: eine
+    langfristig geplante Erhaltungsmaßnahme (§ 19 Abs. 2 Nr. 2 WEG) ist kein
+    terminierter Wartungslauf — sie hat ein Zieljahr und einen Kostenbetrag, aber
+    keinen Turnus/keine Fälligkeit. `done` schließt erledigte Maßnahmen aus dem
+    Bedarf aus. Gewerk als Freitext (Planung ist gröber als der Trade-Katalog).
+49. **Rücklagenstand aus der Buchhaltung hergeleitet, nicht doppelt gepflegt**:
+    Anfangsbestand + Σ Einnahmen − Σ Ausgaben ± Umbuchungen über die
+    RUECKLAGE-Konten (dieselbe Formel wie die Buchhaltungsseite). Eine
+    Gegenüberstellung mit einem separat gepflegten Wert würde zwangsläufig
+    auseinanderlaufen.
+50. **Jährliche Zuführung aus dem beschlossenen Wirtschaftsplan** (Positionen mit
+    Kostenart-Kategorie RUECKLAGENZUFUEHRUNG): macht die Jahresprognose realistisch
+    („leitet den Rücklagenbedarf her") statt nur eine statische Summe
+    gegenüberzustellen. Ohne beschlossenen Plan = 0 (konservativ).
+51. **Prognose als reine, getestete Funktion** (`reserve-plan.ts`,
+    `projectReserve`): rollt Jahr für Jahr Zuführung − geplante Ausgaben auf den
+    Startbestand und meldet das erste Jahr der Unterdeckung. Überfällige
+    Maßnahmen (Zieljahr < laufendes Jahr) werden ins laufende Jahr gezogen, damit
+    kein Bedarf „verschwindet". Alles Integer-Cent.
+
+## Schritt 9 — Politur: Wirtschaftsplan-PDF & Verbrauchsinfo (M-D/M-E, 18.07.2026)
+
+52. **Gemeinsamer PDF-Bauer statt Copy-Paste** (`weg/wirtschaftsplan-pdf.ts`):
+    Verwalter- und Eigentümer-Route erzeugen exakt dasselbe Wirtschaftsplan-PDF.
+    Die vorhandene Verwalter-Route wurde auf den Bauer umgestellt (kein zweiter
+    Rechen-/Layoutpfad, der auseinanderlaufen könnte).
+53. **Eigentümer sehen nur BESCHLOSSENe Pläne** (analog zu FERTIGen
+    Jahresabrechnungen): Entwürfe sind Verwalter-Arbeitsstände. Zugriff über die
+    Eigentümerstellung (`ownsProperty`), Auslieferung als gestreamtes
+    `application/pdf` auf `/finanzen`.
+54. **Verbrauchsinfo aus den vorhandenen Zählerständen abgeleitet**
+    (`weg/consumption.ts`, getestet): UVI nach § 6a HeizkostenV = jüngste
+    Verbrauchsperiode + Vergleich Vorperiode/Vorjahr, gerechnet aus den
+    kumulativen `MeterReading`-Ständen. Zählerrücksprünge (Austausch) werden
+    übersprungen; Vorjahresperiode über ein ±45-Tage-Toleranzfenster gematcht.
+55. **`Meter.remoteReadable` als Auslöser der Pflicht**: nur fernablesbare Zähler
+    lösen die monatliche Informationspflicht aus (§ 6a HeizkostenV) — additives
+    Flag, in der UI markiert. Die Info-Seite ist für die Verbraucher (Mieter/
+    Eigentümer) und den Verwalter zugänglich; Zugriff wie im Zählerbereich.

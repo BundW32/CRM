@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
   Building2,
   ClipboardList,
   FileText,
@@ -37,6 +38,7 @@ const navIcons: Record<string, LucideIcon> = {
   "/nachrichten": MessageSquare,
   "/infos": Info,
   "/zaehler": Gauge,
+  "/verbrauch": Activity,
   "/verwaltung": Building2,
   "/plattform": LayoutGrid,
   "/konto": UserRound,

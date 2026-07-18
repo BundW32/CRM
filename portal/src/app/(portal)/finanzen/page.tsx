@@ -40,10 +40,16 @@ export default async function FinanzenPage({
 
   const myUnitIds = await ownedUnitIdsInProperty(user.id, selected.id);
 
-  const [statements, myUnits, dueSums, paidSums, bookings] = await Promise.all([
+  const [statements, plans, myUnits, dueSums, paidSums, bookings] = await Promise.all([
     db.annualStatement.findMany({
       where: { propertyId: selected.id, status: "FERTIG" },
       orderBy: { year: "desc" },
+    }),
+    // Beschlossene Wirtschaftspläne (Entwürfe sind Verwalter-Arbeitsstände).
+    db.economicPlan.findMany({
+      where: { propertyId: selected.id, status: "BESCHLOSSEN" },
+      orderBy: { year: "desc" },
+      select: { id: true, year: true, resolvedAt: true, resolutionNote: true },
     }),
     db.unit.findMany({
       where: { id: { in: myUnitIds } },
@@ -160,6 +166,35 @@ export default async function FinanzenPage({
                   </div>
                 );
               })}
+            </div>
+          )}
+        </Card>
+
+        {/* Wirtschaftsplan (beschlossen) */}
+        <Card title="Wirtschaftsplan">
+          {plans.length === 0 ? (
+            <EmptyState>Noch kein beschlossener Wirtschaftsplan.</EmptyState>
+          ) : (
+            <div className="grid gap-3">
+              {plans.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 p-4">
+                  <div>
+                    <span className="font-semibold text-gray-900">Wirtschaftsjahr {p.year}</span>
+                    <span className="ml-2 text-xs text-gray-400">
+                      beschlossen{p.resolvedAt ? ` ${formatDateOnly(p.resolvedAt)}` : ""}
+                      {p.resolutionNote ? ` · ${p.resolutionNote}` : ""}
+                    </span>
+                  </div>
+                  <a
+                    href={`/finanzen/wirtschaftsplan/${p.id}/pdf`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={buttonSecondaryClass}
+                  >
+                    Wirtschaftsplan als PDF
+                  </a>
+                </div>
+              ))}
             </div>
           )}
         </Card>

@@ -93,6 +93,7 @@ enum MaintenanceInterval {
   HALBJAEHRLICH
   JAEHRLICH
   ZWEIJAEHRLICH
+  DREIJAEHRLICH
   EINMALIG
 }
 
@@ -291,6 +292,7 @@ model Organization {
   annualStatements      AnnualStatement[]
   hausgeldMahnungen     HausgeldMahnung[]
   sonderumlagen         Sonderumlage[]
+  maintenanceMeasures   MaintenanceMeasure[]
 }
 
 model User {
@@ -361,6 +363,7 @@ model User {
   unitOwnerships            UnitOwnership[]
   mahnungenCreated          HausgeldMahnung[]         @relation("MahnungCreatedBy")
   sonderumlagenCreated      Sonderumlage[]            @relation("SonderumlageCreatedBy")
+  maintenanceMeasuresCreated MaintenanceMeasure[]     @relation("MaintenanceMeasureCreatedBy")
 
   @@index([role])
   @@index([role, active])
@@ -438,6 +441,7 @@ model Property {
   annualStatements      AnnualStatement[]
   hausgeldMahnungen     HausgeldMahnung[]
   sonderumlagen         Sonderumlage[]
+  maintenanceMeasures   MaintenanceMeasure[]
 
   @@index([organizationId])
 }
@@ -479,6 +483,9 @@ model Meter {
   type        MeterType
   meterNumber String? // Zählernummer
   location    String? // Einbauort
+  // Fernablesbar (funk-/smart): löst die Pflicht zur monatlichen unterjährigen
+  // Verbrauchsinformation aus (§ 6a HeizkostenV).
+  remoteReadable Boolean     @default(false)
   createdAt   DateTime       @default(now())
   readings    MeterReading[]
 
@@ -648,6 +655,10 @@ model MaintenanceTask {
   property         Property?           @relation(fields: [propertyId], references: [id], onDelete: SetNull)
   craftsmanId      String?
   craftsman        Craftsman?          @relation(fields: [craftsmanId], references: [id], onDelete: SetNull)
+  // Herkunft aus dem WEG-Prüfpflichten-Katalog (Idempotenz der Übernahme je Objekt)
+  catalogKey       String?
+  // Letzte per E-Mail-Adapter versendete Fälligkeits-Erinnerung (verhindert Doppelmails)
+  lastReminderAt   DateTime?
   createdAt        DateTime            @default(now())
   generatedTickets Ticket[]
 
@@ -655,6 +666,7 @@ model MaintenanceTask {
   @@index([dueDate])
   @@index([active, dueDate])
   @@index([organizationId])
+  @@index([propertyId, catalogKey])
 }
 
 model TicketComment {
@@ -872,6 +884,9 @@ model OwnersMeeting {
   title              String
   scheduledAt        DateTime
   location           String?
+  // Optionaler Freitext-Link zur Video-Zuschaltung (nur Abdruck in Einladung/
+  // Protokoll — KEIN Streaming, keine Live-Abstimmung über das Portal).
+  videoLink          String?
   status             MeetingStatus       @default(GEPLANT)
   invitationSentAt   DateTime?
   attendanceNote     String? // Anwesenheits-/Vertretungsvermerk fürs Protokoll
@@ -1515,4 +1530,28 @@ model Sonderumlage {
   duePostings      DuePosting[]
 
   @@index([propertyId])
+}
+
+// ── WEG-Erhaltungsplanung (§ 19 Abs. 2 Nr. 2 WEG) ────────────────────────────
+// Langfristige Maßnahmenliste je Objekt (Titel, Gewerk, Zieljahr, Kosten-
+// schätzung). Aus den Maßnahmen wird der Rücklagenbedarf hergeleitet und dem
+// aktuellen Rücklagenstand (aus der Buchhaltung) gegenübergestellt.
+model MaintenanceMeasure {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  title          String
+  trade          String? // Gewerk (Freitext, z. B. "Dach", "Fassade", "Heizung")
+  targetYear     Int // geplantes Umsetzungsjahr
+  estimatedCents Int // Kostenschätzung (immer positiv)
+  note           String?
+  done           Boolean      @default(false) // erledigt → nicht mehr im Bedarf
+  createdById    String
+  createdBy      User         @relation("MaintenanceMeasureCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@index([propertyId])
+  @@index([propertyId, done])
 }

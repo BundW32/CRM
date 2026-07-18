@@ -85,6 +85,42 @@ export async function canVoteOnProperty(userId: string, propertyId: string): Pro
   return count > 0;
 }
 
+// ── Verwaltungsbeirat (§ 29 WEG) ────────────────────────────────────────────
+// Ein Beirat ist immer ein Eigentümer (Ownership.isBoardMember). Er erbt damit
+// automatisch alle Eigentümer-Rechte; die Beirats-Zusatzrechte (erweiterte
+// Einsicht, Prüfvermerk, eigener Bereich) hängen zusätzlich an diesem Kennzeichen.
+
+// Ist der Nutzer Beiratsmitglied dieses Objekts?
+export async function isBoardMemberOf(userId: string, propertyId: string): Promise<boolean> {
+  const count = await db.ownership.count({ where: { userId, propertyId, isBoardMember: true } });
+  return count > 0;
+}
+
+// Ist der Nutzer irgendwo Beiratsmitglied? (für Navigation/Feature-Freigabe).
+export async function isBoardMember(userId: string): Promise<boolean> {
+  const count = await db.ownership.count({ where: { userId, isBoardMember: true } });
+  return count > 0;
+}
+
+// WEG-Objekte, in denen der Nutzer Beiratsmitglied ist (id + name).
+export async function boardPropertiesFor(userId: string) {
+  const ownerships = await db.ownership.findMany({
+    where: { userId, isBoardMember: true, property: { managementType: "WEG" } },
+    select: { property: { select: { id: true, name: true } } },
+    orderBy: { property: { name: "asc" } },
+  });
+  return ownerships.map((o) => o.property);
+}
+
+// Objekt-IDs, in denen der Nutzer Beiratsmitglied ist.
+export async function boardPropertyIdsFor(userId: string): Promise<string[]> {
+  const rows = await db.ownership.findMany({
+    where: { userId, isBoardMember: true },
+    select: { propertyId: true },
+  });
+  return [...new Set(rows.map((r) => r.propertyId))];
+}
+
 // Darf der Nutzer dieses Objekt administrieren (Beschlüsse/Versammlungen anlegen,
 // Anträge übernehmen)? Professionelle Verwalter im Scope ODER – in einer
 // selbstverwalteten Org – der interne Verwalter (VERWALTER-User mit Zugriff).

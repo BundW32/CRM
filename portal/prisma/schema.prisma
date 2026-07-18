@@ -297,6 +297,7 @@ model Organization {
   sepaMandates          SepaMandate[]
   co2Allocations        Co2Allocation[]
   craftsmanInvoices     CraftsmanInvoice[]
+  beiratTasks           BeiratTask[]
 }
 
 model User {
@@ -344,6 +345,7 @@ model User {
   resolutionsCreated   Resolution[]              @relation("ResolutionCreatedBy")
   resolutionVotes      ResolutionVote[]          @relation("VoteOwner")
   resolutionVotesCast  ResolutionVote[]          @relation("VoteCastBy")
+  beiratTasksCreated   BeiratTask[]              @relation("BeiratTaskCreatedBy")
   ownersMeetingsCreated OwnersMeeting[]          @relation("MeetingCreatedBy")
   motionsSubmitted     OwnerMotion[]             @relation("MotionSubmittedBy")
   motionsDecided       OwnerMotion[]             @relation("MotionDecidedBy")
@@ -453,6 +455,7 @@ model Property {
   maintenanceMeasures   MaintenanceMeasure[]
   sepaMandates          SepaMandate[]
   co2Allocations        Co2Allocation[]
+  beiratTasks           BeiratTask[]
 
   @@index([organizationId])
 }
@@ -929,6 +932,26 @@ model MeetingAgendaItem {
   resolution   Resolution?    @relation(fields: [resolutionId], references: [id], onDelete: SetNull)
 
   @@index([meetingId])
+}
+
+// Aufgabe/Notiz des Verwaltungsbeirats (eigener Beirats-Bereich). Nur für
+// Beiratsmitglieder des Objekts und den Verwalter im Scope sichtbar.
+model BeiratTask {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  done           Boolean      @default(false)
+  createdById    String
+  createdBy      User         @relation("BeiratTaskCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([propertyId])
+  @@index([organizationId])
 }
 
 model ResolutionVote {

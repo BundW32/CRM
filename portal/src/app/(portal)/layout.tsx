@@ -8,7 +8,7 @@ import { PortalHeader } from "@/components/portal-header";
 import { AssistantWidget } from "@/components/assistant-widget";
 import { BrandTheme } from "@/components/brand-theme";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
-import { isSelfManaged, ownsWegProperty } from "@/lib/access";
+import { isBoardMember, isSelfManaged, ownsWegProperty } from "@/lib/access";
 import { canUseAssistant, isAssistantEnabled } from "@/lib/assistant";
 import { isPlatformAdminUser } from "@/lib/platform";
 import { orgLogoUrl } from "@/lib/branding";
@@ -84,10 +84,11 @@ export default async function PortalLayout({
   if (user.mustChangePassword) redirect("/passwort-festlegen");
   // Unabhängige Abfragen parallel laden (spart pro Seitenaufruf eine DB-Runde).
   // getSession ist bereits gecacht (dedupliziert mit requireUser).
-  const [session, org, ownsWeg] = await Promise.all([
+  const [session, org, ownsWeg, boardMember] = await Promise.all([
     getSession(),
     getOrganization(),
     user.role === "EIGENTUEMER" ? ownsWegProperty(user.id) : Promise.resolve(false),
+    user.role === "EIGENTUEMER" ? isBoardMember(user.id) : Promise.resolve(false),
   ]);
   const selfManaged = isSelfManaged(org);
 
@@ -109,6 +110,10 @@ export default async function PortalLayout({
         (item) => !["/beschluesse", "/versammlungen", "/finanzen"].includes(item.href),
       );
     }
+  }
+  // Beiratsmitglieder (Eigentümer mit Kennzeichen) erhalten den Beirats-Bereich.
+  if (user.role === "EIGENTUEMER" && boardMember) {
+    nav = [...nav, { href: "/beirat", label: "Beirat" }];
   }
   // Plattform-Betreiber (B&W): Zugang zum internen Betreiber-Bereich.
   if (isPlatformAdminUser(user)) {

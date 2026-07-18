@@ -112,6 +112,24 @@ export async function GET(
         file = { storedName: org.logoStoredName, fileName: "logo.png", mimeType: "image/png" };
       }
     }
+  } else if (kind === "vote-proof" && user?.role === "VERWALTER") {
+    // Nachweis einer stellvertretend eingetragenen Stimme – nur für den Verwalter
+    // im Objekt-Scope (enthält die schriftliche Stimme eines Eigentümers).
+    const vote = await db.resolutionVote.findUnique({
+      where: { id },
+      include: { resolution: { select: { organizationId: true, propertyId: true } } },
+    });
+    if (
+      vote?.proofStoredName &&
+      vote.resolution.organizationId === user.organizationId &&
+      (await canVerwalterAccessProperty(user, vote.resolution.propertyId))
+    ) {
+      file = {
+        storedName: vote.proofStoredName,
+        fileName: vote.proofFileName ?? `nachweis-${id}`,
+        mimeType: vote.proofMimeType ?? "application/octet-stream",
+      };
+    }
   } else if (kind === "handover-pdf" && user?.role === "VERWALTER") {
     const handover = await db.handover.findUnique({ where: { id } });
     if (handover?.pdfStoredName && (await canVerwalterAccessHandover(user, handover.id))) {

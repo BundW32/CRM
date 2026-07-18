@@ -342,7 +342,8 @@ model User {
   messagesSent         Message[]
   meterReadings        MeterReading[]
   resolutionsCreated   Resolution[]              @relation("ResolutionCreatedBy")
-  resolutionVotes      ResolutionVote[]
+  resolutionVotes      ResolutionVote[]          @relation("VoteOwner")
+  resolutionVotesCast  ResolutionVote[]          @relation("VoteCastBy")
   ownersMeetingsCreated OwnersMeeting[]          @relation("MeetingCreatedBy")
   motionsSubmitted     OwnerMotion[]             @relation("MotionSubmittedBy")
   motionsDecided       OwnerMotion[]             @relation("MotionDecidedBy")
@@ -935,12 +936,22 @@ model ResolutionVote {
   resolutionId String
   resolution   Resolution @relation(fields: [resolutionId], references: [id], onDelete: Cascade)
   userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User       @relation("VoteOwner", fields: [userId], references: [id], onDelete: Cascade)
   choice       VoteChoice
   comment      String?
+  // Stellvertretende Stimmabgabe durch den Verwalter (§ 25 WEG, schriftliche
+  // Stimme eines Eigentümers, der die App nicht nutzt). castByUserId = Verwalter,
+  // der die Stimme eingetragen hat; userId bleibt der abstimmende Eigentümer.
+  // Optionaler Nachweis (unterschriebener Stimmzettel als Bild/PDF).
+  castByUserId    String?
+  castBy          User?   @relation("VoteCastBy", fields: [castByUserId], references: [id], onDelete: SetNull)
+  proofStoredName String?
+  proofFileName   String?
+  proofMimeType   String?
   createdAt    DateTime   @default(now())
 
   @@unique([resolutionId, userId])
+  @@index([castByUserId])
 }
 
 // ── Eigentümer-Antrag (Selbstverwaltung, Stufe B) ─────────────────────────────

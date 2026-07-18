@@ -131,6 +131,12 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   Rücklagenbedarf her und stellt ihn dem **aktuellen Rücklagenstand aus der
   Buchhaltung** gegenüber (Deckung/Unterdeckung). Jahresprognose inkl. der
   beschlossenen jährlichen Zuführung markiert das erste Jahr einer Unterdeckung
+- **Wirtschaftsplan-PDF für Eigentümer**: jeder Eigentümer lädt den beschlossenen
+  Wirtschaftsplan (Gesamtplan + Einzelwirtschaftspläne) als PDF auf `/finanzen`
+- **Verbrauchsinformation** (§ 6a HeizkostenV): unterjährige Verbrauchsinfo im
+  Portal aus den Zählerständen — jüngste Verbrauchsperiode je Zähler mit Vergleich
+  zu Vorperiode und Vorjahr; fernablesbare Zähler (monatliche Pflicht) sind
+  gekennzeichnet
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 

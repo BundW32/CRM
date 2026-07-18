@@ -467,6 +467,36 @@ async function main() {
     }
   }
 
+  // Demo-Zähler (fernablesbar) mit monatlichen Ständen über gut ein Jahr, damit
+  // die unterjährige Verbrauchsinformation Vorperioden- und Vorjahresvergleich zeigt.
+  {
+    const existing = await db.meter.findFirst({ where: { propertyId: weg.id }, select: { id: true } });
+    if (!existing) {
+      const admin = await db.user.findUniqueOrThrow({ where: { email: "admin@bundwimmobilien.de" } });
+      const meter = await db.meter.create({
+        data: {
+          propertyId: weg.id,
+          type: "HEIZUNG",
+          meterNumber: "WMZ-2024-0001",
+          location: "Heizungskeller",
+          remoteReadable: true,
+        },
+      });
+      // 15 monatliche Stände (kumulativ), Verbrauch im Winter höher.
+      const monthly = [0, 40, 110, 210, 320, 400, 450, 480, 500, 540, 620, 740, 880, 1000, 1090];
+      const now = new Date();
+      const base = new Date(now.getFullYear(), now.getMonth(), 1);
+      base.setMonth(base.getMonth() - (monthly.length - 1));
+      await db.meterReading.createMany({
+        data: monthly.map((value, i) => {
+          const dt = new Date(base);
+          dt.setMonth(base.getMonth() + i);
+          return { meterId: meter.id, value, readingDate: dt, createdById: admin.id };
+        }),
+      });
+    }
+  }
+
   console.log("Seed abgeschlossen:");
   console.log("  Verwalter:  admin@bundwimmobilien.de / BundW-Start2026!");
   console.log(`  Eigentümer: ${eigentuemer.email} / Demo-2026!`);

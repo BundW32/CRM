@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import { canVerwalterAccessProperty } from "@/lib/access";
-import { getBrandingForOrg } from "@/lib/branding-server";
 import { db } from "@/lib/db";
-import { distributionKeyLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
-import { generateWirtschaftsplan, type WirtschaftsplanUnit } from "@/lib/documents/wirtschaftsplan";
-import { computeUnitAdvances, monthlyInstallments } from "@/lib/weg/economic-plan";
+import { buildWirtschaftsplanPdf } from "@/lib/weg/wirtschaftsplan-pdf";
 
 export const dynamic = "force-dynamic";
 
@@ -40,46 +37,11 @@ export async function GET(
   if (!plan) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
   try {
-    const totalCents = plan.items.reduce((sum, i) => sum + i.amountCents, 0);
-    const advances = computeUnitAdvances(
-      plan.items.map((i) => ({
-        costTypeId: i.costTypeId,
-        distributionKey: i.costType.distributionKey,
-        amountCents: i.amountCents,
-      })),
-      units,
-    );
-
-    const planUnits: WirtschaftsplanUnit[] = units.map((u) => {
-      const annual = advances.perUnit.get(u.id) ?? 0;
-      const rates = monthlyInstallments(annual);
-      return {
-        label: u.label,
-        annualCents: annual,
-        monthlyMinCents: Math.min(...rates),
-        monthlyMaxCents: Math.max(...rates),
-      };
-    });
-
-    const branding = await getBrandingForOrg(property.organizationId);
-    const pdf = await generateWirtschaftsplan({
+    const pdf = await buildWirtschaftsplanPdf({
       propertyName: property.name,
-      issuer: {
-        legalName: branding.legalName,
-        contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-      },
-      year: plan.year,
-      resolved: plan.status === "BESCHLOSSEN" && plan.resolvedAt
-        ? { date: plan.resolvedAt, note: plan.resolutionNote }
-        : null,
-      positions: plan.items.map((i) => ({
-        name: i.costType.name,
-        keyLabel: distributionKeyLabels[i.costType.distributionKey] ?? i.costType.distributionKey,
-        amountCents: i.amountCents,
-      })),
-      totalCents,
-      units: planUnits,
-      generatedAt: new Date(),
+      organizationId: property.organizationId,
+      plan,
+      units,
     });
 
     const fileName = `Wirtschaftsplan_${plan.year}_${property.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;

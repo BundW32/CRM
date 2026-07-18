@@ -483,6 +483,9 @@ model Meter {
   type        MeterType
   meterNumber String? // Zählernummer
   location    String? // Einbauort
+  // Fernablesbar (funk-/smart): löst die Pflicht zur monatlichen unterjährigen
+  // Verbrauchsinformation aus (§ 6a HeizkostenV).
+  remoteReadable Boolean     @default(false)
   createdAt   DateTime       @default(now())
   readings    MeterReading[]
 

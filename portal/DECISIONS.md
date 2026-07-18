@@ -258,3 +258,23 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
     Startbestand und meldet das erste Jahr der Unterdeckung. Überfällige
     Maßnahmen (Zieljahr < laufendes Jahr) werden ins laufende Jahr gezogen, damit
     kein Bedarf „verschwindet". Alles Integer-Cent.
+
+## Schritt 9 — Politur: Wirtschaftsplan-PDF & Verbrauchsinfo (M-D/M-E, 18.07.2026)
+
+52. **Gemeinsamer PDF-Bauer statt Copy-Paste** (`weg/wirtschaftsplan-pdf.ts`):
+    Verwalter- und Eigentümer-Route erzeugen exakt dasselbe Wirtschaftsplan-PDF.
+    Die vorhandene Verwalter-Route wurde auf den Bauer umgestellt (kein zweiter
+    Rechen-/Layoutpfad, der auseinanderlaufen könnte).
+53. **Eigentümer sehen nur BESCHLOSSENe Pläne** (analog zu FERTIGen
+    Jahresabrechnungen): Entwürfe sind Verwalter-Arbeitsstände. Zugriff über die
+    Eigentümerstellung (`ownsProperty`), Auslieferung als gestreamtes
+    `application/pdf` auf `/finanzen`.
+54. **Verbrauchsinfo aus den vorhandenen Zählerständen abgeleitet**
+    (`weg/consumption.ts`, getestet): UVI nach § 6a HeizkostenV = jüngste
+    Verbrauchsperiode + Vergleich Vorperiode/Vorjahr, gerechnet aus den
+    kumulativen `MeterReading`-Ständen. Zählerrücksprünge (Austausch) werden
+    übersprungen; Vorjahresperiode über ein ±45-Tage-Toleranzfenster gematcht.
+55. **`Meter.remoteReadable` als Auslöser der Pflicht**: nur fernablesbare Zähler
+    lösen die monatliche Informationspflicht aus (§ 6a HeizkostenV) — additives
+    Flag, in der UI markiert. Die Info-Seite ist für die Verbraucher (Mieter/
+    Eigentümer) und den Verwalter zugänglich; Zugriff wie im Zählerbereich.

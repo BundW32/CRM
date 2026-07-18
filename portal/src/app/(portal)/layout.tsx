@@ -22,6 +22,7 @@ const navByRole = {
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
     { href: "/zaehler", label: "Zähler" },
+    { href: "/verbrauch", label: "Verbrauch" },
   ],
   EIGENTUEMER: [
     { href: "/dashboard", label: "Übersicht" },
@@ -32,6 +33,7 @@ const navByRole = {
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
     { href: "/zaehler", label: "Zähler" },
+    { href: "/verbrauch", label: "Verbrauch" },
   ],
   VERWALTER: [
     { href: "/dashboard", label: "Übersicht" },
@@ -71,6 +73,7 @@ const selfManagedNav = {
     { href: "/antraege", label: "Anträge" },
     { href: "/gemeinschaft", label: "Gemeinschaft" },
     { href: "/finanzen", label: "Finanzen" },
+    { href: "/verbrauch", label: "Verbrauch" },
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
   ],

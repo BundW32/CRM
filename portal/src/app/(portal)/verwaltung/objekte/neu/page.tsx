@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Alert, PageTitle, buttonSecondaryClass } from "@/components/ui";
 import { isSelfManaged } from "@/lib/access";
 import { db } from "@/lib/db";
+import { isObjektImportEnabled } from "@/lib/objekt-extraction";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { ObjektForm } from "./ObjektForm";
 
@@ -49,6 +50,7 @@ export default async function NeuesObjektPage({
       <ObjektForm
         defaultManagementType={selfManaged ? "WEG" : "MIETVERWALTUNG"}
         lockWeg={selfManaged}
+        aiImportEnabled={isObjektImportEnabled()}
         existing={existing}
       />
     </>

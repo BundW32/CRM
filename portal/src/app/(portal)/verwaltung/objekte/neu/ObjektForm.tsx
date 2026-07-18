@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card, Field, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { createObjekt } from "./actions";
+import { extractObjektFields } from "./import-actions";
 
 type UnitRow = { label: string; floor: string };
 type TenantRow = { name: string; email: string; phone: string; unit: string };
@@ -18,11 +19,14 @@ const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 export function ObjektForm({
   defaultManagementType = "MIETVERWALTUNG",
   lockWeg = false,
+  aiImportEnabled = false,
   existing = [],
 }: {
   defaultManagementType?: "MIETVERWALTUNG" | "WEG";
   // Selbstverwalter: Verwaltungsart ist fest WEG – keine Auswahl (kein Mietshaus).
   lockWeg?: boolean;
+  // KI-PDF-Import aktiv (Server: AI_OBJEKT_IMPORT_ENABLED + GEMINI_API_KEY).
+  aiImportEnabled?: boolean;
   existing?: ExistingProperty[];
 }) {
   const [managementType, setManagementType] = useState(defaultManagementType);
@@ -35,6 +39,60 @@ export function ObjektForm({
   const [name, setName] = useState("");
   const [street, setStreet] = useState("");
   const [zip, setZip] = useState("");
+  const [city, setCity] = useState("");
+  const [buildYear, setBuildYear] = useState("");
+  const [livingArea, setLivingArea] = useState("");
+  const [floors, setFloors] = useState("");
+  const [buildingType, setBuildingType] = useState("");
+  const [heatingType, setHeatingType] = useState("");
+  const [notes, setNotes] = useState("");
+
+  // KI-PDF-Import
+  const pdfRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function handlePdfImport() {
+    const file = pdfRef.current?.files?.[0];
+    if (!file) {
+      setImportMsg({ ok: false, text: "Bitte zuerst eine PDF-Datei auswählen." });
+      return;
+    }
+    setImporting(true);
+    setImportMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append("pdf", file);
+      const res = await extractObjektFields(fd);
+      if (!res.ok) {
+        setImportMsg({ ok: false, text: res.error });
+        return;
+      }
+      const d = res.data;
+      if (d.name) setName(d.name);
+      if (d.street) setStreet(d.street);
+      if (d.zip) setZip(d.zip);
+      if (d.city) setCity(d.city);
+      if (d.buildYear != null) setBuildYear(String(d.buildYear));
+      if (d.livingArea != null) setLivingArea(String(d.livingArea));
+      if (d.floors != null) setFloors(String(d.floors));
+      if (d.buildingType) setBuildingType(d.buildingType);
+      if (d.heatingType) setHeatingType(d.heatingType);
+      if (d.notes) setNotes(d.notes);
+      if (d.units && d.units.length > 0) {
+        setUnits(d.units.map((u) => ({ key: nextKey(), label: u.label, floor: u.floor ?? "" })));
+      }
+      const n = d.units?.length ?? 0;
+      setImportMsg({
+        ok: true,
+        text: `Daten übernommen${n ? ` (inkl. ${n} Einheit${n === 1 ? "" : "en"})` : ""}. Bitte prüfen und ergänzen.`,
+      });
+    } catch {
+      setImportMsg({ ok: false, text: "Der Import ist fehlgeschlagen. Bitte manuell ausfüllen." });
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const unitOptions = units
     .map((u) => u.label.trim())
@@ -50,6 +108,45 @@ export function ObjektForm({
 
   return (
     <form action={createObjekt} className="space-y-6">
+      {aiImportEnabled ? (
+        <div className="rounded-2xl border border-brand-orange/30 bg-brand-orange-light/50 p-4">
+          <p className="text-sm font-semibold text-brand-green">Objektdaten aus PDF übernehmen</p>
+          <p className="mt-0.5 text-xs text-gray-600">
+            Objektdatenblatt, Exposé oder ERP-Export hochladen – die KI füllt die Felder
+            als Vorschlag aus. Bitte anschließend prüfen und ergänzen.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <input
+              ref={pdfRef}
+              type="file"
+              accept="application/pdf"
+              className="block max-w-full text-xs text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-green hover:file:bg-gray-50"
+            />
+            <button
+              type="button"
+              onClick={handlePdfImport}
+              disabled={importing}
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-orange px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-orange-dark disabled:opacity-60"
+            >
+              {importing ? (
+                <>
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 2a10 10 0 1 0 10 10" strokeLinecap="round" />
+                  </svg>
+                  Wird gelesen…
+                </>
+              ) : (
+                "Aus PDF übernehmen"
+              )}
+            </button>
+          </div>
+          {importMsg ? (
+            <p className={`mt-2 text-xs ${importMsg.ok ? "text-brand-green" : "text-red-600"}`}>
+              {importMsg.text}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {duplicates.length > 0 ? (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p className="font-medium">Mögliche Dublette</p>
@@ -133,7 +230,15 @@ export function ObjektForm({
             />
           </Field>
           <Field label="Ort *">
-            <input type="text" name="city" required minLength={2} className={inputClass} />
+            <input
+              type="text"
+              name="city"
+              required
+              minLength={2}
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className={inputClass}
+            />
           </Field>
         </div>
 
@@ -142,24 +247,24 @@ export function ObjektForm({
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Baujahr">
-            <input type="number" name="buildYear" min={1800} max={2100} className={inputClass} placeholder="z. B. 1998" />
+            <input type="number" name="buildYear" min={1800} max={2100} value={buildYear} onChange={(e) => setBuildYear(e.target.value)} className={inputClass} placeholder="z. B. 1998" />
           </Field>
           <Field label="Gesamtwohnfläche (m²)">
-            <input type="number" name="livingArea" min={0} step="0.01" className={inputClass} placeholder="z. B. 420" />
+            <input type="number" name="livingArea" min={0} step="0.01" value={livingArea} onChange={(e) => setLivingArea(e.target.value)} className={inputClass} placeholder="z. B. 420" />
           </Field>
           <Field label="Anzahl Etagen">
-            <input type="number" name="floors" min={0} max={200} className={inputClass} placeholder="z. B. 3" />
+            <input type="number" name="floors" min={0} max={200} value={floors} onChange={(e) => setFloors(e.target.value)} className={inputClass} placeholder="z. B. 3" />
           </Field>
           <Field label="Bauart">
-            <input type="text" name="buildingType" className={inputClass} placeholder="z. B. Mehrfamilienhaus" />
+            <input type="text" name="buildingType" value={buildingType} onChange={(e) => setBuildingType(e.target.value)} className={inputClass} placeholder="z. B. Mehrfamilienhaus" />
           </Field>
           <Field label="Heizungsart">
-            <input type="text" name="heatingType" className={inputClass} placeholder="z. B. Gas-Zentralheizung" />
+            <input type="text" name="heatingType" value={heatingType} onChange={(e) => setHeatingType(e.target.value)} className={inputClass} placeholder="z. B. Gas-Zentralheizung" />
           </Field>
         </div>
         <div className="mt-3">
           <Field label="Notizen">
-            <textarea name="notes" rows={2} className={inputClass} placeholder="Sonstige Hinweise zum Objekt" />
+            <textarea name="notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} placeholder="Sonstige Hinweise zum Objekt" />
           </Field>
         </div>
       </Card>

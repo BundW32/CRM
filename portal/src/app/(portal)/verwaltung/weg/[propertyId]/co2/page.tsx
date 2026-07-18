@@ -3,8 +3,8 @@ import { Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputC
 import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
-import { splitCo2Cost, CO2_STEPS_RESIDENTIAL } from "@/lib/weg/co2";
-import { distributeByWeight, weightsForKey } from "@/lib/weg/distribution";
+import { CO2_STEPS_RESIDENTIAL } from "@/lib/weg/co2";
+import { co2PerUnit } from "@/lib/weg/co2-allocation";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { deleteCo2Allocation, saveCo2Allocation } from "./actions";
 
@@ -37,29 +37,19 @@ export default async function Co2Page({
 
   const selectedYear = sp.jahr ? Number(sp.jahr) : allocations[0]?.year;
   const allocation = allocations.find((a) => a.year === selectedYear) ?? allocations[0] ?? null;
-  const totalArea = Math.round(units.reduce((s, u) => s + (u.livingArea ?? 0), 0) * 100) / 100;
 
   // Gebäudeweite Aufteilung + centgenaue Verteilung auf die Einheiten nach Fläche.
-  let split = null as ReturnType<typeof splitCo2Cost> | null;
-  let perUnit: { label: string; area: number; landlord: number; tenant: number }[] = [];
-  if (allocation && totalArea > 0) {
-    split = splitCo2Cost({
-      totalCo2Cents: allocation.totalCo2Cents,
-      emissionsKg: allocation.emissionsKg,
-      livingAreaSqm: totalArea,
-    });
-    // Nur Einheiten mit Wohnfläche tragen CO₂-Heizkosten (z. B. Stellplätze nicht).
-    const heatedUnits = units.filter((u) => (u.livingArea ?? 0) > 0);
-    const weights = weightsForKey(heatedUnits, "FLAECHE");
-    const landlordByUnit = distributeByWeight(split.landlordCents, weights);
-    const tenantByUnit = distributeByWeight(split.tenantCents, weights);
-    perUnit = units.map((u) => ({
-      label: u.label,
-      area: u.livingArea ?? 0,
-      landlord: landlordByUnit.get(u.id) ?? 0,
-      tenant: tenantByUnit.get(u.id) ?? 0,
-    }));
-  }
+  const alloc = allocation
+    ? co2PerUnit({ totalCo2Cents: allocation.totalCo2Cents, emissionsKg: allocation.emissionsKg, units })
+    : null;
+  const totalArea = alloc?.totalArea ?? Math.round(units.reduce((s, u) => s + (u.livingArea ?? 0), 0) * 100) / 100;
+  const split = alloc?.split ?? null;
+  const perUnit = alloc
+    ? units.map((u) => {
+        const c = alloc.perUnit.get(u.id)!;
+        return { label: u.label, area: c.area, landlord: c.landlord, tenant: c.tenant };
+      })
+    : [];
 
   const currentYear = new Date().getFullYear();
 

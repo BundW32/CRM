@@ -150,6 +150,10 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   auf — je höher der Ausstoß (kg CO₂/m²·a), desto größer der Vermieteranteil.
   Centgenaue Aufteilung je Einheit nach Wohnfläche als Datenbasis für vermietende
   Eigentümer
+- **Betriebskostenabrechnung für vermietete Einheiten** (Vermieter-Zusatzmodul):
+  leitet aus der WEG-Jahresabrechnung die auf den Mieter umlagefähigen Kosten ab
+  (Trennung nach BetrKV), zieht den Vermieter-CO₂-Anteil ab, verrechnet die
+  Vorauszahlungen und weist Nachzahlung/Guthaben aus — als DIN-A4-PDF für den Mieter
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 

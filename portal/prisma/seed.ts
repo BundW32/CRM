@@ -548,6 +548,26 @@ async function main() {
     }
   }
 
+  // Demo-Mietverhältnis: eine WEG-Einheit ist vermietet (für die Betriebskosten-
+  // abrechnung des vermietenden Eigentümers, M-K), inkl. Vorauszahlung.
+  {
+    const we02 = await db.unit.findFirst({ where: { propertyId: weg.id, label: { startsWith: "WE 02" } } });
+    if (we02) {
+      const existing = await db.tenancy.findFirst({ where: { unitId: we02.id }, select: { id: true } });
+      if (!existing) {
+        await db.tenancy.create({
+          data: {
+            userId: mieter.id,
+            unitId: we02.id,
+            active: true,
+            startDate: new Date(Date.UTC(new Date().getFullYear() - 1, 0, 1)),
+            bkPrepaymentMonthlyCents: 15_000, // 150,00 €/Monat
+          },
+        });
+      }
+    }
+  }
+
   console.log("Seed abgeschlossen:");
   console.log("  Verwalter:  admin@bundwimmobilien.de / BundW-Start2026!");
   console.log(`  Eigentümer: ${eigentuemer.email} / Demo-2026!`);

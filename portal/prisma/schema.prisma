@@ -540,6 +540,8 @@ model Tenancy {
   startDate DateTime  @default(now())
   endDate   DateTime?
   active    Boolean   @default(true)
+  // Monatliche Betriebskosten-Vorauszahlung des Mieters (für die Abrechnung, M-K)
+  bkPrepaymentMonthlyCents Int?
 
   @@unique([userId, unitId])
   @@index([unitId])

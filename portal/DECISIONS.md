@@ -314,3 +314,24 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
     CO2-Kostenanteil und Emissionen aus der Brennstoffrechnung (Ausweispflicht des
     Lieferanten, § 2 CO2KostAufG). Die eigentliche Weiterverarbeitung für die
     Mieter-Betriebskostenabrechnung bleibt Modul M-K (Vermieter-Zusatzmodul).
+
+## Schritt 12 — Vermieter-Zusatzmodul: Betriebskostenabrechnung (M-K, 18.07.2026)
+
+63. **Aus der WEG-Jahresabrechnung abgeleitet, nicht neu gerechnet**: die
+    Betriebskostenabrechnung nimmt den eingefrorenen Snapshot einer FERTIGen
+    `AnnualStatement` und den Einheitsanteil je Kostenart. So bleibt die
+    Vermieter-Mieter-Abrechnung konsistent mit der beschlossenen WEG-Abrechnung.
+64. **BetrKV-Trennung über das vorhandene `CostType.recoverableBetrKV`-Flag**:
+    umlagefähige Kostenarten gehen an den Mieter, nicht umlagefähige (Verwaltung,
+    Instandhaltung, Rücklagenzuführung) trägt der Eigentümer und werden nur
+    informativ ausgewiesen.
+65. **CO2-Integration (M-I → M-K)**: der Vermieter-CO2-Anteil der Einheit
+    (CO2KostAufG) wird beim Mieter abgezogen. Der gemeinsame Helfer
+    `co2-allocation.ts` (per-Einheit-Verteilung) wird von der CO2-Seite UND der
+    Betriebskostenabrechnung genutzt — eine Quelle, kein Auseinanderlaufen. Der
+    Abzug ist nach oben durch die umlagefähige Summe begrenzt (nie negativ).
+66. **Mieterstammdaten minimal** (`Tenancy.bkPrepaymentMonthlyCents`): nur die
+    Vorauszahlung wird ergänzt; Name/Zuordnung kommen aus dem vorhandenen
+    Mietverhältnis. Jahres-Vorauszahlung = Monatsbetrag × 12. Reine, getestete
+    Rechenlogik (`operating-costs.ts`) + gemeinsamer Ableitungs-Service für Seite
+    und PDF; fensterumschlag-taugliches DIN-A4-PDF für den Mieter.

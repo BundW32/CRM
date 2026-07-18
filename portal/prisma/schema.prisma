@@ -296,6 +296,7 @@ model Organization {
   integrationSettings   IntegrationSetting[]
   sepaMandates          SepaMandate[]
   co2Allocations        Co2Allocation[]
+  craftsmanInvoices     CraftsmanInvoice[]
 }
 
 model User {
@@ -608,6 +609,7 @@ model Ticket {
   updatedAt                DateTime        @updatedAt
   comments                 TicketComment[]
   attachments              Attachment[]
+  invoice                  CraftsmanInvoice?
 
   @@index([propertyId])
   @@index([unitId])
@@ -646,6 +648,7 @@ model Craftsman {
   comments             TicketComment[]       @relation("CraftsmanComments")
   maintenanceTasks     MaintenanceTask[]
   verwalterAssignments CraftsmanAssignment[]
+  invoices             CraftsmanInvoice[]
 
   @@index([active, trade])
   @@index([email])
@@ -1643,4 +1646,40 @@ model Co2Allocation {
 
   @@unique([propertyId, year])
   @@index([propertyId])
+}
+
+// ── Handwerker-Netzwerk: digitale Rechnung (M-L) ─────────────────────────────
+// Schließt den digitalen Auftrags-Relay ab: der Handwerker reicht über den
+// Magic-Link seine Rechnung (Betrag + Datei) ein; der Verwalter prüft und
+// akzeptiert sie (dann werden die Kosten am Vorgang übernommen).
+enum InvoiceStatus {
+  EINGEREICHT
+  AKZEPTIERT
+  ABGELEHNT
+}
+
+model CraftsmanInvoice {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ticketId       String        @unique // eine Rechnung je Vorgang (Neueinreichung ersetzt)
+  ticket         Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  craftsmanId    String
+  craftsman      Craftsman     @relation(fields: [craftsmanId], references: [id], onDelete: Cascade)
+  amountCents    Int
+  invoiceNumber  String?
+  invoiceDate    DateTime?
+  note           String?
+  // hochgeladene Rechnungsdatei (PDF/Bild)
+  storedName     String
+  fileName       String
+  mimeType       String
+  size           Int
+  status         InvoiceStatus @default(EINGEREICHT)
+  reviewedAt     DateTime?
+  reviewedById   String?
+  createdAt      DateTime      @default(now())
+
+  @@index([organizationId])
+  @@index([craftsmanId])
 }

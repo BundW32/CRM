@@ -2,22 +2,33 @@ import { BwLogo } from "@/components/logo";
 import { Alert } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate, ticketStatusLabels, tradeLabels } from "@/lib/labels";
+import { formatCents } from "@/lib/money";
 import {
   craftsmanAccept,
   craftsmanAppointment,
   craftsmanComment,
   craftsmanDecline,
   craftsmanDone,
+  craftsmanSubmitInvoice,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
 
+const INVOICE_STATUS: Record<string, string> = {
+  EINGEREICHT: "eingereicht — wartet auf Prüfung",
+  AKZEPTIERT: "akzeptiert",
+  ABGELEHNT: "abgelehnt — bitte korrigiert erneut einreichen",
+};
+
 export default async function AuftraegePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ fehler?: string; rechnung?: string }>;
 }) {
   const { token } = await params;
+  const sp = await searchParams;
 
   const craftsman = await db.craftsman.findUnique({ where: { accessToken: token } });
 
@@ -42,6 +53,7 @@ export default async function AuftraegePage({
       property: true,
       unit: true,
       attachments: { where: { commentId: null } },
+      invoice: true,
       comments: {
         where: { internal: false },
         include: { author: true, craftsmanAuthor: true, attachments: true },
@@ -62,6 +74,19 @@ export default async function AuftraegePage({
           </p>
         </div>
       </div>
+
+      {sp.rechnung ? (
+        <Alert variant="success" className="mb-4">Rechnung eingereicht — die Verwaltung prüft sie.</Alert>
+      ) : null}
+      {sp.fehler ? (
+        <Alert variant="error" className="mb-4">
+          {sp.fehler === "betrag"
+            ? "Bitte einen gültigen Rechnungsbetrag angeben."
+            : sp.fehler === "datei"
+              ? "Bitte eine Rechnungsdatei (PDF oder Bild) anhängen."
+              : "Eingabe konnte nicht verarbeitet werden."}
+        </Alert>
+      ) : null}
 
       {tickets.length === 0 ? (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-600 shadow-sm">
@@ -237,6 +262,56 @@ export default async function AuftraegePage({
                   Nachricht / Foto senden
                 </button>
               </form>
+
+              {/* Rechnung einreichen (Abschluss des Auftrags-Relays) */}
+              <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="mb-2 text-xs font-semibold text-gray-700">Rechnung</p>
+                {t.invoice ? (
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="text-gray-700">
+                      {formatCents(t.invoice.amountCents)}
+                      {t.invoice.invoiceNumber ? ` · Nr. ${t.invoice.invoiceNumber}` : ""} ·{" "}
+                      <span
+                        className={
+                          t.invoice.status === "AKZEPTIERT"
+                            ? "text-green-700"
+                            : t.invoice.status === "ABGELEHNT"
+                              ? "text-red-600"
+                              : "text-brand-green-dark"
+                        }
+                      >
+                        {INVOICE_STATUS[t.invoice.status]}
+                      </span>
+                    </span>
+                    <a
+                      href={`/api/files/rechnung/${t.invoice.id}?token=${token}`}
+                      target="_blank"
+                      className="underline"
+                    >
+                      Datei ansehen
+                    </a>
+                  </div>
+                ) : null}
+                {t.invoice?.status !== "AKZEPTIERT" ? (
+                  <form action={craftsmanSubmitInvoice} className="grid gap-2 sm:grid-cols-2">
+                    <input type="hidden" name="token" value={token} />
+                    <input type="hidden" name="ticketId" value={t.id} />
+                    <input type="text" inputMode="decimal" name="amount" placeholder="Betrag brutto, z. B. 350,00" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                    <input type="text" name="invoiceNumber" placeholder="Rechnungsnummer (optional)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                    <input type="date" name="invoiceDate" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                    <input type="text" name="note" placeholder="Notiz (optional)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                    <input
+                      type="file"
+                      name="file"
+                      accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                      className="block w-full text-xs text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-orange-dark sm:col-span-2"
+                    />
+                    <button className="rounded-lg bg-brand-orange px-3 py-2 text-xs font-semibold text-brand-green-dark hover:bg-brand-orange-dark sm:col-span-2">
+                      {t.invoice ? "Rechnung erneut einreichen" : "Rechnung einreichen"}
+                    </button>
+                  </form>
+                ) : null}
+              </div>
             </div>
           ))}
         </div>

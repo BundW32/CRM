@@ -2,11 +2,13 @@
 
 import { redirect } from "next/navigation";
 import type { Craftsman, Ticket } from "@/generated/prisma/client";
+import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
+import { parseEuroToCents } from "@/lib/money";
 import { sendPushToUsers } from "@/lib/push";
-import { MEDIA_TYPES, saveUpload } from "@/lib/storage";
+import { DOCUMENT_TYPES, MEDIA_TYPES, saveUpload } from "@/lib/storage";
 
 // Token + Ticket prüfen: der Handwerker darf nur seine eigenen Aufträge bearbeiten
 async function authorize(
@@ -148,6 +150,68 @@ export async function craftsmanComment(formData: FormData) {
     `${auth.craftsman.name} hat eine Nachricht/Foto zum Auftrag „${auth.ticket.title}" hinterlassen.`
   );
   redirect(`/auftraege/${token}`);
+}
+
+// Digitale Rechnung einreichen (Abschluss des Auftrags-Relays). Betrag + Datei
+// (PDF/Bild). Eine Rechnung je Vorgang — eine erneute Einreichung ersetzt die
+// vorherige und setzt den Status zurück auf EINGEREICHT.
+export async function craftsmanSubmitInvoice(formData: FormData) {
+  const token = String(formData.get("token") ?? "");
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const auth = await authorize(token, ticketId);
+  if (!auth) redirect(`/auftraege/${token}`);
+
+  const amountCents = parseEuroToCents(String(formData.get("amount") ?? ""));
+  if (amountCents === null || amountCents <= 0) redirect(`/auftraege/${token}?fehler=betrag`);
+  const invoiceNumber = String(formData.get("invoiceNumber") ?? "").trim().slice(0, 60) || null;
+  const dateRaw = String(formData.get("invoiceDate") ?? "").trim();
+  const invoiceDate = dateRaw ? new Date(dateRaw) : null;
+  const note = String(formData.get("note") ?? "").trim().slice(0, 500) || null;
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) redirect(`/auftraege/${token}?fehler=datei`);
+  let upload;
+  try {
+    upload = await saveUpload(file, DOCUMENT_TYPES);
+  } catch {
+    redirect(`/auftraege/${token}?fehler=datei`);
+  }
+
+  await db.craftsmanInvoice.upsert({
+    where: { ticketId },
+    create: {
+      organizationId: auth.ticket.organizationId,
+      ticketId,
+      craftsmanId: auth.craftsman.id,
+      amountCents,
+      invoiceNumber,
+      invoiceDate: invoiceDate && !Number.isNaN(invoiceDate.getTime()) ? invoiceDate : null,
+      note,
+      ...upload,
+    },
+    update: {
+      amountCents,
+      invoiceNumber,
+      invoiceDate: invoiceDate && !Number.isNaN(invoiceDate.getTime()) ? invoiceDate : null,
+      note,
+      status: "EINGEREICHT",
+      reviewedAt: null,
+      reviewedById: null,
+      ...upload,
+    },
+  });
+  await addCraftsmanComment(ticketId, auth.craftsman.id, `Rechnung eingereicht: ${(amountCents / 100).toFixed(2).replace(".", ",")} €`);
+  await logAudit({
+    action: AUDIT.HANDWERKER_INVOICE_SUBMITTED,
+    targetType: "Ticket",
+    targetId: ticketId,
+    meta: { craftsmanId: auth.craftsman.id, amountCents },
+  });
+  await notifyVerwalter(
+    auth.ticket,
+    `${auth.craftsman.name} hat eine Rechnung zum Auftrag „${auth.ticket.title}" eingereicht (${(amountCents / 100).toFixed(2).replace(".", ",")} €). Bitte prüfen.`,
+  );
+  redirect(`/auftraege/${token}?rechnung=1`);
 }
 
 export async function craftsmanDone(formData: FormData) {

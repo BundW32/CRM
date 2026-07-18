@@ -13,10 +13,11 @@ const PAGE_SIZE = 15;
 export default async function PropertiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; eingerichtet?: string; q?: string; page?: string }>;
+  searchParams: Promise<{ fehler?: string; eingerichtet?: string; gespeichert?: string; q?: string; page?: string }>;
 }) {
   const verwalter = await requireVerwalter();
-  const { fehler, eingerichtet, q, page } = await searchParams;
+  const { fehler, eingerichtet, gespeichert, q, page } = await searchParams;
+  const canEdit = verwalter.isSuperAdmin;
   const propWhere = await propertyWhereForVerwalter(verwalter);
 
   const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
@@ -83,6 +84,11 @@ export default async function PropertiesPage({
       {eingerichtet ? (
         <Alert variant="success" className="mb-4">
           Objekt wurde angelegt. Mieter können Sie jetzt unter „Nutzer“ hinzufügen.
+        </Alert>
+      ) : null}
+      {gespeichert ? (
+        <Alert variant="success" className="mb-4">
+          Änderungen am Objekt wurden gespeichert.
         </Alert>
       ) : null}
       {fehler ? (
@@ -155,6 +161,17 @@ export default async function PropertiesPage({
                       unitCount={p.units.length}
                     >
                       <div className="space-y-3">
+                        {canEdit ? (
+                          <Link
+                            href={`/verwaltung/objekte/${p.id}/bearbeiten`}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-brand-orange/40 bg-white px-3 py-1.5 text-xs font-medium text-brand-green transition hover:border-brand-orange hover:bg-brand-orange-light hover:text-brand-orange-ink"
+                          >
+                            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            Objekt bearbeiten
+                          </Link>
+                        ) : null}
                         <p className="text-xs text-gray-500">
                           <span className="font-medium">Eigentümer:</span> {ownersLabel}
                         </p>

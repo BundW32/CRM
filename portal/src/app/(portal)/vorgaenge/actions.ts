@@ -586,6 +586,96 @@ export async function confirmCompletion(formData: FormData) {
   redirect(`/vorgaenge/${ticketId}?abschluss=bestaetigt`);
 }
 
+// Verwalter akzeptiert die vom Handwerker eingereichte Rechnung: übernimmt Betrag
+// und Beleg-Verweis in die Kostenerfassung des Vorgangs.
+export async function acceptInvoice(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, include: { invoice: true } });
+  if (!ticket || !(await canViewTicket(verwalter, ticket))) redirect("/vorgaenge");
+  const invoice = ticket.invoice;
+  if (!invoice || invoice.status !== "EINGEREICHT") redirect(`/vorgaenge/${ticketId}`);
+
+  await db.$transaction([
+    db.craftsmanInvoice.update({
+      where: { id: invoice.id },
+      data: { status: "AKZEPTIERT", reviewedAt: new Date(), reviewedById: verwalter.id },
+    }),
+    db.ticket.update({
+      where: { id: ticketId },
+      data: {
+        costCents: invoice.amountCents,
+        costNote: [invoice.invoiceNumber ? `Rechnung ${invoice.invoiceNumber}` : "Handwerker-Rechnung", invoice.note]
+          .filter(Boolean)
+          .join(" · ")
+          .slice(0, 300),
+        updatedAt: new Date(),
+      },
+    }),
+    db.ticketComment.create({
+      data: { ticketId, authorId: verwalter.id, internal: true, body: "Rechnung akzeptiert und als Kosten übernommen." },
+    }),
+  ]);
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.HANDWERKER_INVOICE_ACCEPTED,
+    targetType: "Ticket",
+    targetId: ticketId,
+    meta: { amountCents: invoice.amountCents },
+    ip: await getClientIp(),
+  });
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?rechnung=akzeptiert`);
+}
+
+// Verwalter lehnt die Rechnung ab (mit Grund); der Handwerker kann eine neue
+// Rechnung einreichen.
+export async function rejectInvoice(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, include: { invoice: { include: { craftsman: true } } } });
+  if (!ticket || !(await canViewTicket(verwalter, ticket))) redirect("/vorgaenge");
+  const invoice = ticket.invoice;
+  if (!invoice || invoice.status !== "EINGEREICHT") redirect(`/vorgaenge/${ticketId}`);
+
+  await db.$transaction([
+    db.craftsmanInvoice.update({
+      where: { id: invoice.id },
+      data: { status: "ABGELEHNT", reviewedAt: new Date(), reviewedById: verwalter.id },
+    }),
+    db.ticketComment.create({
+      data: {
+        ticketId,
+        authorId: verwalter.id,
+        internal: true,
+        body: `Rechnung abgelehnt${reason ? `: ${reason}` : ""}.`,
+      },
+    }),
+  ]);
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.HANDWERKER_INVOICE_REJECTED,
+    targetType: "Ticket",
+    targetId: ticketId,
+    ip: await getClientIp(),
+  });
+  if (invoice.craftsman?.email) {
+    const branding = await getBrandingForOrg(ticket.organizationId);
+    await sendMail(
+      invoice.craftsman.email,
+      `Rechnung zu Auftrag #${ticket.number} abgelehnt`,
+      `Guten Tag ${invoice.craftsman.name},\n\n` +
+        `Ihre Rechnung zum Auftrag „${ticket.title}" wurde nicht akzeptiert${reason ? `:\n${reason}` : "."}\n\n` +
+        `Bitte reichen Sie ggf. eine korrigierte Rechnung ein.\n\nMit freundlichen Grüßen\n${branding.legalName}`,
+      undefined,
+      branding,
+    ).catch(() => {});
+  }
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?rechnung=abgelehnt`);
+}
+
 // Verwalter weist die Erledigung zurück / öffnet den Vorgang für Nacharbeit wieder.
 export async function reopenTicket(formData: FormData) {
   const verwalter = await requireVerwalter();

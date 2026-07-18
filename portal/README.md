@@ -154,6 +154,10 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   leitet aus der WEG-Jahresabrechnung die auf den Mieter umlagefähigen Kosten ab
   (Trennung nach BetrKV), zieht den Vermieter-CO₂-Anteil ab, verrechnet die
   Vorauszahlungen und weist Nachzahlung/Guthaben aus — als DIN-A4-PDF für den Mieter
+- **Handwerker-Netzwerk – digitale Rechnung**: der Handwerker reicht über den
+  Magic-Link seine Rechnung (Betrag + PDF/Bild) ein, der Verwalter prüft und
+  akzeptiert sie — dann werden die Kosten am Vorgang übernommen. Schließt den
+  digitalen Auftrags-Durchlauf (Auftrag → Ausführung → Doku → Rechnung) ab
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 

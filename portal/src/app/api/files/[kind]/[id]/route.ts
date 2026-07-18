@@ -85,6 +85,20 @@ export async function GET(
         };
       }
     }
+  } else if (kind === "rechnung") {
+    // Handwerker-Rechnung (M-L): Verwalter im Ticket-Scope ODER der Handwerker,
+    // der die Rechnung eingereicht hat (Magic-Link).
+    const invoice = await db.craftsmanInvoice.findUnique({
+      where: { id },
+      include: { ticket: true },
+    });
+    if (invoice) {
+      if (user && (await canViewTicket(user, invoice.ticket))) {
+        file = invoice;
+      } else if (craftsman && invoice.craftsmanId === craftsman.id) {
+        file = invoice;
+      }
+    }
   } else if (kind === "org-logo" && user) {
     // Logo der eigenen Organisation (Branding). Nur das Logo des eigenen
     // Mandanten wird ausgeliefert – Org-ID muss zur Session passen.

@@ -32,6 +32,7 @@ import {
 import { formatCents } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import {
+  acceptInvoice,
   addComment,
   assignCraftsman,
   confirmAppointment,
@@ -40,6 +41,7 @@ import {
   releaseExternalCraftsman,
   generateCertificate,
   notifyCraftsman,
+  rejectInvoice,
   reopenTicket,
   reportCompletion,
   setOwnTicketStatus,
@@ -79,6 +81,7 @@ export default async function TicketDetailPage({
       createdBy: true,
       assignedTo: true,
       craftsman: true,
+      invoice: true,
       attachments: { where: { commentId: null } },
       comments: {
         include: { author: true, craftsmanAuthor: true, attachments: true },
@@ -511,6 +514,48 @@ export default async function TicketDetailPage({
                   Speichern
                 </button>
               </form>
+            </Card>
+          ) : null}
+
+          {isVerwalter && ticket.invoice ? (
+            <Card title="Handwerker-Rechnung">
+              <div className="space-y-2">
+                <p className="text-sm text-gray-800">
+                  <span className="font-semibold">{formatCents(ticket.invoice.amountCents)}</span>
+                  {ticket.invoice.invoiceNumber ? ` · Nr. ${ticket.invoice.invoiceNumber}` : ""}
+                  {ticket.invoice.invoiceDate ? ` · ${formatDate(ticket.invoice.invoiceDate)}` : ""}
+                </p>
+                {ticket.invoice.note ? <p className="text-xs text-gray-500">{ticket.invoice.note}</p> : null}
+                <a
+                  href={`/api/files/rechnung/${ticket.invoice.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-block text-sm text-brand-green underline"
+                >
+                  Rechnungsdatei öffnen
+                </a>
+                {ticket.invoice.status === "EINGEREICHT" ? (
+                  <div className="space-y-2 border-t border-gray-100 pt-3">
+                    <form action={acceptInvoice}>
+                      <input type="hidden" name="ticketId" value={ticket.id} />
+                      <button type="submit" className={`${buttonClass} w-full`}>
+                        Rechnung akzeptieren &amp; als Kosten übernehmen
+                      </button>
+                    </form>
+                    <form action={rejectInvoice} className="space-y-2">
+                      <input type="hidden" name="ticketId" value={ticket.id} />
+                      <textarea name="reason" rows={2} placeholder="Ablehnungsgrund (optional) …" className={inputClass} />
+                      <button type="submit" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+                        Rechnung ablehnen
+                      </button>
+                    </form>
+                  </div>
+                ) : (
+                  <p className={`text-xs font-medium ${ticket.invoice.status === "AKZEPTIERT" ? "text-green-700" : "text-red-600"}`}>
+                    {ticket.invoice.status === "AKZEPTIERT" ? "✓ akzeptiert und als Kosten übernommen" : "abgelehnt"}
+                  </p>
+                )}
+              </div>
             </Card>
           ) : null}
 

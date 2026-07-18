@@ -335,3 +335,23 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
     Mietverhältnis. Jahres-Vorauszahlung = Monatsbetrag × 12. Reine, getestete
     Rechenlogik (`operating-costs.ts`) + gemeinsamer Ableitungs-Service für Seite
     und PDF; fensterumschlag-taugliches DIN-A4-PDF für den Mieter.
+
+## Schritt 13 — Handwerker-Netzwerk: digitale Rechnung (M-L, 18.07.2026)
+
+67. **Den vorhandenen Auftrags-Relay abgeschlossen, nicht neu gebaut**: Auftrag →
+    Ausführung → Doku existierten bereits (Ticket + Magic-Link-Handwerkerportal).
+    M-L ergänzt nur den fehlenden Schritt „Rechnung digital" (`CraftsmanInvoice`,
+    eine Rechnung je Vorgang, Neueinreichung ersetzt).
+68. **Handwerker reicht ein, Verwalter akzeptiert**: der Handwerker lädt über den
+    Magic-Link Betrag + Datei hoch (kein Login); erst die ausdrückliche Annahme
+    durch den Verwalter übernimmt Betrag und Beleg-Verweis in die vorhandene
+    Kostenerfassung des Vorgangs (`Ticket.costCents/costNote`). Ablehnung mit Grund
+    (E-Mail an den Handwerker), danach kann korrigiert neu eingereicht werden.
+69. **Dateizugriff scope-sicher** über die bestehende `/api/files`-Route (neuer
+    `kind=rechnung`): Verwalter im Ticket-Scope ODER der einreichende Handwerker
+    per Magic-Link-Token — dasselbe Muster wie bei Auftrags-Anhängen. Kein neues
+    Auslieferungs-/Berechtigungssystem.
+70. **Kein „Marktplatz"**: das „Netzwerk" bleibt bewusst der digitale Durchlauf
+    eines konkreten Auftrags bis zur Rechnung. Eine orgübergreifende Vermittlung
+    wäre ein eigenes Produkt mit erheblichen rechtlichen/Datenschutz-Implikationen
+    und ist hier nicht vorgesehen.

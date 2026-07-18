@@ -7,8 +7,9 @@ import { revalidatePath } from "next/cache";
 import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
+import { isSelfManaged } from "@/lib/access";
 import { portalUrl, sendMail } from "@/lib/mailer";
-import { requireVerwalter } from "@/lib/session";
+import { getOrganization, requireVerwalter } from "@/lib/session";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 
 const MAX_UNITS = 100;
@@ -113,8 +114,15 @@ export async function createObjekt(formData: FormData) {
     redirect("/verwaltung/objekte/neu?fehler=objekt");
   }
 
-  const managementType =
-    String(formData.get("managementType") ?? "") === "WEG" ? "WEG" : "MIETVERWALTUNG";
+  // Selbstverwalter verwalten ausschließlich ihre eigene WEG – ein Mietshaus
+  // (Mietverwaltung) dürfen sie nicht anlegen. Serverseitig erzwingen, unabhängig
+  // vom übermittelten Formularwert.
+  const org = await getOrganization();
+  const managementType = isSelfManaged(org)
+    ? "WEG"
+    : String(formData.get("managementType") ?? "") === "WEG"
+      ? "WEG"
+      : "MIETVERWALTUNG";
   const vpRaw = String(formData.get("votingPrinciple") ?? "");
   const votingPrinciple = vpRaw === "MEA" ? "MEA" : vpRaw === "OBJEKT" ? "OBJEKT" : "KOPF";
 

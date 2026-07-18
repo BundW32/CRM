@@ -17,9 +17,12 @@ const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 
 export function ObjektForm({
   defaultManagementType = "MIETVERWALTUNG",
+  lockWeg = false,
   existing = [],
 }: {
   defaultManagementType?: "MIETVERWALTUNG" | "WEG";
+  // Selbstverwalter: Verwaltungsart ist fest WEG – keine Auswahl (kein Mietshaus).
+  lockWeg?: boolean;
   existing?: ExistingProperty[];
 }) {
   const [managementType, setManagementType] = useState(defaultManagementType);
@@ -82,18 +85,23 @@ export function ObjektForm({
               className={inputClass}
             />
           </Field>
-          <Field label="Verwaltungsart *">
-            <select
-              name="managementType"
-              required
-              value={managementType}
-              onChange={(e) => setManagementType(e.target.value as "MIETVERWALTUNG" | "WEG")}
-              className={inputClass}
-            >
-              <option value="MIETVERWALTUNG">Mietverwaltung (Miethaus)</option>
-              <option value="WEG">WEG (Eigentümergemeinschaft)</option>
-            </select>
-          </Field>
+          {lockWeg ? (
+            // Selbstverwalter: fest WEG, keine Auswahl (Mietshaus nicht erlaubt).
+            <input type="hidden" name="managementType" value="WEG" />
+          ) : (
+            <Field label="Verwaltungsart *">
+              <select
+                name="managementType"
+                required
+                value={managementType}
+                onChange={(e) => setManagementType(e.target.value as "MIETVERWALTUNG" | "WEG")}
+                className={inputClass}
+              >
+                <option value="MIETVERWALTUNG">Mietverwaltung (Miethaus)</option>
+                <option value="WEG">WEG (Eigentümergemeinschaft)</option>
+              </select>
+            </Field>
+          )}
           <Field label="Stimmprinzip (nur WEG)">
             <select name="votingPrinciple" defaultValue="KOPF" className={inputClass}>
               <option value="KOPF">Kopfprinzip – eine Stimme je Eigentümer</option>

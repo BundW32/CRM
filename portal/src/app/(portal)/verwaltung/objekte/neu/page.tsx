@@ -48,6 +48,7 @@ export default async function NeuesObjektPage({
 
       <ObjektForm
         defaultManagementType={selfManaged ? "WEG" : "MIETVERWALTUNG"}
+        lockWeg={selfManaged}
         existing={existing}
       />
     </>

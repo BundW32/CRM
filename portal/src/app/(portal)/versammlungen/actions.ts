@@ -36,9 +36,11 @@ export async function createMeeting(formData: FormData) {
   const propertyId = String(formData.get("propertyId") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim().slice(0, 200);
   const scheduledStr = String(formData.get("scheduledAt") ?? "");
-  const location = String(formData.get("location") ?? "").trim().slice(0, 200) || null;
+  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
   const videoLink = String(formData.get("videoLink") ?? "").trim().slice(0, 500) || null;
-  if (!propertyId || !title || !scheduledStr) redirect("/versammlungen?fehler=eingabe");
+  // Ort ist Pflicht (§24 WEG: die Einladung muss den Versammlungsort nennen). Bei
+  // reiner Video-Versammlung hier z. B. „Online / Videokonferenz" eintragen.
+  if (!propertyId || !title || !scheduledStr || !location) redirect("/versammlungen?fehler=eingabe");
 
   if (!(await canVerwalterAccessProperty(verwalter, propertyId))) redirect("/versammlungen");
   const property = await db.property.findUnique({ where: { id: propertyId }, select: { managementType: true } });
@@ -272,9 +274,10 @@ export async function updateMeeting(formData: FormData) {
 
   const title = String(formData.get("title") ?? "").trim().slice(0, 200);
   const scheduledStr = String(formData.get("scheduledAt") ?? "");
-  const location = String(formData.get("location") ?? "").trim().slice(0, 200) || null;
+  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
   const videoLink = String(formData.get("videoLink") ?? "").trim().slice(0, 500) || null;
-  if (!title || !scheduledStr) redirect(`/versammlungen/${meetingId}?fehler=eingabe`);
+  // Ort bleibt auch bei Änderung Pflicht (siehe createMeeting).
+  if (!title || !scheduledStr || !location) redirect(`/versammlungen/${meetingId}?fehler=eingabe`);
   const scheduledAt = new Date(scheduledStr);
   if (Number.isNaN(scheduledAt.getTime())) redirect(`/versammlungen/${meetingId}?fehler=eingabe`);
 

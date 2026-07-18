@@ -40,6 +40,11 @@ const tiles = [
     desc: "Wiederkehrende Wartungen & Prüfungen mit Fälligkeit",
   },
   {
+    href: "/zaehler",
+    title: "Zähler",
+    desc: "Zählerstände erfassen und Verbrauch je Einheit/Objekt verwalten",
+  },
+  {
     href: "/verwaltung/dokument-quellen",
     title: "Dokument-Quellen",
     desc: "Google Drive Ordner automatisch ins Dokumenten-Portal synchronisieren",

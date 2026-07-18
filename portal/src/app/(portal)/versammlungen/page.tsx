@@ -124,8 +124,14 @@ export default async function VersammlungenPage({
                 <Field label="Termin">
                   <input type="datetime-local" name="scheduledAt" required className={inputClass} />
                 </Field>
-                <Field label="Ort (optional)">
-                  <input type="text" name="location" className={inputClass} />
+                <Field label="Ort">
+                  <input
+                    type="text"
+                    name="location"
+                    required
+                    placeholder="z. B. Gemeindesaal, Musterstr. 1 – oder Online / Videokonferenz"
+                    className={inputClass}
+                  />
                 </Field>
                 <Field label="Link zur Video-Zuschaltung (optional)">
                   <input

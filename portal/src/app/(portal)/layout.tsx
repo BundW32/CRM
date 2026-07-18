@@ -40,9 +40,8 @@ const navByRole = {
     { href: "/vorgaenge", label: "Vorgänge" },
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
-    { href: "/zaehler", label: "Zähler" },
-    // Beschlüsse & Versammlungen erreicht der Verwalter über den Verwaltung-Hub
-    // (hält die obere Leiste schlank).
+    // Zähler, Beschlüsse & Versammlungen erreicht der Verwalter über den
+    // Verwaltung-Hub (hält die obere Leiste schlank).
     { href: "/verwaltung", label: "Verwaltung" },
   ],
   HANDWERKER: [
@@ -55,12 +54,10 @@ const navByRole = {
 // professionelle Verwalter-Werkzeuge (Vorgänge, Zähler, Handwerker, Wartung …).
 const selfManagedNav = {
   // Interner Verwalter (aus der Eigentümergemeinschaft) – darf zusätzlich verwalten.
+  // Beschlüsse/Versammlungen/Anträge/Gemeinschaft liegen im Verwaltung-Hub (und im
+  // Dashboard-Schnellzugriff); daher nicht zusätzlich oben – vermeidet Dubletten.
   VERWALTER: [
     { href: "/dashboard", label: "Übersicht" },
-    { href: "/beschluesse", label: "Beschlüsse" },
-    { href: "/versammlungen", label: "Versammlungen" },
-    { href: "/antraege", label: "Anträge" },
-    { href: "/gemeinschaft", label: "Gemeinschaft" },
     { href: "/verwaltung", label: "Verwaltung" },
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },

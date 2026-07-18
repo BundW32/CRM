@@ -340,8 +340,15 @@ export default async function MeetingDetailPage({
                     className={inputClass}
                   />
                 </Field>
-                <Field label="Ort (optional)">
-                  <input type="text" name="location" defaultValue={meeting.location ?? ""} className={inputClass} />
+                <Field label="Ort">
+                  <input
+                    type="text"
+                    name="location"
+                    required
+                    defaultValue={meeting.location ?? ""}
+                    placeholder="z. B. Gemeindesaal, Musterstr. 1 – oder Online / Videokonferenz"
+                    className={inputClass}
+                  />
                 </Field>
                 <Field label="Link zur Video-Zuschaltung (optional)">
                   <input

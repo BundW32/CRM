@@ -116,6 +116,12 @@ export default async function WegOverviewPage() {
                 >
                   CO₂-Aufteilung
                 </Link>
+                <Link
+                  href={`/verwaltung/weg/${p.id}/betriebskosten`}
+                  className={buttonSecondaryClass}
+                >
+                  Betriebskosten (Mieter)
+                </Link>
               </div>
             </Card>
           ))}

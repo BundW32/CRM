@@ -10,6 +10,11 @@ import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
 import { computeStatementView } from "@/lib/weg/statement-service";
 import { loadWegProperty } from "@/lib/weg/scope";
+import { fiscalYearRange } from "@/lib/weg/economic-plan";
+import { distributeByWeight } from "@/lib/weg/distribution";
+import { consumptionInPeriod } from "@/lib/weg/meter-distribution";
+
+const METER_TYPES = ["STROM", "GAS", "WASSER_KALT", "WASSER_WARM", "HEIZUNG", "SONSTIGES"] as const;
 
 function back(propertyId: string, suffix = "", param?: string): never {
   redirect(`/verwaltung/weg/${propertyId}/jahresabrechnung${suffix}${param ? `?${param}` : ""}`);
@@ -120,6 +125,104 @@ export async function saveManualAmounts(formData: FormData) {
   });
   revalidatePath(`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}`);
   back(property.id, `/${statement.id}`, "gespeichert=verteilung");
+}
+
+// ── Verbrauchsabhängige Verteilung aus Zählern (Notiz 4, Etappe 2) ──────────
+// Verteilt die Gesamtkosten einer (Verbrauchs-)Kostenart centgenau nach dem
+// Verbrauch je Einheit (Endstand − Anfangsstand der Einzelzähler im
+// Wirtschaftsjahr) und schreibt das Ergebnis in die manuellen Einzelbeträge.
+// Der Verwalter kann die Werte anschließend prüfen/anpassen (Entwurf bleibt offen).
+export async function distributeByMeters(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const statementId = String(formData.get("statementId") ?? "");
+  const costTypeId = String(formData.get("costTypeId") ?? "");
+  const meterTypeRaw = String(formData.get("meterType") ?? "");
+
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+  const statement = await loadStatement(verwalter.organizationId, property.id, statementId);
+  if (!statement) back(property.id);
+  if (statement.status !== "ENTWURF") back(property.id, `/${statement.id}`, "fehler=fertig");
+  if (!(METER_TYPES as readonly string[]).includes(meterTypeRaw)) {
+    back(property.id, `/${statement.id}`, "fehler=zaehlerart");
+  }
+  const meterType = meterTypeRaw as (typeof METER_TYPES)[number];
+
+  const costType = await db.costType.findFirst({
+    where: { id: costTypeId, propertyId: property.id },
+    select: { id: true },
+  });
+  if (!costType) back(property.id, `/${statement.id}`, "fehler=kostenart");
+
+  const { start, end } = fiscalYearRange(statement.year, property.fiscalYearStartMonth);
+
+  // Gesamtkosten dieser Kostenart im Wirtschaftsjahr (IST-Ausgaben).
+  const totalAgg = await db.booking.aggregate({
+    where: {
+      propertyId: property.id,
+      kind: "AUSGABE",
+      costTypeId: costType.id,
+      bookingDate: { gte: start, lt: end },
+    },
+    _sum: { amountCents: true },
+  });
+  const totalCents = totalAgg._sum.amountCents ?? 0;
+  if (totalCents <= 0) back(property.id, `/${statement.id}`, "fehler=keinekosten");
+
+  // Verbrauch je Einheit aus ihren Einzelzählern dieser Art (mehrere Zähler je
+  // Einheit werden summiert). Allgemeinzähler (ohne unitId) zählen hier nicht.
+  const units = await db.unit.findMany({
+    where: { propertyId: property.id },
+    select: { id: true },
+  });
+  const meters = await db.meter.findMany({
+    where: { unitId: { in: units.map((u) => u.id) }, type: meterType },
+    select: { unitId: true, readings: { select: { value: true, readingDate: true } } },
+  });
+  const consumptionByUnit = new Map<string, number>();
+  for (const m of meters) {
+    if (!m.unitId) continue;
+    const c = consumptionInPeriod(
+      m.readings.map((r) => ({ value: r.value, date: r.readingDate })),
+      start,
+      end,
+    );
+    consumptionByUnit.set(m.unitId, (consumptionByUnit.get(m.unitId) ?? 0) + c);
+  }
+  const weights = units.map((u) => ({ unitId: u.id, weight: consumptionByUnit.get(u.id) ?? 0 }));
+  const totalConsumption = weights.reduce((s, w) => s + w.weight, 0);
+  if (totalConsumption <= 0) back(property.id, `/${statement.id}`, "fehler=keinverbrauch");
+
+  const distributed = distributeByWeight(totalCents, weights);
+  const writes = units.map((u) =>
+    db.statementUnitAmount.upsert({
+      where: {
+        statementId_costTypeId_unitId: {
+          statementId: statement.id,
+          costTypeId: costType.id,
+          unitId: u.id,
+        },
+      },
+      update: { amountCents: distributed.get(u.id) ?? 0 },
+      create: {
+        statementId: statement.id,
+        costTypeId: costType.id,
+        unitId: u.id,
+        amountCents: distributed.get(u.id) ?? 0,
+      },
+    }),
+  );
+  await db.$transaction(writes);
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_STATEMENT_SAVED,
+    targetType: "AnnualStatement",
+    targetId: statement.id,
+    meta: { meterDistributedCostType: costType.id, meterType },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}`);
+  back(property.id, `/${statement.id}`, "gespeichert=zaehler");
 }
 
 // ── Endbestände laut Kontoauszug (harte Plausibilitätsprüfung) ───────────────

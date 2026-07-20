@@ -7,6 +7,11 @@ import { db } from "@/lib/db";
 import { formatDate, formatDateOnly } from "@/lib/labels";
 import { classifyDue, dueLabel } from "@/lib/weg/compliance";
 
+// Schnellzugriff-Buttons: klar lesbarer Marken-Kontrast (dunkelgrüner Text auf
+// Weiß, oranger Rahmen/Hover) statt der früheren grau-in-grau-Optik („Ton in Ton").
+const quickLinkClass =
+  "inline-flex items-center rounded-lg border border-brand-orange/40 bg-white px-3 py-2 font-medium text-brand-green transition hover:border-brand-orange hover:bg-brand-orange-light hover:text-brand-orange-ink";
+
 // WEG-fokussierte Übersicht für selbstverwaltete Gemeinschaften (interner
 // Verwalter oder Eigentümer) – statt der professionellen Ticket-Statistik.
 export async function SelfManagedDashboard({ user }: { user: User }) {
@@ -142,12 +147,17 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card title="Schnellzugriff">
           <div className="flex flex-wrap gap-2 text-sm">
-            <Link href="/beschluesse" className="rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50">Beschlüsse</Link>
-            <Link href="/versammlungen" className="rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50">Versammlungen</Link>
-            <Link href="/antraege" className="rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50">Anträge</Link>
-            <Link href="/gemeinschaft" className="rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50">Gemeinschaft</Link>
+            <Link href="/beschluesse" className={quickLinkClass}>Beschlüsse</Link>
+            <Link href="/versammlungen" className={quickLinkClass}>Versammlungen</Link>
+            <Link href="/antraege" className={quickLinkClass}>Anträge</Link>
+            <Link href="/gemeinschaft" className={quickLinkClass}>Gemeinschaft</Link>
             {isAdmin ? (
-              <Link href="/verwaltung" className="rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50">WEG-Verwaltung</Link>
+              <Link
+                href="/verwaltung"
+                className="inline-flex items-center rounded-lg bg-brand-orange px-3 py-2 font-medium text-white shadow-sm transition hover:bg-brand-orange-dark"
+              >
+                WEG-Verwaltung
+              </Link>
             ) : null}
           </div>
         </Card>

@@ -6,13 +6,15 @@ import { buttonClass } from "@/components/ui";
 export function SubmitButton({
   children = "Speichern",
   pendingLabel,
+  className = buttonClass,
 }: {
   children?: React.ReactNode;
   pendingLabel?: string;
+  className?: string;
 }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className={buttonClass}>
+    <button type="submit" disabled={pending} className={className}>
       {pending ? (
         <>
           <svg

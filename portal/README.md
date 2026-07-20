@@ -41,9 +41,17 @@ Verwaltung und Handwerker. Konzept, Wettbewerbsanalyse und Roadmap:
    `BundW32/CRM` importieren
 2. **Root Directory: `portal`** auswählen (wichtig!)
 3. Unter **Storage** eine Datenbank anlegen (Neon/Postgres, Region Frankfurt
-   `fra1`) → setzt `DATABASE_URL` automatisch
-4. Unter **Storage** einen **Blob**-Store anlegen → setzt
-   `BLOB_READ_WRITE_TOKEN` automatisch (nötig für Foto-/Dokument-Uploads)
+   `fra1`) → setzt `DATABASE_URL` automatisch. **Für die Ladezeiten wichtig:**
+   die **gepoolte** Verbindung verwenden (Neon-Host mit `-pooler`) und die
+   Datenbank in **derselben Region wie die Functions** (fra1) halten – die App
+   pinnt die Functions per `vercel.json` (`"regions": ["fra1"]`) bereits auf
+   Frankfurt, damit DB-Abfragen nicht über den Atlantik laufen.
+4. Unter **Storage** einen **Blob**-Store anlegen und dabei **Access: Private**
+   wählen (per CLI: `vercel blob create-store <name> --access private`) → setzt
+   `BLOB_READ_WRITE_TOKEN` automatisch (nötig für Foto-/Dokument-Uploads).
+   **Wichtig:** Die App speichert alle Uploads privat (`access: "private"`); ein
+   *öffentlicher* Store weist private Uploads ab → Fotos/Dokumente lassen sich
+   dann nicht hochladen.
 5. Environment Variable **`SESSION_SECRET`** setzen (zufällig, mind. 32 Zeichen,
    z. B. aus `openssl rand -base64 48`)
 6. Optional: `PORTAL_BASE_URL` (z. B. `https://portal.bundwimmobilien.de`) und

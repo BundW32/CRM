@@ -13,6 +13,7 @@ import {
 } from "@/lib/weg-voting";
 import {
   castVote,
+  castVoteForOwner,
   closeResolution,
   createResolution,
   deleteResolution,
@@ -117,7 +118,7 @@ export default async function BeschluessePage({
     baseWhere = { propertyId: { in: props.map((p) => p.id) } };
   }
 
-  const include = { property: true, votes: { include: { user: true } } } as const;
+  const include = { property: true, votes: { include: { user: true, castBy: true } } } as const;
   // Laufende Abstimmungen IMMER vollständig laden (nie paginieren – sonst könnte
   // eine ältere offene Abstimmung auf Seite 2 rutschen und übersehen werden).
   // Nur die entschiedenen Beschlüsse werden paginiert.
@@ -158,8 +159,19 @@ export default async function BeschluessePage({
   // Objektprinzip) + MEA-Summe je Objekt (für die doppelt qualifizierte Mehrheit).
   const ownershipData = await db.ownership.findMany({
     where: { propertyId: { in: propIds } },
-    select: { propertyId: true, userId: true, mea: true, voteUnits: true },
+    select: { propertyId: true, userId: true, mea: true, voteUnits: true, user: { select: { name: true } } },
   });
+  // Eigentümer je Objekt (für die stellvertretende Stimmabgabe des Verwalters).
+  const ownersByProp = new Map<string, { id: string; name: string }[]>();
+  if (isVerwalter) {
+    for (const o of ownershipData) {
+      const list = ownersByProp.get(o.propertyId) ?? [];
+      if (!list.some((e) => e.id === o.userId)) {
+        list.push({ id: o.userId, name: o.user.name });
+        ownersByProp.set(o.propertyId, list);
+      }
+    }
+  }
   const ownerInfo = new Map<string, { mea: number | null; voteUnits: number | null }>();
   const meaTotalMap = new Map<string, number>();
   // Objekte, bei denen NICHT für jeden Eigentümer ein MEA hinterlegt ist – dann
@@ -245,6 +257,8 @@ export default async function BeschluessePage({
                 ? "Die Abstimmung wurde soeben geschlossen – Ihre Stimme wurde nicht mehr gewertet."
                 : fehler === "ergebnis"
                 ? "Bitte ein Ergebnis (angenommen/abgelehnt) auswählen."
+                : fehler === "eigentuemer"
+                ? "Für die stellvertretende Stimme muss ein Eigentümer des Objekts gewählt werden."
                 : fehler === "gefasst"
                   ? "Ein bereits gefasster Beschluss kann nicht gelöscht werden."
                   : "Bitte Objekt, Titel und Beschlusstext ausfüllen."}
@@ -344,9 +358,81 @@ export default async function BeschluessePage({
                             <li key={v.id}>
                               {v.user.name}: <strong>{voteChoiceLabels[v.choice]}</strong>
                               {v.comment ? ` — ${v.comment}` : ""}
+                              {v.castByUserId ? (
+                                <span className="text-gray-400">
+                                  {" "}· stellvertretend eingetragen
+                                  {v.castBy ? ` von ${v.castBy.name}` : ""}
+                                </span>
+                              ) : null}
+                              {v.proofStoredName ? (
+                                <>
+                                  {" "}·{" "}
+                                  <a
+                                    href={`/api/files/vote-proof/${v.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-brand-green hover:underline"
+                                  >
+                                    Nachweis
+                                  </a>
+                                </>
+                              ) : null}
                             </li>
                           ))}
                         </ul>
+                      ) : null}
+
+                      {/* Stellvertretende Stimmabgabe: Eigentümer, die die App nicht
+                          nutzen, haben u. U. schriftlich abgestimmt (§ 25 WEG). */}
+                      {!expired && (ownersByProp.get(r.propertyId)?.length ?? 0) > 0 ? (
+                        <details className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                          <summary className="cursor-pointer text-xs font-medium text-gray-700">
+                            Stimme für einen Eigentümer eintragen (schriftlich)
+                          </summary>
+                          <form action={castVoteForOwner} className="mt-2 space-y-2">
+                            <input type="hidden" name="resolutionId" value={r.id} />
+                            <div className="flex flex-wrap items-center gap-2">
+                              <select name="ownerId" required defaultValue="" className={`${inputClass} w-auto`}>
+                                <option value="" disabled>
+                                  – Eigentümer –
+                                </option>
+                                {(ownersByProp.get(r.propertyId) ?? []).map((o) => (
+                                  <option key={o.id} value={o.id}>
+                                    {o.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <select name="choice" required defaultValue="" className={`${inputClass} w-auto`}>
+                                <option value="" disabled>
+                                  – Stimme –
+                                </option>
+                                <option value="JA">Ja</option>
+                                <option value="NEIN">Nein</option>
+                                <option value="ENTHALTUNG">Enthaltung</option>
+                              </select>
+                            </div>
+                            <input
+                              type="text"
+                              name="comment"
+                              placeholder="Kommentar (optional)"
+                              className={inputClass}
+                            />
+                            <div className="flex flex-wrap items-center gap-2">
+                              <input
+                                type="file"
+                                name="proof"
+                                accept="image/*,application/pdf"
+                                className="block max-w-full text-xs text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-green hover:file:bg-gray-50"
+                              />
+                              <button type="submit" className={buttonSecondaryClass}>
+                                Stimme eintragen
+                              </button>
+                            </div>
+                            <p className="text-[11px] text-gray-400">
+                              Nachweis optional (Bild/PDF des unterschriebenen Stimmzettels).
+                            </p>
+                          </form>
+                        </details>
                       ) : null}
                       {/* Schließen mit Ergebnis-Feststellung: der berechnete
                           Vorschlag ist vorausgewählt, kann aber übersteuert werden. */}

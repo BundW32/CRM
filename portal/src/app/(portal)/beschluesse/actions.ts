@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireUser, requireVerwalter } from "@/lib/session";
+import { DOCUMENT_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 
 const MAJORITIES = ["EINFACH", "DREIVIERTEL", "DOPPELT_QUALIFIZIERT", "ALLSTIMMIG"] as const;
 
@@ -123,7 +124,16 @@ export async function castVote(formData: FormData) {
       await tx.resolutionVote.upsert({
         where: { resolutionId_userId: { resolutionId, userId: user.id } },
         create: { resolutionId, userId: user.id, choice, comment },
-        update: { choice, comment },
+        // Stimmt der Eigentümer selbst ab, ist ein früherer Stellvertreter-Vermerk
+        // (inkl. Nachweis) gegenstandslos → zurücksetzen.
+        update: {
+          choice,
+          comment,
+          castByUserId: null,
+          proofStoredName: null,
+          proofFileName: null,
+          proofMimeType: null,
+        },
       });
       const still = await tx.resolution.findFirst({
         where: { id: resolutionId, status: "OFFEN" },
@@ -139,6 +149,99 @@ export async function castVote(formData: FormData) {
     }
   }
   if (closedMeanwhile) redirect(`/beschluesse?fehler=geschlossen#${resolutionId}`);
+
+  revalidatePath("/beschluesse");
+  redirect(`/beschluesse#${resolutionId}`);
+}
+
+// Stellvertretende Stimmabgabe durch den Verwalter (Notiz 8): trägt für einen
+// Eigentümer, der die App nicht nutzt, dessen schriftliche Stimme ein – mit
+// optionalem Nachweis (Bild/PDF des unterschriebenen Stimmzettels).
+export async function castVoteForOwner(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const resolutionId = String(formData.get("resolutionId") ?? "");
+  const ownerId = String(formData.get("ownerId") ?? "");
+  const choiceRaw = String(formData.get("choice") ?? "");
+  const comment = String(formData.get("comment") ?? "").trim().slice(0, 1000) || null;
+
+  if (!["JA", "NEIN", "ENTHALTUNG"].includes(choiceRaw)) redirect("/beschluesse");
+  const choice = choiceRaw as "JA" | "NEIN" | "ENTHALTUNG";
+
+  const resolution = await db.resolution.findUnique({ where: { id: resolutionId } });
+  if (!resolution || resolution.status !== "OFFEN") redirect("/beschluesse");
+  if (resolution.organizationId !== verwalter.organizationId) redirect("/beschluesse");
+  if (!(await canVerwalterAccessProperty(verwalter, resolution.propertyId))) redirect("/beschluesse");
+  if (resolution.deadline && resolution.deadline < new Date()) {
+    redirect(`/beschluesse?fehler=frist#${resolutionId}`);
+  }
+  // Eingetragen werden darf nur für einen tatsächlichen Eigentümer des Objekts.
+  if (!ownerId || !(await canVoteOnProperty(ownerId, resolution.propertyId))) {
+    redirect(`/beschluesse?fehler=eigentuemer#${resolutionId}`);
+  }
+
+  // Optionaler Nachweis (Bild/PDF). Fehlerhafte Uploads brechen die Aktion ab.
+  let proofStoredName: string | null = null;
+  let proofFileName: string | null = null;
+  let proofMimeType: string | null = null;
+  const file = formData.get("proof");
+  if (file instanceof File && file.size > 0) {
+    const saved = await saveUpload(file, DOCUMENT_TYPES);
+    proofStoredName = saved.storedName;
+    proofFileName = saved.fileName;
+    proofMimeType = saved.mimeType;
+  }
+
+  // Vorhandenen Nachweis merken, um ihn nach erfolgreichem Ersetzen zu löschen.
+  const existing = await db.resolutionVote.findUnique({
+    where: { resolutionId_userId: { resolutionId, userId: ownerId } },
+    select: { proofStoredName: true },
+  });
+
+  let closedMeanwhile = false;
+  try {
+    await db.$transaction(async (tx) => {
+      await tx.resolutionVote.upsert({
+        where: { resolutionId_userId: { resolutionId, userId: ownerId } },
+        create: {
+          resolutionId,
+          userId: ownerId,
+          choice,
+          comment,
+          castByUserId: verwalter.id,
+          proofStoredName,
+          proofFileName,
+          proofMimeType,
+        },
+        // Nachweis nur überschreiben, wenn ein neuer hochgeladen wurde.
+        update: {
+          choice,
+          comment,
+          castByUserId: verwalter.id,
+          ...(proofStoredName ? { proofStoredName, proofFileName, proofMimeType } : {}),
+        },
+      });
+      const still = await tx.resolution.findFirst({
+        where: { id: resolutionId, status: "OFFEN" },
+        select: { id: true },
+      });
+      if (!still) throw new Error("RESOLUTION_CLOSED");
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === "RESOLUTION_CLOSED") {
+      closedMeanwhile = true;
+    } else {
+      throw err;
+    }
+  }
+  if (closedMeanwhile) {
+    // Hochgeladenen (nun verwaisten) Nachweis wieder entfernen.
+    if (proofStoredName) await deleteBlob(proofStoredName);
+    redirect(`/beschluesse?fehler=geschlossen#${resolutionId}`);
+  }
+  // Alten Nachweis erst nach erfolgreichem Ersetzen löschen.
+  if (proofStoredName && existing?.proofStoredName && existing.proofStoredName !== proofStoredName) {
+    await deleteBlob(existing.proofStoredName);
+  }
 
   revalidatePath("/beschluesse");
   redirect(`/beschluesse#${resolutionId}`);

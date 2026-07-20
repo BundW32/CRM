@@ -130,6 +130,16 @@ Muster — ersetzt keine Rechtsberatung.`;
         </Alert>
       ) : null}
 
+      {plan.beiratReviewStatus ? (
+        <Alert
+          variant={plan.beiratReviewStatus === "GEPRUEFT" ? "success" : "warning"}
+          title={`Beirat: ${plan.beiratReviewStatus === "GEPRUEFT" ? "geprüft" : "mit Anmerkungen"}`}
+          className="mb-4"
+        >
+          {plan.beiratReviewNote ?? "Prüfvermerk des Verwaltungsbeirats (§ 29 III WEG)."}
+        </Alert>
+      ) : null}
+
       {!isDraft ? (
         <Alert variant="info" className="mb-4">
           Beschlossen am {plan.resolvedAt ? formatDateOnly(plan.resolvedAt) : "—"}

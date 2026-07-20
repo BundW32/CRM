@@ -18,6 +18,7 @@ import {
   deleteStatement,
   finalizeStatement,
   saveAccountChecks,
+  distributeByMeters,
   saveManualAmounts,
 } from "../actions";
 
@@ -27,6 +28,10 @@ const FEHLER_TEXTE: Record<string, string> = {
   fertig: "Die Abrechnung ist fertiggestellt und unveränderlich.",
   betrag: "Ein Betrag konnte nicht gelesen werden (Format: 1.234,56).",
   kostenart: "Unbekannte Kostenart.",
+  zaehlerart: "Bitte eine gültige Zählerart wählen.",
+  keinekosten: "Für diese Kostenart sind im Wirtschaftsjahr keine Ausgaben gebucht.",
+  keinverbrauch:
+    "Keine Zählerstände für diese Art gefunden — bitte Einzelzähler und Ablesungen erfassen.",
   pruefung: "Die Prüfliste enthält noch offene Punkte — Fertigstellen nicht möglich.",
   kontenpruefung:
     "Kontenprüfung fehlgeschlagen: Der Endbestand laut Kontoauszug muss für jedes Konto exakt dem rechnerischen Endbestand entsprechen.",
@@ -111,7 +116,9 @@ Muster — ersetzt keine Rechtsberatung.`;
 
       {sp.gespeichert ? (
         <Alert variant="success" className="mb-4">
-          Gespeichert.
+          {sp.gespeichert === "zaehler"
+            ? "Verbrauch aus den Zählern übernommen — bitte die Einzelbeträge prüfen."
+            : "Gespeichert."}
         </Alert>
       ) : null}
       {sp.fertig ? (
@@ -122,6 +129,16 @@ Muster — ersetzt keine Rechtsberatung.`;
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">
           {FEHLER_TEXTE[sp.fehler] ?? "Die Eingabe konnte nicht gespeichert werden."}
+        </Alert>
+      ) : null}
+
+      {statement.beiratReviewStatus ? (
+        <Alert
+          variant={statement.beiratReviewStatus === "GEPRUEFT" ? "success" : "warning"}
+          title={`Beirat: ${statement.beiratReviewStatus === "GEPRUEFT" ? "geprüft" : "mit Anmerkungen"}`}
+          className="mb-4"
+        >
+          {statement.beiratReviewNote ?? "Prüfvermerk des Verwaltungsbeirats (§ 29 III WEG)."}
         </Alert>
       ) : null}
 
@@ -261,6 +278,32 @@ Muster — ersetzt keine Rechtsberatung.`;
                 Ergebnisse je Einheit erfassen (z. B. aus der Messdienst-Abrechnung). Die Summe
                 muss exakt {euro(row.totalCents)} ergeben — aktuell erfasst: {euro(savedSum)}.
               </p>
+              {isDraft && row.distributionKey === "VERBRAUCH" ? (
+                <form
+                  action={distributeByMeters}
+                  className="mb-3 flex flex-wrap items-end gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3"
+                >
+                  <input type="hidden" name="propertyId" value={property.id} />
+                  <input type="hidden" name="statementId" value={statement.id} />
+                  <input type="hidden" name="costTypeId" value={row.costTypeId} />
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-gray-700">
+                      Automatisch aus Zählern verteilen — Zählerart
+                    </span>
+                    <select name="meterType" defaultValue="WASSER_KALT" className={`${inputClass} w-auto`}>
+                      <option value="STROM">Strom</option>
+                      <option value="GAS">Gas</option>
+                      <option value="WASSER_KALT">Wasser (kalt)</option>
+                      <option value="WASSER_WARM">Wasser (warm)</option>
+                      <option value="HEIZUNG">Heizung</option>
+                      <option value="SONSTIGES">Sonstiges</option>
+                    </select>
+                  </label>
+                  <button type="submit" className={buttonSecondaryClass}>
+                    Aus Zählern übernehmen
+                  </button>
+                </form>
+              ) : null}
               <form action={saveManualAmounts} className="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="propertyId" value={property.id} />
                 <input type="hidden" name="statementId" value={statement.id} />

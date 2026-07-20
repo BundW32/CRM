@@ -32,6 +32,7 @@ const navIcons: Record<string, LucideIcon> = {
   "/vorgaenge": ClipboardList,
   "/beschluesse": Gavel,
   "/versammlungen": Users,
+  "/beirat": ClipboardList,
   "/antraege": FileText,
   "/gemeinschaft": Users,
   "/finanzen": Wallet,

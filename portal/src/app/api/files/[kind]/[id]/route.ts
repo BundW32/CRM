@@ -6,6 +6,7 @@ import {
   documentWhereForUser,
   ownsProperty,
 } from "@/lib/access";
+import { get } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { readUpload } from "@/lib/storage";
 import { getUser } from "@/lib/session";
@@ -111,6 +112,24 @@ export async function GET(
         file = { storedName: org.logoStoredName, fileName: "logo.png", mimeType: "image/png" };
       }
     }
+  } else if (kind === "vote-proof" && user?.role === "VERWALTER") {
+    // Nachweis einer stellvertretend eingetragenen Stimme – nur für den Verwalter
+    // im Objekt-Scope (enthält die schriftliche Stimme eines Eigentümers).
+    const vote = await db.resolutionVote.findUnique({
+      where: { id },
+      include: { resolution: { select: { organizationId: true, propertyId: true } } },
+    });
+    if (
+      vote?.proofStoredName &&
+      vote.resolution.organizationId === user.organizationId &&
+      (await canVerwalterAccessProperty(user, vote.resolution.propertyId))
+    ) {
+      file = {
+        storedName: vote.proofStoredName,
+        fileName: vote.proofFileName ?? `nachweis-${id}`,
+        mimeType: vote.proofMimeType ?? "application/octet-stream",
+      };
+    }
   } else if (kind === "handover-pdf" && user?.role === "VERWALTER") {
     const handover = await db.handover.findUnique({ where: { id } });
     if (handover?.pdfStoredName && (await canVerwalterAccessHandover(user, handover.id))) {
@@ -136,30 +155,47 @@ export async function GET(
   const cacheControl = "private, max-age=300";
 
   try {
-    // Vercel Blob: Range-Header direkt weiterleiten; Bearer-Token für private Blobs
     if (file.storedName.startsWith("https://")) {
-      const blobHeaders: Record<string, string> = {};
-      const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-      if (blobToken) blobHeaders["Authorization"] = `Bearer ${blobToken}`;
-      if (rangeHeader) blobHeaders["Range"] = rangeHeader;
-      const upstream = await fetch(file.storedName, { headers: blobHeaders });
-      if (!upstream.ok && upstream.status !== 206) {
+      // Teilbereichs-Anfragen (z. B. Video-Streaming) deckt das SDK nicht ab –
+      // dafür die private Blob-URL direkt mit Bearer-Token weiterleiten.
+      if (rangeHeader) {
+        const blobHeaders: Record<string, string> = { Range: rangeHeader };
+        const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+        if (blobToken) blobHeaders["Authorization"] = `Bearer ${blobToken}`;
+        const upstream = await fetch(file.storedName, { headers: blobHeaders });
+        if (!upstream.ok && upstream.status !== 206) {
+          return NextResponse.json({ error: "Datei nicht abrufbar" }, { status: 404 });
+        }
+        const responseHeaders: Record<string, string> = {
+          "Content-Type": file.mimeType,
+          "Content-Disposition": disposition,
+          "Cache-Control": cacheControl,
+          "Accept-Ranges": "bytes",
+        };
+        const cr = upstream.headers.get("Content-Range");
+        const cl = upstream.headers.get("Content-Length");
+        if (cr) responseHeaders["Content-Range"] = cr;
+        if (cl) responseHeaders["Content-Length"] = cl;
+
+        return new NextResponse(upstream.body, {
+          status: upstream.status,
+          headers: responseHeaders,
+        });
+      }
+
+      // Standardfall (Bilder, PDFs): private Blobs offiziell über das SDK
+      // ausliefern – authentifiziert automatisch per OIDC bzw. Token.
+      const result = await get(file.storedName, { access: "private" });
+      if (!result || result.statusCode !== 200) {
         return NextResponse.json({ error: "Datei nicht abrufbar" }, { status: 404 });
       }
-      const responseHeaders: Record<string, string> = {
-        "Content-Type": file.mimeType,
-        "Content-Disposition": disposition,
-        "Cache-Control": cacheControl,
-        "Accept-Ranges": "bytes",
-      };
-      const cr = upstream.headers.get("Content-Range");
-      const cl = upstream.headers.get("Content-Length");
-      if (cr) responseHeaders["Content-Range"] = cr;
-      if (cl) responseHeaders["Content-Length"] = cl;
-
-      return new NextResponse(upstream.body, {
-        status: upstream.status,
-        headers: responseHeaders,
+      return new NextResponse(result.stream, {
+        headers: {
+          "Content-Type": file.mimeType,
+          "Content-Disposition": disposition,
+          "Cache-Control": cacheControl,
+          "Accept-Ranges": "bytes",
+        },
       });
     }
 

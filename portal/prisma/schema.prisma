@@ -48,6 +48,7 @@ enum Audience {
   MIETER
   EIGENTUEMER
   ALLE
+  BEIRAT // nur Verwaltungsbeirat des Objekts
 }
 
 // Gewerk eines Handwerkers / Kategorie eines Schadens
@@ -202,6 +203,13 @@ enum StatementStatus {
   FERTIG
 }
 
+// Prüfvermerk des Verwaltungsbeirats (§ 29 Abs. 3 WEG) auf Wirtschaftsplan bzw.
+// Jahresabrechnung: geprüft und für gut befunden ODER mit Anmerkungen.
+enum BeiratReviewStatus {
+  GEPRUEFT
+  ANMERKUNGEN
+}
+
 // Herkunft eines Dokuments – manueller Upload oder automatischer Sync
 enum DocumentSource {
   UPLOAD // manueller Upload (Standard)
@@ -297,6 +305,7 @@ model Organization {
   sepaMandates          SepaMandate[]
   co2Allocations        Co2Allocation[]
   craftsmanInvoices     CraftsmanInvoice[]
+  beiratTasks           BeiratTask[]
 }
 
 model User {
@@ -342,7 +351,11 @@ model User {
   messagesSent         Message[]
   meterReadings        MeterReading[]
   resolutionsCreated   Resolution[]              @relation("ResolutionCreatedBy")
-  resolutionVotes      ResolutionVote[]
+  resolutionVotes      ResolutionVote[]          @relation("VoteOwner")
+  resolutionVotesCast  ResolutionVote[]          @relation("VoteCastBy")
+  beiratTasksCreated   BeiratTask[]              @relation("BeiratTaskCreatedBy")
+  economicPlansReviewed EconomicPlan[]          @relation("EconomicPlanBeiratReview")
+  statementsReviewed   AnnualStatement[]         @relation("StatementBeiratReview")
   ownersMeetingsCreated OwnersMeeting[]          @relation("MeetingCreatedBy")
   motionsSubmitted     OwnerMotion[]             @relation("MotionSubmittedBy")
   motionsDecided       OwnerMotion[]             @relation("MotionDecidedBy")
@@ -452,6 +465,7 @@ model Property {
   maintenanceMeasures   MaintenanceMeasure[]
   sepaMandates          SepaMandate[]
   co2Allocations        Co2Allocation[]
+  beiratTasks           BeiratTask[]
 
   @@index([organizationId])
 }
@@ -930,17 +944,47 @@ model MeetingAgendaItem {
   @@index([meetingId])
 }
 
+// Aufgabe/Notiz des Verwaltungsbeirats (eigener Beirats-Bereich). Nur für
+// Beiratsmitglieder des Objekts und den Verwalter im Scope sichtbar.
+model BeiratTask {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  done           Boolean      @default(false)
+  createdById    String
+  createdBy      User         @relation("BeiratTaskCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([propertyId])
+  @@index([organizationId])
+}
+
 model ResolutionVote {
   id           String     @id @default(cuid())
   resolutionId String
   resolution   Resolution @relation(fields: [resolutionId], references: [id], onDelete: Cascade)
   userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User       @relation("VoteOwner", fields: [userId], references: [id], onDelete: Cascade)
   choice       VoteChoice
   comment      String?
+  // Stellvertretende Stimmabgabe durch den Verwalter (§ 25 WEG, schriftliche
+  // Stimme eines Eigentümers, der die App nicht nutzt). castByUserId = Verwalter,
+  // der die Stimme eingetragen hat; userId bleibt der abstimmende Eigentümer.
+  // Optionaler Nachweis (unterschriebener Stimmzettel als Bild/PDF).
+  castByUserId    String?
+  castBy          User?   @relation("VoteCastBy", fields: [castByUserId], references: [id], onDelete: SetNull)
+  proofStoredName String?
+  proofFileName   String?
+  proofMimeType   String?
   createdAt    DateTime   @default(now())
 
   @@unique([resolutionId, userId])
+  @@index([castByUserId])
 }
 
 // ── Eigentümer-Antrag (Selbstverwaltung, Stufe B) ─────────────────────────────
@@ -1370,6 +1414,12 @@ model EconomicPlan {
   createdAt      DateTime           @default(now())
   items          EconomicPlanItem[]
   duePostings    DuePosting[]
+  // Prüfvermerk des Verwaltungsbeirats (§ 29 III WEG)
+  beiratReviewStatus BeiratReviewStatus?
+  beiratReviewNote   String?
+  beiratReviewById   String?
+  beiratReviewBy     User?              @relation("EconomicPlanBeiratReview", fields: [beiratReviewById], references: [id], onDelete: SetNull)
+  beiratReviewedAt   DateTime?
 
   @@unique([propertyId, year])
   @@index([propertyId])
@@ -1457,6 +1507,12 @@ model AnnualStatement {
   createdAt      DateTime                @default(now())
   unitAmounts    StatementUnitAmount[]
   accountChecks  StatementAccountCheck[]
+  // Prüfvermerk des Verwaltungsbeirats (§ 29 III WEG)
+  beiratReviewStatus BeiratReviewStatus?
+  beiratReviewNote   String?
+  beiratReviewById   String?
+  beiratReviewBy     User?                   @relation("StatementBeiratReview", fields: [beiratReviewById], references: [id], onDelete: SetNull)
+  beiratReviewedAt   DateTime?
 
   @@unique([propertyId, year])
   @@index([propertyId])

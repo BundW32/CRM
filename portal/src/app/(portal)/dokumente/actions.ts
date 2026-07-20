@@ -12,7 +12,7 @@ import { requireUser, requireVerwalter } from "@/lib/session";
 const uploadSchema = z.object({
   title: z.string().trim().min(2).max(200),
   category: z.enum(["ABRECHNUNG", "PROTOKOLL", "VERTRAG", "BESCHEINIGUNG", "SONSTIGES"]),
-  audience: z.enum(["MIETER", "EIGENTUEMER", "ALLE"]),
+  audience: z.enum(["MIETER", "EIGENTUEMER", "ALLE", "BEIRAT"]),
   propertyId: z.string().optional(),
   unitId: z.string().optional(),
 });

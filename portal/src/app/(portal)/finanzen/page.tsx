@@ -1,12 +1,79 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Alert, Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
-import { ownedUnitIdsInProperty, wegPropertiesForOwner } from "@/lib/access";
+import { Alert, Card, EmptyState, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
+import { isBoardMemberOf, ownedUnitIdsInProperty, wegPropertiesForOwner } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import type { StatementView } from "@/lib/weg/statement-service";
+import { setBeiratReview } from "../beirat/review-actions";
+
+const REVIEW_LABEL = { GEPRUEFT: "geprüft", ANMERKUNGEN: "mit Anmerkungen" } as const;
+
+// Prüfvermerk des Beirats (§ 29 III WEG): Status für alle Eigentümer sichtbar;
+// Beiratsmitglieder können ihn setzen/ändern.
+function ReviewBlock({
+  kind,
+  id,
+  status,
+  note,
+  canReview,
+  back,
+}: {
+  kind: "plan" | "statement";
+  id: string;
+  status: "GEPRUEFT" | "ANMERKUNGEN" | null;
+  note: string | null;
+  canReview: boolean;
+  back: string;
+}) {
+  if (!status && !canReview) return null;
+  return (
+    <div className="mt-3 border-t border-gray-100 pt-3">
+      <p className="text-xs font-medium text-gray-500">Prüfvermerk des Beirats</p>
+      {status ? (
+        <p className="mt-1 text-xs">
+          <span
+            className={`rounded-full px-2 py-0.5 font-medium ${
+              status === "GEPRUEFT" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+            }`}
+          >
+            {REVIEW_LABEL[status]}
+          </span>
+          {note ? <span className="ml-2 text-gray-600">{note}</span> : null}
+        </p>
+      ) : (
+        <p className="mt-1 text-xs text-gray-400">Noch nicht geprüft.</p>
+      )}
+      {canReview ? (
+        <form action={setBeiratReview} className="mt-2 flex flex-wrap items-center gap-2">
+          <input type="hidden" name="kind" value={kind} />
+          <input type="hidden" name="id" value={id} />
+          <input type="hidden" name="back" value={back} />
+          <select name="status" required defaultValue={status ?? ""} className={`${inputClass} w-auto`}>
+            <option value="" disabled>
+              – Vermerk –
+            </option>
+            <option value="GEPRUEFT">geprüft</option>
+            <option value="ANMERKUNGEN">mit Anmerkungen</option>
+          </select>
+          <input
+            type="text"
+            name="note"
+            defaultValue={note ?? ""}
+            placeholder="Anmerkung (optional)"
+            className={`${inputClass} w-auto flex-1`}
+          />
+          <SubmitButton className={buttonSecondaryClass} pendingLabel="…">
+            Vermerk speichern
+          </SubmitButton>
+        </form>
+      ) : null}
+    </div>
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +106,9 @@ export default async function FinanzenPage({
   const now = new Date();
 
   const myUnitIds = await ownedUnitIdsInProperty(user.id, selected.id);
+  // Beiratsmitglied dieses Objekts? Dann darf es den Prüfvermerk setzen.
+  const canReview = await isBoardMemberOf(user.id, selected.id);
+  const backTo = `/finanzen?objekt=${encodeURIComponent(selected.id)}`;
 
   const [statements, plans, myUnits, dueSums, paidSums, bookings] = await Promise.all([
     db.annualStatement.findMany({
@@ -49,7 +119,14 @@ export default async function FinanzenPage({
     db.economicPlan.findMany({
       where: { propertyId: selected.id, status: "BESCHLOSSEN" },
       orderBy: { year: "desc" },
-      select: { id: true, year: true, resolvedAt: true, resolutionNote: true },
+      select: {
+        id: true,
+        year: true,
+        resolvedAt: true,
+        resolutionNote: true,
+        beiratReviewStatus: true,
+        beiratReviewNote: true,
+      },
     }),
     db.unit.findMany({
       where: { id: { in: myUnitIds } },
@@ -77,6 +154,37 @@ export default async function FinanzenPage({
 
   const dueByUnit = new Map(dueSums.map((d) => [d.unitId, d._sum.amountCents ?? 0]));
   const paidByUnit = new Map(paidSums.map((p) => [p.unitId as string, p._sum.amountCents ?? 0]));
+
+  // Beirat-Einsicht: vollständige Rückstandsliste ALLER Einheiten (normale
+  // Eigentümer sehen nur ihre eigene). Nur für Beiratsmitglieder geladen.
+  let boardRueckstaende: { id: string; label: string; soll: number; ist: number; saldo: number }[] | null = null;
+  if (canReview) {
+    const allUnits = await db.unit.findMany({
+      where: { propertyId: selected.id },
+      orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
+      select: { id: true, label: true },
+    });
+    const allUnitIds = allUnits.map((u) => u.id);
+    const [allDue, allPaid] = await Promise.all([
+      db.duePosting.groupBy({
+        by: ["unitId"],
+        where: { unitId: { in: allUnitIds }, dueDate: { lte: now } },
+        _sum: { amountCents: true },
+      }),
+      db.booking.groupBy({
+        by: ["unitId"],
+        where: { unitId: { in: allUnitIds }, kind: "EINNAHME" },
+        _sum: { amountCents: true },
+      }),
+    ]);
+    const dm = new Map(allDue.map((d) => [d.unitId, d._sum.amountCents ?? 0]));
+    const pm = new Map(allPaid.map((p) => [p.unitId as string, p._sum.amountCents ?? 0]));
+    boardRueckstaende = allUnits.map((u) => {
+      const soll = dm.get(u.id) ?? 0;
+      const ist = pm.get(u.id) ?? 0;
+      return { id: u.id, label: u.label, soll, ist, saldo: soll - ist };
+    });
+  }
 
   const euro = (c: number) => formatCents(c);
 
@@ -163,6 +271,14 @@ export default async function FinanzenPage({
                         Meine Einzelabrechnung als PDF
                       </a>
                     </div>
+                    <ReviewBlock
+                      kind="statement"
+                      id={s.id}
+                      status={s.beiratReviewStatus}
+                      note={s.beiratReviewNote}
+                      canReview={canReview}
+                      back={backTo}
+                    />
                   </div>
                 );
               })}
@@ -177,22 +293,32 @@ export default async function FinanzenPage({
           ) : (
             <div className="grid gap-3">
               {plans.map((p) => (
-                <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 p-4">
-                  <div>
-                    <span className="font-semibold text-gray-900">Wirtschaftsjahr {p.year}</span>
-                    <span className="ml-2 text-xs text-gray-400">
-                      beschlossen{p.resolvedAt ? ` ${formatDateOnly(p.resolvedAt)}` : ""}
-                      {p.resolutionNote ? ` · ${p.resolutionNote}` : ""}
-                    </span>
+                <div key={p.id} className="rounded-xl border border-gray-200 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className="font-semibold text-gray-900">Wirtschaftsjahr {p.year}</span>
+                      <span className="ml-2 text-xs text-gray-400">
+                        beschlossen{p.resolvedAt ? ` ${formatDateOnly(p.resolvedAt)}` : ""}
+                        {p.resolutionNote ? ` · ${p.resolutionNote}` : ""}
+                      </span>
+                    </div>
+                    <a
+                      href={`/finanzen/wirtschaftsplan/${p.id}/pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={buttonSecondaryClass}
+                    >
+                      Wirtschaftsplan als PDF
+                    </a>
                   </div>
-                  <a
-                    href={`/finanzen/wirtschaftsplan/${p.id}/pdf`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={buttonSecondaryClass}
-                  >
-                    Wirtschaftsplan als PDF
-                  </a>
+                  <ReviewBlock
+                    kind="plan"
+                    id={p.id}
+                    status={p.beiratReviewStatus}
+                    note={p.beiratReviewNote}
+                    canReview={canReview}
+                    back={backTo}
+                  />
                 </div>
               ))}
             </div>
@@ -234,6 +360,45 @@ export default async function FinanzenPage({
                       </tr>
                     );
                   })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ) : null}
+
+        {/* Rückstände aller Einheiten – nur für den Beirat (§ 29 WEG). */}
+        {boardRueckstaende ? (
+          <Card title="Rückstände aller Einheiten (Beirat-Einsicht)">
+            <p className="mb-3 text-sm text-gray-500">
+              Vollständige Übersicht Soll/Ist je Einheit zur Rechnungsprüfung. Nur für
+              Beiratsmitglieder sichtbar.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[480px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
+                    <th className="py-2 pr-3">Einheit</th>
+                    <th className="py-2 pr-3 text-right">Soll (fällig)</th>
+                    <th className="py-2 pr-3 text-right">Ist (gezahlt)</th>
+                    <th className="py-2 text-right">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {boardRueckstaende.map((r) => (
+                    <tr key={r.id} className="border-b border-gray-50 last:border-0">
+                      <td className="py-2 pr-3 text-gray-800">{r.label}</td>
+                      <td className="py-2 pr-3 text-right text-gray-600">{euro(r.soll)}</td>
+                      <td className="py-2 pr-3 text-right text-gray-600">{euro(r.ist)}</td>
+                      <td
+                        className={`py-2 text-right font-semibold ${
+                          r.saldo > 0 ? "text-red-700" : r.saldo < 0 ? "text-green-700" : "text-gray-700"
+                        }`}
+                      >
+                        {r.saldo > 0 ? "Rückstand " : r.saldo < 0 ? "Guthaben " : ""}
+                        {euro(Math.abs(r.saldo))}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

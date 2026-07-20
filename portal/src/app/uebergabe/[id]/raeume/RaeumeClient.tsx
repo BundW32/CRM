@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { inputClass, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
 import { checksForRoomType, countRoomMaengel, type CheckPoint } from "@/lib/handover-checks";
 import { addRoom, updateRoomMeta, updateRoomChecks, deleteRoom, uploadRoomPhoto, deletePhoto } from "./actions";
 
@@ -235,9 +236,9 @@ function RoomCard({
                 placeholder="z. B. Kratzer am Parkett vor dem Fenster …"
               />
             </div>
-            <button type="submit" className={buttonSecondaryClass}>
+            <SubmitButton className={buttonSecondaryClass} pendingLabel="Wird gespeichert…">
               Zustand speichern
-            </button>
+            </SubmitButton>
           </form>
 
           {/* Fotos */}

@@ -8,7 +8,7 @@ import { PortalHeader } from "@/components/portal-header";
 import { AssistantWidget } from "@/components/assistant-widget";
 import { BrandTheme } from "@/components/brand-theme";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
-import { isSelfManaged, ownsWegProperty } from "@/lib/access";
+import { isBoardMember, isSelfManaged, ownsWegProperty } from "@/lib/access";
 import { canUseAssistant, isAssistantEnabled } from "@/lib/assistant";
 import { isPlatformAdminUser } from "@/lib/platform";
 import { orgLogoUrl } from "@/lib/branding";
@@ -40,9 +40,8 @@ const navByRole = {
     { href: "/vorgaenge", label: "Vorgänge" },
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
-    { href: "/zaehler", label: "Zähler" },
-    // Beschlüsse & Versammlungen erreicht der Verwalter über den Verwaltung-Hub
-    // (hält die obere Leiste schlank).
+    // Zähler, Beschlüsse & Versammlungen erreicht der Verwalter über den
+    // Verwaltung-Hub (hält die obere Leiste schlank).
     { href: "/verwaltung", label: "Verwaltung" },
   ],
   HANDWERKER: [
@@ -55,12 +54,10 @@ const navByRole = {
 // professionelle Verwalter-Werkzeuge (Vorgänge, Zähler, Handwerker, Wartung …).
 const selfManagedNav = {
   // Interner Verwalter (aus der Eigentümergemeinschaft) – darf zusätzlich verwalten.
+  // Beschlüsse/Versammlungen/Anträge/Gemeinschaft liegen im Verwaltung-Hub (und im
+  // Dashboard-Schnellzugriff); daher nicht zusätzlich oben – vermeidet Dubletten.
   VERWALTER: [
     { href: "/dashboard", label: "Übersicht" },
-    { href: "/beschluesse", label: "Beschlüsse" },
-    { href: "/versammlungen", label: "Versammlungen" },
-    { href: "/antraege", label: "Anträge" },
-    { href: "/gemeinschaft", label: "Gemeinschaft" },
     { href: "/verwaltung", label: "Verwaltung" },
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
@@ -73,6 +70,7 @@ const selfManagedNav = {
     { href: "/antraege", label: "Anträge" },
     { href: "/gemeinschaft", label: "Gemeinschaft" },
     { href: "/finanzen", label: "Finanzen" },
+    { href: "/zaehler", label: "Zähler" },
     { href: "/verbrauch", label: "Verbrauch" },
     { href: "/nachrichten", label: "Nachrichten" },
     { href: "/infos", label: "Infos" },
@@ -84,9 +82,14 @@ export default async function PortalLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await requireUser();
   if (user.mustChangePassword) redirect("/passwort-festlegen");
-  const session = await getSession();
-  const org = await getOrganization();
-  const ownsWeg = user.role === "EIGENTUEMER" ? await ownsWegProperty(user.id) : false;
+  // Unabhängige Abfragen parallel laden (spart pro Seitenaufruf eine DB-Runde).
+  // getSession ist bereits gecacht (dedupliziert mit requireUser).
+  const [session, org, ownsWeg, boardMember] = await Promise.all([
+    getSession(),
+    getOrganization(),
+    user.role === "EIGENTUEMER" ? ownsWegProperty(user.id) : Promise.resolve(false),
+    user.role === "EIGENTUEMER" ? isBoardMember(user.id) : Promise.resolve(false),
+  ]);
   const selfManaged = isSelfManaged(org);
 
   let nav: ReadonlyArray<{ href: string; label: string }>;
@@ -107,6 +110,10 @@ export default async function PortalLayout({
         (item) => !["/beschluesse", "/versammlungen", "/finanzen"].includes(item.href),
       );
     }
+  }
+  // Beiratsmitglieder (Eigentümer mit Kennzeichen) erhalten den Beirats-Bereich.
+  if (user.role === "EIGENTUEMER" && boardMember) {
+    nav = [...nav, { href: "/beirat", label: "Beirat" }];
   }
   // Plattform-Betreiber (B&W): Zugang zum internen Betreiber-Bereich.
   if (isPlatformAdminUser(user)) {

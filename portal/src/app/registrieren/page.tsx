@@ -20,18 +20,15 @@ export default async function RegisterPage({
   const { fehler, ref } = await searchParams;
 
   return (
-    <main className="flex flex-1 items-center justify-center p-4">
-      <div className="w-full max-w-md animate-page-in">
-        <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-          <p className="mb-1 text-center text-sm font-medium text-gray-400">
-            Kostenlos registrieren
-          </p>
-          <h1 className="mb-2 text-center text-xl font-bold text-brand-green">
-            Ihr eigenes Kundenportal
-          </h1>
-          <p className="mx-auto mb-6 max-w-sm text-center text-sm text-gray-600">
-            Für Hausverwaltungen und selbstverwaltende WEGs. Legen Sie kostenlos Ihr Konto
-            an – im Anschluss richten Sie Logo, Farbe und Daten ein.
+    <main className="flex min-h-screen w-full flex-1">
+      {/* Formular-Spalte */}
+      <div className="flex w-full items-center justify-center bg-white px-4 py-10 sm:px-8 lg:w-[55%] lg:px-14">
+        <div className="w-full max-w-md animate-page-in">
+          <p className="mb-1 text-sm font-medium text-gray-400">Kostenlos registrieren</p>
+          <h1 className="mb-2 text-2xl font-bold text-brand-green">Ihr eigenes Kundenportal</h1>
+          <p className="mb-6 text-sm text-gray-600">
+            Für Hausverwaltungen und selbstverwaltende WEGs. Legen Sie kostenlos Ihr Konto an –
+            im Anschluss richten Sie alles Weitere ein.
           </p>
 
           {fehler ? (
@@ -51,9 +48,23 @@ export default async function RegisterPage({
             {/* Herkunft der Registrierung (z. B. von HausMatch verlinkt). */}
             {ref ? <input type="hidden" name="ref" value={ref} /> : null}
             <AccountTypeFields />
-            <Field label="Ihr Name">
-              <input type="text" name="name" required minLength={2} className={inputClass} />
-            </Field>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-[6rem_1fr_1fr]">
+              <Field label="Anrede">
+                <select name="salutation" defaultValue="" className={inputClass}>
+                  <option value="">–</option>
+                  <option value="Herr">Herr</option>
+                  <option value="Frau">Frau</option>
+                </select>
+              </Field>
+              <Field label="Vorname">
+                <input type="text" name="firstName" required minLength={2} autoComplete="given-name" className={inputClass} />
+              </Field>
+              <Field label="Nachname">
+                <input type="text" name="lastName" required minLength={2} autoComplete="family-name" className={inputClass} />
+              </Field>
+            </div>
+
             <Field label="E-Mail-Adresse">
               <input type="email" name="email" required autoComplete="email" className={inputClass} />
             </Field>
@@ -96,21 +107,52 @@ export default async function RegisterPage({
             </button>
           </form>
 
-          <p className="mt-6 text-center text-xs text-gray-500">
+          <p className="mt-6 text-sm text-gray-500">
             Bereits registriert?{" "}
             <Link href="/login" className="text-brand-green hover:underline">
               Zur Anmeldung
             </Link>
           </p>
+          <p className="mt-4 text-xs text-gray-400">
+            Mit der Registrierung stimmen Sie der{" "}
+            <Link href="/datenschutz" className="hover:underline">
+              Datenschutzerklärung
+            </Link>{" "}
+            zu.
+          </p>
         </div>
+      </div>
 
-        <p className="mt-4 text-center text-xs text-gray-400">
-          Mit der Registrierung stimmen Sie der{" "}
-          <Link href="/datenschutz" className="hover:underline">
-            Datenschutzerklärung
-          </Link>{" "}
-          zu.
-        </p>
+      {/* Markenpanel (ab lg sichtbar) */}
+      <div className="relative hidden overflow-hidden lg:block lg:w-[45%]">
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-green via-brand-green to-brand-green-dark" />
+        <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-brand-orange/20 blur-3xl" />
+        <div className="absolute -top-16 -left-10 h-56 w-56 rounded-full bg-white/5 blur-2xl" />
+        <div className="relative flex h-full flex-col justify-center px-14 text-white">
+          <h2 className="max-w-md text-3xl font-bold leading-tight">
+            Das digitale Kundenportal für Ihre Immobilien
+          </h2>
+          <p className="mt-4 max-w-md text-white/70">
+            Verwaltung, WEG-Finanzen, Versammlungen, Dokumente und Beirat – alles an einem Ort,
+            für professionelle Hausverwaltungen und selbstverwaltende Gemeinschaften.
+          </p>
+          <ul className="mt-8 space-y-3 text-sm text-white/85">
+            {[
+              "WEG-Finanzen, Wirtschaftsplan & Jahresabrechnung",
+              "Versammlungen, Beschlüsse & Verwaltungsbeirat",
+              "Dokumente, Zähler & Wohnungsübergaben",
+            ].map((t) => (
+              <li key={t} className="flex items-center gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-orange/90 text-white">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3">
+                    <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                {t}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </main>
   );

@@ -19,7 +19,9 @@ const TERMS_VERSION = "2026-06-28";
 
 const registerSchema = z.object({
   company: z.string().trim().min(2).max(200),
-  name: z.string().trim().min(2).max(200),
+  firstName: z.string().trim().min(2).max(100),
+  lastName: z.string().trim().min(2).max(100),
+  salutation: z.enum(["Herr", "Frau"]).optional(),
   email: z.email(),
   password: z.string().min(10).max(200),
 });
@@ -72,15 +74,19 @@ export async function registerOrganization(formData: FormData) {
     redirect("/registrieren?fehler=limit");
   }
 
+  const salutationRaw = String(formData.get("salutation") ?? "");
   const parsed = registerSchema.safeParse({
     company: formData.get("company"),
-    name: formData.get("name"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    salutation: salutationRaw === "Herr" || salutationRaw === "Frau" ? salutationRaw : undefined,
     email: formData.get("email"),
     password: formData.get("password"),
   });
   if (!parsed.success) {
     redirect("/registrieren?fehler=eingabe");
   }
+  const fullName = `${parsed.data.firstName} ${parsed.data.lastName}`.trim();
 
   const email = parsed.data.email.toLowerCase();
   const existing = await db.user.findUnique({ where: { email }, select: { id: true } });
@@ -124,7 +130,10 @@ export async function registerOrganization(formData: FormData) {
     });
     const user = await tx.user.create({
       data: {
-        name: parsed.data.name,
+        name: fullName,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        salutation: parsed.data.salutation ?? null,
         email,
         role: "VERWALTER",
         passwordHash,
@@ -150,7 +159,7 @@ export async function registerOrganization(formData: FormData) {
   await sendMail(
     email,
     "Willkommen – bitte bestätigen Sie Ihre E-Mail-Adresse",
-    `Guten Tag ${parsed.data.name},\n\n` +
+    `Guten Tag ${fullName},\n\n` +
       introLine +
       `Bitte bestätigen Sie Ihre E-Mail-Adresse über diesen Link (gültig 3 Tage):\n` +
       `${verifyLink}\n\n` +

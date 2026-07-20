@@ -44,87 +44,70 @@ export default async function WegOverviewPage() {
           </EmptyState>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {properties.map((p) => (
-            <Card key={p.id} title={p.name}>
-              <p className="text-sm text-gray-500">
-                {p.street}, {p.zip} {p.city}
-              </p>
-              <p className="mt-1 text-sm text-gray-500">
-                {p._count.units} Einheit{p._count.units !== 1 ? "en" : ""} ·{" "}
-                {p.meaTotal ? `MEA-Nenner ${p.meaTotal}` : "MEA-Nenner fehlt"} ·{" "}
-                {p._count.ledgerAccounts} Konto{p._count.ledgerAccounts !== 1 ? "s" : ""}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link
-                  href={`/verwaltung/weg/${p.id}/stammdaten`}
-                  className={buttonSecondaryClass}
-                >
-                  Stammdaten
-                </Link>
-                <Link
-                  href={`/verwaltung/weg/${p.id}/buchhaltung`}
-                  className={buttonSecondaryClass}
-                >
-                  Buchhaltung
-                </Link>
-                <Link
-                  href={`/verwaltung/weg/${p.id}/wirtschaftsplan`}
-                  className={buttonSecondaryClass}
-                >
-                  Wirtschaftsplan
-                </Link>
-                <Link
-                  href={`/verwaltung/weg/${p.id}/hausgeld`}
-                  className={buttonSecondaryClass}
-                >
-                  Hausgeld
-                </Link>
-                <Link
-                  href={`/verwaltung/weg/${p.id}/sonderumlagen`}
-                  className={buttonSecondaryClass}
-                >
-                  Sonderumlagen
-                </Link>
-                <Link
-                  href={`/verwaltung/weg/${p.id}/jahresabrechnung`}
-                  className={buttonSecondaryClass}
-                >
-                  Jahresabrechnung
-                </Link>
-                <Link
-                  href={`/verwaltung/weg/${p.id}/pruefpflichten`}
-                  className={buttonSecondaryClass}
-                >
-                  Prüfpflichten
-                </Link>
-                <Link
-                  href={`/verwaltung/weg/${p.id}/erhaltungsplanung`}
-                  className={buttonSecondaryClass}
-                >
-                  Erhaltungsplanung
-                </Link>
-                <Link
-                  href={`/verwaltung/weg/${p.id}/lastschrift`}
-                  className={buttonSecondaryClass}
-                >
-                  SEPA-Lastschrift
-                </Link>
-                <Link
-                  href={`/verwaltung/weg/${p.id}/co2`}
-                  className={buttonSecondaryClass}
-                >
-                  CO₂-Aufteilung
-                </Link>
-                <Link
-                  href={`/verwaltung/weg/${p.id}/betriebskosten`}
-                  className={buttonSecondaryClass}
-                >
-                  Betriebskosten (Mieter)
-                </Link>
-              </div>
-            </Card>
-          ))}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {properties.map((p) => {
+            // Themengruppen für eine übersichtliche Struktur statt einer langen
+            // Button-Reihe: Stammdaten · Laufendes Jahr · Abrechnung · Pflichten.
+            const groups: { label: string; items: { href: string; label: string }[] }[] = [
+              {
+                label: "Stammdaten & Konten",
+                items: [{ href: `/verwaltung/weg/${p.id}/stammdaten`, label: "Stammdaten" }],
+              },
+              {
+                label: "Laufendes Jahr",
+                items: [
+                  { href: `/verwaltung/weg/${p.id}/buchhaltung`, label: "Buchhaltung" },
+                  { href: `/verwaltung/weg/${p.id}/hausgeld`, label: "Hausgeld & offene Posten" },
+                  { href: `/verwaltung/weg/${p.id}/sonderumlagen`, label: "Sonderumlagen" },
+                  { href: `/verwaltung/weg/${p.id}/lastschrift`, label: "SEPA-Lastschrift" },
+                ],
+              },
+              {
+                label: "Planung & Abrechnung",
+                items: [
+                  { href: `/verwaltung/weg/${p.id}/wirtschaftsplan`, label: "Wirtschaftsplan" },
+                  { href: `/verwaltung/weg/${p.id}/jahresabrechnung`, label: "Jahresabrechnung" },
+                  { href: `/verwaltung/weg/${p.id}/betriebskosten`, label: "Betriebskosten (Mieter)" },
+                  { href: `/verwaltung/weg/${p.id}/co2`, label: "CO₂-Aufteilung" },
+                ],
+              },
+              {
+                label: "Pflichten & Erhaltung",
+                items: [
+                  { href: `/verwaltung/weg/${p.id}/pruefpflichten`, label: "Prüfpflichten" },
+                  { href: `/verwaltung/weg/${p.id}/erhaltungsplanung`, label: "Erhaltungsplanung" },
+                ],
+              },
+            ];
+            return (
+              <Card key={p.id} title={p.name}>
+                <p className="text-sm text-gray-500">
+                  {p.street}, {p.zip} {p.city}
+                </p>
+                <p className="mt-1 text-sm text-gray-500">
+                  {p._count.units} Einheit{p._count.units !== 1 ? "en" : ""} ·{" "}
+                  {p.meaTotal ? `MEA-Nenner ${p.meaTotal}` : "MEA-Nenner fehlt"} ·{" "}
+                  {p._count.ledgerAccounts} Konto{p._count.ledgerAccounts !== 1 ? "s" : ""}
+                </p>
+                <div className="mt-4 space-y-3">
+                  {groups.map((g) => (
+                    <div key={g.label}>
+                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        {g.label}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {g.items.map((it) => (
+                          <Link key={it.href} href={it.href} className={buttonSecondaryClass}>
+                            {it.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </>

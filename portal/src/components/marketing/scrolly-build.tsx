@@ -89,115 +89,267 @@ const FLOORS: { icon: LucideIcon; label: string; showAt: number }[] = [
 const ROOF_AT = 4;
 const DONE_AT = 5;
 
-const FLOOR_H = 74; // px – Höhe eines Stockwerks
-const BASE_H = 26; // px – Höhe des Fundaments
+const FLOOR_H = 80; // px – Höhe eines Stockwerks
+const BASE_H = 30; // px – Höhe des Fundaments
+const WINDOWS = 8; // Fenster je Stockwerk (4 × 2)
+
+const clamp01 = (t: number) => Math.max(0, Math.min(1, t));
+const easeOut = (t: number) => 1 - Math.pow(1 - clamp01(t), 3);
+
+// Aufsteigende Partikel im Hintergrund – deterministisch (kein Hydration-Mismatch).
+const PARTICLES = [
+  { left: 6, size: 7, delay: 0.0, dur: 9.5, op: 0.5, green: true },
+  { left: 16, size: 4, delay: 2.4, dur: 11.5, op: 0.35, green: false },
+  { left: 27, size: 5, delay: 4.8, dur: 10.5, op: 0.4, green: true },
+  { left: 38, size: 3, delay: 1.2, dur: 12.5, op: 0.3, green: false },
+  { left: 49, size: 6, delay: 6.0, dur: 9.0, op: 0.45, green: false },
+  { left: 60, size: 4, delay: 3.3, dur: 11.0, op: 0.35, green: true },
+  { left: 71, size: 7, delay: 5.1, dur: 10.0, op: 0.5, green: false },
+  { left: 82, size: 3, delay: 0.7, dur: 13.0, op: 0.3, green: true },
+  { left: 91, size: 5, delay: 7.2, dur: 9.8, op: 0.4, green: false },
+  { left: 33, size: 4, delay: 8.4, dur: 12.0, op: 0.32, green: true },
+  { left: 55, size: 3, delay: 9.6, dur: 10.8, op: 0.3, green: false },
+  { left: 76, size: 5, delay: 4.0, dur: 11.8, op: 0.42, green: true },
+];
+
+// ── Ambiente Hintergrundebene der Szene (Licht, Raster, Partikel) ──────────
+function SceneAmbience({ progress }: { progress: number }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      {/* Driftende Lichtflächen mit sanfter Parallaxe */}
+      <div
+        className="absolute -right-16 top-4 h-80 w-80 rounded-full bg-brand-orange/20 blur-3xl"
+        style={{ animation: "mkDrift 16s ease-in-out infinite", transform: `translateY(${progress * 60}px)` }}
+      />
+      <div
+        className="absolute -left-24 bottom-0 h-96 w-96 rounded-full bg-brand-green/10 blur-3xl"
+        style={{ animation: "mkDrift 22s ease-in-out infinite", ["--mk-dx" as string]: "-24px", ["--mk-dy" as string]: "18px", transform: `translateY(${progress * -40}px)` }}
+      />
+      {/* Feines Punktraster */}
+      <div className="mk-grid absolute inset-0" style={{ animation: "mkGridPan 6s linear infinite" }} />
+      {/* Aufsteigende Partikel */}
+      {PARTICLES.map((p, i) => (
+        <span
+          key={i}
+          className={`absolute bottom-[8%] rounded-full ${p.green ? "bg-brand-green/50" : "bg-brand-orange/60"}`}
+          style={{
+            left: `${p.left}%`,
+            width: p.size,
+            height: p.size,
+            ["--mk-op" as string]: p.op,
+            animation: `mkRise ${p.dur}s linear ${p.delay}s infinite`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Ein Fenster-Raster, dessen Lichter mit dem Fortschritt einzeln angehen.
+function Windows({ lit, twinkle }: { lit: number; twinkle: boolean }) {
+  return (
+    <div className="mt-2 grid grid-cols-4 gap-1">
+      {Array.from({ length: WINDOWS }).map((_, w) => {
+        const on = w < lit;
+        return (
+          <span
+            key={w}
+            className="h-2.5 rounded-[2px]"
+            style={{
+              backgroundColor: on ? "var(--color-brand-orange)" : "rgba(255,255,255,0.1)",
+              boxShadow: on ? "0 0 6px rgba(246,144,24,0.75)" : "none",
+              transition: "background-color 0.35s ease, box-shadow 0.35s ease",
+              animation: twinkle && on ? "mkPulseSoft 3s ease-in-out infinite" : "none",
+              animationDelay: `${w * 160}ms`,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
 // ── Das sich aufbauende Gebäude ───────────────────────────────────────────
-function Building({ stage }: { stage: number }) {
-  const settled = "translateX(-50%) translateY(0) scale(1)";
-  const hidden = "translateX(-50%) translateY(34px) scale(0.96)";
+function Building({ stage, progress }: { stage: number; progress: number }) {
+  const N = STAGES.length; // 6
   const roofBottom = BASE_H + FLOORS.length * FLOOR_H;
+  // Energie-Leiste füllt sich, bis das Dach steht (Fortschritt 4/6).
+  const beamFill = easeOut(progress / (ROOF_AT / N));
+  // Dach: gleitet kontinuierlich herein.
+  const subRoof = clamp01(progress * N - ROOF_AT);
+  const roofAppear = stage > ROOF_AT ? 1 : stage === ROOF_AT ? easeOut(subRoof) : 0;
+  // Fertigstellung
+  const done = stage >= DONE_AT;
+  const subDone = clamp01(progress * N - DONE_AT);
 
   return (
-    <div className="relative mx-auto h-[380px] w-[300px]">
+    <div className="relative mx-auto h-[430px] w-[280px]">
       {/* Glühen bei Fertigstellung */}
       <div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-orange/25 blur-3xl transition-opacity duration-700"
-        style={{ opacity: stage >= DONE_AT ? 1 : 0 }}
+        className="pointer-events-none absolute left-1/2 top-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-orange/30 blur-3xl transition-opacity duration-700"
+        style={{ opacity: done ? 0.55 + 0.45 * subDone : 0 }}
       />
 
-      {/* Bodenlinie */}
-      <div className="absolute bottom-[18px] left-1/2 h-px w-[290px] -translate-x-1/2 bg-gray-300" />
+      {/* Bodenschatten (Ellipse) */}
+      <div
+        className="absolute bottom-3 left-1/2 h-4 w-[240px] -translate-x-1/2 rounded-[50%] bg-brand-green/15 blur-md transition-opacity duration-500"
+        style={{ opacity: 0.4 + beamFill * 0.4 }}
+      />
+
+      {/* Energie-Leiste (Daten fließen nach oben) */}
+      <div className="absolute" style={{ left: 8, bottom: BASE_H, width: 4, height: FLOORS.length * FLOOR_H }}>
+        <div className="absolute inset-0 rounded-full bg-gray-200" />
+        <div
+          className="absolute bottom-0 left-0 w-full rounded-full"
+          style={{
+            height: `${beamFill * 100}%`,
+            background: "linear-gradient(to top, var(--color-brand-orange-dark), var(--color-brand-orange))",
+            boxShadow: "0 0 10px rgba(246,144,24,0.6)",
+            animation: "mkBeam 2.6s ease-in-out infinite",
+          }}
+        />
+        {/* leuchtender Kopf der Leiste */}
+        <div
+          className="absolute left-1/2 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-brand-orange"
+          style={{
+            bottom: `calc(${beamFill * 100}% - 5px)`,
+            boxShadow: "0 0 12px 3px rgba(246,144,24,0.75)",
+            opacity: beamFill > 0.02 && beamFill < 0.99 ? 1 : 0,
+            transition: "opacity 0.3s",
+          }}
+        />
+      </div>
 
       {/* Dach + Gemeinschaft */}
       <div
-        className="absolute left-1/2 flex w-[236px] flex-col items-center transition-all duration-700 ease-out"
-        style={{ bottom: roofBottom, transform: stage >= ROOF_AT ? settled : hidden, opacity: stage >= ROOF_AT ? 1 : 0 }}
+        className="absolute left-1/2 flex w-[236px] flex-col items-center"
+        style={{
+          bottom: roofBottom,
+          transform: `translateX(-50%) translateY(${(1 - roofAppear) * 40}px) scale(${0.9 + roofAppear * 0.1})`,
+          opacity: roofAppear,
+        }}
       >
-        {/* Menschen-Avatare (weichen bei Fertigstellung dem „Fertig"-Haken) */}
+        {/* Fahne (Richtfest) – erscheint bei Fertigstellung */}
+        <div
+          className="mb-1 flex flex-col items-center transition-all duration-500"
+          style={{ opacity: done ? 1 : 0, transform: `translateY(${done ? 0 : 6}px)` }}
+        >
+          <div
+            className="h-4 w-5 rounded-sm bg-brand-orange"
+            style={{ transformOrigin: "left center", animation: done ? "mkFlag 2.4s ease-in-out infinite" : "none" }}
+          />
+          <div className="h-4 w-px bg-brand-green" />
+        </div>
+        {/* Menschen-Avatare (weichen bei Fertigstellung der Fahne) */}
         <div
           className="mb-2 flex gap-1.5 transition-opacity duration-500"
-          style={{ opacity: stage >= DONE_AT ? 0 : 1 }}
+          style={{ opacity: done ? 0 : 1 }}
         >
           {["E", "B", "M", "H"].map((c, i) => (
             <span
               key={c}
-              className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-brand-green text-[11px] font-bold text-white"
+              className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-brand-green text-[11px] font-bold text-white shadow-md"
               style={{ animation: stage >= ROOF_AT ? "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : "none", animationDelay: `${i * 90}ms` }}
             >
               {c}
             </span>
           ))}
         </div>
-        {/* Dachschräge */}
-        <div
-          className="h-0 w-0 border-l-[124px] border-r-[124px] border-b-[46px] border-l-transparent border-r-transparent"
-          style={{ borderBottomColor: "var(--color-brand-orange)" }}
-        />
+        {/* Dachschräge mit Tiefe */}
+        <div className="relative">
+          <div
+            className="h-0 w-0 border-l-[122px] border-r-[122px] border-b-[48px] border-l-transparent border-r-transparent"
+            style={{ borderBottomColor: "var(--color-brand-orange)" }}
+          />
+          {/* rechte Schattenseite des Dachs */}
+          <div
+            className="absolute right-0 top-0 h-0 w-0 border-l-[24px] border-b-[48px] border-l-transparent"
+            style={{ borderBottomColor: "var(--color-brand-orange-dark)" }}
+          />
+        </div>
       </div>
 
       {/* Stockwerke */}
       {FLOORS.map((floor, i) => {
-        const visible = stage >= floor.showAt;
-        const active = stage === floor.showAt;
+        const s = floor.showAt;
+        const sub = clamp01(progress * N - s);
+        const appear = stage > s ? 1 : stage === s ? easeOut(sub) : 0;
+        const litFrac = stage > s ? 1 : stage === s ? easeOut(sub) : 0;
+        const lit = Math.round(litFrac * WINDOWS);
+        const active = stage === s;
         const Icon = floor.icon;
         return (
           <div
             key={floor.label}
-            className={`absolute left-1/2 w-[236px] rounded-lg border bg-brand-green px-3 py-2 transition-all duration-700 ease-out ${
-              active
-                ? "border-brand-orange shadow-[0_0_34px_rgba(246,144,24,0.45)]"
-                : "border-transparent shadow-lg shadow-black/20"
-            }`}
+            className="absolute left-1/2 w-[236px]"
             style={{
               bottom: BASE_H + i * FLOOR_H,
-              height: FLOOR_H - 8,
-              transform: visible ? settled : hidden,
-              opacity: visible ? 1 : 0,
+              height: FLOOR_H - 6,
+              transform: `translateX(-50%) translateY(${(1 - appear) * 44}px) scale(${0.94 + appear * 0.06})`,
+              opacity: appear,
             }}
           >
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-sm font-semibold text-white">
+            {/* Tiefenkörper (rechte Seite) */}
+            <div className="absolute inset-0 translate-x-[7px] translate-y-[4px] rounded-lg bg-brand-green-dark" />
+            {/* Vorderseite */}
+            <div
+              className={`relative h-full rounded-lg border bg-gradient-to-b from-brand-green-light to-brand-green px-3 py-2 transition-shadow duration-500 ${
+                active
+                  ? "border-brand-orange shadow-[0_0_38px_rgba(246,144,24,0.5)]"
+                  : "border-white/10 shadow-lg shadow-black/25"
+              }`}
+            >
+              <span className="flex items-center gap-1.5 text-[13px] font-semibold text-white">
                 <Icon className="h-4 w-4 text-brand-orange" />
                 {floor.label}
               </span>
-              {/* Fenster, die „angehen" */}
-              <span className="flex gap-1">
-                {[0, 1, 2].map((w) => (
-                  <span
-                    key={w}
-                    className="h-3 w-3 rounded-[3px]"
-                    style={{
-                      backgroundColor: visible ? "var(--color-brand-orange)" : "rgba(255,255,255,0.12)",
-                      opacity: visible ? undefined : 1,
-                      animation: visible ? "mkPulseSoft 2.6s ease-in-out infinite" : "none",
-                      animationDelay: `${w * 400}ms`,
-                      transition: "background-color 0.5s",
-                    }}
-                  />
-                ))}
-              </span>
+              <Windows lit={lit} twinkle={stage > s} />
             </div>
           </div>
         );
       })}
 
-      {/* Fundament: Einheiten & MEA */}
-      <div
-        className="absolute left-1/2 flex w-[264px] -translate-x-1/2 items-center justify-center gap-2 rounded-md border border-gray-300 bg-white text-[11px] font-medium text-gray-600 shadow-e1"
-        style={{ bottom: 0, height: BASE_H }}
-      >
-        <Users className="h-3.5 w-3.5 text-brand-orange-ink" />
-        Einheiten · Miteigentumsanteile · Konten
+      {/* Fundament: isometrischer Sockel */}
+      <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: 0 }}>
+        <div className="absolute inset-0 translate-x-[7px] translate-y-[4px] rounded-md bg-brand-green-dark/40" />
+        <div
+          className="relative flex w-[264px] items-center justify-center gap-2 rounded-md border border-gray-200 bg-white text-[11px] font-medium text-gray-600 shadow-e2"
+          style={{ height: BASE_H }}
+        >
+          <Users className="h-3.5 w-3.5 text-brand-orange-ink" />
+          Einheiten · Miteigentumsanteile · Konten
+        </div>
       </div>
 
-      {/* „Fertig"-Haken – nimmt bei Fertigstellung den Platz der Avatare ein */}
+      {/* Funkeln bei Fertigstellung */}
+      {done
+        ? [
+            { top: "8%", left: "24%", d: 0 },
+            { top: "16%", left: "78%", d: 0.4 },
+            { top: "32%", left: "12%", d: 0.8 },
+            { top: "6%", left: "60%", d: 1.2 },
+            { top: "26%", left: "88%", d: 0.2 },
+          ].map((sp, i) => (
+            <span
+              key={i}
+              className="pointer-events-none absolute h-2 w-2 bg-brand-orange"
+              style={{
+                top: sp.top,
+                left: sp.left,
+                clipPath: "polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%)",
+                animation: `mkSparkle 1.8s ease-out ${sp.d}s infinite`,
+              }}
+            />
+          ))
+        : null}
+
+      {/* „Fertig"-Plakette */}
       <div
         className="absolute left-1/2 flex items-center gap-1.5 rounded-full bg-good px-3 py-1 text-xs font-semibold text-white shadow-lg transition-all duration-500"
         style={{
-          bottom: roofBottom + 52,
-          opacity: stage >= DONE_AT ? 1 : 0,
-          transform: `translateX(-50%) translateY(${stage >= DONE_AT ? 0 : 8}px)`,
+          bottom: roofBottom + 96,
+          opacity: done ? 1 : 0,
+          transform: `translateX(-50%) translateY(${done ? 0 : 8}px)`,
         }}
       >
         <CheckCircle2 className="h-4 w-4" /> Selbstverwaltung steht
@@ -288,7 +440,8 @@ export function ScrollyBuild() {
       className="relative"
     >
       <div className="sticky top-0 flex h-screen items-center overflow-hidden">
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 sm:px-6 lg:grid-cols-2">
+        <SceneAmbience progress={progress} />
+        <div className="relative mx-auto grid w-full max-w-6xl items-center gap-8 px-4 sm:px-6 lg:grid-cols-2">
           {/* Linke Spalte: Fortschritt + wechselnder Text */}
           <div className="relative">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-orange-ink">
@@ -353,9 +506,9 @@ export function ScrollyBuild() {
           {/* Rechte Spalte: das sich aufbauende Gebäude */}
           <div
             className="flex items-center justify-center"
-            style={{ transform: `translateY(${(0.5 - progress) * 20}px)` }}
+            style={{ transform: `translateY(${(0.5 - progress) * 24}px)` }}
           >
-            <Building stage={stage} />
+            <Building stage={stage} progress={progress} />
           </div>
         </div>
       </div>

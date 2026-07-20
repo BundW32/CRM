@@ -329,6 +329,45 @@ select:not([multiple]) {
   100%      { opacity: 1; }
 }
 
+/* ── Cineastische Szene (Scrollytelling-Hero) ──────────────────────────────
+   Ambiente Ebenen: aufsteigende Partikel, driftende Lichtflächen, mitwachsende
+   Energie-Leiste, pulsende Knoten, wehende Fahne und Funkeln bei Fertigstellung. */
+@keyframes mkRise {
+  0%   { transform: translateY(24px) scale(0.9); opacity: 0; }
+  12%  { opacity: var(--mk-op, 0.5); }
+  85%  { opacity: var(--mk-op, 0.5); }
+  100% { transform: translateY(-160px) scale(1); opacity: 0; }
+}
+@keyframes mkDrift {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(var(--mk-dx, 18px), var(--mk-dy, -14px)); }
+}
+@keyframes mkBeam {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+@keyframes mkSparkle {
+  0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 0; }
+  40%  { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.5) rotate(120deg); opacity: 0; }
+}
+@keyframes mkFlag {
+  0%, 100% { transform: skewY(0deg) scaleX(1); }
+  50%      { transform: skewY(-6deg) scaleX(0.94); }
+}
+@keyframes mkGridPan {
+  from { background-position: 0 0; }
+  to   { background-position: 34px 34px; }
+}
+
+/* Feines isometrisches Punktraster als Hintergrund der Szene */
+.mk-grid {
+  background-image: radial-gradient(circle, rgba(0, 54, 48, 0.14) 1px, transparent 1.4px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(80% 70% at 60% 45%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(80% 70% at 60% 45%, #000 0%, transparent 78%);
+}
+
 /* Reduzierte Bewegung – Animationen respektvoll deaktivieren */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

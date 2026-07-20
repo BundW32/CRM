@@ -209,7 +209,14 @@ export function MarketingHero({
             ) : null}
           </div>
         </div>
-        {visual ? <div className="animate-page-in">{visual}</div> : null}
+        {visual ? (
+          <div className="relative animate-page-in">
+            <div className="pointer-events-none absolute -inset-6 rounded-[2.5rem] bg-brand-orange/10 blur-3xl" />
+            <div className="relative" style={{ animation: "mkFloat 8s ease-in-out infinite" }}>
+              {visual}
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -261,8 +268,15 @@ export function FeatureSection({
           ) : null}
         </Reveal>
         <Reveal delay={120}>
-          <div className="rounded-2xl border border-brand-orange-light bg-gradient-to-b from-brand-orange-light/60 to-white p-6 sm:p-8">
-            {visual}
+          <div className="relative">
+            {/* weiches Licht hinter der Illustration */}
+            <div className="pointer-events-none absolute -inset-5 rounded-[2rem] bg-brand-orange/10 blur-2xl" />
+            <div
+              className="relative rounded-2xl border border-brand-orange-light bg-gradient-to-b from-brand-orange-light/60 to-white p-6 shadow-e2 sm:p-8"
+              style={{ animation: "mkFloat 8s ease-in-out infinite" }}
+            >
+              {visual}
+            </div>
           </div>
         </Reveal>
       </div>

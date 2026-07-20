@@ -146,18 +146,36 @@ export async function createObjekt(formData: FormData) {
   });
 
   // ── Einheiten ───────────────────────────────────────────────────────
+  // Fläche/MEA/Personen je Einheit indexgleich zu unitLabel einlesen (VOR dem
+  // Leerfilter), damit die Zuordnung erhalten bleibt. MEA nur bei WEG.
   const unitLabels = formData.getAll("unitLabel").map((v) => String(v).trim());
   const unitFloors = formData.getAll("unitFloor").map((v) => String(v).trim());
+  const unitAreas = formData.getAll("unitArea").map((v) => String(v));
+  const unitMeas = formData.getAll("unitMea").map((v) => String(v));
+  const unitPersonsRaw = formData.getAll("unitPersons").map((v) => String(v));
   const unitLabelToId = new Map<string, string>();
 
   const unitsToCreate = unitLabels
-    .map((label, i) => ({ label: label.slice(0, 200), floor: unitFloors[i] || undefined }))
+    .map((label, i) => ({
+      label: label.slice(0, 200),
+      floor: unitFloors[i] || undefined,
+      livingArea: optFloat(unitAreas[i] ?? null),
+      mea: managementType === "WEG" ? optInt(unitMeas[i] ?? null) : null,
+      personCount: optInt(unitPersonsRaw[i] ?? null),
+    }))
     .filter((u) => u.label.length > 0)
     .slice(0, MAX_UNITS);
 
   if (unitsToCreate.length > 0) {
     await db.unit.createMany({
-      data: unitsToCreate.map((u) => ({ propertyId: property.id, label: u.label, floor: u.floor })),
+      data: unitsToCreate.map((u) => ({
+        propertyId: property.id,
+        label: u.label,
+        floor: u.floor,
+        livingArea: u.livingArea,
+        mea: u.mea,
+        personCount: u.personCount,
+      })),
     });
     const created = await db.unit.findMany({
       where: { propertyId: property.id },

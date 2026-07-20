@@ -6,7 +6,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { createObjekt } from "./actions";
 import { extractObjektFields } from "./import-actions";
 
-type UnitRow = { label: string; floor: string };
+type UnitRow = { label: string; floor: string; area: string; mea: string; persons: string };
 type TenantRow = { name: string; email: string; phone: string; unit: string };
 type OwnerRow = { name: string; email: string; phone: string; unit: string };
 type ExistingProperty = { name: string; street: string; zip: string; city: string };
@@ -20,6 +20,7 @@ export function ObjektForm({
   defaultManagementType = "MIETVERWALTUNG",
   lockWeg = false,
   aiImportEnabled = false,
+  defaultName = "",
   existing = [],
 }: {
   defaultManagementType?: "MIETVERWALTUNG" | "WEG";
@@ -27,16 +28,18 @@ export function ObjektForm({
   lockWeg?: boolean;
   // KI-PDF-Import aktiv (Server: AI_OBJEKT_IMPORT_ENABLED + GEMINI_API_KEY).
   aiImportEnabled?: boolean;
+  // Vorbelegung der Bezeichnung (z. B. WEG-Name aus der Registrierung).
+  defaultName?: string;
   existing?: ExistingProperty[];
 }) {
   const [managementType, setManagementType] = useState(defaultManagementType);
   const isWeg = managementType === "WEG";
   const [units, setUnits] = useState<Array<UnitRow & { key: string }>>([
-    { key: nextKey(), label: "", floor: "" },
+    { key: nextKey(), label: "", floor: "", area: "", mea: "", persons: "" },
   ]);
   const [tenants, setTenants] = useState<Array<TenantRow & { key: string }>>([]);
   const [owners, setOwners] = useState<Array<OwnerRow & { key: string }>>([]);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(defaultName);
   const [street, setStreet] = useState("");
   const [zip, setZip] = useState("");
   const [city, setCity] = useState("");
@@ -80,7 +83,16 @@ export function ObjektForm({
       if (d.heatingType) setHeatingType(d.heatingType);
       if (d.notes) setNotes(d.notes);
       if (d.units && d.units.length > 0) {
-        setUnits(d.units.map((u) => ({ key: nextKey(), label: u.label, floor: u.floor ?? "" })));
+        setUnits(
+          d.units.map((u) => ({
+            key: nextKey(),
+            label: u.label,
+            floor: u.floor ?? "",
+            area: "",
+            mea: "",
+            persons: "",
+          })),
+        );
       }
       const n = d.units?.length ?? 0;
       setImportMsg({
@@ -275,55 +287,104 @@ export function ObjektForm({
           Legen Sie die Wohn- bzw. Gewerbeeinheiten an. Diese stehen anschließend für die
           {isWeg ? " Eigentümer-Zuordnung" : " Mieter-Zuordnung"} zur Verfügung.
         </p>
-        <div className="space-y-2">
+        {isWeg ? (
+          <p className="mb-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+            <strong>MEA</strong> (Miteigentumsanteil) stammt aus der Teilungserklärung und ist
+            Grundlage des Wertprinzips – er lässt sich nicht aus der Fläche ableiten. Die
+            Wohnfläche dient flächenbasierten Umlageschlüsseln. Beides ist optional und später
+            unter „Eigentümer &amp; MEA&ldquo; bzw. den WEG-Stammdaten änderbar.
+          </p>
+        ) : null}
+        <div className="space-y-3">
           {units.map((u, i) => (
-            <div key={u.key} className="flex items-end gap-2">
-              <div className="flex-1">
-                <Field label={i === 0 ? "Bezeichnung" : ""}>
-                  <input
-                    type="text"
-                    name="unitLabel"
-                    value={u.label}
-                    onChange={(e) =>
-                      setUnits((rows) =>
-                        rows.map((r) => (r.key === u.key ? { ...r, label: e.target.value } : r))
-                      )
-                    }
-                    placeholder="z. B. WE 01, EG links"
-                    className={inputClass}
-                  />
-                </Field>
+            <div key={u.key} className="rounded-xl border border-gray-200 p-3">
+              <div className="flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <Field label={i === 0 ? "Bezeichnung" : ""}>
+                    <input
+                      type="text"
+                      name="unitLabel"
+                      value={u.label}
+                      onChange={(e) =>
+                        setUnits((rows) =>
+                          rows.map((r) => (r.key === u.key ? { ...r, label: e.target.value } : r))
+                        )
+                      }
+                      placeholder="z. B. WE 01, EG links"
+                      className={inputClass}
+                    />
+                  </Field>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUnits((rows) => rows.filter((r) => r.key !== u.key))}
+                  className="mb-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50"
+                  aria-label="Einheit entfernen"
+                >
+                  ✕
+                </button>
               </div>
-              <div className="w-40">
-                <Field label={i === 0 ? "Etage (optional)" : ""}>
+              <div className={`mt-2 grid gap-2 ${isWeg ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3"}`}>
+                <Field label="Etage (optional)">
                   <input
                     type="text"
                     name="unitFloor"
                     value={u.floor}
                     onChange={(e) =>
-                      setUnits((rows) =>
-                        rows.map((r) => (r.key === u.key ? { ...r, floor: e.target.value } : r))
-                      )
+                      setUnits((rows) => rows.map((r) => (r.key === u.key ? { ...r, floor: e.target.value } : r)))
                     }
                     placeholder="z. B. EG"
                     className={inputClass}
                   />
                 </Field>
+                <Field label="Fläche (m²)">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    name="unitArea"
+                    value={u.area}
+                    onChange={(e) =>
+                      setUnits((rows) => rows.map((r) => (r.key === u.key ? { ...r, area: e.target.value } : r)))
+                    }
+                    placeholder="z. B. 72,5"
+                    className={inputClass}
+                  />
+                </Field>
+                {isWeg ? (
+                  <Field label="MEA">
+                    <input
+                      type="number"
+                      min={0}
+                      name="unitMea"
+                      value={u.mea}
+                      onChange={(e) =>
+                        setUnits((rows) => rows.map((r) => (r.key === u.key ? { ...r, mea: e.target.value } : r)))
+                      }
+                      placeholder="z. B. 250"
+                      className={inputClass}
+                    />
+                  </Field>
+                ) : null}
+                <Field label="Personen">
+                  <input
+                    type="number"
+                    min={0}
+                    name="unitPersons"
+                    value={u.persons}
+                    onChange={(e) =>
+                      setUnits((rows) => rows.map((r) => (r.key === u.key ? { ...r, persons: e.target.value } : r)))
+                    }
+                    placeholder="z. B. 2"
+                    className={inputClass}
+                  />
+                </Field>
               </div>
-              <button
-                type="button"
-                onClick={() => setUnits((rows) => rows.filter((r) => r.key !== u.key))}
-                className="mb-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50"
-                aria-label="Einheit entfernen"
-              >
-                ✕
-              </button>
             </div>
           ))}
         </div>
         <button
           type="button"
-          onClick={() => setUnits((rows) => [...rows, { key: nextKey(), label: "", floor: "" }])}
+          onClick={() => setUnits((rows) => [...rows, { key: nextKey(), label: "", floor: "", area: "", mea: "", persons: "" }])}
           className="mt-3 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
           + Einheit hinzufügen

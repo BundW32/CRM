@@ -29,6 +29,7 @@ import {
   MarketingHeader,
 } from "@/components/marketing/site";
 import { Reveal } from "@/components/marketing/reveal";
+import { ScrollyBuild } from "@/components/marketing/scrolly-build";
 import { OrbitVisual } from "@/components/marketing/visuals";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
@@ -218,6 +219,9 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      {/* ── Scrollytelling: Selbstverwaltung Stockwerk für Stockwerk aufbauen ── */}
+      <ScrollyBuild />
 
       {/* ── Das Problem ── */}
       <section className="mx-auto w-full max-w-6xl px-4 sm:px-6">

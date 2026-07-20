@@ -355,3 +355,22 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
     eines konkreten Auftrags bis zur Rechnung. Eine orgübergreifende Vermittlung
     wäre ein eigenes Produkt mit erheblichen rechtlichen/Datenschutz-Implikationen
     und ist hier nicht vorgesehen.
+
+## Schritt 14 — Messdienst-Datei-Import statt API (M-H, 18.07.2026)
+
+71. **Datei-Import statt Anbieter-API** (Produktentscheidung mit dem Auftraggeber):
+    ista/Techem/Minol/Brunata bieten kleinen Selbstverwaltungen keine offenen
+    Self-Service-APIs. Deshalb liest M-H die vom Messdienst gelieferte
+    Abrechnungs-CSV ein — anbieter-unabhängig und Zero-Key, statt an einen API-
+    Vertrag gebunden zu sein. M-G bleibt aus demselben Grund vorerst beim
+    CSV-Bankimport.
+72. **Reine, getestete Zuordnungslogik** (`heating-import.ts`): Spaltenerkennung
+    per Header-Schlüsselwörtern; Einheiten-Abgleich zuerst über das (normalisierte)
+    Label, dann über die eindeutige Nummer (Messdienste liefern oft nur „Wohnung N").
+    Nicht eindeutig zuordenbare Zeilen und Einheiten ohne Zeile werden gemeldet,
+    nie stillschweigend verworfen. Wiederverwendung des vorhandenen CSV-Parsers und
+    der €-Betragslogik aus dem Bankimport.
+73. **Fließt in die vorhandene manuelle Heizkostenverteilung** (`StatementUnitAmount`):
+    der Import schreibt exakt dieselben Datensätze wie die manuelle Erfassung —
+    nur eben aus der Datei vorbefüllt. Die manuelle Eingabe bleibt als Fallback und
+    zur Korrektur; die harte centgenaue Summenprüfung der Abrechnung greift wie zuvor.

@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
 import { computeStatementView } from "@/lib/weg/statement-service";
+import { matchHeatingRows, parseHeatingCsv } from "@/lib/weg/heating-import";
 import { loadWegProperty } from "@/lib/weg/scope";
 import { fiscalYearRange } from "@/lib/weg/economic-plan";
 import { distributeByWeight } from "@/lib/weg/distribution";
@@ -223,6 +224,64 @@ export async function distributeByMeters(formData: FormData) {
   });
   revalidatePath(`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}`);
   back(property.id, `/${statement.id}`, "gespeichert=zaehler");
+}
+
+// ── Messdienst-Datei-Import (Heizkosten je Einheit, M-H) ─────────────────────
+// Liest eine CSV-Datei des Messdienstes (ista/Techem/…) ein und ordnet die
+// Beträge den Einheiten zu (anbieter-unabhängig, Zero-Key). Nicht zuordenbare
+// Zeilen werden gemeldet, nicht stillschweigend verworfen.
+export async function importHeatingAmounts(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const statementId = String(formData.get("statementId") ?? "");
+  const costTypeId = String(formData.get("costTypeId") ?? "");
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+  const statement = await loadStatement(verwalter.organizationId, property.id, statementId);
+  if (!statement) back(property.id);
+  if (statement.status !== "ENTWURF") back(property.id, `/${statement.id}`, "fehler=fertig");
+
+  const costType = await db.costType.findFirst({
+    where: { id: costTypeId, propertyId: property.id },
+    select: { id: true },
+  });
+  if (!costType) back(property.id, `/${statement.id}`, "fehler=kostenart");
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) back(property.id, `/${statement.id}`, "fehler=datei");
+  // Nur CSV/Text — großzügig, aber keine Binärdateien.
+  if (file.size > 2 * 1024 * 1024) back(property.id, `/${statement.id}`, "fehler=datei");
+  const content = await file.text();
+  const parsed = parseHeatingCsv(content);
+  if (!parsed.ok) back(property.id, `/${statement.id}`, `fehler=${parsed.error === "spalten" ? "import_spalten" : "import_leer"}`);
+
+  const units = await db.unit.findMany({
+    where: { propertyId: property.id },
+    select: { id: true, label: true },
+  });
+  const match = matchHeatingRows(units, parsed.rows);
+  if (match.matched.length > 0) {
+    await db.$transaction(
+      match.matched.map((m) =>
+        db.statementUnitAmount.upsert({
+          where: {
+            statementId_costTypeId_unitId: { statementId: statement.id, costTypeId: costType.id, unitId: m.unitId },
+          },
+          update: { amountCents: m.amountCents },
+          create: { statementId: statement.id, costTypeId: costType.id, unitId: m.unitId, amountCents: m.amountCents },
+        }),
+      ),
+    );
+  }
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_STATEMENT_SAVED,
+    targetType: "AnnualStatement",
+    targetId: statement.id,
+    meta: { heatingImport: costType.id, matched: match.matched.length, unmatched: match.unmatchedRows.length },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}`);
+  back(property.id, `/${statement.id}`, `importiert=${match.matched.length}&offen=${match.unmatchedRows.length}`);
 }
 
 // ── Endbestände laut Kontoauszug (harte Plausibilitätsprüfung) ───────────────

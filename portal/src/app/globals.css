@@ -234,6 +234,25 @@ select:not([multiple]) {
   }
 }
 
+/* ── Marketing-Seiten: heller, warmer Seitengrund ──────────────────────────
+   Die öffentlichen Seiten laufen hell und einladend (Papierton mit sanften
+   Marken-Tönungen), während App-Shell und Login dunkel bleiben. Die Klasse
+   liegt auf dem <main> der Marketing-Seiten und deckt die dunkle Shell ab. */
+.mk-light {
+  background-color: #faf8f4;
+  background-image: radial-gradient(
+      90% 60% at 85% -10%,
+      rgba(246, 144, 24, 0.1) 0%,
+      rgba(246, 144, 24, 0) 55%
+    ),
+    radial-gradient(
+      80% 55% at 0% -5%,
+      rgba(0, 54, 48, 0.07) 0%,
+      rgba(0, 54, 48, 0) 60%
+    );
+  color: #374151; /* gray-700 */
+}
+
 /* ── Marketing-Seiten: Scroll-Reveals & bewegte Illustrationen ─────────────
    `.mk-reveal` blendet Abschnitte beim Scrollen ein (Klasse `is-visible` setzt
    der Reveal-Client-Component per IntersectionObserver). Kind-Animationen mit

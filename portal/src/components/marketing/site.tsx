@@ -1,11 +1,11 @@
 // Gemeinsame Bausteine der öffentlichen Marketing-Seiten (Hauptdomain):
 // fixierte Kopfzeile mit Navigation, Corporate-Footer, Abschnitts-Raster,
-// Zahlenleiste und CTA-Band. Die Seiten liegen unter / , /funktionen/*
-// und /so-funktionierts.
+// Zahlenleiste und CTA-Band. Die Seiten laufen hell (Klasse `mk-light` auf
+// dem <main>), der Footer bleibt als dunkelgrüner Marken-Anker.
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Mail } from "lucide-react";
 import type { ReactNode } from "react";
-import { buttonClass, buttonOutlineClass } from "@/components/ui";
+import { buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { BwLogoCompact } from "@/components/logo";
 import { Reveal } from "./reveal";
 
@@ -27,14 +27,10 @@ export function MarketingHeader({ active }: { active?: string }) {
       >
         Zum Inhalt springen
       </a>
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-shell/85 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-gray-200/80 bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <Link
-            href="/"
-            className="shrink-0 rounded-xl bg-white/95 px-2.5 py-1.5 shadow-lg shadow-black/20"
-            aria-label="Zur Startseite"
-          >
-            <BwLogoCompact className="h-8 w-auto" />
+          <Link href="/" className="shrink-0" aria-label="Zur Startseite">
+            <BwLogoCompact className="h-9 w-auto" />
           </Link>
           <nav
             aria-label="Hauptnavigation"
@@ -47,8 +43,8 @@ export function MarketingHeader({ active }: { active?: string }) {
                 aria-current={active === item.href ? "page" : undefined}
                 className={
                   active === item.href
-                    ? "-mb-px border-b-2 border-brand-orange pb-0.5 font-semibold text-white"
-                    : "text-gray-300 transition-colors hover:text-white"
+                    ? "-mb-px border-b-2 border-brand-orange pb-0.5 font-semibold text-brand-green"
+                    : "text-gray-600 transition-colors hover:text-brand-green"
                 }
               >
                 {item.label}
@@ -56,7 +52,7 @@ export function MarketingHeader({ active }: { active?: string }) {
             ))}
           </nav>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <Link href="/login" className={buttonOutlineClass}>
+            <Link href="/login" className={buttonSecondaryClass}>
               Anmelden
             </Link>
             <Link href="/registrieren" className={`${buttonClass} hidden sm:inline-flex`}>
@@ -67,7 +63,7 @@ export function MarketingHeader({ active }: { active?: string }) {
         {/* Mobile Navigation: horizontal scrollbar statt Umbruch */}
         <nav
           aria-label="Hauptnavigation mobil"
-          className="flex gap-5 overflow-x-auto border-t border-white/5 px-4 py-2 text-sm whitespace-nowrap lg:hidden"
+          className="flex gap-5 overflow-x-auto border-t border-gray-100 px-4 py-2 text-sm whitespace-nowrap lg:hidden"
         >
           {navItems.map((item) => (
             <Link
@@ -76,8 +72,8 @@ export function MarketingHeader({ active }: { active?: string }) {
               aria-current={active === item.href ? "page" : undefined}
               className={
                 active === item.href
-                  ? "font-semibold text-brand-orange"
-                  : "text-gray-300"
+                  ? "font-semibold text-brand-orange-ink"
+                  : "text-gray-600"
               }
             >
               {item.label}
@@ -120,21 +116,21 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
 
 export function MarketingFooter() {
   return (
-    <footer className="mt-4 border-t border-white/10 bg-black/20">
+    <footer className="mt-4 bg-brand-green">
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
         {/* Markenblock */}
         <div>
-          <div className="inline-block rounded-xl bg-white/95 px-2.5 py-1.5">
+          <div className="inline-block rounded-xl bg-white px-2.5 py-1.5">
             <BwLogoCompact className="h-8 w-auto" />
           </div>
-          <p className="mt-4 max-w-xs text-sm leading-relaxed text-gray-400">
+          <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/70">
             Das Portal für selbstverwaltete Wohnungseigentümergemeinschaften
             und Hausverwaltungen – von der ersten Buchung bis zur
             revisionssicheren Jahresabrechnung.
           </p>
           <a
             href="mailto:info@bundwimmobilien.de"
-            className="mt-4 inline-flex items-center gap-2 text-sm text-gray-300 transition-colors hover:text-brand-orange"
+            className="mt-4 inline-flex items-center gap-2 text-sm text-white/80 transition-colors hover:text-brand-orange"
           >
             <Mail className="h-4 w-4" />
             info@bundwimmobilien.de
@@ -143,7 +139,7 @@ export function MarketingFooter() {
         {/* Linkspalten */}
         {footerColumns.map((col) => (
           <nav key={col.title} aria-label={col.title}>
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+            <p className="text-xs font-semibold uppercase tracking-widest text-white/50">
               {col.title}
             </p>
             <ul className="mt-4 space-y-2.5">
@@ -151,7 +147,7 @@ export function MarketingFooter() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-gray-300 transition-colors hover:text-white"
+                    className="text-sm text-white/80 transition-colors hover:text-white"
                   >
                     {link.label}
                   </Link>
@@ -163,7 +159,7 @@ export function MarketingFooter() {
       </div>
       {/* Untere Leiste */}
       <div className="border-t border-white/10">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-gray-500 sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-white/60 sm:px-6">
           <p>© {new Date().getFullYear()} B&amp;W Immobilien Management UG. Alle Rechte vorbehalten.</p>
           <p>Wirtschaftsplan · Jahresabrechnung · Hausgeld – nach §§ 19, 26a, 28 WEG</p>
         </div>
@@ -192,13 +188,13 @@ export function MarketingHero({
     <section id="inhalt" className="mx-auto w-full max-w-6xl px-4 pb-4 pt-14 sm:px-6 sm:pt-20">
       <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="animate-page-in">
-          <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-orange/40 bg-brand-orange/10 px-3 py-1 text-xs font-semibold tracking-wide text-brand-orange">
+          <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-orange/50 bg-brand-orange-light px-3 py-1 text-xs font-semibold tracking-wide text-brand-orange-ink">
             {eyebrow}
           </p>
-          <h1 className="text-balance text-3xl font-extrabold leading-tight text-white sm:text-4xl lg:text-5xl">
+          <h1 className="text-balance text-3xl font-extrabold leading-tight text-brand-green-dark sm:text-4xl lg:text-5xl">
             {title}
           </h1>
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-gray-300 sm:text-lg">
+          <p className="mt-5 max-w-xl text-base leading-relaxed text-gray-600 sm:text-lg">
             {intro}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -207,7 +203,7 @@ export function MarketingHero({
               <ArrowRight className="h-4 w-4" />
             </Link>
             {showSecondaryCta ? (
-              <Link href="/so-funktionierts" className={`${buttonOutlineClass} px-5 py-2.5`}>
+              <Link href="/so-funktionierts" className={`${buttonSecondaryClass} px-5 py-2.5`}>
                 So funktioniert’s
               </Link>
             ) : null}
@@ -246,16 +242,18 @@ export function FeatureSection({
         }`}
       >
         <Reveal>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-orange">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-orange-ink">
             {eyebrow}
           </p>
-          <h2 className="mt-3 text-balance text-2xl font-bold text-white sm:text-3xl">{title}</h2>
-          <div className="mt-4 space-y-4 leading-relaxed text-gray-300">{children}</div>
+          <h2 className="mt-3 text-balance text-2xl font-bold text-brand-green-dark sm:text-3xl">
+            {title}
+          </h2>
+          <div className="mt-4 space-y-4 leading-relaxed text-gray-600">{children}</div>
           {points ? (
-            <ul className="mt-6 space-y-2.5 border-l-2 border-brand-orange/30 pl-5">
+            <ul className="mt-6 space-y-2.5 border-l-2 border-brand-orange/40 pl-5">
               {points.map((point) => (
-                <li key={point} className="flex items-start gap-2.5 text-sm text-gray-200">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-orange" />
+                <li key={point} className="flex items-start gap-2.5 text-sm text-gray-700">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-orange-ink" />
                   {point}
                 </li>
               ))}
@@ -263,7 +261,7 @@ export function FeatureSection({
           ) : null}
         </Reveal>
         <Reveal delay={120}>
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02] p-6 sm:p-8">
+          <div className="rounded-2xl border border-brand-orange-light bg-gradient-to-b from-brand-orange-light/60 to-white p-6 sm:p-8">
             {visual}
           </div>
         </Reveal>
@@ -283,15 +281,15 @@ const stats = [
 
 export function StatsBand() {
   return (
-    <section className="border-y border-white/10 bg-white/[0.03]">
+    <section className="border-y border-brand-orange-light bg-brand-orange-light/50">
       <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
         {stats.map((stat, i) => (
           <Reveal key={stat.value} delay={i * 90}>
             <div>
-              <p className="font-display text-4xl font-extrabold tracking-tight text-brand-orange">
+              <p className="font-display text-4xl font-extrabold tracking-tight text-brand-green">
                 {stat.value}
               </p>
-              <p className="mt-2 text-sm leading-relaxed text-gray-300">{stat.label}</p>
+              <p className="mt-2 text-sm leading-relaxed text-gray-700">{stat.label}</p>
             </div>
           </Reveal>
         ))}
@@ -311,10 +309,10 @@ export function CtaBand({
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
       <Reveal>
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-brand-green p-8 text-center sm:p-14">
+        <div className="relative overflow-hidden rounded-2xl bg-brand-green p-8 text-center shadow-e3 sm:p-14">
           {/* Dezenter Akzent statt lauter Verläufe */}
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-orange/15 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-brand-green-light/40 blur-3xl" />
+          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-orange/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-brand-green-light/50 blur-3xl" />
           <div className="relative">
             <h2 className="text-balance text-2xl font-bold text-white sm:text-3xl">{title}</h2>
             <p className="mx-auto mt-3 max-w-xl text-balance text-white/80">{text}</p>

@@ -23,7 +23,7 @@ export default async function HausgeldPage() {
   await assertMainDomain();
 
   return (
-    <main className="flex-1">
+    <main className="mk-light flex-1">
       <MarketingHeader active="/funktionen/hausgeld" />
 
       <MarketingHero
@@ -31,7 +31,7 @@ export default async function HausgeldPage() {
         title={
           <>
             Hausgeld im Griff –{" "}
-            <span className="text-brand-orange">ohne Zettelwirtschaft, ohne Streit.</span>
+            <span className="underline decoration-brand-orange decoration-4 underline-offset-8">ohne Zettelwirtschaft, ohne Streit.</span>
           </>
         }
         intro={

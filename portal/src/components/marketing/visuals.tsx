@@ -21,7 +21,7 @@ import type { ReactNode } from "react";
 // Gemeinsame Karten-Optik der Mockups
 function MockCard({ title, chip, children }: { title: string; chip?: string; children: ReactNode }) {
   return (
-    <div className="rounded-xl bg-white p-4 shadow-2xl shadow-black/30 sm:p-5">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-e2 sm:p-5">
       <div className="mb-3 flex items-center justify-between gap-2 border-b border-gray-100 pb-2.5">
         <p className="text-sm font-semibold text-gray-800">{title}</p>
         {chip ? (
@@ -48,10 +48,10 @@ export function OrbitVisual() {
   ];
   return (
     <div className="relative mx-auto flex h-72 w-72 items-center justify-center sm:h-80 sm:w-80">
-      <div className="absolute inset-6 rounded-full border border-dashed border-white/15" />
+      <div className="absolute inset-6 rounded-full border border-dashed border-brand-green/25" />
       {/* Zentrum: die WEG */}
       <div style={{ animation: "mkFloat 6s ease-in-out infinite" }}>
-        <div className="flex h-24 w-24 items-center justify-center rounded-2xl border border-white/10 bg-white shadow-2xl shadow-black/40">
+        <div className="flex h-24 w-24 items-center justify-center rounded-2xl border border-gray-200 bg-white shadow-e3">
           <Building2 className="h-12 w-12 text-brand-green" />
         </div>
       </div>
@@ -60,7 +60,7 @@ export function OrbitVisual() {
         {orbiting.map(({ icon: Icon, pos }) => (
           <div key={pos} className={`absolute ${pos}`}>
             <div style={{ animation: "mkOrbitCounter 28s linear infinite" }}>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-brand-orange shadow-lg shadow-black/40">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-orange shadow-lg shadow-black/20">
                 <Icon className="h-6 w-6 text-brand-green-dark" />
               </div>
             </div>
@@ -181,7 +181,7 @@ export function BankImportVisual() {
 /* ── Finanzen: getrennte Konten mit pendelnder Umbuchung ── */
 export function ReserveVisual() {
   return (
-    <div className="rounded-xl bg-white p-4 shadow-2xl shadow-black/30 sm:p-5">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-e2 sm:p-5">
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-lg border border-gray-200 p-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
@@ -293,7 +293,7 @@ export function DunningVisual() {
       <div className="relative w-56">
         {/* Brief – schiebt sich aus der Umschlagtasche */}
         <div
-          className="relative z-0 mx-auto w-44 rounded-t-md bg-white p-3 shadow-2xl shadow-black/40"
+          className="relative z-0 mx-auto w-44 rounded-t-md bg-white p-3 shadow-e2"
           style={{ animation: "mkLetterOut 4.5s ease-in-out infinite alternate" }}
         >
           <p className="text-[10px] font-bold uppercase tracking-wider text-critical">1. Mahnung</p>
@@ -312,7 +312,7 @@ export function DunningVisual() {
           <div className="mt-2 h-1.5 w-16 rounded bg-gray-200" />
         </div>
         {/* Umschlagtasche mit Sichtfenster (DIN lang) */}
-        <div className="relative z-10 -mt-10 h-24 rounded-lg border border-white/10 bg-brand-green shadow-2xl shadow-black/40">
+        <div className="relative z-10 -mt-10 h-24 rounded-lg bg-brand-green shadow-e2">
           <div className="absolute left-4 top-5 h-8 w-24 rounded-sm bg-white/15" />
           <p className="absolute bottom-2.5 left-4 text-[10px] text-white/60">
             Fensterumschlag DIN lang
@@ -448,7 +448,7 @@ export function RolesVisual() {
       {roles.map(({ icon: Icon, name, text }, i) => (
         <div
           key={name}
-          className="mk-anim rounded-xl bg-white p-4 shadow-2xl shadow-black/30"
+          className="mk-anim rounded-xl border border-gray-200 bg-white p-4 shadow-e2"
           style={{ animation: "mkPopIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both", ...seq(i, 150) }}
         >
           <Icon className="h-6 w-6 text-brand-orange-ink" />

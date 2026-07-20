@@ -107,7 +107,7 @@ function Building({ stage }: { stage: number }) {
       />
 
       {/* Bodenlinie */}
-      <div className="absolute bottom-[18px] left-1/2 h-px w-[290px] -translate-x-1/2 bg-white/15" />
+      <div className="absolute bottom-[18px] left-1/2 h-px w-[290px] -translate-x-1/2 bg-gray-300" />
 
       {/* Dach + Gemeinschaft */}
       <div
@@ -122,7 +122,7 @@ function Building({ stage }: { stage: number }) {
           {["E", "B", "M", "H"].map((c, i) => (
             <span
               key={c}
-              className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-shell bg-brand-green text-[11px] font-bold text-white"
+              className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-brand-green text-[11px] font-bold text-white"
               style={{ animation: stage >= ROOF_AT ? "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : "none", animationDelay: `${i * 90}ms` }}
             >
               {c}
@@ -147,7 +147,7 @@ function Building({ stage }: { stage: number }) {
             className={`absolute left-1/2 w-[236px] rounded-lg border bg-brand-green px-3 py-2 transition-all duration-700 ease-out ${
               active
                 ? "border-brand-orange shadow-[0_0_34px_rgba(246,144,24,0.45)]"
-                : "border-white/10 shadow-lg shadow-black/40"
+                : "border-transparent shadow-lg shadow-black/20"
             }`}
             style={{
               bottom: BASE_H + i * FLOOR_H,
@@ -184,10 +184,10 @@ function Building({ stage }: { stage: number }) {
 
       {/* Fundament: Einheiten & MEA */}
       <div
-        className="absolute left-1/2 flex w-[264px] -translate-x-1/2 items-center justify-center gap-2 rounded-md border border-white/10 bg-shell-3 text-[11px] font-medium text-gray-300 shadow-lg shadow-black/40"
+        className="absolute left-1/2 flex w-[264px] -translate-x-1/2 items-center justify-center gap-2 rounded-md border border-gray-300 bg-white text-[11px] font-medium text-gray-600 shadow-e1"
         style={{ bottom: 0, height: BASE_H }}
       >
-        <Users className="h-3.5 w-3.5 text-brand-orange" />
+        <Users className="h-3.5 w-3.5 text-brand-orange-ink" />
         Einheiten · Miteigentumsanteile · Konten
       </div>
 
@@ -210,19 +210,19 @@ function Building({ stage }: { stage: number }) {
 function ReducedFallback() {
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-      <h2 className="text-2xl font-bold text-white sm:text-3xl">
+      <h2 className="text-2xl font-bold text-brand-green-dark sm:text-3xl">
         So bauen Sie Ihre Selbstverwaltung auf
       </h2>
       <ol className="mt-8 space-y-4">
         {STAGES.map((s, i) => (
-          <li key={s.title} className="flex gap-4 rounded-2xl border border-white/10 bg-white/5 p-6">
+          <li key={s.title} className="flex gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-e1">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-orange font-display text-base font-bold text-brand-green-dark">
               {i + 1}
             </span>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-brand-orange">{s.step}</p>
-              <h3 className="mt-1 text-lg font-semibold text-white">{s.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-gray-300">{s.text}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-brand-orange-ink">{s.step}</p>
+              <h3 className="mt-1 text-lg font-semibold text-gray-900">{s.title}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{s.text}</p>
             </div>
           </li>
         ))}
@@ -291,14 +291,14 @@ export function ScrollyBuild() {
         <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 sm:px-6 lg:grid-cols-2">
           {/* Linke Spalte: Fortschritt + wechselnder Text */}
           <div className="relative">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-orange">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-orange-ink">
               So bauen Sie Ihre Selbstverwaltung auf
             </p>
 
             {/* Fortschrittsleiste mit 6 Segmenten */}
             <div className="mt-4 flex gap-1.5">
               {STAGES.map((s, i) => (
-                <div key={s.title} className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                <div key={s.title} className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">
                   <div
                     className="h-full rounded-full bg-brand-orange transition-all duration-500"
                     style={{ width: i < stage ? "100%" : i === stage ? "100%" : "0%", opacity: i <= stage ? 1 : 0.3 }}
@@ -320,12 +320,12 @@ export function ScrollyBuild() {
                   }}
                   aria-hidden={i !== stage}
                 >
-                  <p className="text-sm font-semibold text-brand-orange">{s.step}</p>
-                  <h2 className="mt-2 text-3xl font-extrabold leading-tight text-white sm:text-4xl">
+                  <p className="text-sm font-semibold text-brand-orange-ink">{s.step}</p>
+                  <h2 className="mt-2 text-3xl font-extrabold leading-tight text-brand-green-dark sm:text-4xl">
                     {s.title}
                   </h2>
-                  <p className="mt-4 max-w-md text-base leading-relaxed text-gray-300">{s.text}</p>
-                  <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-brand-orange/40 bg-brand-orange/10 px-3 py-1.5 text-xs font-semibold text-brand-orange">
+                  <p className="mt-4 max-w-md text-base leading-relaxed text-gray-600">{s.text}</p>
+                  <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-brand-orange/50 bg-brand-orange-light px-3 py-1.5 text-xs font-semibold text-brand-orange-ink">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     {s.badge}
                   </p>

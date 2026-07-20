@@ -113,7 +113,7 @@ export default async function SoFunktioniertsPage() {
   await assertMainDomain();
 
   return (
-    <main className="flex-1">
+    <main className="mk-light flex-1">
       <MarketingHeader active="/so-funktionierts" />
 
       <MarketingHero
@@ -121,7 +121,7 @@ export default async function SoFunktioniertsPage() {
         title={
           <>
             Von null auf verwaltet –{" "}
-            <span className="text-brand-orange">in fünf Schritten.</span>
+            <span className="underline decoration-brand-orange decoration-4 underline-offset-8">in fünf Schritten.</span>
           </>
         }
         intro={
@@ -138,13 +138,13 @@ export default async function SoFunktioniertsPage() {
         <ol className="space-y-6">
           {steps.map((step, i) => (
             <Reveal key={step.title}>
-              <li className="flex gap-4 rounded-2xl border border-white/10 bg-white/5 p-6">
+              <li className="flex gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-e1">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-orange font-display text-base font-bold text-brand-green-dark">
                   {i + 1}
                 </span>
                 <div>
-                  <h2 className="text-lg font-semibold text-white">{step.title}</h2>
-                  <p className="mt-1.5 text-sm leading-relaxed text-gray-300">{step.text}</p>
+                  <h2 className="text-lg font-semibold text-gray-900">{step.title}</h2>
+                  <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{step.text}</p>
                 </div>
               </li>
             </Reveal>
@@ -155,14 +155,14 @@ export default async function SoFunktioniertsPage() {
       {/* ── Rechtlicher Rahmen ── */}
       <section className="mx-auto w-full max-w-3xl px-4 pt-16 sm:px-6">
         <Reveal>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 sm:p-8">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-e1 sm:p-8">
             <div className="flex items-start gap-4">
-              <Scale className="mt-1 h-8 w-8 shrink-0 text-brand-orange" />
+              <Scale className="mt-1 h-8 w-8 shrink-0 text-brand-orange-ink" />
               <div>
-                <h2 className="text-xl font-bold text-white sm:text-2xl">
+                <h2 className="text-xl font-bold text-brand-green-dark sm:text-2xl">
                   Der rechtliche Rahmen der Selbstverwaltung
                 </h2>
-                <div className="mt-3 space-y-3 leading-relaxed text-gray-300">
+                <div className="mt-3 space-y-3 leading-relaxed text-gray-700">
                   <p>
                     Keine WEG ist gesetzlich verpflichtet, eine externe
                     Hausverwaltung zu beauftragen. Die Gemeinschaft kann einen
@@ -171,7 +171,7 @@ export default async function SoFunktioniertsPage() {
                   </p>
                   <p>
                     Nach § 19 Abs. 2 Nr. 6 WEG braucht ein zum Verwalter
-                    bestellter Wohnungseigentümer <strong className="text-white">keine
+                    bestellter Wohnungseigentümer <strong className="text-gray-900">keine
                     Zertifizierung nach § 26a WEG</strong>, wenn die Gemeinschaft
                     weniger als neun Sondereigentumsrechte hat – es sei denn, ein
                     Drittel der Eigentümer verlangt einen zertifizierten
@@ -180,7 +180,7 @@ export default async function SoFunktioniertsPage() {
                     genau die deckt dieses Portal ab.
                   </p>
                 </div>
-                <p className="mt-3 text-xs text-gray-400">
+                <p className="mt-3 text-xs text-gray-500">
                   Hinweis: allgemeine Information, keine Rechtsberatung.
                 </p>
               </div>
@@ -192,19 +192,19 @@ export default async function SoFunktioniertsPage() {
       {/* ── Häufige Fragen ── */}
       <section className="mx-auto w-full max-w-3xl px-4 pt-16 sm:px-6">
         <Reveal>
-          <h2 className="text-balance text-2xl font-bold text-white sm:text-3xl">Häufige Fragen</h2>
+          <h2 className="text-balance text-2xl font-bold text-brand-green-dark sm:text-3xl">Häufige Fragen</h2>
         </Reveal>
         <div className="mt-6 space-y-3">
           {faqs.map((faq, i) => (
             <Reveal key={faq.q} delay={i * 60}>
-              <details className="group rounded-2xl border border-white/10 bg-white/5 open:bg-white/10">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-medium text-white [&::-webkit-details-marker]:hidden">
+              <details className="group rounded-2xl border border-gray-200 bg-white shadow-e1 open:bg-brand-orange-light/30">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-medium text-gray-900 [&::-webkit-details-marker]:hidden">
                   {faq.q}
-                  <span className="text-brand-orange transition-transform group-open:rotate-45">
+                  <span className="text-brand-orange-ink transition-transform group-open:rotate-45">
                     +
                   </span>
                 </summary>
-                <p className="px-5 pb-4 text-sm leading-relaxed text-gray-300">{faq.a}</p>
+                <p className="px-5 pb-4 text-sm leading-relaxed text-gray-600">{faq.a}</p>
               </details>
             </Reveal>
           ))}

@@ -23,7 +23,7 @@ export default async function KommunikationPage() {
   await assertMainDomain();
 
   return (
-    <main className="flex-1">
+    <main className="mk-light flex-1">
       <MarketingHeader active="/funktionen/kommunikation" />
 
       <MarketingHero
@@ -31,7 +31,7 @@ export default async function KommunikationPage() {
         title={
           <>
             Ein Portal für{" "}
-            <span className="text-brand-orange">alle im Haus.</span>
+            <span className="underline decoration-brand-orange decoration-4 underline-offset-8">alle im Haus.</span>
           </>
         }
         intro={

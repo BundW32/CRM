@@ -23,7 +23,7 @@ import {
   Vote,
   Wrench,
 } from "lucide-react";
-import { buttonClass, buttonOutlineClass } from "@/components/ui";
+import { buttonClass, buttonSecondaryClass } from "@/components/ui";
 import {
   CtaBand,
   MarketingFooter,
@@ -182,22 +182,24 @@ export default async function Home() {
   if (await getTenantOrg()) redirect("/login");
 
   return (
-    <main className="flex-1">
+    <main className="mk-light flex-1">
       <MarketingHeader />
 
       {/* ── Hero: Problem und Versprechen ── */}
       <section id="inhalt" className="mx-auto w-full max-w-6xl px-4 pb-16 pt-14 sm:px-6 sm:pt-20">
         <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="animate-page-in">
-            <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-orange/40 bg-brand-orange/10 px-3 py-1 text-xs font-semibold tracking-wide text-brand-orange">
+            <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-orange/50 bg-brand-orange-light px-3 py-1 text-xs font-semibold tracking-wide text-brand-orange-ink">
               <ShieldCheck className="h-3.5 w-3.5" />
               Für Eigentümer in kleinen Wohnungseigentümergemeinschaften
             </p>
-            <h1 className="text-balance text-4xl font-extrabold leading-tight text-white sm:text-5xl">
+            <h1 className="text-balance text-4xl font-extrabold leading-tight text-brand-green-dark sm:text-5xl">
               Keine Hausverwaltung gefunden?{" "}
-              <span className="text-brand-orange">Verwalten Sie Ihre WEG selbst.</span>
+              <span className="underline decoration-brand-orange decoration-4 underline-offset-8">
+                Verwalten Sie Ihre WEG selbst.
+              </span>
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-relaxed text-gray-300 sm:text-lg">
+            <p className="mt-5 max-w-2xl text-base leading-relaxed text-gray-600 sm:text-lg">
               Immer mehr kleine Eigentümergemeinschaften bekommen schlicht keinen
               Verwalter mehr – die Pflichten aus dem WEG-Gesetz bleiben trotzdem.
               Dieses Portal gibt Ihnen alles an die Hand, um Ihre Gemeinschaft
@@ -208,15 +210,15 @@ export default async function Home() {
                 Portal kostenlos einrichten
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link href="/login" className={`${buttonOutlineClass} px-6 py-3 text-base`}>
+              <Link href="/login" className={`${buttonSecondaryClass} px-6 py-3 text-base`}>
                 Ich habe schon einen Zugang
               </Link>
             </div>
-            <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-gray-400">
+            <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-gray-600">
               {["Kostenlos starten", "Keine Zahlungsdaten nötig", "In wenigen Minuten einsatzbereit"].map(
                 (item) => (
                   <li key={item} className="inline-flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-brand-orange" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-brand-orange-ink" />
                     {item}
                   </li>
                 ),
@@ -235,10 +237,10 @@ export default async function Home() {
       {/* ── Das Problem ── */}
       <section className="mx-auto w-full max-w-6xl px-4 sm:px-6">
         <Reveal>
-          <h2 className="text-balance text-2xl font-bold text-white sm:text-3xl">
+          <h2 className="text-balance text-2xl font-bold text-brand-green-dark sm:text-3xl">
             Das Problem: Kleine WEGs finden keinen Verwalter
           </h2>
-          <p className="mt-3 max-w-2xl text-gray-300">
+          <p className="mt-3 max-w-2xl text-gray-600">
             Der Verwaltermangel trifft vor allem kleine Häuser. Wer eine
             Eigentumswohnung in einer Gemeinschaft mit wenigen Einheiten besitzt,
             kennt das:
@@ -247,10 +249,10 @@ export default async function Home() {
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {problems.map(({ icon: Icon, title, text }, i) => (
             <Reveal key={title} delay={i * 120}>
-              <div className="h-full rounded-2xl border border-white/10 bg-white/5 p-6">
-                <Icon className="h-8 w-8 text-brand-orange" />
-                <h3 className="mt-4 text-lg font-semibold text-white">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-300">{text}</p>
+              <div className="h-full rounded-2xl border border-gray-200 bg-white p-6 shadow-e1">
+                <Icon className="h-8 w-8 text-brand-orange-ink" />
+                <h3 className="mt-4 text-lg font-semibold text-gray-900">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600">{text}</p>
               </div>
             </Reveal>
           ))}
@@ -260,7 +262,7 @@ export default async function Home() {
       {/* ── Die Lösung ── */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-16 sm:px-6">
         <Reveal>
-          <div className="rounded-2xl border border-white/10 bg-white p-6 shadow-2xl shadow-black/30 sm:p-10">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-e2 sm:p-10">
             <h2 className="text-2xl font-bold text-brand-green sm:text-3xl">
               Die Lösung: Selbstverwaltung mit System
             </h2>
@@ -304,25 +306,25 @@ export default async function Home() {
       {/* ── Rechtlicher Rahmen ── */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-16 sm:px-6">
         <Reveal>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 sm:p-8">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-e1 sm:p-8">
             <div className="flex items-start gap-4">
-              <Scale className="mt-1 h-8 w-8 shrink-0 text-brand-orange" />
+              <Scale className="mt-1 h-8 w-8 shrink-0 text-brand-orange-ink" />
               <div>
-                <h2 className="text-xl font-bold text-white sm:text-2xl">
+                <h2 className="text-xl font-bold text-brand-green-dark sm:text-2xl">
                   Dürfen wir das überhaupt selbst?
                 </h2>
-                <p className="mt-3 max-w-3xl leading-relaxed text-gray-300">
+                <p className="mt-3 max-w-3xl leading-relaxed text-gray-700">
                   Ja. Keine WEG ist verpflichtet, eine externe Hausverwaltung zu
                   beauftragen. Übernimmt ein Miteigentümer das Verwalteramt, braucht
                   er in Gemeinschaften mit weniger als neun Sondereigentumsrechten
                   keine Zertifizierung (§ 19 Abs. 2 Nr. 6 WEG) – solange nicht ein
                   Drittel der Eigentümer einen zertifizierten Verwalter verlangt.
                   Genau für diese Gemeinschaften ist dieses Portal gemacht.{" "}
-                  <Link href="/so-funktionierts" className="text-brand-orange hover:underline">
+                  <Link href="/so-funktionierts" className="font-medium text-brand-orange-ink hover:underline">
                     Mehr zum rechtlichen Rahmen →
                   </Link>
                 </p>
-                <p className="mt-3 text-xs text-gray-400">
+                <p className="mt-3 text-xs text-gray-500">
                   Hinweis: allgemeine Information, keine Rechtsberatung.
                 </p>
               </div>
@@ -334,28 +336,28 @@ export default async function Home() {
       {/* ── So funktioniert's ── */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-16 sm:px-6">
         <Reveal>
-          <h2 className="text-balance text-2xl font-bold text-white sm:text-3xl">
+          <h2 className="text-balance text-2xl font-bold text-brand-green-dark sm:text-3xl">
             In drei Schritten startklar
           </h2>
         </Reveal>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {steps.map(({ title, text }, i) => (
             <Reveal key={title} delay={i * 120}>
-              <div className="h-full rounded-2xl border border-white/10 bg-white/5 p-6">
+              <div className="h-full rounded-2xl border border-gray-200 bg-white p-6 shadow-e1">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-orange font-display text-base font-bold text-brand-green-dark">
                   {i + 1}
                 </span>
-                <h3 className="mt-4 text-lg font-semibold text-white">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-300">{text}</p>
+                <h3 className="mt-4 text-lg font-semibold text-gray-900">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600">{text}</p>
               </div>
             </Reveal>
           ))}
         </div>
         <Reveal delay={200}>
-          <p className="mt-6 text-gray-300">
+          <p className="mt-6 text-gray-600">
             <Link
               href="/so-funktionierts"
-              className="inline-flex items-center gap-1.5 font-medium text-brand-orange hover:underline"
+              className="inline-flex items-center gap-1.5 font-medium text-brand-orange-ink hover:underline"
             >
               Alle fünf Einrichtungsschritte im Detail ansehen
               <ArrowRight className="h-4 w-4" />

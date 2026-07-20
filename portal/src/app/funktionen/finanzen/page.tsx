@@ -29,7 +29,7 @@ export default async function FinanzenPage() {
   await assertMainDomain();
 
   return (
-    <main className="flex-1">
+    <main className="mk-light flex-1">
       <MarketingHeader active="/funktionen/finanzen" />
 
       <MarketingHero
@@ -37,7 +37,7 @@ export default async function FinanzenPage() {
         title={
           <>
             Vom ersten Hausgeld bis zur{" "}
-            <span className="text-brand-orange">fertigen Jahresabrechnung.</span>
+            <span className="underline decoration-brand-orange decoration-4 underline-offset-8">fertigen Jahresabrechnung.</span>
           </>
         }
         intro={

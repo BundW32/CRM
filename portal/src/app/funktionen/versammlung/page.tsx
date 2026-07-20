@@ -23,7 +23,7 @@ export default async function VersammlungPage() {
   await assertMainDomain();
 
   return (
-    <main className="flex-1">
+    <main className="mk-light flex-1">
       <MarketingHeader active="/funktionen/versammlung" />
 
       <MarketingHero
@@ -31,7 +31,7 @@ export default async function VersammlungPage() {
         title={
           <>
             Beschlüsse, die{" "}
-            <span className="text-brand-orange">Bestand haben.</span>
+            <span className="underline decoration-brand-orange decoration-4 underline-offset-8">Bestand haben.</span>
           </>
         }
         intro={

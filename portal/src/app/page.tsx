@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Building2,
   CalendarCheck,
+  CheckCircle2,
   FileCheck,
   FolderOpen,
   HandCoins,
@@ -27,6 +28,7 @@ import {
   CtaBand,
   MarketingFooter,
   MarketingHeader,
+  StatsBand,
 } from "@/components/marketing/site";
 import { Reveal } from "@/components/marketing/reveal";
 import { ScrollyBuild } from "@/components/marketing/scrolly-build";
@@ -184,14 +186,14 @@ export default async function Home() {
       <MarketingHeader />
 
       {/* ── Hero: Problem und Versprechen ── */}
-      <section className="mx-auto w-full max-w-6xl px-4 pb-16 pt-14 sm:px-6 sm:pt-20">
+      <section id="inhalt" className="mx-auto w-full max-w-6xl px-4 pb-16 pt-14 sm:px-6 sm:pt-20">
         <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="animate-page-in">
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-brand-orange/40 bg-brand-orange/10 px-3 py-1 text-xs font-semibold text-brand-orange">
+            <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-orange/40 bg-brand-orange/10 px-3 py-1 text-xs font-semibold tracking-wide text-brand-orange">
               <ShieldCheck className="h-3.5 w-3.5" />
               Für Eigentümer in kleinen Wohnungseigentümergemeinschaften
             </p>
-            <h1 className="text-4xl font-extrabold leading-tight text-white sm:text-5xl">
+            <h1 className="text-balance text-4xl font-extrabold leading-tight text-white sm:text-5xl">
               Keine Hausverwaltung gefunden?{" "}
               <span className="text-brand-orange">Verwalten Sie Ihre WEG selbst.</span>
             </h1>
@@ -210,9 +212,16 @@ export default async function Home() {
                 Ich habe schon einen Zugang
               </Link>
             </div>
-            <p className="mt-4 text-sm text-gray-400">
-              Kostenlos starten · keine Zahlungsdaten nötig · in wenigen Minuten einsatzbereit
-            </p>
+            <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-gray-400">
+              {["Kostenlos starten", "Keine Zahlungsdaten nötig", "In wenigen Minuten einsatzbereit"].map(
+                (item) => (
+                  <li key={item} className="inline-flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-brand-orange" />
+                    {item}
+                  </li>
+                ),
+              )}
+            </ul>
           </div>
           <div className="hidden animate-page-in lg:block">
             <OrbitVisual />
@@ -226,7 +235,7 @@ export default async function Home() {
       {/* ── Das Problem ── */}
       <section className="mx-auto w-full max-w-6xl px-4 sm:px-6">
         <Reveal>
-          <h2 className="text-2xl font-bold text-white sm:text-3xl">
+          <h2 className="text-balance text-2xl font-bold text-white sm:text-3xl">
             Das Problem: Kleine WEGs finden keinen Verwalter
           </h2>
           <p className="mt-3 max-w-2xl text-gray-300">
@@ -287,6 +296,11 @@ export default async function Home() {
         </Reveal>
       </section>
 
+      {/* ── Auf einen Blick: nüchterne Produkt-Fakten ── */}
+      <div className="mt-20">
+        <StatsBand />
+      </div>
+
       {/* ── Rechtlicher Rahmen ── */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-16 sm:px-6">
         <Reveal>
@@ -320,7 +334,7 @@ export default async function Home() {
       {/* ── So funktioniert's ── */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-16 sm:px-6">
         <Reveal>
-          <h2 className="text-2xl font-bold text-white sm:text-3xl">
+          <h2 className="text-balance text-2xl font-bold text-white sm:text-3xl">
             In drei Schritten startklar
           </h2>
         </Reveal>

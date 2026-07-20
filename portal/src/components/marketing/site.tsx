@@ -1,8 +1,9 @@
 // Gemeinsame Bausteine der öffentlichen Marketing-Seiten (Hauptdomain):
-// Kopfzeile mit Navigation, Fußzeile, Abschnitts-Raster und CTA-Band.
-// Die Seiten selbst liegen unter / , /funktionen/* und /so-funktionierts.
+// fixierte Kopfzeile mit Navigation, Corporate-Footer, Abschnitts-Raster,
+// Zahlenleiste und CTA-Band. Die Seiten liegen unter / , /funktionen/*
+// und /so-funktionierts.
 import Link from "next/link";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Mail } from "lucide-react";
 import type { ReactNode } from "react";
 import { buttonClass, buttonOutlineClass } from "@/components/ui";
 import { BwLogoCompact } from "@/components/logo";
@@ -18,62 +19,154 @@ const navItems = [
 
 export function MarketingHeader({ active }: { active?: string }) {
   return (
-    <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 pt-6 sm:px-6">
-      <Link
-        href="/"
-        className="rounded-2xl border border-white/10 bg-white/95 px-3 py-2 shadow-xl shadow-black/20"
-        aria-label="Zur Startseite"
+    <>
+      {/* Tastatur-Nutzer springen direkt zum Inhalt */}
+      <a
+        href="#inhalt"
+        className="sr-only z-50 rounded-md bg-brand-orange px-3 py-2 text-sm font-semibold text-brand-green-dark focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
       >
-        <BwLogoCompact className="h-9 w-auto" />
-      </Link>
-      <nav className="order-3 flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-sm lg:order-none lg:w-auto">
-        {navItems.map((item) => (
+        Zum Inhalt springen
+      </a>
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-shell/85 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <Link
-            key={item.href}
-            href={item.href}
-            className={
-              active === item.href
-                ? "font-semibold text-brand-orange"
-                : "text-gray-300 transition-colors hover:text-white"
-            }
+            href="/"
+            className="shrink-0 rounded-xl bg-white/95 px-2.5 py-1.5 shadow-lg shadow-black/20"
+            aria-label="Zur Startseite"
           >
-            {item.label}
+            <BwLogoCompact className="h-8 w-auto" />
           </Link>
-        ))}
-      </nav>
-      <div className="flex items-center gap-2 sm:gap-3">
-        <Link href="/login" className={buttonOutlineClass}>
-          Anmelden
-        </Link>
-        <Link href="/registrieren" className={`${buttonClass} hidden sm:inline-flex`}>
-          Kostenlos starten
-        </Link>
-      </div>
-    </header>
-  );
-}
-
-export function MarketingFooter() {
-  return (
-    <footer className="border-t border-white/10">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-gray-400 sm:px-6">
-        <p>© {new Date().getFullYear()} B&amp;W Immobilien Management UG</p>
-        <p className="flex flex-wrap gap-3">
+          <nav
+            aria-label="Hauptnavigation"
+            className="hidden items-center gap-6 text-sm lg:flex"
+          >
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active === item.href ? "page" : undefined}
+                className={
+                  active === item.href
+                    ? "-mb-px border-b-2 border-brand-orange pb-0.5 font-semibold text-white"
+                    : "text-gray-300 transition-colors hover:text-white"
+                }
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <Link href="/login" className={buttonOutlineClass}>
+              Anmelden
+            </Link>
+            <Link href="/registrieren" className={`${buttonClass} hidden sm:inline-flex`}>
+              Kostenlos starten
+            </Link>
+          </div>
+        </div>
+        {/* Mobile Navigation: horizontal scrollbar statt Umbruch */}
+        <nav
+          aria-label="Hauptnavigation mobil"
+          className="flex gap-5 overflow-x-auto border-t border-white/5 px-4 py-2 text-sm whitespace-nowrap lg:hidden"
+        >
           {navItems.map((item) => (
-            <Link key={item.href} href={item.href} className="hover:underline">
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active === item.href ? "page" : undefined}
+              className={
+                active === item.href
+                  ? "font-semibold text-brand-orange"
+                  : "text-gray-300"
+              }
+            >
               {item.label}
             </Link>
           ))}
-          <Link href="/impressum" className="hover:underline">
-            Impressum
-          </Link>
-          <Link href="/datenschutz" className="hover:underline">
-            Datenschutz
-          </Link>
-          <Link href="/agb" className="hover:underline">
-            AGB
-          </Link>
-        </p>
+        </nav>
+      </header>
+    </>
+  );
+}
+
+const footerColumns: { title: string; links: { href: string; label: string }[] }[] = [
+  {
+    title: "Funktionen",
+    links: [
+      { href: "/funktionen/finanzen", label: "Finanzen & Jahresabrechnung" },
+      { href: "/funktionen/hausgeld", label: "Hausgeld & Mahnwesen" },
+      { href: "/funktionen/versammlung", label: "Versammlung & Beschlüsse" },
+      { href: "/funktionen/kommunikation", label: "Kommunikation & Alltag" },
+    ],
+  },
+  {
+    title: "Einstieg",
+    links: [
+      { href: "/so-funktionierts", label: "So funktioniert’s" },
+      { href: "/registrieren", label: "Kostenlos registrieren" },
+      { href: "/login", label: "Anmelden" },
+    ],
+  },
+  {
+    title: "Rechtliches",
+    links: [
+      { href: "/impressum", label: "Impressum" },
+      { href: "/datenschutz", label: "Datenschutz" },
+      { href: "/agb", label: "AGB" },
+      { href: "/avv", label: "Auftragsverarbeitung (AVV)" },
+    ],
+  },
+];
+
+export function MarketingFooter() {
+  return (
+    <footer className="mt-4 border-t border-white/10 bg-black/20">
+      <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
+        {/* Markenblock */}
+        <div>
+          <div className="inline-block rounded-xl bg-white/95 px-2.5 py-1.5">
+            <BwLogoCompact className="h-8 w-auto" />
+          </div>
+          <p className="mt-4 max-w-xs text-sm leading-relaxed text-gray-400">
+            Das Portal für selbstverwaltete Wohnungseigentümergemeinschaften
+            und Hausverwaltungen – von der ersten Buchung bis zur
+            revisionssicheren Jahresabrechnung.
+          </p>
+          <a
+            href="mailto:info@bundwimmobilien.de"
+            className="mt-4 inline-flex items-center gap-2 text-sm text-gray-300 transition-colors hover:text-brand-orange"
+          >
+            <Mail className="h-4 w-4" />
+            info@bundwimmobilien.de
+          </a>
+        </div>
+        {/* Linkspalten */}
+        {footerColumns.map((col) => (
+          <nav key={col.title} aria-label={col.title}>
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+              {col.title}
+            </p>
+            <ul className="mt-4 space-y-2.5">
+              {col.links.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-gray-300 transition-colors hover:text-white"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))}
+      </div>
+      {/* Untere Leiste */}
+      <div className="border-t border-white/10">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-gray-500 sm:px-6">
+          <p>© {new Date().getFullYear()} B&amp;W Immobilien Management UG. Alle Rechte vorbehalten.</p>
+          <p>Wirtschaftsplan · Jahresabrechnung · Hausgeld – nach §§ 19, 26a, 28 WEG</p>
+        </div>
       </div>
     </footer>
   );
@@ -96,19 +189,19 @@ export function MarketingHero({
   showSecondaryCta?: boolean;
 }) {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 pb-4 pt-12 sm:px-6 sm:pt-16">
+    <section id="inhalt" className="mx-auto w-full max-w-6xl px-4 pb-4 pt-14 sm:px-6 sm:pt-20">
       <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="animate-page-in">
-          <p className="mb-4 inline-flex rounded-full border border-brand-orange/40 bg-brand-orange/10 px-3 py-1 text-xs font-semibold text-brand-orange">
+          <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-orange/40 bg-brand-orange/10 px-3 py-1 text-xs font-semibold tracking-wide text-brand-orange">
             {eyebrow}
           </p>
-          <h1 className="text-3xl font-extrabold leading-tight text-white sm:text-4xl lg:text-5xl">
+          <h1 className="text-balance text-3xl font-extrabold leading-tight text-white sm:text-4xl lg:text-5xl">
             {title}
           </h1>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-gray-300 sm:text-lg">
             {intro}
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
+          <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/registrieren" className={`${buttonClass} px-5 py-2.5`}>
               Kostenlos starten
               <ArrowRight className="h-4 w-4" />
@@ -146,20 +239,20 @@ export function FeatureSection({
   points?: string[];
 }) {
   return (
-    <section id={id} className="mx-auto w-full max-w-6xl scroll-mt-8 px-4 pt-16 sm:px-6 sm:pt-20">
+    <section id={id} className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 pt-20 sm:px-6 sm:pt-24">
       <div
-        className={`grid items-center gap-10 lg:grid-cols-2 ${
+        className={`grid items-center gap-10 lg:grid-cols-2 lg:gap-14 ${
           reverse ? "lg:[&>*:first-child]:order-2" : ""
         }`}
       >
         <Reveal>
-          <p className="text-xs font-semibold uppercase tracking-wider text-brand-orange">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-orange">
             {eyebrow}
           </p>
-          <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">{title}</h2>
+          <h2 className="mt-3 text-balance text-2xl font-bold text-white sm:text-3xl">{title}</h2>
           <div className="mt-4 space-y-4 leading-relaxed text-gray-300">{children}</div>
           {points ? (
-            <ul className="mt-5 space-y-2.5">
+            <ul className="mt-6 space-y-2.5 border-l-2 border-brand-orange/30 pl-5">
               {points.map((point) => (
                 <li key={point} className="flex items-start gap-2.5 text-sm text-gray-200">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-orange" />
@@ -170,8 +263,38 @@ export function FeatureSection({
           ) : null}
         </Reveal>
         <Reveal delay={120}>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 sm:p-8">{visual}</div>
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02] p-6 sm:p-8">
+            {visual}
+          </div>
         </Reveal>
+      </div>
+    </section>
+  );
+}
+
+// Zahlenleiste „Auf einen Blick" – nüchterne Produkt-Fakten im Stil großer
+// Unternehmensseiten. Bewusst nur belegbare Werte, keine Marketing-Zahlen.
+const stats = [
+  { value: "0 €", label: "Start ohne Zahlungsdaten – Registrierung in wenigen Minuten" },
+  { value: "12", label: "monatliche Sollstellungen je Einheit, automatisch aus dem Beschluss" },
+  { value: "< 9", label: "Einheiten: keine Zertifizierungspflicht für den Eigentümer-Verwalter" },
+  { value: "4", label: "Rollen mit eigenem Zugang: Eigentümer, Beirat, Mieter, Handwerker" },
+];
+
+export function StatsBand() {
+  return (
+    <section className="border-y border-white/10 bg-white/[0.03]">
+      <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+        {stats.map((stat, i) => (
+          <Reveal key={stat.value} delay={i * 90}>
+            <div>
+              <p className="font-display text-4xl font-extrabold tracking-tight text-brand-orange">
+                {stat.value}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-gray-300">{stat.label}</p>
+            </div>
+          </Reveal>
+        ))}
       </div>
     </section>
   );
@@ -186,26 +309,31 @@ export function CtaBand({
   text: string;
 }) {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
+    <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
       <Reveal>
-        <div className="rounded-2xl border border-brand-orange/30 bg-gradient-to-br from-brand-orange/15 to-transparent p-8 text-center sm:p-12">
-          <h2 className="text-2xl font-bold text-white sm:text-3xl">{title}</h2>
-          <p className="mx-auto mt-3 max-w-xl text-gray-300">{text}</p>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/registrieren" className={`${buttonClass} px-6 py-3 text-base`}>
-              Jetzt kostenlos starten
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-brand-green p-8 text-center sm:p-14">
+          {/* Dezenter Akzent statt lauter Verläufe */}
+          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-orange/15 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-brand-green-light/40 blur-3xl" />
+          <div className="relative">
+            <h2 className="text-balance text-2xl font-bold text-white sm:text-3xl">{title}</h2>
+            <p className="mx-auto mt-3 max-w-xl text-balance text-white/80">{text}</p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Link href="/registrieren" className={`${buttonClass} px-6 py-3 text-base`}>
+                Jetzt kostenlos starten
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <p className="mt-6 text-sm text-white/60">
+              Fragen vorab?{" "}
+              <a
+                href="mailto:info@bundwimmobilien.de"
+                className="font-medium text-brand-orange hover:underline"
+              >
+                info@bundwimmobilien.de
+              </a>
+            </p>
           </div>
-          <p className="mt-5 text-sm text-gray-400">
-            Fragen vorab?{" "}
-            <a
-              href="mailto:info@bundwimmobilien.de"
-              className="text-brand-orange hover:underline"
-            >
-              info@bundwimmobilien.de
-            </a>
-          </p>
         </div>
       </Reveal>
     </section>

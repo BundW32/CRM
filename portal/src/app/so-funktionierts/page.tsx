@@ -192,7 +192,7 @@ export default async function SoFunktioniertsPage() {
       {/* ── Häufige Fragen ── */}
       <section className="mx-auto w-full max-w-3xl px-4 pt-16 sm:px-6">
         <Reveal>
-          <h2 className="text-2xl font-bold text-white sm:text-3xl">Häufige Fragen</h2>
+          <h2 className="text-balance text-2xl font-bold text-white sm:text-3xl">Häufige Fragen</h2>
         </Reveal>
         <div className="mt-6 space-y-3">
           {faqs.map((faq, i) => (

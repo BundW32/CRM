@@ -140,9 +140,15 @@ const GLASS_OFF = "#cfe0dd";
 const GLASS_ON = "#ffd489";
 
 // Comic-Fenster mit Kreuzsprosse; `on` schaltet warmes Licht + Glühen.
-function Win({ x, y, on, w = 30, h = 42 }: { x: number; y: number; on: boolean; w?: number; h?: number }) {
+function Win({ x, y, on, w = 30, h = 42, floor, idx, cnt }: { x: number; y: number; on: boolean; w?: number; h?: number; floor: number; idx: number; cnt: number }) {
   return (
-    <g style={{ filter: on ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none" }}>
+    <g
+      data-win
+      data-wfloor={floor}
+      data-widx={idx}
+      data-wcnt={cnt}
+      style={{ filter: on ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none" }}
+    >
       <rect x={x} y={y} width={w} height={h} rx={4} fill={OUTLINE} />
       <rect
         x={x + 3.5}
@@ -150,6 +156,7 @@ function Win({ x, y, on, w = 30, h = 42 }: { x: number; y: number; on: boolean; 
         width={w - 7}
         height={h - 7}
         rx={2}
+        data-glass
         fill={on ? GLASS_ON : GLASS_OFF}
         style={{ transition: "fill 0.4s" }}
       />
@@ -190,13 +197,14 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
     <div className="relative mx-auto h-[430px] w-[300px]">
       {/* Glühen bei Fertigstellung */}
       <div
+        data-glow
         className="pointer-events-none absolute left-1/2 top-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-orange/30 blur-3xl transition-opacity duration-700"
         style={{ opacity: done ? 0.55 + 0.45 * subDone : 0 }}
       />
 
       <svg viewBox="0 0 320 470" className="absolute inset-0 h-full w-full" role="img" aria-label="Ein Haus baut sich Stockwerk für Stockwerk auf">
         {/* ── Baukran (hinter dem Haus, verschwindet bei Fertigstellung) ── */}
-        <g style={{ ...rise(0), opacity: done ? 0 : appear(0), transition: "opacity 0.7s" }}>
+        <g data-crane style={{ ...rise(0), opacity: done ? 0 : appear(0), transition: "opacity 0.7s" }}>
           <rect x={297} y={104} width={8} height={330} fill="#0c534a" />
           <line x1={297} y1={150} x2={305} y2={180} stroke="#f5f1e6" strokeWidth={2} />
           <line x1={305} y1={150} x2={297} y2={180} stroke="#f5f1e6" strokeWidth={2} />
@@ -217,7 +225,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
         </g>
 
         {/* ── Grundstück: Boden, Büsche, Baum, Fundament (Phase 0) ── */}
-        <g style={rise(0)}>
+        <g data-part="0" style={rise(0)}>
           <ellipse cx={160} cy={448} rx={150} ry={11} fill="rgba(0,54,48,0.10)" />
           <line x1={14} y1={444} x2={306} y2={444} stroke={OUTLINE} strokeWidth={3} strokeLinecap="round" />
           {/* Busch links */}
@@ -235,7 +243,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
         </g>
 
         {/* ── Erdgeschoss mit Tür und Hausnummer (Phase 1) ── */}
-        <g style={rise(1)}>
+        <g data-part="1" style={rise(1)}>
           <rect x={60} y={322} width={200} height={94} rx={6} fill={FACADE} stroke={OUTLINE} strokeWidth={3} />
           {/* Tür mit Rundbogen */}
           <path d="M144,414 v-48 a16,16 0 0 1 32,0 v48 z" fill="#0c534a" stroke={OUTLINE} strokeWidth={3} />
@@ -245,29 +253,29 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
           <text x={194} y={363.5} textAnchor="middle" fontSize={10} fontWeight={700} fill={OUTLINE}>12</text>
           {/* Trittstein */}
           <ellipse cx={160} cy={419} rx={24} ry={4} fill="#d8cfba" stroke={OUTLINE} strokeWidth={2} />
-          <Win x={78} y={344} w={34} h={46} on={lit(1, 2, 0)} />
-          <Win x={208} y={344} w={34} h={46} on={lit(1, 2, 1)} />
+          <Win x={78} y={344} w={34} h={46} on={lit(1, 2, 0)} floor={1} idx={0} cnt={2} />
+          <Win x={208} y={344} w={34} h={46} on={lit(1, 2, 1)} floor={1} idx={1} cnt={2} />
         </g>
 
         {/* ── 1. Obergeschoss mit Blumenkasten (Phase 2) ── */}
-        <g style={rise(2)}>
+        <g data-part="2" style={rise(2)}>
           <rect x={60} y={234} width={200} height={92} rx={6} fill={FACADE} stroke={OUTLINE} strokeWidth={3} />
-          <Win x={78} y={256} on={lit(2, 3, 0)} />
-          <Win x={145} y={256} on={lit(2, 3, 1)} />
-          <Win x={212} y={256} on={lit(2, 3, 2)} />
+          <Win x={78} y={256} on={lit(2, 3, 0)} floor={2} idx={0} cnt={3} />
+          <Win x={145} y={256} on={lit(2, 3, 1)} floor={2} idx={1} cnt={3} />
+          <Win x={212} y={256} on={lit(2, 3, 2)} floor={2} idx={2} cnt={3} />
           <FlowerBox x={143} y={299} />
         </g>
 
         {/* ── 2. Obergeschoss (Phase 3) ── */}
-        <g style={rise(3)}>
+        <g data-part="3" style={rise(3)}>
           <rect x={60} y={146} width={200} height={92} rx={6} fill={FACADE} stroke={OUTLINE} strokeWidth={3} />
-          <Win x={78} y={168} on={lit(3, 3, 0)} />
-          <Win x={145} y={168} on={lit(3, 3, 1)} />
-          <Win x={212} y={168} on={lit(3, 3, 2)} />
+          <Win x={78} y={168} on={lit(3, 3, 0)} floor={3} idx={0} cnt={3} />
+          <Win x={145} y={168} on={lit(3, 3, 1)} floor={3} idx={1} cnt={3} />
+          <Win x={212} y={168} on={lit(3, 3, 2)} floor={3} idx={2} cnt={3} />
           <FlowerBox x={76} y={211} />
           <FlowerBox x={210} y={211} />
           {/* Katze im Mittelfenster – erst bei Fertigstellung */}
-          <g style={{ opacity: done ? 1 : 0, transition: "opacity 0.6s" }}>
+          <g data-cat style={{ opacity: done ? 1 : 0, transition: "opacity 0.6s" }}>
             <path d="M153,206 l3.5,-7 l3.5,7 z" fill="#143b34" />
             <path d="M162,206 l3.5,-7 l3.5,7 z" fill="#143b34" />
             <circle cx={161} cy={209} r={5.5} fill="#143b34" />
@@ -276,7 +284,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
         </g>
 
         {/* ── Dach, Schornstein, Dachfenster + Bewohner (Phase 4) ── */}
-        <g style={rise(4)}>
+        <g data-part="4" style={rise(4)}>
           {/* Schornstein */}
           <rect x={216} y={74} width={26} height={52} fill="#b34a19" stroke={OUTLINE} strokeWidth={3} />
           <rect x={211} y={66} width={36} height={11} rx={3} fill="#8a3a14" stroke={OUTLINE} strokeWidth={3} />
@@ -284,14 +292,14 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
           <path d="M44,150 L160,62 L276,150 Z" fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={3.5} strokeLinejoin="round" />
           <rect x={48} y={144} width={224} height={11} rx={4} fill="var(--color-brand-orange-dark)" stroke={OUTLINE} strokeWidth={3} />
           {/* rundes Dachfenster */}
-          <g style={{ filter: done ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none" }}>
+          <g data-atticg style={{ filter: done ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none" }}>
             <circle cx={160} cy={116} r={14} fill={OUTLINE} />
-            <circle cx={160} cy={116} r={10} fill={done ? GLASS_ON : GLASS_OFF} style={{ transition: "fill 0.4s" }} />
+            <circle data-glass cx={160} cy={116} r={10} fill={done ? GLASS_ON : GLASS_OFF} style={{ transition: "fill 0.4s" }} />
             <line x1={160} y1={107} x2={160} y2={125} stroke={OUTLINE} strokeWidth={2.5} />
             <line x1={151} y1={116} x2={169} y2={116} stroke={OUTLINE} strokeWidth={2.5} />
           </g>
           {/* Zwei Bewohner vor der Tür (die Gemeinschaft zieht ein) */}
-          <g style={{ animation: stage >= ROOF_AT ? "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : "none", animationDelay: "250ms" }}>
+          <g data-figs style={{ opacity: stage >= ROOF_AT ? 1 : 0, transition: "opacity 0.5s", animation: stage >= ROOF_AT ? "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : "none", animationDelay: "250ms" }}>
             <rect x={104} y={390} width={15} height={24} rx={7} fill="#0c534a" stroke={OUTLINE} strokeWidth={2} />
             <circle cx={111.5} cy={383} r={7} fill="#f2c9a0" stroke={OUTLINE} strokeWidth={2} />
             <rect x={124} y={396} width={13} height={18} rx={6} fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={2} />
@@ -300,15 +308,14 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
         </g>
 
         {/* ── Fertigstellung: Fahne + Rauch ── */}
-        <g style={{ opacity: done ? 1 : 0, transition: "opacity 0.6s" }}>
+        <g data-doneextra style={{ opacity: done ? 1 : 0, transition: "opacity 0.6s" }}>
           <line x1={160} y1={62} x2={160} y2={30} stroke={OUTLINE} strokeWidth={3} strokeLinecap="round" />
           <path d="M160,32 L188,40 L160,48 Z" fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={2.5} style={{ transformOrigin: "160px 40px", animation: done ? "mkFlag 2.4s ease-in-out infinite" : "none" }} />
-          {done
-            ? [
-                { cy: 54, r: 5, d: "0s", dur: "4s" },
-                { cy: 42, r: 7, d: "1.2s", dur: "5s" },
-                { cy: 28, r: 9, d: "2.4s", dur: "6s" },
-              ].map((s, i) => (
+          {[
+            { cy: 54, r: 5, d: "0s", dur: "4s" },
+            { cy: 42, r: 7, d: "1.2s", dur: "5s" },
+            { cy: 28, r: 9, d: "2.4s", dur: "6s" },
+          ].map((s, i) => (
                 <circle
                   key={i}
                   cx={229}
@@ -317,8 +324,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
                   fill="rgba(148,163,175,0.55)"
                   style={{ ["--mk-op" as string]: 0.55, animation: `mkRise ${s.dur} linear ${s.d} infinite` }}
                 />
-              ))
-            : null}
+              ))}
         </g>
       </svg>
 
@@ -329,8 +335,8 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
       </div>
 
       {/* Funkeln bei Fertigstellung */}
-      {done
-        ? [
+      <div data-sparkles className="pointer-events-none absolute inset-0 transition-opacity duration-500" style={{ opacity: done ? 1 : 0 }}>
+        {[
             { top: "6%", left: "18%", d: 0 },
             { top: "14%", left: "80%", d: 0.4 },
             { top: "30%", left: "8%", d: 0.8 },
@@ -347,11 +353,12 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
                 animation: `mkSparkle 1.8s ease-out ${sp.d}s infinite`,
               }}
             />
-          ))
-        : null}
+          ))}
+      </div>
 
       {/* „Fertig"-Plakette über dem First */}
       <div
+        data-done
         className="absolute -top-2 left-1/2 flex items-center gap-1.5 whitespace-nowrap rounded-full bg-good px-3 py-1 text-xs font-semibold text-white shadow-lg transition-all duration-500"
         style={{
           opacity: done ? 1 : 0,
@@ -464,7 +471,7 @@ export function ScrollyBuild() {
             {/* Schritt-Ziffer + kontinuierlich mitlaufende Fortschrittsleiste */}
             <div className="mt-4 flex items-center gap-4">
               <span className="font-display text-2xl font-extrabold tabular-nums leading-none text-brand-green-dark">
-                {String(stage + 1).padStart(2, "0")}
+                <span data-stepnum>{String(stage + 1).padStart(2, "0")}</span>
                 <span className="ml-1 align-middle text-sm font-semibold text-gray-400">/ 06</span>
               </span>
               <div className="flex flex-1 gap-1.5">
@@ -474,6 +481,7 @@ export function ScrollyBuild() {
                   return (
                     <div key={s.title} className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">
                       <div
+                        data-seg
                         className="h-full rounded-full bg-brand-orange"
                         style={{ width: `${fill * 100}%` }}
                       />
@@ -488,6 +496,7 @@ export function ScrollyBuild() {
               {STAGES.map((s, i) => (
                 <div
                   key={s.title}
+                  data-panel={i}
                   className="absolute inset-0 transition-all duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]"
                   style={{
                     opacity: i === stage ? 1 : 0,
@@ -519,6 +528,7 @@ export function ScrollyBuild() {
 
             {/* Scroll-Hinweis (verblasst nach Beginn) */}
             <p
+              data-hint
               className="mt-2 text-xs text-gray-500 transition-opacity duration-500"
               style={{ opacity: isLast ? 0 : 0.9 }}
             >
@@ -531,6 +541,7 @@ export function ScrollyBuild() {
               damit die komplette Szene in einen Viewport passt – nichts wird
               abgeschnitten. */}
           <div
+            data-buildingwrap
             className="flex items-center justify-center"
             style={{ transform: `translateY(${(0.5 - progress) * 24}px)` }}
           >

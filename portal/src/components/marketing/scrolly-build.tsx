@@ -436,11 +436,18 @@ export function ScrollyBuild() {
     <section
       ref={trackRef}
       aria-label="So bauen Sie Ihre Selbstverwaltung auf"
-      style={{ height: `${STAGES.length * 100}vh` }}
+      // 120vh Scroll-Strecke je Stufe: ruhigeres Tempo, jede Stufe bekommt
+      // genug Verweildauer für einen sauberen Durchlauf.
+      style={{ height: `${STAGES.length * 120}vh` }}
       className="relative"
     >
-      <div className="sticky top-0 flex h-screen items-center overflow-hidden">
+      {/* h-svh statt h-screen (korrekt bei mobiler Browserleiste); das obere
+          Padding hält den Inhalt unter der fixierten Kopfzeile frei. */}
+      <div className="sticky top-0 flex h-svh items-center overflow-hidden pb-4 pt-32 lg:pt-16">
         <SceneAmbience progress={progress} />
+        {/* feine Rahmenlinien: die Szene liest sich als eigene „Leinwand" */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gray-200/80" />
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gray-200/80" />
         <div className="relative mx-auto grid w-full max-w-6xl items-center gap-8 px-4 sm:px-6 lg:grid-cols-2">
           {/* Linke Spalte: Fortschritt + wechselnder Text */}
           <div className="relative">
@@ -448,16 +455,26 @@ export function ScrollyBuild() {
               So bauen Sie Ihre Selbstverwaltung auf
             </p>
 
-            {/* Fortschrittsleiste mit 6 Segmenten */}
-            <div className="mt-4 flex gap-1.5">
-              {STAGES.map((s, i) => (
-                <div key={s.title} className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">
-                  <div
-                    className="h-full rounded-full bg-brand-orange transition-all duration-500"
-                    style={{ width: i < stage ? "100%" : i === stage ? "100%" : "0%", opacity: i <= stage ? 1 : 0.3 }}
-                  />
-                </div>
-              ))}
+            {/* Schritt-Ziffer + kontinuierlich mitlaufende Fortschrittsleiste */}
+            <div className="mt-4 flex items-center gap-4">
+              <span className="font-display text-2xl font-extrabold tabular-nums leading-none text-brand-green-dark">
+                {String(stage + 1).padStart(2, "0")}
+                <span className="ml-1 align-middle text-sm font-semibold text-gray-400">/ 06</span>
+              </span>
+              <div className="flex flex-1 gap-1.5">
+                {STAGES.map((s, i) => {
+                  // Füllt sich stufenlos mit dem Scroll-Fortschritt statt zu springen
+                  const fill = clamp01(progress * STAGES.length - i);
+                  return (
+                    <div key={s.title} className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-brand-orange"
+                        style={{ width: `${fill * 100}%` }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Textpanels – nur das aktive sichtbar (Cross-Fade) */}
@@ -465,10 +482,10 @@ export function ScrollyBuild() {
               {STAGES.map((s, i) => (
                 <div
                   key={s.title}
-                  className="absolute inset-0 transition-all duration-500"
+                  className="absolute inset-0 transition-all duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]"
                   style={{
                     opacity: i === stage ? 1 : 0,
-                    transform: i === stage ? "translateY(0)" : "translateY(12px)",
+                    transform: i === stage ? "translateY(0)" : i < stage ? "translateY(-16px)" : "translateY(16px)",
                     pointerEvents: i === stage ? "auto" : "none",
                   }}
                   aria-hidden={i !== stage}
@@ -503,12 +520,17 @@ export function ScrollyBuild() {
             </p>
           </div>
 
-          {/* Rechte Spalte: das sich aufbauende Gebäude */}
+          {/* Rechte Spalte: das sich aufbauende Gebäude. Auf kleinen Screens
+              herunterskaliert (negative Margins gleichen die Layout-Höhe aus),
+              damit die komplette Szene in einen Viewport passt – nichts wird
+              abgeschnitten. */}
           <div
             className="flex items-center justify-center"
             style={{ transform: `translateY(${(0.5 - progress) * 24}px)` }}
           >
-            <Building stage={stage} progress={progress} />
+            <div className="-my-16 scale-[0.68] sm:-my-6 sm:scale-90 lg:my-0 lg:scale-100">
+              <Building stage={stage} progress={progress} />
+            </div>
           </div>
         </div>
       </div>

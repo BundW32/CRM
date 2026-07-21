@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Alert } from "@/components/ui";
+import { isSelfManaged } from "@/lib/access";
 import { orgLogoUrl } from "@/lib/branding";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { BrandingForm, type BrandingDefaults } from "@/app/(portal)/verwaltung/branding/branding-form";
@@ -17,6 +18,9 @@ export default async function OnboardingPage({
 
   const org = await getOrganization();
   if (!org) redirect("/dashboard");
+  // Selbstverwaltete WEGs überspringen die Branding-Einrichtung (kein eigenes
+  // Logo/Firmenname) und gehen direkt zur WEG-Verwaltung.
+  if (isSelfManaged(org)) redirect("/verwaltung");
   const { fehler } = await searchParams;
 
   const defaults: BrandingDefaults = {

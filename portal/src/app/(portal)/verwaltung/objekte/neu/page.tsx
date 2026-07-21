@@ -15,7 +15,8 @@ export default async function NeuesObjektPage({
 }) {
   const verwalter = await requireVerwalter();
   const { fehler } = await searchParams;
-  const selfManaged = isSelfManaged(await getOrganization());
+  const org = await getOrganization();
+  const selfManaged = isSelfManaged(org);
 
   // Bestehende Objekte der Org – dient der Dubletten-Warnung im Formular.
   const existing = await db.property.findMany({
@@ -23,6 +24,10 @@ export default async function NeuesObjektPage({
     select: { name: true, street: true, zip: true, city: true },
     orderBy: { name: "asc" },
   });
+
+  // Selbstverwalter haben bei der Registrierung schon einen WEG-Namen vergeben –
+  // beim ersten Objekt die Bezeichnung damit vorbelegen (spart Doppeleingabe).
+  const defaultName = selfManaged && existing.length === 0 ? (org?.name ?? "") : "";
 
   return (
     <>
@@ -51,6 +56,7 @@ export default async function NeuesObjektPage({
         defaultManagementType={selfManaged ? "WEG" : "MIETVERWALTUNG"}
         lockWeg={selfManaged}
         aiImportEnabled={isObjektImportEnabled()}
+        defaultName={defaultName}
         existing={existing}
       />
     </>

@@ -37,6 +37,8 @@ function optStr(raw: FormDataEntryValue | null, max = 200): string | null {
 
 async function inviteOrLetter(opts: {
   name: string;
+  firstName?: string | null;
+  lastName?: string | null;
   email: string | null;
   phone: string | null;
   role: "EIGENTUEMER" | "MIETER";
@@ -59,6 +61,8 @@ async function inviteOrLetter(opts: {
     const user = await db.user.create({
       data: {
         name: opts.name,
+        firstName: opts.firstName ?? undefined,
+        lastName: opts.lastName ?? undefined,
         email: opts.email,
         phone: opts.phone ?? undefined,
         role: opts.role,
@@ -89,6 +93,8 @@ async function inviteOrLetter(opts: {
   const user = await db.user.create({
     data: {
       name: opts.name,
+      firstName: opts.firstName ?? undefined,
+      lastName: opts.lastName ?? undefined,
       username,
       phone: opts.phone ?? undefined,
       role: opts.role,
@@ -146,18 +152,36 @@ export async function createObjekt(formData: FormData) {
   });
 
   // ── Einheiten ───────────────────────────────────────────────────────
+  // Fläche/MEA/Personen je Einheit indexgleich zu unitLabel einlesen (VOR dem
+  // Leerfilter), damit die Zuordnung erhalten bleibt. MEA nur bei WEG.
   const unitLabels = formData.getAll("unitLabel").map((v) => String(v).trim());
   const unitFloors = formData.getAll("unitFloor").map((v) => String(v).trim());
+  const unitAreas = formData.getAll("unitArea").map((v) => String(v));
+  const unitMeas = formData.getAll("unitMea").map((v) => String(v));
+  const unitPersonsRaw = formData.getAll("unitPersons").map((v) => String(v));
   const unitLabelToId = new Map<string, string>();
 
   const unitsToCreate = unitLabels
-    .map((label, i) => ({ label: label.slice(0, 200), floor: unitFloors[i] || undefined }))
+    .map((label, i) => ({
+      label: label.slice(0, 200),
+      floor: unitFloors[i] || undefined,
+      livingArea: optFloat(unitAreas[i] ?? null),
+      mea: managementType === "WEG" ? optInt(unitMeas[i] ?? null) : null,
+      personCount: optInt(unitPersonsRaw[i] ?? null),
+    }))
     .filter((u) => u.label.length > 0)
     .slice(0, MAX_UNITS);
 
   if (unitsToCreate.length > 0) {
     await db.unit.createMany({
-      data: unitsToCreate.map((u) => ({ propertyId: property.id, label: u.label, floor: u.floor })),
+      data: unitsToCreate.map((u) => ({
+        propertyId: property.id,
+        label: u.label,
+        floor: u.floor,
+        livingArea: u.livingArea,
+        mea: u.mea,
+        personCount: u.personCount,
+      })),
     });
     const created = await db.unit.findMany({
       where: { propertyId: property.id },
@@ -170,11 +194,15 @@ export async function createObjekt(formData: FormData) {
   const letterUsers: Array<{ id: string; pw: string }> = [];
 
   // ── Eigentümer (optional, einzeln) ──────────────────────────────────
-  const eigName = String(formData.get("eigName") ?? "").trim();
+  const eigFirst = String(formData.get("eigFirstName") ?? "").trim();
+  const eigLast = String(formData.get("eigLastName") ?? "").trim();
+  const eigName = `${eigFirst} ${eigLast}`.trim();
   if (eigName.length >= 2) {
     const eigEmailRaw = String(formData.get("eigEmail") ?? "").trim().toLowerCase();
     const result = await inviteOrLetter({
       name: eigName,
+      firstName: eigFirst || null,
+      lastName: eigLast || null,
       email: eigEmailRaw && eigEmailRaw.includes("@") ? eigEmailRaw : null,
       phone: optStr(formData.get("eigPhone"), 50),
       role: "EIGENTUEMER",
@@ -195,20 +223,25 @@ export async function createObjekt(formData: FormData) {
   // Grundlage der zeitanteiligen Abrechnung) UND objektweit (Ownership, für
   // Stimmrecht/MEA und Belegeinsicht).
   if (managementType === "WEG") {
-    const ownerNames = formData.getAll("wegOwnerName").map((v) => String(v).trim());
+    const ownerFirst = formData.getAll("wegOwnerFirstName").map((v) => String(v).trim());
+    const ownerLast = formData.getAll("wegOwnerLastName").map((v) => String(v).trim());
     const ownerEmails = formData.getAll("wegOwnerEmail").map((v) => String(v).trim().toLowerCase());
     const ownerPhones = formData.getAll("wegOwnerPhone").map((v) => String(v).trim());
     const ownerUnits = formData.getAll("wegOwnerUnit").map((v) => String(v).trim());
-    const ownerCount = Math.min(ownerNames.length, MAX_TENANTS);
+    const ownerCount = Math.min(ownerFirst.length, MAX_TENANTS);
     for (let i = 0; i < ownerCount; i++) {
-      const oName = ownerNames[i];
-      if (!oName || oName.length < 2) continue;
+      const oFirst = ownerFirst[i] ?? "";
+      const oLast = ownerLast[i] ?? "";
+      const oName = `${oFirst} ${oLast}`.trim();
+      if (oName.length < 2) continue;
       const unitId = ownerUnits[i] ? unitLabelToId.get(ownerUnits[i]) : undefined;
       if (!unitId) continue; // ohne Einheit keine WEG-Eigentümerschaft
 
       const oEmailRaw = ownerEmails[i] ?? "";
       const result = await inviteOrLetter({
         name: oName,
+        firstName: oFirst || null,
+        lastName: oLast || null,
         email: oEmailRaw && oEmailRaw.includes("@") ? oEmailRaw : null,
         phone: ownerPhones[i] ? ownerPhones[i].slice(0, 50) : null,
         role: "EIGENTUEMER",
@@ -237,19 +270,24 @@ export async function createObjekt(formData: FormData) {
   }
 
   // ── Mieter (optional, je eine Karte) ────────────────────────────────
-  const tenantNames = formData.getAll("tenantName").map((v) => String(v).trim());
+  const tenantFirst = formData.getAll("tenantFirstName").map((v) => String(v).trim());
+  const tenantLast = formData.getAll("tenantLastName").map((v) => String(v).trim());
   const tenantEmails = formData.getAll("tenantEmail").map((v) => String(v).trim().toLowerCase());
   const tenantPhones = formData.getAll("tenantPhone").map((v) => String(v).trim());
   const tenantUnits = formData.getAll("tenantUnit").map((v) => String(v).trim());
 
-  const tenantCount = Math.min(tenantNames.length, MAX_TENANTS);
+  const tenantCount = Math.min(tenantFirst.length, MAX_TENANTS);
   for (let i = 0; i < tenantCount; i++) {
-    const tName = tenantNames[i];
-    if (!tName || tName.length < 2) continue;
+    const tFirst = tenantFirst[i] ?? "";
+    const tLast = tenantLast[i] ?? "";
+    const tName = `${tFirst} ${tLast}`.trim();
+    if (tName.length < 2) continue;
 
     const tEmailRaw = tenantEmails[i] ?? "";
     const result = await inviteOrLetter({
       name: tName,
+      firstName: tFirst || null,
+      lastName: tLast || null,
       email: tEmailRaw && tEmailRaw.includes("@") ? tEmailRaw : null,
       phone: tenantPhones[i] ? tenantPhones[i].slice(0, 50) : null,
       role: "MIETER",

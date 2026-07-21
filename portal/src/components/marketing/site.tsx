@@ -3,11 +3,16 @@
 // Zahlenleiste und CTA-Band. Die Seiten laufen hell (Klasse `mk-light` auf
 // dem <main>), der Footer bleibt als dunkelgrüner Marken-Anker.
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Mail } from "lucide-react";
+import { ArrowRight, CheckCircle2, ChevronDown, Mail } from "lucide-react";
 import type { ReactNode } from "react";
 import { buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { BwLogoCompact } from "@/components/logo";
+import { KenBurnsBackdrop } from "./photo-hero";
 import { Reveal } from "./reveal";
+
+// Sekundär-Button auf Foto-/Dunkelflächen (weißer Umriss statt Orange)
+export const buttonOnPhotoClass =
+  "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/40 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20 active:scale-[0.98]";
 
 const navItems = [
   { href: "/funktionen/finanzen", label: "Finanzen" },
@@ -168,33 +173,43 @@ export function MarketingFooter() {
   );
 }
 
-// Hero-Kopf einer Unterseite: Eyebrow, Titel, Intro und optional eine
-// bewegte Illustration rechts daneben.
+// Full-Bleed-Hero im Kampagnen-Stil: das Foto füllt die ganze Sektion,
+// der Text liegt AUF dem Bild über einem dunkelgrünen Verlauf. Rechts unten
+// schwebt eine weiße Kennzahl-Karte als Brücke zum Produkt, unten deutet
+// ein Pfeil zum Weiterscrollen.
 export function MarketingHero({
   eyebrow,
   title,
   intro,
-  visual,
+  image,
+  badge,
   showSecondaryCta = true,
 }: {
   eyebrow: string;
   title: ReactNode;
   intro: string;
-  visual?: ReactNode;
+  image: { src: string; alt: string };
+  // Icon bereits als gerendertes Element übergeben (Server → Client Grenze)
+  badge?: { icon: ReactNode; text: string };
   // Ausblenden, wenn die Seite selbst /so-funktionierts ist
   showSecondaryCta?: boolean;
 }) {
   return (
-    <section id="inhalt" className="mx-auto w-full max-w-6xl px-4 pb-4 pt-14 sm:px-6 sm:pt-20">
-      <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="animate-page-in">
-          <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-orange/50 bg-brand-orange-light px-3 py-1 text-xs font-semibold tracking-wide text-brand-orange-ink">
+    <section id="inhalt" className="relative flex min-h-[78vh] items-center overflow-hidden">
+      <KenBurnsBackdrop src={image.src} alt={image.alt} preload />
+      {/* Lesbarkeits-Verlauf: links dicht, rechts gibt er das Foto frei */}
+      <div className="absolute inset-0 bg-gradient-to-r from-brand-green-dark/95 via-brand-green-dark/70 to-brand-green-dark/20" />
+      <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-brand-green-dark/60 to-transparent" />
+
+      <div className="relative mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
+        <div className="max-w-2xl animate-page-in">
+          <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide text-white backdrop-blur-sm">
             {eyebrow}
           </p>
-          <h1 className="text-balance text-3xl font-extrabold leading-tight text-brand-green-dark sm:text-4xl lg:text-5xl">
+          <h1 className="text-balance text-4xl font-extrabold leading-tight text-white sm:text-5xl">
             {title}
           </h1>
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-gray-600 sm:text-lg">
+          <p className="mt-5 max-w-xl text-base leading-relaxed text-white/85 sm:text-lg">
             {intro}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -203,21 +218,61 @@ export function MarketingHero({
               <ArrowRight className="h-4 w-4" />
             </Link>
             {showSecondaryCta ? (
-              <Link href="/so-funktionierts" className={`${buttonSecondaryClass} px-5 py-2.5`}>
+              <Link href="/so-funktionierts" className={`${buttonOnPhotoClass} px-5 py-2.5`}>
                 So funktioniert’s
               </Link>
             ) : null}
           </div>
         </div>
-        {visual ? (
-          <div className="relative animate-page-in">
-            <div className="pointer-events-none absolute -inset-6 rounded-[2.5rem] bg-brand-orange/10 blur-3xl" />
-            <div className="relative" style={{ animation: "mkFloat 8s ease-in-out infinite" }}>
-              {visual}
-            </div>
-          </div>
-        ) : null}
       </div>
+
+      {badge ? (
+        <div
+          className="absolute bottom-10 right-6 hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-800 shadow-e3 md:flex lg:right-12"
+          style={{ animation: "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "500ms" }}
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-orange-light">
+            {badge.icon}
+          </span>
+          {badge.text}
+        </div>
+      ) : null}
+
+      {/* Scroll-Hinweis */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70">
+        <ChevronDown className="h-6 w-6 animate-bounce" />
+      </div>
+    </section>
+  );
+}
+
+// Full-Width-Foto-Band mit überlagertem Claim – als atmosphärischer
+// Zwischenschnitt zwischen zwei Inhaltssektionen (Kampagnen-Stil).
+export function PhotoBand({
+  src,
+  alt,
+  claim,
+  sub,
+}: {
+  src: string;
+  alt: string;
+  claim: string;
+  sub?: string;
+}) {
+  return (
+    <section className="relative mt-20 flex min-h-[46vh] items-center justify-center overflow-hidden">
+      <KenBurnsBackdrop src={src} alt={alt} />
+      <div className="absolute inset-0 bg-brand-green-dark/60" />
+      <Reveal className="relative">
+        <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
+          <h2 className="text-balance text-3xl font-extrabold leading-tight text-white sm:text-4xl">
+            {claim}
+          </h2>
+          {sub ? (
+            <p className="mx-auto mt-4 max-w-xl text-balance text-white/80">{sub}</p>
+          ) : null}
+        </div>
+      </Reveal>
     </section>
   );
 }
@@ -295,15 +350,18 @@ const stats = [
 
 export function StatsBand() {
   return (
-    <section className="border-y border-brand-orange-light bg-brand-orange-light/50">
-      <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+    <section className="relative overflow-hidden bg-brand-green">
+      {/* dezente Lichtakzente wie im CTA-Band */}
+      <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-orange/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-brand-green-light/40 blur-3xl" />
+      <div className="relative mx-auto grid w-full max-w-6xl gap-8 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
         {stats.map((stat, i) => (
           <Reveal key={stat.value} delay={i * 90}>
             <div>
-              <p className="font-display text-4xl font-extrabold tracking-tight text-brand-green">
+              <p className="font-display text-5xl font-extrabold tracking-tight text-brand-orange">
                 {stat.value}
               </p>
-              <p className="mt-2 text-sm leading-relaxed text-gray-700">{stat.label}</p>
+              <p className="mt-2 text-sm leading-relaxed text-white/80">{stat.label}</p>
             </div>
           </Reveal>
         ))}

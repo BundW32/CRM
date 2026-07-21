@@ -23,14 +23,16 @@ import {
   Vote,
   Wrench,
 } from "lucide-react";
-import { buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { buttonClass } from "@/components/ui";
 import {
+  buttonOnPhotoClass,
   CtaBand,
   MarketingFooter,
   MarketingHeader,
+  PhotoBand,
   StatsBand,
 } from "@/components/marketing/site";
-import { PhotoHero } from "@/components/marketing/photo-hero";
+import { KenBurnsBackdrop } from "@/components/marketing/photo-hero";
 import { Reveal } from "@/components/marketing/reveal";
 import { ScrollyBuild } from "@/components/marketing/scrolly-build";
 import { getUser } from "@/lib/session";
@@ -185,21 +187,29 @@ export default async function Home() {
     <main className="mk-light flex-1">
       <MarketingHeader />
 
-      {/* ── Hero: Problem und Versprechen ── */}
-      <section id="inhalt" className="mx-auto w-full max-w-6xl px-4 pb-16 pt-14 sm:px-6 sm:pt-20">
-        <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="animate-page-in">
-            <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-brand-orange/50 bg-brand-orange-light px-3 py-1 text-xs font-semibold tracking-wide text-brand-orange-ink">
+      {/* ── Full-Bleed-Hero: das Haus füllt die Bühne, der Text liegt darauf ── */}
+      <section id="inhalt" className="relative flex min-h-[86vh] items-center overflow-hidden">
+        <KenBurnsBackdrop
+          src="/images/marketing/hero-building.jpg"
+          alt="Mehrfamilienhaus einer Wohnungseigentümergemeinschaft"
+          preload
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-brand-green-dark/95 via-brand-green-dark/70 to-brand-green-dark/20" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-brand-green-dark/60 to-transparent" />
+
+        <div className="relative mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
+          <div className="max-w-2xl animate-page-in">
+            <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide text-white backdrop-blur-sm">
               <ShieldCheck className="h-3.5 w-3.5" />
               Für Eigentümer in kleinen Wohnungseigentümergemeinschaften
             </p>
-            <h1 className="text-balance text-4xl font-extrabold leading-tight text-brand-green-dark sm:text-5xl">
+            <h1 className="text-balance text-4xl font-extrabold leading-tight text-white sm:text-6xl">
               Keine Hausverwaltung gefunden?{" "}
               <span className="underline decoration-brand-orange decoration-4 underline-offset-8">
                 Verwalten Sie Ihre WEG selbst.
               </span>
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-relaxed text-gray-600 sm:text-lg">
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-white/85 sm:text-lg">
               Immer mehr kleine Eigentümergemeinschaften bekommen schlicht keinen
               Verwalter mehr – die Pflichten aus dem WEG-Gesetz bleiben trotzdem.
               Dieses Portal gibt Ihnen alles an die Hand, um Ihre Gemeinschaft
@@ -210,29 +220,32 @@ export default async function Home() {
                 Portal kostenlos einrichten
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link href="/login" className={`${buttonSecondaryClass} px-6 py-3 text-base`}>
+              <Link href="/login" className={`${buttonOnPhotoClass} px-6 py-3 text-base`}>
                 Ich habe schon einen Zugang
               </Link>
             </div>
-            <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-gray-600">
+            <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-white/75">
               {["Kostenlos starten", "Keine Zahlungsdaten nötig", "In wenigen Minuten einsatzbereit"].map(
                 (item) => (
                   <li key={item} className="inline-flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-brand-orange-ink" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-brand-orange" />
                     {item}
                   </li>
                 ),
               )}
             </ul>
           </div>
-          <div className="hidden animate-page-in lg:block">
-            <PhotoHero
-              src="/images/marketing/hero-building.jpg"
-              alt="Mehrfamilienhaus einer Wohnungseigentümergemeinschaft"
-              preload
-              badge={{ icon: <Building2 className="h-4 w-4 text-brand-orange-ink" />, text: "6 Einheiten · MEA 1000/1000 ✓" }}
-            />
-          </div>
+        </div>
+
+        {/* Schwebende Kennzahl-Karte als Brücke zum Produkt */}
+        <div
+          className="absolute bottom-10 right-6 hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-800 shadow-e3 md:flex lg:right-12"
+          style={{ animation: "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "600ms" }}
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-orange-light">
+            <Building2 className="h-4 w-4 text-brand-orange-ink" />
+          </span>
+          6 Einheiten · MEA 1000/1000 ✓
         </div>
       </section>
 
@@ -263,6 +276,14 @@ export default async function Home() {
           ))}
         </div>
       </section>
+
+      {/* ── Foto-Band: atmosphärischer Zwischenschnitt ── */}
+      <PhotoBand
+        src="/images/marketing/versammlung.jpg"
+        alt="Eigentümer sitzen gemeinsam am Tisch einer Versammlung"
+        claim="Gemeinsam entscheiden. Gemeinsam verwalten."
+        sub="Ihre Gemeinschaft kennt ihr Haus besser als jeder externe Verwalter – das Portal gibt ihr das Handwerkszeug dazu."
+      />
 
       {/* ── Die Lösung ── */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-16 sm:px-6">

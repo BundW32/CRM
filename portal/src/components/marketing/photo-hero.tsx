@@ -1,14 +1,63 @@
 "use client";
 
-// Foto-Hero für die Marketing-Seiten: echtes Foto statt UI-Mockup, mit
-// langsamem Ken-Burns-Zoom (CSS, startet beim Sichtbarwerden über
-// `.mk-reveal`/`.mk-anim`) und einem Scroll-Parallax-Versatz (JS, direkt im
-// Scroll-Handler berechnet). Eine schwebende Kennzahl-Karte legt die Brücke
-// zum Produkt. `preload` ersetzt in dieser Next.js-Version das alte
-// `priority` (siehe node_modules/next/dist/docs) – nur für den obersten,
-// sofort sichtbaren Hero setzen.
+// Foto-Bausteine der Marketing-Seiten: echtes Foto mit langsamem
+// Ken-Burns-Zoom (CSS) und Scroll-Parallax (JS). Zwei Varianten:
+// - PhotoHero: Foto als Karte mit schwebender Kennzahl (Seitenspalte)
+// - KenBurnsBackdrop: Foto als vollflächiger Hintergrund für die
+//   NRG-artigen Full-Bleed-Heros und Foto-Bänder (Text liegt AUF dem Bild)
+// `preload` ersetzt in dieser Next.js-Version das alte `priority`
+// (siehe node_modules/next/dist/docs) – nur fürs oberste Hero-Bild setzen.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
+
+// Vollflächiger Foto-Hintergrund: absolute inset-0 im (relativen) Eltern-
+// Element, Parallax außen, Ken-Burns innen (getrennte Ebenen – eine
+// CSS-Animation würde ein inline transform auf demselben Element überschreiben).
+export function KenBurnsBackdrop({
+  src,
+  alt,
+  preload = false,
+}: {
+  src: string;
+  alt: string;
+  preload?: boolean;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight || 1;
+      const p = (rect.top + rect.height / 2 - vh / 2) / vh;
+      // Hintergrund bewegt sich langsamer als der Inhalt (klassische Parallaxe)
+      setOffset(Math.max(-1, Math.min(1, p)) * 36);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  return (
+    <div ref={wrapRef} className="absolute inset-0 overflow-hidden" aria-hidden={false}>
+      <div className="absolute inset-0" style={{ transform: `translateY(${offset}px)` }}>
+        <div
+          className="absolute"
+          style={{ inset: "-8%", animation: "mkKenBurns 24s ease-in-out infinite alternate" }}
+        >
+          <Image src={src} alt={alt} fill sizes="100vw" preload={preload} className="object-cover" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function PhotoHero({
   src,

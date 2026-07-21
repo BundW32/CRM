@@ -7,7 +7,6 @@ import {
   MarketingHeader,
   MarketingHero,
 } from "@/components/marketing/site";
-import { PhotoHero } from "@/components/marketing/photo-hero";
 import {
   BankImportVisual,
   ReserveVisual,
@@ -47,14 +46,11 @@ export default async function FinanzenPage() {
           "Assistenten führen durch Wirtschaftsplan, Buchhaltung und " +
           "Jahresabrechnung, rechnen centgenau und prüfen, ob am Ende alles aufgeht."
         }
-        visual={
-          <PhotoHero
-            src="/images/marketing/finanzen.jpg"
-            alt="Eigentümer plant den Wirtschaftsplan am Laptop"
-            preload
-            badge={{ icon: <CalendarCheck className="h-4 w-4 text-brand-orange-ink" />, text: "Wirtschaftsplan & Jahresabrechnung centgenau" }}
-          />
-        }
+        image={{
+          src: "/images/marketing/finanzen.jpg",
+          alt: "Eigentümer plant den Wirtschaftsplan am Laptop",
+        }}
+        badge={{ icon: <CalendarCheck className="h-4 w-4 text-brand-orange-ink" />, text: "Wirtschaftsplan & Jahresabrechnung centgenau" }}
       />
 
       <FeatureSection

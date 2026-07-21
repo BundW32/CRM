@@ -170,6 +170,10 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   Brunata einlesen; die Beträge werden den Einheiten (über Bezeichnung oder Nummer)
   zugeordnet und fließen in die Jahresabrechnung. Anbieter-unabhängig, ohne
   API-Zugang; nicht Zuordenbares wird gemeldet
+- **Hybride Versammlung** (§ 23 Abs. 1a WEG, ohne eigenes Video): Video-Zuschaltung
+  über einen externen Dienst (z. B. Jitsi/Zoom); **Standard-Videolink je Objekt**
+  wird bei neuen Versammlungen vorbelegt, Remote-Eigentümer stimmen im Portal ab.
+  Das Protokoll dokumentiert die hybride Teilnahmemöglichkeit samt Link
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 

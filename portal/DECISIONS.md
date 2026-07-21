@@ -374,3 +374,20 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
     der Import schreibt exakt dieselben Datensätze wie die manuelle Erfassung —
     nur eben aus der Datei vorbefüllt. Die manuelle Eingabe bleibt als Fallback und
     zur Korrektur; die harte centgenaue Summenprüfung der Abrechnung greift wie zuvor.
+
+## Schritt 15 — M-J abgeschlossen: hybride Versammlung ohne eigenes Video (21.07.2026)
+
+74. **Kein eigenes Video, keine eigene Konferenztechnik** (Produktentscheidung
+    mit dem Auftraggeber): Videotelefonie wird an externe Dienste ausgelagert
+    (Empfehlung Jitsi: Browser, kein Konto, EU). Remote-Eigentümer stimmen ohnehin
+    im Portal ab (Bereich Beschlüsse) — damit ist § 23 Abs. 1a WEG abgedeckt,
+    ohne Streaming-Infrastruktur und deren DSGVO-/Betriebslast.
+75. **Standard-Videolink je Objekt** (`Property.defaultVideoLink`): wird beim
+    Anlegen einer Versammlung als Fallback verwendet, wenn das Link-Feld leer
+    bleibt; per Checkbox lässt sich ein eingegebener Link als neuer Standard
+    speichern. Kein eigener Einstellungs-Dialog — die Pflege passiert dort, wo
+    der Link gebraucht wird.
+76. **Hybrid-Vermerk im Protokoll**: ist ein Video-Link gesetzt, dokumentiert das
+    Protokoll-PDF „Hybride Versammlung (§ 23 Abs. 1a WEG) — Video-Zuschaltung: …";
+    das Anwesenheitsfeld schlägt die Präsenz/online-Aufteilung vor. Damit ist die
+    Teilnahmemöglichkeit rechtssicher dokumentiert.

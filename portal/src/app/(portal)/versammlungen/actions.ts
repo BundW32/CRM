@@ -37,17 +37,28 @@ export async function createMeeting(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim().slice(0, 200);
   const scheduledStr = String(formData.get("scheduledAt") ?? "");
   const location = String(formData.get("location") ?? "").trim().slice(0, 200);
-  const videoLink = String(formData.get("videoLink") ?? "").trim().slice(0, 500) || null;
+  const videoLinkInput = String(formData.get("videoLink") ?? "").trim().slice(0, 500) || null;
+  const saveVideoDefault = formData.get("saveVideoDefault") === "on";
   // Ort ist Pflicht (§24 WEG: die Einladung muss den Versammlungsort nennen). Bei
   // reiner Video-Versammlung hier z. B. „Online / Videokonferenz" eintragen.
   if (!propertyId || !title || !scheduledStr || !location) redirect("/versammlungen?fehler=eingabe");
 
   if (!(await canVerwalterAccessProperty(verwalter, propertyId))) redirect("/versammlungen");
-  const property = await db.property.findUnique({ where: { id: propertyId }, select: { managementType: true } });
+  const property = await db.property.findUnique({
+    where: { id: propertyId },
+    select: { managementType: true, defaultVideoLink: true },
+  });
   if (!property || property.managementType !== "WEG") redirect("/versammlungen?fehler=keinweg");
 
   const scheduledAt = new Date(scheduledStr);
   if (Number.isNaN(scheduledAt.getTime())) redirect("/versammlungen?fehler=eingabe");
+
+  // Leer gelassen → Standard-Videolink des Objekts (falls hinterlegt). Auf Wunsch
+  // wird der eingegebene Link als neuer Standard des Objekts gespeichert.
+  const videoLink = videoLinkInput ?? property.defaultVideoLink;
+  if (saveVideoDefault && videoLinkInput && videoLinkInput !== property.defaultVideoLink) {
+    await db.property.update({ where: { id: propertyId }, data: { defaultVideoLink: videoLinkInput } });
+  }
 
   const meeting = await db.ownersMeeting.create({
     data: {
@@ -276,10 +287,19 @@ export async function updateMeeting(formData: FormData) {
   const scheduledStr = String(formData.get("scheduledAt") ?? "");
   const location = String(formData.get("location") ?? "").trim().slice(0, 200);
   const videoLink = String(formData.get("videoLink") ?? "").trim().slice(0, 500) || null;
+  const saveVideoDefault = formData.get("saveVideoDefault") === "on";
   // Ort bleibt auch bei Änderung Pflicht (siehe createMeeting).
   if (!title || !scheduledStr || !location) redirect(`/versammlungen/${meetingId}?fehler=eingabe`);
   const scheduledAt = new Date(scheduledStr);
   if (Number.isNaN(scheduledAt.getTime())) redirect(`/versammlungen/${meetingId}?fehler=eingabe`);
+
+  // Auf Wunsch den Link als Standard des Objekts übernehmen (für künftige Termine).
+  if (saveVideoDefault && videoLink) {
+    await db.property.update({
+      where: { id: meeting.propertyId },
+      data: { defaultVideoLink: videoLink },
+    });
+  }
 
   await db.ownersMeeting.update({
     where: { id: meetingId },
@@ -495,7 +515,7 @@ export async function generateProtocol(formData: FormData) {
 // wieder entfernt, damit kein verwaistes Protokoll zurückbleibt.
 async function buildAndStoreProtocol(
   verwalter: User,
-  meeting: { id: string; propertyId: string; title: string; scheduledAt: Date; location: string | null; attendanceNote: string | null; protocolDocumentId: string | null },
+  meeting: { id: string; propertyId: string; title: string; scheduledAt: Date; location: string | null; videoLink: string | null; attendanceNote: string | null; protocolDocumentId: string | null },
 ) {
   const meetingId = meeting.id;
   const [property, items, branding, board] = await Promise.all([
@@ -530,6 +550,7 @@ async function buildAndStoreProtocol(
     meetingTitle: meeting.title,
     scheduledAt: meeting.scheduledAt,
     location: meeting.location,
+    videoLink: meeting.videoLink,
     attendance: meeting.attendanceNote,
     boardMembers,
     items: items.map((it, i) => {

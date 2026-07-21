@@ -137,10 +137,17 @@ export default async function VersammlungenPage({
                   <input
                     type="text"
                     name="videoLink"
-                    placeholder="z. B. https://meet.example.org/weg — nur Abdruck in der Einladung"
+                    placeholder="leer = Standard-Link des Objekts (falls hinterlegt)"
                     className={inputClass}
                   />
                 </Field>
+                <label className="flex items-start gap-2 text-xs text-gray-600">
+                  <input type="checkbox" name="saveVideoDefault" className="mt-0.5" />
+                  <span>
+                    Eingegebenen Link als Standard für dieses Objekt speichern (wird bei
+                    künftigen Versammlungen vorbelegt).
+                  </span>
+                </label>
                 <button type="submit" className={buttonClass}>
                   Versammlung anlegen
                 </button>

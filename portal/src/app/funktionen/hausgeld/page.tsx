@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { HandCoins } from "lucide-react";
 import {
   CtaBand,
   FeatureSection,
@@ -6,6 +7,7 @@ import {
   MarketingHeader,
   MarketingHero,
 } from "@/components/marketing/site";
+import { PhotoHero } from "@/components/marketing/photo-hero";
 import { ArrearsVisual, DunningVisual, UnitPlanVisual } from "@/components/marketing/visuals";
 import { assertMainDomain } from "@/lib/marketing";
 
@@ -40,7 +42,14 @@ export default async function HausgeldPage() {
           "diese Fragen mit klaren Zahlen und einem Mahnwesen, das fair und " +
           "formal korrekt abläuft."
         }
-        visual={<ArrearsVisual />}
+        visual={
+          <PhotoHero
+            src="/images/marketing/hausgeld.jpg"
+            alt="Kontoauszug und Umschlag am Briefkasten einer WEG"
+            preload
+            badge={{ icon: <HandCoins className="h-4 w-4 text-brand-orange-ink" />, text: "Soll / Ist / Saldo je Einheit" }}
+          />
+        }
       />
 
       <FeatureSection

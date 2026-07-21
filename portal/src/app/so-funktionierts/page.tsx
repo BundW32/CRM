@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { Scale } from "lucide-react";
+import { CheckCircle2, Scale } from "lucide-react";
 import {
   CtaBand,
   MarketingFooter,
   MarketingHeader,
   MarketingHero,
 } from "@/components/marketing/site";
+import { PhotoHero } from "@/components/marketing/photo-hero";
 import { Reveal } from "@/components/marketing/reveal";
-import { OnboardingVisual } from "@/components/marketing/visuals";
 import { assertMainDomain } from "@/lib/marketing";
 
 export const dynamic = "force-dynamic";
@@ -129,7 +129,14 @@ export default async function SoFunktioniertsPage() {
           "Das Portal führt Ihre WEG der Reihe nach durch die Einrichtung – " +
           "und prüft an den kritischen Stellen automatisch mit."
         }
-        visual={<OnboardingVisual />}
+        visual={
+          <PhotoHero
+            src="/images/marketing/so-funktionierts.jpg"
+            alt="Eigentümerin richtet das Portal zuhause am Laptop ein"
+            preload
+            badge={{ icon: <CheckCircle2 className="h-4 w-4 text-brand-orange-ink" />, text: "In wenigen Minuten eingerichtet" }}
+          />
+        }
         showSecondaryCta={false}
       />
 

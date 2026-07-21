@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Wrench } from "lucide-react";
 import {
   CtaBand,
   FeatureSection,
@@ -6,6 +7,7 @@ import {
   MarketingHeader,
   MarketingHero,
 } from "@/components/marketing/site";
+import { PhotoHero } from "@/components/marketing/photo-hero";
 import { RolesVisual, TicketVisual } from "@/components/marketing/visuals";
 import { assertMainDomain } from "@/lib/marketing";
 
@@ -39,7 +41,14 @@ export default async function KommunikationPage() {
           "regelt. Schäden, Aufträge, Dokumente und Aushänge laufen im Portal " +
           "zusammen – und jeder im Haus sieht genau das, was ihn betrifft."
         }
-        visual={<TicketVisual />}
+        visual={
+          <PhotoHero
+            src="/images/marketing/kommunikation.jpg"
+            alt="Schaden wird mit dem Smartphone im Treppenhaus fotografiert"
+            preload
+            badge={{ icon: <Wrench className="h-4 w-4 text-brand-orange-ink" />, text: "Schaden gemeldet – in Sekunden" }}
+          />
+        }
       />
 
       <FeatureSection

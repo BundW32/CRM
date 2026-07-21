@@ -279,6 +279,13 @@ select:not([multiple]) {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-10px); }
 }
+/* Ken-Burns-Zoom für Foto-Heros: sehr langsam, alternierend, kaum merklich
+   ruckartig – der Container ist etwas größer als der sichtbare Ausschnitt
+   (siehe -inset-3 am Aufrufer), damit beim Zoomen keine Kanten sichtbar werden. */
+@keyframes mkKenBurns {
+  0%   { transform: scale(1) translate(0, 0); }
+  100% { transform: scale(1.09) translate(-1%, 1%); }
+}
 @keyframes mkOrbit {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }

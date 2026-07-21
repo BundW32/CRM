@@ -30,9 +30,9 @@ import {
   MarketingHeader,
   StatsBand,
 } from "@/components/marketing/site";
+import { PhotoHero } from "@/components/marketing/photo-hero";
 import { Reveal } from "@/components/marketing/reveal";
 import { ScrollyBuild } from "@/components/marketing/scrolly-build";
-import { OrbitVisual } from "@/components/marketing/visuals";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
 
@@ -226,7 +226,12 @@ export default async function Home() {
             </ul>
           </div>
           <div className="hidden animate-page-in lg:block">
-            <OrbitVisual />
+            <PhotoHero
+              src="/images/marketing/hero-building.jpg"
+              alt="Mehrfamilienhaus einer Wohnungseigentümergemeinschaft"
+              preload
+              badge={{ icon: <Building2 className="h-4 w-4 text-brand-orange-ink" />, text: "6 Einheiten · MEA 1000/1000 ✓" }}
+            />
           </div>
         </div>
       </section>

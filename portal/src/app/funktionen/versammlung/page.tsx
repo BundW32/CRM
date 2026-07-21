@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Users } from "lucide-react";
 import {
   CtaBand,
   FeatureSection,
@@ -6,6 +7,7 @@ import {
   MarketingHeader,
   MarketingHero,
 } from "@/components/marketing/site";
+import { PhotoHero } from "@/components/marketing/photo-hero";
 import { MeetingVisual, VoteVisual } from "@/components/marketing/visuals";
 import { assertMainDomain } from "@/lib/marketing";
 
@@ -40,7 +42,14 @@ export default async function VersammlungPage() {
           "Protokoll machen Beschlüsse angreifbar. Das Portal führt Sie so durch " +
           "die Versammlung, dass am Ende alles sauber dokumentiert ist."
         }
-        visual={<VoteVisual />}
+        visual={
+          <PhotoHero
+            src="/images/marketing/versammlung.jpg"
+            alt="Eigentümerversammlung am Tisch mit Protokoll und Tagesordnung"
+            preload
+            badge={{ icon: <Users className="h-4 w-4 text-brand-orange-ink" />, text: "Beschlussfähig – Anwesenheit erfasst" }}
+          />
+        }
       />
 
       <FeatureSection

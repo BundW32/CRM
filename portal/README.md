@@ -166,6 +166,10 @@ Als Verwalter anmelden → **Verwaltung → WEG-Finanzen**:
   Magic-Link seine Rechnung (Betrag + PDF/Bild) ein, der Verwalter prüft und
   akzeptiert sie — dann werden die Kosten am Vorgang übernommen. Schließt den
   digitalen Auftrags-Durchlauf (Auftrag → Ausführung → Doku → Rechnung) ab
+- **Messdienst-Datei-Import** (Heizkosten): CSV-Abrechnung von ista/Techem/Minol/
+  Brunata einlesen; die Beträge werden den Einheiten (über Bezeichnung oder Nummer)
+  zugeordnet und fließen in die Jahresabrechnung. Anbieter-unabhängig, ohne
+  API-Zugang; nicht Zuordenbares wird gemeldet
 
 Entscheidungen und Begründungen: [`DECISIONS.md`](./DECISIONS.md)
 

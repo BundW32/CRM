@@ -17,6 +17,7 @@ import { requireWegProperty } from "@/lib/weg/scope";
 import {
   deleteStatement,
   finalizeStatement,
+  importHeatingAmounts,
   saveAccountChecks,
   distributeByMeters,
   saveManualAmounts,
@@ -35,6 +36,10 @@ const FEHLER_TEXTE: Record<string, string> = {
   pruefung: "Die Prüfliste enthält noch offene Punkte — Fertigstellen nicht möglich.",
   kontenpruefung:
     "Kontenprüfung fehlgeschlagen: Der Endbestand laut Kontoauszug muss für jedes Konto exakt dem rechnerischen Endbestand entsprechen.",
+  datei: "Die Datei konnte nicht gelesen werden (CSV, max. 2 MB).",
+  import_spalten:
+    "In der Datei wurden keine Spalten für Einheit und Betrag erkannt. Erwartet werden Spaltenüberschriften wie Einheit/Wohnung/Nr. und Betrag/Kosten/Summe.",
+  import_leer: "Die Datei enthält keine lesbaren Beträge.",
 };
 
 export default async function JahresabrechnungDetailPage({
@@ -42,7 +47,7 @@ export default async function JahresabrechnungDetailPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string; statementId: string }>;
-  searchParams: Promise<{ gespeichert?: string; fertig?: string; fehler?: string }>;
+  searchParams: Promise<{ gespeichert?: string; fertig?: string; fehler?: string; importiert?: string; offen?: string }>;
 }) {
   const { propertyId, statementId } = await params;
   const { property } = await requireWegProperty(propertyId);
@@ -129,6 +134,14 @@ Muster — ersetzt keine Rechtsberatung.`;
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">
           {FEHLER_TEXTE[sp.fehler] ?? "Die Eingabe konnte nicht gespeichert werden."}
+        </Alert>
+      ) : null}
+      {sp.importiert !== undefined ? (
+        <Alert variant={sp.offen && sp.offen !== "0" ? "warning" : "success"} className="mb-4">
+          Messdienst-Import: {sp.importiert} Einheit(en) übernommen
+          {sp.offen && sp.offen !== "0"
+            ? ` · ${sp.offen} Zeile(n) ohne eindeutige Einheit — bitte Bezeichnungen prüfen oder diese Beträge manuell erfassen.`
+            : "."}
         </Alert>
       ) : null}
 
@@ -327,6 +340,35 @@ Muster — ersetzt keine Rechtsberatung.`;
                   </button>
                 ) : null}
               </form>
+
+              {isDraft ? (
+                <form
+                  action={importHeatingAmounts}
+                  className="mt-4 flex flex-wrap items-end gap-2 border-t border-gray-100 pt-4"
+                >
+                  <input type="hidden" name="propertyId" value={property.id} />
+                  <input type="hidden" name="statementId" value={statement.id} />
+                  <input type="hidden" name="costTypeId" value={row.costTypeId} />
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-gray-700">
+                      Messdienst-Datei importieren (CSV: Einheit + Betrag)
+                    </span>
+                    <input
+                      type="file"
+                      name="file"
+                      accept=".csv,text/csv,text/plain"
+                      className="block text-xs text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-orange-dark"
+                    />
+                  </label>
+                  <button type="submit" className={buttonSecondaryClass}>
+                    Importieren
+                  </button>
+                  <p className="w-full text-xs text-gray-400">
+                    Beträge je Einheit aus der Abrechnung von ista/Techem/Minol/Brunata. Einheiten
+                    werden über Bezeichnung oder Nummer zugeordnet; nicht Zuordenbares wird gemeldet.
+                  </p>
+                </form>
+              ) : null}
             </Card>
           );
         })}

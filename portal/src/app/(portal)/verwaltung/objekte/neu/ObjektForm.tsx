@@ -7,8 +7,8 @@ import { createObjekt } from "./actions";
 import { extractObjektFields } from "./import-actions";
 
 type UnitRow = { label: string; floor: string; area: string; mea: string; persons: string };
-type TenantRow = { name: string; email: string; phone: string; unit: string };
-type OwnerRow = { name: string; email: string; phone: string; unit: string };
+type TenantRow = { firstName: string; lastName: string; email: string; phone: string; unit: string };
+type OwnerRow = { firstName: string; lastName: string; email: string; phone: string; unit: string };
 type ExistingProperty = { name: string; street: string; zip: string; city: string };
 
 let rowKey = 0;
@@ -419,14 +419,27 @@ export function ObjektForm({
                     </button>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="Name *">
+                    <Field label="Vorname *">
                       <input
                         type="text"
-                        name="wegOwnerName"
-                        value={o.name}
+                        name="wegOwnerFirstName"
+                        value={o.firstName}
                         onChange={(e) =>
                           setOwners((rows) =>
-                            rows.map((r) => (r.key === o.key ? { ...r, name: e.target.value } : r))
+                            rows.map((r) => (r.key === o.key ? { ...r, firstName: e.target.value } : r))
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Nachname *">
+                      <input
+                        type="text"
+                        name="wegOwnerLastName"
+                        value={o.lastName}
+                        onChange={(e) =>
+                          setOwners((rows) =>
+                            rows.map((r) => (r.key === o.key ? { ...r, lastName: e.target.value } : r))
                           )
                         }
                         className={inputClass}
@@ -485,7 +498,7 @@ export function ObjektForm({
           <button
             type="button"
             onClick={() =>
-              setOwners((rows) => [...rows, { key: nextKey(), name: "", email: "", phone: "", unit: "" }])
+              setOwners((rows) => [...rows, { key: nextKey(), firstName: "", lastName: "", email: "", phone: "", unit: "" }])
             }
             className="mt-3 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
@@ -497,9 +510,12 @@ export function ObjektForm({
           <p className="mb-3 text-xs text-gray-500">
             Mit E-Mail → Einladungslink per Mail. Ohne E-Mail → druckbares Zugangsschreiben.
           </p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Name">
-              <input type="text" name="eigName" minLength={2} className={inputClass} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Vorname">
+              <input type="text" name="eigFirstName" minLength={2} className={inputClass} />
+            </Field>
+            <Field label="Nachname">
+              <input type="text" name="eigLastName" minLength={2} className={inputClass} />
             </Field>
             <Field label="E-Mail (optional)">
               <input type="email" name="eigEmail" className={inputClass} />
@@ -540,14 +556,27 @@ export function ObjektForm({
                   </button>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Name *">
+                  <Field label="Vorname *">
                     <input
                       type="text"
-                      name="tenantName"
-                      value={t.name}
+                      name="tenantFirstName"
+                      value={t.firstName}
                       onChange={(e) =>
                         setTenants((rows) =>
-                          rows.map((r) => (r.key === t.key ? { ...r, name: e.target.value } : r))
+                          rows.map((r) => (r.key === t.key ? { ...r, firstName: e.target.value } : r))
+                        )
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="Nachname *">
+                    <input
+                      type="text"
+                      name="tenantLastName"
+                      value={t.lastName}
+                      onChange={(e) =>
+                        setTenants((rows) =>
+                          rows.map((r) => (r.key === t.key ? { ...r, lastName: e.target.value } : r))
                         )
                       }
                       className={inputClass}
@@ -608,7 +637,7 @@ export function ObjektForm({
           onClick={() =>
             setTenants((rows) => [
               ...rows,
-              { key: nextKey(), name: "", email: "", phone: "", unit: "" },
+              { key: nextKey(), firstName: "", lastName: "", email: "", phone: "", unit: "" },
             ])
           }
           className="mt-3 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"

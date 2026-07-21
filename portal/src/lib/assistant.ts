@@ -16,7 +16,8 @@ import {
   propertyIdsForVerwalter,
   ticketWhereForUser,
 } from "./access";
-import { documentCategoryLabels, ticketStatusLabels } from "./labels";
+import { documentCategoryLabels, roleLabels, ticketStatusLabels } from "./labels";
+import { helpForUser } from "./assistant-help";
 
 export type AssistantSource = {
   type: string; // z. B. "Beschluss", "Aushang", "Vorgang"
@@ -206,6 +207,12 @@ export async function retrieveContext(user: User, question: string, limit = 14):
     }
   }
 
+  // Bedienhilfe-Themen der Rolle als zusätzliche Quellen (nur wenn Begriffe der
+  // Frage treffen – Datum epoch 0, damit sie nicht als Füllmaterial hochkommen).
+  for (const h of helpForUser(user.role)) {
+    out.push(cand("Bedienhilfe", h.title, h.href, h.body, new Date(0), ts));
+  }
+
   // Beste zuerst: höhere Trefferzahl, bei Gleichstand aktueller. Ohne jeden
   // Treffer greifen wir auf die jüngsten Einträge zurück (Kontext statt Leere).
   out.sort((a, b) => b._score - a._score || b.updatedAt - a.updatedAt);
@@ -251,9 +258,13 @@ export async function askAssistant(user: User, question: string): Promise<Assist
 
   const prompt =
     `Du bist der Assistent des Kundenportals einer deutschen Hausverwaltung. ` +
-    `Beantworte die Frage AUSSCHLIESSLICH anhand der nummerierten Quellen. ` +
-    `Steht die Antwort nicht in den Quellen, sage wörtlich: "Dazu finde ich in Ihren Unterlagen nichts." ` +
-    `Erfinde nichts, spekuliere nicht. Antworte knapp und sachlich auf Deutsch. ` +
+    `Der fragende Nutzer hat die Rolle „${roleLabels[user.role]}" – richte Antwort und ` +
+    `Hilfestellung darauf aus. ` +
+    `Beantworte die Frage anhand der nummerierten Quellen. Quellen vom Typ „Bedienhilfe" ` +
+    `erklären, wie das Portal bedient wird – nutze sie für Fragen zur Nutzung („wie/wo mache ich …"). ` +
+    `Steht die Antwort weder in den Inhalten noch in der Bedienhilfe, sage wörtlich: ` +
+    `"Dazu finde ich in Ihren Unterlagen nichts." Erfinde nichts, spekuliere nicht. ` +
+    `Antworte knapp und sachlich auf Deutsch. ` +
     `Gib in "used" die Nummern der tatsächlich genutzten Quellen an (leer, wenn keine passt).\n\n` +
     `QUELLEN:\n${context}\n\nFRAGE: ${q}`;
 

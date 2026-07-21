@@ -11,15 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  CheckCircle2,
-  HandCoins,
-  Landmark,
-  Users,
-  Vote,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, CheckCircle2, Users } from "lucide-react";
 import { buttonClass } from "@/components/ui";
 
 type Stage = {
@@ -80,18 +72,9 @@ const STAGES: Stage[] = [
   },
 ];
 
-// Stockwerke des Gebäudes – erscheinen ab der jeweiligen Stufe.
-const FLOORS: { icon: LucideIcon; label: string; showAt: number }[] = [
-  { icon: Landmark, label: "Finanzen", showAt: 1 },
-  { icon: HandCoins, label: "Hausgeld", showAt: 2 },
-  { icon: Vote, label: "Versammlung", showAt: 3 },
-];
+// Bauphasen des Hauses: 0 Grundstück, 1 EG, 2 OG1, 3 OG2, 4 Dach, 5 fertig.
 const ROOF_AT = 4;
 const DONE_AT = 5;
-
-const FLOOR_H = 80; // px – Höhe eines Stockwerks
-const BASE_H = 30; // px – Höhe des Fundaments
-const WINDOWS = 8; // Fenster je Stockwerk (4 × 2)
 
 const clamp01 = (t: number) => Math.max(0, Math.min(1, t));
 const easeOut = (t: number) => 1 - Math.pow(1 - clamp01(t), 3);
@@ -145,190 +128,214 @@ function SceneAmbience({ progress }: { progress: number }) {
   );
 }
 
-// Ein Fenster-Raster, dessen Lichter mit dem Fortschritt einzeln angehen.
-function Windows({ lit, twinkle }: { lit: number; twinkle: boolean }) {
+// ── Das Comic-Haus: baut sich Stockwerk für Stockwerk auf ─────────────────
+// Handgezeichnete SVG-Illustration im flachen Comic-Stil (dicke dunkelgrüne
+// Umrisse, Creme-Fassade, oranges Satteldach). Jede Bauphase gleitet stufenlos
+// mit dem Scroll-Fortschritt an ihren Platz; die Fenster gehen einzeln an.
+// Während des Baus steht ein Kran daneben, bei Fertigstellung: Fahne, Rauch,
+// Katze im Fenster und zwei Bewohner vor der Tür.
+const OUTLINE = "#00332c";
+const FACADE = "#fbf3e0";
+const GLASS_OFF = "#cfe0dd";
+const GLASS_ON = "#ffd489";
+
+// Comic-Fenster mit Kreuzsprosse; `on` schaltet warmes Licht + Glühen.
+function Win({ x, y, on, w = 30, h = 42 }: { x: number; y: number; on: boolean; w?: number; h?: number }) {
   return (
-    <div className="mt-2 grid grid-cols-4 gap-1">
-      {Array.from({ length: WINDOWS }).map((_, w) => {
-        const on = w < lit;
-        return (
-          <span
-            key={w}
-            className="h-2.5 rounded-[2px]"
-            style={{
-              backgroundColor: on ? "var(--color-brand-orange)" : "rgba(255,255,255,0.1)",
-              boxShadow: on ? "0 0 6px rgba(246,144,24,0.75)" : "none",
-              transition: "background-color 0.35s ease, box-shadow 0.35s ease",
-              animation: twinkle && on ? "mkPulseSoft 3s ease-in-out infinite" : "none",
-              animationDelay: `${w * 160}ms`,
-            }}
-          />
-        );
-      })}
-    </div>
+    <g style={{ filter: on ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none" }}>
+      <rect x={x} y={y} width={w} height={h} rx={4} fill={OUTLINE} />
+      <rect
+        x={x + 3.5}
+        y={y + 3.5}
+        width={w - 7}
+        height={h - 7}
+        rx={2}
+        fill={on ? GLASS_ON : GLASS_OFF}
+        style={{ transition: "fill 0.4s" }}
+      />
+      <line x1={x + w / 2} y1={y + 3} x2={x + w / 2} y2={y + h - 3} stroke={OUTLINE} strokeWidth={2.5} />
+      <line x1={x + 3} y1={y + h / 2} x2={x + w - 3} y2={y + h / 2} stroke={OUTLINE} strokeWidth={2.5} />
+    </g>
   );
 }
 
-// ── Das sich aufbauende Gebäude ───────────────────────────────────────────
+// Blumenkasten unter einem Fenster
+function FlowerBox({ x, y, w = 34 }: { x: number; y: number; w?: number }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={7} rx={2.5} fill="#0c534a" stroke={OUTLINE} strokeWidth={2} />
+      {[0.2, 0.5, 0.8].map((f) => (
+        <circle key={f} cx={x + w * f} cy={y - 2} r={3.2} fill="var(--color-brand-orange)" />
+      ))}
+    </g>
+  );
+}
+
 function Building({ stage, progress }: { stage: number; progress: number }) {
   const N = STAGES.length; // 6
-  const roofBottom = BASE_H + FLOORS.length * FLOOR_H;
-  // Energie-Leiste füllt sich, bis das Dach steht (Fortschritt 4/6).
-  const beamFill = easeOut(progress / (ROOF_AT / N));
-  // Dach: gleitet kontinuierlich herein.
-  const subRoof = clamp01(progress * N - ROOF_AT);
-  const roofAppear = stage > ROOF_AT ? 1 : stage === ROOF_AT ? easeOut(subRoof) : 0;
-  // Fertigstellung
   const done = stage >= DONE_AT;
   const subDone = clamp01(progress * N - DONE_AT);
 
+  // Auftauchen eines Bauteils: stufenlos an den Scroll gekoppelt
+  const appear = (s: number) => (stage > s ? 1 : stage === s ? easeOut(clamp01(progress * N - s)) : 0);
+  const rise = (s: number) =>
+    ({
+      transform: `translateY(${(1 - appear(s)) * 46}px)`,
+      opacity: appear(s),
+    }) as const;
+  // Fenster eines Stockwerks gehen während seiner Stufe einzeln an
+  const lit = (s: number, count: number, index: number) => Math.round(appear(s) * count) > index;
+
   return (
-    <div className="relative mx-auto h-[430px] w-[280px]">
+    <div className="relative mx-auto h-[430px] w-[300px]">
       {/* Glühen bei Fertigstellung */}
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-orange/30 blur-3xl transition-opacity duration-700"
         style={{ opacity: done ? 0.55 + 0.45 * subDone : 0 }}
       />
 
-      {/* Bodenschatten (Ellipse) */}
-      <div
-        className="absolute bottom-3 left-1/2 h-4 w-[240px] -translate-x-1/2 rounded-[50%] bg-brand-green/15 blur-md transition-opacity duration-500"
-        style={{ opacity: 0.4 + beamFill * 0.4 }}
-      />
+      <svg viewBox="0 0 320 470" className="absolute inset-0 h-full w-full" role="img" aria-label="Ein Haus baut sich Stockwerk für Stockwerk auf">
+        {/* ── Baukran (hinter dem Haus, verschwindet bei Fertigstellung) ── */}
+        <g style={{ ...rise(0), opacity: done ? 0 : appear(0), transition: "opacity 0.7s" }}>
+          <rect x={297} y={104} width={8} height={330} fill="#0c534a" />
+          <line x1={297} y1={150} x2={305} y2={180} stroke="#f5f1e6" strokeWidth={2} />
+          <line x1={305} y1={150} x2={297} y2={180} stroke="#f5f1e6" strokeWidth={2} />
+          <line x1={297} y1={230} x2={305} y2={260} stroke="#f5f1e6" strokeWidth={2} />
+          <line x1={305} y1={230} x2={297} y2={260} stroke="#f5f1e6" strokeWidth={2} />
+          <line x1={297} y1={320} x2={305} y2={350} stroke="#f5f1e6" strokeWidth={2} />
+          <line x1={305} y1={320} x2={297} y2={350} stroke="#f5f1e6" strokeWidth={2} />
+          {/* Ausleger + Gegengewicht */}
+          <rect x={190} y={98} width={128} height={7} fill="#0c534a" />
+          <rect x={306} y={105} width={12} height={14} fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={2} />
+          <line x1={301} y1={98} x2={252} y2={80} stroke="#0c534a" strokeWidth={3} />
+          <line x1={252} y1={80} x2={196} y2={98} stroke="#0c534a" strokeWidth={3} />
+          {/* Seil + Haken (pendelt sanft) */}
+          <g style={{ animation: "mkFloat 4.5s ease-in-out infinite" }}>
+            <line x1={210} y1={105} x2={210} y2={148} stroke={OUTLINE} strokeWidth={2} />
+            <path d="M204,148 h12 l-2,10 h-8 z" fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={2} />
+          </g>
+        </g>
 
-      {/* Energie-Leiste (Daten fließen nach oben) */}
-      <div className="absolute" style={{ left: 8, bottom: BASE_H, width: 4, height: FLOORS.length * FLOOR_H }}>
-        <div className="absolute inset-0 rounded-full bg-gray-200" />
-        <div
-          className="absolute bottom-0 left-0 w-full rounded-full"
-          style={{
-            height: `${beamFill * 100}%`,
-            background: "linear-gradient(to top, var(--color-brand-orange-dark), var(--color-brand-orange))",
-            boxShadow: "0 0 10px rgba(246,144,24,0.6)",
-            animation: "mkBeam 2.6s ease-in-out infinite",
-          }}
-        />
-        {/* leuchtender Kopf der Leiste */}
-        <div
-          className="absolute left-1/2 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-brand-orange"
-          style={{
-            bottom: `calc(${beamFill * 100}% - 5px)`,
-            boxShadow: "0 0 12px 3px rgba(246,144,24,0.75)",
-            opacity: beamFill > 0.02 && beamFill < 0.99 ? 1 : 0,
-            transition: "opacity 0.3s",
-          }}
-        />
-      </div>
+        {/* ── Grundstück: Boden, Büsche, Baum, Fundament (Phase 0) ── */}
+        <g style={rise(0)}>
+          <ellipse cx={160} cy={448} rx={150} ry={11} fill="rgba(0,54,48,0.10)" />
+          <line x1={14} y1={444} x2={306} y2={444} stroke={OUTLINE} strokeWidth={3} strokeLinecap="round" />
+          {/* Busch links */}
+          <circle cx={40} cy={430} r={15} fill="#3c9a6e" stroke={OUTLINE} strokeWidth={2.5} />
+          <circle cx={26} cy={437} r={10} fill="#2e7d5b" stroke={OUTLINE} strokeWidth={2.5} />
+          {/* Baum rechts */}
+          <rect x={272} y={408} width={8} height={36} fill="#8a5a33" stroke={OUTLINE} strokeWidth={2} />
+          <circle cx={276} cy={396} r={19} fill="#3c9a6e" stroke={OUTLINE} strokeWidth={2.5} />
+          <circle cx={262} cy={388} r={12} fill="#2e7d5b" stroke={OUTLINE} strokeWidth={2.5} />
+          <circle cx={290} cy={386} r={11} fill="#2e7d5b" stroke={OUTLINE} strokeWidth={2.5} />
+          {/* Fundament */}
+          <rect x={56} y={412} width={208} height={30} rx={4} fill="#e5dcc8" stroke={OUTLINE} strokeWidth={3} />
+          <rect x={78} y={422} width={16} height={8} rx={2} fill="#b7ad97" />
+          <rect x={226} y={422} width={16} height={8} rx={2} fill="#b7ad97" />
+        </g>
 
-      {/* Dach + Gemeinschaft */}
-      <div
-        className="absolute left-1/2 flex w-[236px] flex-col items-center"
-        style={{
-          bottom: roofBottom,
-          transform: `translateX(-50%) translateY(${(1 - roofAppear) * 40}px) scale(${0.9 + roofAppear * 0.1})`,
-          opacity: roofAppear,
-        }}
-      >
-        {/* Fahne (Richtfest) – erscheint bei Fertigstellung */}
-        <div
-          className="mb-1 flex flex-col items-center transition-all duration-500"
-          style={{ opacity: done ? 1 : 0, transform: `translateY(${done ? 0 : 6}px)` }}
-        >
-          <div
-            className="h-4 w-5 rounded-sm bg-brand-orange"
-            style={{ transformOrigin: "left center", animation: done ? "mkFlag 2.4s ease-in-out infinite" : "none" }}
-          />
-          <div className="h-4 w-px bg-brand-green" />
-        </div>
-        {/* Menschen-Avatare (weichen bei Fertigstellung der Fahne) */}
-        <div
-          className="mb-2 flex gap-1.5 transition-opacity duration-500"
-          style={{ opacity: done ? 0 : 1 }}
-        >
-          {["E", "B", "M", "H"].map((c, i) => (
-            <span
-              key={c}
-              className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-brand-green text-[11px] font-bold text-white shadow-md"
-              style={{ animation: stage >= ROOF_AT ? "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : "none", animationDelay: `${i * 90}ms` }}
-            >
-              {c}
-            </span>
-          ))}
-        </div>
-        {/* Dachschräge mit Tiefe */}
-        <div className="relative">
-          <div
-            className="h-0 w-0 border-l-[122px] border-r-[122px] border-b-[48px] border-l-transparent border-r-transparent"
-            style={{ borderBottomColor: "var(--color-brand-orange)" }}
-          />
-          {/* rechte Schattenseite des Dachs */}
-          <div
-            className="absolute right-0 top-0 h-0 w-0 border-l-[24px] border-b-[48px] border-l-transparent"
-            style={{ borderBottomColor: "var(--color-brand-orange-dark)" }}
-          />
-        </div>
-      </div>
+        {/* ── Erdgeschoss mit Tür und Hausnummer (Phase 1) ── */}
+        <g style={rise(1)}>
+          <rect x={60} y={322} width={200} height={94} rx={6} fill={FACADE} stroke={OUTLINE} strokeWidth={3} />
+          {/* Tür mit Rundbogen */}
+          <path d="M144,414 v-48 a16,16 0 0 1 32,0 v48 z" fill="#0c534a" stroke={OUTLINE} strokeWidth={3} />
+          <circle cx={170} cy={386} r={2.8} fill="var(--color-brand-orange)" />
+          {/* Hausnummer 12 – Gruß an die WEG Musterstraße 12 */}
+          <rect x={184} y={352} width={20} height={15} rx={3} fill="#fff" stroke={OUTLINE} strokeWidth={2} />
+          <text x={194} y={363.5} textAnchor="middle" fontSize={10} fontWeight={700} fill={OUTLINE}>12</text>
+          {/* Trittstein */}
+          <ellipse cx={160} cy={419} rx={24} ry={4} fill="#d8cfba" stroke={OUTLINE} strokeWidth={2} />
+          <Win x={78} y={344} w={34} h={46} on={lit(1, 2, 0)} />
+          <Win x={208} y={344} w={34} h={46} on={lit(1, 2, 1)} />
+        </g>
 
-      {/* Stockwerke */}
-      {FLOORS.map((floor, i) => {
-        const s = floor.showAt;
-        const sub = clamp01(progress * N - s);
-        const appear = stage > s ? 1 : stage === s ? easeOut(sub) : 0;
-        const litFrac = stage > s ? 1 : stage === s ? easeOut(sub) : 0;
-        const lit = Math.round(litFrac * WINDOWS);
-        const active = stage === s;
-        const Icon = floor.icon;
-        return (
-          <div
-            key={floor.label}
-            className="absolute left-1/2 w-[236px]"
-            style={{
-              bottom: BASE_H + i * FLOOR_H,
-              height: FLOOR_H - 6,
-              transform: `translateX(-50%) translateY(${(1 - appear) * 44}px) scale(${0.94 + appear * 0.06})`,
-              opacity: appear,
-            }}
-          >
-            {/* Tiefenkörper (rechte Seite) */}
-            <div className="absolute inset-0 translate-x-[7px] translate-y-[4px] rounded-lg bg-brand-green-dark" />
-            {/* Vorderseite */}
-            <div
-              className={`relative h-full rounded-lg border bg-gradient-to-b from-brand-green-light to-brand-green px-3 py-2 transition-shadow duration-500 ${
-                active
-                  ? "border-brand-orange shadow-[0_0_38px_rgba(246,144,24,0.5)]"
-                  : "border-white/10 shadow-lg shadow-black/25"
-              }`}
-            >
-              <span className="flex items-center gap-1.5 text-[13px] font-semibold text-white">
-                <Icon className="h-4 w-4 text-brand-orange" />
-                {floor.label}
-              </span>
-              <Windows lit={lit} twinkle={stage > s} />
-            </div>
-          </div>
-        );
-      })}
+        {/* ── 1. Obergeschoss mit Blumenkasten (Phase 2) ── */}
+        <g style={rise(2)}>
+          <rect x={60} y={234} width={200} height={92} rx={6} fill={FACADE} stroke={OUTLINE} strokeWidth={3} />
+          <Win x={78} y={256} on={lit(2, 3, 0)} />
+          <Win x={145} y={256} on={lit(2, 3, 1)} />
+          <Win x={212} y={256} on={lit(2, 3, 2)} />
+          <FlowerBox x={143} y={299} />
+        </g>
 
-      {/* Fundament: isometrischer Sockel */}
-      <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: 0 }}>
-        <div className="absolute inset-0 translate-x-[7px] translate-y-[4px] rounded-md bg-brand-green-dark/40" />
-        <div
-          className="relative flex w-[264px] items-center justify-center gap-2 rounded-md border border-gray-200 bg-white text-[11px] font-medium text-gray-600 shadow-e2"
-          style={{ height: BASE_H }}
-        >
-          <Users className="h-3.5 w-3.5 text-brand-orange-ink" />
-          Einheiten · Miteigentumsanteile · Konten
-        </div>
+        {/* ── 2. Obergeschoss (Phase 3) ── */}
+        <g style={rise(3)}>
+          <rect x={60} y={146} width={200} height={92} rx={6} fill={FACADE} stroke={OUTLINE} strokeWidth={3} />
+          <Win x={78} y={168} on={lit(3, 3, 0)} />
+          <Win x={145} y={168} on={lit(3, 3, 1)} />
+          <Win x={212} y={168} on={lit(3, 3, 2)} />
+          <FlowerBox x={76} y={211} />
+          <FlowerBox x={210} y={211} />
+          {/* Katze im Mittelfenster – erst bei Fertigstellung */}
+          <g style={{ opacity: done ? 1 : 0, transition: "opacity 0.6s" }}>
+            <path d="M153,206 l3.5,-7 l3.5,7 z" fill="#143b34" />
+            <path d="M162,206 l3.5,-7 l3.5,7 z" fill="#143b34" />
+            <circle cx={161} cy={209} r={5.5} fill="#143b34" />
+            <path d="M167,208 q6,-2 6,-8" stroke="#143b34" strokeWidth={2.5} fill="none" strokeLinecap="round" />
+          </g>
+        </g>
+
+        {/* ── Dach, Schornstein, Dachfenster + Bewohner (Phase 4) ── */}
+        <g style={rise(4)}>
+          {/* Schornstein */}
+          <rect x={216} y={74} width={26} height={52} fill="#b34a19" stroke={OUTLINE} strokeWidth={3} />
+          <rect x={211} y={66} width={36} height={11} rx={3} fill="#8a3a14" stroke={OUTLINE} strokeWidth={3} />
+          {/* Dach */}
+          <path d="M44,150 L160,62 L276,150 Z" fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={3.5} strokeLinejoin="round" />
+          <rect x={48} y={144} width={224} height={11} rx={4} fill="var(--color-brand-orange-dark)" stroke={OUTLINE} strokeWidth={3} />
+          {/* rundes Dachfenster */}
+          <g style={{ filter: done ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none" }}>
+            <circle cx={160} cy={116} r={14} fill={OUTLINE} />
+            <circle cx={160} cy={116} r={10} fill={done ? GLASS_ON : GLASS_OFF} style={{ transition: "fill 0.4s" }} />
+            <line x1={160} y1={107} x2={160} y2={125} stroke={OUTLINE} strokeWidth={2.5} />
+            <line x1={151} y1={116} x2={169} y2={116} stroke={OUTLINE} strokeWidth={2.5} />
+          </g>
+          {/* Zwei Bewohner vor der Tür (die Gemeinschaft zieht ein) */}
+          <g style={{ animation: stage >= ROOF_AT ? "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : "none", animationDelay: "250ms" }}>
+            <rect x={104} y={390} width={15} height={24} rx={7} fill="#0c534a" stroke={OUTLINE} strokeWidth={2} />
+            <circle cx={111.5} cy={383} r={7} fill="#f2c9a0" stroke={OUTLINE} strokeWidth={2} />
+            <rect x={124} y={396} width={13} height={18} rx={6} fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={2} />
+            <circle cx={130.5} cy={390} r={5.5} fill="#f2c9a0" stroke={OUTLINE} strokeWidth={2} />
+          </g>
+        </g>
+
+        {/* ── Fertigstellung: Fahne + Rauch ── */}
+        <g style={{ opacity: done ? 1 : 0, transition: "opacity 0.6s" }}>
+          <line x1={160} y1={62} x2={160} y2={30} stroke={OUTLINE} strokeWidth={3} strokeLinecap="round" />
+          <path d="M160,32 L188,40 L160,48 Z" fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={2.5} style={{ transformOrigin: "160px 40px", animation: done ? "mkFlag 2.4s ease-in-out infinite" : "none" }} />
+          {done
+            ? [
+                { cy: 54, r: 5, d: "0s", dur: "4s" },
+                { cy: 42, r: 7, d: "1.2s", dur: "5s" },
+                { cy: 28, r: 9, d: "2.4s", dur: "6s" },
+              ].map((s, i) => (
+                <circle
+                  key={i}
+                  cx={229}
+                  cy={s.cy}
+                  r={s.r}
+                  fill="rgba(148,163,175,0.55)"
+                  style={{ ["--mk-op" as string]: 0.55, animation: `mkRise ${s.dur} linear ${s.d} infinite` }}
+                />
+              ))
+            : null}
+        </g>
+      </svg>
+
+      {/* Info-Chip am Fundament */}
+      <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-medium text-gray-600 shadow-e2">
+        <Users className="h-3.5 w-3.5 text-brand-orange-ink" />
+        Einheiten · Miteigentumsanteile · Konten
       </div>
 
       {/* Funkeln bei Fertigstellung */}
       {done
         ? [
-            { top: "8%", left: "24%", d: 0 },
-            { top: "16%", left: "78%", d: 0.4 },
-            { top: "32%", left: "12%", d: 0.8 },
-            { top: "6%", left: "60%", d: 1.2 },
-            { top: "26%", left: "88%", d: 0.2 },
+            { top: "6%", left: "18%", d: 0 },
+            { top: "14%", left: "80%", d: 0.4 },
+            { top: "30%", left: "8%", d: 0.8 },
+            { top: "4%", left: "58%", d: 1.2 },
+            { top: "24%", left: "90%", d: 0.2 },
           ].map((sp, i) => (
             <span
               key={i}
@@ -343,11 +350,10 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
           ))
         : null}
 
-      {/* „Fertig"-Plakette */}
+      {/* „Fertig"-Plakette über dem First */}
       <div
-        className="absolute left-1/2 flex items-center gap-1.5 rounded-full bg-good px-3 py-1 text-xs font-semibold text-white shadow-lg transition-all duration-500"
+        className="absolute -top-2 left-1/2 flex items-center gap-1.5 whitespace-nowrap rounded-full bg-good px-3 py-1 text-xs font-semibold text-white shadow-lg transition-all duration-500"
         style={{
-          bottom: roofBottom + 96,
           opacity: done ? 1 : 0,
           transform: `translateX(-50%) translateY(${done ? 0 : 8}px)`,
         }}

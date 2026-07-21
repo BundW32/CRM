@@ -430,6 +430,9 @@ model Property {
   fiscalYearStartMonth Int                 @default(1) // Wirtschaftsjahr-Beginn (1 = Januar)
   // SEPA-Lastschrift: Gläubiger-Identifikationsnummer der Gemeinschaft (Bundesbank)
   sepaCreditorId      String?
+  // Standard-Link zur Video-Zuschaltung (externer Dienst, z. B. Jitsi/Zoom) —
+  // wird beim Anlegen einer Versammlung vorbelegt, je Termin überschreibbar.
+  defaultVideoLink    String?
   // Optionale Stammdaten zum Objekt
   buildYear           Int? // Baujahr
   livingArea          Float? // Gesamtwohnfläche in m²

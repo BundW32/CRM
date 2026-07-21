@@ -359,6 +359,10 @@ export default async function MeetingDetailPage({
                     className={inputClass}
                   />
                 </Field>
+                <label className="flex items-start gap-2 text-xs text-gray-600">
+                  <input type="checkbox" name="saveVideoDefault" className="mt-0.5" />
+                  <span>Link als Standard für dieses Objekt speichern (künftige Versammlungen).</span>
+                </label>
                 <button type="submit" className={buttonSecondaryClass}>
                   Eckdaten speichern
                 </button>
@@ -371,7 +375,7 @@ export default async function MeetingDetailPage({
                     name="attendanceNote"
                     defaultValue={meeting.attendanceNote ?? ""}
                     rows={2}
-                    placeholder="z. B. 5 von 8 Eigentümern anwesend, 1 per Vollmacht vertreten"
+                    placeholder="z. B. 4 in Präsenz, 2 online zugeschaltet (§ 23 Abs. 1a WEG), 1 per Vollmacht vertreten"
                     className={inputClass}
                   />
                 </Field>

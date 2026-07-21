@@ -24,6 +24,9 @@ export type MeetingProtocolInput = {
   meetingTitle: string;
   scheduledAt: Date;
   location: string | null;
+  // Link zur Video-Zuschaltung → Protokoll dokumentiert die hybride Teilnahme-
+  // möglichkeit (§ 23 Abs. 1a WEG). Kein Streaming durch das Portal.
+  videoLink?: string | null;
   attendance: string | null;
   boardMembers?: string[]; // Verwaltungsbeirat (Namen)
   items: ProtocolAgendaItem[];
@@ -49,6 +52,7 @@ export async function generateMeetingProtocol(rawInput: MeetingProtocolInput): P
     },
     meetingTitle: encodeWinAnsi(rawInput.meetingTitle),
     location: rawInput.location == null ? null : encodeWinAnsi(rawInput.location),
+    videoLink: rawInput.videoLink == null ? null : encodeWinAnsi(rawInput.videoLink),
     attendance: rawInput.attendance == null ? null : encodeWinAnsi(rawInput.attendance),
     boardMembers: rawInput.boardMembers?.map(encodeWinAnsi),
     items: rawInput.items.map((it) => ({
@@ -92,6 +96,15 @@ export async function generateMeetingProtocol(rawInput: MeetingProtocolInput): P
   }
   if (input.location) {
     for (const line of wrapText(`Ort: ${input.location}`, font, 9, CW)) {
+      page.drawText(line, { x: ML, y, size: 9, font, color: GRAY });
+      y -= 12;
+    }
+  }
+  if (input.videoLink) {
+    for (const line of wrapText(
+      `Hybride Versammlung (§ 23 Abs. 1a WEG) — Video-Zuschaltung: ${input.videoLink}`,
+      font, 9, CW,
+    )) {
       page.drawText(line, { x: ML, y, size: 9, font, color: GRAY });
       y -= 12;
     }

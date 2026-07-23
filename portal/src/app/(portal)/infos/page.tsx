@@ -27,6 +27,7 @@ import {
 } from "../aushaenge/actions";
 import {
   acknowledgeDocument,
+  deleteDocument,
   requestDocument,
   uploadDocument,
   uploadOwnerDocument,
@@ -45,10 +46,11 @@ export default async function InfosPage({
     apage?: string;
     dpage?: string;
     hochgeladen?: string;
+    geloescht?: string;
   }>;
 }) {
   const user = await requireUser();
-  const { t, fehler, apage, dpage, hochgeladen } = await searchParams;
+  const { t, fehler, apage, dpage, hochgeladen, geloescht } = await searchParams;
   const tab = t === "dokumente" ? "dokumente" : "aushaenge";
   const isVerwalter = user.role === "VERWALTER";
 
@@ -83,6 +85,11 @@ export default async function InfosPage({
       {hochgeladen ? (
         <Alert variant="success" className="mb-4">
           Dokument hochgeladen.
+        </Alert>
+      ) : null}
+      {geloescht ? (
+        <Alert variant="success" className="mb-4">
+          Dokument gelöscht.
         </Alert>
       ) : null}
 
@@ -341,6 +348,14 @@ async function DokumenteTab({
                       >
                         Herunterladen
                       </a>
+                      {isVerwalter ? (
+                        <form action={deleteDocument} className="inline">
+                          <input type="hidden" name="id" value={doc.id} />
+                          <button type="submit" className="text-sm text-red-600 hover:text-red-700">
+                            Löschen
+                          </button>
+                        </form>
+                      ) : null}
                     </span>
                   </div>
                   <div className="mt-2">

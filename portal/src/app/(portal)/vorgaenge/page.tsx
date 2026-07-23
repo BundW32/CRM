@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { TicketStatus } from "@/generated/prisma/client";
-import { EmptyState, PageTitle, StatusBadge, buttonClass, inputClass } from "@/components/ui";
+import { Alert, EmptyState, PageTitle, StatusBadge, buttonClass, inputClass } from "@/components/ui";
 import { propertyWhereForVerwalter, ticketWhereForUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
@@ -25,10 +25,10 @@ const statusFilters: TicketStatus[] = [
 export default async function TicketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; propertyId?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; propertyId?: string; page?: string; geloescht?: string }>;
 }) {
   const user = await requireUser();
-  const { status, propertyId, page } = await searchParams;
+  const { status, propertyId, page, geloescht } = await searchParams;
   const statusFilter = statusFilters.find((s) => s === status);
 
   const where = await ticketWhereForUser(user);
@@ -92,6 +92,12 @@ export default async function TicketsPage({
       >
         Vorgänge
       </PageTitle>
+
+      {geloescht ? (
+        <Alert variant="success" className="mb-4">
+          Vorgang wurde endgültig gelöscht.
+        </Alert>
+      ) : null}
 
       <div className="mb-3 flex flex-wrap gap-2 text-sm">
         <Link

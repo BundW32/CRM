@@ -6,7 +6,7 @@ import { z } from "zod";
 import { canVerwalterAccessProperty, canViewProperty, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { notifyDocumentPublished } from "@/lib/notify";
-import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
+import { DOCUMENT_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 import { requireUser, requireVerwalter } from "@/lib/session";
 
 const uploadSchema = z.object({
@@ -83,6 +83,28 @@ export async function uploadOwnerDocument(formData: FormData) {
   await notifyDocumentPublished(doc.id);
   revalidatePath("/infos");
   redirect("/infos?t=dokumente&hochgeladen=1");
+}
+
+// Dokument endgültig löschen (Verwalter im Objekt-Scope). Empfänger und
+// Lesebestätigungen werden per Kaskade mit entfernt; die Datei im Storage wird
+// nach dem DB-Löschen aufgeräumt.
+export async function deleteDocument(formData: FormData) {
+  const user = await requireVerwalter();
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) redirect("/infos?t=dokumente");
+  const doc = await db.document.findUnique({
+    where: { id },
+    select: { organizationId: true, propertyId: true, storedName: true },
+  });
+  if (!doc || doc.organizationId !== user.organizationId) redirect("/infos?t=dokumente");
+  // Objektlose Dokumente (propertyId null) darf nur der SuperAdmin löschen –
+  // canVerwalterAccessProperty(user, null) bildet das ab.
+  if (!(await canVerwalterAccessProperty(user, doc.propertyId))) redirect("/infos?t=dokumente");
+
+  await db.document.delete({ where: { id } });
+  await deleteBlob(doc.storedName);
+  revalidatePath("/infos");
+  redirect("/infos?t=dokumente&geloescht=1");
 }
 
 // Mieter/Eigentümer bestätigen, ein Dokument zur Kenntnis genommen zu haben

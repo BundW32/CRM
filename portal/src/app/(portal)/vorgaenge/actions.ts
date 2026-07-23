@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { Trade, User } from "@/generated/prisma/client";
 import {
   canViewTicket,
+  canVerwalterAccessProperty,
   canVerwalterUseCraftsman,
   canVerwalterUseTicketTarget,
   ticketTargetsForUser,
@@ -24,7 +25,7 @@ import {
 } from "@/lib/notify";
 import { computeDueAt } from "@/lib/sla";
 import { parseEuroToCents } from "@/lib/money";
-import { MEDIA_TYPES, DOCUMENT_TYPES, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
+import { MEDIA_TYPES, DOCUMENT_TYPES, deleteBlob, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { requireUser, requireVerwalter } from "@/lib/session";
 import { AUDIT, logAudit } from "@/lib/audit";
@@ -1070,4 +1071,34 @@ export async function setOwnTicketStatus(formData: FormData) {
 
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}`);
+}
+
+// Vorgang endgültig löschen (nur SuperAdmin). Für Test-/Fehleinträge. Der
+// Regelweg ist „Schließen" (Status GESCHLOSSEN) – ein geschlossener Vorgang bleibt
+// als Beleg erhalten. Löschen entfernt Kommentare, Anhänge und Rechnung per
+// Kaskade; die zugehörigen Dateien im Storage werden aufgeräumt.
+export async function deleteTicket(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  if (!verwalter.isSuperAdmin) redirect("/vorgaenge");
+  const ticketId = String(formData.get("ticketId") ?? "").trim();
+  if (!ticketId) redirect("/vorgaenge");
+  const ticket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    select: {
+      organizationId: true,
+      propertyId: true,
+      attachments: { select: { storedName: true } },
+      invoice: { select: { storedName: true } },
+    },
+  });
+  if (!ticket || ticket.organizationId !== verwalter.organizationId) redirect("/vorgaenge");
+  if (!(await canVerwalterAccessProperty(verwalter, ticket.propertyId))) redirect("/vorgaenge");
+
+  await db.ticket.delete({ where: { id: ticketId } });
+  // Dateien nach erfolgreichem DB-Löschen entfernen (Anhänge + Handwerker-Rechnung).
+  for (const a of ticket.attachments) await deleteBlob(a.storedName);
+  if (ticket.invoice?.storedName) await deleteBlob(ticket.invoice.storedName);
+
+  revalidatePath("/vorgaenge");
+  redirect("/vorgaenge?geloescht=1");
 }

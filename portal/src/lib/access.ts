@@ -194,10 +194,13 @@ export async function propertyWhereForVerwalter(user: User): Promise<Prisma.Prop
  */
 export async function userWhereForVerwalter(actor: User): Promise<Prisma.UserWhereInput> {
   const ids = await propertyIdsForVerwalter(actor);
+  // DSGVO-anonymisierte (gelöschte) Nutzer werden aus allen aktiven Listen
+  // ausgeblendet – sie erscheinen nicht mehr als „Gelöschter Nutzer".
   // SuperAdmin: alle Nutzer der EIGENEN Org (nicht mehr global).
-  if (ids === null) return { organizationId: actor.organizationId };
+  if (ids === null) return { organizationId: actor.organizationId, anonymizedAt: null };
   return {
     organizationId: actor.organizationId,
+    anonymizedAt: null,
     OR: [
       { role: "MIETER", tenancies: { some: { active: true, unit: { propertyId: { in: ids } } } } },
       { role: "EIGENTUEMER", ownerships: { some: { propertyId: { in: ids } } } },

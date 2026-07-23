@@ -38,6 +38,7 @@ import {
   confirmAppointment,
   confirmCompletion,
   declineAppointment,
+  deleteTicket,
   releaseExternalCraftsman,
   generateCertificate,
   notifyCraftsman,
@@ -512,6 +513,25 @@ export default async function TicketDetailPage({
                 </Field>
                 <button type="submit" className={buttonClass}>
                   Speichern
+                </button>
+              </form>
+            </Card>
+          ) : null}
+
+          {isVerwalter && user.isSuperAdmin ? (
+            <Card title="Vorgang löschen">
+              <p className="mb-2 text-xs text-gray-500">
+                Endgültiges Löschen (mit Kommentaren, Anhängen und Rechnung) – nur für Test-/
+                Fehleinträge. Der Regelweg ist „Schließen": ein geschlossener Vorgang bleibt als
+                Beleg erhalten.
+              </p>
+              <form action={deleteTicket}>
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <button
+                  type="submit"
+                  className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
+                >
+                  Vorgang endgültig löschen
                 </button>
               </form>
             </Card>

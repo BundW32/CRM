@@ -10,7 +10,7 @@ import { canVerwalterManageUser, propertyIdsForVerwalter } from "@/lib/access";
 import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
-import { portalUrl, sendMail } from "@/lib/mailer";
+import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, deleteBlob, saveBuffer } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
@@ -205,7 +205,8 @@ export async function createUser(formData: FormData) {
     });
     await assignRole(user.id, parsed.data.role, parsed.data.unitId, parsed.data.propertyId);
 
-    const link = portalUrl(`/login/reset/${inviteToken}?einladung=1`);
+    const link = await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`);
+    const loginLink = await portalUrlFromRequest("/login");
     const greeting =
       parsed.data.salutation === "Herr"
         ? `Sehr geehrter Herr ${parsed.data.lastName},`
@@ -220,7 +221,7 @@ export async function createUser(formData: FormData) {
         `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.\n\n` +
         `Klicken Sie auf folgenden Link, um Ihren Zugang einzurichten (gültig 7 Tage):\n` +
         `${link}\n\n` +
-        `Nach der Einrichtung können Sie sich jederzeit unter ${portalUrl("/login")} anmelden.\n\n` +
+        `Nach der Einrichtung können Sie sich jederzeit unter ${loginLink} anmelden.\n\n` +
         `Mit freundlichen Grüßen\n${branding.legalName}`,
       undefined,
       branding
@@ -396,7 +397,7 @@ export async function resendInvite(formData: FormData) {
     data: { passwordResetToken: inviteToken, passwordResetExpiry: inviteExpiry },
   });
 
-  const link = portalUrl(`/login/reset/${inviteToken}?einladung=1`);
+  const link = await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`);
   const branding = await getBrandingForOrg(user.organizationId);
   await sendMail(
     user.email,

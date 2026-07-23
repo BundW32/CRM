@@ -2,7 +2,7 @@
 // alle Aufrufer dürfen den Versand daher nie als gegeben voraussetzen.
 import nodemailer from "nodemailer";
 import { DEFAULT_BRANDING, emailLogoUrl, type OrgBranding } from "./branding";
-export { portalUrl } from "./url";
+export { portalUrl, portalUrlFromRequest } from "./url";
 
 // Ist der E-Mail-Versand konfiguriert? (Ohne SMTP_HOST ein kontrollierter No-Op –
 // die UI kann so einen Hinweis zeigen, statt einen stillen „Versand" vorzugaukeln.)

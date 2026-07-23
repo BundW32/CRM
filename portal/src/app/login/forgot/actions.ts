@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
-import { portalUrl, sendMail } from "@/lib/mailer";
+import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -34,7 +34,7 @@ export async function requestPasswordReset(formData: FormData) {
       data: { passwordResetToken: token, passwordResetExpiry: expiry },
     });
 
-    const link = portalUrl(`/login/reset/${token}`);
+    const link = await portalUrlFromRequest(`/login/reset/${token}`);
     const branding = await getBrandingForOrg(user.organizationId);
     await sendMail(
       user.email,

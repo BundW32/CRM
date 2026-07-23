@@ -7,7 +7,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { brandingFromOrg } from "@/lib/branding";
-import { portalUrl, sendMail } from "@/lib/mailer";
+import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { createSession } from "@/lib/session";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { isReservedSlug } from "@/lib/slug";
@@ -148,7 +148,7 @@ export async function registerOrganization(formData: FormData) {
 
   // Willkommens- + Bestätigungs-E-Mail (Branding aus der frischen Org).
   const branding = brandingFromOrg(org);
-  const verifyLink = portalUrl(`/registrieren/bestaetigen/${verifyToken}`);
+  const verifyLink = await portalUrlFromRequest(`/registrieren/bestaetigen/${verifyToken}`);
   const selfManaged = accountType === "selbstverwalter";
   const introLine = selfManaged
     ? `willkommen! Für Ihre WEG „${parsed.data.company}" wurde ein Selbstverwaltungs-Zugang angelegt.\n\n`

@@ -15,7 +15,12 @@ export async function portalUrlFromRequest(path: string) {
   try {
     const h = await headers();
     const host = h.get("x-forwarded-host") ?? h.get("host");
-    if (host) {
+    // Interne Vercel-Deployment-/Preview-Hosts (*.vercel.app) NIEMALS in Kunden-
+    // Links übernehmen – auch dann nicht, wenn der Verwalter das Portal gerade
+    // über eine solche URL testet. Für sie (und Kontexte ohne Request) greift die
+    // konfigurierte PORTAL_BASE_URL. Echte (Kunden-)Domains haben Vorrang, damit
+    // der Link auf die tatsächlich genutzte Domain zeigt (auch die spätere WEG-Domain).
+    if (host && !host.endsWith(".vercel.app")) {
       const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
       return `${proto}://${host}${path}`;
     }

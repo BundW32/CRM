@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import type { User } from "@/generated/prisma/client";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
@@ -94,4 +95,118 @@ export async function updateObjekt(formData: FormData) {
 
   revalidatePath("/verwaltung/objekte");
   redirect("/verwaltung/objekte?gespeichert=1");
+}
+
+// ── Einheiten-Verwaltung (aus dem Objekt heraus) ────────────────────────────
+// Scope-Auflösung: die Einheit muss zu einem Objekt gehören, das der Verwalter
+// bearbeiten darf. Gibt propertyId zurück (oder leitet weg).
+async function requireUnitScope(actor: User, unitId: string): Promise<string> {
+  const unit = await db.unit.findUnique({
+    where: { id: unitId },
+    select: { propertyId: true, property: { select: { organizationId: true } } },
+  });
+  if (!unit || unit.property.organizationId !== actor.organizationId) {
+    redirect("/verwaltung/objekte");
+  }
+  if (!(await canVerwalterAccessProperty(actor, unit.propertyId))) {
+    redirect("/verwaltung/objekte");
+  }
+  return unit.propertyId;
+}
+
+export async function addUnit(formData: FormData) {
+  const actor = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "").trim();
+  if (!propertyId || !(await canVerwalterAccessProperty(actor, propertyId))) {
+    redirect("/verwaltung/objekte");
+  }
+  const label = String(formData.get("label") ?? "").trim();
+  if (!label) redirect(`/verwaltung/objekte/${propertyId}/bearbeiten?fehler=einheit`);
+
+  const max = await db.unit.aggregate({ where: { propertyId }, _max: { orderIndex: true } });
+  await db.unit.create({
+    data: {
+      propertyId,
+      label: label.slice(0, 200),
+      externalLabel: optStr(formData.get("externalLabel")),
+      floor: optStr(formData.get("floor"), 50),
+      livingArea: optFloat(formData.get("livingArea")),
+      mea: optInt(formData.get("mea")),
+      personCount: optInt(formData.get("personCount")),
+      orderIndex: (max._max.orderIndex ?? 0) + 1,
+    },
+  });
+  revalidatePath(`/verwaltung/objekte/${propertyId}/bearbeiten`);
+  redirect(`/verwaltung/objekte/${propertyId}/bearbeiten?einheit=gespeichert`);
+}
+
+export async function updateUnit(formData: FormData) {
+  const actor = await requireVerwalter();
+  const unitId = String(formData.get("unitId") ?? "").trim();
+  if (!unitId) redirect("/verwaltung/objekte");
+  const propertyId = await requireUnitScope(actor, unitId);
+
+  const label = String(formData.get("label") ?? "").trim();
+  if (!label) redirect(`/verwaltung/objekte/${propertyId}/bearbeiten?fehler=einheit`);
+
+  await db.unit.update({
+    where: { id: unitId },
+    data: {
+      label: label.slice(0, 200),
+      externalLabel: optStr(formData.get("externalLabel")),
+      floor: optStr(formData.get("floor"), 50),
+      livingArea: optFloat(formData.get("livingArea")),
+      mea: optInt(formData.get("mea")),
+      personCount: optInt(formData.get("personCount")),
+    },
+  });
+  revalidatePath(`/verwaltung/objekte/${propertyId}/bearbeiten`);
+  redirect(`/verwaltung/objekte/${propertyId}/bearbeiten?einheit=gespeichert`);
+}
+
+// Einheit löschen – NUR wenn sie leer ist (keine Mieter, Eigentümer, Buchungen,
+// Sollstellungen, Mahnungen, Abrechnungsposten, SEPA-Mandate, Übergaben,
+// Vorgänge, Dokumente oder Zähler). Sonst Hinweis statt Kaskadenlöschung.
+export async function removeUnit(formData: FormData) {
+  const actor = await requireVerwalter();
+  const unitId = String(formData.get("unitId") ?? "").trim();
+  if (!unitId) redirect("/verwaltung/objekte");
+  const unit = await db.unit.findUnique({
+    where: { id: unitId },
+    select: {
+      propertyId: true,
+      property: { select: { organizationId: true } },
+      _count: {
+        select: {
+          tenancies: true,
+          unitOwnerships: true,
+          hausgeldPayments: true,
+          duePostings: true,
+          hausgeldMahnungen: true,
+          statementUnitAmounts: true,
+          sepaMandates: true,
+          handovers: true,
+          tickets: true,
+          documents: true,
+          meters: true,
+        },
+      },
+    },
+  });
+  if (!unit || unit.property.organizationId !== actor.organizationId) {
+    redirect("/verwaltung/objekte");
+  }
+  if (!(await canVerwalterAccessProperty(actor, unit.propertyId))) {
+    redirect("/verwaltung/objekte");
+  }
+  const c = unit._count;
+  const dependents =
+    c.tenancies + c.unitOwnerships + c.hausgeldPayments + c.duePostings + c.hausgeldMahnungen +
+    c.statementUnitAmounts + c.sepaMandates + c.handovers + c.tickets + c.documents + c.meters;
+  if (dependents > 0) {
+    redirect(`/verwaltung/objekte/${unit.propertyId}/bearbeiten?fehler=einheit_belegt`);
+  }
+  await db.unit.delete({ where: { id: unitId } });
+  revalidatePath(`/verwaltung/objekte/${unit.propertyId}/bearbeiten`);
+  redirect(`/verwaltung/objekte/${unit.propertyId}/bearbeiten?einheit=geloescht`);
 }

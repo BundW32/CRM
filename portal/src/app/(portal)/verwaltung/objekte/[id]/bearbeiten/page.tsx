@@ -6,26 +6,58 @@ import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
-import { updateObjekt } from "./actions";
+import { addUnit, removeUnit, updateObjekt, updateUnit } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+const unitFehlerText: Record<string, string> = {
+  objekt: "Bitte füllen Sie mindestens die Pflichtfelder (Bezeichnung und Adresse) aus.",
+  einheit: "Bitte geben Sie eine (interne) Bezeichnung für die Einheit an.",
+  einheit_belegt:
+    "Die Einheit ist nicht leer (z. B. Mieter, Buchungen, Übergaben oder Vorgänge) und kann daher nicht gelöscht werden.",
+};
 
 export default async function ObjektBearbeitenPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; einheit?: string }>;
 }) {
   const verwalter = await requireVerwalter();
   const { id } = await params;
-  const { fehler } = await searchParams;
+  const { fehler, einheit } = await searchParams;
 
   if (!(await canVerwalterAccessProperty(verwalter, id))) redirect("/verwaltung/objekte");
   const p = await db.property.findFirst({
     where: { id, organizationId: verwalter.organizationId },
   });
   if (!p) redirect("/verwaltung/objekte");
+  const isWeg = p.managementType === "WEG";
+
+  const units = await db.unit.findMany({
+    where: { propertyId: id },
+    orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
+    include: {
+      tenancies: { where: { active: true }, include: { user: { select: { name: true } } } },
+      unitOwnerships: { include: { user: { select: { name: true } } } },
+      _count: {
+        select: {
+          tenancies: true,
+          unitOwnerships: true,
+          hausgeldPayments: true,
+          duePostings: true,
+          hausgeldMahnungen: true,
+          statementUnitAmounts: true,
+          sepaMandates: true,
+          handovers: true,
+          tickets: true,
+          documents: true,
+          meters: true,
+        },
+      },
+    },
+  });
 
   return (
     <>
@@ -39,13 +71,23 @@ export default async function ObjektBearbeitenPage({
         Objekt bearbeiten
       </PageTitle>
       <p className="mb-6 max-w-3xl text-sm text-gray-300">
-        Stammdaten des Objekts anpassen. Einheiten, Eigentümer und Mieter werden an
-        ihren eigenen Stellen gepflegt; die Verwaltungsart bleibt unverändert.
+        Stammdaten und Einheiten des Objekts anpassen. Die Verwaltungsart bleibt nach der
+        Anlage unverändert.
       </p>
 
       {fehler ? (
         <Alert variant="error" className="mb-4">
-          Bitte füllen Sie mindestens die Pflichtfelder (Bezeichnung und Adresse) aus.
+          {unitFehlerText[fehler] ?? "Die Aktion konnte nicht ausgeführt werden."}
+        </Alert>
+      ) : null}
+      {einheit === "gespeichert" ? (
+        <Alert variant="success" className="mb-4">
+          Einheit gespeichert.
+        </Alert>
+      ) : null}
+      {einheit === "geloescht" ? (
+        <Alert variant="success" className="mb-4">
+          Einheit gelöscht.
         </Alert>
       ) : null}
 
@@ -158,12 +200,131 @@ export default async function ObjektBearbeitenPage({
         </Card>
 
         <div className="flex items-center gap-3">
-          <SubmitButton pendingLabel="Wird gespeichert…">Änderungen speichern</SubmitButton>
+          <SubmitButton pendingLabel="Wird gespeichert…">Stammdaten speichern</SubmitButton>
           <Link href="/verwaltung/objekte" className={buttonSecondaryClass}>
             Abbrechen
           </Link>
         </div>
       </form>
+
+      {/* ── Einheiten ─────────────────────────────────────────────────── */}
+      <div className="mt-8">
+        <h2 className="mb-1 text-lg font-bold tracking-tight text-white">Einheiten</h2>
+        <p className="mb-4 max-w-3xl text-sm text-gray-300">
+          Interne Bezeichnung sieht nur die Verwaltung; die externe Bezeichnung/Lage erscheint
+          in Dokumenten und für Mieter/Eigentümer. Eigentümer- und Mieter-Zuordnung erfolgt unter
+          „Nutzer".
+        </p>
+
+        <div className="space-y-4">
+          {units.length === 0 ? (
+            <Card title="">
+              <p className="text-sm text-gray-500">Noch keine Einheiten angelegt.</p>
+            </Card>
+          ) : (
+            units.map((u) => {
+              const dependents =
+                u._count.tenancies + u._count.unitOwnerships + u._count.hausgeldPayments +
+                u._count.duePostings + u._count.hausgeldMahnungen + u._count.statementUnitAmounts +
+                u._count.sepaMandates + u._count.handovers + u._count.tickets +
+                u._count.documents + u._count.meters;
+              const deletable = dependents === 0;
+              const tenants = u.tenancies.map((t) => t.user.name);
+              const owners = u.unitOwnerships.map((o) => o.user.name);
+              return (
+                <div key={u.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <form action={updateUnit} className="space-y-3">
+                    <input type="hidden" name="unitId" value={u.id} />
+                    <div className={`grid gap-3 sm:grid-cols-2 ${isWeg ? "lg:grid-cols-3" : ""}`}>
+                      <Field label="Bezeichnung (intern) *">
+                        <input type="text" name="label" required defaultValue={u.label} className={inputClass} placeholder="z. B. WE 01" />
+                      </Field>
+                      <Field label="Externe Bezeichnung / Lage">
+                        <input type="text" name="externalLabel" defaultValue={u.externalLabel ?? ""} className={inputClass} placeholder="z. B. 1. OG links" />
+                      </Field>
+                      <Field label="Etage">
+                        <input type="text" name="floor" defaultValue={u.floor ?? ""} className={inputClass} placeholder="z. B. EG" />
+                      </Field>
+                      <Field label="Fläche (m²)">
+                        <input type="text" inputMode="decimal" name="livingArea" defaultValue={u.livingArea ?? ""} className={inputClass} placeholder="z. B. 72,5" />
+                      </Field>
+                      {isWeg ? (
+                        <Field label="MEA">
+                          <input type="number" min={0} name="mea" defaultValue={u.mea ?? ""} className={inputClass} placeholder="z. B. 250" />
+                        </Field>
+                      ) : null}
+                      <Field label="Personen">
+                        <input type="number" min={0} name="personCount" defaultValue={u.personCount ?? ""} className={inputClass} placeholder="z. B. 2" />
+                      </Field>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                      <span>
+                        <span className="font-medium">Mieter:</span> {tenants.length ? tenants.join(", ") : "–"}
+                      </span>
+                      <span className="text-gray-300">·</span>
+                      <span>
+                        <span className="font-medium">Eigentümer:</span> {owners.length ? owners.join(", ") : "–"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <SubmitButton pendingLabel="Wird gespeichert…">Einheit speichern</SubmitButton>
+                    </div>
+                  </form>
+                  <div className="mt-3 border-t border-gray-100 pt-3">
+                    {deletable ? (
+                      <form action={removeUnit}>
+                        <input type="hidden" name="unitId" value={u.id} />
+                        <button
+                          type="submit"
+                          className="text-sm font-medium text-red-600 hover:text-red-700 hover:underline"
+                        >
+                          Einheit löschen
+                        </button>
+                      </form>
+                    ) : (
+                      <p className="text-xs text-gray-400">
+                        Nicht löschbar – der Einheit sind noch Daten (Mieter, Buchungen, Übergaben,
+                        Vorgänge o. Ä.) zugeordnet.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="mt-4">
+        <Card title="Einheit hinzufügen">
+          <form action={addUnit} className="space-y-3">
+            <input type="hidden" name="propertyId" value={p.id} />
+            <div className={`grid gap-3 sm:grid-cols-2 ${isWeg ? "lg:grid-cols-3" : ""}`}>
+              <Field label="Bezeichnung (intern) *">
+                <input type="text" name="label" required className={inputClass} placeholder="z. B. WE 02" />
+              </Field>
+              <Field label="Externe Bezeichnung / Lage">
+                <input type="text" name="externalLabel" className={inputClass} placeholder="z. B. 2. OG rechts" />
+              </Field>
+              <Field label="Etage">
+                <input type="text" name="floor" className={inputClass} placeholder="z. B. 2. OG" />
+              </Field>
+              <Field label="Fläche (m²)">
+                <input type="text" inputMode="decimal" name="livingArea" className={inputClass} placeholder="z. B. 65" />
+              </Field>
+              {isWeg ? (
+                <Field label="MEA">
+                  <input type="number" min={0} name="mea" className={inputClass} placeholder="z. B. 200" />
+                </Field>
+              ) : null}
+              <Field label="Personen">
+                <input type="number" min={0} name="personCount" className={inputClass} placeholder="z. B. 2" />
+              </Field>
+            </div>
+            <SubmitButton pendingLabel="Wird angelegt…">+ Einheit hinzufügen</SubmitButton>
+          </form>
+        </Card>
+        </div>
+      </div>
     </>
   );
 }

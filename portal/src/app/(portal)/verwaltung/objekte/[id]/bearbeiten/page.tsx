@@ -7,10 +7,16 @@ import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import {
+  addPropertyOwner,
   addUnit,
+  addUnitOwner,
+  addUnitTenant,
   archiveProperty,
   deleteProperty,
+  removePropertyOwner,
   removeUnit,
+  removeUnitOwner,
+  removeUnitTenant,
   unarchiveProperty,
   updateObjekt,
   updateUnit,
@@ -25,18 +31,75 @@ const unitFehlerText: Record<string, string> = {
     "Die Einheit ist nicht leer (z. B. Mieter, Buchungen, Übergaben oder Vorgänge) und kann daher nicht gelöscht werden.",
   objekt_belegt:
     "Das Objekt ist nicht leer und kann nicht gelöscht werden. Sie können es stattdessen archivieren.",
+  person: "Bitte geben Sie mindestens Vor- und Nachnamen an.",
+  person_org:
+    "Diese E-Mail-Adresse gehört bereits zu einer anderen Organisation und kann nicht zugeordnet werden.",
 };
+
+// Kompaktes Formular, um eine Person (Mieter/Eigentümer) anzulegen und zuzuordnen.
+// Mit E-Mail → Einladungslink, ohne E-Mail → druckbares Zugangsschreiben.
+function AddPersonForm({
+  action,
+  idName,
+  idValue,
+  label,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+  idName: string;
+  idValue: string;
+  label: string;
+}) {
+  return (
+    <form action={action} className="mt-2 flex flex-wrap items-center gap-2">
+      <input type="hidden" name={idName} value={idValue} />
+      <input name="firstName" placeholder="Vorname" className={`${inputClass} max-w-[8rem]`} />
+      <input name="lastName" placeholder="Nachname" className={`${inputClass} max-w-[9rem]`} />
+      <input name="email" type="email" placeholder="E-Mail (optional)" className={`${inputClass} max-w-[13rem]`} />
+      <button
+        type="submit"
+        className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-brand-green hover:bg-gray-50"
+      >
+        {label}
+      </button>
+    </form>
+  );
+}
+
+// Personen-Chip mit Entfernen-Button (eigenes Mini-Formular).
+function PersonChip({
+  action,
+  idName,
+  idValue,
+  name,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+  idName: string;
+  idValue: string;
+  name: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700">
+      {name}
+      <form action={action} className="inline">
+        <input type="hidden" name={idName} value={idValue} />
+        <button type="submit" aria-label={`${name} entfernen`} className="text-gray-400 hover:text-red-600">
+          ✕
+        </button>
+      </form>
+    </span>
+  );
+}
 
 export default async function ObjektBearbeitenPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ fehler?: string; einheit?: string }>;
+  searchParams: Promise<{ fehler?: string; einheit?: string; person?: string }>;
 }) {
   const verwalter = await requireVerwalter();
   const { id } = await params;
-  const { fehler, einheit } = await searchParams;
+  const { fehler, einheit, person } = await searchParams;
 
   if (!(await canVerwalterAccessProperty(verwalter, id))) redirect("/verwaltung/objekte");
   const p = await db.property.findFirst({
@@ -68,6 +131,14 @@ export default async function ObjektBearbeitenPage({
       },
     },
   });
+
+  // Mietverwaltung: Eigentümer hängen am Objekt (nicht je Einheit).
+  const propertyOwners = !isWeg
+    ? await db.ownership.findMany({
+        where: { propertyId: id },
+        include: { user: { select: { name: true } } },
+      })
+    : [];
 
   return (
     <>
@@ -105,6 +176,16 @@ export default async function ObjektBearbeitenPage({
       {einheit === "geloescht" ? (
         <Alert variant="success" className="mb-4">
           Einheit gelöscht.
+        </Alert>
+      ) : null}
+      {person === "gespeichert" ? (
+        <Alert variant="success" className="mb-4">
+          Person angelegt und zugeordnet.
+        </Alert>
+      ) : null}
+      {person === "entfernt" ? (
+        <Alert variant="success" className="mb-4">
+          Zuordnung entfernt.
         </Alert>
       ) : null}
 
@@ -246,8 +327,6 @@ export default async function ObjektBearbeitenPage({
                 u._count.sepaMandates + u._count.handovers + u._count.tickets +
                 u._count.documents + u._count.meters;
               const deletable = dependents === 0;
-              const tenants = u.tenancies.map((t) => t.user.name);
-              const owners = u.unitOwnerships.map((o) => o.user.name);
               return (
                 <div key={u.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                   <form action={updateUnit} className="space-y-3">
@@ -274,19 +353,41 @@ export default async function ObjektBearbeitenPage({
                         <input type="number" min={0} name="personCount" defaultValue={u.personCount ?? ""} className={inputClass} placeholder="z. B. 2" />
                       </Field>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                      <span>
-                        <span className="font-medium">Mieter:</span> {tenants.length ? tenants.join(", ") : "–"}
-                      </span>
-                      <span className="text-gray-300">·</span>
-                      <span>
-                        <span className="font-medium">Eigentümer:</span> {owners.length ? owners.join(", ") : "–"}
-                      </span>
-                    </div>
                     <div className="flex items-center gap-3">
                       <SubmitButton pendingLabel="Wird gespeichert…">Einheit speichern</SubmitButton>
                     </div>
                   </form>
+
+                  <div className="mt-3 border-t border-gray-100 pt-3">
+                    <p className="text-xs font-medium text-gray-500">Mieter</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {u.tenancies.length === 0 ? (
+                        <span className="text-xs text-gray-400">Keine</span>
+                      ) : (
+                        u.tenancies.map((t) => (
+                          <PersonChip key={t.id} action={removeUnitTenant} idName="tenancyId" idValue={t.id} name={t.user.name} />
+                        ))
+                      )}
+                    </div>
+                    <AddPersonForm action={addUnitTenant} idName="unitId" idValue={u.id} label="+ Mieter" />
+                  </div>
+
+                  {isWeg ? (
+                    <div className="mt-3 border-t border-gray-100 pt-3">
+                      <p className="text-xs font-medium text-gray-500">Eigentümer</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {u.unitOwnerships.length === 0 ? (
+                          <span className="text-xs text-gray-400">Keine</span>
+                        ) : (
+                          u.unitOwnerships.map((o) => (
+                            <PersonChip key={o.id} action={removeUnitOwner} idName="unitOwnershipId" idValue={o.id} name={o.user.name} />
+                          ))
+                        )}
+                      </div>
+                      <AddPersonForm action={addUnitOwner} idName="unitId" idValue={u.id} label="+ Eigentümer" />
+                    </div>
+                  ) : null}
+
                   <div className="mt-3 border-t border-gray-100 pt-3">
                     {deletable ? (
                       <form action={removeUnit}>
@@ -342,6 +443,35 @@ export default async function ObjektBearbeitenPage({
         </Card>
         </div>
       </div>
+
+      {!isWeg ? (
+        <div className="mt-8">
+          <h2 className="mb-1 text-lg font-bold tracking-tight text-white">Eigentümer</h2>
+          <p className="mb-4 max-w-3xl text-sm text-gray-300">
+            In der Mietverwaltung gehört das Objekt einem oder mehreren Eigentümern (z. B. auch
+            Ehepartnern mit je eigenem Zugang). Mit E-Mail wird ein Einladungslink versendet, ohne
+            E-Mail ein Zugangsschreiben erzeugt.
+          </p>
+          <Card title="Eigentümer des Objekts">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {propertyOwners.length === 0 ? (
+                <span className="text-xs text-gray-400">Noch kein Eigentümer.</span>
+              ) : (
+                propertyOwners.map((o) => (
+                  <PersonChip
+                    key={o.id}
+                    action={removePropertyOwner}
+                    idName="ownershipId"
+                    idValue={o.id}
+                    name={o.user.name}
+                  />
+                ))
+              )}
+            </div>
+            <AddPersonForm action={addPropertyOwner} idName="propertyId" idValue={p.id} label="+ Eigentümer" />
+          </Card>
+        </div>
+      ) : null}
 
       {/* ── Gefahrenzone (nur SuperAdmin) ─────────────────────────────── */}
       {verwalter.isSuperAdmin ? (

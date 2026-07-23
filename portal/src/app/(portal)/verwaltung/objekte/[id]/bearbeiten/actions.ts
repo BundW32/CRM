@@ -7,6 +7,8 @@ import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
+import { inviteOrLetter } from "@/lib/user-invite";
+import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 
 function optInt(raw: FormDataEntryValue | null): number | null {
   const v = String(raw ?? "").trim();
@@ -292,4 +294,146 @@ export async function deleteProperty(formData: FormData) {
   }
   revalidatePath("/verwaltung/objekte");
   redirect("/verwaltung/objekte?geloescht=1");
+}
+
+// ── Eigentümer/Mieter je Einheit (aus dem Objekt heraus) ────────────────────
+function personFields(formData: FormData) {
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  const name = `${firstName} ${lastName}`.trim();
+  const emailRaw = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = emailRaw && emailRaw.includes("@") ? emailRaw : null;
+  const phone = optStr(formData.get("phone"), 50);
+  return { firstName, lastName, name, email, phone };
+}
+
+function backTo(propertyId: string, param: string) {
+  return `/verwaltung/objekte/${propertyId}/bearbeiten?${param}`;
+}
+
+export async function addUnitTenant(formData: FormData) {
+  const actor = await requireVerwalter();
+  const unitId = String(formData.get("unitId") ?? "").trim();
+  if (!unitId) redirect("/verwaltung/objekte");
+  const propertyId = await requireUnitScope(actor, unitId);
+  const { firstName, lastName, name, email, phone } = personFields(formData);
+  if (name.length < 2) redirect(backTo(propertyId, "fehler=person"));
+  const result = await inviteOrLetter({
+    name, firstName: firstName || null, lastName: lastName || null, email, phone,
+    role: "MIETER", organizationId: actor.organizationId,
+  });
+  if (!result) redirect(backTo(propertyId, "fehler=person_org"));
+  await db.tenancy.upsert({
+    where: { userId_unitId: { userId: result.id, unitId } },
+    create: { userId: result.id, unitId },
+    update: { active: true },
+  });
+  revalidatePath(backTo(propertyId, "").split("?")[0]);
+  if (result.pw) redirect(`/zugangsschreiben/${result.id}?pw=${encodeURIComponent(result.pw)}`);
+  redirect(backTo(propertyId, "person=gespeichert"));
+}
+
+export async function removeUnitTenant(formData: FormData) {
+  const actor = await requireVerwalter();
+  const tenancyId = String(formData.get("tenancyId") ?? "").trim();
+  if (!tenancyId) redirect("/verwaltung/objekte");
+  const tenancy = await db.tenancy.findUnique({
+    where: { id: tenancyId },
+    select: { unit: { select: { propertyId: true, property: { select: { organizationId: true } } } } },
+  });
+  if (!tenancy || tenancy.unit.property.organizationId !== actor.organizationId) {
+    redirect("/verwaltung/objekte");
+  }
+  const propertyId = tenancy.unit.propertyId;
+  if (!(await canVerwalterAccessProperty(actor, propertyId))) redirect("/verwaltung/objekte");
+  await db.tenancy.delete({ where: { id: tenancyId } });
+  revalidatePath(backTo(propertyId, "").split("?")[0]);
+  redirect(backTo(propertyId, "person=entfernt"));
+}
+
+export async function addUnitOwner(formData: FormData) {
+  const actor = await requireVerwalter();
+  const unitId = String(formData.get("unitId") ?? "").trim();
+  if (!unitId) redirect("/verwaltung/objekte");
+  const propertyId = await requireUnitScope(actor, unitId);
+  const { firstName, lastName, name, email, phone } = personFields(formData);
+  if (name.length < 2) redirect(backTo(propertyId, "fehler=person"));
+  const result = await inviteOrLetter({
+    name, firstName: firstName || null, lastName: lastName || null, email, phone,
+    role: "EIGENTUEMER", organizationId: actor.organizationId,
+  });
+  if (!result) redirect(backTo(propertyId, "fehler=person_org"));
+  await db.unitOwnership
+    .create({ data: { organizationId: actor.organizationId, unitId, userId: result.id, validFrom: new Date() } })
+    .catch(() => {});
+  await db.ownership.upsert({
+    where: { userId_propertyId: { userId: result.id, propertyId } },
+    create: { userId: result.id, propertyId },
+    update: {},
+  });
+  await syncOwnerVotingWeights(propertyId);
+  revalidatePath(backTo(propertyId, "").split("?")[0]);
+  if (result.pw) redirect(`/zugangsschreiben/${result.id}?pw=${encodeURIComponent(result.pw)}`);
+  redirect(backTo(propertyId, "person=gespeichert"));
+}
+
+export async function removeUnitOwner(formData: FormData) {
+  const actor = await requireVerwalter();
+  const unitOwnershipId = String(formData.get("unitOwnershipId") ?? "").trim();
+  if (!unitOwnershipId) redirect("/verwaltung/objekte");
+  const uo = await db.unitOwnership.findUnique({
+    where: { id: unitOwnershipId },
+    select: { userId: true, unit: { select: { propertyId: true, property: { select: { organizationId: true } } } } },
+  });
+  if (!uo || uo.unit.property.organizationId !== actor.organizationId) redirect("/verwaltung/objekte");
+  const propertyId = uo.unit.propertyId;
+  if (!(await canVerwalterAccessProperty(actor, propertyId))) redirect("/verwaltung/objekte");
+  await db.unitOwnership.delete({ where: { id: unitOwnershipId } });
+  // Besitzt der Eigentümer keine weitere Einheit dieses Objekts mehr, auch die
+  // objektweite Eigentümerschaft (Stimmrecht) entfernen.
+  const remaining = await db.unitOwnership.count({ where: { userId: uo.userId, unit: { propertyId } } });
+  if (remaining === 0) {
+    await db.ownership.deleteMany({ where: { userId: uo.userId, propertyId } });
+  }
+  await syncOwnerVotingWeights(propertyId);
+  revalidatePath(backTo(propertyId, "").split("?")[0]);
+  redirect(backTo(propertyId, "person=entfernt"));
+}
+
+export async function addPropertyOwner(formData: FormData) {
+  const actor = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "").trim();
+  if (!propertyId || !(await canVerwalterAccessProperty(actor, propertyId))) {
+    redirect("/verwaltung/objekte");
+  }
+  const { firstName, lastName, name, email, phone } = personFields(formData);
+  if (name.length < 2) redirect(backTo(propertyId, "fehler=person"));
+  const result = await inviteOrLetter({
+    name, firstName: firstName || null, lastName: lastName || null, email, phone,
+    role: "EIGENTUEMER", organizationId: actor.organizationId,
+  });
+  if (!result) redirect(backTo(propertyId, "fehler=person_org"));
+  await db.ownership.upsert({
+    where: { userId_propertyId: { userId: result.id, propertyId } },
+    create: { userId: result.id, propertyId },
+    update: {},
+  });
+  revalidatePath(backTo(propertyId, "").split("?")[0]);
+  if (result.pw) redirect(`/zugangsschreiben/${result.id}?pw=${encodeURIComponent(result.pw)}`);
+  redirect(backTo(propertyId, "person=gespeichert"));
+}
+
+export async function removePropertyOwner(formData: FormData) {
+  const actor = await requireVerwalter();
+  const ownershipId = String(formData.get("ownershipId") ?? "").trim();
+  if (!ownershipId) redirect("/verwaltung/objekte");
+  const own = await db.ownership.findUnique({
+    where: { id: ownershipId },
+    select: { propertyId: true, property: { select: { organizationId: true } } },
+  });
+  if (!own || own.property.organizationId !== actor.organizationId) redirect("/verwaltung/objekte");
+  if (!(await canVerwalterAccessProperty(actor, own.propertyId))) redirect("/verwaltung/objekte");
+  await db.ownership.delete({ where: { id: ownershipId } });
+  revalidatePath(backTo(own.propertyId, "").split("?")[0]);
+  redirect(backTo(own.propertyId, "person=entfernt"));
 }

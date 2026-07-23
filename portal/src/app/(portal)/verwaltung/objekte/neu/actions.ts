@@ -1,21 +1,16 @@
 "use server";
 
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
-import { getBrandingForOrg } from "@/lib/branding-server";
 import { isSelfManaged } from "@/lib/access";
-import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
+import { inviteOrLetter } from "@/lib/user-invite";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 
 const MAX_UNITS = 100;
 const MAX_TENANTS = 100;
-const INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 Tage
 
 function optInt(raw: FormDataEntryValue | null): number | null {
   const v = String(raw ?? "").trim();
@@ -36,76 +31,6 @@ function optStr(raw: FormDataEntryValue | null, max = 200): string | null {
   return v ? v.slice(0, max) : null;
 }
 
-async function inviteOrLetter(opts: {
-  name: string;
-  firstName?: string | null;
-  lastName?: string | null;
-  email: string | null;
-  phone: string | null;
-  role: "EIGENTUEMER" | "MIETER";
-  organizationId: string;
-}): Promise<{ id: string; pw: string } | null> {
-  // Existiert bereits ein Nutzer mit dieser E-Mail, wird dieser mit dem Objekt
-  // verknüpft – aber nur, wenn er zur SELBEN Org gehört (sonst kein Cross-Org-Link).
-  if (opts.email) {
-    const exists = await db.user.findUnique({
-      where: { email: opts.email },
-      select: { id: true, organizationId: true },
-    });
-    if (exists) {
-      return exists.organizationId === opts.organizationId ? { id: exists.id, pw: "" } : null;
-    }
-  }
-
-  if (opts.email) {
-    const inviteToken = crypto.randomBytes(32).toString("hex");
-    const user = await db.user.create({
-      data: {
-        name: opts.name,
-        firstName: opts.firstName ?? undefined,
-        lastName: opts.lastName ?? undefined,
-        email: opts.email,
-        phone: opts.phone ?? undefined,
-        role: opts.role,
-        passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12),
-        passwordResetToken: inviteToken,
-        passwordResetExpiry: new Date(Date.now() + INVITE_TTL_MS),
-        organizationId: opts.organizationId,
-      },
-    });
-    const branding = await getBrandingForOrg(opts.organizationId);
-    await sendMail(
-      opts.email,
-      "Ihr Zugang zum Kundenportal",
-      `Guten Tag ${opts.name},\n\n` +
-        `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.\n\n` +
-        `Zugang einrichten (gültig 7 Tage):\n` +
-        `${await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`)}\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
-      undefined,
-      branding
-    );
-    return { id: user.id, pw: "" };
-  }
-
-  // Ohne E-Mail: Zugangsschreiben mit Benutzername + Erst-Passwort
-  const tempPassword = generatePassword(10);
-  const username = await generateUsername(opts.name);
-  const user = await db.user.create({
-    data: {
-      name: opts.name,
-      firstName: opts.firstName ?? undefined,
-      lastName: opts.lastName ?? undefined,
-      username,
-      phone: opts.phone ?? undefined,
-      role: opts.role,
-      passwordHash: await bcrypt.hash(tempPassword, 12),
-      mustChangePassword: true,
-      organizationId: opts.organizationId,
-    },
-  });
-  return { id: user.id, pw: tempPassword };
-}
 
 export async function createObjekt(formData: FormData) {
   const actor = await requireVerwalter();

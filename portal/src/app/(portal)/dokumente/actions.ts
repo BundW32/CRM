@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { canVerwalterAccessProperty, userWhereForVerwalter } from "@/lib/access";
+import { canVerwalterAccessProperty, canViewProperty, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { notifyDocumentPublished } from "@/lib/notify";
 import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
@@ -16,6 +16,74 @@ const uploadSchema = z.object({
   propertyId: z.string().optional(),
   unitId: z.string().optional(),
 });
+
+const ownerUploadSchema = z.object({
+  title: z.string().trim().min(2).max(200),
+  category: z.enum(["ABRECHNUNG", "PROTOKOLL", "VERTRAG", "BESCHEINIGUNG", "SONSTIGES"]),
+  propertyId: z.string().min(1),
+});
+
+// Eigentümer lädt selbst ein Dokument hoch. Sichtbar für die Verwaltung (die alle
+// Dokumente im Objekt-Scope sieht) und den Eigentümer selbst; optional zusätzlich
+// für die aktuellen Mieter des Objekts. Umsetzung über gezielte Empfänger, damit
+// andere Eigentümer es NICHT sehen.
+export async function uploadOwnerDocument(formData: FormData) {
+  const user = await requireUser();
+  if (user.role !== "EIGENTUEMER") redirect("/infos?t=dokumente");
+
+  const parsed = ownerUploadSchema.safeParse({
+    title: formData.get("title"),
+    category: formData.get("category"),
+    propertyId: formData.get("propertyId"),
+  });
+  const file = formData.get("file");
+  if (!parsed.success || !(file instanceof File) || file.size === 0) {
+    redirect("/infos?t=dokumente&fehler=eingabe");
+  }
+  const propertyId = parsed.data.propertyId;
+  // Nur an eigene Objekte anhängen (Eigentümer-Prüfung, org-gesichert).
+  if (!(await canViewProperty(user, propertyId))) {
+    redirect("/infos?t=dokumente&fehler=eingabe");
+  }
+
+  let upload;
+  try {
+    upload = await saveUpload(file, DOCUMENT_TYPES);
+  } catch {
+    redirect("/infos?t=dokumente&fehler=datei");
+  }
+
+  const doc = await db.document.create({
+    data: {
+      title: parsed.data.title,
+      category: parsed.data.category,
+      audience: "EIGENTUEMER", // durch Empfänger gegated – dient nur als Kennzeichen
+      propertyId,
+      uploadedById: user.id,
+      organizationId: user.organizationId,
+      ...upload,
+    },
+  });
+
+  // Empfänger: der Eigentümer selbst; optional die aktiven Mieter des Objekts.
+  // Die Verwaltung sieht das Dokument ohnehin über den Objekt-Scope.
+  const recipientIds = new Set<string>([user.id]);
+  if (String(formData.get("shareTenants") ?? "") === "1") {
+    const tenancies = await db.tenancy.findMany({
+      where: { active: true, unit: { propertyId } },
+      select: { userId: true },
+    });
+    for (const t of tenancies) recipientIds.add(t.userId);
+  }
+  await db.documentRecipient.createMany({
+    data: [...recipientIds].map((uid) => ({ documentId: doc.id, userId: uid })),
+    skipDuplicates: true,
+  });
+
+  await notifyDocumentPublished(doc.id);
+  revalidatePath("/infos");
+  redirect("/infos?t=dokumente&hochgeladen=1");
+}
 
 // Mieter/Eigentümer bestätigen, ein Dokument zur Kenntnis genommen zu haben
 export async function acknowledgeDocument(formData: FormData) {

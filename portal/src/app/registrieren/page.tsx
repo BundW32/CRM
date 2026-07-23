@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { AccountTypeFields } from "./account-type-fields";
 import { registerOrganization } from "./actions";
+import { isWegSaas, registrationEnabled } from "@/lib/app-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,10 @@ export default async function RegisterPage({
 }: {
   searchParams: Promise<{ fehler?: string; ref?: string }>;
 }) {
+  // Self-Service-Registrierung gibt es nur in der WEG-SaaS-Variante (APP_MODE=weg).
+  // Im B&W-Modus (verwaltung) ist die Seite gesperrt → zurück zum Login.
+  if (!registrationEnabled()) redirect("/login");
+
   const { fehler, ref } = await searchParams;
 
   return (
@@ -27,8 +33,8 @@ export default async function RegisterPage({
           <p className="mb-1 text-sm font-medium text-gray-400">Kostenlos registrieren</p>
           <h1 className="mb-2 text-2xl font-bold text-brand-green">Ihr eigenes Kundenportal</h1>
           <p className="mb-6 text-sm text-gray-600">
-            Für Hausverwaltungen und selbstverwaltende WEGs. Legen Sie kostenlos Ihr Konto an –
-            im Anschluss richten Sie alles Weitere ein.
+            Für selbstverwaltende Eigentümergemeinschaften. Legen Sie kostenlos Ihr
+            WEG-Portal an – im Anschluss richten Sie alles Weitere ein.
           </p>
 
           {fehler ? (
@@ -47,7 +53,7 @@ export default async function RegisterPage({
             </div>
             {/* Herkunft der Registrierung (z. B. von HausMatch verlinkt). */}
             {ref ? <input type="hidden" name="ref" value={ref} /> : null}
-            <AccountTypeFields />
+            <AccountTypeFields wegMode={isWegSaas()} />
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-[6rem_1fr_1fr]">
               <Field label="Anrede">
@@ -130,11 +136,11 @@ export default async function RegisterPage({
         <div className="absolute -top-16 -left-10 h-56 w-56 rounded-full bg-white/5 blur-2xl" />
         <div className="relative flex h-full flex-col justify-center px-14 text-white">
           <h2 className="max-w-md text-3xl font-bold leading-tight">
-            Das digitale Kundenportal für Ihre Immobilien
+            Das digitale Portal für Ihre WEG
           </h2>
           <p className="mt-4 max-w-md text-white/70">
-            Verwaltung, WEG-Finanzen, Versammlungen, Dokumente und Beirat – alles an einem Ort,
-            für professionelle Hausverwaltungen und selbstverwaltende Gemeinschaften.
+            WEG-Finanzen, Wirtschaftsplan, Versammlungen, Dokumente und Beirat – alles an
+            einem Ort, für selbstverwaltende Eigentümergemeinschaften.
           </p>
           <ul className="mt-8 space-y-3 text-sm text-white/85">
             {[

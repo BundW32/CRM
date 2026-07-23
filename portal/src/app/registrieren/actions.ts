@@ -12,6 +12,7 @@ import { createSession } from "@/lib/session";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { isReservedSlug } from "@/lib/slug";
 import { trialDays } from "@/lib/platform";
+import { registrationEnabled } from "@/lib/app-mode";
 
 // Version der bei der Registrierung akzeptierten Rechtsdokumente (AGB/AVV).
 // Bei inhaltlichen Änderungen hochzählen → erneute Zustimmung einholbar.
@@ -56,6 +57,12 @@ async function uniqueSlug(base: string): Promise<string> {
 // erstem SuperAdmin an und meldet ihn direkt an. Danach geht es in den
 // Onboarding-Assistenten (Logo, Farbe, Impressum).
 export async function registerOrganization(formData: FormData) {
+  // Harte Sperre: Registrierung nur in der WEG-SaaS-Variante (APP_MODE=weg).
+  // Schützt die Server-Action unabhängig davon, ob die Seite erreichbar war.
+  if (!registrationEnabled()) {
+    redirect("/login");
+  }
+
   // Honeypot: ein für Menschen unsichtbares Feld. Füllt es ein Bot aus, tun wir
   // so, als sei alles gut (kein Hinweis auf die Erkennung), legen aber nichts an.
   if (String(formData.get("hp_url") ?? "").trim()) {
@@ -104,11 +111,9 @@ export async function registerOrganization(formData: FormData) {
       .toLowerCase()
       .replace(/[^a-z0-9_-]/g, "")
       .slice(0, 40) || null;
-  // Kontotyp: nur die zwei erlaubten Werte, sonst Standard „verwaltung".
-  const accountType =
-    String(formData.get("accountType") ?? "") === "selbstverwalter"
-      ? "selbstverwalter"
-      : "verwaltung";
+  // WEG-SaaS: Kontotyp IMMER "selbstverwalter" – unabhängig vom Formular.
+  // (Die B&W-Variante erreicht diese Action ohnehin nicht, s. Sperre oben.)
+  const accountType = "selbstverwalter";
 
   // Testphase: 30 Tage, über HausMatch 90 Tage ("drei Monate gratis").
   const trialEndsAt = new Date(Date.now() + trialDays(referralSource) * 86_400_000);

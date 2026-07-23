@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { canVerwalterAccessProperty } from "@/lib/access";
+import { canVerwalterAccessProperty, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { notifyDocumentPublished } from "@/lib/notify";
 import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
@@ -80,7 +80,23 @@ export async function uploadDocument(formData: FormData) {
     },
   });
 
-  // Mieter/Eigentümer im Scope über das neue Dokument informieren
+  // Optionale gezielte Empfänger: nur Nutzer im eigenen Scope zulassen. Sind
+  // Empfänger gesetzt, sehen NUR diese Personen (plus Verwalter) das Dokument.
+  const recipientIds = formData.getAll("recipientIds").map((v) => String(v)).filter(Boolean);
+  if (recipientIds.length > 0) {
+    const valid = await db.user.findMany({
+      where: { AND: [{ id: { in: recipientIds } }, await userWhereForVerwalter(user)] },
+      select: { id: true },
+    });
+    if (valid.length > 0) {
+      await db.documentRecipient.createMany({
+        data: valid.map((r) => ({ documentId: doc.id, userId: r.id })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  // Mieter/Eigentümer im Scope (bzw. gezielte Empfänger) über das neue Dokument informieren
   await notifyDocumentPublished(doc.id);
 
   revalidatePath("/infos");

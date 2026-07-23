@@ -345,6 +345,7 @@ model User {
   ticketsAssigned      Ticket[]                  @relation("TicketAssignedTo")
   comments             TicketComment[]
   documents            Document[]
+  documentRecipients   DocumentRecipient[]
   announcements        Announcement[]
   acknowledgements     Acknowledgement[]
   conversationParts    ConversationParticipant[]
@@ -776,11 +777,28 @@ model Document {
   externalRef      String?
   createdAt        DateTime          @default(now())
   acknowledgements Acknowledgement[]
+  // Optionale gezielte Empfänger. Sind Empfänger gesetzt, sehen NUR diese Personen
+  // (plus der Verwalter im Scope) das Dokument – die Audience-/Objekt-Logik greift
+  // dann nicht. Leer = wie bisher (Sichtbarkeit über audience + Objekt/Einheit).
+  recipients       DocumentRecipient[]
 
   @@index([propertyId])
   @@index([unitId])
   @@index([externalRef])
   @@index([organizationId])
+}
+
+// Gezielter Empfänger eines Dokuments (1:1-Freigabe an eine bestimmte Person).
+model DocumentRecipient {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([documentId, userId])
+  @@index([userId])
 }
 
 // Konfiguration einer Dokument-Quelle (z. B. ein Google Drive Ordner).

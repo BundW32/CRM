@@ -435,23 +435,38 @@ export async function documentWhereForUser(user: User): Promise<Prisma.DocumentW
         boardPropertyIdsFor(user.id),
       ]);
       const ownedIds = properties.map((p) => p.id);
-      const or: Prisma.DocumentWhereInput[] = [
+      const audienceOr: Prisma.DocumentWhereInput[] = [
         { audience: { in: ["EIGENTUEMER", "ALLE"] }, propertyId: { in: ownedIds } },
       ];
       // Beiratsmitglieder sehen zusätzlich die nur für den Beirat bestimmten
       // Dokumente ihrer Beirats-Objekte.
       if (boardIds.length > 0) {
-        or.push({ audience: "BEIRAT", propertyId: { in: boardIds } });
+        audienceOr.push({ audience: "BEIRAT", propertyId: { in: boardIds } });
       }
-      return { OR: or };
+      // Gezielt an mich adressierte Dokumente IMMER; sonst die Audience-/Objekt-
+      // Logik, aber nur für Dokumente OHNE gezielte Empfänger.
+      return {
+        OR: [
+          { recipients: { some: { userId: user.id } } },
+          { recipients: { none: {} }, OR: audienceOr },
+        ],
+      };
     }
     default: {
       const units = await tenantUnits(user.id);
+      const unitIds = units.map((u) => u.id);
+      const propIds = units.map((u) => u.propertyId);
       return {
-        audience: { in: ["MIETER", "ALLE"] },
         OR: [
-          { unitId: { in: units.map((u) => u.id) } },
-          { unitId: null, propertyId: { in: units.map((u) => u.propertyId) } },
+          { recipients: { some: { userId: user.id } } },
+          {
+            recipients: { none: {} },
+            audience: { in: ["MIETER", "ALLE"] },
+            OR: [
+              { unitId: { in: unitIds } },
+              { unitId: null, propertyId: { in: propIds } },
+            ],
+          },
         ],
       };
     }

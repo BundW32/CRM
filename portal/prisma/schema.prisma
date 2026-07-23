@@ -440,6 +440,9 @@ model Property {
   buildingType        String? // Bauart, z. B. Mehrfamilienhaus, Massivbau
   heatingType         String? // Heizungsart, z. B. Gas-Zentralheizung
   notes               String? // freie Notizen
+  // Titelbild des Objekts (Blob/Data-URL wie Logo/Unterschrift). Sichtbar für
+  // Verwalter im Scope sowie Eigentümer/Mieter des Objekts.
+  titleImageStoredName String?
   // Referenz für den späteren Stammdaten-Sync mit Immoware24
   immoware24Id        String?              @unique
   createdAt           DateTime             @default(now())

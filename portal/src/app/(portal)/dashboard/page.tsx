@@ -248,11 +248,17 @@ async function StatistikSection({ user }: { user: User }) {
     <div className="mt-6 space-y-5">
       <h2 className="text-lg font-bold tracking-tight text-white">Statistiken</h2>
       {properties.map((p) => (
-        <PropertyStats
-          key={p.id}
-          propertyId={p.id}
-          name={`${p.name} · ${p.street}, ${p.zip} ${p.city}`}
-        />
+        <div key={p.id} className="space-y-2">
+          {p.titleImageStoredName ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/files/property-image/${p.id}`}
+              alt=""
+              className="h-36 w-full rounded-xl object-cover"
+            />
+          ) : null}
+          <PropertyStats propertyId={p.id} name={`${p.name} · ${p.street}, ${p.zip} ${p.city}`} />
+        </div>
       ))}
     </div>
   );
@@ -343,12 +349,22 @@ async function MieterWohnung({ userId }: { userId: string }) {
           Ihnen ist noch keine Wohnung zugeordnet.
         </EmptyState>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {units.map((u) => (
-            <li key={u.id} className="text-sm text-gray-700">
-              <span className="font-medium text-gray-900">{u.label}</span>
-              {u.floor ? ` (${u.floor})` : ""} · {u.property.name}, {u.property.street},{" "}
-              {u.property.zip} {u.property.city}
+            <li key={u.id} className="flex items-center gap-3 text-sm text-gray-700">
+              {u.property.titleImageStoredName ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/files/property-image/${u.propertyId}`}
+                  alt=""
+                  className="h-12 w-12 flex-shrink-0 rounded-lg object-cover"
+                />
+              ) : null}
+              <span>
+                <span className="font-medium text-gray-900">{u.label}</span>
+                {u.floor ? ` (${u.floor})` : ""} · {u.property.name}, {u.property.street},{" "}
+                {u.property.zip} {u.property.city}
+              </span>
             </li>
           ))}
         </ul>

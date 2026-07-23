@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   canVerwalterAccessHandover,
   canVerwalterAccessProperty,
+  canViewProperty,
   canViewTicket,
   documentWhereForUser,
   ownsProperty,
@@ -111,6 +112,24 @@ export async function GET(
       if (org?.logoStoredName) {
         file = { storedName: org.logoStoredName, fileName: "logo.png", mimeType: "image/png" };
       }
+    }
+  } else if (kind === "property-image" && user) {
+    // Titelbild eines Objekts – sichtbar für Verwalter im Scope sowie Eigentümer
+    // und aktuelle Mieter des Objekts (org- und zugriffsgesichert).
+    const prop = await db.property.findUnique({
+      where: { id },
+      select: { organizationId: true, titleImageStoredName: true },
+    });
+    if (
+      prop?.titleImageStoredName &&
+      prop.organizationId === user.organizationId &&
+      (await canViewProperty(user, id))
+    ) {
+      file = {
+        storedName: prop.titleImageStoredName,
+        fileName: `objekt-${id}.jpg`,
+        mimeType: "image/jpeg",
+      };
     }
   } else if (kind === "vote-proof" && user?.role === "VERWALTER") {
     // Nachweis einer stellvertretend eingetragenen Stimme – nur für den Verwalter

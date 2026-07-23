@@ -46,6 +46,36 @@ export async function ownsProperty(userId: string, propertyId: string, organizat
   return byProperty > 0 || byUnit > 0;
 }
 
+// Darf der Nutzer dieses Objekt grundsätzlich einsehen – für NICHT sensible,
+// objektbezogene Inhalte wie das Titelbild? Verwalter im Scope, Eigentümer
+// (Ownership ODER UnitOwnership) oder aktueller Mieter einer Einheit des Objekts.
+// Immer org-gesichert.
+export async function canViewProperty(user: User, propertyId: string): Promise<boolean> {
+  if (user.role === "VERWALTER") return canVerwalterAccessProperty(user, propertyId);
+  if (user.role === "EIGENTUEMER") {
+    const [byProperty, byUnit] = await Promise.all([
+      db.ownership.count({
+        where: { userId: user.id, propertyId, property: { organizationId: user.organizationId } },
+      }),
+      db.unitOwnership.count({
+        where: { userId: user.id, unit: { propertyId, property: { organizationId: user.organizationId } } },
+      }),
+    ]);
+    return byProperty > 0 || byUnit > 0;
+  }
+  if (user.role === "MIETER") {
+    const c = await db.tenancy.count({
+      where: {
+        userId: user.id,
+        active: true,
+        unit: { propertyId, property: { organizationId: user.organizationId } },
+      },
+    });
+    return c > 0;
+  }
+  return false;
+}
+
 // WEG-Objekte, an denen der Nutzer Eigentümer ist (Ownership ODER UnitOwnership).
 export async function wegPropertiesForOwner(userId: string, organizationId: string) {
   const props = await db.property.findMany({

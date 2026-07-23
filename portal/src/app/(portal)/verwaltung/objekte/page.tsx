@@ -162,6 +162,9 @@ export default async function PropertiesPage({
                         </span>
                       }
                       unitCount={p.units.length}
+                      imageUrl={
+                        p.titleImageStoredName ? `/api/files/property-image/${p.id}` : null
+                      }
                     >
                       <div className="space-y-3">
                         {canEdit ? (

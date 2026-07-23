@@ -281,6 +281,16 @@ export function ObjektForm({
             <textarea name="notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} placeholder="Sonstige Hinweise zum Objekt" />
           </Field>
         </div>
+        <div className="mt-3">
+          <Field label="Titelbild (optional)">
+            <input
+              type="file"
+              name="titleImage"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+              className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
+            />
+          </Field>
+        </div>
       </Card>
 
       {/* 2. Einheiten */}

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
+import { IMAGE_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 
 function optInt(raw: FormDataEntryValue | null): number | null {
   const v = String(raw ?? "").trim();
@@ -37,12 +38,37 @@ export async function updateObjekt(formData: FormData) {
   // Org-/Zuständigkeits-Scope: kein Zugriff auf fremde Objekte (IDOR-Schutz).
   if (!(await canVerwalterAccessProperty(actor, id))) redirect("/verwaltung/objekte");
 
+  const existing = await db.property.findFirst({
+    where: { id, organizationId: actor.organizationId },
+    select: { titleImageStoredName: true },
+  });
+  if (!existing) redirect("/verwaltung/objekte");
+
   const name = String(formData.get("name") ?? "").trim();
   const street = String(formData.get("street") ?? "").trim();
   const zip = String(formData.get("zip") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim();
   if (!name || !street || !zip || !city) {
     redirect(`/verwaltung/objekte/${id}/bearbeiten?fehler=objekt`);
+  }
+
+  // Titelbild: neues Bild ersetzt, Häkchen entfernt es, sonst unverändert.
+  // `titleImage` in den Update-Daten nur setzen, wenn sich etwas ändert.
+  let titleImageUpdate: { titleImageStoredName: string | null } | Record<string, never> = {};
+  let blobToDelete: string | null = null;
+  const titleImageFile = formData.get("titleImage");
+  const removeTitleImage = String(formData.get("removeTitleImage") ?? "") === "1";
+  if (titleImageFile instanceof File && titleImageFile.size > 0) {
+    try {
+      const stored = (await saveUpload(titleImageFile, IMAGE_TYPES)).storedName;
+      titleImageUpdate = { titleImageStoredName: stored };
+      blobToDelete = existing.titleImageStoredName; // altes ersetzt
+    } catch {
+      // Bild-Fehler blockiert die Stammdaten-Änderung nicht.
+    }
+  } else if (removeTitleImage) {
+    titleImageUpdate = { titleImageStoredName: null };
+    blobToDelete = existing.titleImageStoredName;
   }
 
   // updateMany mit Org-Bindung: trifft garantiert nur das eigene Objekt.
@@ -59,8 +85,12 @@ export async function updateObjekt(formData: FormData) {
       buildingType: optStr(formData.get("buildingType")),
       heatingType: optStr(formData.get("heatingType")),
       notes: optStr(formData.get("notes"), 2000),
+      ...titleImageUpdate,
     },
   });
+
+  // Altes Bild erst nach erfolgreichem Update entfernen (Blob-Store).
+  if (blobToDelete) await deleteBlob(blobToDelete);
 
   revalidatePath("/verwaltung/objekte");
   redirect("/verwaltung/objekte?gespeichert=1");

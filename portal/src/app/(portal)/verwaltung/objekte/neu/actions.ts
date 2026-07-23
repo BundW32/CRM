@@ -10,6 +10,7 @@ import { getBrandingForOrg } from "@/lib/branding-server";
 import { isSelfManaged } from "@/lib/access";
 import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { getOrganization, requireVerwalter } from "@/lib/session";
+import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 
 const MAX_UNITS = 100;
@@ -132,6 +133,17 @@ export async function createObjekt(formData: FormData) {
   const vpRaw = String(formData.get("votingPrinciple") ?? "");
   const votingPrinciple = vpRaw === "MEA" ? "MEA" : vpRaw === "OBJEKT" ? "OBJEKT" : "KOPF";
 
+  // Titelbild (optional) – ein Fehler beim Bild darf die Objektanlage nie blockieren.
+  let titleImageStoredName: string | null = null;
+  const titleImageFile = formData.get("titleImage");
+  if (titleImageFile instanceof File && titleImageFile.size > 0) {
+    try {
+      titleImageStoredName = (await saveUpload(titleImageFile, IMAGE_TYPES)).storedName;
+    } catch {
+      titleImageStoredName = null;
+    }
+  }
+
   // ── Objekt anlegen (inkl. optionaler Stammdaten) ────────────────────
   const property = await db.property.create({
     data: {
@@ -148,6 +160,7 @@ export async function createObjekt(formData: FormData) {
       buildingType: optStr(formData.get("buildingType")),
       heatingType: optStr(formData.get("heatingType")),
       notes: optStr(formData.get("notes"), 2000),
+      titleImageStoredName,
     },
   });
 

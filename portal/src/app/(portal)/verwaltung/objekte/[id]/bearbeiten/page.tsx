@@ -132,6 +132,31 @@ export default async function ObjektBearbeitenPage({
           </div>
         </Card>
 
+        <Card title="Titelbild (optional)">
+          {p.titleImageStoredName ? (
+            <div className="mb-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/files/property-image/${p.id}`}
+                alt="Aktuelles Titelbild"
+                className="h-40 w-full max-w-md rounded-lg object-cover"
+              />
+              <label className="mt-2 flex items-center gap-2 text-sm text-gray-600">
+                <input type="checkbox" name="removeTitleImage" value="1" className="h-4 w-4" />
+                Aktuelles Titelbild entfernen
+              </label>
+            </div>
+          ) : null}
+          <Field label={p.titleImageStoredName ? "Titelbild ersetzen" : "Titelbild hochladen"}>
+            <input
+              type="file"
+              name="titleImage"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+              className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
+            />
+          </Field>
+        </Card>
+
         <div className="flex items-center gap-3">
           <SubmitButton pendingLabel="Wird gespeichert…">Änderungen speichern</SubmitButton>
           <Link href="/verwaltung/objekte" className={buttonSecondaryClass}>

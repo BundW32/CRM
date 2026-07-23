@@ -18,7 +18,6 @@ export default async function ObjektBearbeitenPage({
   searchParams: Promise<{ fehler?: string }>;
 }) {
   const verwalter = await requireVerwalter();
-  if (!verwalter.isSuperAdmin) redirect("/verwaltung/objekte");
   const { id } = await params;
   const { fehler } = await searchParams;
 

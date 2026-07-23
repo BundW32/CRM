@@ -17,7 +17,10 @@ export default async function PropertiesPage({
 }) {
   const verwalter = await requireVerwalter();
   const { fehler, eingerichtet, gespeichert, q, page } = await searchParams;
-  const canEdit = verwalter.isSuperAdmin;
+  // Objekte bearbeiten dürfen alle Verwalter in ihrem Zuständigkeitsbereich
+  // (die Liste zeigt ohnehin nur Objekte im Scope). Löschen/Archivieren bleibt
+  // separat abgesichert (SuperAdmin) und kommt an eigener Stelle.
+  const canEdit = true;
   const propWhere = await propertyWhereForVerwalter(verwalter);
 
   const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);

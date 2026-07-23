@@ -31,8 +31,6 @@ function optStr(raw: FormDataEntryValue | null, max = 200): string | null {
 // (WEG/Mietverwaltung ist fundamental für Finanzen/Abstimmungen).
 export async function updateObjekt(formData: FormData) {
   const actor = await requireVerwalter();
-  // Stammdaten ändern ist eine SuperAdmin-Aktion (wie das Anlegen).
-  if (!actor.isSuperAdmin) redirect("/verwaltung/objekte");
 
   const id = String(formData.get("id") ?? "").trim();
   if (!id) redirect("/verwaltung/objekte");

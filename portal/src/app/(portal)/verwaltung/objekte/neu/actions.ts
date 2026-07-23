@@ -8,7 +8,7 @@ import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { isSelfManaged } from "@/lib/access";
-import { portalUrl, sendMail } from "@/lib/mailer";
+import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 
@@ -79,7 +79,7 @@ async function inviteOrLetter(opts: {
       `Guten Tag ${opts.name},\n\n` +
         `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.\n\n` +
         `Zugang einrichten (gültig 7 Tage):\n` +
-        `${portalUrl(`/login/reset/${inviteToken}?einladung=1`)}\n\n` +
+        `${await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`)}\n\n` +
         `Mit freundlichen Grüßen\n${branding.legalName}`,
       undefined,
       branding

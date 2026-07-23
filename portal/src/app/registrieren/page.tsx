@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { AccountTypeFields } from "./account-type-fields";
 import { registerOrganization } from "./actions";
+import { isWegSaas, registrationEnabled } from "@/lib/app-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,10 @@ export default async function RegisterPage({
 }: {
   searchParams: Promise<{ fehler?: string; ref?: string }>;
 }) {
+  // Self-Service-Registrierung gibt es nur in der WEG-SaaS-Variante (APP_MODE=weg).
+  // Im B&W-Modus (verwaltung) ist die Seite gesperrt → zurück zum Login.
+  if (!registrationEnabled()) redirect("/login");
+
   const { fehler, ref } = await searchParams;
 
   return (
@@ -47,7 +53,7 @@ export default async function RegisterPage({
             </div>
             {/* Herkunft der Registrierung (z. B. von HausMatch verlinkt). */}
             {ref ? <input type="hidden" name="ref" value={ref} /> : null}
-            <AccountTypeFields />
+            <AccountTypeFields wegMode={isWegSaas()} />
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-[6rem_1fr_1fr]">
               <Field label="Anrede">

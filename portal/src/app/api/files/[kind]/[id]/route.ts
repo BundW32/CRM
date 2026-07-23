@@ -131,6 +131,30 @@ export async function GET(
         mimeType: "image/jpeg",
       };
     }
+  } else if (kind === "mietvertrag" && user) {
+    // Mietvertrag: Verwalter im Objekt-Scope ODER der Mieter selbst.
+    const tenancy = await db.tenancy.findUnique({
+      where: { id },
+      select: {
+        userId: true,
+        contractStoredName: true,
+        contractFileName: true,
+        contractMimeType: true,
+        unit: { select: { propertyId: true, property: { select: { organizationId: true } } } },
+      },
+    });
+    if (tenancy?.contractStoredName && tenancy.unit.property.organizationId === user.organizationId) {
+      const allowed =
+        user.id === tenancy.userId ||
+        (user.role === "VERWALTER" && (await canVerwalterAccessProperty(user, tenancy.unit.propertyId)));
+      if (allowed) {
+        file = {
+          storedName: tenancy.contractStoredName,
+          fileName: tenancy.contractFileName ?? `mietvertrag-${id}.pdf`,
+          mimeType: tenancy.contractMimeType ?? "application/pdf",
+        };
+      }
+    }
   } else if (kind === "vote-proof" && user?.role === "VERWALTER") {
     // Nachweis einer stellvertretend eingetragenen Stimme – nur für den Verwalter
     // im Objekt-Scope (enthält die schriftliche Stimme eines Eigentümers).

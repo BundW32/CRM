@@ -569,6 +569,13 @@ model Tenancy {
   active    Boolean   @default(true)
   // Monatliche Betriebskosten-Vorauszahlung des Mieters (für die Abrechnung, M-K)
   bkPrepaymentMonthlyCents Int?
+  // Mietvertrags-Kerndaten (Mietverwaltung). Beträge als Integer-Cent.
+  rentColdCents            Int? // Kaltmiete / Grundmiete monatlich
+  depositCents             Int? // Kaution
+  // Optionaler Mietvertrag als Datei (Storage-Konvention wie Beleg/Handover)
+  contractStoredName       String?
+  contractFileName         String?
+  contractMimeType         String?
 
   @@unique([userId, unitId])
   @@index([unitId])

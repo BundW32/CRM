@@ -19,10 +19,94 @@ import {
   removeUnitTenant,
   unarchiveProperty,
   updateObjekt,
+  updateTenancy,
   updateUnit,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+function centsToInput(cents: number | null): string {
+  if (cents == null) return "";
+  return (cents / 100).toFixed(2).replace(".", ",");
+}
+
+function dateInput(d: Date | null): string {
+  return d ? d.toISOString().slice(0, 10) : "";
+}
+
+// Mietvertrag eines Mietverhältnisses (Mietverwaltung): Kaltmiete, Nebenkosten-
+// Vorauszahlung, Kaution, Zeitraum und optionales Vertrags-PDF.
+function TenancyContract({
+  t,
+}: {
+  t: {
+    id: string;
+    user: { name: string };
+    rentColdCents: number | null;
+    bkPrepaymentMonthlyCents: number | null;
+    depositCents: number | null;
+    startDate: Date;
+    endDate: Date | null;
+    contractStoredName: string | null;
+  };
+}) {
+  const fileInputClass =
+    "block w-full text-xs text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100";
+  return (
+    <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-medium text-gray-800">{t.user.name}</span>
+        <form action={removeUnitTenant} className="inline">
+          <input type="hidden" name="tenancyId" value={t.id} />
+          <button type="submit" className="text-xs text-gray-400 hover:text-red-600">
+            Mieter entfernen
+          </button>
+        </form>
+      </div>
+      <form action={updateTenancy} className="space-y-2">
+        <input type="hidden" name="tenancyId" value={t.id} />
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Field label="Kaltmiete (€)">
+            <input name="rentCold" inputMode="decimal" defaultValue={centsToInput(t.rentColdCents)} className={inputClass} placeholder="z. B. 480,00" />
+          </Field>
+          <Field label="Nebenkosten-VZ (€)">
+            <input name="bkPrepay" inputMode="decimal" defaultValue={centsToInput(t.bkPrepaymentMonthlyCents)} className={inputClass} placeholder="z. B. 120,00" />
+          </Field>
+          <Field label="Kaution (€)">
+            <input name="deposit" inputMode="decimal" defaultValue={centsToInput(t.depositCents)} className={inputClass} placeholder="z. B. 1.440,00" />
+          </Field>
+          <Field label="Mietbeginn">
+            <input type="date" name="startDate" defaultValue={dateInput(t.startDate)} className={inputClass} />
+          </Field>
+          <Field label="Mietende (optional)">
+            <input type="date" name="endDate" defaultValue={dateInput(t.endDate)} className={inputClass} />
+          </Field>
+        </div>
+        <div>
+          {t.contractStoredName ? (
+            <div className="mb-1 flex items-center gap-3 text-xs">
+              <a href={`/api/files/mietvertrag/${t.id}`} target="_blank" rel="noreferrer" className="font-medium text-brand-green hover:underline">
+                Vertrag ansehen
+              </a>
+              <label className="flex items-center gap-1.5 text-gray-600">
+                <input type="checkbox" name="removeContract" value="1" className="h-3.5 w-3.5" /> entfernen
+              </label>
+            </div>
+          ) : null}
+          <Field label={t.contractStoredName ? "Vertrag ersetzen (PDF/Bild)" : "Mietvertrag hochladen (PDF/Bild)"}>
+            <input
+              type="file"
+              name="contract"
+              accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
+              className={fileInputClass}
+            />
+          </Field>
+        </div>
+        <SubmitButton pendingLabel="Wird gespeichert…">Mietvertrag speichern</SubmitButton>
+      </form>
+    </div>
+  );
+}
 
 const unitFehlerText: Record<string, string> = {
   objekt: "Bitte füllen Sie mindestens die Pflichtfelder (Bezeichnung und Adresse) aus.",
@@ -359,16 +443,24 @@ export default async function ObjektBearbeitenPage({
                   </form>
 
                   <div className="mt-3 border-t border-gray-100 pt-3">
-                    <p className="text-xs font-medium text-gray-500">Mieter</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      {u.tenancies.length === 0 ? (
-                        <span className="text-xs text-gray-400">Keine</span>
-                      ) : (
-                        u.tenancies.map((t) => (
+                    <p className="text-xs font-medium text-gray-500">
+                      Mieter{u.livingArea != null ? ` · ${u.livingArea} m²` : ""}
+                    </p>
+                    {u.tenancies.length === 0 ? (
+                      <p className="mt-1 text-xs text-gray-400">Keine</p>
+                    ) : isWeg ? (
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {u.tenancies.map((t) => (
                           <PersonChip key={t.id} action={removeUnitTenant} idName="tenancyId" idValue={t.id} name={t.user.name} />
-                        ))
-                      )}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-2 space-y-3">
+                        {u.tenancies.map((t) => (
+                          <TenancyContract key={t.id} t={t} />
+                        ))}
+                      </div>
+                    )}
                     <AddPersonForm action={addUnitTenant} idName="unitId" idValue={u.id} label="+ Mieter" />
                   </div>
 

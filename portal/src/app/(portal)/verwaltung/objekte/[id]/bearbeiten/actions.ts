@@ -6,7 +6,8 @@ import type { User } from "@/generated/prisma/client";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { IMAGE_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
+import { parseEuroToCents } from "@/lib/money";
+import { DOCUMENT_TYPES, IMAGE_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 import { inviteOrLetter } from "@/lib/user-invite";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 
@@ -420,6 +421,76 @@ export async function addPropertyOwner(formData: FormData) {
   });
   revalidatePath(backTo(propertyId, "").split("?")[0]);
   if (result.pw) redirect(`/zugangsschreiben/${result.id}?pw=${encodeURIComponent(result.pw)}`);
+  redirect(backTo(propertyId, "person=gespeichert"));
+}
+
+function parseDateInput(raw: FormDataEntryValue | null): Date | null {
+  const v = String(raw ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const d = new Date(`${v}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+// Mietvertrags-Daten eines Mietverhältnisses bearbeiten (Mietverwaltung):
+// Kaltmiete, Nebenkosten-Vorauszahlung, Kaution, Zeitraum und Vertrags-PDF.
+export async function updateTenancy(formData: FormData) {
+  const actor = await requireVerwalter();
+  const tenancyId = String(formData.get("tenancyId") ?? "").trim();
+  if (!tenancyId) redirect("/verwaltung/objekte");
+  const tenancy = await db.tenancy.findUnique({
+    where: { id: tenancyId },
+    select: {
+      contractStoredName: true,
+      unit: { select: { propertyId: true, property: { select: { organizationId: true } } } },
+    },
+  });
+  if (!tenancy || tenancy.unit.property.organizationId !== actor.organizationId) {
+    redirect("/verwaltung/objekte");
+  }
+  const propertyId = tenancy.unit.propertyId;
+  if (!(await canVerwalterAccessProperty(actor, propertyId))) redirect("/verwaltung/objekte");
+
+  const startDate = parseDateInput(formData.get("startDate"));
+  const endDate = parseDateInput(formData.get("endDate"));
+
+  // Vertrags-PDF: neu hochgeladen ersetzt, Häkchen entfernt es, sonst unverändert.
+  let contractUpdate:
+    | { contractStoredName: string | null; contractFileName: string | null; contractMimeType: string | null }
+    | Record<string, never> = {};
+  let blobToDelete: string | null = null;
+  const file = formData.get("contract");
+  const removeContract = String(formData.get("removeContract") ?? "") === "1";
+  if (file instanceof File && file.size > 0) {
+    try {
+      const up = await saveUpload(file, DOCUMENT_TYPES);
+      contractUpdate = {
+        contractStoredName: up.storedName,
+        contractFileName: up.fileName,
+        contractMimeType: up.mimeType,
+      };
+      blobToDelete = tenancy.contractStoredName;
+    } catch {
+      // Datei-Fehler blockiert die übrigen Vertragsdaten nicht.
+    }
+  } else if (removeContract) {
+    contractUpdate = { contractStoredName: null, contractFileName: null, contractMimeType: null };
+    blobToDelete = tenancy.contractStoredName;
+  }
+
+  await db.tenancy.update({
+    where: { id: tenancyId },
+    data: {
+      rentColdCents: parseEuroToCents(String(formData.get("rentCold") ?? "")),
+      bkPrepaymentMonthlyCents: parseEuroToCents(String(formData.get("bkPrepay") ?? "")),
+      depositCents: parseEuroToCents(String(formData.get("deposit") ?? "")),
+      // startDate ist Pflichtfeld – nur bei gültiger Eingabe überschreiben.
+      ...(startDate ? { startDate } : {}),
+      endDate,
+      ...contractUpdate,
+    },
+  });
+  if (blobToDelete) await deleteBlob(blobToDelete);
+  revalidatePath(backTo(propertyId, "").split("?")[0]);
   redirect(backTo(propertyId, "person=gespeichert"));
 }
 

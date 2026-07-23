@@ -6,7 +6,15 @@ import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
-import { addUnit, removeUnit, updateObjekt, updateUnit } from "./actions";
+import {
+  addUnit,
+  archiveProperty,
+  deleteProperty,
+  removeUnit,
+  unarchiveProperty,
+  updateObjekt,
+  updateUnit,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +23,8 @@ const unitFehlerText: Record<string, string> = {
   einheit: "Bitte geben Sie eine (interne) Bezeichnung für die Einheit an.",
   einheit_belegt:
     "Die Einheit ist nicht leer (z. B. Mieter, Buchungen, Übergaben oder Vorgänge) und kann daher nicht gelöscht werden.",
+  objekt_belegt:
+    "Das Objekt ist nicht leer und kann nicht gelöscht werden. Sie können es stattdessen archivieren.",
 };
 
 export default async function ObjektBearbeitenPage({
@@ -74,6 +84,13 @@ export default async function ObjektBearbeitenPage({
         Stammdaten und Einheiten des Objekts anpassen. Die Verwaltungsart bleibt nach der
         Anlage unverändert.
       </p>
+
+      {!p.active ? (
+        <Alert variant="warning" className="mb-4">
+          Dieses Objekt ist archiviert und in den aktiven Listen ausgeblendet. Sie können es unten
+          reaktivieren.
+        </Alert>
+      ) : null}
 
       {fehler ? (
         <Alert variant="error" className="mb-4">
@@ -325,6 +342,56 @@ export default async function ObjektBearbeitenPage({
         </Card>
         </div>
       </div>
+
+      {/* ── Gefahrenzone (nur SuperAdmin) ─────────────────────────────── */}
+      {verwalter.isSuperAdmin ? (
+        <div className="mt-8">
+          <h2 className="mb-1 text-lg font-bold tracking-tight text-white">Objekt verwalten</h2>
+          <p className="mb-4 max-w-3xl text-sm text-gray-300">
+            Archivieren blendet das Objekt aus den aktiven Listen aus, ohne Daten zu löschen –
+            jederzeit reaktivierbar. Endgültiges Löschen ist nur bei komplett leeren Objekten
+            möglich (z. B. Testeinträge).
+          </p>
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-center gap-3">
+              {p.active ? (
+                <form action={archiveProperty}>
+                  <input type="hidden" name="id" value={p.id} />
+                  <button
+                    type="submit"
+                    className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100"
+                  >
+                    Objekt archivieren
+                  </button>
+                </form>
+              ) : (
+                <form action={unarchiveProperty}>
+                  <input type="hidden" name="id" value={p.id} />
+                  <button
+                    type="submit"
+                    className="rounded-lg border border-brand-green/40 bg-brand-green/5 px-4 py-2 text-sm font-medium text-brand-green transition hover:bg-brand-green/10"
+                  >
+                    Objekt reaktivieren
+                  </button>
+                </form>
+              )}
+              <form action={deleteProperty}>
+                <input type="hidden" name="id" value={p.id} />
+                <button
+                  type="submit"
+                  className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
+                >
+                  Objekt endgültig löschen
+                </button>
+              </form>
+            </div>
+            <p className="mt-3 text-xs text-gray-400">
+              Löschen funktioniert nur, wenn dem Objekt keine Einheiten, Vorgänge, Dokumente,
+              Eigentümer oder Finanzdaten mehr zugeordnet sind.
+            </p>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

@@ -445,6 +445,9 @@ model Property {
   titleImageStoredName String?
   // Referenz für den späteren Stammdaten-Sync mit Immoware24
   immoware24Id        String?              @unique
+  // Archiviert = aus den aktiven Verwalter-Listen ausgeblendet (Bestandsdaten
+  // bleiben erhalten). Reaktivierbar; hartes Löschen nur bei leeren Objekten.
+  active              Boolean              @default(true)
   createdAt           DateTime             @default(now())
   units               Unit[]
   ownerships          Ownership[]

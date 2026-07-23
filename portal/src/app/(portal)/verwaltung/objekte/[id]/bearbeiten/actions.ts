@@ -210,3 +210,86 @@ export async function removeUnit(formData: FormData) {
   revalidatePath(`/verwaltung/objekte/${unit.propertyId}/bearbeiten`);
   redirect(`/verwaltung/objekte/${unit.propertyId}/bearbeiten?einheit=geloescht`);
 }
+
+// ── Objekt archivieren / reaktivieren / löschen (nur SuperAdmin) ─────────────
+async function requireSuperAdminProperty(actor: User, id: string) {
+  if (!actor.isSuperAdmin) redirect("/verwaltung/objekte");
+  if (!id || !(await canVerwalterAccessProperty(actor, id))) redirect("/verwaltung/objekte");
+}
+
+export async function archiveProperty(formData: FormData) {
+  const actor = await requireVerwalter();
+  const id = String(formData.get("id") ?? "").trim();
+  await requireSuperAdminProperty(actor, id);
+  await db.property.updateMany({
+    where: { id, organizationId: actor.organizationId },
+    data: { active: false },
+  });
+  revalidatePath("/verwaltung/objekte");
+  redirect("/verwaltung/objekte?archiviert=1");
+}
+
+export async function unarchiveProperty(formData: FormData) {
+  const actor = await requireVerwalter();
+  const id = String(formData.get("id") ?? "").trim();
+  await requireSuperAdminProperty(actor, id);
+  await db.property.updateMany({
+    where: { id, organizationId: actor.organizationId },
+    data: { active: true },
+  });
+  revalidatePath("/verwaltung/objekte");
+  redirect("/verwaltung/objekte?reaktiviert=1");
+}
+
+// Hartes Löschen NUR bei leeren Objekten (keine Einheiten, Vorgänge, Dokumente,
+// Eigentümer, WEG-Finanzdaten usw.). Sonst Hinweis, stattdessen zu archivieren.
+export async function deleteProperty(formData: FormData) {
+  const actor = await requireVerwalter();
+  const id = String(formData.get("id") ?? "").trim();
+  await requireSuperAdminProperty(actor, id);
+  const prop = await db.property.findFirst({
+    where: { id, organizationId: actor.organizationId },
+    select: {
+      _count: {
+        select: {
+          units: true,
+          tickets: true,
+          documents: true,
+          announcements: true,
+          ownerships: true,
+          resolutions: true,
+          ownersMeetings: true,
+          ownerMotions: true,
+          maintenanceTasks: true,
+          costTypes: true,
+          ledgerAccounts: true,
+          bookings: true,
+          bankImportBatches: true,
+          economicPlans: true,
+          duePostings: true,
+          annualStatements: true,
+          hausgeldMahnungen: true,
+          sonderumlagen: true,
+          maintenanceMeasures: true,
+          sepaMandates: true,
+          co2Allocations: true,
+          beiratTasks: true,
+          meters: true,
+        },
+      },
+    },
+  });
+  if (!prop) redirect("/verwaltung/objekte");
+  const dependents = Object.values(prop._count).reduce((a, b) => a + b, 0);
+  if (dependents > 0) {
+    redirect(`/verwaltung/objekte/${id}/bearbeiten?fehler=objekt_belegt`);
+  }
+  try {
+    await db.property.delete({ where: { id } });
+  } catch {
+    // Falls doch eine Fremdschlüssel-Beziehung greift: nicht hart löschen.
+    redirect(`/verwaltung/objekte/${id}/bearbeiten?fehler=objekt_belegt`);
+  }
+  revalidatePath("/verwaltung/objekte");
+  redirect("/verwaltung/objekte?geloescht=1");
+}

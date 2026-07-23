@@ -180,8 +180,11 @@ export async function propertyIdsForVerwalter(user: User): Promise<string[] | nu
 export async function propertyWhereForVerwalter(user: User): Promise<Prisma.PropertyWhereInput> {
   const ids = await propertyIdsForVerwalter(user);
   // Org-Filter gilt IMMER – auch für SuperAdmin (= alles INNERHALB der eigenen Org).
-  if (ids === null) return { organizationId: user.organizationId };
-  return { id: { in: ids }, organizationId: user.organizationId };
+  // active: true blendet archivierte Objekte aus den aktiven Verwalter-Listen aus
+  // (Dashboard, Ticket-Ziele, Statistiken, Objektliste). Archivierte werden separat
+  // (nur SuperAdmin) angezeigt und lassen sich reaktivieren oder – falls leer – löschen.
+  if (ids === null) return { organizationId: user.organizationId, active: true };
+  return { id: { in: ids }, organizationId: user.organizationId, active: true };
 }
 
 /**

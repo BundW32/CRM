@@ -15,7 +15,7 @@ import {
   ticketWhereForUser,
 } from "@/lib/access";
 import { db } from "@/lib/db";
-import { formatDate, ticketTypeLabels } from "@/lib/labels";
+import { formatDate, ticketTypeLabels, unitPublicLabel } from "@/lib/labels";
 import { getOrganization, requireUser } from "@/lib/session";
 import { resendVerification } from "./verify-actions";
 import { SelfManagedDashboard } from "./SelfManagedDashboard";
@@ -361,7 +361,7 @@ async function MieterWohnung({ userId }: { userId: string }) {
                 />
               ) : null}
               <span>
-                <span className="font-medium text-gray-900">{u.label}</span>
+                <span className="font-medium text-gray-900">{unitPublicLabel(u)}</span>
                 {u.floor ? ` (${u.floor})` : ""} · {u.property.name}, {u.property.street},{" "}
                 {u.property.zip} {u.property.city}
               </span>

@@ -480,7 +480,10 @@ model Unit {
   id            String     @id @default(cuid())
   propertyId    String
   property      Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  label         String // z. B. "WE 03, 1. OG links"
+  label         String // INTERNE Bezeichnung (z. B. "WE 03") – nur für Verwalter
+  // EXTERNE Bezeichnung / Lage (z. B. "1. OG links") – erscheint in Dokumenten
+  // und in der Mieter-/Eigentümer-Ansicht. Leer = Fallback auf die interne label.
+  externalLabel String?
   floor         String?
   // WEG-Finanzstammdaten (Kostenverteilung — NICHT Ownership.mea = Stimmgewicht)
   unitType      UnitType   @default(WOHNUNG)

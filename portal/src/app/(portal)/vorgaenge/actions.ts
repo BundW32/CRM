@@ -13,7 +13,7 @@ import {
 } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
-import { ticketPriorityLabels } from "@/lib/labels";
+import { ticketPriorityLabels, unitPublicLabel } from "@/lib/labels";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import {
   notifyAssignee,
@@ -936,14 +936,15 @@ export async function generateCertificate(formData: FormData) {
   const branding = await getBrandingForOrg(ticket.organizationId);
   const brandingPlzOrt = [branding.zip, branding.city].filter(Boolean).join(" ");
 
-  const wohnungAnschrift = `${property.street}, ${unit ? unit.label + ", " : ""}${property.zip} ${property.city}`;
+  const unitPublic = unit ? unitPublicLabel(unit) : "";
+  const wohnungAnschrift = `${property.street}, ${unitPublic ? unitPublic + ", " : ""}${property.zip} ${property.city}`;
   const wohnungsgeberName = owner?.name ?? branding.legalName;
   const wohnungsgeberStrasse = owner?.street ?? branding.street ?? "";
   const wohnungsgeberPlzOrt =
     owner?.zip && owner?.city ? `${owner.zip} ${owner.city}` : brandingPlzOrt;
   const wohnungStrasse = property.street;
   const wohnungPlzOrt = `${property.zip} ${property.city}`;
-  const wohnungZusatz = unit?.label ?? "";
+  const wohnungZusatz = unitPublic;
   const unterzeichner = owner?.name ?? branding.legalName;
   const ausstellungsOrt = branding.city ?? "";
   const issuer = {

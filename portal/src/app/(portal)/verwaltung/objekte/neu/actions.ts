@@ -168,6 +168,7 @@ export async function createObjekt(formData: FormData) {
   // Fläche/MEA/Personen je Einheit indexgleich zu unitLabel einlesen (VOR dem
   // Leerfilter), damit die Zuordnung erhalten bleibt. MEA nur bei WEG.
   const unitLabels = formData.getAll("unitLabel").map((v) => String(v).trim());
+  const unitExternals = formData.getAll("unitExternalLabel").map((v) => String(v).trim());
   const unitFloors = formData.getAll("unitFloor").map((v) => String(v).trim());
   const unitAreas = formData.getAll("unitArea").map((v) => String(v));
   const unitMeas = formData.getAll("unitMea").map((v) => String(v));
@@ -177,6 +178,7 @@ export async function createObjekt(formData: FormData) {
   const unitsToCreate = unitLabels
     .map((label, i) => ({
       label: label.slice(0, 200),
+      externalLabel: (unitExternals[i] ?? "").slice(0, 200) || null,
       floor: unitFloors[i] || undefined,
       livingArea: optFloat(unitAreas[i] ?? null),
       mea: managementType === "WEG" ? optInt(unitMeas[i] ?? null) : null,
@@ -190,6 +192,7 @@ export async function createObjekt(formData: FormData) {
       data: unitsToCreate.map((u) => ({
         propertyId: property.id,
         label: u.label,
+        externalLabel: u.externalLabel,
         floor: u.floor,
         livingArea: u.livingArea,
         mea: u.mea,

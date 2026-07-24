@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Alert, Card, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -396,9 +396,7 @@ export default async function ObjektBearbeitenPage({
 
         <div className="space-y-4">
           {units.length === 0 ? (
-            <Card title="">
-              <p className="text-sm text-gray-500">Noch keine Einheiten angelegt.</p>
-            </Card>
+            <EmptyState>Noch keine Einheiten angelegt.</EmptyState>
           ) : (
             units.map((u) => {
               const dependents =

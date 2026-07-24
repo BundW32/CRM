@@ -1,4 +1,4 @@
-import { Alert, PageTitle } from "@/components/ui";
+import { Alert, EmptyState, PageTitle } from "@/components/ui";
 import { db } from "@/lib/db";
 import { propertyIdsForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { requireVerwalter } from "@/lib/session";
@@ -156,7 +156,9 @@ export default async function DokumentQuellenPage({
       )}
 
       {configs.length === 0 && (
-        <p className="mb-6 text-sm text-gray-400">Noch keine Quellen konfiguriert.</p>
+        <div className="mb-6">
+          <EmptyState>Noch keine Quellen konfiguriert.</EmptyState>
+        </div>
       )}
 
       {/* Neue Quelle anlegen */}

@@ -6,6 +6,7 @@ import {
   Alert,
   Card,
   CollapsibleCard,
+  EmptyState,
   Field,
   PageTitle,
   StatusBadge,
@@ -269,7 +270,7 @@ export default async function TicketDetailPage({
 
           <Card title="Verlauf">
             {comments.length === 0 ? (
-              <p className="text-sm text-gray-500">Noch keine Kommentare.</p>
+              <EmptyState>Noch keine Kommentare.</EmptyState>
             ) : (
               <ul className="space-y-4">
                 {comments.map((c) => (

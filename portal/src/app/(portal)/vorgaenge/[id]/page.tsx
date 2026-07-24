@@ -11,6 +11,8 @@ import {
   PageTitle,
   StatusBadge,
   buttonClass,
+  buttonDangerClass,
+  buttonSecondaryClass,
   inputClass,
 } from "@/components/ui";
 import {
@@ -552,7 +554,7 @@ export default async function TicketDetailPage({
                     <form action={rejectInvoice} className="space-y-2">
                       <input type="hidden" name="ticketId" value={ticket.id} />
                       <textarea name="reason" rows={2} placeholder="Ablehnungsgrund (optional) …" className={inputClass} />
-                      <button type="submit" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+                      <button type="submit" className={`${buttonDangerClass} w-full`}>
                         Rechnung ablehnen
                       </button>
                     </form>
@@ -591,7 +593,7 @@ export default async function TicketDetailPage({
                     />
                     <button
                       type="submit"
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className={`${buttonSecondaryClass} w-full`}
                     >
                       Vorgang wieder öffnen
                     </button>
@@ -626,7 +628,7 @@ export default async function TicketDetailPage({
                     />
                     <button
                       type="submit"
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className={`${buttonSecondaryClass} w-full`}
                     >
                       Nacharbeit nötig – wieder öffnen
                     </button>
@@ -663,7 +665,7 @@ export default async function TicketDetailPage({
                     <input type="hidden" name="ticketId" value={ticket.id} />
                     <button
                       type="submit"
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className={`${buttonSecondaryClass} w-full`}
                     >
                       Direkt als erledigt abschließen
                     </button>
@@ -959,7 +961,7 @@ export default async function TicketDetailPage({
                             <input type="hidden" name="ticketId" value={ticket.id} />
                             <button
                               type="submit"
-                              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                              className={buttonSecondaryClass}
                             >
                               Ablehnen / neuen Termin anfragen
                             </button>

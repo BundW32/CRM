@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Alert, Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { Alert, Card, EmptyState, PageTitle } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/lib/db";
 import { formatDateOnly, maintenanceIntervalLabels } from "@/lib/labels";
@@ -51,11 +51,7 @@ export default async function PruefpflichtenPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
-            ← WEG-Finanzen
-          </Link>
-        }
+        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
       >
         Prüfpflichten – {property.name}
       </PageTitle>

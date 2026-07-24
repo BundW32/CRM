@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { PLANS, SUBSCRIPTION_STATUSES, planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
@@ -64,11 +63,7 @@ export default async function OrganisationDetailPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/plattform/organisationen" className={buttonSecondaryClass}>
-            ← Verwaltungen
-          </Link>
-        }
+        back={{ href: "/plattform/organisationen", label: "Verwaltungen" }}
       >
         {org.name}
       </PageTitle>
@@ -118,7 +113,7 @@ export default async function OrganisationDetailPage({
 
           <Card title="Administrator-Zugänge">
             {org.users.length === 0 ? (
-              <p className="text-sm text-gray-500">Keine SuperAdmins hinterlegt.</p>
+              <EmptyState>Keine SuperAdmins hinterlegt.</EmptyState>
             ) : (
               <ul className="space-y-1 text-sm">
                 {org.users.map((u) => (

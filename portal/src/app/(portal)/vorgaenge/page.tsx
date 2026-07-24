@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { TicketStatus } from "@/generated/prisma/client";
-import { Alert, EmptyState, PageTitle, StatusBadge, buttonClass, inputClass } from "@/components/ui";
+import { Pagination, Alert, EmptyState, PageTitle, StatusBadge, buttonClass, inputClass } from "@/components/ui";
 import { propertyWhereForVerwalter, ticketWhereForUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
@@ -195,33 +195,7 @@ export default async function TicketsPage({
         </div>
       )}
 
-      {totalPages > 1 ? (
-        <div className="mt-4 flex items-center justify-between">
-          {currentPage > 1 ? (
-            <Link
-              href={pageHref(currentPage - 1)}
-              className="rounded-lg border border-white/20 bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white"
-            >
-              ← Zurück
-            </Link>
-          ) : (
-            <span />
-          )}
-          <span className="text-xs text-gray-300">
-            Seite {currentPage} von {totalPages} · {total} Vorgänge
-          </span>
-          {currentPage < totalPages ? (
-            <Link
-              href={pageHref(currentPage + 1)}
-              className="rounded-lg border border-white/20 bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white"
-            >
-              Weiter →
-            </Link>
-          ) : (
-            <span />
-          )}
-        </div>
-      ) : null}
+      <Pagination currentPage={currentPage} totalPages={totalPages} total={total} itemLabel="Vorgänge" hrefFor={pageHref} />
     </>
   );
 }

@@ -1,14 +1,5 @@
 import Link from "next/link";
-import {
-  Alert,
-  Card,
-  EmptyState,
-  Field,
-  PageTitle,
-  buttonClass,
-  buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { bookingKindLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -95,13 +86,11 @@ export default async function WegBuchhaltungPage({
   return (
     <>
       <PageTitle
+        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
         action={
           <div className="flex gap-2">
             <Link href={`/verwaltung/weg/${property.id}/stammdaten`} className={buttonSecondaryClass}>
               Stammdaten
-            </Link>
-            <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
-              ← WEG-Finanzen
             </Link>
           </div>
         }

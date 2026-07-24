@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { canVerwalterAccessProperty, ownedProperties } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, formatDateOnly, resolutionStatusLabels } from "@/lib/labels";
@@ -101,11 +101,7 @@ export default async function MeetingDetailPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/versammlungen" className={buttonSecondaryClass}>
-            ← Versammlungen
-          </Link>
-        }
+        back={{ href: "/versammlungen", label: "Versammlungen" }}
       >
         {meeting.title}
       </PageTitle>
@@ -162,7 +158,7 @@ export default async function MeetingDetailPage({
             ) : null}
 
             {meeting.agendaItems.length === 0 ? (
-              <p className="text-sm text-gray-500">Noch keine Tagesordnungspunkte.</p>
+              <EmptyState>Noch keine Tagesordnungspunkte.</EmptyState>
             ) : (
               <ol className="space-y-3">
                 {meeting.agendaItems.map((it, i) => (

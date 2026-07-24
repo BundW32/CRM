@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
 import { Card, Field, PageTitle, inputClass } from "@/components/ui";
@@ -39,7 +38,9 @@ export default async function ConversationPage({
 
   return (
     <>
-      <PageTitle>{conversation.subject}</PageTitle>
+      <PageTitle back={{ href: "/nachrichten", label: "Nachrichten" }}>
+        {conversation.subject}
+      </PageTitle>
       <p className="mb-4 text-sm text-gray-300">Mit: {others || "—"}</p>
 
       <Card>
@@ -73,13 +74,6 @@ export default async function ConversationPage({
           <SubmitButton pendingLabel="Wird gesendet…">Senden</SubmitButton>
         </form>
       </Card>
-
-      <Link
-        href="/nachrichten"
-        className="mt-4 block text-sm text-gray-300 hover:text-brand-orange hover:underline"
-      >
-        ← Zurück zu den Nachrichten
-      </Link>
     </>
   );
 }

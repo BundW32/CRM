@@ -1,14 +1,5 @@
 import Link from "next/link";
-import {
-  Alert,
-  Card,
-  EmptyState,
-  Field,
-  PageTitle,
-  buttonClass,
-  buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -53,13 +44,11 @@ export default async function SonderumlagenPage({
   return (
     <>
       <PageTitle
+        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
         action={
           <div className="flex gap-2">
             <Link href={`/verwaltung/weg/${property.id}/hausgeld`} className={buttonSecondaryClass}>
               Hausgeld & offene Posten
-            </Link>
-            <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
-              ← WEG-Finanzen
             </Link>
           </div>
         }

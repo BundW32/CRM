@@ -40,11 +40,7 @@ export default async function IntegrationenPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Integrationen
       </PageTitle>

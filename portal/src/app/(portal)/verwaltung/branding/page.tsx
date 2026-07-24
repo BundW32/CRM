@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Alert, Card, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { Alert, Card, PageTitle } from "@/components/ui";
 import { isSelfManaged } from "@/lib/access";
 import { orgLogoUrl } from "@/lib/branding";
 import { getOrganization, requireVerwalter } from "@/lib/session";
@@ -41,11 +40,7 @@ export default async function BrandingPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Branding &amp; Erscheinungsbild
       </PageTitle>

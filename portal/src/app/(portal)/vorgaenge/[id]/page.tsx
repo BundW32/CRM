@@ -1,12 +1,18 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Alert,
+import { Mail, MessageSquare, Phone } from "lucide-react";
+import {
+  Alert,
   Card,
+  CollapsibleCard,
+  EmptyState,
   Field,
   PageTitle,
   StatusBadge,
   buttonClass,
+  buttonDangerClass,
+  buttonSecondaryClass,
   inputClass,
 } from "@/components/ui";
 import {
@@ -141,7 +147,10 @@ export default async function TicketDetailPage({
 
   return (
     <>
-      <PageTitle action={<StatusBadge status={ticket.status} />}>
+      <PageTitle
+        back={{ href: "/vorgaenge", label: "Vorgänge" }}
+        action={<StatusBadge status={ticket.status} />}
+      >
         #{ticket.number} · {ticket.title}
       </PageTitle>
 
@@ -261,7 +270,7 @@ export default async function TicketDetailPage({
 
           <Card title="Verlauf">
             {comments.length === 0 ? (
-              <p className="text-sm text-gray-500">Noch keine Kommentare.</p>
+              <EmptyState>Noch keine Kommentare.</EmptyState>
             ) : (
               <ul className="space-y-4">
                 {comments.map((c) => (
@@ -448,7 +457,7 @@ export default async function TicketDetailPage({
           </Card>
 
           {isVerwalter ? (
-            <Card title="Bearbeiten">
+            <CollapsibleCard title="Bearbeiten">
               <form action={updateTicket} className="space-y-3">
                 <input type="hidden" name="ticketId" value={ticket.id} />
                 <Field label="Status">
@@ -515,11 +524,11 @@ export default async function TicketDetailPage({
                   Speichern
                 </button>
               </form>
-            </Card>
+            </CollapsibleCard>
           ) : null}
 
           {isVerwalter && user.isSuperAdmin ? (
-            <Card title="Vorgang löschen">
+            <CollapsibleCard title="Vorgang löschen">
               <p className="mb-2 text-xs text-gray-500">
                 Endgültiges Löschen (mit Kommentaren, Anhängen und Rechnung) – nur für Test-/
                 Fehleinträge. Der Regelweg ist „Schließen“: ein geschlossener Vorgang bleibt als
@@ -527,18 +536,18 @@ export default async function TicketDetailPage({
               </p>
               <form action={deleteTicket}>
                 <input type="hidden" name="ticketId" value={ticket.id} />
-                <button
-                  type="submit"
-                  className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
-                >
+                <button type="submit" className={`${buttonDangerClass} w-full`}>
                   Vorgang endgültig löschen
                 </button>
               </form>
-            </Card>
+            </CollapsibleCard>
           ) : null}
 
           {isVerwalter && ticket.invoice ? (
-            <Card title="Handwerker-Rechnung">
+            <CollapsibleCard
+              title="Handwerker-Rechnung"
+              defaultOpen={ticket.invoice.status === "EINGEREICHT"}
+            >
               <div className="space-y-2">
                 <p className="text-sm text-gray-800">
                   <span className="font-semibold">{formatCents(ticket.invoice.amountCents)}</span>
@@ -565,7 +574,7 @@ export default async function TicketDetailPage({
                     <form action={rejectInvoice} className="space-y-2">
                       <input type="hidden" name="ticketId" value={ticket.id} />
                       <textarea name="reason" rows={2} placeholder="Ablehnungsgrund (optional) …" className={inputClass} />
-                      <button type="submit" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
+                      <button type="submit" className={`${buttonDangerClass} w-full`}>
                         Rechnung ablehnen
                       </button>
                     </form>
@@ -576,11 +585,14 @@ export default async function TicketDetailPage({
                   </p>
                 )}
               </div>
-            </Card>
+            </CollapsibleCard>
           ) : null}
 
           {isVerwalter && ticket.type !== "DOKUMENT_ANFRAGE" ? (
-            <Card title="Abschluss">
+            <CollapsibleCard
+              title="Abschluss"
+              defaultOpen={ticket.status === "ERLEDIGT" || ticket.status === "GESCHLOSSEN"}
+            >
               {ticket.status === "GESCHLOSSEN" ? (
                 <div className="space-y-3">
                   <div className="rounded-lg border border-green-200 bg-green-50 p-3">
@@ -601,7 +613,7 @@ export default async function TicketDetailPage({
                     />
                     <button
                       type="submit"
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className={`${buttonSecondaryClass} w-full`}
                     >
                       Vorgang wieder öffnen
                     </button>
@@ -636,7 +648,7 @@ export default async function TicketDetailPage({
                     />
                     <button
                       type="submit"
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className={`${buttonSecondaryClass} w-full`}
                     >
                       Nacharbeit nötig – wieder öffnen
                     </button>
@@ -673,14 +685,14 @@ export default async function TicketDetailPage({
                     <input type="hidden" name="ticketId" value={ticket.id} />
                     <button
                       type="submit"
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className={`${buttonSecondaryClass} w-full`}
                     >
                       Direkt als erledigt abschließen
                     </button>
                   </form>
                 </div>
               )}
-            </Card>
+            </CollapsibleCard>
           ) : null}
 
           {isVerwalter && ticket.type === "DOKUMENT_ANFRAGE" ? (
@@ -748,7 +760,7 @@ export default async function TicketDetailPage({
           ) : null}
 
           {isVerwalter ? (
-            <Card title="Handwerker beauftragen">
+            <CollapsibleCard title="Handwerker beauftragen" defaultOpen={!!ticket.craftsman}>
               <form action={assignCraftsman} className="space-y-3">
                 <input type="hidden" name="ticketId" value={ticket.id} />
                 <Field label="Gewerk">
@@ -854,17 +866,19 @@ export default async function TicketDetailPage({
                     const enc = encodeURIComponent(text);
                     const wa = waNumber(c.phone);
                     const pill =
-                      "rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50";
+                      "inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50";
                     return (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {c.phone ? (
                           <a href={`tel:${c.phone}`} className={pill}>
-                            📞 Anrufen
+                            <Phone className="h-3.5 w-3.5" />
+                            Anrufen
                           </a>
                         ) : null}
                         {c.phone ? (
                           <a href={`sms:${c.phone}?body=${enc}`} className={pill}>
-                            💬 SMS
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            SMS
                           </a>
                         ) : null}
                         {wa ? (
@@ -883,7 +897,8 @@ export default async function TicketDetailPage({
                             )}&body=${enc}`}
                             className={pill}
                           >
-                            ✉ E-Mail
+                            <Mail className="h-3.5 w-3.5" />
+                            E-Mail
                           </a>
                         ) : null}
                       </div>
@@ -966,7 +981,7 @@ export default async function TicketDetailPage({
                             <input type="hidden" name="ticketId" value={ticket.id} />
                             <button
                               type="submit"
-                              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                              className={buttonSecondaryClass}
                             >
                               Ablehnen / neuen Termin anfragen
                             </button>
@@ -977,7 +992,7 @@ export default async function TicketDetailPage({
                   ) : null}
                 </div>
               ) : null}
-            </Card>
+            </CollapsibleCard>
           ) : null}
 
           {isAssignedHandwerker ? (
@@ -1005,9 +1020,6 @@ export default async function TicketDetailPage({
             </Card>
           ) : null}
 
-          <Link href="/vorgaenge" className="block text-sm text-gray-300 hover:text-brand-orange hover:underline">
-            ← Zurück zur Übersicht
-          </Link>
         </div>
       </div>
     </>

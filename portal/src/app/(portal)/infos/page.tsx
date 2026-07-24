@@ -1,6 +1,18 @@
 import Link from "next/link";
+import { Download, Eye } from "lucide-react";
 import type { User } from "@/generated/prisma/client";
-import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import {
+  Pagination,
+  Alert,
+  Card,
+  EmptyState,
+  Field,
+  PageTitle,
+  buttonClass,
+  buttonGhostClass,
+  inputClass,
+} from "@/components/ui";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { PropertyUnitFields } from "@/components/property-unit-fields";
 import { SubmitButton } from "@/components/submit-button";
 import {
@@ -160,11 +172,9 @@ async function AushaengeTab({
                   </p>
                 </div>
                 {isVerwalter ? (
-                  <form action={deleteAnnouncement}>
+                  <form action={deleteAnnouncement} className="shrink-0">
                     <input type="hidden" name="id" value={a.id} />
-                    <button type="submit" className="text-xs text-red-600 hover:underline">
-                      Löschen
-                    </button>
+                    <ConfirmDeleteButton title="Aushang löschen" />
                   </form>
                 ) : null}
               </div>
@@ -195,33 +205,7 @@ async function AushaengeTab({
           ))
         )}
 
-        {totalPages > 1 ? (
-          <div className="mt-4 flex items-center justify-between">
-            {currentPage > 1 ? (
-              <a
-                href={pageHref(currentPage - 1)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                ← Zurück
-              </a>
-            ) : (
-              <span />
-            )}
-            <span className="text-xs text-gray-400">
-              Seite {currentPage} von {totalPages} · {total} Einträge
-            </span>
-            {currentPage < totalPages ? (
-              <a
-                href={pageHref(currentPage + 1)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Weiter →
-              </a>
-            ) : (
-              <span />
-            )}
-          </div>
-        ) : null}
+        <Pagination currentPage={currentPage} totalPages={totalPages} total={total} hrefFor={pageHref} />
       </div>
 
       {isVerwalter ? (
@@ -311,37 +295,48 @@ async function DokumenteTab({
               {documents.map((doc) => (
                 <li key={doc.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <a href={`/api/files/dokument/${doc.id}`} target="_blank" className="min-w-0 hover:underline">
-                      <span className="block truncate text-sm font-medium text-gray-900">{doc.title}</span>
-                      <span className="block text-xs text-gray-500">
-                        {documentCategoryLabels[doc.category]}
-                        {doc.property ? ` · ${doc.property.name}` : " · Allgemein"}
-                        {doc.unit ? ` · ${doc.unit.label}` : ""}
-                        {isVerwalter ? ` · sichtbar für: ${audienceLabels[doc.audience]}` : ""}{" "}
-                        · {formatDate(doc.createdAt)} · {formatBytes(doc.size)}
-                      </span>
-                    </a>
-                    <span className="flex shrink-0 items-center gap-3">
+                    <div className="min-w-0 flex-1">
                       <a
                         href={`/api/files/dokument/${doc.id}`}
                         target="_blank"
-                        className="text-sm text-brand-green"
+                        className="block truncate text-sm font-medium text-gray-900 hover:underline"
                       >
-                        Öffnen →
+                        {doc.title}
+                      </a>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500">
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600">
+                          {documentCategoryLabels[doc.category]}
+                        </span>
+                        <span>
+                          {doc.property ? doc.property.name : "Allgemein"}
+                          {doc.unit ? ` · ${doc.unit.label}` : ""}
+                          {isVerwalter ? ` · sichtbar für: ${audienceLabels[doc.audience]}` : ""}
+                          {` · ${formatDate(doc.createdAt)} · ${formatBytes(doc.size)}`}
+                        </span>
+                      </span>
+                    </div>
+                    <span className="flex shrink-0 items-center gap-1">
+                      <a
+                        href={`/api/files/dokument/${doc.id}`}
+                        target="_blank"
+                        className={`${buttonGhostClass} px-2.5 py-1.5 text-xs`}
+                      >
+                        <Eye className="h-4 w-4" />
+                        Öffnen
                       </a>
                       {/* Direkter Download – funktioniert zuverlässig auch auf dem Handy */}
                       <a
                         href={`/api/files/dokument/${doc.id}?download=1`}
-                        className="text-sm text-gray-500 hover:text-brand-green"
+                        className={`${buttonGhostClass} px-2.5 py-1.5 text-xs`}
                       >
-                        Herunterladen
+                        <Download className="h-4 w-4" />
+                        <span className="hidden sm:inline">Herunterladen</span>
+                        <span className="sm:hidden">Laden</span>
                       </a>
                       {isVerwalter ? (
-                        <form action={deleteDocument} className="inline">
+                        <form action={deleteDocument} className="inline-flex">
                           <input type="hidden" name="id" value={doc.id} />
-                          <button type="submit" className="text-sm text-red-600 hover:text-red-700">
-                            Löschen
-                          </button>
+                          <ConfirmDeleteButton title="Dokument löschen" />
                         </form>
                       ) : null}
                     </span>
@@ -374,33 +369,7 @@ async function DokumenteTab({
           </div>
         )}
 
-        {totalPages > 1 ? (
-          <div className="mt-4 flex items-center justify-between">
-            {currentPage > 1 ? (
-              <a
-                href={pageHref(currentPage - 1)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                ← Zurück
-              </a>
-            ) : (
-              <span />
-            )}
-            <span className="text-xs text-gray-400">
-              Seite {currentPage} von {totalPages} · {total} Einträge
-            </span>
-            {currentPage < totalPages ? (
-              <a
-                href={pageHref(currentPage + 1)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Weiter →
-              </a>
-            ) : (
-              <span />
-            )}
-          </div>
-        ) : null}
+        <Pagination currentPage={currentPage} totalPages={totalPages} total={total} hrefFor={pageHref} />
       </div>
 
       <div className="space-y-5">

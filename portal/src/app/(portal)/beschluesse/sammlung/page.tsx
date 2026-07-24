@@ -52,11 +52,7 @@ export default async function BeschlussSammlungPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/beschluesse" className={buttonSecondaryClass}>
-            ← Beschlüsse
-          </Link>
-        }
+        back={{ href: "/beschluesse", label: "Beschlüsse" }}
       >
         Beschluss-Sammlung
       </PageTitle>

@@ -27,11 +27,7 @@ export default async function WegOverviewPage() {
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         WEG-Finanzen
       </PageTitle>

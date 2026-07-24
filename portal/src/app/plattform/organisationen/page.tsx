@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PageTitle, inputClass } from "@/components/ui";
+import { PageTitle, Pagination, inputClass } from "@/components/ui";
 import { planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
@@ -169,17 +169,13 @@ export default async function OrganisationenPage({
         </table>
       </div>
 
-      {totalPages > 1 ? (
-        <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-          {page > 1 ? (
-            <Link href={chipHref("page", String(page - 1))} className="hover:text-brand-orange">← Zurück</Link>
-          ) : <span />}
-          <span>Seite {page} von {totalPages}</span>
-          {page < totalPages ? (
-            <Link href={chipHref("page", String(page + 1))} className="hover:text-brand-orange">Weiter →</Link>
-          ) : <span />}
-        </div>
-      ) : null}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        total={total}
+        itemLabel="Verwaltungen"
+        hrefFor={(p) => chipHref("page", String(p))}
+      />
     </>
   );
 }

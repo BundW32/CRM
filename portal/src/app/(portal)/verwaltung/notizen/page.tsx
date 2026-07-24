@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { Pagination, Card, EmptyState, PageTitle } from "@/components/ui";
 import { noteWhereForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
@@ -76,11 +75,7 @@ export default async function NotizenPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Notizen
       </PageTitle>
@@ -177,33 +172,7 @@ export default async function NotizenPage({
             </ul>
           )}
 
-          {totalPages > 1 ? (
-            <div className="mt-4 flex items-center justify-between">
-              {currentPage > 1 ? (
-                <a
-                  href={pageHref(currentPage - 1)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  ← Zurück
-                </a>
-              ) : (
-                <span />
-              )}
-              <span className="text-xs text-gray-400">
-                Seite {currentPage} von {totalPages} · {total} Notizen
-              </span>
-              {currentPage < totalPages ? (
-                <a
-                  href={pageHref(currentPage + 1)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Weiter →
-                </a>
-              ) : (
-                <span />
-              )}
-            </div>
-          ) : null}
+          <Pagination currentPage={currentPage} totalPages={totalPages} total={total} itemLabel="Notizen" hrefFor={pageHref} />
         </div>
 
         {/* Create form */}

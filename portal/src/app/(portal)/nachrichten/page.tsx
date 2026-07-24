@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SubmitButton } from "@/components/submit-button";
-import { Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import { Pagination, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
@@ -109,33 +109,7 @@ export default async function NachrichtenPage({
             </div>
           )}
 
-          {totalPages > 1 ? (
-            <div className="mt-4 flex items-center justify-between">
-              {currentPage > 1 ? (
-                <Link
-                  href={pageHref(currentPage - 1)}
-                  className="rounded-lg border border-white/20 bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white"
-                >
-                  ← Zurück
-                </Link>
-              ) : (
-                <span />
-              )}
-              <span className="text-xs text-gray-300">
-                Seite {currentPage} von {totalPages} · {total} Konversationen
-              </span>
-              {currentPage < totalPages ? (
-                <Link
-                  href={pageHref(currentPage + 1)}
-                  className="rounded-lg border border-white/20 bg-white/90 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-white"
-                >
-                  Weiter →
-                </Link>
-              ) : (
-                <span />
-              )}
-            </div>
-          ) : null}
+          <Pagination currentPage={currentPage} totalPages={totalPages} total={total} itemLabel="Konversationen" hrefFor={pageHref} />
         </div>
 
         <Card title={isVerwalter ? "Neue Nachricht" : "Nachricht an die Verwaltung"}>

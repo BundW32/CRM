@@ -1,5 +1,15 @@
-import type { ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
+import type { ComponentProps, ReactNode } from "react";
+import Link from "next/link";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Info,
+  XCircle,
+} from "lucide-react";
 import type { TicketStatus } from "@/generated/prisma/client";
 import { ticketStatusLabels, ticketStatusStyles } from "@/lib/labels";
 
@@ -30,13 +40,78 @@ export const buttonSecondaryClass =
 export const buttonOutlineClass =
   `${buttonBase} border border-brand-orange/60 bg-transparent font-semibold text-brand-orange hover:bg-brand-orange/10 active:shadow-none`;
 
-export function PageTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
+// Destruktiv (Löschen, Ablehnen, …) – roter Rahmen auf hellem Grund, klar von der
+// Primäraktion getrennt. Ersetzt die zuvor mehrfach kopierten Inline-Rot-Buttons.
+export const buttonDangerClass =
+  `${buttonBase} border border-red-200 bg-white font-medium text-red-600 hover:border-red-300 hover:bg-red-50 active:shadow-none`;
+
+// Ghost – flächenlos, wird erst bei Hover sichtbar. Für tertiäre/kompakte Aktionen
+// in Listenzeilen und Toolbars (statt roher Textlinks).
+export const buttonGhostClass =
+  `${buttonBase} bg-transparent font-medium text-gray-600 hover:bg-gray-100 hover:text-brand-green active:shadow-none`;
+
+// Icon-Button (quadratisch, flächenlos) – für Aktions-Icons in dichten Listen.
+// Als Klassen-String, damit er auf <button> UND <a>/<Link> passt. Wird mit einem
+// Lucide-Icon befüllt; bei Icon-only immer aria-label/title setzen.
+const iconButtonBase =
+  `inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg transition-all active:scale-[0.94] disabled:opacity-50 disabled:pointer-events-none ${focusRing}`;
+export const iconButtonClass =
+  `${iconButtonBase} text-gray-500 hover:bg-gray-100 hover:text-brand-green`;
+export const iconButtonDangerClass =
+  `${iconButtonBase} text-gray-400 hover:bg-red-50 hover:text-red-600`;
+
+// Einheitlicher Zurück-Link – ersetzt die ~50 rohen „← Text"-Textlinks. Chevron
+// aus derselben Icon-Familie, dezent, mit sichtbarem Fokus-Ring. Auf dunklem
+// Shell (Standard) hell, per `tone="onLight"` für helle Flächen (z. B. Plattform).
+export function BackLink({
+  href,
+  children,
+  tone = "onDark",
+}: {
+  href: ComponentProps<typeof Link>["href"];
+  children: ReactNode;
+  tone?: "onDark" | "onLight";
+}) {
+  const color =
+    tone === "onDark"
+      ? "text-gray-300 hover:text-brand-orange"
+      : "text-gray-500 hover:text-brand-green";
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-        {children}
-      </h1>
-      {action}
+    <Link
+      href={href}
+      className={`inline-flex items-center gap-1.5 rounded-lg py-1 text-sm font-medium transition ${color} ${focusRing}`}
+    >
+      <ArrowLeft className="h-4 w-4 shrink-0" />
+      {children}
+    </Link>
+  );
+}
+
+export function PageTitle({
+  children,
+  action,
+  back,
+}: {
+  children: ReactNode;
+  action?: ReactNode;
+  /** Zurück-Navigation – wird einheitlich oben links ÜBER dem Titel gezeigt
+   *  (etablierte Konvention); der `action`-Slot bleibt den Primär-/Statusaktionen
+   *  rechts vorbehalten. */
+  back?: { href: ComponentProps<typeof Link>["href"]; label: ReactNode };
+}) {
+  return (
+    <div className="mb-6">
+      {back ? (
+        <div className="mb-2">
+          <BackLink href={back.href}>{back.label}</BackLink>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+          {children}
+        </h1>
+        {action}
+      </div>
     </div>
   );
 }
@@ -49,6 +124,32 @@ export function Card({ title, children }: { title?: ReactNode; children: ReactNo
       ) : null}
       {children}
     </div>
+  );
+}
+
+// Ausklappbare Karte – gleiche Optik wie `Card`, aber mit klickbarer Kopfzeile
+// (natives <details>, kein Client-JS nötig). Für sekundäre Aktionsblöcke, die eine
+// Seite unnötig verlängern: standardmäßig eingeklappt, nur bei Bedarf `defaultOpen`.
+export function CollapsibleCard({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: ReactNode;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="group rounded-2xl border border-gray-200 bg-white shadow-sm"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-5 py-4 text-base font-semibold text-gray-900 marker:hidden [&::-webkit-details-marker]:hidden">
+        {title}
+        <ChevronDown className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180" />
+      </summary>
+      <div className="px-5 pb-5">{children}</div>
+    </details>
   );
 }
 
@@ -157,6 +258,58 @@ export function Alert({
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
+  );
+}
+
+// Einheitliche Seitennavigation (Zurück · „Seite X von Y" · Weiter). Ersetzt die
+// zuvor je Seite duplizierten, leicht abweichenden Paginierungs-Blöcke. `hrefFor`
+// baut das Ziel-URL je Seitenzahl (server-seitig, kein Client-JS). Rendert nichts
+// bei nur einer Seite.
+export function Pagination({
+  currentPage,
+  totalPages,
+  total,
+  hrefFor,
+  itemLabel = "Einträge",
+  className = "",
+}: {
+  currentPage: number;
+  totalPages: number;
+  /** Gesamtzahl der Einträge (optional – ergänzt „· N Einträge"). */
+  total?: number;
+  hrefFor: (page: number) => string;
+  itemLabel?: string;
+  className?: string;
+}) {
+  if (totalPages <= 1) return null;
+  const link =
+    `inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 ${focusRing}`;
+  return (
+    <nav
+      aria-label="Seitennavigation"
+      className={`mt-4 flex items-center justify-between gap-3 ${className}`}
+    >
+      {currentPage > 1 ? (
+        <Link href={hrefFor(currentPage - 1)} rel="prev" className={link}>
+          <ChevronLeft className="h-4 w-4 shrink-0" />
+          Zurück
+        </Link>
+      ) : (
+        <span />
+      )}
+      <span className="text-xs text-gray-400">
+        Seite {currentPage} von {totalPages}
+        {typeof total === "number" ? ` · ${total} ${itemLabel}` : ""}
+      </span>
+      {currentPage < totalPages ? (
+        <Link href={hrefFor(currentPage + 1)} rel="next" className={link}>
+          Weiter
+          <ChevronRight className="h-4 w-4 shrink-0" />
+        </Link>
+      ) : (
+        <span />
+      )}
+    </nav>
   );
 }
 

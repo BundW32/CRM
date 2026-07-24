@@ -1,13 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  Alert,
-  Card,
-  PageTitle,
-  buttonClass,
-  buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -107,14 +99,7 @@ Muster — ersetzt keine Rechtsberatung.`;
   return (
     <>
       <PageTitle
-        action={
-          <Link
-            href={`/verwaltung/weg/${property.id}/jahresabrechnung`}
-            className={buttonSecondaryClass}
-          >
-            ← Abrechnungen
-          </Link>
-        }
+        back={{ href: `/verwaltung/weg/${property.id}/jahresabrechnung`, label: "Abrechnungen" }}
       >
         Jahresabrechnung {view.year} · {property.name}
       </PageTitle>

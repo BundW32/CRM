@@ -1,14 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  Alert,
-  Card,
-  Field,
-  PageTitle,
-  buttonClass,
-  buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -88,6 +80,7 @@ Muster — ersetzt keine Rechtsberatung.`;
   return (
     <>
       <PageTitle
+        back={{ href: `/verwaltung/weg/${property.id}/wirtschaftsplan`, label: "Wirtschaftspläne" }}
         action={
           <div className="flex gap-2">
             {!advanceError ? (
@@ -100,9 +93,6 @@ Muster — ersetzt keine Rechtsberatung.`;
                 Als PDF
               </a>
             ) : null}
-            <Link href={`/verwaltung/weg/${property.id}/wirtschaftsplan`} className={buttonSecondaryClass}>
-              ← Wirtschaftspläne
-            </Link>
           </div>
         }
       >

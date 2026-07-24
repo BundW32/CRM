@@ -1,14 +1,5 @@
 import Link from "next/link";
-import {
-  Alert,
-  Card,
-  EmptyState,
-  Field,
-  PageTitle,
-  buttonClass,
-  buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDateOnly } from "@/lib/labels";
 import { requireWegProperty } from "@/lib/weg/scope";
@@ -38,6 +29,7 @@ export default async function JahresabrechnungListPage({
   return (
     <>
       <PageTitle
+        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
         action={
           <div className="flex gap-2">
             <Link
@@ -45,9 +37,6 @@ export default async function JahresabrechnungListPage({
               className={buttonSecondaryClass}
             >
               Wirtschaftsplan
-            </Link>
-            <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
-              ← WEG-Finanzen
             </Link>
           </div>
         }

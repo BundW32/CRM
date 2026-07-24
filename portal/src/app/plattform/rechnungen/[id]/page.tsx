@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { db } from "@/lib/db";
@@ -56,11 +55,7 @@ export default async function RechnungDetailPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/plattform/rechnungen" className={buttonSecondaryClass}>
-            ← Rechnungen
-          </Link>
-        }
+        back={{ href: "/plattform/rechnungen", label: "Rechnungen" }}
       >
         {formatInvoiceNumber(inv.year, inv.number)}
       </PageTitle>

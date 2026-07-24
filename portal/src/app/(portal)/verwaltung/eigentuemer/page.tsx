@@ -42,11 +42,7 @@ export default async function EigentuemerPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Eigentümer &amp; Miteigentumsanteile
       </PageTitle>

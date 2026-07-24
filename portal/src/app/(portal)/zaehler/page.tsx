@@ -1,4 +1,4 @@
-import { Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import { Pagination, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { SubmitButton } from "@/components/submit-button";
 import { ownedProperties, propertyWhereForVerwalter, tenantUnits } from "@/lib/access";
@@ -192,33 +192,7 @@ export default async function ZaehlerPage({
             ))
           )}
 
-          {totalPages > 1 ? (
-            <div className="mt-4 flex items-center justify-between">
-              {currentPage > 1 ? (
-                <a
-                  href={pageHref(currentPage - 1)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  ← Zurück
-                </a>
-              ) : (
-                <span />
-              )}
-              <span className="text-xs text-gray-400">
-                Seite {currentPage} von {totalPages} · {totalMeters} Zähler
-              </span>
-              {currentPage < totalPages ? (
-                <a
-                  href={pageHref(currentPage + 1)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Weiter →
-                </a>
-              ) : (
-                <span />
-              )}
-            </div>
-          ) : null}
+          <Pagination currentPage={currentPage} totalPages={totalPages} total={totalMeters} itemLabel="Zähler" hrefFor={pageHref} />
         </div>
 
         {isVerwalter ? (

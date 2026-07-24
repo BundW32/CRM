@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Alert, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { Alert, PageTitle } from "@/components/ui";
 import { isSelfManaged } from "@/lib/access";
 import { db } from "@/lib/db";
 import { isObjektImportEnabled } from "@/lib/objekt-extraction";
@@ -32,11 +31,7 @@ export default async function NeuesObjektPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Objekt anlegen
       </PageTitle>

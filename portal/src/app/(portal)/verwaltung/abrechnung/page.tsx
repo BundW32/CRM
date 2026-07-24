@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { PLANS, isBillingEnabled, planLabel, subscriptionStatusLabel } from "@/lib/billing";
@@ -25,11 +24,7 @@ export default async function BillingPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Abrechnung
       </PageTitle>

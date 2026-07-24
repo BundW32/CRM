@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { BackButton, Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { PLANS, isBillingEnabled, planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { formatDate } from "@/lib/labels";
 import { getOrganization, requireVerwalter } from "@/lib/session";
@@ -26,9 +25,7 @@ export default async function BillingPage({
     <>
       <PageTitle
         action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
+          <BackButton href="/verwaltung">Verwaltung</BackButton>
         }
       >
         Abrechnung

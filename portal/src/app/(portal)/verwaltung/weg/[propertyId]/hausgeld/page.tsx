@@ -1,12 +1,12 @@
 import Link from "next/link";
 import {
+  BackButton,
   Alert,
   Card,
   EmptyState,
   PageTitle,
   buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+  inputClass,} from "@/components/ui";
 import { db } from "@/lib/db";
 import { reminderLevelLabel } from "@/lib/dunning";
 import { formatDateOnly } from "@/lib/labels";
@@ -118,9 +118,7 @@ export default async function HausgeldPage({
             <Link href={`/verwaltung/weg/${property.id}/sonderumlagen`} className={buttonSecondaryClass}>
               Sonderumlagen
             </Link>
-            <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
-              ← WEG-Finanzen
-            </Link>
+            <BackButton href="/verwaltung/weg">WEG-Finanzen</BackButton>
           </div>
         }
       >

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { BackButton, Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { maskSecret } from "@/lib/crypto";
 import { decryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
@@ -41,9 +41,7 @@ export default async function IntegrationenPage({
     <>
       <PageTitle
         action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
+          <BackButton href="/verwaltung">Verwaltung</BackButton>
         }
       >
         Integrationen

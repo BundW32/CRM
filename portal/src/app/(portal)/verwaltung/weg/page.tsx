@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { BackButton, Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
@@ -28,9 +28,7 @@ export default async function WegOverviewPage() {
     <>
       <PageTitle
         action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
+          <BackButton href="/verwaltung">Verwaltung</BackButton>
         }
       >
         WEG-Finanzen

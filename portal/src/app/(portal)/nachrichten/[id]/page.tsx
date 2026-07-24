@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
-import { Card, Field, PageTitle, inputClass } from "@/components/ui";
+import { BackLink, Card, Field, PageTitle, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
@@ -74,12 +73,9 @@ export default async function ConversationPage({
         </form>
       </Card>
 
-      <Link
-        href="/nachrichten"
-        className="mt-4 block text-sm text-gray-300 hover:text-brand-orange hover:underline"
-      >
-        ← Zurück zu den Nachrichten
-      </Link>
+      <div className="mt-4">
+        <BackLink href="/nachrichten">Zurück zu den Nachrichten</BackLink>
+      </div>
     </>
   );
 }

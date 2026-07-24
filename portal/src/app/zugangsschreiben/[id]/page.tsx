@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Alert, buttonSecondaryClass } from "@/components/ui";
+import { BackButton, Alert } from "@/components/ui";
 import { LetterHead, letterFooterLine } from "@/components/letter-branding";
 import { canVerwalterManageUser } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -55,9 +54,7 @@ export default async function ZugangsschreibenPage({
     <main className="min-h-screen bg-gray-100 py-8 print:bg-white print:py-0">
       {/* Steuerleiste – nicht im Druck */}
       <div className="no-print mx-auto mb-4 flex max-w-3xl items-center justify-between px-6">
-        <Link href="/verwaltung/nutzer" className={buttonSecondaryClass}>
-          ← Zurück zu Nutzer
-        </Link>
+        <BackButton href="/verwaltung/nutzer">Zurück zu Nutzer</BackButton>
         <PrintButton />
       </div>
 

@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  BackButton,
   Alert,
   Card,
   Field,
   PageTitle,
   buttonClass,
   buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+  inputClass,} from "@/components/ui";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -100,9 +100,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                 Als PDF
               </a>
             ) : null}
-            <Link href={`/verwaltung/weg/${property.id}/wirtschaftsplan`} className={buttonSecondaryClass}>
-              ← Wirtschaftspläne
-            </Link>
+            <BackButton href={`/verwaltung/weg/${property.id}/wirtschaftsplan`}>Wirtschaftspläne</BackButton>
           </div>
         }
       >

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  BackButton,
   Alert,
   Card,
   EmptyState,
@@ -7,8 +8,7 @@ import {
   PageTitle,
   buttonClass,
   buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+  inputClass,} from "@/components/ui";
 import { db } from "@/lib/db";
 import {
   costCategoryLabels,
@@ -93,9 +93,7 @@ export default async function WegStammdatenPage({
             <Link href={`/verwaltung/weg/${property.id}/buchhaltung`} className={buttonSecondaryClass}>
               Buchhaltung
             </Link>
-            <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
-              ← WEG-Finanzen
-            </Link>
+            <BackButton href="/verwaltung/weg">WEG-Finanzen</BackButton>
           </div>
         }
       >

@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   Alert,
+  BackButton,
   Card,
   PageTitle,
   buttonClass,
@@ -108,12 +108,9 @@ Muster — ersetzt keine Rechtsberatung.`;
     <>
       <PageTitle
         action={
-          <Link
-            href={`/verwaltung/weg/${property.id}/jahresabrechnung`}
-            className={buttonSecondaryClass}
-          >
-            ← Abrechnungen
-          </Link>
+          <BackButton href={`/verwaltung/weg/${property.id}/jahresabrechnung`}>
+            Abrechnungen
+          </BackButton>
         }
       >
         Jahresabrechnung {view.year} · {property.name}

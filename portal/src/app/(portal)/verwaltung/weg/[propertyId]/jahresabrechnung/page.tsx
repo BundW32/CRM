@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  BackButton,
   Alert,
   Card,
   EmptyState,
@@ -7,8 +8,7 @@ import {
   PageTitle,
   buttonClass,
   buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+  inputClass,} from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDateOnly } from "@/lib/labels";
 import { requireWegProperty } from "@/lib/weg/scope";
@@ -46,9 +46,7 @@ export default async function JahresabrechnungListPage({
             >
               Wirtschaftsplan
             </Link>
-            <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
-              ← WEG-Finanzen
-            </Link>
+            <BackButton href="/verwaltung/weg">WEG-Finanzen</BackButton>
           </div>
         }
       >

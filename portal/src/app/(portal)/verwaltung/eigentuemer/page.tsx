@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Alert, Card, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { BackButton, Alert, Card, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
@@ -43,9 +43,7 @@ export default async function EigentuemerPage({
     <>
       <PageTitle
         action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
+          <BackButton href="/verwaltung">Verwaltung</BackButton>
         }
       >
         Eigentümer &amp; Miteigentumsanteile

@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { BackButton, Alert, Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/platform";
 import { createInvoice } from "../actions";
@@ -30,9 +29,7 @@ export default async function NeueRechnungPage({
     <>
       <PageTitle
         action={
-          <Link href="/plattform/rechnungen" className={buttonSecondaryClass}>
-            ← Rechnungen
-          </Link>
+          <BackButton href="/plattform/rechnungen">Rechnungen</BackButton>
         }
       >
         Neue Rechnung

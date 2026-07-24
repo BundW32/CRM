@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { BackButton, Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
@@ -75,9 +75,7 @@ export default async function LastschriftPage({
             <Link href={`/verwaltung/weg/${property.id}/hausgeld`} className={buttonSecondaryClass}>
               Hausgeld
             </Link>
-            <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
-              ← WEG-Finanzen
-            </Link>
+            <BackButton href="/verwaltung/weg">WEG-Finanzen</BackButton>
           </div>
         }
       >

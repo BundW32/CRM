@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { BackButton, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter, propertyIdsForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -82,9 +81,7 @@ export default async function WartungPage({
     <>
       <PageTitle
         action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
+          <BackButton href="/verwaltung">Verwaltung</BackButton>
         }
       >
         Wartung &amp; Prüfungen

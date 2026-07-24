@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Alert, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { BackButton, Alert, Field, PageTitle, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -47,9 +46,7 @@ export default async function KontaktePage({
     <>
       <PageTitle
         action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
+          <BackButton href="/verwaltung">Verwaltung</BackButton>
         }
       >
         Kontaktbuch

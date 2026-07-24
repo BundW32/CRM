@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Alert, Card, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { BackButton, Alert, Card, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -32,9 +32,7 @@ export default async function ObjektBearbeitenPage({
     <>
       <PageTitle
         action={
-          <Link href="/verwaltung/objekte" className={buttonSecondaryClass}>
-            ← Objekte
-          </Link>
+          <BackButton href="/verwaltung/objekte">Objekte</BackButton>
         }
       >
         Objekt bearbeiten

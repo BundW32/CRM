@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { BackButton, Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
@@ -63,9 +63,7 @@ export default async function BetriebskostenPage({
     <>
       <PageTitle
         action={
-          <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
-            ← WEG-Finanzen
-          </Link>
+          <BackButton href="/verwaltung/weg">WEG-Finanzen</BackButton>
         }
       >
         Betriebskostenabrechnung · {property.name}

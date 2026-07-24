@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { BackButton, Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { canVerwalterAccessProperty, ownedProperties } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, formatDateOnly, resolutionStatusLabels } from "@/lib/labels";
@@ -102,9 +102,7 @@ export default async function MeetingDetailPage({
     <>
       <PageTitle
         action={
-          <Link href="/versammlungen" className={buttonSecondaryClass}>
-            ← Versammlungen
-          </Link>
+          <BackButton href="/versammlungen">Versammlungen</BackButton>
         }
       >
         {meeting.title}

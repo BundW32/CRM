@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
-import { Alert, Card, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { BackButton, Alert, Card, PageTitle, inputClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { isSelfManaged, propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -141,9 +141,7 @@ export default async function UsersPage({
     <>
       <PageTitle
         action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
+          <BackButton href="/verwaltung">Verwaltung</BackButton>
         }
       >
         Nutzer

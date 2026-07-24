@@ -51,6 +51,24 @@ export const iconButtonClass =
 export const iconButtonDangerClass =
   `${iconButtonBase} text-gray-400 hover:bg-red-50 hover:text-red-600`;
 
+// Zurück-Aktion im prominenten Header-Slot (PageTitle action) – Sekundär-Button
+// mit Pfeil-Icon. Ersetzt das Muster `<Link className={buttonSecondaryClass}>← X`
+// und vereinheitlicht den Text-Pfeil „←" zum Icon der übrigen Icon-Familie.
+export function BackButton({
+  href,
+  children,
+}: {
+  href: ComponentProps<typeof Link>["href"];
+  children: ReactNode;
+}) {
+  return (
+    <Link href={href} className={buttonSecondaryClass}>
+      <ArrowLeft className="h-4 w-4 shrink-0" />
+      {children}
+    </Link>
+  );
+}
+
 // Einheitlicher Zurück-Link – ersetzt die ~50 rohen „← Text"-Textlinks. Chevron
 // aus derselben Icon-Familie, dezent, mit sichtbarem Fokus-Ring. Auf dunklem
 // Shell (Standard) hell, per `tone="onLight"` für helle Flächen (z. B. Plattform).

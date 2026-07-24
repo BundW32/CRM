@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { BackButton, Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels } from "@/lib/labels";
@@ -53,9 +53,7 @@ export default async function BeschlussSammlungPage({
     <>
       <PageTitle
         action={
-          <Link href="/beschluesse" className={buttonSecondaryClass}>
-            ← Beschlüsse
-          </Link>
+          <BackButton href="/beschluesse">Beschlüsse</BackButton>
         }
       >
         Beschluss-Sammlung

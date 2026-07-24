@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Alert, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { BackButton, Alert, PageTitle } from "@/components/ui";
 import { db } from "@/lib/db";
 import { propertyIdsForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { requireVerwalter } from "@/lib/session";
@@ -56,9 +55,7 @@ export default async function DokumentQuellenPage({
     <>
       <PageTitle
         action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
+          <BackButton href="/verwaltung">Verwaltung</BackButton>
         }
       >
         Dokument-Quellen

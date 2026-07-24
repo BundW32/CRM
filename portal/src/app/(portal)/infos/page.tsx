@@ -1,6 +1,17 @@
 import Link from "next/link";
+import { Download, Eye } from "lucide-react";
 import type { User } from "@/generated/prisma/client";
-import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import {
+  Alert,
+  Card,
+  EmptyState,
+  Field,
+  PageTitle,
+  buttonClass,
+  buttonGhostClass,
+  inputClass,
+} from "@/components/ui";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { PropertyUnitFields } from "@/components/property-unit-fields";
 import { SubmitButton } from "@/components/submit-button";
 import { announcementWhereForUser, documentWhereForUser, propertyWhereForVerwalter } from "@/lib/access";
@@ -133,11 +144,9 @@ async function AushaengeTab({
                   </p>
                 </div>
                 {isVerwalter ? (
-                  <form action={deleteAnnouncement}>
+                  <form action={deleteAnnouncement} className="shrink-0">
                     <input type="hidden" name="id" value={a.id} />
-                    <button type="submit" className="text-xs text-red-600 hover:underline">
-                      Löschen
-                    </button>
+                    <ConfirmDeleteButton title="Aushang löschen" />
                   </form>
                 ) : null}
               </div>
@@ -291,20 +300,23 @@ async function DokumenteTab({
                         · {formatDate(doc.createdAt)} · {formatBytes(doc.size)}
                       </span>
                     </a>
-                    <span className="flex shrink-0 items-center gap-3">
+                    <span className="flex shrink-0 items-center gap-1">
                       <a
                         href={`/api/files/dokument/${doc.id}`}
                         target="_blank"
-                        className="text-sm text-brand-green"
+                        className={`${buttonGhostClass} px-2.5 py-1.5 text-xs`}
                       >
-                        Öffnen →
+                        <Eye className="h-4 w-4" />
+                        Öffnen
                       </a>
                       {/* Direkter Download – funktioniert zuverlässig auch auf dem Handy */}
                       <a
                         href={`/api/files/dokument/${doc.id}?download=1`}
-                        className="text-sm text-gray-500 hover:text-brand-green"
+                        className={`${buttonGhostClass} px-2.5 py-1.5 text-xs`}
                       >
-                        Herunterladen
+                        <Download className="h-4 w-4" />
+                        <span className="hidden sm:inline">Herunterladen</span>
+                        <span className="sm:hidden">Laden</span>
                       </a>
                     </span>
                   </div>

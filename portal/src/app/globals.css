@@ -52,6 +52,7 @@
   --animate-toast-out: toastOut 0.2s ease-in forwards;
   --animate-spin-once: spinOnce 0.5s ease-in-out;
   --animate-check-pop: checkPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-drawer-in: drawerIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes pageIn {
@@ -93,6 +94,12 @@
   0%   { transform: scale(0.5); opacity: 0; }
   60%  { transform: scale(1.2); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
+}
+
+/* Off-Canvas-Bereichsliste (Verwaltung, mobil): von links einschieben. */
+@keyframes drawerIn {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
 }
 
 /* ── Selbst-gehostete Schriften (woff2, latin) ────────────────────────────

@@ -140,29 +140,41 @@ function RoomCard({
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Fotos EINZELN nacheinander hochladen: Vercel begrenzt den Request-Body einer
   // Server Action auf ~4,5 MB – mehrere Fotos in einem Request würden scheitern.
   async function handlePhotos(files: FileList | null) {
     if (!files || files.length === 0) return;
     setUploading(true);
-    try {
-      for (const file of Array.from(files)) {
-        const fd = new FormData();
-        fd.append("handoverId", handoverId);
-        fd.append("roomId", room.id);
-        fd.append("photo", file);
-        try {
-          await uploadRoomPhoto(fd);
-        } catch {
-          // Einzelne fehlerhafte Datei überspringen, Rest weiter hochladen.
-        }
+    setUploadStatus(null);
+    let done = 0;
+    let failed = 0;
+    let lastError = "";
+    for (const file of Array.from(files)) {
+      const fd = new FormData();
+      fd.append("handoverId", handoverId);
+      fd.append("roomId", room.id);
+      fd.append("photo", file);
+      try {
+        await uploadRoomPhoto(fd);
+        done += 1;
+      } catch (e) {
+        failed += 1;
+        lastError = e instanceof Error ? e.message : String(e);
       }
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
-      router.refresh();
     }
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
+    setUploadStatus(
+      failed === 0
+        ? { ok: true, text: `${done} Foto${done === 1 ? "" : "s"} hochgeladen.` }
+        : {
+            ok: false,
+            text: `${done} hochgeladen, ${failed} fehlgeschlagen${lastError ? `: ${lastError}` : ""}.`,
+          },
+    );
+    router.refresh();
   }
 
   const points = checksForRoomType(room.roomType);
@@ -317,6 +329,11 @@ function RoomCard({
                 </svg>
                 {uploading ? "Wird hochgeladen…" : "Fotos aufnehmen / hochladen"}
               </button>
+              {uploadStatus ? (
+                <p className={`mt-2 text-xs ${uploadStatus.ok ? "text-brand-green" : "text-red-600"}`}>
+                  {uploadStatus.text}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>

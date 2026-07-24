@@ -27,7 +27,6 @@ export default async function WegOverviewPage() {
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         WEG-Finanzen
       </PageTitle>

@@ -75,7 +75,6 @@ export default async function NotizenPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Notizen
       </PageTitle>

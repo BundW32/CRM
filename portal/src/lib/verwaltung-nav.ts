@@ -13,6 +13,7 @@ export type VerwaltungIcon =
   | "nutzer"
   | "eigentuemer"
   | "kontakte"
+  | "notizen"
   | "beschluesse"
   | "versammlungen"
   | "weg"
@@ -72,6 +73,12 @@ const GROUPS: VerwaltungGroup[] = [
         desc: "Handwerker und Kontaktbuch (Mieter/Eigentümer)",
         icon: "kontakte",
         countKey: "kontakte",
+      },
+      {
+        href: "/verwaltung/notizen",
+        title: "Notizen",
+        desc: "Interne Notizen zu Objekten, Einheiten und Personen",
+        icon: "notizen",
       },
     ],
   },

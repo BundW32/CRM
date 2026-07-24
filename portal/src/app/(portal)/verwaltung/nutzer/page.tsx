@@ -140,7 +140,6 @@ export default async function UsersPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Nutzer
       </PageTitle>

@@ -90,7 +90,6 @@ export default async function PropertiesPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung", label: "Verwaltung" }}
         action={
           <span className="flex flex-wrap items-center gap-2">
             <a href="/verwaltung/objekte/neu" className={buttonClass}>

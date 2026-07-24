@@ -15,6 +15,7 @@ import {
   Menu,
   Palette,
   PieChart,
+  StickyNote,
   Plug,
   Receipt,
   ShieldCheck,
@@ -32,6 +33,7 @@ const ICONS: Record<VerwaltungIcon, LucideIcon> = {
   nutzer: Users,
   eigentuemer: PieChart,
   kontakte: Contact,
+  notizen: StickyNote,
   beschluesse: Gavel,
   versammlungen: CalendarDays,
   weg: Wallet,
@@ -144,8 +146,11 @@ export function VerwaltungShell({
       </button>
 
       {/* Desktop-Sidebar (sticky) */}
+      {/* Der Offset entspricht der Höhe der Kopfleiste plus dem Innenabstand von
+          <main> – so rastet die Leiste sofort ein und rutscht beim Scrollen nicht
+          erst ein Stück mit. Lange Menüs scrollen intern statt die Seite zu schieben. */}
       <aside className="hidden md:block">
-        <div className="sticky top-24 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
+        <div className="sticky top-[6.5rem] max-h-[calc(100vh-8rem)] overflow-y-auto rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
           {nav}
         </div>
       </aside>

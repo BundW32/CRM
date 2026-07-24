@@ -54,7 +54,6 @@ export default async function DokumentQuellenPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Dokument-Quellen
       </PageTitle>

@@ -24,7 +24,6 @@ export default async function BillingPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Abrechnung
       </PageTitle>

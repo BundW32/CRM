@@ -1,8 +1,12 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Alert,
+import { Mail, MessageSquare, Phone } from "lucide-react";
+import {
+  Alert,
+  BackLink,
   Card,
+  CollapsibleCard,
   Field,
   PageTitle,
   StatusBadge,
@@ -447,7 +451,7 @@ export default async function TicketDetailPage({
           </Card>
 
           {isVerwalter ? (
-            <Card title="Bearbeiten">
+            <CollapsibleCard title="Bearbeiten">
               <form action={updateTicket} className="space-y-3">
                 <input type="hidden" name="ticketId" value={ticket.id} />
                 <Field label="Status">
@@ -514,11 +518,14 @@ export default async function TicketDetailPage({
                   Speichern
                 </button>
               </form>
-            </Card>
+            </CollapsibleCard>
           ) : null}
 
           {isVerwalter && ticket.invoice ? (
-            <Card title="Handwerker-Rechnung">
+            <CollapsibleCard
+              title="Handwerker-Rechnung"
+              defaultOpen={ticket.invoice.status === "EINGEREICHT"}
+            >
               <div className="space-y-2">
                 <p className="text-sm text-gray-800">
                   <span className="font-semibold">{formatCents(ticket.invoice.amountCents)}</span>
@@ -556,11 +563,14 @@ export default async function TicketDetailPage({
                   </p>
                 )}
               </div>
-            </Card>
+            </CollapsibleCard>
           ) : null}
 
           {isVerwalter && ticket.type !== "DOKUMENT_ANFRAGE" ? (
-            <Card title="Abschluss">
+            <CollapsibleCard
+              title="Abschluss"
+              defaultOpen={ticket.status === "ERLEDIGT" || ticket.status === "GESCHLOSSEN"}
+            >
               {ticket.status === "GESCHLOSSEN" ? (
                 <div className="space-y-3">
                   <div className="rounded-lg border border-green-200 bg-green-50 p-3">
@@ -660,7 +670,7 @@ export default async function TicketDetailPage({
                   </form>
                 </div>
               )}
-            </Card>
+            </CollapsibleCard>
           ) : null}
 
           {isVerwalter && ticket.type === "DOKUMENT_ANFRAGE" ? (
@@ -728,7 +738,7 @@ export default async function TicketDetailPage({
           ) : null}
 
           {isVerwalter ? (
-            <Card title="Handwerker beauftragen">
+            <CollapsibleCard title="Handwerker beauftragen" defaultOpen={!!ticket.craftsman}>
               <form action={assignCraftsman} className="space-y-3">
                 <input type="hidden" name="ticketId" value={ticket.id} />
                 <Field label="Gewerk">
@@ -834,17 +844,19 @@ export default async function TicketDetailPage({
                     const enc = encodeURIComponent(text);
                     const wa = waNumber(c.phone);
                     const pill =
-                      "rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50";
+                      "inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50";
                     return (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {c.phone ? (
                           <a href={`tel:${c.phone}`} className={pill}>
-                            📞 Anrufen
+                            <Phone className="h-3.5 w-3.5" />
+                            Anrufen
                           </a>
                         ) : null}
                         {c.phone ? (
                           <a href={`sms:${c.phone}?body=${enc}`} className={pill}>
-                            💬 SMS
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            SMS
                           </a>
                         ) : null}
                         {wa ? (
@@ -863,7 +875,8 @@ export default async function TicketDetailPage({
                             )}&body=${enc}`}
                             className={pill}
                           >
-                            ✉ E-Mail
+                            <Mail className="h-3.5 w-3.5" />
+                            E-Mail
                           </a>
                         ) : null}
                       </div>
@@ -957,7 +970,7 @@ export default async function TicketDetailPage({
                   ) : null}
                 </div>
               ) : null}
-            </Card>
+            </CollapsibleCard>
           ) : null}
 
           {isAssignedHandwerker ? (
@@ -985,9 +998,7 @@ export default async function TicketDetailPage({
             </Card>
           ) : null}
 
-          <Link href="/vorgaenge" className="block text-sm text-gray-300 hover:text-brand-orange hover:underline">
-            ← Zurück zur Übersicht
-          </Link>
+          <BackLink href="/vorgaenge">Zurück zur Übersicht</BackLink>
         </div>
       </div>
     </>

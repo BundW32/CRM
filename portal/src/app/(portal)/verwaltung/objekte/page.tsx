@@ -13,11 +13,24 @@ const PAGE_SIZE = 15;
 export default async function PropertiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; eingerichtet?: string; gespeichert?: string; q?: string; page?: string }>;
+  searchParams: Promise<{
+    fehler?: string;
+    eingerichtet?: string;
+    gespeichert?: string;
+    archiviert?: string;
+    reaktiviert?: string;
+    geloescht?: string;
+    q?: string;
+    page?: string;
+  }>;
 }) {
   const verwalter = await requireVerwalter();
-  const { fehler, eingerichtet, gespeichert, q, page } = await searchParams;
-  const canEdit = verwalter.isSuperAdmin;
+  const { fehler, eingerichtet, gespeichert, archiviert, reaktiviert, geloescht, q, page } =
+    await searchParams;
+  // Objekte bearbeiten dürfen alle Verwalter in ihrem Zuständigkeitsbereich
+  // (die Liste zeigt ohnehin nur Objekte im Scope). Löschen/Archivieren bleibt
+  // separat abgesichert (SuperAdmin) und kommt an eigener Stelle.
+  const canEdit = true;
   const propWhere = await propertyWhereForVerwalter(verwalter);
 
   const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
@@ -56,6 +69,16 @@ export default async function PropertiesPage({
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // Archivierte Objekte (nur SuperAdmin) – aus der aktiven Liste ausgeblendet,
+  // hier separat mit Verweis auf „bearbeiten" (Reaktivieren/Löschen).
+  const archivedProperties = verwalter.isSuperAdmin
+    ? await db.property.findMany({
+        where: { organizationId: verwalter.organizationId, active: false },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, street: true, zip: true, city: true },
+      })
+    : [];
+
   function pageHref(p: number) {
     const sp = new URLSearchParams();
     if (q) sp.set("q", q);
@@ -87,6 +110,21 @@ export default async function PropertiesPage({
       {gespeichert ? (
         <Alert variant="success" className="mb-4">
           Änderungen am Objekt wurden gespeichert.
+        </Alert>
+      ) : null}
+      {archiviert ? (
+        <Alert variant="success" className="mb-4">
+          Objekt wurde archiviert und aus den aktiven Listen ausgeblendet.
+        </Alert>
+      ) : null}
+      {reaktiviert ? (
+        <Alert variant="success" className="mb-4">
+          Objekt wurde reaktiviert.
+        </Alert>
+      ) : null}
+      {geloescht ? (
+        <Alert variant="success" className="mb-4">
+          Objekt wurde endgültig gelöscht.
         </Alert>
       ) : null}
       {fehler ? (
@@ -157,6 +195,9 @@ export default async function PropertiesPage({
                         </span>
                       }
                       unitCount={p.units.length}
+                      imageUrl={
+                        p.titleImageStoredName ? `/api/files/property-image/${p.id}` : null
+                      }
                     >
                       <div className="space-y-3">
                         {canEdit ? (
@@ -232,6 +273,34 @@ export default async function PropertiesPage({
             </div>
           ) : null}
       </div>
+
+      {archivedProperties.length > 0 ? (
+        <div className="mt-8">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            Archiviert ({archivedProperties.length})
+          </h2>
+          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white/60 shadow-sm">
+            <ul className="divide-y divide-gray-100">
+              {archivedProperties.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-gray-700">{p.name}</span>
+                    <span className="block truncate text-xs text-gray-400">
+                      {p.street}, {p.zip} {p.city}
+                    </span>
+                  </span>
+                  <Link
+                    href={`/verwaltung/objekte/${p.id}/bearbeiten`}
+                    className="shrink-0 text-sm font-medium text-brand-green hover:underline"
+                  >
+                    Verwalten →
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

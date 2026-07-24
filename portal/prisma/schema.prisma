@@ -345,6 +345,7 @@ model User {
   ticketsAssigned      Ticket[]                  @relation("TicketAssignedTo")
   comments             TicketComment[]
   documents            Document[]
+  documentRecipients   DocumentRecipient[]
   announcements        Announcement[]
   acknowledgements     Acknowledgement[]
   conversationParts    ConversationParticipant[]
@@ -440,8 +441,14 @@ model Property {
   buildingType        String? // Bauart, z. B. Mehrfamilienhaus, Massivbau
   heatingType         String? // Heizungsart, z. B. Gas-Zentralheizung
   notes               String? // freie Notizen
+  // Titelbild des Objekts (Blob/Data-URL wie Logo/Unterschrift). Sichtbar für
+  // Verwalter im Scope sowie Eigentümer/Mieter des Objekts.
+  titleImageStoredName String?
   // Referenz für den späteren Stammdaten-Sync mit Immoware24
   immoware24Id        String?              @unique
+  // Archiviert = aus den aktiven Verwalter-Listen ausgeblendet (Bestandsdaten
+  // bleiben erhalten). Reaktivierbar; hartes Löschen nur bei leeren Objekten.
+  active              Boolean              @default(true)
   createdAt           DateTime             @default(now())
   units               Unit[]
   ownerships          Ownership[]
@@ -477,7 +484,10 @@ model Unit {
   id            String     @id @default(cuid())
   propertyId    String
   property      Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  label         String // z. B. "WE 03, 1. OG links"
+  label         String // INTERNE Bezeichnung (z. B. "WE 03") – nur für Verwalter
+  // EXTERNE Bezeichnung / Lage (z. B. "1. OG links") – erscheint in Dokumenten
+  // und in der Mieter-/Eigentümer-Ansicht. Leer = Fallback auf die interne label.
+  externalLabel String?
   floor         String?
   // WEG-Finanzstammdaten (Kostenverteilung — NICHT Ownership.mea = Stimmgewicht)
   unitType      UnitType   @default(WOHNUNG)
@@ -560,6 +570,13 @@ model Tenancy {
   active    Boolean   @default(true)
   // Monatliche Betriebskosten-Vorauszahlung des Mieters (für die Abrechnung, M-K)
   bkPrepaymentMonthlyCents Int?
+  // Mietvertrags-Kerndaten (Mietverwaltung). Beträge als Integer-Cent.
+  rentColdCents            Int? // Kaltmiete / Grundmiete monatlich
+  depositCents             Int? // Kaution
+  // Optionaler Mietvertrag als Datei (Storage-Konvention wie Beleg/Handover)
+  contractStoredName       String?
+  contractFileName         String?
+  contractMimeType         String?
 
   @@unique([userId, unitId])
   @@index([unitId])
@@ -760,11 +777,28 @@ model Document {
   externalRef      String?
   createdAt        DateTime          @default(now())
   acknowledgements Acknowledgement[]
+  // Optionale gezielte Empfänger. Sind Empfänger gesetzt, sehen NUR diese Personen
+  // (plus der Verwalter im Scope) das Dokument – die Audience-/Objekt-Logik greift
+  // dann nicht. Leer = wie bisher (Sichtbarkeit über audience + Objekt/Einheit).
+  recipients       DocumentRecipient[]
 
   @@index([propertyId])
   @@index([unitId])
   @@index([externalRef])
   @@index([organizationId])
+}
+
+// Gezielter Empfänger eines Dokuments (1:1-Freigabe an eine bestimmte Person).
+model DocumentRecipient {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([documentId, userId])
+  @@index([userId])
 }
 
 // Konfiguration einer Dokument-Quelle (z. B. ein Google Drive Ordner).

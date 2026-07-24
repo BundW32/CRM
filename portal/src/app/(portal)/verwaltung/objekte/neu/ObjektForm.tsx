@@ -6,7 +6,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { createObjekt } from "./actions";
 import { extractObjektFields } from "./import-actions";
 
-type UnitRow = { label: string; floor: string; area: string; mea: string; persons: string };
+type UnitRow = { label: string; external: string; floor: string; area: string; mea: string; persons: string };
 type TenantRow = { firstName: string; lastName: string; email: string; phone: string; unit: string };
 type OwnerRow = { firstName: string; lastName: string; email: string; phone: string; unit: string };
 type ExistingProperty = { name: string; street: string; zip: string; city: string };
@@ -35,7 +35,7 @@ export function ObjektForm({
   const [managementType, setManagementType] = useState(defaultManagementType);
   const isWeg = managementType === "WEG";
   const [units, setUnits] = useState<Array<UnitRow & { key: string }>>([
-    { key: nextKey(), label: "", floor: "", area: "", mea: "", persons: "" },
+    { key: nextKey(), label: "", external: "", floor: "", area: "", mea: "", persons: "" },
   ]);
   const [tenants, setTenants] = useState<Array<TenantRow & { key: string }>>([]);
   const [owners, setOwners] = useState<Array<OwnerRow & { key: string }>>([]);
@@ -87,6 +87,7 @@ export function ObjektForm({
           d.units.map((u) => ({
             key: nextKey(),
             label: u.label,
+            external: "",
             floor: u.floor ?? "",
             area: "",
             mea: "",
@@ -211,13 +212,15 @@ export function ObjektForm({
               </select>
             </Field>
           )}
-          <Field label="Stimmprinzip (nur WEG)">
-            <select name="votingPrinciple" defaultValue="KOPF" className={inputClass}>
-              <option value="KOPF">Kopfprinzip – eine Stimme je Eigentümer</option>
-              <option value="MEA">Wertprinzip – Stimmgewicht nach Miteigentumsanteilen</option>
-              <option value="OBJEKT">Objektprinzip – eine Stimme je Einheit</option>
-            </select>
-          </Field>
+          {isWeg ? (
+            <Field label="Stimmprinzip (nur WEG)">
+              <select name="votingPrinciple" defaultValue="KOPF" className={inputClass}>
+                <option value="KOPF">Kopfprinzip – eine Stimme je Eigentümer</option>
+                <option value="MEA">Wertprinzip – Stimmgewicht nach Miteigentumsanteilen</option>
+                <option value="OBJEKT">Objektprinzip – eine Stimme je Einheit</option>
+              </select>
+            </Field>
+          ) : null}
           <Field label="Straße und Hausnummer *">
             <input
               type="text"
@@ -279,6 +282,16 @@ export function ObjektForm({
             <textarea name="notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className={inputClass} placeholder="Sonstige Hinweise zum Objekt" />
           </Field>
         </div>
+        <div className="mt-3">
+          <Field label="Titelbild (optional)">
+            <input
+              type="file"
+              name="titleImage"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+              className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
+            />
+          </Field>
+        </div>
       </Card>
 
       {/* 2. Einheiten */}
@@ -300,7 +313,7 @@ export function ObjektForm({
             <div key={u.key} className="rounded-xl border border-gray-200 p-3">
               <div className="flex items-end gap-2">
                 <div className="min-w-0 flex-1">
-                  <Field label={i === 0 ? "Bezeichnung" : ""}>
+                  <Field label={i === 0 ? "Bezeichnung (intern)" : ""}>
                     <input
                       type="text"
                       name="unitLabel"
@@ -310,7 +323,7 @@ export function ObjektForm({
                           rows.map((r) => (r.key === u.key ? { ...r, label: e.target.value } : r))
                         )
                       }
-                      placeholder="z. B. WE 01, EG links"
+                      placeholder="z. B. WE 01"
                       className={inputClass}
                     />
                   </Field>
@@ -323,6 +336,20 @@ export function ObjektForm({
                 >
                   ✕
                 </button>
+              </div>
+              <div className="mt-2">
+                <Field label={i === 0 ? "Externe Bezeichnung / Lage (optional)" : ""}>
+                  <input
+                    type="text"
+                    name="unitExternalLabel"
+                    value={u.external}
+                    onChange={(e) =>
+                      setUnits((rows) => rows.map((r) => (r.key === u.key ? { ...r, external: e.target.value } : r)))
+                    }
+                    placeholder="erscheint in Dokumenten & für Mieter/Eigentümer, z. B. 1. OG links"
+                    className={inputClass}
+                  />
+                </Field>
               </div>
               <div className={`mt-2 grid gap-2 ${isWeg ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3"}`}>
                 <Field label="Etage (optional)">
@@ -384,7 +411,7 @@ export function ObjektForm({
         </div>
         <button
           type="button"
-          onClick={() => setUnits((rows) => [...rows, { key: nextKey(), label: "", floor: "", area: "", mea: "", persons: "" }])}
+          onClick={() => setUnits((rows) => [...rows, { key: nextKey(), label: "", external: "", floor: "", area: "", mea: "", persons: "" }])}
           className="mt-3 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
           + Einheit hinzufügen

@@ -41,6 +41,13 @@ export function orgNounFor(accountType: string): string {
   return accountType === "selbstverwalter" ? "WEG / Ihr Objekt" : "Hausverwaltung";
 }
 
+// Öffentliche (externe) Bezeichnung einer Einheit: bevorzugt die externe
+// Bezeichnung/Lage, sonst die interne label. Für Dokumente und Mieter-/
+// Eigentümer-Ansichten (der Verwalter sieht weiterhin die interne label).
+export function unitPublicLabel(unit: { label: string; externalLabel?: string | null }): string {
+  return unit.externalLabel?.trim() || unit.label;
+}
+
 // Stimmprinzip einer WEG.
 export const votingPrincipleLabels: Record<string, string> = {
   KOPF: "Kopfprinzip (eine Stimme je Eigentümer)",

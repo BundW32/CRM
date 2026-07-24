@@ -8,12 +8,14 @@ export function PropertyRow({
   address,
   managementTypeBadge,
   unitCount,
+  imageUrl,
   children,
 }: {
   name: string;
   address: string;
   managementTypeBadge: ReactNode;
   unitCount: number;
+  imageUrl?: string | null;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -37,6 +39,14 @@ export function PropertyRow({
         >
           <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageUrl}
+            alt=""
+            className="h-10 w-10 flex-shrink-0 rounded-lg object-cover"
+          />
+        ) : null}
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-gray-900">{name}</span>

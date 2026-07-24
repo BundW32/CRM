@@ -46,6 +46,36 @@ export async function ownsProperty(userId: string, propertyId: string, organizat
   return byProperty > 0 || byUnit > 0;
 }
 
+// Darf der Nutzer dieses Objekt grundsätzlich einsehen – für NICHT sensible,
+// objektbezogene Inhalte wie das Titelbild? Verwalter im Scope, Eigentümer
+// (Ownership ODER UnitOwnership) oder aktueller Mieter einer Einheit des Objekts.
+// Immer org-gesichert.
+export async function canViewProperty(user: User, propertyId: string): Promise<boolean> {
+  if (user.role === "VERWALTER") return canVerwalterAccessProperty(user, propertyId);
+  if (user.role === "EIGENTUEMER") {
+    const [byProperty, byUnit] = await Promise.all([
+      db.ownership.count({
+        where: { userId: user.id, propertyId, property: { organizationId: user.organizationId } },
+      }),
+      db.unitOwnership.count({
+        where: { userId: user.id, unit: { propertyId, property: { organizationId: user.organizationId } } },
+      }),
+    ]);
+    return byProperty > 0 || byUnit > 0;
+  }
+  if (user.role === "MIETER") {
+    const c = await db.tenancy.count({
+      where: {
+        userId: user.id,
+        active: true,
+        unit: { propertyId, property: { organizationId: user.organizationId } },
+      },
+    });
+    return c > 0;
+  }
+  return false;
+}
+
 // WEG-Objekte, an denen der Nutzer Eigentümer ist (Ownership ODER UnitOwnership).
 export async function wegPropertiesForOwner(userId: string, organizationId: string) {
   const props = await db.property.findMany({
@@ -150,8 +180,11 @@ export async function propertyIdsForVerwalter(user: User): Promise<string[] | nu
 export async function propertyWhereForVerwalter(user: User): Promise<Prisma.PropertyWhereInput> {
   const ids = await propertyIdsForVerwalter(user);
   // Org-Filter gilt IMMER – auch für SuperAdmin (= alles INNERHALB der eigenen Org).
-  if (ids === null) return { organizationId: user.organizationId };
-  return { id: { in: ids }, organizationId: user.organizationId };
+  // active: true blendet archivierte Objekte aus den aktiven Verwalter-Listen aus
+  // (Dashboard, Ticket-Ziele, Statistiken, Objektliste). Archivierte werden separat
+  // (nur SuperAdmin) angezeigt und lassen sich reaktivieren oder – falls leer – löschen.
+  if (ids === null) return { organizationId: user.organizationId, active: true };
+  return { id: { in: ids }, organizationId: user.organizationId, active: true };
 }
 
 /**
@@ -161,10 +194,13 @@ export async function propertyWhereForVerwalter(user: User): Promise<Prisma.Prop
  */
 export async function userWhereForVerwalter(actor: User): Promise<Prisma.UserWhereInput> {
   const ids = await propertyIdsForVerwalter(actor);
+  // DSGVO-anonymisierte (gelöschte) Nutzer werden aus allen aktiven Listen
+  // ausgeblendet – sie erscheinen nicht mehr als „Gelöschter Nutzer".
   // SuperAdmin: alle Nutzer der EIGENEN Org (nicht mehr global).
-  if (ids === null) return { organizationId: actor.organizationId };
+  if (ids === null) return { organizationId: actor.organizationId, anonymizedAt: null };
   return {
     organizationId: actor.organizationId,
+    anonymizedAt: null,
     OR: [
       { role: "MIETER", tenancies: { some: { active: true, unit: { propertyId: { in: ids } } } } },
       { role: "EIGENTUEMER", ownerships: { some: { propertyId: { in: ids } } } },
@@ -402,23 +438,38 @@ export async function documentWhereForUser(user: User): Promise<Prisma.DocumentW
         boardPropertyIdsFor(user.id),
       ]);
       const ownedIds = properties.map((p) => p.id);
-      const or: Prisma.DocumentWhereInput[] = [
+      const audienceOr: Prisma.DocumentWhereInput[] = [
         { audience: { in: ["EIGENTUEMER", "ALLE"] }, propertyId: { in: ownedIds } },
       ];
       // Beiratsmitglieder sehen zusätzlich die nur für den Beirat bestimmten
       // Dokumente ihrer Beirats-Objekte.
       if (boardIds.length > 0) {
-        or.push({ audience: "BEIRAT", propertyId: { in: boardIds } });
+        audienceOr.push({ audience: "BEIRAT", propertyId: { in: boardIds } });
       }
-      return { OR: or };
+      // Gezielt an mich adressierte Dokumente IMMER; sonst die Audience-/Objekt-
+      // Logik, aber nur für Dokumente OHNE gezielte Empfänger.
+      return {
+        OR: [
+          { recipients: { some: { userId: user.id } } },
+          { recipients: { none: {} }, OR: audienceOr },
+        ],
+      };
     }
     default: {
       const units = await tenantUnits(user.id);
+      const unitIds = units.map((u) => u.id);
+      const propIds = units.map((u) => u.propertyId);
       return {
-        audience: { in: ["MIETER", "ALLE"] },
         OR: [
-          { unitId: { in: units.map((u) => u.id) } },
-          { unitId: null, propertyId: { in: units.map((u) => u.propertyId) } },
+          { recipients: { some: { userId: user.id } } },
+          {
+            recipients: { none: {} },
+            audience: { in: ["MIETER", "ALLE"] },
+            OR: [
+              { unitId: { in: unitIds } },
+              { unitId: null, propertyId: { in: propIds } },
+            ],
+          },
         ],
       };
     }

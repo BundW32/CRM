@@ -218,6 +218,19 @@ select:not([multiple]) {
   padding-right: 2.25rem;
 }
 
+/* Sichtbarer Fokus-Ring für Tastaturbedienung auf allen interaktiven Elementen,
+   die keinen eigenen mitbringen (Links, Buttons, Summary, Rollen-Buttons).
+   Nur bei :focus-visible → stört Maus-/Touch-Bedienung nicht. Komponenten mit
+   eigenem Ring erzeugen dieselbe Outline (kein Doppel-Ring). Formularfelder
+   haben ihren eigenen Ring (inputClass) und sind hier bewusst ausgenommen. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--color-brand-orange);
+  outline-offset: 2px;
+}
+
 /* Druckansicht: nur das Zugangsschreiben drucken */
 @media print {
   .no-print {

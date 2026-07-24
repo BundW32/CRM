@@ -22,6 +22,7 @@ import {
 import { logout } from "@/app/login/actions";
 import { OrgLogo } from "@/components/logo";
 import { NavLink } from "@/components/nav";
+import { isVerwaltungRoute } from "@/lib/verwaltung-nav";
 
 type NavItem = { href: string; label: string };
 
@@ -56,16 +57,20 @@ export function PortalHeader({
   roleLabel,
   logoUrl,
   orgName,
+  wideEnabled = false,
 }: {
   nav: ReadonlyArray<NavItem>;
   userName: string;
   roleLabel: string;
   logoUrl: string;
   orgName: string;
+  /** Im Verwaltungsbereich läuft die Leiste auf voller Breite mit dem Inhalt mit. */
+  wideEnabled?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
+  const wide = wideEnabled && isVerwaltungRoute(pathname);
 
   function isActive(href: string) {
     return pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
@@ -73,7 +78,7 @@ export function PortalHeader({
 
   return (
     <header className="sticky top-0 z-30 px-3 pt-3 sm:px-4 sm:pt-4">
-      <div className="relative mx-auto max-w-6xl">
+      <div className={`relative mx-auto ${wide ? "max-w-[120rem]" : "max-w-6xl"}`}>
         <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/95 px-3 py-2 shadow-xl shadow-black/20 backdrop-blur sm:px-4">
           <Link href="/dashboard" className="shrink-0" onClick={() => setMenuOpen(false)}>
             <OrgLogo src={logoUrl} alt={orgName} />

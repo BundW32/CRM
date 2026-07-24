@@ -8,6 +8,22 @@
 // den `icon`-Schlüssel aufgelöst; hier bleibt das Modell frei von React/Lucide,
 // damit es auch serverseitig ohne Client-Bundle nutzbar ist.
 
+// Routen, die zur Verwaltungs-Arbeitsfläche gehören – inklusive der geteilten
+// Bereiche außerhalb von /verwaltung. Bestimmt, wo die Sidebar erscheint und wo
+// die Oberfläche die volle Bildschirmbreite nutzt.
+export const VERWALTUNG_ROUTE_PREFIXES = [
+  "/verwaltung",
+  "/beschluesse",
+  "/versammlungen",
+  "/zaehler",
+] as const;
+
+export function isVerwaltungRoute(pathname: string): boolean {
+  return VERWALTUNG_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
 export type VerwaltungIcon =
   | "objekte"
   | "nutzer"

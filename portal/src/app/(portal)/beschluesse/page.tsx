@@ -238,9 +238,11 @@ export default async function BeschluessePage({
   return (
     <>
       <PageTitle
+        // Führt zur formellen Beschluss-Sammlung je WEG-Objekt mit PDF-Export
+        // (§ 24 Abs. 7 WEG) – nicht zu verwechseln mit der Auflistung unten.
         action={
           <a href="/beschluesse/sammlung" className={buttonSecondaryClass}>
-            Beschluss-Sammlung
+            Beschluss-Sammlung (PDF)
           </a>
         }
       >
@@ -473,7 +475,7 @@ export default async function BeschluessePage({
           )}
 
           <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-gray-300">
-            Beschlusssammlung
+            Abgeschlossene Beschlüsse
           </h2>
           {decided.length === 0 ? (
             <EmptyState>Noch keine abgeschlossenen Beschlüsse.</EmptyState>

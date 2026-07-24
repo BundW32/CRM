@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { Prisma, TicketPriority, TicketStatus, TicketType, Trade } from "@/generated/prisma/client";
 import { Pagination, Alert, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
-import { FilterBar, type FilterConfig } from "@/components/filter-bar";
-import { ticketWhereForUser } from "@/lib/access";
+import { FilterBar, type ComboboxFilterConfig, type FilterConfig } from "@/components/filter-bar";
+import { propertyWhereForVerwalter, ticketWhereForUser, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
   formatDate,
+  roleLabels,
   ticketPriorityLabels,
   ticketStatusLabels,
   ticketTypeLabels,
@@ -14,7 +15,6 @@ import {
 } from "@/lib/labels";
 import { normalizeSearch, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
-import { searchTicketTargets } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -56,9 +56,56 @@ export default async function TicketsPage({
   const typ = sp.typ && sp.typ in ticketTypeLabels ? (sp.typ as TicketType) : undefined;
   const prio = sp.prio && sp.prio in ticketPriorityLabels ? (sp.prio as TicketPriority) : undefined;
   const gewerk = isVerwalter && sp.gewerk && sp.gewerk in tradeLabels ? (sp.gewerk as Trade) : undefined;
-  const ziel = isVerwalter ? sp.ziel : undefined;
-  const zielProp = ziel?.startsWith("p:") ? ziel.slice(2) : undefined;
-  const zielUnit = ziel?.startsWith("u:") ? ziel.slice(2) : undefined;
+
+  // ── Objekt → Einheit → Nutzer (Kaskade, nur Verwalter) ──
+  // Objektliste wird immer geladen (Combobox-Optionen). Einheiten/Nutzer erst
+  // nach gültiger Objektwahl – dadurch bleibt „Einheit" gesperrt und „Nutzer"
+  // ausgeblendet, solange kein Objekt gewählt ist. Alle Werte werden gegen den
+  // Scope des Verwalters bzw. die geladenen Listen validiert (kein Fremdzugriff).
+  let properties: { id: string; name: string; street: string; zip: string; city: string }[] = [];
+  let unitOptions: { value: string; label: string }[] = [];
+  let nutzerOptions: { value: string; label: string; sublabel?: string }[] = [];
+  let objektId: string | undefined;
+  let einheitId: string | undefined;
+  let nutzerId: string | undefined;
+
+  if (isVerwalter) {
+    properties = await db.property.findMany({
+      where: await propertyWhereForVerwalter(user),
+      select: { id: true, name: true, street: true, zip: true, city: true },
+      orderBy: { name: "asc" },
+    });
+    objektId = sp.objekt && properties.some((p) => p.id === sp.objekt) ? sp.objekt : undefined;
+
+    if (objektId) {
+      const [units, nutzer] = await Promise.all([
+        db.unit.findMany({
+          where: { propertyId: objektId },
+          select: { id: true, label: true, externalLabel: true },
+          orderBy: { label: "asc" },
+        }),
+        db.user.findMany({
+          where: {
+            AND: [
+              await userWhereForVerwalter(user),
+              {
+                OR: [
+                  { tenancies: { some: { unit: { propertyId: objektId } } } },
+                  { ownerships: { some: { propertyId: objektId } } },
+                ],
+              },
+            ],
+          },
+          select: { id: true, name: true, role: true },
+          orderBy: { name: "asc" },
+        }),
+      ]);
+      unitOptions = units.map((u) => ({ value: u.id, label: unitPublicLabel(u) }));
+      nutzerOptions = nutzer.map((n) => ({ value: n.id, label: n.name, sublabel: roleLabels[n.role] }));
+      einheitId = sp.einheit && units.some((u) => u.id === sp.einheit) ? sp.einheit : undefined;
+      nutzerId = sp.nutzer && nutzer.some((n) => n.id === sp.nutzer) ? sp.nutzer : undefined;
+    }
+  }
 
   const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "aktualisiert", "desc");
   const currentPage = parsePage(sp.page);
@@ -78,11 +125,12 @@ export default async function TicketsPage({
   if (typ) and.push({ type: typ });
   if (prio) and.push({ priority: prio });
   if (gewerk) and.push({ trade: gewerk });
-  if (zielProp) and.push({ propertyId: zielProp });
-  if (zielUnit) and.push({ unitId: zielUnit });
+  if (objektId) and.push({ propertyId: objektId });
+  if (einheitId) and.push({ unitId: einheitId });
+  if (nutzerId) and.push({ createdById: nutzerId });
   const ticketWhere: Prisma.TicketWhereInput = { AND: and };
 
-  const [total, tickets, zielLabel] = await Promise.all([
+  const [total, tickets] = await Promise.all([
     db.ticket.count({ where: ticketWhere }),
     db.ticket.findMany({
       where: ticketWhere,
@@ -91,14 +139,6 @@ export default async function TicketsPage({
       take: PAGE_SIZE,
       include: { property: true, unit: true, createdBy: true, assignedTo: true },
     }),
-    // Label des aktiven Objekt/Einheit-Filters für den Chip auflösen.
-    zielProp
-      ? db.property.findUnique({ where: { id: zielProp }, select: { name: true } }).then((p) => p?.name)
-      : zielUnit
-        ? db.unit
-            .findUnique({ where: { id: zielUnit }, select: { label: true, externalLabel: true, property: { select: { name: true } } } })
-            .then((u) => (u ? `${u.property.name} · ${unitPublicLabel(u)}` : undefined))
-        : Promise.resolve(undefined),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -114,13 +154,48 @@ export default async function TicketsPage({
   }
 
   const filters: FilterConfig[] = [
-    { key: "status", label: "Status", options: optionsFrom(ticketStatusLabels) },
+    { key: "status", label: "Status", options: optionsFrom(ticketStatusLabels), primary: true },
     { key: "typ", label: "Art", options: optionsFrom(ticketTypeLabels) },
     { key: "prio", label: "Priorität", options: optionsFrom(ticketPriorityLabels) },
     ...(isVerwalter
       ? [{ key: "gewerk", label: "Gewerk", options: optionsFrom(tradeLabels) } as FilterConfig]
       : []),
   ];
+
+  // Objekt (immer sichtbar) → Einheit (gesperrt bis Objekt) → Nutzer (erst nach Objekt).
+  const comboboxes: ComboboxFilterConfig[] = isVerwalter
+    ? [
+        {
+          key: "objekt",
+          label: "Objekt",
+          placeholder: "Objekt suchen …",
+          options: properties.map((p) => ({
+            value: p.id,
+            label: p.name,
+            sublabel: [p.street, [p.zip, p.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || undefined,
+          })),
+          currentValue: objektId,
+          clears: ["einheit", "nutzer"],
+        },
+        {
+          key: "einheit",
+          label: "Einheit",
+          placeholder: "Einheit wählen …",
+          options: unitOptions,
+          currentValue: einheitId,
+          disabled: !objektId,
+          disabledHint: "Zuerst Objekt wählen",
+        },
+        {
+          key: "nutzer",
+          label: "Nutzer",
+          placeholder: "Nutzer wählen …",
+          options: nutzerOptions,
+          currentValue: nutzerId,
+          hidden: !objektId,
+        },
+      ]
+    : [];
 
   return (
     <>
@@ -144,19 +219,9 @@ export default async function TicketsPage({
         className="mb-4"
         searchPlaceholder="Nr., Titel oder Beschreibung suchen…"
         filters={filters}
+        comboboxes={comboboxes}
         sortOptions={sortOptions}
         defaultSort="aktualisiert"
-        entity={
-          isVerwalter
-            ? {
-                key: "ziel",
-                placeholder: "Objekt / Einheit …",
-                currentValue: ziel ?? undefined,
-                currentLabel: zielLabel ?? undefined,
-                search: searchTicketTargets,
-              }
-            : undefined
-        }
       />
 
       {tickets.length === 0 ? (

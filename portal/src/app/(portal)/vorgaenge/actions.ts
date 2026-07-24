@@ -10,7 +10,6 @@ import {
   canVerwalterAccessProperty,
   canVerwalterUseCraftsman,
   canVerwalterUseTicketTarget,
-  propertyWhereForVerwalter,
   ticketTargetsForUser,
 } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -1102,67 +1101,4 @@ export async function deleteTicket(formData: FormData) {
 
   revalidatePath("/vorgaenge");
   redirect("/vorgaenge?geloescht=1");
-}
-
-// Typeahead-Suche für den Objekt/Einheit-Filter der Vorgangsliste. Liefert wenige
-// Treffer aus dem Scope des Verwalters; Werte sind mit „p:" (Objekt) bzw. „u:"
-// (Einheit) präfixiert, damit die Liste serverseitig eindeutig filtern kann.
-export async function searchTicketTargets(
-  query: string,
-): Promise<{ id: string; label: string; sublabel?: string }[]> {
-  const verwalter = await requireVerwalter();
-  const q = query.trim();
-  if (q.length < 2) return [];
-  const propWhere = await propertyWhereForVerwalter(verwalter);
-  const [props, units] = await Promise.all([
-    db.property.findMany({
-      where: {
-        AND: [
-          propWhere,
-          {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { street: { contains: q, mode: "insensitive" } },
-            ],
-          },
-        ],
-      },
-      select: { id: true, name: true, street: true, city: true },
-      orderBy: { name: "asc" },
-      take: 6,
-    }),
-    db.unit.findMany({
-      where: {
-        AND: [
-          { property: propWhere },
-          {
-            OR: [
-              { label: { contains: q, mode: "insensitive" } },
-              { externalLabel: { contains: q, mode: "insensitive" } },
-            ],
-          },
-        ],
-      },
-      select: {
-        id: true,
-        label: true,
-        externalLabel: true,
-        property: { select: { name: true } },
-      },
-      orderBy: { label: "asc" },
-      take: 6,
-    }),
-  ]);
-  return [
-    ...props.map((p) => ({
-      id: `p:${p.id}`,
-      label: p.name,
-      sublabel: [p.street, p.city].filter(Boolean).join(", ") || undefined,
-    })),
-    ...units.map((u) => ({
-      id: `u:${u.id}`,
-      label: `${u.property.name} · ${unitPublicLabel(u)}`,
-      sublabel: "Einheit",
-    })),
-  ];
 }

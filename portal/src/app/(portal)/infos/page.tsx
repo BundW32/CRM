@@ -3,7 +3,12 @@ import type { User } from "@/generated/prisma/client";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { PropertyUnitFields } from "@/components/property-unit-fields";
 import { SubmitButton } from "@/components/submit-button";
-import { announcementWhereForUser, documentWhereForUser, propertyWhereForVerwalter } from "@/lib/access";
+import {
+  announcementWhereForUser,
+  documentWhereForUser,
+  ownedProperties,
+  propertyWhereForVerwalter,
+} from "@/lib/access";
 import { db } from "@/lib/db";
 import {
   audienceLabels,
@@ -12,6 +17,7 @@ import {
   formatDate,
   requestableDocuments,
 } from "@/lib/labels";
+import { RecipientPicker } from "@/components/recipient-picker";
 import { requireUser } from "@/lib/session";
 import {
   acknowledgeAnnouncement,
@@ -20,8 +26,11 @@ import {
 } from "../aushaenge/actions";
 import {
   acknowledgeDocument,
+  deleteDocument,
   requestDocument,
+  searchDocumentRecipients,
   uploadDocument,
+  uploadOwnerDocument,
 } from "../dokumente/actions";
 
 export const dynamic = "force-dynamic";
@@ -31,10 +40,17 @@ const PAGE_SIZE = 30;
 export default async function InfosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ t?: string; fehler?: string; apage?: string; dpage?: string }>;
+  searchParams: Promise<{
+    t?: string;
+    fehler?: string;
+    apage?: string;
+    dpage?: string;
+    hochgeladen?: string;
+    geloescht?: string;
+  }>;
 }) {
   const user = await requireUser();
-  const { t, fehler, apage, dpage } = await searchParams;
+  const { t, fehler, apage, dpage, hochgeladen, geloescht } = await searchParams;
   const tab = t === "dokumente" ? "dokumente" : "aushaenge";
   const isVerwalter = user.role === "VERWALTER";
 
@@ -65,6 +81,17 @@ export default async function InfosPage({
           Dokumente
         </Link>
       </div>
+
+      {hochgeladen ? (
+        <Alert variant="success" className="mb-4">
+          Dokument hochgeladen.
+        </Alert>
+      ) : null}
+      {geloescht ? (
+        <Alert variant="success" className="mb-4">
+          Dokument gelöscht.
+        </Alert>
+      ) : null}
 
       {fehler ? (
         <Alert variant="error" className="mb-4">
@@ -270,6 +297,9 @@ async function DokumenteTab({
       })
     : [];
 
+  // Objekte des Eigentümers (für den Eigentümer-Upload).
+  const ownedProps = user.role === "EIGENTUEMER" ? await ownedProperties(user.id) : [];
+
   return (
     <div className="grid gap-5 lg:grid-cols-3">
       <div className="lg:col-span-2">
@@ -306,6 +336,14 @@ async function DokumenteTab({
                       >
                         Herunterladen
                       </a>
+                      {isVerwalter ? (
+                        <form action={deleteDocument} className="inline">
+                          <input type="hidden" name="id" value={doc.id} />
+                          <button type="submit" className="text-sm text-red-600 hover:text-red-700">
+                            Löschen
+                          </button>
+                        </form>
+                      ) : null}
                     </span>
                   </div>
                   <div className="mt-2">
@@ -394,6 +432,13 @@ async function DokumenteTab({
                 properties={properties.map((p) => ({ id: p.id, name: p.name }))}
                 unitLabel="Einheit (optional, überschreibt Objekt)"
               />
+              <Field label="Nur für bestimmte Empfänger (optional)">
+                <RecipientPicker search={searchDocumentRecipients} />
+                <p className="mt-1 text-xs text-gray-500">
+                  Leer lassen = wie „Sichtbar für“ (alle im Objekt). Bei Auswahl sehen NUR die
+                  gewählten Personen (und die Verwaltung) das Dokument.
+                </p>
+              </Field>
               <Field label="Datei (PDF oder Bild, max. 10 MB)">
                 <input
                   type="file"
@@ -407,6 +452,52 @@ async function DokumenteTab({
             </form>
           </Card>
         ) : (
+          <>
+          {user.role === "EIGENTUEMER" && ownedProps.length > 0 ? (
+            <Card title="Dokument hochladen">
+              <p className="mb-3 text-sm text-gray-600">
+                Für Ihre Verwaltung – optional auch für Ihre Mieter sichtbar. Andere Eigentümer
+                sehen es nicht.
+              </p>
+              <form action={uploadOwnerDocument} className="space-y-3">
+                <Field label="Titel">
+                  <input type="text" name="title" required minLength={2} maxLength={200} className={inputClass} />
+                </Field>
+                <Field label="Kategorie">
+                  <select name="category" required className={inputClass}>
+                    {Object.entries(documentCategoryLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Objekt">
+                  <select name="propertyId" required className={inputClass}>
+                    {ownedProps.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                  <input type="checkbox" name="shareTenants" value="1" className="h-4 w-4" />
+                  Auch für meine Mieter sichtbar
+                </label>
+                <Field label="Datei (PDF oder Bild, max. 10 MB)">
+                  <input
+                    type="file"
+                    name="file"
+                    required
+                    accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
+                    className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
+                  />
+                </Field>
+                <SubmitButton pendingLabel="Wird hochgeladen…">Hochladen</SubmitButton>
+              </form>
+            </Card>
+          ) : null}
           <Card title="Dokument anfordern">
             <p className="mb-3 text-sm text-gray-600">
               Benötigen Sie ein Dokument (z. B. eine Wohnungsgeberbescheinigung)? Wählen Sie es aus
@@ -436,6 +527,7 @@ async function DokumenteTab({
               </button>
             </form>
           </Card>
+          </>
         )}
       </div>
     </div>

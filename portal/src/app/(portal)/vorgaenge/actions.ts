@@ -7,13 +7,14 @@ import { z } from "zod";
 import type { Trade, User } from "@/generated/prisma/client";
 import {
   canViewTicket,
+  canVerwalterAccessProperty,
   canVerwalterUseCraftsman,
   canVerwalterUseTicketTarget,
   ticketTargetsForUser,
 } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
-import { ticketPriorityLabels } from "@/lib/labels";
+import { ticketPriorityLabels, unitPublicLabel } from "@/lib/labels";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import {
   notifyAssignee,
@@ -24,7 +25,7 @@ import {
 } from "@/lib/notify";
 import { computeDueAt } from "@/lib/sla";
 import { parseEuroToCents } from "@/lib/money";
-import { MEDIA_TYPES, DOCUMENT_TYPES, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
+import { MEDIA_TYPES, DOCUMENT_TYPES, deleteBlob, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { requireUser, requireVerwalter } from "@/lib/session";
 import { AUDIT, logAudit } from "@/lib/audit";
@@ -936,14 +937,15 @@ export async function generateCertificate(formData: FormData) {
   const branding = await getBrandingForOrg(ticket.organizationId);
   const brandingPlzOrt = [branding.zip, branding.city].filter(Boolean).join(" ");
 
-  const wohnungAnschrift = `${property.street}, ${unit ? unit.label + ", " : ""}${property.zip} ${property.city}`;
+  const unitPublic = unit ? unitPublicLabel(unit) : "";
+  const wohnungAnschrift = `${property.street}, ${unitPublic ? unitPublic + ", " : ""}${property.zip} ${property.city}`;
   const wohnungsgeberName = owner?.name ?? branding.legalName;
   const wohnungsgeberStrasse = owner?.street ?? branding.street ?? "";
   const wohnungsgeberPlzOrt =
     owner?.zip && owner?.city ? `${owner.zip} ${owner.city}` : brandingPlzOrt;
   const wohnungStrasse = property.street;
   const wohnungPlzOrt = `${property.zip} ${property.city}`;
-  const wohnungZusatz = unit?.label ?? "";
+  const wohnungZusatz = unitPublic;
   const unterzeichner = owner?.name ?? branding.legalName;
   const ausstellungsOrt = branding.city ?? "";
   const issuer = {
@@ -1069,4 +1071,34 @@ export async function setOwnTicketStatus(formData: FormData) {
 
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}`);
+}
+
+// Vorgang endgültig löschen (nur SuperAdmin). Für Test-/Fehleinträge. Der
+// Regelweg ist „Schließen" (Status GESCHLOSSEN) – ein geschlossener Vorgang bleibt
+// als Beleg erhalten. Löschen entfernt Kommentare, Anhänge und Rechnung per
+// Kaskade; die zugehörigen Dateien im Storage werden aufgeräumt.
+export async function deleteTicket(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  if (!verwalter.isSuperAdmin) redirect("/vorgaenge");
+  const ticketId = String(formData.get("ticketId") ?? "").trim();
+  if (!ticketId) redirect("/vorgaenge");
+  const ticket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    select: {
+      organizationId: true,
+      propertyId: true,
+      attachments: { select: { storedName: true } },
+      invoice: { select: { storedName: true } },
+    },
+  });
+  if (!ticket || ticket.organizationId !== verwalter.organizationId) redirect("/vorgaenge");
+  if (!(await canVerwalterAccessProperty(verwalter, ticket.propertyId))) redirect("/vorgaenge");
+
+  await db.ticket.delete({ where: { id: ticketId } });
+  // Dateien nach erfolgreichem DB-Löschen entfernen (Anhänge + Handwerker-Rechnung).
+  for (const a of ticket.attachments) await deleteBlob(a.storedName);
+  if (ticket.invoice?.storedName) await deleteBlob(ticket.invoice.storedName);
+
+  revalidatePath("/vorgaenge");
+  redirect("/vorgaenge?geloescht=1");
 }

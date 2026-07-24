@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   canVerwalterAccessHandover,
   canVerwalterAccessProperty,
+  canViewProperty,
   canViewTicket,
   documentWhereForUser,
   ownsProperty,
@@ -110,6 +111,48 @@ export async function GET(
       });
       if (org?.logoStoredName) {
         file = { storedName: org.logoStoredName, fileName: "logo.png", mimeType: "image/png" };
+      }
+    }
+  } else if (kind === "property-image" && user) {
+    // Titelbild eines Objekts – sichtbar für Verwalter im Scope sowie Eigentümer
+    // und aktuelle Mieter des Objekts (org- und zugriffsgesichert).
+    const prop = await db.property.findUnique({
+      where: { id },
+      select: { organizationId: true, titleImageStoredName: true },
+    });
+    if (
+      prop?.titleImageStoredName &&
+      prop.organizationId === user.organizationId &&
+      (await canViewProperty(user, id))
+    ) {
+      file = {
+        storedName: prop.titleImageStoredName,
+        fileName: `objekt-${id}.jpg`,
+        mimeType: "image/jpeg",
+      };
+    }
+  } else if (kind === "mietvertrag" && user) {
+    // Mietvertrag: Verwalter im Objekt-Scope ODER der Mieter selbst.
+    const tenancy = await db.tenancy.findUnique({
+      where: { id },
+      select: {
+        userId: true,
+        contractStoredName: true,
+        contractFileName: true,
+        contractMimeType: true,
+        unit: { select: { propertyId: true, property: { select: { organizationId: true } } } },
+      },
+    });
+    if (tenancy?.contractStoredName && tenancy.unit.property.organizationId === user.organizationId) {
+      const allowed =
+        user.id === tenancy.userId ||
+        (user.role === "VERWALTER" && (await canVerwalterAccessProperty(user, tenancy.unit.propertyId)));
+      if (allowed) {
+        file = {
+          storedName: tenancy.contractStoredName,
+          fileName: tenancy.contractFileName ?? `mietvertrag-${id}.pdf`,
+          mimeType: tenancy.contractMimeType ?? "application/pdf",
+        };
       }
     }
   } else if (kind === "vote-proof" && user?.role === "VERWALTER") {

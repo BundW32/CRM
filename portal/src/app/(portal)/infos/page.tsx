@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Download, Eye } from "lucide-react";
 import type { User } from "@/generated/prisma/client";
 import {
+  Pagination,
   Alert,
   Card,
   EmptyState,
@@ -204,33 +205,7 @@ async function AushaengeTab({
           ))
         )}
 
-        {totalPages > 1 ? (
-          <div className="mt-4 flex items-center justify-between">
-            {currentPage > 1 ? (
-              <a
-                href={pageHref(currentPage - 1)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                ← Zurück
-              </a>
-            ) : (
-              <span />
-            )}
-            <span className="text-xs text-gray-400">
-              Seite {currentPage} von {totalPages} · {total} Einträge
-            </span>
-            {currentPage < totalPages ? (
-              <a
-                href={pageHref(currentPage + 1)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Weiter →
-              </a>
-            ) : (
-              <span />
-            )}
-          </div>
-        ) : null}
+        <Pagination currentPage={currentPage} totalPages={totalPages} total={total} hrefFor={pageHref} />
       </div>
 
       {isVerwalter ? (
@@ -394,33 +369,7 @@ async function DokumenteTab({
           </div>
         )}
 
-        {totalPages > 1 ? (
-          <div className="mt-4 flex items-center justify-between">
-            {currentPage > 1 ? (
-              <a
-                href={pageHref(currentPage - 1)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                ← Zurück
-              </a>
-            ) : (
-              <span />
-            )}
-            <span className="text-xs text-gray-400">
-              Seite {currentPage} von {totalPages} · {total} Einträge
-            </span>
-            {currentPage < totalPages ? (
-              <a
-                href={pageHref(currentPage + 1)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Weiter →
-              </a>
-            ) : (
-              <span />
-            )}
-          </div>
-        ) : null}
+        <Pagination currentPage={currentPage} totalPages={totalPages} total={total} hrefFor={pageHref} />
       </div>
 
       <div className="space-y-5">

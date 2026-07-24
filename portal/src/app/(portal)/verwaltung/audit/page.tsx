@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { PageTitle } from "@/components/ui";
+import { PageTitle, Pagination } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 
@@ -163,31 +163,12 @@ export default async function AuditPage({
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-          <span>
-            {skip + 1}–{Math.min(skip + pageSize, total)} von {total} Einträgen
-          </span>
-          <div className="flex gap-2">
-            {page > 1 && (
-              <a
-                href={`/verwaltung/audit?${filterAction ? `action=${filterAction}&` : ""}seite=${page - 1}`}
-                className="rounded border border-gray-200 px-3 py-1 hover:bg-gray-50"
-              >
-                ← zurück
-              </a>
-            )}
-            {page < totalPages && (
-              <a
-                href={`/verwaltung/audit?${filterAction ? `action=${filterAction}&` : ""}seite=${page + 1}`}
-                className="rounded border border-gray-200 px-3 py-1 hover:bg-gray-50"
-              >
-                weiter →
-              </a>
-            )}
-          </div>
-        </div>
-      )}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        total={total}
+        hrefFor={(p) => `/verwaltung/audit?${filterAction ? `action=${filterAction}&` : ""}seite=${p}`}
+      />
     </>
   );
 }

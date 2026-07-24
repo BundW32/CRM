@@ -1,6 +1,15 @@
 import type { ComponentProps, ReactNode } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, Info, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Info,
+  XCircle,
+} from "lucide-react";
 import type { TicketStatus } from "@/generated/prisma/client";
 import { ticketStatusLabels, ticketStatusStyles } from "@/lib/labels";
 
@@ -249,6 +258,58 @@ export function Alert({
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
+  );
+}
+
+// Einheitliche Seitennavigation (Zurück · „Seite X von Y" · Weiter). Ersetzt die
+// zuvor je Seite duplizierten, leicht abweichenden Paginierungs-Blöcke. `hrefFor`
+// baut das Ziel-URL je Seitenzahl (server-seitig, kein Client-JS). Rendert nichts
+// bei nur einer Seite.
+export function Pagination({
+  currentPage,
+  totalPages,
+  total,
+  hrefFor,
+  itemLabel = "Einträge",
+  className = "",
+}: {
+  currentPage: number;
+  totalPages: number;
+  /** Gesamtzahl der Einträge (optional – ergänzt „· N Einträge"). */
+  total?: number;
+  hrefFor: (page: number) => string;
+  itemLabel?: string;
+  className?: string;
+}) {
+  if (totalPages <= 1) return null;
+  const link =
+    `inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-gray-400 hover:bg-gray-50 ${focusRing}`;
+  return (
+    <nav
+      aria-label="Seitennavigation"
+      className={`mt-4 flex items-center justify-between gap-3 ${className}`}
+    >
+      {currentPage > 1 ? (
+        <Link href={hrefFor(currentPage - 1)} rel="prev" className={link}>
+          <ChevronLeft className="h-4 w-4 shrink-0" />
+          Zurück
+        </Link>
+      ) : (
+        <span />
+      )}
+      <span className="text-xs text-gray-400">
+        Seite {currentPage} von {totalPages}
+        {typeof total === "number" ? ` · ${total} ${itemLabel}` : ""}
+      </span>
+      {currentPage < totalPages ? (
+        <Link href={hrefFor(currentPage + 1)} rel="next" className={link}>
+          Weiter
+          <ChevronRight className="h-4 w-4 shrink-0" />
+        </Link>
+      ) : (
+        <span />
+      )}
+    </nav>
   );
 }
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
-import { Alert, Card, PageTitle, inputClass } from "@/components/ui";
+import { Alert, Card, PageTitle, Pagination, inputClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { isSelfManaged, propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -231,7 +231,6 @@ export default async function UsersPage({
             <p className="text-xs text-gray-400">
               {total} {total === 1 ? "Nutzer" : "Nutzer"}
               {hasFilter ? " (gefiltert)" : ""}
-              {totalPages > 1 ? ` · Seite ${currentPage} von ${totalPages}` : ""}
             </p>
           </div>
 
@@ -557,34 +556,13 @@ export default async function UsersPage({
             </ul>
           </div>
 
-          {/* Paginierung */}
-          {totalPages > 1 ? (
-            <div className="mt-4 flex items-center justify-between">
-              {currentPage > 1 ? (
-                <Link
-                  href={pageHref(currentPage - 1)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  ← Zurück
-                </Link>
-              ) : (
-                <span />
-              )}
-              <span className="text-xs text-gray-400">
-                Seite {currentPage} von {totalPages}
-              </span>
-              {currentPage < totalPages ? (
-                <Link
-                  href={pageHref(currentPage + 1)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Weiter →
-                </Link>
-              ) : (
-                <span />
-              )}
-            </div>
-          ) : null}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            total={total}
+            itemLabel="Nutzer"
+            hrefFor={pageHref}
+          />
         </div>
 
         <Card title="Neuen Nutzer anlegen">

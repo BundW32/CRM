@@ -39,9 +39,11 @@ export function StepHeader({
 
           <span className="hidden h-4 w-px bg-gray-200 sm:block" />
 
-          <span className="text-sm font-semibold text-gray-900">{title}</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">
+            {title}
+          </span>
 
-          <div className="ml-auto hidden items-center gap-1 sm:flex">
+          <div className="ml-auto hidden shrink-0 items-center gap-1 md:flex">
             {STEPS.map((step, i) => {
               const n = i + 1;
               const active = n === currentStep;
@@ -60,7 +62,7 @@ export function StepHeader({
                     {done ? "✓" : n}
                   </div>
                   <span
-                    className={`text-[11px] font-medium ${
+                    className={`hidden text-[11px] font-medium lg:inline ${
                       active ? "text-brand-orange-dark" : done ? "text-brand-green" : "text-gray-400"
                     }`}
                   >
@@ -88,8 +90,8 @@ export function StepHeader({
             })}
           </div>
 
-          {/* Mobile: kompaktes, anklickbares Schritt-Menü */}
-          <div className="ml-auto sm:hidden">
+          {/* Kompaktes, anklickbares Schritt-Menü (bis Labels ab lg Platz haben) */}
+          <div className="ml-auto shrink-0 md:hidden">
             {handoverId ? (
               <details className="relative">
                 <summary className="flex cursor-pointer list-none items-center gap-1 rounded-full bg-brand-orange-light px-2.5 py-1 text-xs font-semibold text-brand-orange-dark">

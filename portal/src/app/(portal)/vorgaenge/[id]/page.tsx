@@ -522,7 +522,7 @@ export default async function TicketDetailPage({
             <Card title="Vorgang löschen">
               <p className="mb-2 text-xs text-gray-500">
                 Endgültiges Löschen (mit Kommentaren, Anhängen und Rechnung) – nur für Test-/
-                Fehleinträge. Der Regelweg ist „Schließen": ein geschlossener Vorgang bleibt als
+                Fehleinträge. Der Regelweg ist „Schließen“: ein geschlossener Vorgang bleibt als
                 Beleg erhalten.
               </p>
               <form action={deleteTicket}>

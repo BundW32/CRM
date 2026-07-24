@@ -21,9 +21,9 @@ export default function AgbPage() {
       <LegalSection title="1. Geltungsbereich und Begriffsbestimmungen">
         <p>
           Diese AGB gelten für alle Verträge über die Nutzung der vom Anbieter
-          bereitgestellten Anwendung. „Anbieter" ist die B&amp;W Immobilien Management UG
-          (haftungsbeschränkt). „Kunde" ist das Unternehmen bzw. die Eigentümergemeinschaft,
-          die die Anwendung nutzt. „Nutzer" sind die vom Kunden angelegten Personen (z. B.
+          bereitgestellten Anwendung. „Anbieter“ ist die B&amp;W Immobilien Management UG
+          (haftungsbeschränkt). „Kunde“ ist das Unternehmen bzw. die Eigentümergemeinschaft,
+          die die Anwendung nutzt. „Nutzer“ sind die vom Kunden angelegten Personen (z. B.
           Verwalter, Eigentümer, Mieter, Handwerker). Die Anwendung richtet sich
           ausschließlich an Unternehmer im Sinne des § 14 BGB sowie an
           Wohnungseigentümergemeinschaften; sie ist nicht für Verbraucher bestimmt.

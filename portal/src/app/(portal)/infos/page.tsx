@@ -435,7 +435,7 @@ async function DokumenteTab({
               <Field label="Nur für bestimmte Empfänger (optional)">
                 <RecipientPicker search={searchDocumentRecipients} />
                 <p className="mt-1 text-xs text-gray-500">
-                  Leer lassen = wie „Sichtbar für" (alle im Objekt). Bei Auswahl sehen NUR die
+                  Leer lassen = wie „Sichtbar für“ (alle im Objekt). Bei Auswahl sehen NUR die
                   gewählten Personen (und die Verwaltung) das Dokument.
                 </p>
               </Field>

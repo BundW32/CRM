@@ -395,7 +395,7 @@ export default async function ObjektBearbeitenPage({
         <p className="mb-4 max-w-3xl text-sm text-gray-300">
           Interne Bezeichnung sieht nur die Verwaltung; die externe Bezeichnung/Lage erscheint
           in Dokumenten und für Mieter/Eigentümer. Eigentümer- und Mieter-Zuordnung erfolgt unter
-          „Nutzer".
+          „Nutzer“.
         </p>
 
         <div className="space-y-4">

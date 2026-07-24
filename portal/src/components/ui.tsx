@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
+import type { ComponentProps, ReactNode } from "react";
+import Link from "next/link";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Info, XCircle } from "lucide-react";
 import type { TicketStatus } from "@/generated/prisma/client";
 import { ticketStatusLabels, ticketStatusStyles } from "@/lib/labels";
 
@@ -29,6 +30,53 @@ export const buttonSecondaryClass =
 // Outline-Variante für dunkle Flächen (oranger Rand, wie „Potenzial Analyse")
 export const buttonOutlineClass =
   `${buttonBase} border border-brand-orange/60 bg-transparent font-semibold text-brand-orange hover:bg-brand-orange/10 active:shadow-none`;
+
+// Destruktiv (Löschen, Ablehnen, …) – roter Rahmen auf hellem Grund, klar von der
+// Primäraktion getrennt. Ersetzt die zuvor mehrfach kopierten Inline-Rot-Buttons.
+export const buttonDangerClass =
+  `${buttonBase} border border-red-200 bg-white font-medium text-red-600 hover:border-red-300 hover:bg-red-50 active:shadow-none`;
+
+// Ghost – flächenlos, wird erst bei Hover sichtbar. Für tertiäre/kompakte Aktionen
+// in Listenzeilen und Toolbars (statt roher Textlinks).
+export const buttonGhostClass =
+  `${buttonBase} bg-transparent font-medium text-gray-600 hover:bg-gray-100 hover:text-brand-green active:shadow-none`;
+
+// Icon-Button (quadratisch, flächenlos) – für Aktions-Icons in dichten Listen.
+// Als Klassen-String, damit er auf <button> UND <a>/<Link> passt. Wird mit einem
+// Lucide-Icon befüllt; bei Icon-only immer aria-label/title setzen.
+const iconButtonBase =
+  `inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg transition-all active:scale-[0.94] disabled:opacity-50 disabled:pointer-events-none ${focusRing}`;
+export const iconButtonClass =
+  `${iconButtonBase} text-gray-500 hover:bg-gray-100 hover:text-brand-green`;
+export const iconButtonDangerClass =
+  `${iconButtonBase} text-gray-400 hover:bg-red-50 hover:text-red-600`;
+
+// Einheitlicher Zurück-Link – ersetzt die ~50 rohen „← Text"-Textlinks. Chevron
+// aus derselben Icon-Familie, dezent, mit sichtbarem Fokus-Ring. Auf dunklem
+// Shell (Standard) hell, per `tone="onLight"` für helle Flächen (z. B. Plattform).
+export function BackLink({
+  href,
+  children,
+  tone = "onDark",
+}: {
+  href: ComponentProps<typeof Link>["href"];
+  children: ReactNode;
+  tone?: "onDark" | "onLight";
+}) {
+  const color =
+    tone === "onDark"
+      ? "text-gray-300 hover:text-brand-orange"
+      : "text-gray-500 hover:text-brand-green";
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center gap-1.5 rounded-lg py-1 text-sm font-medium transition ${color} ${focusRing}`}
+    >
+      <ArrowLeft className="h-4 w-4 shrink-0" />
+      {children}
+    </Link>
+  );
+}
 
 export function PageTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (

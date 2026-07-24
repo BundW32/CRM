@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BackButton, Alert, EmptyState, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { Alert, EmptyState, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
@@ -67,9 +67,9 @@ export default async function PropertiesPage({
   return (
     <>
       <PageTitle
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
         action={
           <span className="flex flex-wrap items-center gap-2">
-            <BackButton href="/verwaltung">Verwaltung</BackButton>
             <a href="/verwaltung/objekte/neu" className={buttonClass}>
               + Objekt anlegen
             </a>

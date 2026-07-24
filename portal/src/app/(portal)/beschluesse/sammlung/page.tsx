@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BackButton, Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels } from "@/lib/labels";
@@ -52,9 +52,7 @@ export default async function BeschlussSammlungPage({
   return (
     <>
       <PageTitle
-        action={
-          <BackButton href="/beschluesse">Beschlüsse</BackButton>
-        }
+        back={{ href: "/beschluesse", label: "Beschlüsse" }}
       >
         Beschluss-Sammlung
       </PageTitle>

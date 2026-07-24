@@ -1,12 +1,5 @@
 import Link from "next/link";
-import {
-  BackButton,
-  Alert,
-  Card,
-  EmptyState,
-  PageTitle,
-  buttonSecondaryClass,
-  inputClass,} from "@/components/ui";
+import { Alert, Card, EmptyState, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { reminderLevelLabel } from "@/lib/dunning";
 import { formatDateOnly } from "@/lib/labels";
@@ -104,6 +97,7 @@ export default async function HausgeldPage({
   return (
     <>
       <PageTitle
+        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
         action={
           <div className="flex gap-2">
             <Link
@@ -118,7 +112,6 @@ export default async function HausgeldPage({
             <Link href={`/verwaltung/weg/${property.id}/sonderumlagen`} className={buttonSecondaryClass}>
               Sonderumlagen
             </Link>
-            <BackButton href="/verwaltung/weg">WEG-Finanzen</BackButton>
           </div>
         }
       >

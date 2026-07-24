@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { BackButton, PageTitle } from "@/components/ui";
+import { PageTitle } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 
@@ -61,9 +61,7 @@ export default async function AuditPage({
   return (
     <>
       <PageTitle
-        action={
-          <BackButton href="/verwaltung">Verwaltung</BackButton>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Audit-Log
       </PageTitle>

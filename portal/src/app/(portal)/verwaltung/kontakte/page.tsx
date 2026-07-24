@@ -1,4 +1,4 @@
-import { BackButton, Alert, Field, PageTitle, inputClass } from "@/components/ui";
+import { Alert, Field, PageTitle, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -45,9 +45,7 @@ export default async function KontaktePage({
   return (
     <>
       <PageTitle
-        action={
-          <BackButton href="/verwaltung">Verwaltung</BackButton>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Kontaktbuch
       </PageTitle>

@@ -51,24 +51,6 @@ export const iconButtonClass =
 export const iconButtonDangerClass =
   `${iconButtonBase} text-gray-400 hover:bg-red-50 hover:text-red-600`;
 
-// Zurück-Aktion im prominenten Header-Slot (PageTitle action) – Sekundär-Button
-// mit Pfeil-Icon. Ersetzt das Muster `<Link className={buttonSecondaryClass}>← X`
-// und vereinheitlicht den Text-Pfeil „←" zum Icon der übrigen Icon-Familie.
-export function BackButton({
-  href,
-  children,
-}: {
-  href: ComponentProps<typeof Link>["href"];
-  children: ReactNode;
-}) {
-  return (
-    <Link href={href} className={buttonSecondaryClass}>
-      <ArrowLeft className="h-4 w-4 shrink-0" />
-      {children}
-    </Link>
-  );
-}
-
 // Einheitlicher Zurück-Link – ersetzt die ~50 rohen „← Text"-Textlinks. Chevron
 // aus derselben Icon-Familie, dezent, mit sichtbarem Fokus-Ring. Auf dunklem
 // Shell (Standard) hell, per `tone="onLight"` für helle Flächen (z. B. Plattform).
@@ -96,13 +78,31 @@ export function BackLink({
   );
 }
 
-export function PageTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
+export function PageTitle({
+  children,
+  action,
+  back,
+}: {
+  children: ReactNode;
+  action?: ReactNode;
+  /** Zurück-Navigation – wird einheitlich oben links ÜBER dem Titel gezeigt
+   *  (etablierte Konvention); der `action`-Slot bleibt den Primär-/Statusaktionen
+   *  rechts vorbehalten. */
+  back?: { href: ComponentProps<typeof Link>["href"]; label: ReactNode };
+}) {
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-        {children}
-      </h1>
-      {action}
+    <div className="mb-6">
+      {back ? (
+        <div className="mb-2">
+          <BackLink href={back.href}>{back.label}</BackLink>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+          {children}
+        </h1>
+        {action}
+      </div>
     </div>
   );
 }

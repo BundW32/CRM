@@ -1,4 +1,4 @@
-import { BackButton, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter, propertyIdsForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -80,9 +80,7 @@ export default async function WartungPage({
   return (
     <>
       <PageTitle
-        action={
-          <BackButton href="/verwaltung">Verwaltung</BackButton>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Wartung &amp; Prüfungen
       </PageTitle>

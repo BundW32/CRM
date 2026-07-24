@@ -1,4 +1,4 @@
-import { BackButton, Alert, PageTitle } from "@/components/ui";
+import { Alert, PageTitle } from "@/components/ui";
 import { isSelfManaged } from "@/lib/access";
 import { db } from "@/lib/db";
 import { isObjektImportEnabled } from "@/lib/objekt-extraction";
@@ -31,9 +31,7 @@ export default async function NeuesObjektPage({
   return (
     <>
       <PageTitle
-        action={
-          <BackButton href="/verwaltung">Verwaltung</BackButton>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Objekt anlegen
       </PageTitle>

@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { Mail, MessageSquare, Phone } from "lucide-react";
 import {
   Alert,
-  BackLink,
   Card,
   CollapsibleCard,
   Field,
@@ -146,7 +145,10 @@ export default async function TicketDetailPage({
 
   return (
     <>
-      <PageTitle action={<StatusBadge status={ticket.status} />}>
+      <PageTitle
+        back={{ href: "/vorgaenge", label: "Vorgänge" }}
+        action={<StatusBadge status={ticket.status} />}
+      >
         #{ticket.number} · {ticket.title}
       </PageTitle>
 
@@ -1000,7 +1002,6 @@ export default async function TicketDetailPage({
             </Card>
           ) : null}
 
-          <BackLink href="/vorgaenge">Zurück zur Übersicht</BackLink>
         </div>
       </div>
     </>

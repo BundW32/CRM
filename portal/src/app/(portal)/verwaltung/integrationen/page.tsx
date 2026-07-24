@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BackButton, Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { maskSecret } from "@/lib/crypto";
 import { decryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
@@ -40,9 +40,7 @@ export default async function IntegrationenPage({
   return (
     <>
       <PageTitle
-        action={
-          <BackButton href="/verwaltung">Verwaltung</BackButton>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Integrationen
       </PageTitle>

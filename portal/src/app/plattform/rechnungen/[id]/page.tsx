@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { BackButton, Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { INVOICE_TRANSITIONS, formatCents, formatInvoiceNumber, requirePlatformAdmin } from "@/lib/platform";
@@ -55,9 +55,7 @@ export default async function RechnungDetailPage({
   return (
     <>
       <PageTitle
-        action={
-          <BackButton href="/plattform/rechnungen">Rechnungen</BackButton>
-        }
+        back={{ href: "/plattform/rechnungen", label: "Rechnungen" }}
       >
         {formatInvoiceNumber(inv.year, inv.number)}
       </PageTitle>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BackButton, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
@@ -56,9 +56,7 @@ export default async function Co2Page({
   return (
     <>
       <PageTitle
-        action={
-          <BackButton href="/verwaltung/weg">WEG-Finanzen</BackButton>
-        }
+        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
       >
         CO₂-Kostenaufteilung · {property.name}
       </PageTitle>

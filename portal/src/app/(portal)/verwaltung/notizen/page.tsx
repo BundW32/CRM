@@ -1,4 +1,4 @@
-import { BackButton, Card, EmptyState, PageTitle } from "@/components/ui";
+import { Card, EmptyState, PageTitle } from "@/components/ui";
 import { noteWhereForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
@@ -75,9 +75,7 @@ export default async function NotizenPage({
   return (
     <>
       <PageTitle
-        action={
-          <BackButton href="/verwaltung">Verwaltung</BackButton>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Notizen
       </PageTitle>

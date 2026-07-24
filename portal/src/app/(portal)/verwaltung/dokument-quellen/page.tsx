@@ -1,4 +1,4 @@
-import { BackButton, Alert, PageTitle } from "@/components/ui";
+import { Alert, PageTitle } from "@/components/ui";
 import { db } from "@/lib/db";
 import { propertyIdsForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { requireVerwalter } from "@/lib/session";
@@ -54,9 +54,7 @@ export default async function DokumentQuellenPage({
   return (
     <>
       <PageTitle
-        action={
-          <BackButton href="/verwaltung">Verwaltung</BackButton>
-        }
+        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Dokument-Quellen
       </PageTitle>

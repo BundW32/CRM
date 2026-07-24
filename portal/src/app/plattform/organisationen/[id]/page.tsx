@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { BackButton, Alert, Card, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { PLANS, SUBSCRIPTION_STATUSES, planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
@@ -63,9 +63,7 @@ export default async function OrganisationDetailPage({
   return (
     <>
       <PageTitle
-        action={
-          <BackButton href="/plattform/organisationen">Verwaltungen</BackButton>
-        }
+        back={{ href: "/plattform/organisationen", label: "Verwaltungen" }}
       >
         {org.name}
       </PageTitle>

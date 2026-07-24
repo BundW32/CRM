@@ -1,62 +1,140 @@
 import Link from "next/link";
-import type { TicketStatus } from "@/generated/prisma/client";
-import { Pagination, Alert, EmptyState, PageTitle, StatusBadge, buttonClass, inputClass } from "@/components/ui";
-import { propertyWhereForVerwalter, ticketWhereForUser } from "@/lib/access";
+import type { Prisma, TicketPriority, TicketStatus, TicketType, Trade } from "@/generated/prisma/client";
+import { Pagination, Alert, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
+import { FilterBar, type ComboboxFilterConfig, type FilterConfig } from "@/components/filter-bar";
+import { propertyWhereForVerwalter, ticketWhereForUser, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
   formatDate,
+  roleLabels,
   ticketPriorityLabels,
   ticketStatusLabels,
   ticketTypeLabels,
   tradeLabels,
+  unitPublicLabel,
 } from "@/lib/labels";
+import { normalizeSearch, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-const statusFilters: TicketStatus[] = [
-  "NEU",
-  "IN_BEARBEITUNG",
-  "BEAUFTRAGT",
-  "ERLEDIGT",
-  "GESCHLOSSEN",
+const PAGE_SIZE = 25;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = {
+  aktualisiert: "updatedAt",
+  erstellt: "createdAt",
+  faellig: "dueAt",
+  prioritaet: "priority",
+  nummer: "number",
+} as const;
+
+const sortOptions = [
+  { value: "aktualisiert", label: "Zuletzt aktualisiert" },
+  { value: "erstellt", label: "Erstellt" },
+  { value: "faellig", label: "Fällig bis" },
+  { value: "prioritaet", label: "Priorität" },
+  { value: "nummer", label: "Nummer" },
 ];
+
+function optionsFrom(map: Record<string, string>) {
+  return Object.entries(map).map(([value, label]) => ({ value, label }));
+}
 
 export default async function TicketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; propertyId?: string; page?: string; geloescht?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
-  const { status, propertyId, page, geloescht } = await searchParams;
-  const statusFilter = statusFilters.find((s) => s === status);
+  const sp = await searchParams;
+  const isVerwalter = user.role === "VERWALTER";
 
-  const where = await ticketWhereForUser(user);
+  // ── Filter-Parameter (jeweils gegen erlaubte Werte validiert) ──
+  const q = normalizeSearch(sp.q);
+  const status = sp.status && sp.status in ticketStatusLabels ? (sp.status as TicketStatus) : undefined;
+  const typ = sp.typ && sp.typ in ticketTypeLabels ? (sp.typ as TicketType) : undefined;
+  const prio = sp.prio && sp.prio in ticketPriorityLabels ? (sp.prio as TicketPriority) : undefined;
+  const gewerk = isVerwalter && sp.gewerk && sp.gewerk in tradeLabels ? (sp.gewerk as Trade) : undefined;
 
-  const properties =
-    user.role === "VERWALTER"
-      ? await db.property.findMany({ where: await propertyWhereForVerwalter(user), orderBy: { name: "asc" } })
-      : [];
+  // ── Objekt → Einheit → Nutzer (Kaskade, nur Verwalter) ──
+  // Objektliste wird immer geladen (Combobox-Optionen). Einheiten/Nutzer erst
+  // nach gültiger Objektwahl – dadurch bleibt „Einheit" gesperrt und „Nutzer"
+  // ausgeblendet, solange kein Objekt gewählt ist. Alle Werte werden gegen den
+  // Scope des Verwalters bzw. die geladenen Listen validiert (kein Fremdzugriff).
+  let properties: { id: string; name: string; street: string; zip: string; city: string }[] = [];
+  let unitOptions: { value: string; label: string }[] = [];
+  let nutzerOptions: { value: string; label: string; sublabel?: string }[] = [];
+  let objektId: string | undefined;
+  let einheitId: string | undefined;
+  let nutzerId: string | undefined;
 
-  const propertyFilter =
-    user.role === "VERWALTER" && propertyId
-      ? properties.find((p) => p.id === propertyId)
-      : undefined;
+  if (isVerwalter) {
+    properties = await db.property.findMany({
+      where: await propertyWhereForVerwalter(user),
+      select: { id: true, name: true, street: true, zip: true, city: true },
+      orderBy: { name: "asc" },
+    });
+    objektId = sp.objekt && properties.some((p) => p.id === sp.objekt) ? sp.objekt : undefined;
 
-  const ticketWhere = {
-    ...where,
-    ...(statusFilter ? { status: statusFilter } : {}),
-    ...(propertyFilter ? { propertyId: propertyFilter.id } : {}),
-  };
+    if (objektId) {
+      const [units, nutzer] = await Promise.all([
+        db.unit.findMany({
+          where: { propertyId: objektId },
+          select: { id: true, label: true, externalLabel: true },
+          orderBy: { label: "asc" },
+        }),
+        db.user.findMany({
+          where: {
+            AND: [
+              await userWhereForVerwalter(user),
+              {
+                OR: [
+                  { tenancies: { some: { unit: { propertyId: objektId } } } },
+                  { ownerships: { some: { propertyId: objektId } } },
+                ],
+              },
+            ],
+          },
+          select: { id: true, name: true, role: true },
+          orderBy: { name: "asc" },
+        }),
+      ]);
+      unitOptions = units.map((u) => ({ value: u.id, label: unitPublicLabel(u) }));
+      nutzerOptions = nutzer.map((n) => ({ value: n.id, label: n.name, sublabel: roleLabels[n.role] }));
+      einheitId = sp.einheit && units.some((u) => u.id === sp.einheit) ? sp.einheit : undefined;
+      nutzerId = sp.nutzer && nutzer.some((n) => n.id === sp.nutzer) ? sp.nutzer : undefined;
+    }
+  }
 
-  const PAGE_SIZE = 25;
-  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "aktualisiert", "desc");
+  const currentPage = parsePage(sp.page);
+
+  // ── where zusammenbauen (Filter verengen nur das Access-where) ──
+  const and: Prisma.TicketWhereInput[] = [await ticketWhereForUser(user)];
+  if (q) {
+    const or: Prisma.TicketWhereInput[] = [
+      { title: { contains: q, mode: "insensitive" } },
+      { description: { contains: q, mode: "insensitive" } },
+    ];
+    if (/^\d+$/.test(q)) or.push({ number: Number(q) });
+    if (isVerwalter) or.push({ createdBy: { name: { contains: q, mode: "insensitive" } } });
+    and.push({ OR: or });
+  }
+  if (status) and.push({ status });
+  if (typ) and.push({ type: typ });
+  if (prio) and.push({ priority: prio });
+  if (gewerk) and.push({ trade: gewerk });
+  if (objektId) and.push({ propertyId: objektId });
+  if (einheitId) and.push({ unitId: einheitId });
+  if (nutzerId) and.push({ createdById: nutzerId });
+  const ticketWhere: Prisma.TicketWhereInput = { AND: and };
 
   const [total, tickets] = await Promise.all([
     db.ticket.count({ where: ticketWhere }),
     db.ticket.findMany({
       where: ticketWhere,
-      orderBy: { updatedAt: "desc" },
+      orderBy: toOrderBy(sort.field, sort.dir) as Prisma.TicketOrderByWithRelationInput,
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: { property: true, unit: true, createdBy: true, assignedTo: true },
@@ -64,22 +142,60 @@ export default async function TicketsPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  function filterHref(params: { status?: string; propertyId?: string }) {
-    const p = new URLSearchParams();
-    if (params.status) p.set("status", params.status);
-    if (params.propertyId) p.set("propertyId", params.propertyId);
-    const q = p.toString();
-    return `/vorgaenge${q ? `?${q}` : ""}`;
+  // Paginierung muss alle aktiven Filter mittragen.
+  function pageHref(p: number) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "page") params.set(k, v);
+    }
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return `/vorgaenge${qs ? `?${qs}` : ""}`;
   }
 
-  function pageHref(p: number) {
-    const sp = new URLSearchParams();
-    if (statusFilter) sp.set("status", statusFilter);
-    if (propertyFilter) sp.set("propertyId", propertyFilter.id);
-    if (p > 1) sp.set("page", String(p));
-    const q = sp.toString();
-    return `/vorgaenge${q ? `?${q}` : ""}`;
-  }
+  const filters: FilterConfig[] = [
+    { key: "status", label: "Status", options: optionsFrom(ticketStatusLabels), primary: true },
+    { key: "typ", label: "Art", options: optionsFrom(ticketTypeLabels) },
+    { key: "prio", label: "Priorität", options: optionsFrom(ticketPriorityLabels) },
+    ...(isVerwalter
+      ? [{ key: "gewerk", label: "Gewerk", options: optionsFrom(tradeLabels) } as FilterConfig]
+      : []),
+  ];
+
+  // Objekt (immer sichtbar) → Einheit (gesperrt bis Objekt) → Nutzer (erst nach Objekt).
+  const comboboxes: ComboboxFilterConfig[] = isVerwalter
+    ? [
+        {
+          key: "objekt",
+          label: "Objekt",
+          placeholder: "Objekt suchen …",
+          options: properties.map((p) => ({
+            value: p.id,
+            label: p.name,
+            sublabel: [p.street, [p.zip, p.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || undefined,
+          })),
+          currentValue: objektId,
+          clears: ["einheit", "nutzer"],
+        },
+        {
+          key: "einheit",
+          label: "Einheit",
+          placeholder: "Einheit wählen …",
+          options: unitOptions,
+          currentValue: einheitId,
+          disabled: !objektId,
+          disabledHint: "Zuerst Objekt wählen",
+        },
+        {
+          key: "nutzer",
+          label: "Nutzer",
+          placeholder: "Nutzer wählen …",
+          options: nutzerOptions,
+          currentValue: nutzerId,
+          hidden: !objektId,
+        },
+      ]
+    : [];
 
   return (
     <>
@@ -93,62 +209,20 @@ export default async function TicketsPage({
         Vorgänge
       </PageTitle>
 
-      {geloescht ? (
+      {sp.geloescht ? (
         <Alert variant="success" className="mb-4">
           Vorgang wurde endgültig gelöscht.
         </Alert>
       ) : null}
 
-      <div className="mb-3 flex flex-wrap gap-2 text-sm">
-        <Link
-          href={filterHref({ propertyId: propertyFilter?.id })}
-          className={`rounded-full px-3 py-1 font-medium ${!statusFilter ? "bg-brand-orange text-brand-green-dark" : "bg-white/90 text-gray-600 border border-white/20"}`}
-        >
-          Alle
-        </Link>
-        {statusFilters.map((s) => (
-          <Link
-            key={s}
-            href={filterHref({ status: s, propertyId: propertyFilter?.id })}
-            className={`rounded-full px-3 py-1 font-medium ${statusFilter === s ? "bg-brand-orange text-brand-green-dark" : "bg-white/90 text-gray-600 border border-white/20"}`}
-          >
-            {ticketStatusLabels[s]}
-          </Link>
-        ))}
-      </div>
-
-      {user.role === "VERWALTER" && properties.length > 1 ? (
-        <div className="mb-4">
-          <form method="get" className="flex items-center gap-2">
-            {statusFilter ? (
-              <input type="hidden" name="status" value={statusFilter} />
-            ) : null}
-            <select
-              name="propertyId"
-              className={`${inputClass} w-auto`}
-              defaultValue={propertyFilter?.id ?? ""}
-            >
-              <option value="">Alle Objekte</option>
-              {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="text-sm font-medium text-brand-orange-ink hover:underline">
-              Filtern
-            </button>
-            {propertyFilter ? (
-              <Link
-                href={filterHref({ status: statusFilter })}
-                className="text-sm text-gray-300 hover:text-brand-orange hover:underline"
-              >
-                ✕ Filter aufheben
-              </Link>
-            ) : null}
-          </form>
-        </div>
-      ) : null}
+      <FilterBar
+        className="mb-4"
+        searchPlaceholder="Nr., Titel oder Beschreibung suchen…"
+        filters={filters}
+        comboboxes={comboboxes}
+        sortOptions={sortOptions}
+        defaultSort="aktualisiert"
+      />
 
       {tickets.length === 0 ? (
         <EmptyState>Keine Vorgänge gefunden.</EmptyState>
@@ -174,17 +248,12 @@ export default async function TicketsPage({
                           : ""}{" "}
                       · {ticket.property ? ticket.property.name : "nicht zugeordnet"}
                       {ticket.unit ? ` · ${ticket.unit.label}` : ""}
-                      {user.role === "VERWALTER"
-                        ? ` · von ${ticket.createdBy.name}`
-                        : ""}{" "}
-                      · {formatDate(ticket.updatedAt)}
+                      {isVerwalter ? ` · von ${ticket.createdBy.name}` : ""} · {formatDate(ticket.updatedAt)}
                     </span>
                   </span>
                   <span className="flex items-center gap-2">
                     {ticket.priority !== "NORMAL" ? (
-                      <span className="text-xs text-gray-500">
-                        {ticketPriorityLabels[ticket.priority]}
-                      </span>
+                      <span className="text-xs text-gray-500">{ticketPriorityLabels[ticket.priority]}</span>
                     ) : null}
                     <StatusBadge status={ticket.status} />
                   </span>

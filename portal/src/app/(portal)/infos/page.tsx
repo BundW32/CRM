@@ -290,16 +290,26 @@ async function DokumenteTab({
               {documents.map((doc) => (
                 <li key={doc.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <a href={`/api/files/dokument/${doc.id}`} target="_blank" className="min-w-0 hover:underline">
-                      <span className="block truncate text-sm font-medium text-gray-900">{doc.title}</span>
-                      <span className="block text-xs text-gray-500">
-                        {documentCategoryLabels[doc.category]}
-                        {doc.property ? ` · ${doc.property.name}` : " · Allgemein"}
-                        {doc.unit ? ` · ${doc.unit.label}` : ""}
-                        {isVerwalter ? ` · sichtbar für: ${audienceLabels[doc.audience]}` : ""}{" "}
-                        · {formatDate(doc.createdAt)} · {formatBytes(doc.size)}
+                    <div className="min-w-0 flex-1">
+                      <a
+                        href={`/api/files/dokument/${doc.id}`}
+                        target="_blank"
+                        className="block truncate text-sm font-medium text-gray-900 hover:underline"
+                      >
+                        {doc.title}
+                      </a>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500">
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600">
+                          {documentCategoryLabels[doc.category]}
+                        </span>
+                        <span>
+                          {doc.property ? doc.property.name : "Allgemein"}
+                          {doc.unit ? ` · ${doc.unit.label}` : ""}
+                          {isVerwalter ? ` · sichtbar für: ${audienceLabels[doc.audience]}` : ""}
+                          {` · ${formatDate(doc.createdAt)} · ${formatBytes(doc.size)}`}
+                        </span>
                       </span>
-                    </a>
+                    </div>
                     <span className="flex shrink-0 items-center gap-1">
                       <a
                         href={`/api/files/dokument/${doc.id}`}

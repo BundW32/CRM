@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { inputClass, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { checksForRoomType, countRoomMaengel, type CheckPoint } from "@/lib/handover-checks";
@@ -137,6 +138,33 @@ function RoomCard({
 }) {
   const metaRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const [uploading, setUploading] = useState(false);
+
+  // Fotos EINZELN nacheinander hochladen: Vercel begrenzt den Request-Body einer
+  // Server Action auf ~4,5 MB – mehrere Fotos in einem Request würden scheitern.
+  async function handlePhotos(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append("handoverId", handoverId);
+        fd.append("roomId", room.id);
+        fd.append("photo", file);
+        try {
+          await uploadRoomPhoto(fd);
+        } catch {
+          // Einzelne fehlerhafte Datei überspringen, Rest weiter hochladen.
+        }
+      }
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+      router.refresh();
+    }
+  }
+
   const points = checksForRoomType(room.roomType);
   const checks = room.checks ?? {};
   const maengel = countRoomMaengel(room.checks);
@@ -268,28 +296,28 @@ function RoomCard({
                 ))}
               </div>
             )}
-            <form action={uploadRoomPhoto}>
-              <input type="hidden" name="handoverId" value={handoverId} />
-              <input type="hidden" name="roomId" value={room.id} />
+            <div>
               <input
                 ref={fileRef}
                 type="file"
-                name="photo"
                 accept="image/*"
                 multiple
                 className="hidden"
-                onChange={(e) => {
-                  if (e.target.files?.length) e.target.form?.requestSubmit();
-                }}
+                onChange={(e) => handlePhotos(e.target.files)}
               />
-              <button type="button" onClick={() => fileRef.current?.click()} className={buttonSecondaryClass}>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className={`${buttonSecondaryClass} disabled:opacity-60`}
+              >
                 <svg viewBox="0 0 24 24" className="mr-1.5 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round" />
                   <circle cx="12" cy="13" r="4" />
                 </svg>
-                Fotos aufnehmen / hochladen
+                {uploading ? "Wird hochgeladen…" : "Fotos aufnehmen / hochladen"}
               </button>
-            </form>
+            </div>
           </div>
         </div>
       )}

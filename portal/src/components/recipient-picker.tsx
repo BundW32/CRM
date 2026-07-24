@@ -88,7 +88,12 @@ export function RecipientPicker({ search }: { search: (query: string) => Promise
                 <button
                   key={r.id}
                   type="button"
-                  onClick={() => add(r)}
+                  // onMouseDown + preventDefault: Auswahl feuert zuverlässig, bevor das
+                  // Suchfeld den Fokus verliert (sonst „Klick passiert nichts", v. a. Safari).
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    add(r);
+                  }}
                   className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
                 >
                   <span className="font-medium text-gray-900">{r.name}</span>

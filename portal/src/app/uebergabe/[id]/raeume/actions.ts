@@ -91,8 +91,11 @@ export async function uploadRoomPhoto(formData: FormData) {
   const verwalter = await requireVerwalter();
   const handoverId = String(formData.get("handoverId") ?? "").trim();
   const roomId = String(formData.get("roomId") ?? "").trim();
-  const file = formData.get("photo") as File | null;
-  if (!handoverId || !roomId || !file || file.size === 0) return;
+  // Mehrere Fotos je Raum: alle übermittelten Dateien verarbeiten.
+  const files = formData
+    .getAll("photo")
+    .filter((f): f is File => f instanceof File && f.size > 0);
+  if (!handoverId || !roomId || files.length === 0) return;
   if (!(await canVerwalterAccessHandover(verwalter, handoverId))) redirect("/uebergabe");
   // roomId an die validierte handoverId binden: kein Einschleusen in fremde Räume.
   const room = await db.handoverRoom.findFirst({
@@ -101,11 +104,16 @@ export async function uploadRoomPhoto(formData: FormData) {
   });
   if (!room) redirect("/uebergabe");
 
-  const { storedName, fileName, mimeType, size } = await saveUpload(file, IMAGE_TYPES);
-
-  await db.handoverPhoto.create({
-    data: { handoverId, roomId, storedName, fileName, mimeType, size },
-  });
+  for (const file of files) {
+    try {
+      const { storedName, fileName, mimeType, size } = await saveUpload(file, IMAGE_TYPES);
+      await db.handoverPhoto.create({
+        data: { handoverId, roomId, storedName, fileName, mimeType, size },
+      });
+    } catch {
+      // Einzelne fehlerhafte Datei überspringen, Rest weiter hochladen.
+    }
+  }
 
   revalidatePath(`/uebergabe/${handoverId}/raeume`);
 }

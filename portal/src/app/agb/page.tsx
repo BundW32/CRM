@@ -6,7 +6,6 @@ export default function AgbPage() {
   return (
     <LegalPage
       title="Allgemeine Geschäftsbedingungen (AGB)"
-      draft
       intro={
         <>
           <p>

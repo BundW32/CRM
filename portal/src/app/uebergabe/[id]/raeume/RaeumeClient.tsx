@@ -276,10 +276,10 @@ function RoomCard({
                 type="file"
                 name="photo"
                 accept="image/*"
-                capture="environment"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  if (e.target.files?.[0]) e.target.form?.requestSubmit();
+                  if (e.target.files?.length) e.target.form?.requestSubmit();
                 }}
               />
               <button type="button" onClick={() => fileRef.current?.click()} className={buttonSecondaryClass}>
@@ -287,7 +287,7 @@ function RoomCard({
                   <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round" />
                   <circle cx="12" cy="13" r="4" />
                 </svg>
-                Foto aufnehmen / hochladen
+                Fotos aufnehmen / hochladen
               </button>
             </form>
           </div>

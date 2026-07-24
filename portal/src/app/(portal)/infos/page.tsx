@@ -8,7 +8,6 @@ import {
   documentWhereForUser,
   ownedProperties,
   propertyWhereForVerwalter,
-  userWhereForVerwalter,
 } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
@@ -17,8 +16,8 @@ import {
   formatBytes,
   formatDate,
   requestableDocuments,
-  roleLabels,
 } from "@/lib/labels";
+import { RecipientPicker } from "@/components/recipient-picker";
 import { requireUser } from "@/lib/session";
 import {
   acknowledgeAnnouncement,
@@ -29,6 +28,7 @@ import {
   acknowledgeDocument,
   deleteDocument,
   requestDocument,
+  searchDocumentRecipients,
   uploadDocument,
   uploadOwnerDocument,
 } from "../dokumente/actions";
@@ -300,18 +300,6 @@ async function DokumenteTab({
   // Objekte des Eigentümers (für den Eigentümer-Upload).
   const ownedProps = user.role === "EIGENTUEMER" ? await ownedProperties(user.id) : [];
 
-  // Kandidaten für eine gezielte Freigabe (Eigentümer/Mieter im Scope).
-  const recipientOptions = isVerwalter
-    ? await db.user.findMany({
-        where: {
-          AND: [await userWhereForVerwalter(user), { role: { in: ["EIGENTUEMER", "MIETER"] }, active: true }],
-        },
-        select: { id: true, name: true, role: true },
-        orderBy: { name: "asc" },
-        take: 500,
-      })
-    : [];
-
   return (
     <div className="grid gap-5 lg:grid-cols-3">
       <div className="lg:col-span-2">
@@ -444,27 +432,13 @@ async function DokumenteTab({
                 properties={properties.map((p) => ({ id: p.id, name: p.name }))}
                 unitLabel="Einheit (optional, überschreibt Objekt)"
               />
-              {recipientOptions.length > 0 ? (
-                <Field label="Nur für bestimmte Empfänger (optional)">
-                  <select
-                    name="recipientIds"
-                    multiple
-                    size={5}
-                    className={`${inputClass} h-auto`}
-                  >
-                    {recipientOptions.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name} · {roleLabels[r.role]}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Leer lassen = wie „Sichtbar für" (alle im Objekt). Bei Auswahl sehen NUR die
-                    gewählten Personen (und die Verwaltung) das Dokument. Mehrfachauswahl mit
-                    Strg/Cmd.
-                  </p>
-                </Field>
-              ) : null}
+              <Field label="Nur für bestimmte Empfänger (optional)">
+                <RecipientPicker search={searchDocumentRecipients} />
+                <p className="mt-1 text-xs text-gray-500">
+                  Leer lassen = wie „Sichtbar für" (alle im Objekt). Bei Auswahl sehen NUR die
+                  gewählten Personen (und die Verwaltung) das Dokument.
+                </p>
+              </Field>
               <Field label="Datei (PDF oder Bild, max. 10 MB)">
                 <input
                   type="file"

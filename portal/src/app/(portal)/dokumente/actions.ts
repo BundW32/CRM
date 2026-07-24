@@ -85,6 +85,53 @@ export async function uploadOwnerDocument(formData: FormData) {
   redirect("/infos?t=dokumente&hochgeladen=1");
 }
 
+// Typeahead-Suche nach möglichen Empfängern (Eigentümer/Mieter im Scope). Statt
+// alle Nutzer in ein Riesen-Menü zu laden, wird serverseitig nach Name/E-Mail
+// gefiltert und auf wenige Treffer begrenzt – skaliert auf beliebig viele Nutzer.
+export type RecipientHit = { id: string; name: string; role: string; context: string };
+
+export async function searchDocumentRecipients(query: string): Promise<RecipientHit[]> {
+  const user = await requireVerwalter();
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const users = await db.user.findMany({
+    where: {
+      AND: [
+        await userWhereForVerwalter(user),
+        { role: { in: ["EIGENTUEMER", "MIETER"] }, active: true },
+        {
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { email: { contains: q, mode: "insensitive" } },
+          ],
+        },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      role: true,
+      tenancies: {
+        where: { active: true },
+        take: 1,
+        select: { unit: { select: { label: true, property: { select: { name: true } } } } },
+      },
+      ownerships: { take: 1, select: { property: { select: { name: true } } } },
+    },
+    orderBy: { name: "asc" },
+    take: 20,
+  });
+  return users.map((u) => {
+    let context = "";
+    if (u.role === "MIETER" && u.tenancies[0]) {
+      context = `${u.tenancies[0].unit.property.name} · ${u.tenancies[0].unit.label}`;
+    } else if (u.role === "EIGENTUEMER" && u.ownerships[0]) {
+      context = u.ownerships[0].property.name;
+    }
+    return { id: u.id, name: u.name, role: u.role, context };
+  });
+}
+
 // Dokument endgültig löschen (Verwalter im Objekt-Scope). Empfänger und
 // Lesebestätigungen werden per Kaskade mit entfernt; die Datei im Storage wird
 // nach dem DB-Löschen aufgeräumt.

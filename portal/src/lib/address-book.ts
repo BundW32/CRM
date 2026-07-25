@@ -33,6 +33,8 @@ export type AddressBookEntry = {
   active: boolean;
   isInternal: boolean;
   accessToken: string | null;
+  /** Bei Personen: gemietete Einheiten bzw. Eigentum – erklärt Mehrfacheinträge. */
+  zuordnungen: string[];
 };
 
 /**
@@ -117,6 +119,13 @@ export async function loadAddressBook(
             phone: true,
             preferredContact: true,
             active: true,
+            // Zuordnungen für die Anzeige – macht sichtbar, weshalb dieselbe
+            // Person mehrfach auftauchen kann (je Einheit ein eigener Zugang).
+            tenancies: {
+              where: { active: true },
+              select: { unit: { select: { label: true, property: { select: { name: true } } } } },
+            },
+            ownerships: { select: { property: { select: { name: true } } } },
           },
         })
       : Promise.resolve([]),
@@ -162,6 +171,10 @@ export async function loadAddressBook(
       active: p.active,
       isInternal: false,
       accessToken: null,
+      zuordnungen: [
+        ...p.tenancies.map((t) => `${t.unit.property.name} · ${t.unit.label}`),
+        ...p.ownerships.map((o) => o.property.name),
+      ],
     })),
     ...firmen.map((c) => ({
       id: c.id,
@@ -178,6 +191,7 @@ export async function loadAddressBook(
       active: c.active,
       isInternal: c.isInternal,
       accessToken: c.accessToken,
+      zuordnungen: [],
     })),
   ];
 

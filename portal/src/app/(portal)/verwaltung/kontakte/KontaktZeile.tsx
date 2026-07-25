@@ -3,11 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Building2, UserRound } from "lucide-react";
-import { inputClass } from "@/components/ui";
 import { contactKindLabels, contactMethodLabels, roleLabels, tradeLabels } from "@/lib/labels";
 import type { AddressBookEntry } from "@/lib/address-book";
-import { updatePersonContact } from "./actions";
-import { KarteikarteFormular } from "./[id]/KarteikarteFormular";
 
 /**
  * Eine Zeile im Adressbuch. Personen (mit Portalzugang) und Karteikarten sehen
@@ -122,85 +119,95 @@ export function KontaktZeile({ entry }: { entry: AddressBookEntry }) {
         </span>
       </div>
 
+      {/* „Öffnen“ zeigt nur an – bearbeitet wird auf der Detailseite. Das hält
+          die Liste ruhig und die Anzeige lesbar. */}
       {open ? (
-        <div className="animate-page-in border-t border-gray-100 bg-gray-50/60 px-4 py-3">
-          {isPerson ? (
-            <form action={updatePersonContact} className="grid gap-2 sm:grid-cols-2">
-              <input type="hidden" name="id" value={entry.id} />
-              <input type="hidden" name="zurueck" value="/verwaltung/kontakte" />
-              <label>
-                <span className="mb-1 block text-xs text-gray-500">Name</span>
-                <input
-                  type="text"
-                  name="name"
-                  required
-                  minLength={2}
-                  defaultValue={entry.name}
-                  className={inputClass}
-                />
-              </label>
-              <label>
-                <span className="mb-1 block text-xs text-gray-500">Bevorzugter Kontaktweg</span>
-                <select
-                  name="preferredContact"
-                  defaultValue={entry.preferredContact ?? ""}
-                  className={inputClass}
-                >
-                  <option value="">– keine Angabe –</option>
-                  {Object.entries(contactMethodLabels).map(([v, l]) => (
-                    <option key={v} value={v}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span className="mb-1 block text-xs text-gray-500">Telefon</span>
-                <input
-                  type="tel"
-                  name="phone"
-                  defaultValue={entry.phone ?? ""}
-                  className={inputClass}
-                />
-              </label>
-              <label>
-                <span className="mb-1 block text-xs text-gray-500">E-Mail</span>
-                <input
-                  type="email"
-                  name="email"
-                  defaultValue={entry.email ?? ""}
-                  className={inputClass}
-                />
-              </label>
+        <div className="animate-page-in border-t border-gray-100 bg-gray-50/60 px-4 py-4">
+          <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs text-gray-500">Telefon</dt>
+              <dd>
+                {entry.phone ? (
+                  <a href={`tel:${entry.phone}`} className="text-gray-900 hover:text-brand-orange hover:underline">
+                    {entry.phone}
+                  </a>
+                ) : (
+                  <span className="text-gray-400">–</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">E-Mail</dt>
+              <dd className="min-w-0 truncate">
+                {entry.email ? (
+                  <a href={`mailto:${entry.email}`} className="text-gray-900 hover:text-brand-orange hover:underline">
+                    {entry.email}
+                  </a>
+                ) : (
+                  <span className="text-gray-400">–</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">Bevorzugter Kontaktweg</dt>
+              <dd className="text-gray-900">
+                {entry.preferredContact ? (
+                  contactMethodLabels[entry.preferredContact]
+                ) : (
+                  <span className="text-gray-400">keine Angabe</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-gray-500">Art</dt>
+              <dd className="text-gray-900">
+                {artLabel}
+                {!isPerson && entry.kind === "HANDWERKER" && entry.trade
+                  ? ` · ${tradeLabels[entry.trade]}`
+                  : ""}
+              </dd>
+            </div>
+
+            {/* Zuordnungen erklären, weshalb dieselbe Person mehrfach in der
+                Liste stehen kann: je Einheit ein eigener Zugang. */}
+            {isPerson ? (
               <div className="sm:col-span-2">
-                <button
-                  type="submit"
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Speichern
-                </button>
+                <dt className="text-xs text-gray-500">
+                  {entry.role === "EIGENTUEMER" ? "Eigentum" : "Einheiten"}
+                </dt>
+                <dd className="mt-1 flex flex-wrap gap-1.5">
+                  {entry.zuordnungen.length === 0 ? (
+                    <span className="text-gray-400">keine Zuordnung</span>
+                  ) : (
+                    entry.zuordnungen.map((z) => (
+                      <span
+                        key={z}
+                        className="rounded-lg bg-white px-2 py-1 text-xs text-gray-700 ring-1 ring-gray-200"
+                      >
+                        {z}
+                      </span>
+                    ))
+                  )}
+                </dd>
               </div>
-            </form>
-          ) : (
-            <>
-              <KarteikarteFormular
-                zurueck="/verwaltung/kontakte"
-                k={{
-                  id: entry.id,
-                  name: entry.name,
-                  company: entry.company,
-                  kind: entry.kind,
-                  trade: entry.trade,
-                  email: entry.email,
-                  phone: entry.phone,
-                  preferredContact: entry.preferredContact,
-                  notes: entry.notes,
-                  active: entry.active,
-                  isInternal: entry.isInternal,
-                }}
-              />
-            </>
-          )}
+            ) : null}
+
+            {entry.notes ? (
+              <div className="sm:col-span-2">
+                <dt className="text-xs text-gray-500">Notizen</dt>
+                <dd className="whitespace-pre-line text-gray-700">{entry.notes}</dd>
+              </div>
+            ) : null}
+          </dl>
+
+          <div className="mt-4 border-t border-gray-200 pt-3">
+            <Link
+              href={`/verwaltung/kontakte/${entry.id}`}
+              className="text-xs font-medium text-brand-orange-ink hover:underline"
+            >
+              Bearbeiten →
+            </Link>
+          </div>
         </div>
       ) : null}
     </li>

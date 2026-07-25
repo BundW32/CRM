@@ -24,6 +24,7 @@ export default async function BillingPage({
   return (
     <>
       <PageTitle
+        back={{ href: "/verwaltung/einstellungen", label: "Einstellungen" }}
       >
         Abrechnung
       </PageTitle>

@@ -4,79 +4,24 @@ import { InstallHint } from "@/components/install-hint";
 import { NavProgress } from "@/components/nav-progress";
 import { NumericAutoselect } from "@/components/numeric-autoselect";
 import { PageTransition } from "@/components/page-transition";
-import { PortalHeader } from "@/components/portal-header";
-import { PortalMain } from "@/components/portal-main";
+import { AppShell } from "@/components/app-shell";
 import { AssistantWidget } from "@/components/assistant-widget";
 import { BrandTheme } from "@/components/brand-theme";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
-import { isBoardMember, isSelfManaged, ownsWegProperty } from "@/lib/access";
+import {
+  isBoardMember,
+  isSelfManaged,
+  ownsWegProperty,
+  propertyWhereForVerwalter,
+} from "@/lib/access";
+import { canSeeSettings, navFor, usesCounts } from "@/lib/app-nav";
 import { canUseAssistant, isAssistantEnabled } from "@/lib/assistant";
+import { db } from "@/lib/db";
+import { loadNavCounts } from "@/lib/nav-counts";
 import { isPlatformAdminUser } from "@/lib/platform";
 import { orgLogoUrl } from "@/lib/branding";
 import { roleLabels } from "@/lib/labels";
 import { getOrganization, getSession, requireUser } from "@/lib/session";
-
-const navByRole = {
-  MIETER: [
-    { href: "/dashboard", label: "Übersicht" },
-    { href: "/vorgaenge", label: "Meine Vorgänge" },
-    { href: "/nachrichten", label: "Nachrichten" },
-    { href: "/infos", label: "Infos" },
-    { href: "/zaehler", label: "Zähler" },
-    { href: "/verbrauch", label: "Verbrauch" },
-  ],
-  EIGENTUEMER: [
-    { href: "/dashboard", label: "Übersicht" },
-    { href: "/vorgaenge", label: "Vorgänge" },
-    { href: "/beschluesse", label: "Beschlüsse" },
-    { href: "/versammlungen", label: "Versammlungen" },
-    { href: "/finanzen", label: "Finanzen" },
-    { href: "/nachrichten", label: "Nachrichten" },
-    { href: "/infos", label: "Infos" },
-    { href: "/zaehler", label: "Zähler" },
-    { href: "/verbrauch", label: "Verbrauch" },
-  ],
-  VERWALTER: [
-    { href: "/dashboard", label: "Übersicht" },
-    { href: "/vorgaenge", label: "Vorgänge" },
-    { href: "/nachrichten", label: "Nachrichten" },
-    { href: "/infos", label: "Infos" },
-    // Zähler, Beschlüsse & Versammlungen erreicht der Verwalter über den
-    // Verwaltung-Hub (hält die obere Leiste schlank).
-    { href: "/verwaltung", label: "Verwaltung" },
-  ],
-  HANDWERKER: [
-    { href: "/dashboard", label: "Übersicht" },
-    { href: "/vorgaenge", label: "Meine Aufträge" },
-  ],
-} as const;
-
-// Selbstverwaltete WEGs bekommen eine eigene, abgespeckte WEG-Navigation – ohne
-// professionelle Verwalter-Werkzeuge (Vorgänge, Zähler, Handwerker, Wartung …).
-const selfManagedNav = {
-  // Interner Verwalter (aus der Eigentümergemeinschaft) – darf zusätzlich verwalten.
-  // Beschlüsse/Versammlungen/Anträge/Gemeinschaft liegen im Verwaltung-Hub (und im
-  // Dashboard-Schnellzugriff); daher nicht zusätzlich oben – vermeidet Dubletten.
-  VERWALTER: [
-    { href: "/dashboard", label: "Übersicht" },
-    { href: "/verwaltung", label: "Verwaltung" },
-    { href: "/nachrichten", label: "Nachrichten" },
-    { href: "/infos", label: "Infos" },
-  ],
-  // Reguläre Eigentümer der Gemeinschaft.
-  EIGENTUEMER: [
-    { href: "/dashboard", label: "Übersicht" },
-    { href: "/beschluesse", label: "Beschlüsse" },
-    { href: "/versammlungen", label: "Versammlungen" },
-    { href: "/antraege", label: "Anträge" },
-    { href: "/gemeinschaft", label: "Gemeinschaft" },
-    { href: "/finanzen", label: "Finanzen" },
-    { href: "/zaehler", label: "Zähler" },
-    { href: "/verbrauch", label: "Verbrauch" },
-    { href: "/nachrichten", label: "Nachrichten" },
-    { href: "/infos", label: "Infos" },
-  ],
-} as const;
 
 export default async function PortalLayout({
   children,
@@ -92,37 +37,31 @@ export default async function PortalLayout({
     user.role === "EIGENTUEMER" ? isBoardMember(user.id) : Promise.resolve(false),
   ]);
   const selfManaged = isSelfManaged(org);
-  // Volle Bildschirmbreite nur für die Verwaltungs-Arbeitsfläche des professionellen
-  // Verwalters – Mieter/Eigentümer behalten die zentrierte, gut lesbare Spalte.
-  const wideEnabled = user.role === "VERWALTER" && !selfManaged;
+  const isPlatformAdmin = isPlatformAdminUser(user);
 
-  let nav: ReadonlyArray<{ href: string; label: string }>;
-  if (selfManaged && (user.role === "VERWALTER" || user.role === "EIGENTUEMER")) {
-    // Eigene WEG-Selbstverwaltungs-Oberfläche (kein professionelles Werkzeug).
-    nav = selfManagedNav[user.role];
-    // Eigentümer ohne WEG-Objekt: WEG-spezifische Punkte ausblenden.
-    if (user.role === "EIGENTUEMER" && !ownsWeg) {
-      nav = nav.filter(
-        (item) => !["/beschluesse", "/versammlungen", "/antraege", "/gemeinschaft", "/finanzen"].includes(item.href),
-      );
-    }
-  } else {
-    // Professionelles Profil (unverändert).
-    nav = navByRole[user.role];
-    if (user.role === "EIGENTUEMER" && !ownsWeg) {
-      nav = nav.filter(
-        (item) => !["/beschluesse", "/versammlungen", "/finanzen"].includes(item.href),
-      );
-    }
-  }
-  // Beiratsmitglieder (Eigentümer mit Kennzeichen) erhalten den Beirats-Bereich.
-  if (user.role === "EIGENTUEMER" && boardMember) {
-    nav = [...nav, { href: "/beirat", label: "Beirat" }];
-  }
-  // Plattform-Betreiber (B&W): Zugang zum internen Betreiber-Bereich.
-  if (isPlatformAdminUser(user)) {
-    nav = [...nav, { href: "/plattform", label: "Plattform" }];
-  }
+  // WEG-Finanzen nur einblenden, wenn WEG-Objekte im Zuständigkeitsbereich liegen.
+  const hasWegObjekte =
+    user.role === "VERWALTER"
+      ? (await db.property.count({
+          where: { ...(await propertyWhereForVerwalter(user)), managementType: "WEG" },
+        })) > 0
+      : false;
+
+  const navContext = {
+    role: user.role,
+    isSuperAdmin: Boolean(user.isSuperAdmin),
+    isPlatformAdmin,
+    selfManaged,
+    hasWegObjekte,
+    ownsWeg,
+    boardMember,
+  };
+  const navGroups = navFor(navContext);
+
+  // Zähler-Badges: Promise NICHT awaiten – die Leiste rendert sofort, die Zahlen
+  // streamen nach. Nur für Verwalter, sonst entstünden Abfragen ohne Nutzen.
+  const badgesPromise = usesCounts(navContext) ? loadNavCounts(user) : undefined;
+
   // KI-Assistent erscheint als schwebende Bubble (unten rechts), nicht in der
   // Navigation – nur bei Feature-Freigabe und passender Rolle.
   const showAssistant = isAssistantEnabled() && canUseAssistant(user);
@@ -144,17 +83,19 @@ export default async function PortalLayout({
       <BrandTheme primaryColor={org?.primaryColor ?? null} />
       <NavProgress />
       <NumericAutoselect />
-      <PortalHeader
-        nav={nav}
-        userName={user.name}
-        roleLabel={roleLabels[user.role]}
-        logoUrl={logoUrl}
-        orgName={orgName}
-        wideEnabled={wideEnabled}
-      />
-      <PortalMain wideEnabled={wideEnabled}>
-        <PageTransition>{children}</PageTransition>
-      </PortalMain>
+      <main className="mx-auto w-full max-w-[120rem] flex-1 px-4 py-8">
+        <AppShell
+          groups={navGroups}
+          badgesPromise={badgesPromise}
+          user={{ name: user.name, roleLabel: roleLabels[user.role] }}
+          logoUrl={logoUrl}
+          orgName={orgName}
+          showSettings={canSeeSettings(navContext)}
+          showPlattform={isPlatformAdmin}
+        >
+          <PageTransition>{children}</PageTransition>
+        </AppShell>
+      </main>
       <footer className="mt-4 px-4 py-6 text-center text-xs text-gray-400">
         {footerLegal}
         {footerAddress ? ` · ${footerAddress}` : ""}

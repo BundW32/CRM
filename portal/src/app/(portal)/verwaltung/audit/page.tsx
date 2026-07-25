@@ -88,6 +88,7 @@ export default async function AuditPage({
   return (
     <>
       <PageTitle
+        back={{ href: "/verwaltung/einstellungen", label: "Einstellungen" }}
       >
         Audit-Log
       </PageTitle>

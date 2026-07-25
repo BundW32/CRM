@@ -40,6 +40,7 @@ export default async function BrandingPage({
   return (
     <>
       <PageTitle
+        back={{ href: "/verwaltung/einstellungen", label: "Einstellungen" }}
       >
         Branding &amp; Erscheinungsbild
       </PageTitle>

@@ -11,27 +11,33 @@ unerreichbare Seiten — beides ist in diesem Projekt schon passiert.
 
 ## Navigation
 
-Die Menüführung ist **Master-Detail**: links eine gruppierte Bereichsliste, rechts der
-Inhalt. Es gibt genau **eine** Quelle für die Menüstruktur:
+Die Menüführung ist **Master-Detail**: links eine gruppierte Bereichsleiste für **alle**
+Rollen, rechts der Inhalt. Auf dem Desktop gibt es **keine Kopfleiste** — Logo, Zahnrad
+und Konto sitzen in der Leiste. Es gibt genau **eine** Quelle für die Menüstruktur:
 
-- **`src/lib/verwaltung-nav.ts`** — gruppiertes Menü-Modell (Stammdaten / WEG / Betrieb /
-  Einstellungen) samt Sichtbarkeitsregeln (`verwaltungGroups`).
-- **`src/components/verwaltung-shell.tsx`** — die Sidebar selbst (Aktiv-Markierung,
-  Icons, Ein-/Ausklappen, Off-Canvas auf Mobil).
-- **`src/components/verwaltung-chrome.tsx`** — entscheidet anhand der Rolle, ob die
-  Sidebar erscheint. Eigentümer und Mieter nutzen dieselben Routen und dürfen sie **nicht**
-  sehen.
+- **`src/lib/app-nav.ts`** — gruppiertes Menü-Modell je Rolle (`navFor`), dazu
+  `settingsItems`, `canSeeSettings`, `usesCounts`.
+- **`src/components/app-shell.tsx`** — die Leiste selbst (Aktiv-Markierung, Icons,
+  Ein-/Ausklappen zur Icon-Leiste, Off-Canvas auf Mobil, Konto-Popover).
+- **`src/lib/nav-counts.ts`** — die Zähler-Badges.
 
-**Einen neuen Menüpunkt trägt man in `verwaltung-nav.ts` ein — nicht in `layout.tsx`.**
-Ein Eintrag in `navByRole` erscheint nicht in der Sidebar und wird schlicht übersehen.
+Die Shell wird **einmal** in `src/app/(portal)/layout.tsx` eingehängt und gilt damit für
+jede Portalseite. Neue Seiten brauchen **kein** eigenes Layout.
 
-Liegt eine Seite außerhalb von `/verwaltung`, gehört sie trotzdem ins Menü zu können:
-dafür ein schlankes `layout.tsx` anlegen, das `VerwaltungChrome` einbindet (siehe
-`beschluesse/`, `versammlungen/`, `zaehler/`). Bewusst **pro Route** statt global, damit
-auf Seiten ohne Sidebar keine Zähler-Abfragen anfallen.
+**Einen neuen Menüpunkt trägt man in `app-nav.ts` ein.** Ein Eintrag anderswo erscheint
+nicht in der Leiste und wird schlicht übersehen.
 
-Unterseiten brauchen **keinen** „Zurück zur Verwaltung"-Link — die Sidebar liefert den
+Selten genutzte Punkte (Branding, Integrationen, Dokument-Quellen, Abrechnung,
+Audit-Log) gehören **nicht** in die Hauptnavigation, sondern in `settingsItems` — sie
+erscheinen hinter dem Zahnrad unter `/verwaltung/einstellungen`. Grund: Die Hauptliste
+muss ohne Scrollen auf einen Bildschirm passen, sonst verliert sie ihren Vorteil.
+
+Unterseiten brauchen **keinen** „Zurück"-Link zu einem Hub — die Leiste liefert den
 Kontext. Ihr eigener `PageTitle` wird automatisch zur Kopfzeile des Detailbereichs.
+Ausnahme: echte Unterseiten (z. B. Einstellungs-Einzelseiten) behalten ihren `back`-Slot.
+
+Zähler-Badges werden als **nicht abgewartetes Promise** an die Shell gereicht und nur für
+Verwalter geladen. Wer das ändert, verlangsamt jeden Seitenwechsel im ganzen Portal.
 
 ## Listen: Suche, Filter, Sortierung
 

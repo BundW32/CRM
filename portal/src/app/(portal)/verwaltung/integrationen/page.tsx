@@ -40,6 +40,7 @@ export default async function IntegrationenPage({
   return (
     <>
       <PageTitle
+        back={{ href: "/verwaltung/einstellungen", label: "Einstellungen" }}
       >
         Integrationen
       </PageTitle>

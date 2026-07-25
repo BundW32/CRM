@@ -1,9 +1,14 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
+import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
-import { buttonClass } from "@/components/ui";
+import { Pagination, buttonClass } from "@/components/ui";
+import { FilterBar } from "@/components/filter-bar";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 25;
 
 const typeLabels: Record<string, string> = {
   EINZUG: "Einzug",
@@ -42,22 +47,71 @@ function stepInfo(h: Parameters<typeof resumeHref>[0]): { step: number; label: s
   return { step: 1, label: "Stammdaten" };
 }
 
-export default async function UebergabeOverviewPage() {
+export default async function UebergabeOverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const verwalter = await requireVerwalter();
   const propWhere = await propertyWhereForVerwalter(verwalter);
+  const sp = await searchParams;
+  const currentPage = parsePage(sp.page);
+  const q = normalizeSearch(sp.q);
 
-  const handovers = await db.handover.findMany({
-    where: { unit: { property: propWhere } },
-    include: {
-      unit: { include: { property: { select: { name: true } } } },
-      rooms: { select: { id: true } },
-      meters: { select: { reading: true } },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
+  // Bisher wurden ALLE Protokolle geladen und erst im Speicher getrennt. Die
+  // abgeschlossenen wachsen mit jedem Ein-/Auszug dauerhaft – daher eigene,
+  // paginierte Abfrage. Entwürfe sind der offene Arbeitsvorrat und bleiben
+  // vollständig sichtbar.
+  const include = {
+    unit: { include: { property: { select: { name: true } } } },
+    rooms: { select: { id: true } },
+    meters: { select: { reading: true } },
+  } as const;
 
-  const entwurf = handovers.filter((h) => h.status === "ENTWURF");
-  const abgeschlossen = handovers.filter((h) => h.status === "ABGESCHLOSSEN");
+  const doneWhere: Prisma.HandoverWhereInput = {
+    AND: [
+      { unit: { property: propWhere }, status: "ABGESCHLOSSEN" },
+      ...(q
+        ? [
+            {
+              unit: {
+                OR: [
+                  { label: { contains: q, mode: "insensitive" as const } },
+                  { property: { name: { contains: q, mode: "insensitive" as const } } },
+                ],
+              },
+            },
+          ]
+        : []),
+    ],
+  };
+
+  const [entwurf, abgeschlossen, doneTotal] = await Promise.all([
+    db.handover.findMany({
+      where: { unit: { property: propWhere }, status: "ENTWURF" },
+      include,
+      orderBy: { updatedAt: "desc" },
+    }),
+    db.handover.findMany({
+      where: doneWhere,
+      include,
+      orderBy: { updatedAt: "desc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+    db.handover.count({ where: doneWhere }),
+  ]);
+
+  // Paginierung muss die aktive Suche mittragen.
+  function pageHref(p: number) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "page") params.set(k, v);
+    }
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return `/uebergabe${qs ? `?${qs}` : ""}`;
+  }
 
   return (
     <div className="min-h-screen bw-shell-bg px-4 py-8">
@@ -171,14 +225,25 @@ export default async function UebergabeOverviewPage() {
         </section>
 
         {/* Completed */}
-        {abgeschlossen.length > 0 && (
+        {doneTotal > 0 || q ? (
           <section>
             <h2 className="text-xs font-semibold text-white/50 uppercase tracking-widest mb-3 flex items-center gap-2">
               Abgeschlossen
-              <span className="inline-flex items-center justify-center rounded-full bg-white/10 text-white/60 text-xs font-bold w-5 h-5">
-                {abgeschlossen.length}
+              <span className="inline-flex items-center justify-center rounded-full bg-white/10 text-white/60 px-1.5 text-xs font-bold min-w-5 h-5">
+                {doneTotal}
               </span>
             </h2>
+
+            <FilterBar
+              className="mb-3"
+              searchPlaceholder="Suchen"
+              searchHint="Nach Objekt oder Einheit suchen"
+            />
+
+            {abgeschlossen.length === 0 ? (
+              <p className="text-sm text-white/50">Keine Protokolle gefunden.</p>
+            ) : null}
+
             <div className="space-y-2">
               {abgeschlossen.map((h) => {
                 const date = h.handoverDate.toLocaleDateString("de-DE", {
@@ -238,8 +303,16 @@ export default async function UebergabeOverviewPage() {
                 );
               })}
             </div>
+
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.max(1, Math.ceil(doneTotal / PAGE_SIZE))}
+              total={doneTotal}
+              itemLabel="Protokolle"
+              hrefFor={pageHref}
+            />
           </section>
-        )}
+        ) : null}
       </div>
     </div>
   );

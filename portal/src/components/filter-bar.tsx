@@ -42,6 +42,11 @@ export type ComboboxFilterConfig = {
 // Gemeinsame Chevron-Optik für native Selects (randlos, dezent).
 const chevron = <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />;
 
+// Einheitliche, FESTE Breite aller Auswahlfelder. Wichtig: Felder dürfen nicht
+// mit ihrem Inhalt wachsen, sonst springt die Leiste beim Filtern. Zu lange
+// Werte werden stattdessen abgeschnitten (truncate).
+const FIELD_WIDTH = "w-[10rem]";
+
 // ── URL-Helfer ───────────────────────────────────────────────────────────────
 function useUrlUpdater() {
   const router = useRouter();
@@ -64,7 +69,16 @@ function useUrlUpdater() {
 }
 
 // ── Freitext-Suche (entprellt) ───────────────────────────────────────────────
-function SearchBox({ paramKey, placeholder }: { paramKey: string; placeholder: string }) {
+function SearchBox({
+  paramKey,
+  placeholder,
+  hint,
+}: {
+  paramKey: string;
+  placeholder: string;
+  /** Ausführliche Beschreibung (Tooltip + Screenreader), wenn der Platzhalter kurz ist. */
+  hint?: string;
+}) {
   const { apply, searchParams } = useUrlUpdater();
   const urlValue = searchParams.get(paramKey) ?? "";
   const [text, setText] = useState(urlValue);
@@ -85,14 +99,15 @@ function SearchBox({ paramKey, placeholder }: { paramKey: string; placeholder: s
   }
 
   return (
-    <div className="relative min-w-[13rem] flex-1">
+    <div className="relative min-w-[8rem] flex-1">
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
       <input
         type="search"
         value={text}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        aria-label={placeholder}
+        aria-label={hint ?? placeholder}
+        title={hint}
         className={`${fieldOnDarkClass} pl-9`}
         autoComplete="off"
       />
@@ -107,15 +122,17 @@ function SelectFilter({ config }: { config: FilterConfig }) {
   const { apply, searchParams } = useUrlUpdater();
   const value = searchParams.get(config.key) ?? "";
   return (
-    <div className="relative">
+    // Feste Breite: sonst wächst das Feld mit dem gewählten Wert und die ganze
+    // Leiste verschiebt sich beim Filtern.
+    <div className={`relative ${FIELD_WIDTH}`}>
       {/* Die aufgeklappte Liste rendert das Betriebssystem – Optionen daher
           explizit hell einfärben, damit sie nicht die dunkle Feldfarbe erben. */}
       <select
         value={value}
         onChange={(e) => apply({ [config.key]: e.target.value })}
         aria-label={config.label}
-        className={`${fieldOnDarkClass} w-auto cursor-pointer appearance-none [&>option]:bg-white [&>option]:text-gray-900 ${
-          value ? "pr-14 text-gray-100" : "pr-8 text-gray-400"
+        className={`${fieldOnDarkClass} cursor-pointer appearance-none [&>option]:bg-white [&>option]:text-gray-900 ${
+          value ? "pr-14 text-gray-100" : "pr-8 text-gray-300/70"
         }`}
       >
         <option value="">{config.allLabel ?? config.label}</option>
@@ -178,8 +195,11 @@ function MoreFilters({ filters }: { filters: FilterConfig[] }) {
         ) : null}
       </button>
 
+      {/* Rechtsbündig aufklappen – der Button sitzt am Ende der Leiste, sonst
+          liefe das Menü rechts aus dem Bild. Auf schmalen Schirmen, wo die
+          Leiste umbricht und der Button links steht, andersherum. */}
       {open ? (
-        <div className="absolute left-0 z-30 mt-1.5 w-64 rounded-xl border border-gray-200/70 bg-white p-3 shadow-e2">
+        <div className="absolute right-0 z-30 mt-1.5 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200/70 bg-white p-3 shadow-e2 max-sm:left-0 max-sm:right-auto">
           <div className="space-y-3">
             {filters.map((f) => {
               const value = searchParams.get(f.key) ?? "";
@@ -255,6 +275,7 @@ function SecondaryChips({ filters }: { filters: FilterConfig[] }) {
 export function FilterBar({
   searchParamKey = "q",
   searchPlaceholder,
+  searchHint,
   filters = [],
   comboboxes = [],
   className = "",
@@ -262,6 +283,8 @@ export function FilterBar({
   searchParamKey?: string;
   /** Wenn gesetzt, wird die Freitextsuche angezeigt. */
   searchPlaceholder?: string;
+  /** Was durchsucht wird – als Tooltip/Screenreader-Text zum kurzen Platzhalter. */
+  searchHint?: string;
   filters?: FilterConfig[];
   comboboxes?: ComboboxFilterConfig[];
   className?: string;
@@ -289,7 +312,9 @@ export function FilterBar({
   return (
     <div className={className}>
       <div className="flex flex-wrap items-center gap-2">
-        {searchPlaceholder ? <SearchBox paramKey={searchParamKey} placeholder={searchPlaceholder} /> : null}
+        {searchPlaceholder ? (
+          <SearchBox paramKey={searchParamKey} placeholder={searchPlaceholder} hint={searchHint} />
+        ) : null}
 
         {primaryFilters.map((f) => (
           <SelectFilter key={f.key} config={f} />
@@ -308,7 +333,7 @@ export function FilterBar({
             onSelect={(v) => applyCombo(c, v)}
             onClear={() => applyCombo(c, null)}
             tone="onDark"
-            className="min-w-[10.5rem]"
+            className={FIELD_WIDTH}
           />
         ))}
 

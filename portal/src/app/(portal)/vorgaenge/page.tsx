@@ -217,7 +217,8 @@ export default async function TicketsPage({
 
       <FilterBar
         className="mb-3"
-        searchPlaceholder="Nr., Titel oder Beschreibung suchen…"
+        searchPlaceholder="Suchen"
+        searchHint="Nach Nummer, Titel oder Beschreibung suchen"
         filters={filters}
         comboboxes={comboboxes}
       />

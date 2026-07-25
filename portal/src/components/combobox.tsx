@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, X } from "lucide-react";
-import { inputClass } from "@/components/ui";
+import { fieldFillClass, fieldOnDarkClass } from "@/components/ui";
 
 export type ComboOption = { value: string; label: string; sublabel?: string };
 
@@ -36,6 +36,9 @@ export function Combobox({
   onClear,
   disabled = false,
   disabledHint,
+  tone = "onLight",
+  searchable = true,
+  clearOption,
   className = "",
 }: {
   label: string;
@@ -48,6 +51,12 @@ export function Combobox({
   onClear: () => void;
   disabled?: boolean;
   disabledHint?: string;
+  /** Feld-Optik: auf heller Fläche oder auf dem dunklen Shell-Hintergrund. */
+  tone?: "onLight" | "onDark";
+  /** Bei kurzen Listen (z. B. Status) das Suchfeld weglassen – reines Menü. */
+  searchable?: boolean;
+  /** Label der „kein Filter"-Zeile ganz oben (z. B. „Alle"). */
+  clearOption?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -70,6 +79,18 @@ export function Combobox({
 
   const selected = value ? options.find((o) => o.value === value) : undefined;
   const selectedLabel = selected?.label ?? (value ? valueLabel ?? "" : "");
+
+  // Optik je Untergrund. Das Menü selbst bleibt in beiden Fällen hell – es liegt
+  // über dem Inhalt (wie Systemmenüs über einer dunklen Werkzeugleiste).
+  const dark = tone === "onDark";
+  const fieldClass = dark ? fieldOnDarkClass : fieldFillClass;
+  const iconClass = dark ? "text-gray-400" : "text-gray-400";
+  const iconDisabledClass = dark ? "text-gray-600" : "text-gray-300";
+  const valueTextClass = dark ? "text-gray-100" : "text-gray-900";
+  const placeholderTextClass = dark ? "text-gray-400" : "text-gray-400";
+  const disabledFieldClass = dark
+    ? "disabled:cursor-not-allowed disabled:bg-white/[0.03] disabled:text-gray-500 disabled:ring-white/5 disabled:hover:bg-white/[0.03]"
+    : "disabled:cursor-not-allowed disabled:bg-gray-100/60 disabled:text-gray-400 disabled:hover:bg-gray-100/60";
 
   // Sichtbare Optionen: gefiltert (Teilstring) + sortiert (frühester Treffer zuerst).
   const filtered = useMemo(() => {
@@ -103,7 +124,20 @@ export function Combobox({
     close();
   }
 
+  function clear() {
+    onClear();
+    close();
+  }
+
   function onKeyDown(e: React.KeyboardEvent) {
+    if (!open) {
+      // Geschlossenes Menü per Tastatur öffnen (Enter löst schon den Klick aus).
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        openMenu();
+      }
+      return;
+    }
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setActive((a) => Math.min(a + 1, filtered.length - 1));
@@ -120,97 +154,118 @@ export function Combobox({
     }
   }
 
+  // Suchfeld nur bei durchsuchbaren Listen; sonst bleibt der Auslöser stehen und
+  // es klappt nur das Menü auf – dadurch sehen alle Filter identisch aus.
+  const showInput = open && searchable;
+
   return (
-    <div className={`block ${className}`}>
-      <span className="mb-1 block text-xs font-medium text-gray-500">{label}</span>
-      <div ref={rootRef} className="relative">
-        {open ? (
-          <input
-            autoFocus
-            type="text"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setActive(0);
-            }}
-            onKeyDown={onKeyDown}
-            placeholder={selectedLabel || placeholder}
-            className={`${inputClass} pr-8`}
-            autoComplete="off"
-            role="combobox"
-            aria-expanded
-            aria-controls={listId}
-          />
-        ) : (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={openMenu}
-            title={disabled ? disabledHint : undefined}
-            className={`${inputClass} flex items-center gap-2 pr-8 text-left disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400`}
-          >
-            <span className={`truncate ${selectedLabel ? "text-gray-900" : "text-gray-400"}`}>
-              {selectedLabel || (disabled && disabledHint ? disabledHint : placeholder)}
-            </span>
-          </button>
-        )}
+    <div ref={rootRef} className={`relative ${className}`}>
+      {showInput ? (
+        <input
+          autoFocus
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setActive(0);
+          }}
+          onKeyDown={onKeyDown}
+          placeholder={selectedLabel || placeholder}
+          className={`${fieldClass} pr-8`}
+          autoComplete="off"
+          role="combobox"
+          aria-label={label}
+          aria-expanded
+          aria-controls={listId}
+        />
+      ) : (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => (open ? close() : openMenu())}
+          onKeyDown={onKeyDown}
+          aria-label={label}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          title={disabled ? disabledHint : undefined}
+          className={`${fieldClass} flex items-center gap-2 pr-8 text-left ${disabledFieldClass}`}
+        >
+          <span className={`truncate ${selectedLabel ? valueTextClass : placeholderTextClass}`}>
+            {selectedLabel || (disabled && disabledHint ? disabledHint : placeholder)}
+          </span>
+        </button>
+      )}
 
-        {/* Rechts: Inline-„×" (Feld zurücksetzen) sobald ein Wert gewählt ist, sonst Chevron. */}
-        {value && !disabled ? (
-          <button
-            type="button"
-            onClick={() => {
-              onClear();
-              close();
-            }}
-            aria-label={`${label} zurücksetzen`}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded text-gray-400 transition hover:text-red-600"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        ) : (
-          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        )}
+      {/* Rechts: Inline-„×" (Feld zurücksetzen) sobald ein Wert gewählt ist, sonst Chevron. */}
+      {value && !disabled ? (
+        <button
+          type="button"
+          onClick={clear}
+          aria-label={`${label} zurücksetzen`}
+          className={`absolute right-2.5 top-1/2 -translate-y-1/2 rounded transition hover:text-red-500 ${iconClass}`}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      ) : (
+        <ChevronDown
+          className={`pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 ${disabled ? iconDisabledClass : iconClass}`}
+        />
+      )}
 
-        {open ? (
-          <ul
-            ref={listRef}
-            id={listId}
-            role="listbox"
-            className="absolute z-20 mt-1 max-h-60 w-full min-w-[14rem] overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
-          >
-            {filtered.length === 0 ? (
-              <li className="px-3 py-2 text-xs text-gray-400">Keine Treffer.</li>
-            ) : (
-              filtered.map((opt, i) => (
-                <li key={opt.value} role="option" aria-selected={opt.value === value}>
-                  <button
-                    type="button"
-                    data-idx={i}
-                    onMouseEnter={() => setActive(i)}
-                    // onMouseDown + preventDefault: Auswahl feuert, bevor das Feld den Fokus verliert.
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      choose(opt);
-                    }}
-                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${
-                      i === active ? "bg-brand-orange-light" : "hover:bg-gray-50"
-                    }`}
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-gray-900">{opt.label}</span>
-                      {opt.sublabel ? (
-                        <span className="block truncate text-xs text-gray-400">{opt.sublabel}</span>
-                      ) : null}
-                    </span>
-                    {opt.value === value ? <Check className="h-4 w-4 shrink-0 text-brand-green" /> : null}
-                  </button>
+      {open ? (
+        <ul
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          className="absolute z-20 mt-1.5 max-h-60 w-full min-w-[14rem] overflow-auto rounded-xl border border-gray-200/70 bg-white py-1 shadow-e2"
+        >
+          {/* „Alle"-Zeile: hebt den Filter auf, ohne dass man das × treffen muss. */}
+          {clearOption && !query.trim() ? (
+            <li role="option" aria-selected={!value}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  clear();
+                }}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
+              >
+                {clearOption}
+                {!value ? <Check className="h-4 w-4 shrink-0 text-brand-green" /> : null}
+              </button>
+            </li>
+          ) : null}
+          {filtered.length === 0 ? (
+            <li className="px-3 py-2.5 text-xs text-gray-400">Keine Treffer.</li>
+          ) : (
+            filtered.map((opt, i) => (
+              <li key={opt.value} role="option" aria-selected={opt.value === value}>
+                <button
+                  type="button"
+                  data-idx={i}
+                  onMouseEnter={() => setActive(i)}
+                  // onMouseDown + preventDefault: Auswahl feuert, bevor das Feld den Fokus verliert.
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    choose(opt);
+                  }}
+                  className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${
+                    i === active ? "bg-gray-100" : "hover:bg-gray-50"
+                  }`}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-gray-900">{opt.label}</span>
+                    {opt.sublabel ? (
+                      <span className="block truncate text-xs text-gray-400">{opt.sublabel}</span>
+                    ) : null}
+                  </span>
+                  {opt.value === value ? <Check className="h-4 w-4 shrink-0 text-brand-green" /> : null}
+                </button>
                 </li>
               ))
             )}
           </ul>
         ) : null}
-      </div>
     </div>
   );
 }

@@ -25,6 +25,18 @@ const buttonBase =
 export const inputClass =
   "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition duration-150 focus:border-brand-orange focus:outline-none focus:ring-2 focus:ring-brand-orange/30";
 
+// Dezentes, „weiches" Filterfeld (iOS-/macOS-Anmutung): randlose graue Füllung,
+// runde Ecken, stiller Fokus-Ring. Feste Höhe (h-9) für saubere Ausrichtung aller
+// Pills in einer Reihe. Für Filterfelder auf HELLEN Flächen (z. B. in Karten).
+export const fieldFillClass =
+  "h-9 w-full rounded-[10px] bg-gray-100/80 px-3 text-sm text-gray-900 transition placeholder:text-gray-400 hover:bg-gray-200/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-orange/25";
+
+// Gleiches Feld für den DUNKLEN Shell-Hintergrund: leicht aufgehellte, transparente
+// Füllung mit Hairline-Kontur – die Filterleiste schwebt frei unter dem Seitentitel
+// (macOS-Werkzeugleiste), ohne weißen Kasten. Höhe h-9 wie die helle Variante.
+export const fieldOnDarkClass =
+  "h-9 w-full rounded-[10px] bg-white/[0.07] px-3 text-sm text-gray-100 ring-1 ring-inset ring-white/10 transition placeholder:text-gray-400 hover:bg-white/[0.12] focus:bg-white/[0.14] focus:outline-none focus:ring-2 focus:ring-brand-orange/50";
+
 // Primäraktion: Orange mit dunkler Schrift – wie die CTAs auf der Website (gut lesbar)
 export const buttonClass =
   `${buttonBase} bg-brand-orange font-semibold text-brand-green-dark shadow-e1 hover:bg-brand-orange-dark hover:shadow-e2 active:shadow-none`;

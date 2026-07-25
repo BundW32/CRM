@@ -1,8 +1,11 @@
 import Link from "next/link";
+import type { Prisma } from "@/generated/prisma/client";
 import { SubmitButton } from "@/components/submit-button";
 import { Pagination, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import { FilterBar } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
+import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import { startConversation } from "./actions";
 import { EmpfaengerSelect } from "./EmpfaengerSelect";
@@ -19,14 +22,34 @@ const errorMessages: Record<string, string> = {
 export default async function NachrichtenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; page?: string; gesendet?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
-  const { fehler, page, gesendet } = await searchParams;
+  const sp = await searchParams;
+  const { fehler, gesendet } = sp;
   const isVerwalter = user.role === "VERWALTER";
 
-  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
-  const convWhere = { participants: { some: { userId: user.id } } };
+  const currentPage = parsePage(sp.page);
+
+  // Suche über Betreff, Nachrichtentext und Namen der Gesprächspartner.
+  const q = normalizeSearch(sp.q);
+  const convAnd: Prisma.ConversationWhereInput[] = [
+    { participants: { some: { userId: user.id } } },
+  ];
+  if (q) {
+    convAnd.push({
+      OR: [
+        { subject: { contains: q, mode: "insensitive" } },
+        { messages: { some: { body: { contains: q, mode: "insensitive" } } } },
+        {
+          participants: {
+            some: { userId: { not: user.id }, user: { name: { contains: q, mode: "insensitive" } } },
+          },
+        },
+      ],
+    });
+  }
+  const convWhere: Prisma.ConversationWhereInput = { AND: convAnd };
 
   const [total, conversations] = await Promise.all([
     db.conversation.count({ where: convWhere }),
@@ -43,8 +66,15 @@ export default async function NachrichtenPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // Paginierung muss die aktive Suche mittragen.
   function pageHref(p: number) {
-    return p > 1 ? `/nachrichten?page=${p}` : "/nachrichten";
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "page") params.set(k, v);
+    }
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return `/nachrichten${qs ? `?${qs}` : ""}`;
   }
 
   return (
@@ -64,8 +94,13 @@ export default async function NachrichtenPage({
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
+          <FilterBar
+            className="mb-3"
+            searchPlaceholder="Suchen"
+            searchHint="Nach Betreff, Nachrichtentext oder Person suchen"
+          />
           {conversations.length === 0 ? (
-            <EmptyState>Noch keine Nachrichten.</EmptyState>
+            <EmptyState>{q ? "Keine Nachrichten gefunden." : "Noch keine Nachrichten."}</EmptyState>
           ) : (
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <ul className="divide-y divide-gray-100">

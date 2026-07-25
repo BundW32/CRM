@@ -1,4 +1,6 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { Pagination, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter, propertyIdsForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -8,6 +10,8 @@ import {
   ticketStatusLabels,
   tradeLabels,
 } from "@/lib/labels";
+import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
+import { normalizeSearch, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 import {
   completeMaintenanceTask,
@@ -22,31 +26,74 @@ const DAY = 1000 * 60 * 60 * 24;
 
 const PAGE_SIZE = 30;
 
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { faellig: "dueDate", titel: "title", erledigt: "lastDoneAt" } as const;
+
+const sortOptions = [
+  { value: "faellig", label: "Fällig am" },
+  { value: "titel", label: "Titel" },
+  { value: "erledigt", label: "Zuletzt erledigt" },
+];
+
+const faelligOptions = [
+  { value: "ueberfaellig", label: "Überfällig" },
+  { value: "bald", label: "Bald fällig (14 Tage)" },
+];
+
 export default async function WartungPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; page?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const verwalter = await requireVerwalter();
   const params = await searchParams;
   const { fehler } = params;
-  const currentPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
+  const currentPage = parsePage(params.page);
   const assignedIds = await propertyIdsForVerwalter(verwalter);
   // Org-Filter gilt auch für SuperAdmin (sonst objekt-/mandantenübergreifende Liste).
   const propWhere =
     assignedIds === null
       ? { organizationId: verwalter.organizationId }
       : { id: { in: assignedIds } };
-  const taskWhere =
+  const baseTaskWhere: Prisma.MaintenanceTaskWhereInput =
     assignedIds === null
       ? { active: true, organizationId: verwalter.organizationId }
       : { active: true, property: { id: { in: assignedIds } } };
+
+  // ── Filter: Suche, Intervall, Fälligkeit, Objekt ──
+  const scope = await propertyScopeFilters(verwalter, params, { withUnit: false });
+  const q = normalizeSearch(params.q);
+  const intervall =
+    params.intervall && params.intervall in maintenanceIntervalLabels ? params.intervall : undefined;
+  const faellig = params.faellig === "ueberfaellig" || params.faellig === "bald" ? params.faellig : undefined;
+  const sort = resolveSort(params.sort, params.dir, SORT_FIELDS, "faellig", "asc");
+
+  const taskAnd: Prisma.MaintenanceTaskWhereInput[] = [baseTaskWhere];
+  if (q) {
+    taskAnd.push({
+      OR: [
+        { title: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (intervall) {
+    taskAnd.push({ interval: intervall as Prisma.MaintenanceTaskWhereInput["interval"] });
+  }
+  const today = new Date();
+  if (faellig === "ueberfaellig") taskAnd.push({ dueDate: { lt: today } });
+  if (faellig === "bald") {
+    taskAnd.push({ dueDate: { gte: today, lte: new Date(today.getTime() + 14 * DAY) } });
+  }
+  if (scope.objektId) taskAnd.push({ propertyId: scope.objektId });
+  const taskWhere: Prisma.MaintenanceTaskWhereInput = { AND: taskAnd };
+  const hasFilter = Boolean(q || intervall || faellig || scope.active);
 
   const [total, tasks, properties, craftsmen] = await Promise.all([
     db.maintenanceTask.count({ where: taskWhere }),
     db.maintenanceTask.findMany({
       where: taskWhere,
-      orderBy: { dueDate: "asc" },
+      orderBy: toOrderBy(sort.field, sort.dir) as Prisma.MaintenanceTaskOrderByWithRelationInput,
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: {
@@ -68,12 +115,21 @@ export default async function WartungPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // Paginierung muss alle aktiven Filter mittragen.
   function pageHref(p: number) {
     const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v && k !== "page") sp.set(k, v);
+    }
     if (p > 1) sp.set("page", String(p));
-    const q = sp.toString();
-    return `/verwaltung/wartung${q ? `?${q}` : ""}`;
+    const qs = sp.toString();
+    return `/verwaltung/wartung${qs ? `?${qs}` : ""}`;
   }
+
+  const taskFilters: FilterConfig[] = [
+    { key: "faellig", label: "Fälligkeit", allLabel: "Alle", primary: true, options: faelligOptions },
+    { key: "intervall", label: "Intervall", allLabel: "Alle Intervalle", options: optionsFrom(maintenanceIntervalLabels) },
+  ];
 
   const now = new Date().getTime();
 
@@ -97,8 +153,26 @@ export default async function WartungPage({
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-2">
+          <div>
+            <FilterBar
+              searchPlaceholder="Suchen"
+              searchHint="Nach Titel oder Beschreibung suchen"
+              filters={taskFilters}
+              comboboxes={scope.comboboxes}
+            />
+            <div className="mt-2 flex items-center justify-between gap-3 px-1">
+              <p className="text-xs text-gray-400">
+                {total} {total === 1 ? "Aufgabe" : "Aufgaben"}
+                {hasFilter ? " (gefiltert)" : ""}
+              </p>
+              {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="faellig" /> : null}
+            </div>
+          </div>
+
           {tasks.length === 0 ? (
-            <EmptyState>Noch keine Wartungsaufgaben angelegt.</EmptyState>
+            <EmptyState>
+              {hasFilter ? "Keine Aufgaben gefunden." : "Noch keine Wartungsaufgaben angelegt."}
+            </EmptyState>
           ) : (
             tasks.map((t) => {
               const days = Math.floor((t.dueDate.getTime() - now) / DAY);

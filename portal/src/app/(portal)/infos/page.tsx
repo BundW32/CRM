@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Download, Eye } from "lucide-react";
-import type { User } from "@/generated/prisma/client";
+import type { Prisma, User } from "@/generated/prisma/client";
 import {
   Pagination,
   Alert,
@@ -12,6 +12,7 @@ import {
   buttonGhostClass,
   inputClass,
 } from "@/components/ui";
+import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { PropertyUnitFields } from "@/components/property-unit-fields";
 import { SubmitButton } from "@/components/submit-button";
@@ -30,6 +31,8 @@ import {
   requestableDocuments,
 } from "@/lib/labels";
 import { RecipientPicker } from "@/components/recipient-picker";
+import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
+import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import {
   acknowledgeAnnouncement,
@@ -52,17 +55,11 @@ const PAGE_SIZE = 30;
 export default async function InfosPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    t?: string;
-    fehler?: string;
-    apage?: string;
-    dpage?: string;
-    hochgeladen?: string;
-    geloescht?: string;
-  }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
-  const { t, fehler, apage, dpage, hochgeladen, geloescht } = await searchParams;
+  const sp = await searchParams;
+  const { t, fehler, hochgeladen, geloescht } = sp;
   const tab = t === "dokumente" ? "dokumente" : "aushaenge";
   const isVerwalter = user.role === "VERWALTER";
 
@@ -116,9 +113,9 @@ export default async function InfosPage({
       ) : null}
 
       {tab === "aushaenge" ? (
-        <AushaengeTab user={user} isVerwalter={isVerwalter} page={apage} />
+        <AushaengeTab user={user} isVerwalter={isVerwalter} sp={sp} />
       ) : (
-        <DokumenteTab user={user} isVerwalter={isVerwalter} page={dpage} />
+        <DokumenteTab user={user} isVerwalter={isVerwalter} sp={sp} />
       )}
     </>
   );
@@ -127,14 +124,33 @@ export default async function InfosPage({
 async function AushaengeTab({
   user,
   isVerwalter,
-  page,
+  sp,
 }: {
   user: User;
   isVerwalter: boolean;
-  page?: string;
+  sp: Record<string, string | undefined>;
 }) {
-  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
-  const announcementWhere = await announcementWhereForUser(user);
+  const currentPage = parsePage(sp.apage);
+
+  // ── Filter: Suche, Objekt, Sichtbarkeit (nur Verwalter) ──
+  const scope = await propertyScopeFilters(user, sp, { withUnit: false });
+  const q = normalizeSearch(sp.q);
+  const sicht = isVerwalter && sp.sicht && sp.sicht in audienceLabels ? sp.sicht : undefined;
+
+  const annAnd: Prisma.AnnouncementWhereInput[] = [await announcementWhereForUser(user)];
+  if (q) {
+    annAnd.push({
+      OR: [
+        { title: { contains: q, mode: "insensitive" } },
+        { body: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (sicht) annAnd.push({ audience: sicht as Prisma.AnnouncementWhereInput["audience"] });
+  if (scope.objektId) annAnd.push({ propertyId: scope.objektId });
+  const announcementWhere: Prisma.AnnouncementWhereInput = { AND: annAnd };
+  const hasFilter = Boolean(q || sicht || scope.active);
+
   const total = await db.announcement.count({ where: announcementWhere });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const announcements = await db.announcement.findMany({
@@ -148,18 +164,49 @@ async function AushaengeTab({
     ? await db.property.findMany({ where: await propertyWhereForVerwalter(user), orderBy: { name: "asc" } })
     : [];
 
+  // Paginierung muss Tab und aktive Filter mittragen.
   function pageHref(p: number) {
-    const sp = new URLSearchParams();
-    sp.set("t", "aushaenge");
-    if (p > 1) sp.set("apage", String(p));
-    return `/infos?${sp.toString()}`;
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "apage") params.set(k, v);
+    }
+    params.set("t", "aushaenge");
+    if (p > 1) params.set("apage", String(p));
+    return `/infos?${params.toString()}`;
   }
+
+  const annFilters: FilterConfig[] = isVerwalter
+    ? [
+        {
+          key: "sicht",
+          label: "Sichtbarkeit",
+          allLabel: "Alle",
+          primary: true,
+          options: optionsFrom(audienceLabels),
+        },
+      ]
+    : [];
 
   return (
     <div className="grid gap-5 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
+        <div>
+          <FilterBar
+            searchPlaceholder="Suchen"
+            searchHint="Nach Titel oder Text suchen"
+            filters={annFilters}
+            comboboxes={scope.comboboxes}
+          />
+          <p className="mt-2 px-1 text-xs text-gray-400">
+            {total} {total === 1 ? "Aushang" : "Aushänge"}
+            {hasFilter ? " (gefiltert)" : ""}
+          </p>
+        </div>
+
         {announcements.length === 0 ? (
-          <EmptyState>Derzeit gibt es keine Aushänge.</EmptyState>
+          <EmptyState>
+            {hasFilter ? "Keine Aushänge gefunden." : "Derzeit gibt es keine Aushänge."}
+          </EmptyState>
         ) : (
           announcements.map((a) => (
             <Card key={a.id}>
@@ -248,14 +295,34 @@ async function AushaengeTab({
 async function DokumenteTab({
   user,
   isVerwalter,
-  page,
+  sp,
 }: {
   user: User;
   isVerwalter: boolean;
-  page?: string;
+  sp: Record<string, string | undefined>;
 }) {
-  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
-  const documentWhere = await documentWhereForUser(user);
+  const currentPage = parsePage(sp.dpage);
+
+  // ── Filter: Suche, Kategorie, Objekt → Einheit ──
+  const scope = await propertyScopeFilters(user, sp, { withUnit: true });
+  const q = normalizeSearch(sp.q);
+  const kat = sp.kat && sp.kat in documentCategoryLabels ? sp.kat : undefined;
+
+  const docAnd: Prisma.DocumentWhereInput[] = [await documentWhereForUser(user)];
+  if (q) {
+    docAnd.push({
+      OR: [
+        { title: { contains: q, mode: "insensitive" } },
+        { fileName: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (kat) docAnd.push({ category: kat as Prisma.DocumentWhereInput["category"] });
+  if (scope.objektId) docAnd.push({ propertyId: scope.objektId });
+  if (scope.einheitId) docAnd.push({ unitId: scope.einheitId });
+  const documentWhere: Prisma.DocumentWhereInput = { AND: docAnd };
+  const hasFilter = Boolean(q || kat || scope.active);
+
   const total = await db.document.count({ where: documentWhere });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const documents = await db.document.findMany({
@@ -266,12 +333,26 @@ async function DokumenteTab({
     include: { property: true, unit: true, acknowledgements: { include: { user: true } } },
   });
 
+  // Paginierung muss Tab und aktive Filter mittragen.
   function pageHref(p: number) {
-    const sp = new URLSearchParams();
-    sp.set("t", "dokumente");
-    if (p > 1) sp.set("dpage", String(p));
-    return `/infos?${sp.toString()}`;
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "dpage") params.set(k, v);
+    }
+    params.set("t", "dokumente");
+    if (p > 1) params.set("dpage", String(p));
+    return `/infos?${params.toString()}`;
   }
+
+  const docFilters: FilterConfig[] = [
+    {
+      key: "kat",
+      label: "Kategorie",
+      allLabel: "Alle Kategorien",
+      primary: true,
+      options: optionsFrom(documentCategoryLabels),
+    },
+  ];
 
   const properties = isVerwalter
     ? await db.property.findMany({
@@ -287,8 +368,25 @@ async function DokumenteTab({
   return (
     <div className="grid gap-5 lg:grid-cols-3">
       <div className="lg:col-span-2">
+        <div className="mb-3">
+          <FilterBar
+            searchPlaceholder="Suchen"
+            searchHint="Nach Titel oder Dateiname suchen"
+            filters={docFilters}
+            comboboxes={scope.comboboxes}
+          />
+          <p className="mt-2 px-1 text-xs text-gray-400">
+            {total} {total === 1 ? "Dokument" : "Dokumente"}
+            {hasFilter ? " (gefiltert)" : ""}
+          </p>
+        </div>
+
         {documents.length === 0 ? (
-          <EmptyState>Für Sie sind noch keine Dokumente hinterlegt.</EmptyState>
+          <EmptyState>
+            {hasFilter
+              ? "Keine Dokumente gefunden."
+              : "Für Sie sind noch keine Dokumente hinterlegt."}
+          </EmptyState>
         ) : (
           <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
             <ul className="divide-y divide-gray-100">

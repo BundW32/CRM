@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowDownUp, Search, SlidersHorizontal, X } from "lucide-react";
-import { inputClass } from "@/components/ui";
+import { ArrowDownUp, Check, ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
+import { fieldOnDarkClass } from "@/components/ui";
 import { Combobox, type ComboOption } from "@/components/combobox";
 
 // ── Typen ────────────────────────────────────────────────────────────────────
@@ -11,10 +11,10 @@ export type FilterOption = { value: string; label: string };
 export type FilterConfig = {
   /** URL-Param-Schlüssel, z. B. "status". */
   key: string;
-  /** Anzeige-Label, z. B. "Status". */
+  /** Anzeige-Label, z. B. "Status". Dient zugleich als Platzhalter (kein Feld-Label darüber). */
   label: string;
   options: FilterOption[];
-  /** Text der „alle"-Option (Default „Alle"). */
+  /** Text der „alle"-Option (Default = das Label, z. B. „Status"). */
   allLabel?: string;
   /** true = immer sichtbar in der Leiste; sonst im „Weitere Filter"-Menü. */
   primary?: boolean;
@@ -38,6 +38,11 @@ export type ComboboxFilterConfig = {
   /** Weitere Param-Schlüssel, die bei Änderung/Reset mit geleert werden (Kaskade). */
   clears?: string[];
 };
+
+// Einheitliche, FESTE Breite aller Auswahlfelder. Wichtig: Felder dürfen nicht
+// mit ihrem Inhalt wachsen, sonst springt die Leiste beim Filtern. Zu lange
+// Werte werden stattdessen abgeschnitten (truncate).
+const FIELD_WIDTH = "w-[10rem]";
 
 // ── URL-Helfer ───────────────────────────────────────────────────────────────
 function useUrlUpdater() {
@@ -64,11 +69,12 @@ function useUrlUpdater() {
 function SearchBox({
   paramKey,
   placeholder,
-  label,
+  hint,
 }: {
   paramKey: string;
   placeholder: string;
-  label: string;
+  /** Ausführliche Beschreibung (Tooltip + Screenreader), wenn der Platzhalter kurz ist. */
+  hint?: string;
 }) {
   const { apply, searchParams } = useUrlUpdater();
   const urlValue = searchParams.get(paramKey) ?? "";
@@ -90,56 +96,49 @@ function SearchBox({
   }
 
   return (
-    <label className="block min-w-[14rem] flex-1">
-      <span className="mb-1 block text-xs font-medium text-gray-500">{label}</span>
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="search"
-          value={text}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className={`${inputClass} pl-9`}
-          autoComplete="off"
-        />
-      </div>
-    </label>
+    <div className="relative min-w-[8rem] flex-1">
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      <input
+        type="search"
+        value={text}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        aria-label={hint ?? placeholder}
+        title={hint}
+        className={`${fieldOnDarkClass} pl-9`}
+        autoComplete="off"
+      />
+    </div>
   );
 }
 
-// ── Select-Filter mit Inline-„×" ─────────────────────────────────────────────
-function SelectFilter({ config }: { config: FilterConfig }) {
+// ── Auswahl-Filter (Status, Art, …) ──────────────────────────────────────────
+// Nutzt bewusst dieselbe Combobox wie Objekt/Einheit/Nutzer – kein natives
+// <select>. Nur so sehen alle Filter und alle aufklappenden Menüs gleich aus.
+// Ohne Label darüber: der Platzhalter trägt den Feldnamen (z. B. „Status").
+function SelectFilter({
+  config,
+  tone = "onDark",
+}: {
+  config: FilterConfig;
+  tone?: "onLight" | "onDark";
+}) {
   const { apply, searchParams } = useUrlUpdater();
   const value = searchParams.get(config.key) ?? "";
   return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-gray-500">{config.label}</span>
-      <div className="flex items-center gap-1">
-        <select
-          value={value}
-          onChange={(e) => apply({ [config.key]: e.target.value })}
-          aria-label={config.label}
-          className={`${inputClass} w-auto`}
-        >
-          <option value="">{config.allLabel ?? "Alle"}</option>
-          {config.options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        {value ? (
-          <button
-            type="button"
-            onClick={() => apply({ [config.key]: null })}
-            aria-label={`${config.label} zurücksetzen`}
-            className="shrink-0 rounded p-1 text-gray-400 transition hover:text-red-600"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        ) : null}
-      </div>
-    </label>
+    <Combobox
+      label={config.label}
+      placeholder={config.label}
+      options={config.options.map((o) => ({ value: o.value, label: o.label }))}
+      value={value || undefined}
+      onSelect={(v) => apply({ [config.key]: v })}
+      onClear={() => apply({ [config.key]: null })}
+      // Suchfeld erst ab längeren Listen (z. B. Gewerk) – sonst reines Menü.
+      searchable={config.options.length > 8}
+      clearOption={config.allLabel ?? "Alle"}
+      tone={tone}
+      className={tone === "onDark" ? FIELD_WIDTH : "w-full"}
+    />
   );
 }
 
@@ -161,19 +160,19 @@ function MoreFilters({ filters }: { filters: FilterConfig[] }) {
   const activeCount = filters.filter((f) => searchParams.get(f.key)).length;
 
   return (
-    <div ref={rootRef} className="relative self-end">
+    <div ref={rootRef} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className={`inline-flex h-[38px] items-center gap-2 rounded-lg border px-3 text-sm font-medium transition ${
+        className={`inline-flex h-9 items-center gap-2 rounded-[10px] px-3 text-sm font-medium ring-1 ring-inset transition ${
           activeCount > 0
-            ? "border-brand-orange/60 bg-brand-orange-light text-brand-orange-dark"
-            : "border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+            ? "bg-brand-orange/15 text-brand-orange ring-brand-orange/35"
+            : "bg-white/[0.07] text-gray-300 ring-white/10 hover:bg-white/[0.12]"
         }`}
       >
         <SlidersHorizontal className="h-4 w-4" />
-        Weitere Filter
+        Filter
         {activeCount > 0 ? (
           <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-xs font-semibold text-brand-green-dark">
             {activeCount}
@@ -181,35 +180,24 @@ function MoreFilters({ filters }: { filters: FilterConfig[] }) {
         ) : null}
       </button>
 
+      {/* Rechtsbündig aufklappen – der Button sitzt am Ende der Leiste, sonst
+          liefe das Menü rechts aus dem Bild. Auf schmalen Schirmen, wo die
+          Leiste umbricht und der Button links steht, andersherum. */}
       {open ? (
-        <div className="absolute right-0 z-30 mt-2 w-64 rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+        <div className="absolute right-0 z-30 mt-1.5 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200/70 bg-white p-3 shadow-e2 max-sm:left-0 max-sm:right-auto">
           <div className="space-y-3">
-            {filters.map((f) => {
-              const value = searchParams.get(f.key) ?? "";
-              return (
-                <label key={f.key} className="block">
-                  <span className="mb-1 block text-xs font-medium text-gray-500">{f.label}</span>
-                  <select
-                    value={value}
-                    onChange={(e) => apply({ [f.key]: e.target.value })}
-                    className={inputClass}
-                  >
-                    <option value="">{f.allLabel ?? "Alle"}</option>
-                    {f.options.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              );
-            })}
+            {filters.map((f) => (
+              <div key={f.key}>
+                <span className="mb-1 block text-xs font-medium text-gray-500">{f.label}</span>
+                <SelectFilter config={f} tone="onLight" />
+              </div>
+            ))}
           </div>
           {activeCount > 0 ? (
             <button
               type="button"
               onClick={() => apply(Object.fromEntries(filters.map((f) => [f.key, null])))}
-              className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:bg-gray-50 hover:text-red-600"
+              className="mt-3 w-full rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:bg-gray-50 hover:text-red-600"
             >
               Diese Filter zurücksetzen
             </button>
@@ -232,21 +220,19 @@ function SecondaryChips({ filters }: { filters: FilterConfig[] }) {
     })
     .filter((c): c is { key: string; text: string } => c !== null);
 
-  if (chips.length === 0) return null;
-
   return (
     <>
       {chips.map((c) => (
         <span
           key={c.key}
-          className="inline-flex items-center gap-1.5 rounded-full bg-brand-orange-light px-2.5 py-1 text-xs font-medium text-brand-orange-dark"
+          className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.09] px-2.5 py-1 text-xs font-medium text-gray-300"
         >
           {c.text}
           <button
             type="button"
             onClick={() => apply({ [c.key]: null })}
             aria-label={`Filter „${c.text}" entfernen`}
-            className="rounded-full text-brand-orange-dark/60 hover:text-red-600"
+            className="text-gray-400 hover:text-red-400"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -260,26 +246,21 @@ function SecondaryChips({ filters }: { filters: FilterConfig[] }) {
 export function FilterBar({
   searchParamKey = "q",
   searchPlaceholder,
-  searchLabel = "Suche",
+  searchHint,
   filters = [],
   comboboxes = [],
-  sortOptions = [],
-  defaultSort,
   className = "",
 }: {
   searchParamKey?: string;
   /** Wenn gesetzt, wird die Freitextsuche angezeigt. */
   searchPlaceholder?: string;
-  searchLabel?: string;
+  /** Was durchsucht wird – als Tooltip/Screenreader-Text zum kurzen Platzhalter. */
+  searchHint?: string;
   filters?: FilterConfig[];
   comboboxes?: ComboboxFilterConfig[];
-  sortOptions?: SortOption[];
-  defaultSort?: string;
   className?: string;
 }) {
   const { apply, searchParams, pathname, router } = useUrlUpdater();
-  const sortValue = searchParams.get("sort") ?? defaultSort ?? sortOptions[0]?.value ?? "";
-  const dir = searchParams.get("dir") === "asc" ? "asc" : "desc";
 
   const primaryFilters = filters.filter((f) => f.primary);
   const secondaryFilters = filters.filter((f) => !f.primary);
@@ -298,11 +279,12 @@ export function FilterBar({
     filters.some((f) => searchParams.get(f.key)) ||
     comboboxes.some((c) => searchParams.get(c.key));
 
+  // Kein Container: die Felder schweben direkt auf dem dunklen Shell-Hintergrund.
   return (
-    <div className={`rounded-xl border border-gray-200 bg-white p-3 shadow-sm ${className}`}>
-      <div className="flex flex-wrap items-end gap-3">
+    <div className={className}>
+      <div className="flex flex-wrap items-center gap-2">
         {searchPlaceholder ? (
-          <SearchBox paramKey={searchParamKey} placeholder={searchPlaceholder} label={searchLabel} />
+          <SearchBox paramKey={searchParamKey} placeholder={searchPlaceholder} hint={searchHint} />
         ) : null}
 
         {primaryFilters.map((f) => (
@@ -321,53 +303,95 @@ export function FilterBar({
             disabledHint={c.disabledHint}
             onSelect={(v) => applyCombo(c, v)}
             onClear={() => applyCombo(c, null)}
-            className="min-w-[13rem]"
+            tone="onDark"
+            className={FIELD_WIDTH}
           />
         ))}
 
         {secondaryFilters.length > 0 ? <MoreFilters filters={secondaryFilters} /> : null}
-
-        {sortOptions.length > 0 ? (
-          <div className="ml-auto flex items-end gap-1.5">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-500">Sortieren</span>
-              <select
-                value={sortValue}
-                onChange={(e) => apply({ sort: e.target.value })}
-                aria-label="Sortierfeld"
-                className={`${inputClass} w-auto`}
-              >
-                {sortOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={() => apply({ dir: dir === "asc" ? "desc" : "asc" })}
-              aria-label={dir === "asc" ? "Aufsteigend – zu absteigend wechseln" : "Absteigend – zu aufsteigend wechseln"}
-              title={dir === "asc" ? "Aufsteigend" : "Absteigend"}
-              className="inline-flex h-[38px] w-[38px] shrink-0 cursor-pointer items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 transition hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-orange"
-            >
-              <ArrowDownUp className="h-4 w-4" />
-            </button>
-          </div>
-        ) : null}
       </div>
 
       {anyActive ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+        <div className="mt-2 flex flex-wrap items-center gap-2 px-0.5">
           <SecondaryChips filters={secondaryFilters} />
           <button
             type="button"
             onClick={() => router.replace(pathname, { scroll: false })}
-            className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-gray-500 underline-offset-2 hover:text-red-600 hover:underline"
+            className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-gray-400 transition hover:text-red-400"
           >
             <X className="h-3.5 w-3.5" />
             Alle zurücksetzen
           </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ── Sortier-Steuerung (kompaktes Menü für die Ergebniszeile) ─────────────────
+// Bewusst NICHT Teil der Filterleiste: sitzt dezent rechts neben der Trefferzahl
+// („X Vorgänge"), damit die Leiste einzeilig und schmal bleibt.
+export function SortControl({
+  sortOptions,
+  defaultSort,
+}: {
+  sortOptions: SortOption[];
+  defaultSort?: string;
+}) {
+  const { apply, searchParams } = useUrlUpdater();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: PointerEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [open]);
+
+  if (sortOptions.length === 0) return null;
+  const sortValue = searchParams.get("sort") ?? defaultSort ?? sortOptions[0].value;
+  const dir = searchParams.get("dir") === "asc" ? "asc" : "desc";
+  const current = sortOptions.find((o) => o.value === sortValue) ?? sortOptions[0];
+
+  const row =
+    "flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-left text-sm transition hover:bg-gray-50";
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-gray-400 transition hover:bg-white/[0.07] hover:text-gray-200"
+      >
+        <ArrowDownUp className="h-3.5 w-3.5" />
+        {current.label}
+        <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+      </button>
+
+      {open ? (
+        <div className="absolute right-0 z-30 mt-1.5 w-56 rounded-xl border border-gray-200/70 bg-white p-1 shadow-e2">
+          <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            Sortieren nach
+          </p>
+          {sortOptions.map((o) => (
+            <button key={o.value} type="button" onClick={() => apply({ sort: o.value })} className={row}>
+              <span className={o.value === sortValue ? "font-medium text-gray-900" : "text-gray-700"}>{o.label}</span>
+              {o.value === sortValue ? <Check className="h-4 w-4 shrink-0 text-brand-green" /> : null}
+            </button>
+          ))}
+          <div className="my-1 border-t border-gray-100" />
+          {(["desc", "asc"] as const).map((d) => (
+            <button key={d} type="button" onClick={() => apply({ dir: d })} className={row}>
+              <span className={dir === d ? "font-medium text-gray-900" : "text-gray-700"}>
+                {d === "desc" ? "Absteigend" : "Aufsteigend"}
+              </span>
+              {dir === d ? <Check className="h-4 w-4 shrink-0 text-brand-green" /> : null}
+            </button>
+          ))}
         </div>
       ) : null}
     </div>

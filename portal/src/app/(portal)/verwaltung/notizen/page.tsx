@@ -1,8 +1,12 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { Pagination, Card, EmptyState, PageTitle } from "@/components/ui";
+import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { noteWhereForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { formatDate } from "@/lib/labels";
+import { propertyScopeFilters } from "@/lib/list-filters";
+import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { deleteNote, togglePinNote } from "./actions";
 import { NoteForm } from "./note-form";
 
@@ -22,16 +26,32 @@ const PAGE_SIZE = 30;
 export default async function NotizenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; page?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const verwalter = await requireVerwalter();
   const propWhere = await propertyWhereForVerwalter(verwalter);
 
   const params = await searchParams;
   const type = (params.type ?? "alle") as FilterType;
-  const filterWhere = buildWhere(type);
-  const currentPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
-  const noteWhere = { AND: [filterWhere, await noteWhereForVerwalter(verwalter)] };
+  const currentPage = parsePage(params.page);
+
+  // ── Filter: Suche, Bezug (Objekt/Einheit/Person), Objekt/Einheit ──
+  const scope = await propertyScopeFilters(verwalter, params, { withUnit: true });
+  const q = normalizeSearch(params.q);
+
+  const noteAnd: Prisma.NoteWhereInput[] = [
+    buildWhere(type),
+    await noteWhereForVerwalter(verwalter),
+  ];
+  if (q) noteAnd.push({ body: { contains: q, mode: "insensitive" } });
+  if (scope.objektId) {
+    noteAnd.push({
+      OR: [{ propertyId: scope.objektId }, { unit: { propertyId: scope.objektId } }],
+    });
+  }
+  if (scope.einheitId) noteAnd.push({ unitId: scope.einheitId });
+  const noteWhere: Prisma.NoteWhereInput = { AND: noteAnd };
+  const hasFilter = Boolean(q || type !== "alle" || scope.active);
 
   const [total, notes, properties] = await Promise.all([
     db.note.count({ where: noteWhere }),
@@ -57,19 +77,29 @@ export default async function NotizenPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // Paginierung muss alle aktiven Filter mittragen.
   function pageHref(p: number) {
     const sp = new URLSearchParams();
-    if (type !== "alle") sp.set("type", type);
+    for (const [k, v] of Object.entries(params)) {
+      if (v && k !== "page") sp.set(k, v);
+    }
     if (p > 1) sp.set("page", String(p));
-    const q = sp.toString();
-    return `/verwaltung/notizen${q ? `?${q}` : ""}`;
+    const qs = sp.toString();
+    return `/verwaltung/notizen${qs ? `?${qs}` : ""}`;
   }
 
-  const filters: { label: string; value: FilterType }[] = [
-    { label: "Alle", value: "alle" },
-    { label: "Objekte", value: "objekte" },
-    { label: "Einheiten", value: "einheiten" },
-    { label: "Mieter/Eigentümer", value: "personen" },
+  const noteFilters: FilterConfig[] = [
+    {
+      key: "type",
+      label: "Bezug",
+      allLabel: "Alle",
+      primary: true,
+      options: [
+        { value: "objekte", label: "Objekte" },
+        { value: "einheiten", label: "Einheiten" },
+        { value: "personen", label: "Mieter/Eigentümer" },
+      ],
+    },
   ];
 
   return (
@@ -82,26 +112,24 @@ export default async function NotizenPage({
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Note list – takes up 2 columns on large screens */}
         <div className="space-y-4 lg:col-span-2">
-          {/* Filter bar */}
-          <div className="flex flex-wrap gap-2">
-            {filters.map((f) => (
-              <a
-                key={f.value}
-                href={f.value === "alle" ? "/verwaltung/notizen" : `?type=${f.value}`}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-                  type === f.value
-                    ? "bg-brand-orange text-brand-green-dark"
-                    : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                {f.label}
-              </a>
-            ))}
+          <div>
+            <FilterBar
+              searchPlaceholder="Suchen"
+              searchHint="In Notiztexten suchen"
+              filters={noteFilters}
+              comboboxes={scope.comboboxes}
+            />
+            <p className="mt-2 px-1 text-xs text-gray-400">
+              {total} {total === 1 ? "Notiz" : "Notizen"}
+              {hasFilter ? " (gefiltert)" : ""}
+            </p>
           </div>
 
           {/* Notes */}
           {notes.length === 0 ? (
-            <EmptyState>Keine Notizen vorhanden.</EmptyState>
+            <EmptyState>
+              {hasFilter ? "Keine Notizen gefunden." : "Keine Notizen vorhanden."}
+            </EmptyState>
           ) : (
             <ul className="space-y-3">
               {notes.map((note) => {

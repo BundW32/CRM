@@ -3,7 +3,11 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { User } from "@/generated/prisma/client";
-import { canVerwalterAccessProperty } from "@/lib/access";
+import {
+  canVerwalterAccessProperty,
+  canVerwalterManageUser,
+  userWhereForVerwalter,
+} from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { parseEuroToCents } from "@/lib/money";
@@ -297,6 +301,55 @@ export async function deleteProperty(formData: FormData) {
   redirect("/verwaltung/objekte?geloescht=1");
 }
 
+// ── Bestehende Person statt Dublette ────────────────────────────────────────
+// Ohne E-Mail-Adresse legte `inviteOrLetter` bisher immer ein neues Konto an –
+// so entstanden für einen Mieter mit fünf Einheiten fünf getrennte Zugänge
+// (hakki.guer, hakki.guer2 …). Diese Suche bietet stattdessen die bereits
+// vorhandene Person an. Bewusst KEIN automatisches Zusammenführen über den
+// Namen: Zwei verschiedene Menschen können gleich heißen – die Entscheidung
+// trifft der Verwalter.
+export async function searchPersonsForUnit(
+  query: string,
+  role: "MIETER" | "EIGENTUEMER",
+): Promise<{ id: string; name: string; hint: string }[]> {
+  const actor = await requireVerwalter();
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const persons = await db.user.findMany({
+    where: {
+      AND: [
+        { role },
+        { active: true },
+        { anonymizedAt: null },
+        { name: { contains: q, mode: "insensitive" } },
+        await userWhereForVerwalter(actor),
+      ],
+    },
+    orderBy: { name: "asc" },
+    take: 10,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      username: true,
+      tenancies: {
+        where: { active: true },
+        select: { unit: { select: { label: true, property: { select: { name: true } } } } },
+      },
+      ownerships: { select: { property: { select: { name: true } } } },
+    },
+  });
+  return persons.map((p) => {
+    const zuordnung =
+      role === "MIETER"
+        ? p.tenancies.map((t) => `${t.unit.property.name} · ${t.unit.label}`)
+        : p.ownerships.map((o) => o.property.name);
+    // Hinweis hilft beim Unterscheiden gleichnamiger Personen.
+    const teile = [p.email ?? (p.username ? `Benutzer: ${p.username}` : null), ...zuordnung];
+    return { id: p.id, name: p.name, hint: teile.filter(Boolean).join(" · ") || "ohne Zuordnung" };
+  });
+}
+
 // ── Eigentümer/Mieter je Einheit (aus dem Objekt heraus) ────────────────────
 function personFields(formData: FormData) {
   const firstName = String(formData.get("firstName") ?? "").trim();
@@ -317,6 +370,21 @@ export async function addUnitTenant(formData: FormData) {
   const unitId = String(formData.get("unitId") ?? "").trim();
   if (!unitId) redirect("/verwaltung/objekte");
   const propertyId = await requireUnitScope(actor, unitId);
+  // Bestehende Person gewählt? Dann nur die Einheit zuordnen – kein zweites Konto.
+  const vorhandeneId = String(formData.get("userId") ?? "").trim();
+  if (vorhandeneId) {
+    if (!(await canVerwalterManageUser(actor, vorhandeneId))) {
+      redirect(backTo(propertyId, "fehler=person_org"));
+    }
+    await db.tenancy.upsert({
+      where: { userId_unitId: { userId: vorhandeneId, unitId } },
+      create: { userId: vorhandeneId, unitId },
+      update: { active: true },
+    });
+    revalidatePath(backTo(propertyId, "").split("?")[0]);
+    redirect(backTo(propertyId, "person=gespeichert"));
+  }
+
   const { firstName, lastName, name, email, phone } = personFields(formData);
   if (name.length < 2) redirect(backTo(propertyId, "fehler=person"));
   const result = await inviteOrLetter({
@@ -357,6 +425,26 @@ export async function addUnitOwner(formData: FormData) {
   const unitId = String(formData.get("unitId") ?? "").trim();
   if (!unitId) redirect("/verwaltung/objekte");
   const propertyId = await requireUnitScope(actor, unitId);
+
+  // Bestehende Person gewählt? Dann nur zuordnen – kein zweites Konto anlegen.
+  const vorhandeneId = String(formData.get("userId") ?? "").trim();
+  if (vorhandeneId) {
+    if (!(await canVerwalterManageUser(actor, vorhandeneId))) {
+      redirect(backTo(propertyId, "fehler=person_org"));
+    }
+    await db.unitOwnership
+      .create({ data: { organizationId: actor.organizationId, unitId, userId: vorhandeneId, validFrom: new Date() } })
+      .catch(() => {});
+    await db.ownership.upsert({
+      where: { userId_propertyId: { userId: vorhandeneId, propertyId } },
+      create: { userId: vorhandeneId, propertyId },
+      update: {},
+    });
+    await syncOwnerVotingWeights(propertyId);
+    revalidatePath(backTo(propertyId, "").split("?")[0]);
+    redirect(backTo(propertyId, "person=gespeichert"));
+  }
+
   const { firstName, lastName, name, email, phone } = personFields(formData);
   if (name.length < 2) redirect(backTo(propertyId, "fehler=person"));
   const result = await inviteOrLetter({

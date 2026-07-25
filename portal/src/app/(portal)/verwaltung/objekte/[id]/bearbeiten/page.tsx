@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
+import { AddPersonForm } from "./AddPersonForm";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
@@ -122,32 +123,6 @@ const unitFehlerText: Record<string, string> = {
 
 // Kompaktes Formular, um eine Person (Mieter/Eigentümer) anzulegen und zuzuordnen.
 // Mit E-Mail → Einladungslink, ohne E-Mail → druckbares Zugangsschreiben.
-function AddPersonForm({
-  action,
-  idName,
-  idValue,
-  label,
-}: {
-  action: (formData: FormData) => void | Promise<void>;
-  idName: string;
-  idValue: string;
-  label: string;
-}) {
-  return (
-    <form action={action} className="mt-2 flex flex-wrap items-center gap-2">
-      <input type="hidden" name={idName} value={idValue} />
-      <input name="firstName" placeholder="Vorname" className={`${inputClass} max-w-[8rem]`} />
-      <input name="lastName" placeholder="Nachname" className={`${inputClass} max-w-[9rem]`} />
-      <input name="email" type="email" placeholder="E-Mail (optional)" className={`${inputClass} max-w-[13rem]`} />
-      <button
-        type="submit"
-        className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-brand-green hover:bg-gray-50"
-      >
-        {label}
-      </button>
-    </form>
-  );
-}
 
 // Personen-Chip mit Entfernen-Button (eigenes Mini-Formular).
 function PersonChip({
@@ -455,7 +430,7 @@ export default async function ObjektBearbeitenPage({
                         ))}
                       </div>
                     )}
-                    <AddPersonForm action={addUnitTenant} idName="unitId" idValue={u.id} label="+ Mieter" />
+                    <AddPersonForm action={addUnitTenant} idName="unitId" idValue={u.id} label="+ Mieter" role="MIETER" />
                   </div>
 
                   {isWeg ? (
@@ -470,7 +445,7 @@ export default async function ObjektBearbeitenPage({
                           ))
                         )}
                       </div>
-                      <AddPersonForm action={addUnitOwner} idName="unitId" idValue={u.id} label="+ Eigentümer" />
+                      <AddPersonForm action={addUnitOwner} idName="unitId" idValue={u.id} label="+ Eigentümer" role="EIGENTUEMER" />
                     </div>
                   ) : null}
 
@@ -554,7 +529,7 @@ export default async function ObjektBearbeitenPage({
                 ))
               )}
             </div>
-            <AddPersonForm action={addPropertyOwner} idName="propertyId" idValue={p.id} label="+ Eigentümer" />
+            <AddPersonForm action={addPropertyOwner} idName="propertyId" idValue={p.id} label="+ Eigentümer" role="EIGENTUEMER" />
           </Card>
         </div>
       ) : null}

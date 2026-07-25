@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { Alert, Card, PageTitle, Pagination, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
+import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { formatCents, formatInvoiceNumber, invoiceGrossCents, requirePlatformAdmin } from "@/lib/platform";
 import { canRemindAgain, reminderLevelLabel } from "@/lib/dunning";
 import { isMailEnabled } from "@/lib/mailer";
@@ -25,12 +27,14 @@ const STATUS_TONE: Record<PlatformInvoiceStatus, string> = {
 
 const STATUSES: PlatformInvoiceStatus[] = ["ENTWURF", "OFFEN", "BEZAHLT", "STORNIERT"];
 
+const PAGE_SIZE = 50;
+
 const gross = invoiceGrossCents;
 
 export default async function RechnungenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; mahnung?: string; gemahnt?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   await requirePlatformAdmin();
   const sp = await searchParams;
@@ -39,19 +43,29 @@ export default async function RechnungenPage({
     : null;
   const mailReady = isMailEnabled();
   const now = new Date();
+  const currentPage = parsePage(sp.seite);
+  const q = normalizeSearch(sp.q);
+  const jahr = /^\d{4}$/.test(sp.jahr ?? "") ? Number(sp.jahr) : undefined;
 
-  const where: Prisma.PlatformInvoiceWhereInput = statusFilter ? { status: statusFilter } : {};
+  const whereAnd: Prisma.PlatformInvoiceWhereInput[] = [];
+  if (statusFilter) whereAnd.push({ status: statusFilter });
+  if (jahr) whereAnd.push({ year: jahr });
+  if (q) whereAnd.push({ organization: { name: { contains: q, mode: "insensitive" } } });
+  const where: Prisma.PlatformInvoiceWhereInput = whereAnd.length > 0 ? { AND: whereAnd } : {};
+  const hasFilter = Boolean(statusFilter || jahr || q);
 
-  const [invoices, openInvoices, overdueInvoices] = await Promise.all([
+  const [invoices, invoiceTotal, openInvoices, overdueInvoices] = await Promise.all([
     db.platformInvoice.findMany({
       where,
       orderBy: [{ year: "desc" }, { number: "desc" }],
-      take: 200,
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       include: {
         items: { select: { quantity: true, unitPriceCents: true } },
         organization: { select: { name: true } },
       },
     }),
+    db.platformInvoice.count({ where }),
     db.platformInvoice.findMany({
       where: { status: "OFFEN" },
       select: { vatRate: true, dueAt: true, items: { select: { quantity: true, unitPriceCents: true } } },
@@ -70,18 +84,41 @@ export default async function RechnungenPage({
   const overdue = overdueInvoices.length;
   const remindableCount = overdueInvoices.filter((inv) => canRemindAgain(inv.lastReminderAt, now)).length;
 
-  function chip(status: PlatformInvoiceStatus | null) {
-    const active = statusFilter === status;
-    const href = status ? `/plattform/rechnungen?status=${status}` : "/plattform/rechnungen";
-    return (
-      <Link
-        key={status ?? "alle"}
-        href={href}
-        className={`rounded-full border px-3 py-1 text-xs ${active ? "border-brand-orange bg-brand-orange text-white" : "border-gray-300 bg-white text-gray-600"}`}
-      >
-        {status ? STATUS_LABELS[status] : "Alle"}
-      </Link>
-    );
+  // Jahres-Auswahl aus dem Bestand ableiten (keine leeren Jahrgänge).
+  const oldest = await db.platformInvoice.findFirst({
+    orderBy: { year: "asc" },
+    select: { year: true },
+  });
+  const thisYear = new Date().getFullYear();
+  const firstYear = oldest?.year ?? thisYear;
+  const invoiceFilters: FilterConfig[] = [
+    {
+      key: "status",
+      label: "Status",
+      allLabel: "Alle Status",
+      primary: true,
+      options: STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] })),
+    },
+    {
+      key: "jahr",
+      label: "Jahr",
+      allLabel: "Alle Jahre",
+      options: Array.from({ length: Math.max(1, thisYear - firstYear + 1) }, (_, i) => {
+        const y = thisYear - i;
+        return { value: String(y), label: String(y) };
+      }),
+    },
+  ];
+
+  // Paginierung muss alle aktiven Filter mittragen.
+  function pageHref(p: number) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "seite") params.set(k, v);
+    }
+    if (p > 1) params.set("seite", String(p));
+    const qs = params.toString();
+    return `/plattform/rechnungen${qs ? `?${qs}` : ""}`;
   }
 
   return (
@@ -185,7 +222,15 @@ export default async function RechnungenPage({
         </div>
       ) : null}
 
-      <div className="mb-4 flex flex-wrap gap-2">{[null, ...STATUSES].map((s) => chip(s))}</div>
+      <FilterBar
+        searchPlaceholder="Suchen"
+        searchHint="Nach Verwaltung suchen"
+        filters={invoiceFilters}
+      />
+      <p className="mb-3 mt-2 px-1 text-xs text-gray-400">
+        {invoiceTotal} {invoiceTotal === 1 ? "Rechnung" : "Rechnungen"}
+        {hasFilter ? " (gefiltert)" : ""}
+      </p>
 
       <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full text-sm">
@@ -225,6 +270,14 @@ export default async function RechnungenPage({
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={Math.max(1, Math.ceil(invoiceTotal / PAGE_SIZE))}
+        total={invoiceTotal}
+        itemLabel="Rechnungen"
+        hrefFor={pageHref}
+      />
     </>
   );
 }

@@ -1,16 +1,21 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Alert, Card, EmptyState, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import type { Prisma } from "@/generated/prisma/client";
+import { Alert, Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { SubmitButton } from "@/components/submit-button";
 import { isBoardMemberOf, ownedUnitIdsInProperty, wegPropertiesForOwner } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDateOnly } from "@/lib/labels";
+import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { formatCents } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import type { StatementView } from "@/lib/weg/statement-service";
 import { setBeiratReview } from "../beirat/review-actions";
 
 const REVIEW_LABEL = { GEPRUEFT: "geprüft", ANMERKUNGEN: "mit Anmerkungen" } as const;
+
+const BOOKINGS_PAGE_SIZE = 50;
 
 // Prüfvermerk des Beirats (§ 29 III WEG): Status für alle Eigentümer sichtbar;
 // Beiratsmitglieder können ihn setzen/ändern.
@@ -83,11 +88,12 @@ export const dynamic = "force-dynamic";
 export default async function FinanzenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ objekt?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
   if (user.role !== "EIGENTUEMER") redirect("/dashboard");
-  const { objekt } = await searchParams;
+  const sp = await searchParams;
+  const { objekt } = sp;
 
   const wegProps = await wegPropertiesForOwner(user.id, user.organizationId);
   if (wegProps.length === 0) {
@@ -110,7 +116,28 @@ export default async function FinanzenPage({
   const canReview = await isBoardMemberOf(user.id, selected.id);
   const backTo = `/finanzen?objekt=${encodeURIComponent(selected.id)}`;
 
-  const [statements, plans, myUnits, dueSums, paidSums, bookings] = await Promise.all([
+  // ── Belegeinsicht: Suche und Jahr, paginiert ──
+  const bPage = parsePage(sp.bseite);
+  const bq = normalizeSearch(sp.bq);
+  const bJahr = /^\d{4}$/.test(sp.bjahr ?? "") ? Number(sp.bjahr) : undefined;
+  const bookingAnd: Prisma.BookingWhereInput[] = [{ propertyId: selected.id }];
+  if (bq) {
+    bookingAnd.push({
+      OR: [
+        { text: { contains: bq, mode: "insensitive" } },
+        { reference: { contains: bq, mode: "insensitive" } },
+        { counterparty: { contains: bq, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (bJahr) {
+    bookingAnd.push({
+      bookingDate: { gte: new Date(bJahr, 0, 1), lt: new Date(bJahr + 1, 0, 1) },
+    });
+  }
+  const bookingWhere: Prisma.BookingWhereInput = { AND: bookingAnd };
+
+  const [statements, plans, myUnits, dueSums, paidSums, bookings, bookingTotal] = await Promise.all([
     db.annualStatement.findMany({
       where: { propertyId: selected.id, status: "FERTIG" },
       orderBy: { year: "desc" },
@@ -143,14 +170,49 @@ export default async function FinanzenPage({
       where: { unitId: { in: myUnitIds }, kind: "EINNAHME" },
       _sum: { amountCents: true },
     }),
-    // Belegeinsicht: alle Buchungen der WEG (Leserecht der Gemeinschaft)
+    // Belegeinsicht: alle Buchungen der WEG (Leserecht der Gemeinschaft).
+    // Paginiert statt gedeckelt – das Leserecht umfasst den ganzen Bestand.
     db.booking.findMany({
-      where: { propertyId: selected.id },
+      where: bookingWhere,
       include: { account: { select: { name: true } }, costType: { select: { name: true } } },
       orderBy: [{ bookingDate: "desc" }, { createdAt: "desc" }],
-      take: 300,
+      skip: (bPage - 1) * BOOKINGS_PAGE_SIZE,
+      take: BOOKINGS_PAGE_SIZE,
     }),
+    db.booking.count({ where: bookingWhere }),
   ]);
+
+  // Jahres-Auswahl aus dem Bestand ableiten (keine leeren Jahrgänge).
+  const oldestBooking = await db.booking.findFirst({
+    where: { propertyId: selected.id },
+    orderBy: { bookingDate: "asc" },
+    select: { bookingDate: true },
+  });
+  const currentYear = new Date().getFullYear();
+  const startYear = oldestBooking ? oldestBooking.bookingDate.getFullYear() : currentYear;
+  const belegFilters: FilterConfig[] = [
+    {
+      key: "bjahr",
+      label: "Jahr",
+      allLabel: "Alle Jahre",
+      primary: true,
+      options: Array.from({ length: currentYear - startYear + 1 }, (_, i) => {
+        const y = currentYear - i;
+        return { value: String(y), label: String(y) };
+      }),
+    },
+  ];
+
+  // Blättern in der Belegeinsicht erhält Objektauswahl und Filter.
+  function bookingPageHref(p: number) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "bseite") params.set(k, v);
+    }
+    if (p > 1) params.set("bseite", String(p));
+    const qs = params.toString();
+    return `/finanzen${qs ? `?${qs}` : ""}`;
+  }
 
   const dueByUnit = new Map(dueSums.map((d) => [d.unitId, d._sum.amountCents ?? 0]));
   const paidByUnit = new Map(paidSums.map((p) => [p.unitId as string, p._sum.amountCents ?? 0]));
@@ -411,8 +473,22 @@ export default async function FinanzenPage({
             Als Eigentümer können Sie alle Buchungen Ihrer Gemeinschaft einsehen und die
             hinterlegten Belege öffnen — die digitale Belegeinsicht ersetzt den Ordner-Termin.
           </p>
+          <FilterBar
+            className="mb-3"
+            searchParamKey="bq"
+            searchPlaceholder="Suchen"
+            searchHint="Nach Text, Verwendungszweck oder Zahlungspartner suchen"
+            filters={belegFilters}
+          />
+          <p className="mb-3 px-1 text-xs text-gray-400">
+            {bookingTotal} {bookingTotal === 1 ? "Buchung" : "Buchungen"}
+            {bq || bJahr ? " (gefiltert)" : ""}
+          </p>
+
           {bookings.length === 0 ? (
-            <EmptyState>Noch keine Buchungen erfasst.</EmptyState>
+            <EmptyState>
+              {bq || bJahr ? "Keine Buchungen gefunden." : "Noch keine Buchungen erfasst."}
+            </EmptyState>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[680px] text-left text-sm">
@@ -466,6 +542,14 @@ export default async function FinanzenPage({
               </table>
             </div>
           )}
+
+          <Pagination
+            currentPage={bPage}
+            totalPages={Math.max(1, Math.ceil(bookingTotal / BOOKINGS_PAGE_SIZE))}
+            total={bookingTotal}
+            itemLabel="Buchungen"
+            hrefFor={bookingPageHref}
+          />
         </Card>
       </div>
     </>

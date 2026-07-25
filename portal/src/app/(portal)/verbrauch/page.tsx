@@ -1,13 +1,26 @@
 import Link from "next/link";
-import type { MeterType } from "@/generated/prisma/client";
-import { Alert, Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import type { MeterType, Prisma } from "@/generated/prisma/client";
+import { Alert, Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass } from "@/components/ui";
+import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter, tenantUnits } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDateOnly, meterTypeLabels } from "@/lib/labels";
+import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
+import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import { latestConsumptionInfo } from "@/lib/weg/consumption";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 20;
+
+// Ablesungen je Zähler begrenzen. Die Auswertung braucht die jüngste Periode,
+// die Vorperiode UND die Periode von vor ~einem Jahr – die letzten drei Stände
+// reichen also nicht. 400 jüngste Stände decken monatliche Ablesung (die nach
+// § 6a HeizkostenV maximal geforderte Taktung) über 30 Jahre ab; bei selteneren
+// Ablesungen greift die Grenze ohnehin nie. Vorher wurden ALLE Stände ALLER
+// Zähler geladen – das wuchs mit jedem Jahr Betrieb.
+const READINGS_PER_METER = 400;
 
 // Einheit je Zählerart (für die Anzeige des Verbrauchs).
 const meterUnit: Record<MeterType, string> = {
@@ -33,33 +46,96 @@ function DeltaBadge({ pct }: { pct: number | null }) {
 // Unterjährige Verbrauchsinformation (§ 6a HeizkostenV) im Portal. Zeigt je
 // zugänglichem Zähler den Verbrauch der jüngsten Periode und den Vergleich mit
 // Vorperiode und Vorjahresperiode. Zugriff wie im Zählerbereich.
-export default async function VerbrauchPage() {
+export default async function VerbrauchPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const user = await requireUser();
+  const sp = await searchParams;
+  const currentPage = parsePage(sp.page);
   const isVerwalter = user.role === "VERWALTER";
   const isMieter = user.role === "MIETER";
 
-  let meterWhere = {};
+  let accessWhere: Prisma.MeterWhereInput = {};
   if (isMieter) {
     const myUnits = await tenantUnits(user.id);
-    meterWhere = { unitId: { in: myUnits.map((u) => u.id) } };
+    accessWhere = { unitId: { in: myUnits.map((u) => u.id) } };
   } else if (isVerwalter) {
     const where = await propertyWhereForVerwalter(user);
-    meterWhere = { OR: [{ property: where ?? {} }, { unit: { property: where ?? {} } }] };
+    accessWhere = { OR: [{ property: where ?? {} }, { unit: { property: where ?? {} } }] };
   } else {
     const props = await ownedProperties(user.id);
     const ids = props.map((p) => p.id);
-    meterWhere = { OR: [{ propertyId: { in: ids } }, { unit: { propertyId: { in: ids } } }] };
+    accessWhere = { OR: [{ propertyId: { in: ids } }, { unit: { propertyId: { in: ids } } }] };
   }
 
-  const meters = await db.meter.findMany({
-    where: meterWhere,
-    orderBy: [{ remoteReadable: "desc" }, { createdAt: "asc" }],
-    include: {
-      unit: { include: { property: { select: { name: true } } } },
-      property: { select: { name: true } },
-      readings: { orderBy: { readingDate: "asc" }, select: { value: true, readingDate: true } },
+  // ── Filter: Suche, Zählerart, Objekt → Einheit (verengt nur den Zugriff) ──
+  const scope = await propertyScopeFilters(user, sp, { withUnit: true });
+  const q = normalizeSearch(sp.q);
+  const art = sp.art && sp.art in meterTypeLabels ? sp.art : undefined;
+
+  const meterAnd: Prisma.MeterWhereInput[] = [accessWhere];
+  if (q) {
+    meterAnd.push({
+      OR: [
+        { meterNumber: { contains: q, mode: "insensitive" } },
+        { location: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (art) meterAnd.push({ type: art as Prisma.MeterWhereInput["type"] });
+  if (scope.objektId) {
+    meterAnd.push({
+      OR: [{ propertyId: scope.objektId }, { unit: { propertyId: scope.objektId } }],
+    });
+  }
+  if (scope.einheitId) meterAnd.push({ unitId: scope.einheitId });
+  const meterWhere: Prisma.MeterWhereInput = { AND: meterAnd };
+  const hasFilter = Boolean(q || art || scope.active);
+
+  const [total, meters] = await Promise.all([
+    db.meter.count({ where: meterWhere }),
+    db.meter.findMany({
+      where: meterWhere,
+      orderBy: [{ remoteReadable: "desc" }, { createdAt: "asc" }],
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: {
+        unit: { include: { property: { select: { name: true } } } },
+        property: { select: { name: true } },
+        // Absteigend + begrenzt: liefert die JÜNGSTEN Stände. Die Auswertung
+        // sortiert intern selbst, die Reihenfolge hier ist also unkritisch.
+        readings: {
+          orderBy: { readingDate: "desc" },
+          take: READINGS_PER_METER,
+          select: { value: true, readingDate: true },
+        },
+      },
+    }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // Paginierung muss alle aktiven Filter mittragen.
+  function pageHref(p: number) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "page") params.set(k, v);
+    }
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return `/verbrauch${qs ? `?${qs}` : ""}`;
+  }
+
+  const meterFilters: FilterConfig[] = [
+    {
+      key: "art",
+      label: "Zählerart",
+      allLabel: "Alle Arten",
+      primary: true,
+      options: optionsFrom(meterTypeLabels),
     },
-  });
+  ];
 
   const rows = meters.map((m) => ({
     meter: m,
@@ -97,9 +173,22 @@ export default async function VerbrauchPage() {
         </Alert>
       ) : null}
 
+      <FilterBar
+        searchPlaceholder="Suchen"
+        searchHint="Nach Zählernummer oder Einbauort suchen"
+        filters={meterFilters}
+        comboboxes={scope.comboboxes}
+      />
+      <p className="mb-3 mt-2 px-1 text-xs text-gray-400">
+        {total} {total === 1 ? "Zähler" : "Zähler"}
+        {hasFilter ? " (gefiltert)" : ""}
+      </p>
+
       {rows.length === 0 ? (
         <Card>
-          <EmptyState>Keine Zähler hinterlegt.</EmptyState>
+          <EmptyState>
+            {hasFilter ? "Keine Zähler gefunden." : "Keine Zähler hinterlegt."}
+          </EmptyState>
         </Card>
       ) : (
         <div className="grid gap-3">
@@ -171,6 +260,14 @@ export default async function VerbrauchPage() {
           ))}
         </div>
       )}
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        total={total}
+        itemLabel="Zähler"
+        hrefFor={pageHref}
+      />
     </>
   );
 }

@@ -21,6 +21,16 @@ Alle vier Punkte aus Abschnitt 3 sind gebaut, lokal geprüft und einzeln committ
 Datenbank. Was zu prüfen ist, steht in Abschnitt 6; die wichtigste Prüfung ist
 und bleibt die Rollen-Gegenprobe.
 
+> **Hinweis zu Punkt 3.3 (Filter für die WEG-Unterseiten):** Dieser Punkt wurde
+> **zweimal parallel bearbeitet** – einmal hier, einmal in `claude/list-filters-search`.
+> Beim Zusammenführen blieb die hiesige Fassung von Buchhaltung und Hausgeld die
+> Grundlage; aus dem anderen Zweig kamen die übrigen zwölf Seiten hinzu, die hier
+> nicht bearbeitet wurden (Verbrauch, Finanzen, Gemeinschaft, Versammlungen,
+> Anträge, Eigentümer, Beschluss-Sammlung, Übergaben, Plattform-Rechnungen,
+> Jahresabrechnung, Wirtschaftsplan). Wer künftig einen Punkt aus diesem Dokument
+> übernimmt, sollte ihn vorher hier als „in Arbeit" markieren – die doppelte
+> Arbeit war vermeidbar.
+
 **Wichtig zur Umgebung:** Es gibt **keine Datenbankverbindung** (kein `.env`). Alles,
 was echte Daten braucht, muss in der Vercel-Preview geprüft werden. Lokal laufen
 `tsc`, `eslint`, `vitest` und `next build`.
@@ -186,6 +196,39 @@ Kopfzeile. Eine Tastenkombination allein findet nur, wer sie kennt.
 > liegt in `portal-search-server.ts`. Holt die Palette einen **Wert** aus dem
 > Server-Modul, zieht sie die gesamte Prisma-Kette ins Browser-Bündel und der Build
 > bricht. Gleiche Aufteilung wie `url.ts`/`url-server.ts`.
+
+### 3.5 Dieselbe Aufräumarbeit außerhalb der WEG-Unterseiten ✔
+
+Aus `claude/list-filters-search`, parallel entstanden. Ergänzt 3.3 um die Seiten,
+die dort außerhalb des Scopes lagen — es zeigte sich, dass dieselben zwei Muster
+über die ganze App verteilt vorkamen.
+
+**Weitere stille Obergrenzen entfernt** (jenseits davon waren Daten unerreichbar):
+Finanzen/Belegeinsicht `300` · Plattform-Rechnungen `200` · Gemeinschaft `20`.
+
+**Unbegrenzt geladene Listen begrenzt:** Verbrauch lud **alle** Zähler mit **allen**
+Ablesungen seit Betriebsbeginn; dazu Beschluss-Sammlung (wächst laut § 24 VII WEG
+dauerhaft), Versammlungen, Anträge, Eigentümer, Übergabeprotokolle.
+
+Beim Verbrauch sind die Ablesungen je Zähler auf die **400 jüngsten** begrenzt, nicht
+auf die letzten drei: die Auswertung braucht neben der jüngsten Periode auch die
+Vorperiode **und** die Periode von vor ~einem Jahr.
+
+**Zwei weitere Kennzahlen**, die an der angezeigten Liste hingen — dieselbe
+Fehlerklasse wie die Mahnstufe in 3.3:
+
+- **MEA-Summe** (Eigentümer) wurde aus der geladenen Liste addiert; kommt jetzt aus
+  einer Aggregation über das ganze Objekt.
+- **Jahres-Vorschlag** (Jahresabrechnung, Wirtschaftsplan) wurde gegen die angezeigte
+  Liste geprüft; jetzt gegen alle vorhandenen Jahrgänge.
+
+> **Regel daraus:** Vor jeder neuen Paginierung prüfen, ob eine Summe, ein Maximum
+> oder ein „gibt es das schon"-Test an derselben Liste hängt. Dreimal war es der Fall.
+
+> **Zur Falle aus 3.3** („je Seite nur eine Liste blättern"): Das gilt nur, solange
+> alle Paginierungen `page` verwenden. Mit eigenen Parametern je Liste (`zseite`,
+> `aseite`, `mseite`) lassen sich mehrere nebeneinander betreiben — im Hausgeld so
+> umgesetzt.
 
 ### Was bewusst offen blieb
 

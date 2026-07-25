@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -13,20 +14,40 @@ export default async function WirtschaftsplanListPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{ fehler?: string; geloescht?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const { propertyId } = await params;
   const { property } = await requireWegProperty(propertyId);
   const sp = await searchParams;
+  const jahr = /^\d{4}$/.test(sp.jahr ?? "") ? Number(sp.jahr) : undefined;
 
   const plans = await db.economicPlan.findMany({
-    where: { propertyId: property.id },
+    where: { propertyId: property.id, ...(jahr ? { year: jahr } : {}) },
     orderBy: { year: "desc" },
     include: { items: true, _count: { select: { duePostings: true } } },
   });
 
+  // Alle vorhandenen Jahrgänge für die Auswahl – unabhängig vom aktiven Filter.
+  const allYears = await db.economicPlan.findMany({
+    where: { propertyId: property.id },
+    orderBy: { year: "desc" },
+    select: { year: true },
+  });
+
   const currentYear = new Date().getFullYear();
-  const suggestedYear = plans.some((p) => p.year === currentYear) ? currentYear + 1 : currentYear;
+  // Bewusst gegen ALLE Jahrgänge geprüft, nicht gegen die gefilterte Liste –
+  // sonst schlüge das Formular bei aktivem Filter ein falsches Jahr vor.
+  const suggestedYear = allYears.some((p) => p.year === currentYear) ? currentYear + 1 : currentYear;
+
+  const yearFilters: FilterConfig[] = [
+    {
+      key: "jahr",
+      label: "Jahr",
+      allLabel: "Alle Jahre",
+      primary: true,
+      options: allYears.map((p) => ({ value: String(p.year), label: String(p.year) })),
+    },
+  ];
 
   return (
     <>
@@ -85,8 +106,14 @@ export default async function WirtschaftsplanListPage({
         </Card>
 
         <Card title="Wirtschaftspläne">
+          {allYears.length > 1 ? <FilterBar className="mb-3" filters={yearFilters} /> : null}
+
           {plans.length === 0 ? (
-            <EmptyState>Noch kein Wirtschaftsplan vorhanden.</EmptyState>
+            <EmptyState>
+              {jahr
+                ? "Für dieses Jahr liegt kein Wirtschaftsplan vor."
+                : "Noch kein Wirtschaftsplan vorhanden."}
+            </EmptyState>
           ) : (
             <div className="grid gap-3">
               {plans.map((p) => {

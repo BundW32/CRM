@@ -1,13 +1,28 @@
 import Link from "next/link";
-import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import type { Prisma } from "@/generated/prisma/client";
+import { Alert, Card, EmptyState, Field, PageTitle, Pagination, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { bookingKindLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
+import { optionsFrom } from "@/lib/list-filters";
+import { normalizeSearch, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { createBooking, createTransfer } from "./actions";
 import { ImportClient } from "./ImportClient";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { datum: "bookingDate", betrag: "amountCents", erfasst: "createdAt" } as const;
+
+const sortOptions = [
+  { value: "datum", label: "Buchungsdatum" },
+  { value: "betrag", label: "Betrag" },
+  { value: "erfasst", label: "Erfasst am" },
+];
 
 // Kontostand: Anfangsbestand + Σ EINNAHME − Σ AUSGABE ± UMBUCHUNGen
 function balanceFor(
@@ -42,13 +57,47 @@ export default async function WegBuchhaltungPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{ gespeichert?: string; fehler?: string; import?: string; uebersprungen?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const { propertyId } = await params;
   const { property } = await requireWegProperty(propertyId);
   const sp = await searchParams;
+  const currentPage = parsePage(sp.page);
 
-  const [accounts, costTypes, sums, bookings, batches] = await Promise.all([
+  // ── Filter für die Buchungsliste ──
+  // Die Kontostände (groupBy) bleiben bewusst UNGEFILTERT: ein Saldo, der sich
+  // je nach Filter ändert, wäre schlicht falsch.
+  const q = normalizeSearch(sp.q);
+  const kontoId = sp.konto;
+  const kostenartId = sp.kostenart;
+  const bkind = sp.bkind && sp.bkind in bookingKindLabels ? sp.bkind : undefined;
+  const jahr = /^\d{4}$/.test(sp.jahr ?? "") ? Number(sp.jahr) : undefined;
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "datum", "desc");
+
+  // `propertyId` steht als erste Bedingung fest – Konto/Kostenart können damit
+  // nur INNERHALB dieses Objekts verengen. Eine fremde ID liefert schlicht
+  // keine Treffer und gibt nichts preis.
+  const bookingAnd: Prisma.BookingWhereInput[] = [{ propertyId: property.id }];
+  if (q) {
+    bookingAnd.push({
+      OR: [
+        { text: { contains: q, mode: "insensitive" } },
+        { reference: { contains: q, mode: "insensitive" } },
+        { counterparty: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (bkind) bookingAnd.push({ kind: bkind as Prisma.BookingWhereInput["kind"] });
+  if (kontoId) bookingAnd.push({ accountId: kontoId });
+  if (kostenartId) bookingAnd.push({ costTypeId: kostenartId });
+  if (jahr) {
+    bookingAnd.push({
+      bookingDate: { gte: new Date(jahr, 0, 1), lt: new Date(jahr + 1, 0, 1) },
+    });
+  }
+  const bookingWhere: Prisma.BookingWhereInput = { AND: bookingAnd };
+
+  const [accounts, costTypes, sums, bookingTotal, bookings, batches] = await Promise.all([
     db.ledgerAccount.findMany({
       where: { propertyId: property.id, active: true },
       orderBy: [{ kind: "asc" }, { createdAt: "asc" }],
@@ -63,14 +112,16 @@ export default async function WegBuchhaltungPage({
       where: { propertyId: property.id },
       _sum: { amountCents: true },
     }),
+    db.booking.count({ where: bookingWhere }),
     db.booking.findMany({
-      where: { propertyId: property.id },
+      where: bookingWhere,
       include: {
         account: { select: { name: true, kind: true } },
         costType: { select: { name: true } },
       },
-      orderBy: [{ bookingDate: "desc" }, { createdAt: "desc" }],
-      take: 100,
+      orderBy: toOrderBy(sort.field, sort.dir) as Prisma.BookingOrderByWithRelationInput,
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
     }),
     db.bankImportBatch.findMany({
       where: { propertyId: property.id },
@@ -82,6 +133,50 @@ export default async function WegBuchhaltungPage({
 
   const giro = accounts.filter((a) => a.kind === "GIRO");
   const ruecklage = accounts.filter((a) => a.kind === "RUECKLAGE");
+
+  const totalPages = Math.max(1, Math.ceil(bookingTotal / PAGE_SIZE));
+  const hasBookingFilter = Boolean(q || bkind || jahr || kontoId || kostenartId);
+
+  // Jahres-Auswahl aus dem Bestand ableiten (kein leerer Jahrgang in der Liste).
+  const oldest = await db.booking.findFirst({
+    where: { propertyId: property.id },
+    orderBy: { bookingDate: "asc" },
+    select: { bookingDate: true },
+  });
+  const thisYear = new Date().getFullYear();
+  const firstYear = oldest ? oldest.bookingDate.getFullYear() : thisYear;
+  const yearOptions = Array.from({ length: thisYear - firstYear + 1 }, (_, i) => {
+    const y = thisYear - i;
+    return { value: String(y), label: String(y) };
+  });
+
+  const bookingFilters: FilterConfig[] = [
+    { key: "jahr", label: "Jahr", allLabel: "Alle Jahre", primary: true, options: yearOptions },
+    { key: "bkind", label: "Art", allLabel: "Alle Arten", options: optionsFrom(bookingKindLabels) },
+    {
+      key: "konto",
+      label: "Konto",
+      allLabel: "Alle Konten",
+      options: accounts.map((a) => ({ value: a.id, label: a.name })),
+    },
+    {
+      key: "kostenart",
+      label: "Kostenart",
+      allLabel: "Alle Kostenarten",
+      options: costTypes.map((c) => ({ value: c.id, label: c.name })),
+    },
+  ];
+
+  // Paginierung muss alle aktiven Filter mittragen.
+  function pageHref(p: number) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "page") params.set(k, v);
+    }
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return `/verwaltung/weg/${property.id}/buchhaltung${qs ? `?${qs}` : ""}`;
+  }
 
   return (
     <>
@@ -323,9 +418,25 @@ export default async function WegBuchhaltungPage({
         </Card>
 
         {/* Buchungsliste */}
-        <Card title={`Buchungen (letzte ${bookings.length})`}>
+        <Card title={`Buchungen (${bookingTotal})`}>
+          <FilterBar
+            className="mb-3"
+            searchPlaceholder="Suchen"
+            searchHint="Nach Text, Verwendungszweck oder Zahlungspartner suchen"
+            filters={bookingFilters}
+          />
+          <div className="mb-3 flex items-center justify-between gap-3 px-1">
+            <p className="text-xs text-gray-400">
+              {bookingTotal} {bookingTotal === 1 ? "Buchung" : "Buchungen"}
+              {hasBookingFilter ? " (gefiltert)" : ""}
+            </p>
+            {bookingTotal > 0 ? <SortControl sortOptions={sortOptions} defaultSort="datum" /> : null}
+          </div>
+
           {bookings.length === 0 ? (
-            <EmptyState>Noch keine Buchungen.</EmptyState>
+            <EmptyState>
+              {hasBookingFilter ? "Keine Buchungen gefunden." : "Noch keine Buchungen."}
+            </EmptyState>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
@@ -387,6 +498,14 @@ export default async function WegBuchhaltungPage({
               </table>
             </div>
           )}
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            total={bookingTotal}
+            itemLabel="Buchungen"
+            hrefFor={pageHref}
+          />
         </Card>
       </div>
     </>

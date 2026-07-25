@@ -16,14 +16,24 @@ export function NewUserForm({
   isSuperAdmin,
   selfManaged = false,
   zurueck = "/verwaltung/nutzer",
+  presetRole,
 }: {
   properties: Property[];
   isSuperAdmin: boolean;
   selfManaged?: boolean;
   /** Rücksprungpfad nach dem Anlegen. */
   zurueck?: string;
+  /**
+   * Rolle von außen vorgegeben (Kontakte-Seite): Dort wählt man die Art des
+   * Kontakts ganz oben, und daraus folgt erst, ob überhaupt ein Zugang entsteht.
+   * Die eigene Rollenauswahl entfällt dann – sie stünde sonst doppelt da.
+   */
+  presetRole?: string;
 }) {
-  const [role, setRole] = useState(selfManaged ? "EIGENTUEMER" : "MIETER");
+  const [role, setRole] = useState(presetRole ?? (selfManaged ? "EIGENTUEMER" : "MIETER"));
+
+  // Vorgabe von außen gewinnt: Wechselt die Art oben, wechselt hier die Rolle mit.
+  const effectiveRole = presetRole ?? role;
   const [propertyId, setPropertyId] = useState("");
   const [unitId, setUnitId] = useState("");
   const [units, setUnits] = useState<UnitOption[]>([]);
@@ -77,26 +87,30 @@ export function NewUserForm({
           <option value="POST">Post</option>
         </select>
       </Field>
-      <Field label="Rolle">
-        <select
-          name="role"
-          required
-          className={inputClass}
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-        >
-          {/* Selbstverwaltung: keine Mieter/Handwerker-Konten (kein professionelles
-              Mietverhältnis) – nur Eigentümer und (für den internen Admin) Verwalter. */}
-          {!selfManaged ? <option value="MIETER">Mieter</option> : null}
-          <option value="EIGENTUEMER">Eigentümer</option>
-          {/* Handwerker bekommen bewusst kein Portalkonto – sie werden unter
-              „Kontakte" gepflegt und erhalten ihre Aufträge per E-Mail-Link. */}
-          {isSuperAdmin ? <option value="VERWALTER">Verwalter</option> : null}
-        </select>
-      </Field>
+      {presetRole ? (
+        <input type="hidden" name="role" value={presetRole} />
+      ) : (
+        <Field label="Rolle">
+          <select
+            name="role"
+            required
+            className={inputClass}
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+          >
+            {/* Selbstverwaltung: keine Mieter/Handwerker-Konten (kein professionelles
+                Mietverhältnis) – nur Eigentümer und (für den internen Admin) Verwalter. */}
+            {!selfManaged ? <option value="MIETER">Mieter</option> : null}
+            <option value="EIGENTUEMER">Eigentümer</option>
+            {/* Handwerker bekommen bewusst kein Portalkonto – sie werden unter
+                „Kontakte" gepflegt und erhalten ihre Aufträge per E-Mail-Link. */}
+            {isSuperAdmin ? <option value="VERWALTER">Verwalter</option> : null}
+          </select>
+        </Field>
+      )}
 
       {/* Mieter: Objekt → Wohnung gekoppelt */}
-      {role === "MIETER" ? (
+      {effectiveRole === "MIETER" ? (
         <>
           <Field label="Objekt (bei Rolle Mieter)">
             <select
@@ -132,7 +146,7 @@ export function NewUserForm({
       ) : null}
 
       {/* Eigentümer: nur Objekt */}
-      {role === "EIGENTUEMER" ? (
+      {effectiveRole === "EIGENTUEMER" ? (
         <Field label="Objekt (bei Rolle Eigentümer)">
           <select name="propertyId" className={inputClass} defaultValue="">
             <option value="">– Keins –</option>

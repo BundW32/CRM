@@ -1,5 +1,8 @@
+import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { inputClass } from "@/components/ui";
+import { hasCertMandate } from "@/lib/cert-mandate";
+import { formatDate } from "@/lib/labels";
 import { db } from "@/lib/db";
 import type { User } from "@/generated/prisma/client";
 import { AddTenancyForm } from "./add-tenancy-form";
@@ -113,9 +116,14 @@ export function PersonEinstellungen({
           <form action={anonymizeUser}>
             <input type="hidden" name="zurueck" value={zurueck} />
             <input type="hidden" name="id" value={u.id} />
-            <button type="submit" className="text-xs text-red-600 hover:underline">
+            {/* Unwiderruflich – deshalb Rückfrage statt sofortigem Vollzug. */}
+            <ConfirmActionButton
+              className="text-xs text-red-600 hover:underline"
+              confirmLabel="Endgültig löschen?"
+              pendingLabel="Wird gelöscht…"
+            >
               DSGVO-Löschung
-            </button>
+            </ConfirmActionButton>
           </form>
         ) : null}
       </div>
@@ -342,6 +350,29 @@ export function PersonEinstellungen({
             Unterschrift mit Finger oder Maus zeichnen. Wird automatisch
             in generierte Bescheinigungen eingefügt.
           </p>
+
+          {/* Vollmacht: nur der Eigentümer selbst kann sie erteilen. Hier steht
+              deshalb ausschließlich der Status – ohne ihn liefe der Verwalter
+              erst beim Erstellen der Bescheinigung in die Sperre. */}
+          {u.role === "EIGENTUEMER" ? (
+            <div className="mt-3 border-t border-gray-100 pt-3">
+              {hasCertMandate(u) ? (
+                <p className="text-[11px] text-green-700">
+                  Vollmacht für Bescheinigungen erteilt
+                  {u.certMandateGrantedAt ? ` am ${formatDate(u.certMandateGrantedAt)}` : ""}.
+                  {u.signatureSelfSigned
+                    ? " Eigenhändige Unterschrift liegt vor."
+                    : " Ohne eigenhändige Unterschrift erscheinen Bescheinigungen mit dem Zusatz „i. A.“."}
+                </p>
+              ) : (
+                <p className="text-[11px] text-amber-700">
+                  Keine Vollmacht erteilt – es können keine Bescheinigungen im Namen dieses
+                  Eigentümers erstellt werden. Er erteilt sie selbst unter „Konto →
+                  Unterschrift &amp; Vollmacht“.
+                </p>
+              )}
+            </div>
+          ) : null}
         </form>
       ) : null}
     </div>

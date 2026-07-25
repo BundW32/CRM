@@ -108,6 +108,7 @@ export async function uploadStammdaten(formData: FormData) {
       zip: string | null;
       city: string | null;
       signatureStoredName?: string;
+      signatureSelfSigned?: boolean;
     } = {
       street: String(formData.get("street") ?? "").trim().slice(0, 200) || null,
       zip: String(formData.get("zip") ?? "").trim().slice(0, 20) || null,
@@ -123,12 +124,17 @@ export async function uploadStammdaten(formData: FormData) {
         if (user.signatureStoredName) await deleteBlob(user.signatureStoredName);
         const upload = await saveBuffer(buffer, "unterschrift.png", "image/png", IMAGE_TYPES);
         data.signatureStoredName = upload.storedName;
+        // Fremderfassung: Diese Unterschrift hat der Verwalter gezeichnet, nicht
+        // die Person selbst. Sie darf deshalb nicht unter deren Namen erscheinen
+        // (Bescheinigungen laufen dann über den „i. A."-Weg). Überschreibt eine
+        // zuvor eigenhändig geleistete Unterschrift bewusst mit `false`.
+        data.signatureSelfSigned = false;
       }
     }
 
     await db.user.update({ where: { id }, data });
     revalidatePath("/verwaltung/nutzer");
-    redirect(zurueckZu(formData, "?stammdaten=1"));
+    redirect(zurueckZu(formData, "?flash=stammdaten-gespeichert"));
   } catch (e) {
     if (isNextControlFlowError(e)) throw e; // redirect()/notFound() durchlassen
     redirect(zurueckZu(formData, `?fehler=stammdaten&msg=${encodeURIComponent(errorMessage(e))}`));
@@ -399,7 +405,7 @@ export async function anonymizeUser(formData: FormData) {
   }
 
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZurListe(formData, "?anonymisiert=1"));
+  redirect(zurueckZurListe(formData, "?flash=nutzer-geloescht"));
 }
 
 export async function toggleUserActive(formData: FormData) {

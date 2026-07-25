@@ -28,8 +28,6 @@ export default async function UsersPage({
     fehler?: string;
     msg?: string;
     eingeladen?: string;
-    anonymisiert?: string;
-    stammdaten?: string;
     q?: string;
     rolle?: string;
     objekt?: string;
@@ -38,7 +36,7 @@ export default async function UsersPage({
 }) {
   const verwalter = await requireVerwalter();
   const selfManaged = isSelfManaged(await getOrganization());
-  const { fehler, msg, eingeladen, anonymisiert, stammdaten, q, rolle, objekt, page } =
+  const { fehler, msg, eingeladen, q, rolle, objekt, page } =
     await searchParams;
 
   // Filter (Rolle, Objekt/Region, Suche) zusätzlich zum Scope des Verwalters.
@@ -154,16 +152,10 @@ export default async function UsersPage({
           Einladungs-E-Mail wurde versandt (sofern SMTP konfiguriert ist).
         </Alert>
       ) : null}
-      {anonymisiert ? (
-        <Alert variant="success" className="mb-4">
-          Der Nutzer wurde anonymisiert (DSGVO-Löschung). Personenbezogene Daten wurden entfernt.
-        </Alert>
-      ) : null}
-      {stammdaten ? (
-        <Alert variant="success" className="mb-4">
-          Stammdaten/Unterschrift gespeichert.
-        </Alert>
-      ) : null}
+      {/* Erfolgsmeldungen von DSGVO-Löschung und Stammdaten laufen jetzt über
+          den ToastHost (`?flash=…`) – sie erreichen so auch den Rücksprung nach
+          „Kontakte", wo bisher gar keine Rückmeldung ankam. Fehler bleiben als
+          Banner stehen: Sie sollen nicht nach Sekunden verschwinden. */}
       {fehler ? (
         <Alert variant="error" className="mb-4">
           {errorMessages[fehler] ?? "Aktion fehlgeschlagen."}

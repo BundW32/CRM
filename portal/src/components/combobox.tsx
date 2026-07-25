@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, X } from "lucide-react";
-import { fieldFillClass } from "@/components/ui";
+import { fieldFillClass, fieldOnDarkClass } from "@/components/ui";
 
 export type ComboOption = { value: string; label: string; sublabel?: string };
 
@@ -36,6 +36,7 @@ export function Combobox({
   onClear,
   disabled = false,
   disabledHint,
+  tone = "onLight",
   className = "",
 }: {
   label: string;
@@ -48,6 +49,8 @@ export function Combobox({
   onClear: () => void;
   disabled?: boolean;
   disabledHint?: string;
+  /** Feld-Optik: auf heller Fläche oder auf dem dunklen Shell-Hintergrund. */
+  tone?: "onLight" | "onDark";
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -70,6 +73,18 @@ export function Combobox({
 
   const selected = value ? options.find((o) => o.value === value) : undefined;
   const selectedLabel = selected?.label ?? (value ? valueLabel ?? "" : "");
+
+  // Optik je Untergrund. Das Menü selbst bleibt in beiden Fällen hell – es liegt
+  // über dem Inhalt (wie Systemmenüs über einer dunklen Werkzeugleiste).
+  const dark = tone === "onDark";
+  const fieldClass = dark ? fieldOnDarkClass : fieldFillClass;
+  const iconClass = dark ? "text-gray-400" : "text-gray-400";
+  const iconDisabledClass = dark ? "text-gray-600" : "text-gray-300";
+  const valueTextClass = dark ? "text-gray-100" : "text-gray-900";
+  const placeholderTextClass = dark ? "text-gray-400" : "text-gray-400";
+  const disabledFieldClass = dark
+    ? "disabled:cursor-not-allowed disabled:bg-white/[0.03] disabled:text-gray-500 disabled:ring-white/5 disabled:hover:bg-white/[0.03]"
+    : "disabled:cursor-not-allowed disabled:bg-gray-100/60 disabled:text-gray-400 disabled:hover:bg-gray-100/60";
 
   // Sichtbare Optionen: gefiltert (Teilstring) + sortiert (frühester Treffer zuerst).
   const filtered = useMemo(() => {
@@ -133,7 +148,7 @@ export function Combobox({
           }}
           onKeyDown={onKeyDown}
           placeholder={selectedLabel || placeholder}
-          className={`${fieldFillClass} pr-8`}
+          className={`${fieldClass} pr-8`}
           autoComplete="off"
           role="combobox"
           aria-label={label}
@@ -147,9 +162,9 @@ export function Combobox({
           onClick={openMenu}
           aria-label={label}
           title={disabled ? disabledHint : undefined}
-          className={`${fieldFillClass} flex items-center gap-2 pr-8 text-left disabled:cursor-not-allowed disabled:bg-gray-100/60 disabled:text-gray-400 disabled:hover:bg-gray-100/60`}
+          className={`${fieldClass} flex items-center gap-2 pr-8 text-left ${disabledFieldClass}`}
         >
-          <span className={`truncate ${selectedLabel ? "text-gray-900" : "text-gray-400"}`}>
+          <span className={`truncate ${selectedLabel ? valueTextClass : placeholderTextClass}`}>
             {selectedLabel || (disabled && disabledHint ? disabledHint : placeholder)}
           </span>
         </button>
@@ -164,13 +179,13 @@ export function Combobox({
             close();
           }}
           aria-label={`${label} zurücksetzen`}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded text-gray-400 transition hover:text-red-600"
+          className={`absolute right-2.5 top-1/2 -translate-y-1/2 rounded transition hover:text-red-500 ${iconClass}`}
         >
           <X className="h-4 w-4" />
         </button>
       ) : (
         <ChevronDown
-          className={`pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 ${disabled ? "text-gray-300" : "text-gray-400"}`}
+          className={`pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 ${disabled ? iconDisabledClass : iconClass}`}
         />
       )}
 

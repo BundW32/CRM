@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDownUp, Check, ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
-import { fieldFillClass, inputClass } from "@/components/ui";
+import { fieldOnDarkClass, inputClass } from "@/components/ui";
 import { Combobox, type ComboOption } from "@/components/combobox";
 
 // ── Typen ────────────────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ function SearchBox({ paramKey, placeholder }: { paramKey: string; placeholder: s
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className={`${fieldFillClass} pl-9`}
+        className={`${fieldOnDarkClass} pl-9`}
         autoComplete="off"
       />
     </div>
@@ -108,15 +108,19 @@ function SelectFilter({ config }: { config: FilterConfig }) {
   const value = searchParams.get(config.key) ?? "";
   return (
     <div className="relative">
+      {/* Die aufgeklappte Liste rendert das Betriebssystem – Optionen daher
+          explizit hell einfärben, damit sie nicht die dunkle Feldfarbe erben. */}
       <select
         value={value}
         onChange={(e) => apply({ [config.key]: e.target.value })}
         aria-label={config.label}
-        className={`${fieldFillClass} w-auto cursor-pointer appearance-none ${value ? "pr-14 text-gray-900" : "pr-8 text-gray-400"}`}
+        className={`${fieldOnDarkClass} w-auto cursor-pointer appearance-none [&>option]:bg-white [&>option]:text-gray-900 ${
+          value ? "pr-14 text-gray-100" : "pr-8 text-gray-400"
+        }`}
       >
         <option value="">{config.allLabel ?? config.label}</option>
         {config.options.map((o) => (
-          <option key={o.value} value={o.value} className="text-gray-900">
+          <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
@@ -159,10 +163,10 @@ function MoreFilters({ filters }: { filters: FilterConfig[] }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className={`inline-flex h-9 items-center gap-2 rounded-[10px] px-3 text-sm font-medium transition ${
+        className={`inline-flex h-9 items-center gap-2 rounded-[10px] px-3 text-sm font-medium ring-1 ring-inset transition ${
           activeCount > 0
-            ? "bg-brand-orange-light text-brand-orange-ink"
-            : "bg-gray-100/80 text-gray-600 hover:bg-gray-200/50"
+            ? "bg-brand-orange/15 text-brand-orange ring-brand-orange/35"
+            : "bg-white/[0.07] text-gray-300 ring-white/10 hover:bg-white/[0.12]"
         }`}
       >
         <SlidersHorizontal className="h-4 w-4" />
@@ -230,14 +234,14 @@ function SecondaryChips({ filters }: { filters: FilterConfig[] }) {
       {chips.map((c) => (
         <span
           key={c.key}
-          className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600"
+          className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.09] px-2.5 py-1 text-xs font-medium text-gray-300"
         >
           {c.text}
           <button
             type="button"
             onClick={() => apply({ [c.key]: null })}
             aria-label={`Filter „${c.text}" entfernen`}
-            className="text-gray-400 hover:text-red-600"
+            className="text-gray-400 hover:text-red-400"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -281,8 +285,9 @@ export function FilterBar({
     filters.some((f) => searchParams.get(f.key)) ||
     comboboxes.some((c) => searchParams.get(c.key));
 
+  // Kein Container: die Felder schweben direkt auf dem dunklen Shell-Hintergrund.
   return (
-    <div className={`rounded-2xl bg-white p-2 shadow-e1 ring-1 ring-gray-200/70 ${className}`}>
+    <div className={className}>
       <div className="flex flex-wrap items-center gap-2">
         {searchPlaceholder ? <SearchBox paramKey={searchParamKey} placeholder={searchPlaceholder} /> : null}
 
@@ -302,6 +307,7 @@ export function FilterBar({
             disabledHint={c.disabledHint}
             onSelect={(v) => applyCombo(c, v)}
             onClear={() => applyCombo(c, null)}
+            tone="onDark"
             className="min-w-[10.5rem]"
           />
         ))}
@@ -310,12 +316,12 @@ export function FilterBar({
       </div>
 
       {anyActive ? (
-        <div className="mt-2 flex flex-wrap items-center gap-2 px-1">
+        <div className="mt-2 flex flex-wrap items-center gap-2 px-0.5">
           <SecondaryChips filters={secondaryFilters} />
           <button
             type="button"
             onClick={() => router.replace(pathname, { scroll: false })}
-            className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-gray-400 transition hover:text-red-600"
+            className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-gray-400 transition hover:text-red-400"
           >
             <X className="h-3.5 w-3.5" />
             Alle zurücksetzen
@@ -363,11 +369,11 @@ export function SortControl({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-gray-400 transition hover:bg-white/[0.07] hover:text-gray-200"
       >
         <ArrowDownUp className="h-3.5 w-3.5" />
         {current.label}
-        <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+        <ChevronDown className="h-3.5 w-3.5 opacity-70" />
       </button>
 
       {open ? (

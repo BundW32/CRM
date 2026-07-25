@@ -1,5 +1,7 @@
 import { PageTitle, Pagination } from "@/components/ui";
+import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
+import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { requirePlatformAdmin } from "@/lib/platform";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -47,18 +49,32 @@ function actionClass(action: string) {
 export default async function PlatformAuditPage({
   searchParams,
 }: {
-  searchParams: Promise<{ action?: string; system?: string; seite?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   await requirePlatformAdmin();
-  const { action: filterAction, system, seite } = await searchParams;
-  const page = Math.max(1, parseInt(seite ?? "1", 10));
+  const sp = await searchParams;
+  const filterAction = sp.action && FILTER_ACTIONS.includes(sp.action) ? sp.action : undefined;
+  const system = sp.system;
+  const page = parsePage(sp.seite);
   const pageSize = 50;
   const skip = (page - 1) * pageSize;
+  const q = normalizeSearch(sp.q);
 
   // KEIN Org-Filter (Betreiber-Sicht). Optional: nur System-Einträge (kein Akteur).
-  const where: Prisma.AuditLogWhereInput = {};
-  if (filterAction) where.action = filterAction;
-  if (system === "1") where.actorId = null;
+  const and: Prisma.AuditLogWhereInput[] = [];
+  if (filterAction) and.push({ action: filterAction });
+  if (system === "1") and.push({ actorId: null });
+  if (q) {
+    and.push({
+      OR: [
+        { actor: { name: { contains: q, mode: "insensitive" } } },
+        { actor: { organization: { name: { contains: q, mode: "insensitive" } } } },
+        { targetId: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  const where: Prisma.AuditLogWhereInput = and.length > 0 ? { AND: and } : {};
+  const hasFilter = Boolean(filterAction || system === "1" || q);
 
   const [total, logs] = await Promise.all([
     db.auditLog.count({ where }),
@@ -74,24 +90,35 @@ export default async function PlatformAuditPage({
   ]);
   const totalPages = Math.ceil(total / pageSize);
 
-  const chipCls = (active: boolean) =>
-    `rounded-full border px-3 py-1 text-xs font-medium transition ${
-      active ? "border-brand-orange bg-brand-orange text-white" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-    }`;
+  const auditFilters: FilterConfig[] = [
+    {
+      key: "action",
+      label: "Aktion",
+      allLabel: "Alle Aktionen",
+      primary: true,
+      options: FILTER_ACTIONS.map((a) => ({ value: a, label: ACTION_LABELS[a] ?? a })),
+    },
+    {
+      key: "system",
+      label: "Herkunft",
+      allLabel: "Alle",
+      options: [{ value: "1", label: "Nur System (ohne Akteur)" }],
+    },
+  ];
 
   return (
     <>
       <PageTitle>Audit-Log (plattformweit)</PageTitle>
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <a href="/plattform/audit" className={chipCls(!filterAction && system !== "1")}>Alle</a>
-        <a href="/plattform/audit?system=1" className={chipCls(system === "1")}>System</a>
-        {FILTER_ACTIONS.map((a) => (
-          <a key={a} href={`/plattform/audit?action=${a}`} className={chipCls(filterAction === a)}>
-            {ACTION_LABELS[a] ?? a}
-          </a>
-        ))}
-      </div>
+      <FilterBar
+        searchPlaceholder="Suchen"
+        searchHint="Nach Akteur, Verwaltung oder Zielobjekt-ID suchen"
+        filters={auditFilters}
+      />
+      <p className="mb-3 mt-2 px-1 text-xs text-gray-400">
+        {total} {total === 1 ? "Eintrag" : "Einträge"}
+        {hasFilter ? " (gefiltert)" : ""}
+      </p>
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full text-sm">
@@ -150,7 +177,15 @@ export default async function PlatformAuditPage({
         currentPage={page}
         totalPages={totalPages}
         total={total}
-        hrefFor={(p) => `/plattform/audit?${filterAction ? `action=${filterAction}&` : ""}${system === "1" ? "system=1&" : ""}seite=${p}`}
+        hrefFor={(p) => {
+          const params = new URLSearchParams();
+          for (const [k, v] of Object.entries(sp)) {
+            if (v && k !== "seite") params.set(k, v);
+          }
+          if (p > 1) params.set("seite", String(p));
+          const qs = params.toString();
+          return `/plattform/audit${qs ? `?${qs}` : ""}`;
+        }}
       />
     </>
   );

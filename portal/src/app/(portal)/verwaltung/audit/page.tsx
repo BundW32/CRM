@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
+import type { Prisma } from "@/generated/prisma/client";
 import { PageTitle, Pagination } from "@/components/ui";
+import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
+import { optionsFrom } from "@/lib/list-filters";
+import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -26,23 +30,37 @@ function actionClass(action: string) {
 export default async function AuditPage({
   searchParams,
 }: {
-  searchParams: Promise<{ action?: string; seite?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const verwalter = await requireVerwalter();
   if (!verwalter.isSuperAdmin) redirect("/verwaltung");
 
-  const { action: filterAction, seite } = await searchParams;
-  const page = Math.max(1, parseInt(seite ?? "1", 10));
+  const sp = await searchParams;
+  const filterAction = sp.action && sp.action in ACTION_LABELS ? sp.action : undefined;
+  const page = parsePage(sp.seite);
   const pageSize = 50;
   const skip = (page - 1) * pageSize;
+
+  // Suche über Akteursname und Zielobjekt-ID.
+  const q = normalizeSearch(sp.q);
 
   // Org-Wand: ein SuperAdmin sieht nur Audit-Einträge von Akteuren der eigenen Org.
   // (AuditLog trägt keine eigene organizationId – Filter läuft über die Actor-Relation;
   // systemweite Einträge ohne Akteur sind einem künftigen Plattform-Admin vorbehalten.)
-  const where = {
-    actor: { organizationId: verwalter.organizationId },
-    ...(filterAction ? { action: filterAction } : {}),
-  };
+  const and: Prisma.AuditLogWhereInput[] = [
+    { actor: { organizationId: verwalter.organizationId } },
+  ];
+  if (filterAction) and.push({ action: filterAction });
+  if (q) {
+    and.push({
+      OR: [
+        { actor: { name: { contains: q, mode: "insensitive" } } },
+        { targetId: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  const where: Prisma.AuditLogWhereInput = { AND: and };
+  const hasFilter = Boolean(filterAction || q);
 
   const [total, logs] = await Promise.all([
     db.auditLog.count({ where }),
@@ -56,7 +74,16 @@ export default async function AuditPage({
   ]);
 
   const totalPages = Math.ceil(total / pageSize);
-  const actions = Object.keys(ACTION_LABELS);
+
+  const auditFilters: FilterConfig[] = [
+    {
+      key: "action",
+      label: "Aktion",
+      allLabel: "Alle Aktionen",
+      primary: true,
+      options: optionsFrom(ACTION_LABELS),
+    },
+  ];
 
   return (
     <>
@@ -66,32 +93,15 @@ export default async function AuditPage({
         Audit-Log
       </PageTitle>
 
-      {/* Filter */}
-      <form method="GET" className="mb-4 flex flex-wrap gap-2">
-        <a
-          href="/verwaltung/audit"
-          className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-            !filterAction
-              ? "border-brand-orange bg-brand-orange text-white"
-              : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-          }`}
-        >
-          Alle
-        </a>
-        {actions.map((a) => (
-          <a
-            key={a}
-            href={`/verwaltung/audit?action=${a}`}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-              filterAction === a
-                ? "border-brand-orange bg-brand-orange text-white"
-                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-            }`}
-          >
-            {ACTION_LABELS[a] ?? a}
-          </a>
-        ))}
-      </form>
+      <FilterBar
+        searchPlaceholder="Suchen"
+        searchHint="Nach Akteur oder Zielobjekt-ID suchen"
+        filters={auditFilters}
+      />
+      <p className="mb-3 mt-2 px-1 text-xs text-gray-400">
+        {total} {total === 1 ? "Eintrag" : "Einträge"}
+        {hasFilter ? " (gefiltert)" : ""}
+      </p>
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full text-sm">
@@ -167,7 +177,15 @@ export default async function AuditPage({
         currentPage={page}
         totalPages={totalPages}
         total={total}
-        hrefFor={(p) => `/verwaltung/audit?${filterAction ? `action=${filterAction}&` : ""}seite=${p}`}
+        hrefFor={(p) => {
+          const params = new URLSearchParams();
+          for (const [k, v] of Object.entries(sp)) {
+            if (v && k !== "seite") params.set(k, v);
+          }
+          if (p > 1) params.set("seite", String(p));
+          const qs = params.toString();
+          return `/verwaltung/audit${qs ? `?${qs}` : ""}`;
+        }}
       />
     </>
   );

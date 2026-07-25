@@ -1,10 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Building2, UserRound } from "lucide-react";
 import { inputClass } from "@/components/ui";
 import { contactKindLabels, contactMethodLabels, roleLabels, tradeLabels } from "@/lib/labels";
-import { portalUrl } from "@/lib/url";
 import type { AddressBookEntry } from "@/lib/address-book";
 import {
   deleteCraftsman,
@@ -95,9 +95,12 @@ export function KontaktZeile({ entry }: { entry: AddressBookEntry }) {
             <span className="mt-0.5 block text-xs italic text-gray-400">{entry.notes}</span>
           ) : null}
 
+          {/* Bewusst RELATIV: `portalUrl` liest eine Server-Umgebungsvariable, die
+              im Client nicht existiert – der Link zeigte dort immer auf
+              localhost:3000. Relativ trifft er stets den richtigen Host. */}
           {entry.accessToken ? (
             <a
-              href={portalUrl(`/auftraege/${entry.accessToken}`)}
+              href={`/auftraege/${entry.accessToken}`}
               target="_blank"
               rel="noreferrer"
               className="mt-0.5 block text-xs text-brand-green hover:underline"
@@ -107,14 +110,24 @@ export function KontaktZeile({ entry }: { entry: AddressBookEntry }) {
           ) : null}
         </span>
 
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="shrink-0 text-xs font-medium text-brand-orange-ink hover:underline"
-        >
-          {open ? "Schließen" : "Bearbeiten"}
-        </button>
+        <span className="flex shrink-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className="text-xs font-medium text-brand-orange-ink hover:underline"
+          >
+            {open ? "Schließen" : "Bearbeiten"}
+          </button>
+          {/* Alles Weitere – bei Personen Zugang, Mietverhältnisse, Eigentum
+              und Objektzuweisung – liegt auf der Detailseite. */}
+          <Link
+            href={`/verwaltung/kontakte/${entry.id}`}
+            className="text-xs font-medium text-gray-500 hover:text-brand-green hover:underline"
+          >
+            Öffnen →
+          </Link>
+        </span>
       </div>
 
       {open ? (

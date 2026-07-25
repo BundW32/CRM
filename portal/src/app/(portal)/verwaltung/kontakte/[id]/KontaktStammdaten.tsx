@@ -8,12 +8,15 @@ import { updatePersonContact } from "../actions";
 /** Kontaktdaten einer Person – der Teil, den man im Adressbuch am häufigsten pflegt. */
 export function KontaktStammdaten({
   id,
+  zurueck,
   name,
   email,
   phone,
   preferredContact,
 }: {
   id: string;
+  /** Rücksprungpfad nach dem Speichern. */
+  zurueck: string;
   name: string;
   email: string | null;
   phone: string | null;
@@ -22,6 +25,7 @@ export function KontaktStammdaten({
   return (
     <form action={updatePersonContact} className="grid gap-3 sm:grid-cols-2">
       <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="zurueck" value={zurueck} />
       <label>
         <span className="mb-1 block text-xs text-gray-500">Name</span>
         <input

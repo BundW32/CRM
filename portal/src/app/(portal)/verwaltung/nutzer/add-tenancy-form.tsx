@@ -15,10 +15,13 @@ type Prop = { id: string; name: string };
  */
 export function AddTenancyForm({
   userId,
+  zurueck,
   properties,
   assignedUnitIds,
 }: {
   userId: string;
+  /** Rücksprungpfad nach dem Speichern. */
+  zurueck: string;
   properties: Prop[];
   assignedUnitIds: string[];
 }) {
@@ -46,6 +49,7 @@ export function AddTenancyForm({
   return (
     <form action={addTenancy} className="mt-2 space-y-2">
       <input type="hidden" name="userId" value={userId} />
+      <input type="hidden" name="zurueck" value={zurueck} />
       <select
         value={propertyId}
         onChange={(e) => handlePropertyChange(e.target.value)}

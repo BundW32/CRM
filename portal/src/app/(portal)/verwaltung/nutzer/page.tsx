@@ -143,9 +143,10 @@ export default async function UsersPage({
 
   return (
     <>
-      <PageTitle
-      >
-        Nutzer
+      {/* Nicht mehr im Menü – Personen und Firmen stehen gemeinsam unter
+          „Kontakte". Die Seite bleibt als Zugangs-Übersicht erreichbar. */}
+      <PageTitle back={{ href: "/verwaltung/kontakte", label: "Kontakte" }}>
+        Zugänge
       </PageTitle>
 
       {eingeladen ? (
@@ -257,6 +258,7 @@ export default async function UsersPage({
                     }
                   >
                     <PersonEinstellungen
+                      zurueck="/verwaltung/nutzer"
                       u={u}
                       verwalter={verwalter}
                       properties={properties}

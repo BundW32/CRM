@@ -51,11 +51,14 @@ export function PersonEinstellungen({
   verwalter,
   properties,
   craftsmenForPicker,
+  zurueck,
 }: {
   u: NonNullable<PersonMitBezug>;
   verwalter: User;
   properties: PropertyOption[];
   craftsmenForPicker: CraftsmanOption[];
+  /** Wohin nach dem Speichern zurück – die Aktionen laufen von zwei Seiten. */
+  zurueck: string;
 }) {
   const hasInvitePending =
     u.active &&
@@ -78,6 +81,7 @@ export function PersonEinstellungen({
       <div className="flex flex-wrap items-center gap-3">
         {hasInvitePending ? (
           <form action={resendInvite}>
+            <input type="hidden" name="zurueck" value={zurueck} />
             <input type="hidden" name="id" value={u.id} />
             <button type="submit" className="text-xs text-amber-700 hover:underline">
               Erneut einladen
@@ -86,6 +90,7 @@ export function PersonEinstellungen({
         ) : null}
         {u.active ? (
           <form action={regenerateAccessLetter}>
+            <input type="hidden" name="zurueck" value={zurueck} />
             <input type="hidden" name="id" value={u.id} />
             <button type="submit" className="text-xs text-brand-green hover:underline">
               Zugangsschreiben
@@ -94,6 +99,7 @@ export function PersonEinstellungen({
         ) : null}
         {u.id !== verwalter.id ? (
           <form action={toggleUserActive}>
+            <input type="hidden" name="zurueck" value={zurueck} />
             <input type="hidden" name="id" value={u.id} />
             <button type="submit" className="text-xs text-gray-500 hover:underline">
               {u.active ? "Deaktivieren" : "Aktivieren"}
@@ -105,6 +111,7 @@ export function PersonEinstellungen({
         </a>
         {verwalter.isSuperAdmin && u.id !== verwalter.id ? (
           <form action={anonymizeUser}>
+            <input type="hidden" name="zurueck" value={zurueck} />
             <input type="hidden" name="id" value={u.id} />
             <button type="submit" className="text-xs text-red-600 hover:underline">
               DSGVO-Löschung
@@ -127,6 +134,7 @@ export function PersonEinstellungen({
                     {t.unit.property.name} – {t.unit.label}
                   </span>
                   <form action={removeTenancy}>
+                    <input type="hidden" name="zurueck" value={zurueck} />
                     <input type="hidden" name="id" value={t.id} />
                     <button type="submit" className="text-xs text-red-600 hover:underline">
                       Entfernen
@@ -138,6 +146,7 @@ export function PersonEinstellungen({
           )}
           <AddTenancyForm
             userId={u.id}
+            zurueck={zurueck}
             properties={properties}
             assignedUnitIds={assignedUnitIds}
           />
@@ -156,6 +165,7 @@ export function PersonEinstellungen({
                 <li key={o.id} className="flex items-center justify-between gap-2">
                   <span className="text-xs text-gray-700">{o.property.name}</span>
                   <form action={removeOwnership}>
+                    <input type="hidden" name="zurueck" value={zurueck} />
                     <input type="hidden" name="id" value={o.id} />
                     <button type="submit" className="text-xs text-red-600 hover:underline">
                       Entfernen
@@ -167,6 +177,7 @@ export function PersonEinstellungen({
           )}
           {availableOwnProps.length > 0 ? (
             <form action={addOwnership} className="mt-2 flex flex-wrap items-center gap-2">
+              <input type="hidden" name="zurueck" value={zurueck} />
               <input type="hidden" name="userId" value={u.id} />
               <select name="propertyId" required className={`${inputClass} flex-1 text-xs`}>
                 {availableOwnProps.map((p) => (
@@ -194,6 +205,7 @@ export function PersonEinstellungen({
               <p className="text-xs font-medium text-gray-500">Zuständige Objekte</p>
               {verwalter.isSuperAdmin ? (
                 <form action={toggleSuperAdmin} className="inline">
+                  <input type="hidden" name="zurueck" value={zurueck} />
                   <input type="hidden" name="id" value={u.id} />
                   <button
                     type="submit"
@@ -223,6 +235,7 @@ export function PersonEinstellungen({
                   <li key={a.id} className="flex items-center justify-between gap-2">
                     <span className="text-xs text-gray-700">{a.property.name}</span>
                     <form action={removePropertyAssignment}>
+                      <input type="hidden" name="zurueck" value={zurueck} />
                       <input type="hidden" name="id" value={a.id} />
                       <button type="submit" className="text-xs text-red-600 hover:underline">
                         Entfernen
@@ -235,6 +248,7 @@ export function PersonEinstellungen({
             {!u.isSuperAdmin ? (
               <PropertyAssignPicker
                 userId={u.id}
+                zurueck={zurueck}
                 available={availableMgmtProps.map((p) => ({
                   id: p.id,
                   name: p.name,
@@ -260,6 +274,7 @@ export function PersonEinstellungen({
                         {a.craftsman.name}
                       </span>
                       <form action={removeCraftsmanAssignment}>
+                        <input type="hidden" name="zurueck" value={zurueck} />
                         <input type="hidden" name="id" value={a.id} />
                         <button type="submit" className="text-xs text-red-600 hover:underline">
                           Entfernen
@@ -271,6 +286,7 @@ export function PersonEinstellungen({
               )}
               <CraftsmanAssignPicker
                 userId={u.id}
+                zurueck={zurueck}
                 available={craftsmenForPicker.filter((c) => !assignedCraftIds.has(c.id))}
               />
               <p className="mt-1 text-[11px] text-gray-400">

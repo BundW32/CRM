@@ -1,4 +1,12 @@
-import { Alert, EmptyState, Field, PageTitle, Pagination, inputClass } from "@/components/ui";
+import {
+  Alert,
+  CollapsibleCard,
+  EmptyState,
+  Field,
+  PageTitle,
+  Pagination,
+  inputClass,
+} from "@/components/ui";
 import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { SubmitButton } from "@/components/submit-button";
 import {
@@ -8,7 +16,10 @@ import {
 } from "@/lib/address-book";
 import { contactKindLabels, roleLabels, tradeLabels } from "@/lib/labels";
 import { normalizeSearch, parsePage } from "@/lib/list-query";
-import { requireVerwalter } from "@/lib/session";
+import { getOrganization, requireVerwalter } from "@/lib/session";
+import { isSelfManaged, propertyWhereForVerwalter } from "@/lib/access";
+import { db } from "@/lib/db";
+import { NewUserForm } from "../nutzer/new-user-form";
 import { createCraftsman } from "./actions";
 import { KontaktZeile } from "./KontaktZeile";
 
@@ -32,6 +43,7 @@ export default async function KontaktePage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const verwalter = await requireVerwalter();
+  const selfManaged = isSelfManaged(await getOrganization());
   const params = await searchParams;
   const { fehler, angelegt } = params;
 
@@ -45,6 +57,15 @@ export default async function KontaktePage({
     page: currentPage,
     pageSize: PAGE_SIZE,
   });
+  // Objektliste für das Anlegen einer Person mit Zugang (Mieter/Eigentümer-Zuordnung).
+  const propsForNewUser = (
+    await db.property.findMany({
+      where: await propertyWhereForVerwalter(verwalter),
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    })
+  ).map((p) => ({ id: p.id, name: p.name }));
+
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasFilter = Boolean(q || kind);
 
@@ -124,9 +145,23 @@ export default async function KontaktePage({
           />
         </div>
 
-        {/* Kontakt anlegen – Karteikarte ohne Portalzugang. Zugänge für Mieter,
-            Eigentümer und Verwalter entstehen weiterhin unter „Nutzer“. */}
-        <div>
+        {/* Zwei Wege, einen Kontakt anzulegen – die Weiche ist der Portalzugang:
+            Mieter/Eigentümer/Verwalter bekommen ein Konto, alle übrigen sind
+            reine Karteikarten. */}
+        <div className="space-y-5">
+          <CollapsibleCard title="Person mit Zugang anlegen">
+            <p className="mb-3 text-xs text-gray-500">
+              Mieter, Eigentümer oder Verwalter – erhält einen Portalzugang per E-Mail-Einladung
+              oder Zugangsschreiben.
+            </p>
+            <NewUserForm
+              zurueck="/verwaltung/kontakte"
+              properties={propsForNewUser}
+              isSuperAdmin={verwalter.isSuperAdmin}
+              selfManaged={selfManaged}
+            />
+          </CollapsibleCard>
+
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <h2 className="mb-1 text-base font-semibold text-gray-900">Kontakt hinzufügen</h2>
             <p className="mb-4 text-xs text-gray-500">

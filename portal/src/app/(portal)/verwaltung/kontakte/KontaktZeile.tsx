@@ -135,6 +135,7 @@ export function KontaktZeile({ entry }: { entry: AddressBookEntry }) {
           {isPerson ? (
             <form action={updatePersonContact} className="grid gap-2 sm:grid-cols-2">
               <input type="hidden" name="id" value={entry.id} />
+              <input type="hidden" name="zurueck" value="/verwaltung/kontakte" />
               <label>
                 <span className="mb-1 block text-xs text-gray-500">Name</span>
                 <input

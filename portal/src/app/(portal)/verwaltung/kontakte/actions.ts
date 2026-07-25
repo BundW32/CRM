@@ -8,6 +8,17 @@ import { canVerwalterManageUser, canVerwalterUseCraftsman } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 
+// Rücksprung: `updatePersonContact` läuft aus der Adressbuch-Zeile UND von der
+// Kontakt-Detailseite. Der Pfad wird gegen ein festes Muster geprüft, damit über
+// ein untergeschobenes Feld keine Weiterleitung auf fremde Adressen möglich ist.
+const ZURUECK_ERLAUBT = /^\/verwaltung\/kontakte(\/[A-Za-z0-9_-]+)?$/;
+
+function zurueckZu(formData: FormData, suffix = ""): string {
+  const raw = String(formData.get("zurueck") ?? "").trim();
+  const base = ZURUECK_ERLAUBT.test(raw) ? raw : "/verwaltung/kontakte";
+  return base + suffix;
+}
+
 const TRADES = [
   "SANITAER", "HEIZUNG", "ELEKTRO", "DACH", "MALER", "BODENLEGER",
   "FENSTER_TUEREN", "SCHLOSSEREI", "GARTEN", "REINIGUNG",
@@ -130,7 +141,7 @@ export async function updatePersonContact(formData: FormData) {
 
   // Scope-Prüfung: nur Personen im eigenen Zuständigkeitsbereich bearbeiten.
   if (!id || !(await canVerwalterManageUser(verwalter, id))) {
-    redirect("/verwaltung/kontakte");
+    redirect(zurueckZu(formData));
   }
 
   const parsed = personSchema.safeParse({
@@ -139,7 +150,7 @@ export async function updatePersonContact(formData: FormData) {
     phone: formData.get("phone") || undefined,
   });
   if (!parsed.success) {
-    redirect("/verwaltung/kontakte?fehler=eingabe");
+    redirect(zurueckZu(formData, "?fehler=eingabe"));
   }
   const email = parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null;
 
@@ -147,7 +158,7 @@ export async function updatePersonContact(formData: FormData) {
   if (email) {
     const existing = await db.user.findUnique({ where: { email }, select: { id: true } });
     if (existing && existing.id !== id) {
-      redirect("/verwaltung/kontakte?fehler=email");
+      redirect(zurueckZu(formData, "?fehler=email"));
     }
   }
 
@@ -156,7 +167,7 @@ export async function updatePersonContact(formData: FormData) {
     data: { name: parsed.data.name, email, phone: parsed.data.phone || null, preferredContact },
   });
   revalidatePath("/verwaltung/kontakte");
-  redirect("/verwaltung/kontakte");
+  redirect(zurueckZu(formData));
 }
 
 export async function updateCraftsman(formData: FormData) {

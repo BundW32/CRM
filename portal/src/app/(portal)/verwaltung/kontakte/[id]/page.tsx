@@ -79,6 +79,7 @@ export default async function KontaktDetailPage({
           <Card title="Kontaktdaten">
             <KontaktStammdaten
               id={person.id}
+              zurueck={`/verwaltung/kontakte/${person.id}`}
               name={person.name}
               email={person.email}
               phone={person.phone}
@@ -87,6 +88,7 @@ export default async function KontaktDetailPage({
           </Card>
 
           <PersonEinstellungen
+            zurueck={`/verwaltung/kontakte/${person.id}`}
             u={person}
             verwalter={verwalter}
             properties={properties}

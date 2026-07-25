@@ -1,14 +1,27 @@
 import Link from "next/link";
-import { Pagination, Alert, EmptyState, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import type { Prisma } from "@/generated/prisma/client";
+import { Pagination, Alert, EmptyState, PageTitle, buttonClass } from "@/components/ui";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
+import { optionsFrom } from "@/lib/list-filters";
+import { parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 import { PropertyRow } from "./property-row";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 15;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { name: "name", ort: "city", angelegt: "createdAt" } as const;
+
+const sortOptions = [
+  { value: "name", label: "Name" },
+  { value: "ort", label: "Ort" },
+  { value: "angelegt", label: "Angelegt" },
+];
 
 export default async function PropertiesPage({
   searchParams,
@@ -21,41 +34,45 @@ export default async function PropertiesPage({
     reaktiviert?: string;
     geloescht?: string;
     q?: string;
+    art?: string;
+    sort?: string;
+    dir?: string;
     page?: string;
   }>;
 }) {
   const verwalter = await requireVerwalter();
-  const { fehler, eingerichtet, gespeichert, archiviert, reaktiviert, geloescht, q, page } =
-    await searchParams;
+  const sp = await searchParams;
+  const { fehler, eingerichtet, gespeichert, archiviert, reaktiviert, geloescht, q, page } = sp;
   // Objekte bearbeiten dürfen alle Verwalter in ihrem Zuständigkeitsbereich
   // (die Liste zeigt ohnehin nur Objekte im Scope). Löschen/Archivieren bleibt
   // separat abgesichert (SuperAdmin) und kommt an eigener Stelle.
   const canEdit = true;
   const propWhere = await propertyWhereForVerwalter(verwalter);
 
-  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
+  const currentPage = parsePage(page);
+  const art = sp.art && sp.art in managementTypeLabels ? sp.art : undefined;
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "name", "asc");
 
-  const combinedWhere = q
-    ? {
-        AND: [
-          propWhere,
-          {
-            OR: [
-              { name: { contains: q, mode: "insensitive" as const } },
-              { street: { contains: q, mode: "insensitive" as const } },
-              { city: { contains: q, mode: "insensitive" as const } },
-              { zip: { contains: q, mode: "insensitive" as const } },
-            ],
-          },
-        ],
-      }
-    : propWhere;
+  const and: Prisma.PropertyWhereInput[] = [propWhere];
+  if (q) {
+    and.push({
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { street: { contains: q, mode: "insensitive" } },
+        { city: { contains: q, mode: "insensitive" } },
+        { zip: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (art) and.push({ managementType: art as Prisma.PropertyWhereInput["managementType"] });
+  const combinedWhere: Prisma.PropertyWhereInput = { AND: and };
+  const hasFilter = Boolean(q || art);
 
   const [total, properties] = await Promise.all([
     db.property.count({ where: combinedWhere }),
     db.property.findMany({
       where: combinedWhere,
-      orderBy: { name: "asc" },
+      orderBy: toOrderBy(sort.field, sort.dir) as Prisma.PropertyOrderByWithRelationInput,
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: {
@@ -79,13 +96,26 @@ export default async function PropertiesPage({
       })
     : [];
 
+  // Paginierung muss alle aktiven Filter mittragen.
   function pageHref(p: number) {
-    const sp = new URLSearchParams();
-    if (q) sp.set("q", q);
-    if (p > 1) sp.set("page", String(p));
-    const qs = sp.toString();
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "page") params.set(k, v);
+    }
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
     return `/verwaltung/objekte${qs ? `?${qs}` : ""}`;
   }
+
+  const propertyFilters: FilterConfig[] = [
+    {
+      key: "art",
+      label: "Verwaltungsart",
+      allLabel: "Alle Arten",
+      primary: true,
+      options: optionsFrom(managementTypeLabels),
+    },
+  ];
 
   return (
     <>
@@ -134,35 +164,19 @@ export default async function PropertiesPage({
       ) : null}
 
       <div className="space-y-4">
-        {/* Search bar */}
-          <form method="get" className="flex items-center gap-2">
-            <input
-              type="search"
-              name="q"
-              defaultValue={q ?? ""}
-              placeholder="Suche nach Name, Straße, PLZ oder Stadt …"
-              className={`${inputClass} flex-1`}
-            />
-            <button
-              type="submit"
-              className="text-sm font-medium text-brand-orange-ink hover:underline"
-            >
-              Suchen
-            </button>
-            {q ? (
-              <a
-                href="/verwaltung/objekte"
-                className="text-sm text-gray-400 hover:text-brand-orange hover:underline"
-              >
-                ✕ Zurücksetzen
-              </a>
-            ) : null}
-          </form>
+          <FilterBar
+            searchPlaceholder="Suchen"
+            searchHint="Nach Name, Straße, PLZ oder Ort suchen"
+            filters={propertyFilters}
+          />
 
-          <p className="text-xs text-gray-400">
-            {total} Objekt{total !== 1 ? "e" : ""}
-            {q ? ` für „${q}"` : ""}
-          </p>
+          <div className="flex items-center justify-between gap-3 px-1">
+            <p className="text-xs text-gray-400">
+              {total} Objekt{total !== 1 ? "e" : ""}
+              {hasFilter ? " (gefiltert)" : ""}
+            </p>
+            {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="name" /> : null}
+          </div>
 
           {properties.length === 0 ? (
             <EmptyState>{q ? "Keine Objekte gefunden." : "Noch keine Objekte angelegt."}</EmptyState>

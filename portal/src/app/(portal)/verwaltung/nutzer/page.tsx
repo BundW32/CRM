@@ -1,6 +1,6 @@
-import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert, Card, PageTitle, Pagination, inputClass } from "@/components/ui";
+import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { PendingButton } from "@/components/pending-button";
 import { isSelfManaged, propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -137,6 +137,27 @@ export default async function UsersPage({
 
   const propsForNewUser = properties.map((p) => ({ id: p.id, name: p.name }));
 
+  // Rolle als Auswahl-Filter. Verwalter/Handwerker sieht nur der SuperAdmin –
+  // eingeschränkte Verwalter haben ohnehin nur Mieter/Eigentümer im Scope.
+  const userFilters: FilterConfig[] = [
+    {
+      key: "rolle",
+      label: "Rolle",
+      allLabel: "Alle Rollen",
+      primary: true,
+      options: [
+        { value: "MIETER", label: "Mieter" },
+        { value: "EIGENTUEMER", label: "Eigentümer" },
+        ...(verwalter.isSuperAdmin
+          ? [
+              { value: "VERWALTER", label: "Verwalter" },
+              { value: "HANDWERKER", label: "Handwerker" },
+            ]
+          : []),
+      ],
+    },
+  ];
+
   return (
     <>
       <PageTitle
@@ -169,63 +190,27 @@ export default async function UsersPage({
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          {/* Filter-Toolbar */}
-          <form
-            method="get"
-            className="mb-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
-          >
-            <div className="flex flex-wrap items-end gap-3">
-              <label className="min-w-[12rem] flex-1">
-                <span className="mb-1 block text-xs font-medium text-gray-500">Suche</span>
-                <input
-                  type="text"
-                  name="q"
-                  defaultValue={term}
-                  placeholder="Name oder E-Mail…"
-                  className={inputClass}
-                />
-              </label>
-              <label>
-                <span className="mb-1 block text-xs font-medium text-gray-500">Rolle</span>
-                <select name="rolle" defaultValue={roleFilter ?? ""} className={`${inputClass} w-auto`}>
-                  <option value="">Alle Rollen</option>
-                  <option value="MIETER">Mieter</option>
-                  <option value="EIGENTUEMER">Eigentümer</option>
-                  {verwalter.isSuperAdmin ? (
-                    <>
-                      <option value="VERWALTER">Verwalter</option>
-                      <option value="HANDWERKER">Handwerker</option>
-                    </>
-                  ) : null}
-                </select>
-              </label>
-              <label>
-                <span className="mb-1 block text-xs font-medium text-gray-500">Objekt</span>
-                <select name="objekt" defaultValue={objekt ?? ""} className={`${inputClass} w-auto`}>
-                  <option value="">Alle Objekte</option>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} · {p.zip} {p.city}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="submit"
-                className="rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-green-dark shadow-sm transition-all hover:bg-brand-orange-dark active:scale-[0.98]"
-              >
-                Filtern
-              </button>
-              {hasFilter ? (
-                <Link
-                  href="/verwaltung/nutzer"
-                  className="self-center text-sm text-gray-400 hover:text-brand-orange hover:underline"
-                >
-                  ✕ Zurücksetzen
-                </Link>
-              ) : null}
-            </div>
-          </form>
+          <FilterBar
+            className="mb-3"
+            searchPlaceholder="Suchen"
+            searchHint="Nach Name oder E-Mail suchen"
+            filters={userFilters}
+            comboboxes={[
+              {
+                key: "objekt",
+                label: "Objekt",
+                placeholder: "Objekt wählen",
+                options: properties.map((p) => ({
+                  value: p.id,
+                  label: p.name,
+                  sublabel:
+                    [p.street, [p.zip, p.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") ||
+                    undefined,
+                })),
+                currentValue: objekt ?? undefined,
+              },
+            ]}
+          />
 
           <div className="mb-2 flex items-center justify-between px-1">
             <p className="text-xs text-gray-400">

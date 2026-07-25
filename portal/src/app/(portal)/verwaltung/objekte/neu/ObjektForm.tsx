@@ -5,16 +5,42 @@ import { Card, Field, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { createObjekt } from "./actions";
 import { extractObjektFields } from "./import-actions";
+import { splitName } from "@/lib/person-name";
+import { type GewaehltePerson, PersonVorschlag } from "./PersonVorschlag";
 
 type UnitRow = { label: string; external: string; floor: string; area: string; mea: string; persons: string };
-type TenantRow = { firstName: string; lastName: string; email: string; phone: string; unit: string };
-type OwnerRow = { firstName: string; lastName: string; email: string; phone: string; unit: string };
+// `person` ist gesetzt, sobald eine bestehende Person aus dem Vorschlag gewählt
+// wurde – dann wird verknüpft statt ein zweiter Zugang angelegt.
+type PersonRow = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  unit: string;
+  person: GewaehltePerson | null;
+};
+type TenantRow = PersonRow;
+type OwnerRow = PersonRow;
 type ExistingProperty = { name: string; street: string; zip: string; city: string };
 
 let rowKey = 0;
 const nextKey = () => `r${rowKey++}`;
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+// Felder einer verknüpften Person sind nicht änderbar – geändert wird die
+// Person an ihrer eigenen Karteikarte, nicht nebenbei beim Objektanlegen.
+const lockedClass = `${inputClass} bg-gray-50 text-gray-500`;
+
+const leereZeile = () => ({
+  key: nextKey(),
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  unit: "",
+  person: null,
+});
 
 export function ObjektForm({
   defaultManagementType = "MIETVERWALTUNG",
@@ -49,6 +75,14 @@ export function ObjektForm({
   const [buildingType, setBuildingType] = useState("");
   const [heatingType, setHeatingType] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Objekt-Eigentümer (nur Mietverwaltung): kontrolliert, damit der Vorschlag
+  // vorhandener Personen daran andocken kann.
+  const [eig, setEig] = useState<{
+    firstName: string;
+    lastName: string;
+    person: GewaehltePerson | null;
+  }>({ firstName: "", lastName: "", person: null });
 
   // KI-PDF-Import
   const pdfRef = useRef<HTMLInputElement>(null);
@@ -451,12 +485,13 @@ export function ObjektForm({
                         type="text"
                         name="wegOwnerFirstName"
                         value={o.firstName}
+                        readOnly={o.person !== null}
                         onChange={(e) =>
                           setOwners((rows) =>
                             rows.map((r) => (r.key === o.key ? { ...r, firstName: e.target.value } : r))
                           )
                         }
-                        className={inputClass}
+                        className={o.person ? lockedClass : inputClass}
                       />
                     </Field>
                     <Field label="Nachname *">
@@ -464,12 +499,13 @@ export function ObjektForm({
                         type="text"
                         name="wegOwnerLastName"
                         value={o.lastName}
+                        readOnly={o.person !== null}
                         onChange={(e) =>
                           setOwners((rows) =>
                             rows.map((r) => (r.key === o.key ? { ...r, lastName: e.target.value } : r))
                           )
                         }
-                        className={inputClass}
+                        className={o.person ? lockedClass : inputClass}
                       />
                     </Field>
                     <Field label="Einheit *">
@@ -496,12 +532,13 @@ export function ObjektForm({
                         type="email"
                         name="wegOwnerEmail"
                         value={o.email}
+                        readOnly={o.person !== null}
                         onChange={(e) =>
                           setOwners((rows) =>
                             rows.map((r) => (r.key === o.key ? { ...r, email: e.target.value } : r))
                           )
                         }
-                        className={inputClass}
+                        className={o.person ? lockedClass : inputClass}
                       />
                     </Field>
                     <Field label="Telefon (optional)">
@@ -509,24 +546,43 @@ export function ObjektForm({
                         type="tel"
                         name="wegOwnerPhone"
                         value={o.phone}
+                        readOnly={o.person !== null}
                         onChange={(e) =>
                           setOwners((rows) =>
                             rows.map((r) => (r.key === o.key ? { ...r, phone: e.target.value } : r))
                           )
                         }
-                        className={inputClass}
+                        className={o.person ? lockedClass : inputClass}
                       />
                     </Field>
                   </div>
+                  <PersonVorschlag
+                    fieldName="wegOwnerUserId"
+                    role="EIGENTUEMER"
+                    lastName={o.lastName}
+                    gewaehlt={o.person}
+                    onPick={(person) =>
+                      setOwners((rows) =>
+                        rows.map((r) =>
+                          r.key === o.key
+                            ? { ...r, ...splitName(person.name), email: "", phone: "", person }
+                            : r,
+                        ),
+                      )
+                    }
+                    onClear={() =>
+                      setOwners((rows) =>
+                        rows.map((r) => (r.key === o.key ? { ...r, person: null } : r)),
+                      )
+                    }
+                  />
                 </div>
               ))}
             </div>
           )}
           <button
             type="button"
-            onClick={() =>
-              setOwners((rows) => [...rows, { key: nextKey(), firstName: "", lastName: "", email: "", phone: "", unit: "" }])
-            }
+            onClick={() => setOwners((rows) => [...rows, leereZeile()])}
             className="mt-3 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             + Eigentümer hinzufügen
@@ -539,18 +595,52 @@ export function ObjektForm({
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Vorname">
-              <input type="text" name="eigFirstName" minLength={2} className={inputClass} />
+              <input
+                type="text"
+                name="eigFirstName"
+                minLength={2}
+                value={eig.firstName}
+                readOnly={eig.person !== null}
+                onChange={(e) => setEig((v) => ({ ...v, firstName: e.target.value }))}
+                className={eig.person ? lockedClass : inputClass}
+              />
             </Field>
             <Field label="Nachname">
-              <input type="text" name="eigLastName" minLength={2} className={inputClass} />
+              <input
+                type="text"
+                name="eigLastName"
+                minLength={2}
+                value={eig.lastName}
+                readOnly={eig.person !== null}
+                onChange={(e) => setEig((v) => ({ ...v, lastName: e.target.value }))}
+                className={eig.person ? lockedClass : inputClass}
+              />
             </Field>
             <Field label="E-Mail (optional)">
-              <input type="email" name="eigEmail" className={inputClass} />
+              <input
+                type="email"
+                name="eigEmail"
+                readOnly={eig.person !== null}
+                className={eig.person ? lockedClass : inputClass}
+              />
             </Field>
             <Field label="Telefon (optional)">
-              <input type="tel" name="eigPhone" className={inputClass} />
+              <input
+                type="tel"
+                name="eigPhone"
+                readOnly={eig.person !== null}
+                className={eig.person ? lockedClass : inputClass}
+              />
             </Field>
           </div>
+          <PersonVorschlag
+            fieldName="eigUserId"
+            role="EIGENTUEMER"
+            lastName={eig.lastName}
+            gewaehlt={eig.person}
+            onPick={(person) => setEig({ ...splitName(person.name), person })}
+            onClear={() => setEig((v) => ({ ...v, person: null }))}
+          />
         </Card>
       )}
 
@@ -588,12 +678,13 @@ export function ObjektForm({
                       type="text"
                       name="tenantFirstName"
                       value={t.firstName}
+                      readOnly={t.person !== null}
                       onChange={(e) =>
                         setTenants((rows) =>
                           rows.map((r) => (r.key === t.key ? { ...r, firstName: e.target.value } : r))
                         )
                       }
-                      className={inputClass}
+                      className={t.person ? lockedClass : inputClass}
                     />
                   </Field>
                   <Field label="Nachname *">
@@ -601,12 +692,13 @@ export function ObjektForm({
                       type="text"
                       name="tenantLastName"
                       value={t.lastName}
+                      readOnly={t.person !== null}
                       onChange={(e) =>
                         setTenants((rows) =>
                           rows.map((r) => (r.key === t.key ? { ...r, lastName: e.target.value } : r))
                         )
                       }
-                      className={inputClass}
+                      className={t.person ? lockedClass : inputClass}
                     />
                   </Field>
                   <Field label="Einheit">
@@ -633,12 +725,13 @@ export function ObjektForm({
                       type="email"
                       name="tenantEmail"
                       value={t.email}
+                      readOnly={t.person !== null}
                       onChange={(e) =>
                         setTenants((rows) =>
                           rows.map((r) => (r.key === t.key ? { ...r, email: e.target.value } : r))
                         )
                       }
-                      className={inputClass}
+                      className={t.person ? lockedClass : inputClass}
                     />
                   </Field>
                   <Field label="Telefon (optional)">
@@ -646,27 +739,43 @@ export function ObjektForm({
                       type="tel"
                       name="tenantPhone"
                       value={t.phone}
+                      readOnly={t.person !== null}
                       onChange={(e) =>
                         setTenants((rows) =>
                           rows.map((r) => (r.key === t.key ? { ...r, phone: e.target.value } : r))
                         )
                       }
-                      className={inputClass}
+                      className={t.person ? lockedClass : inputClass}
                     />
                   </Field>
                 </div>
+                <PersonVorschlag
+                  fieldName="tenantUserId"
+                  role="MIETER"
+                  lastName={t.lastName}
+                  gewaehlt={t.person}
+                  onPick={(person) =>
+                    setTenants((rows) =>
+                      rows.map((r) =>
+                        r.key === t.key
+                          ? { ...r, ...splitName(person.name), email: "", phone: "", person }
+                          : r,
+                      ),
+                    )
+                  }
+                  onClear={() =>
+                    setTenants((rows) =>
+                      rows.map((r) => (r.key === t.key ? { ...r, person: null } : r)),
+                    )
+                  }
+                />
               </div>
             ))}
           </div>
         )}
         <button
           type="button"
-          onClick={() =>
-            setTenants((rows) => [
-              ...rows,
-              { key: nextKey(), firstName: "", lastName: "", email: "", phone: "", unit: "" },
-            ])
-          }
+          onClick={() => setTenants((rows) => [...rows, leereZeile()])}
           className="mt-3 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
           + Mieter hinzufügen

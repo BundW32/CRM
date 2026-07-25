@@ -2,8 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import type { User } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { isSelfManaged } from "@/lib/access";
+import {
+  type PersonTreffer,
+  searchPersons,
+  verifyExistingPerson,
+} from "@/lib/person-search";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
 import { inviteOrLetter } from "@/lib/user-invite";
@@ -31,6 +37,47 @@ function optStr(raw: FormDataEntryValue | null, max = 200): string | null {
   return v ? v.slice(0, max) : null;
 }
 
+// ── Bestehende Person statt Dublette ────────────────────────────────────────
+// Dasselbe Muster wie beim Bearbeiten eines Objekts: Ab zwei getippten Zeichen
+// im Nachnamen werden vorhandene Personen vorgeschlagen. Ohne diesen Vorschlag
+// legte der Zugangsschreiben-Weg (kein E-Mail-Feld gefüllt) für jede Einheit
+// ein weiteres Konto derselben Person an.
+export async function searchPersonsForNewObjekt(
+  query: string,
+  role: "MIETER" | "EIGENTUEMER",
+): Promise<PersonTreffer[]> {
+  const actor = await requireVerwalter();
+  return searchPersons(actor, query, role);
+}
+
+/**
+ * Liefert die Person für eine Formularzeile: entweder die im Vorschlag
+ * gewählte bestehende – dann entsteht KEIN zweiter Zugang – oder eine neu
+ * angelegte über `inviteOrLetter`.
+ *
+ * Die gewählte ID stammt aus einem versteckten Feld und wird deshalb gegen
+ * Organisation und Rolle geprüft, bevor sie verwendet wird.
+ */
+async function personFuerZeile(
+  actor: User,
+  chosenId: string,
+  neu: {
+    name: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    phone: string | null;
+    role: "EIGENTUEMER" | "MIETER";
+  },
+): Promise<{ id: string; pw: string } | null> {
+  if (chosenId) {
+    const verified = await verifyExistingPerson(actor, chosenId, neu.role);
+    // Eine ungültige ID darf nicht stillschweigend zu einem neuen Konto
+    // führen – sonst wäre genau die Dublette zurück, die wir verhindern.
+    return verified ? { id: verified, pw: "" } : null;
+  }
+  return inviteOrLetter({ ...neu, organizationId: actor.organizationId });
+}
 
 export async function createObjekt(formData: FormData) {
   const actor = await requireVerwalter();
@@ -140,14 +187,13 @@ export async function createObjekt(formData: FormData) {
   const eigName = `${eigFirst} ${eigLast}`.trim();
   if (eigName.length >= 2) {
     const eigEmailRaw = String(formData.get("eigEmail") ?? "").trim().toLowerCase();
-    const result = await inviteOrLetter({
+    const result = await personFuerZeile(actor, String(formData.get("eigUserId") ?? "").trim(), {
       name: eigName,
       firstName: eigFirst || null,
       lastName: eigLast || null,
       email: eigEmailRaw && eigEmailRaw.includes("@") ? eigEmailRaw : null,
       phone: optStr(formData.get("eigPhone"), 50),
       role: "EIGENTUEMER",
-      organizationId: actor.organizationId,
     });
     if (result) {
       // catch: bereits bestehende Verknüpfung (Unique-Constraint) ignorieren
@@ -169,6 +215,8 @@ export async function createObjekt(formData: FormData) {
     const ownerEmails = formData.getAll("wegOwnerEmail").map((v) => String(v).trim().toLowerCase());
     const ownerPhones = formData.getAll("wegOwnerPhone").map((v) => String(v).trim());
     const ownerUnits = formData.getAll("wegOwnerUnit").map((v) => String(v).trim());
+    // Im Vorschlag gewählte bestehende Person – indexgleich zu den Namensfeldern.
+    const ownerUserIds = formData.getAll("wegOwnerUserId").map((v) => String(v).trim());
     const ownerCount = Math.min(ownerFirst.length, MAX_TENANTS);
     for (let i = 0; i < ownerCount; i++) {
       const oFirst = ownerFirst[i] ?? "";
@@ -179,14 +227,13 @@ export async function createObjekt(formData: FormData) {
       if (!unitId) continue; // ohne Einheit keine WEG-Eigentümerschaft
 
       const oEmailRaw = ownerEmails[i] ?? "";
-      const result = await inviteOrLetter({
+      const result = await personFuerZeile(actor, ownerUserIds[i] ?? "", {
         name: oName,
         firstName: oFirst || null,
         lastName: oLast || null,
         email: oEmailRaw && oEmailRaw.includes("@") ? oEmailRaw : null,
         phone: ownerPhones[i] ? ownerPhones[i].slice(0, 50) : null,
         role: "EIGENTUEMER",
-        organizationId: actor.organizationId,
       });
       if (result) {
         await db.unitOwnership
@@ -216,6 +263,8 @@ export async function createObjekt(formData: FormData) {
   const tenantEmails = formData.getAll("tenantEmail").map((v) => String(v).trim().toLowerCase());
   const tenantPhones = formData.getAll("tenantPhone").map((v) => String(v).trim());
   const tenantUnits = formData.getAll("tenantUnit").map((v) => String(v).trim());
+  // Im Vorschlag gewählte bestehende Person – indexgleich zu den Namensfeldern.
+  const tenantUserIds = formData.getAll("tenantUserId").map((v) => String(v).trim());
 
   const tenantCount = Math.min(tenantFirst.length, MAX_TENANTS);
   for (let i = 0; i < tenantCount; i++) {
@@ -225,14 +274,13 @@ export async function createObjekt(formData: FormData) {
     if (tName.length < 2) continue;
 
     const tEmailRaw = tenantEmails[i] ?? "";
-    const result = await inviteOrLetter({
+    const result = await personFuerZeile(actor, tenantUserIds[i] ?? "", {
       name: tName,
       firstName: tFirst || null,
       lastName: tLast || null,
       email: tEmailRaw && tEmailRaw.includes("@") ? tEmailRaw : null,
       phone: tenantPhones[i] ? tenantPhones[i].slice(0, 50) : null,
       role: "MIETER",
-      organizationId: actor.organizationId,
     });
     if (result) {
       const unitId = tenantUnits[i] ? unitLabelToId.get(tenantUnits[i]) : undefined;

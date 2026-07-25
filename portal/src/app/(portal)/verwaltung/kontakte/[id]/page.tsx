@@ -7,12 +7,13 @@ import {
   propertyWhereForVerwalter,
 } from "@/lib/access";
 import { db } from "@/lib/db";
-import { contactKindLabels, contactMethodLabels, roleLabels, tradeLabels } from "@/lib/labels";
+import { contactKindLabels, roleLabels, tradeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import {
   PersonEinstellungen,
   loadPerson,
 } from "../../nutzer/person-einstellungen";
+import { KarteikarteFormular } from "./KarteikarteFormular";
 import { KontaktStammdaten } from "./KontaktStammdaten";
 
 export const dynamic = "force-dynamic";
@@ -138,63 +139,34 @@ export default async function KontaktDetailPage({
         </div>
 
         <Card title="Kontaktdaten">
-          <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-xs text-gray-500">Telefon</dt>
-              <dd className="text-gray-900">
-                {kontakt.phone ? (
-                  <a href={`tel:${kontakt.phone}`} className="hover:text-brand-orange hover:underline">
-                    {kontakt.phone}
-                  </a>
-                ) : (
-                  <span className="text-gray-400">–</span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-gray-500">E-Mail</dt>
-              <dd className="text-gray-900">
-                {kontakt.email ? (
-                  <a
-                    href={`mailto:${kontakt.email}`}
-                    className="hover:text-brand-orange hover:underline"
-                  >
-                    {kontakt.email}
-                  </a>
-                ) : (
-                  <span className="text-gray-400">–</span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-gray-500">Bevorzugter Kontaktweg</dt>
-              <dd className="text-gray-900">{contactMethodLabels[kontakt.preferredContact]}</dd>
-            </div>
-            {kontakt.accessToken ? (
-              <div>
-                <dt className="text-xs text-gray-500">Auftragsportal</dt>
-                <dd>
-                  <a
-                    href={`/auftraege/${kontakt.accessToken}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-brand-green hover:underline"
-                  >
-                    Link öffnen ↗
-                  </a>
-                </dd>
-              </div>
-            ) : null}
-            {kontakt.notes ? (
-              <div className="sm:col-span-2">
-                <dt className="text-xs text-gray-500">Notizen</dt>
-                <dd className="whitespace-pre-line text-gray-700">{kontakt.notes}</dd>
-              </div>
-            ) : null}
-          </dl>
-          <p className="mt-4 text-xs text-gray-400">
-            Zum Bearbeiten die Zeile im Adressbuch aufklappen.
-          </p>
+          <KarteikarteFormular
+            zurueck={`/verwaltung/kontakte/${kontakt.id}`}
+            k={{
+              id: kontakt.id,
+              name: kontakt.name,
+              company: kontakt.company,
+              kind: kontakt.kind,
+              trade: kontakt.trade,
+              email: kontakt.email,
+              phone: kontakt.phone,
+              preferredContact: kontakt.preferredContact,
+              notes: kontakt.notes,
+              active: kontakt.active,
+              isInternal: kontakt.isInternal,
+            }}
+          />
+          {kontakt.accessToken ? (
+            <p className="mt-4 border-t border-gray-100 pt-3 text-xs">
+              <a
+                href={`/auftraege/${kontakt.accessToken}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-brand-green hover:underline"
+              >
+                Auftragsportal-Link öffnen ↗
+              </a>
+            </p>
+          ) : null}
         </Card>
       </>
     );

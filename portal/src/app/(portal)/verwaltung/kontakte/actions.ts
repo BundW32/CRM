@@ -89,31 +89,31 @@ export async function toggleCraftsmanActive(formData: FormData) {
   const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   // Scope-/Org-Prüfung: nur Handwerker der eigenen Org (und ggf. zugewiesene).
-  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect("/verwaltung/kontakte");
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect(zurueckZu(formData));
   const c = await db.craftsman.findUnique({ where: { id } });
   if (c) {
     await db.craftsman.update({ where: { id }, data: { active: !c.active } });
   }
   revalidatePath("/verwaltung/kontakte");
-  redirect("/verwaltung/kontakte");
+  redirect(zurueckZu(formData));
 }
 
 export async function toggleCraftsmanInternal(formData: FormData) {
   const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
-  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect("/verwaltung/kontakte");
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect(zurueckZu(formData));
   const c = await db.craftsman.findUnique({ where: { id } });
   if (c) {
     await db.craftsman.update({ where: { id }, data: { isInternal: !c.isInternal } });
   }
   revalidatePath("/verwaltung/kontakte");
-  redirect("/verwaltung/kontakte");
+  redirect(zurueckZu(formData));
 }
 
 export async function deleteCraftsman(formData: FormData) {
   const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
-  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect("/verwaltung/kontakte");
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect(zurueckZu(formData));
   // Nur löschen, wenn keine Vorgänge zugeordnet sind – sonst nur deaktivieren
   const ticketCount = await db.ticket.count({ where: { craftsmanId: id } });
   if (ticketCount > 0) {
@@ -122,7 +122,7 @@ export async function deleteCraftsman(formData: FormData) {
     await db.craftsman.delete({ where: { id } }).catch(() => {});
   }
   revalidatePath("/verwaltung/kontakte");
-  redirect("/verwaltung/kontakte");
+  redirect(zurueckZu(formData));
 }
 
 const personSchema = z.object({
@@ -174,7 +174,7 @@ export async function updateCraftsman(formData: FormData) {
   const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   // Scope-/Org-Prüfung: nur Handwerker der eigenen Org (und ggf. zugewiesene).
-  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect("/verwaltung/kontakte");
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect(zurueckZu(formData));
 
   const parsed = craftsmanSchema.safeParse({
     company: formData.get("company") || undefined,
@@ -187,7 +187,7 @@ export async function updateCraftsman(formData: FormData) {
     notes: formData.get("notes") || undefined,
   });
   if (!parsed.success) {
-    redirect("/verwaltung/kontakte?fehler=eingabe");
+    redirect(zurueckZu(formData, "?fehler=eingabe"));
   }
 
   await db.craftsman.update({
@@ -204,5 +204,5 @@ export async function updateCraftsman(formData: FormData) {
     },
   });
   revalidatePath("/verwaltung/kontakte");
-  redirect("/verwaltung/kontakte");
+  redirect(zurueckZu(formData));
 }

@@ -85,12 +85,9 @@ export function NewUserForm({
               Mietverhältnis) – nur Eigentümer und (für den internen Admin) Verwalter. */}
           {!selfManaged ? <option value="MIETER">Mieter</option> : null}
           <option value="EIGENTUEMER">Eigentümer</option>
-          {isSuperAdmin ? (
-            <>
-              <option value="VERWALTER">Verwalter</option>
-              {!selfManaged ? <option value="HANDWERKER">Handwerker</option> : null}
-            </>
-          ) : null}
+          {/* Handwerker bekommen bewusst kein Portalkonto – sie werden unter
+              „Kontakte" gepflegt und erhalten ihre Aufträge per E-Mail-Link. */}
+          {isSuperAdmin ? <option value="VERWALTER">Verwalter</option> : null}
         </select>
       </Field>
 

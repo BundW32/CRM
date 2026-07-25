@@ -439,10 +439,15 @@ export function AppShell({
       {/* Desktop-Leiste. Der Offset entspricht dem Innenabstand von <main>, damit
           sie sofort einrastet und beim Scrollen nicht nachrutscht. */}
       <aside className="hidden min-w-0 md:block">
-        <div className="sticky top-8 flex max-h-[calc(100vh-4rem)] flex-col overflow-y-auto overflow-x-hidden rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
-          {renderSidebarHead(collapsed)}
-          <div className="min-h-0 flex-1">{renderNav(collapsed)}</div>
-          {renderSidebarFoot(collapsed)}
+        {/* Nur die Navigation scrollt – Logo und Konto bleiben fest verankert.
+            Läge das Scrollen auf dem ganzen Block, dürften Kopf und Fuß
+            mitschrumpfen und würden sich bei knapper Höhe überlappen. */}
+        <div className="sticky top-8 flex max-h-[calc(100vh-4rem)] flex-col rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
+          <div className="shrink-0">{renderSidebarHead(collapsed)}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            {renderNav(collapsed)}
+          </div>
+          <div className="shrink-0">{renderSidebarFoot(collapsed)}</div>
         </div>
       </aside>
 
@@ -455,8 +460,8 @@ export function AppShell({
             onClick={() => setDrawerOpen(false)}
             className="fixed inset-0 z-40 cursor-default bg-black/40 md:hidden"
           />
-          <aside className="fixed inset-y-0 left-0 z-50 flex w-[82%] max-w-xs animate-drawer-in flex-col overflow-y-auto rounded-r-2xl border-r border-gray-200 bg-white p-2 shadow-2xl motion-reduce:animate-none md:hidden">
-            <div className="relative flex items-center justify-center px-1 pb-2 pt-1">
+          <aside className="fixed inset-y-0 left-0 z-50 flex w-[82%] max-w-xs animate-drawer-in flex-col rounded-r-2xl border-r border-gray-200 bg-white p-2 shadow-2xl motion-reduce:animate-none md:hidden">
+            <div className="relative flex shrink-0 items-center justify-center px-1 pb-2 pt-1">
               <OrgLogo
                 src={logoUrl}
                 alt={orgName}
@@ -471,8 +476,10 @@ export function AppShell({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="min-h-0 flex-1">{renderNav(false)}</div>
-            {renderSidebarFoot(false)}
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+              {renderNav(false)}
+            </div>
+            <div className="shrink-0">{renderSidebarFoot(false)}</div>
           </aside>
         </>
       ) : null}

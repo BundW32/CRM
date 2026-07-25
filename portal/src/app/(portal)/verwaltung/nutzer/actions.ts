@@ -110,7 +110,10 @@ const userSchema = z.object({
   lastName: z.string().trim().min(1).max(100),
   salutation: z.string().trim().optional(),
   email: z.string().trim().toLowerCase().email().optional().or(z.literal("")),
-  role: z.enum(["VERWALTER", "EIGENTUEMER", "MIETER", "HANDWERKER"]),
+  // Kein HANDWERKER: Handwerker haben kein Portalkonto (Magic-Link per E-Mail).
+  // Der Rollenwert bleibt im Datenmodell für Altbestände erhalten, ist aber nicht
+  // mehr anlegbar – serverseitig durchgesetzt, nicht nur im Formular.
+  role: z.enum(["VERWALTER", "EIGENTUEMER", "MIETER"]),
   phone: z.string().trim().max(50).optional(),
   preferredContact: z.enum(["EMAIL", "TELEFON", "MOBIL", "POST"]).optional().or(z.literal("")),
   unitId: z.string().optional(),

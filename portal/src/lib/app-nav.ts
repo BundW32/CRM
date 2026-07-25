@@ -249,15 +249,10 @@ export function navFor(ctx: NavContext): NavGroup[] {
   }
   if (ctx.role === "EIGENTUEMER") return [{ items: eigentuemerItems(ctx) }];
   if (ctx.role === "MIETER") return [{ items: mieterItems() }];
-  // HANDWERKER: schlankes Auftragsportal, keine Arbeitsnavigation.
-  return [
-    {
-      items: [
-        { href: "/dashboard", title: "Übersicht", icon: "dashboard" },
-        { href: "/vorgaenge", title: "Meine Aufträge", icon: "vorgaenge" },
-      ],
-    },
-  ];
+  // HANDWERKER haben kein Portalkonto mehr (Magic-Link per E-Mail auf
+  // /auftraege/[token]); der Login ist gesperrt. Altbestände sehen daher nur
+  // die Übersicht – eine Arbeitsnavigation gibt es für sie nicht.
+  return [{ items: [{ href: "/dashboard", title: "Übersicht", icon: "dashboard" }] }];
 }
 
 /** Darf dieser Nutzer den Einstellungs-Bereich sehen? */

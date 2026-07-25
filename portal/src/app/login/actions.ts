@@ -40,10 +40,17 @@ export async function login(formData: FormData) {
   // ein falsches Passwort behandeln – keine Auskunft über den Grund (kein Leak).
   const orgBlocked = user ? !user.organization.active && !isPlatformAdminUser(user) : false;
 
+  // Handwerker haben kein Portalkonto mehr: Sie erhalten ihre Aufträge per E-Mail
+  // mit Magic-Link auf /auftraege/[token]. Alte Konten aus der Zeit davor können
+  // sich nicht mehr anmelden. Der Rollenwert bleibt im Datenmodell erhalten –
+  // ihn zu entfernen würde an bestehenden Zeilen scheitern und bringt nichts.
+  const roleBlocked = user?.role === "HANDWERKER";
+
   if (
     !user ||
     !user.active ||
     orgBlocked ||
+    roleBlocked ||
     !(await bcrypt.compare(password, user.passwordHash))
   ) {
     await logAudit({ action: AUDIT.LOGIN_FAILED, meta: { kennung: kennung || null }, ip });

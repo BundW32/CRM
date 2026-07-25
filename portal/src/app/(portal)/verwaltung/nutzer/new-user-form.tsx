@@ -15,10 +15,13 @@ export function NewUserForm({
   properties,
   isSuperAdmin,
   selfManaged = false,
+  zurueck = "/verwaltung/nutzer",
 }: {
   properties: Property[];
   isSuperAdmin: boolean;
   selfManaged?: boolean;
+  /** Rücksprungpfad nach dem Anlegen. */
+  zurueck?: string;
 }) {
   const [role, setRole] = useState(selfManaged ? "EIGENTUEMER" : "MIETER");
   const [propertyId, setPropertyId] = useState("");
@@ -41,6 +44,7 @@ export function NewUserForm({
 
   return (
     <form action={createUser} className="space-y-3">
+      <input type="hidden" name="zurueck" value={zurueck} />
       <Field label="Name">
         <div className="flex flex-wrap gap-2">
           <select name="salutation" className={`${inputClass} w-24`} defaultValue="">

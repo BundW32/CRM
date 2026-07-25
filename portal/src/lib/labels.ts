@@ -1,6 +1,7 @@
 import type {
   Audience,
   BookingKind,
+  ContactKind,
   ContactMethod,
   CostCategory,
   DistributionKey,
@@ -126,6 +127,21 @@ export const tradeLabels: Record<Trade, string> = {
   ALLGEMEIN: "Hausmeister / Allgemein",
   SONSTIGES: "Sonstiges",
 };
+
+// Art eines Kontakteintrags im Adressbuch. „Handwerker“ ist der historische Fall;
+// die übrigen Kategorien nehmen auf, was sonst nirgends hingehörte.
+export const contactKindLabels: Record<ContactKind, string> = {
+  HANDWERKER: "Handwerker",
+  DIENSTLEISTER: "Dienstleister",
+  VERSORGER: "Versorger",
+  BEHOERDE: "Behörde",
+  SONSTIGES: "Sonstige",
+};
+
+// Nur Handwerker führen ein Gewerk – bei allen anderen Arten wäre es sinnlos.
+export function kindUsesTrade(kind: ContactKind): boolean {
+  return kind === "HANDWERKER";
+}
 
 export const contactMethodLabels: Record<ContactMethod, string> = {
   EMAIL: "E-Mail",

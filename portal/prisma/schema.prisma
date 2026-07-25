@@ -77,6 +77,20 @@ enum ContactMethod {
   POST
 }
 
+// Art eines Kontakteintrags im Adressbuch. Handwerker sind der historische Fall
+// (daher Vorgabe); die übrigen Kategorien machen das Kontaktbuch zum echten
+// Adressbuch – Ableseservice, Wasserversorger, Stadt/Behörde, Steuerberater …
+// Alle Arten bleiben beauftragbar: ein Messdienst bekommt denselben Auftrags-
+// Link wie ein Handwerker. Weitere Werte lassen sich jederzeit ergänzen
+// (in Postgres ist das Hinzufügen eines Enum-Werts unproblematisch).
+enum ContactKind {
+  HANDWERKER
+  DIENSTLEISTER
+  VERSORGER
+  BEHOERDE
+  SONSTIGES
+}
+
 // Zählerart
 enum MeterType {
   STROM
@@ -666,6 +680,9 @@ model Craftsman {
   organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   company              String? // Firma
   name                 String // Ansprechpartner
+  // Art des Eintrags im Adressbuch (Handwerker, Versorger, Behörde …).
+  kind                 ContactKind           @default(HANDWERKER)
+  // Gewerk – nur für Handwerker aussagekräftig; andere Arten nutzen ALLGEMEIN.
   trade                Trade
   email                String?
   phone                String?

@@ -136,7 +136,9 @@ function verwalterGroups(ctx: NavContext): NavGroup[] {
       label: "Stammdaten",
       items: [
         { href: "/verwaltung/objekte", title: "Objekte", icon: "objekte", countKey: "objekte" },
-        { href: "/verwaltung/nutzer", title: "Nutzer", icon: "nutzer", countKey: "nutzer" },
+        // "Nutzer" ist bewusst NICHT mehr im Menü: Personen und Firmen stehen
+        // gemeinsam unter "Kontakte", und hinter jedem Eintrag liegen dieselben
+        // Einstellungen. Die Route bleibt bestehen, damit alte Links nicht brechen.
         { href: "/verwaltung/kontakte", title: "Kontakte", icon: "kontakte", countKey: "kontakte" },
         { href: "/verwaltung/eigentuemer", title: "Eigentümer & MEA", icon: "eigentuemer" },
         { href: "/verwaltung/notizen", title: "Notizen", icon: "notizen" },

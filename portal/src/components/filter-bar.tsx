@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDownUp, Check, ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
-import { fieldOnDarkClass, inputClass } from "@/components/ui";
+import { fieldOnDarkClass } from "@/components/ui";
 import { Combobox, type ComboOption } from "@/components/combobox";
 
 // ── Typen ────────────────────────────────────────────────────────────────────
@@ -38,9 +38,6 @@ export type ComboboxFilterConfig = {
   /** Weitere Param-Schlüssel, die bei Änderung/Reset mit geleert werden (Kaskade). */
   clears?: string[];
 };
-
-// Gemeinsame Chevron-Optik für native Selects (randlos, dezent).
-const chevron = <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />;
 
 // Einheitliche, FESTE Breite aller Auswahlfelder. Wichtig: Felder dürfen nicht
 // mit ihrem Inhalt wachsen, sonst springt die Leiste beim Filtern. Zu lange
@@ -115,45 +112,33 @@ function SearchBox({
   );
 }
 
-// ── Select-Filter (randloses Pill mit Inline-„×") ────────────────────────────
-// Ohne Label darüber: die „alle"-Option trägt den Feldnamen (z. B. „Status") und
-// erscheint gedämpft – wirkt wie ein Platzhalter und benennt zugleich das Feld.
-function SelectFilter({ config }: { config: FilterConfig }) {
+// ── Auswahl-Filter (Status, Art, …) ──────────────────────────────────────────
+// Nutzt bewusst dieselbe Combobox wie Objekt/Einheit/Nutzer – kein natives
+// <select>. Nur so sehen alle Filter und alle aufklappenden Menüs gleich aus.
+// Ohne Label darüber: der Platzhalter trägt den Feldnamen (z. B. „Status").
+function SelectFilter({
+  config,
+  tone = "onDark",
+}: {
+  config: FilterConfig;
+  tone?: "onLight" | "onDark";
+}) {
   const { apply, searchParams } = useUrlUpdater();
   const value = searchParams.get(config.key) ?? "";
   return (
-    // Feste Breite: sonst wächst das Feld mit dem gewählten Wert und die ganze
-    // Leiste verschiebt sich beim Filtern.
-    <div className={`relative ${FIELD_WIDTH}`}>
-      {/* Die aufgeklappte Liste rendert das Betriebssystem – Optionen daher
-          explizit hell einfärben, damit sie nicht die dunkle Feldfarbe erben. */}
-      <select
-        value={value}
-        onChange={(e) => apply({ [config.key]: e.target.value })}
-        aria-label={config.label}
-        className={`${fieldOnDarkClass} cursor-pointer appearance-none [&>option]:bg-white [&>option]:text-gray-900 ${
-          value ? "pr-14 text-gray-100" : "pr-8 text-gray-300/70"
-        }`}
-      >
-        <option value="">{config.allLabel ?? config.label}</option>
-        {config.options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      {value ? (
-        <button
-          type="button"
-          onClick={() => apply({ [config.key]: null })}
-          aria-label={`${config.label} zurücksetzen`}
-          className="absolute right-7 top-1/2 z-10 -translate-y-1/2 rounded text-gray-400 transition hover:text-red-600"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      ) : null}
-      {chevron}
-    </div>
+    <Combobox
+      label={config.label}
+      placeholder={config.label}
+      options={config.options.map((o) => ({ value: o.value, label: o.label }))}
+      value={value || undefined}
+      onSelect={(v) => apply({ [config.key]: v })}
+      onClear={() => apply({ [config.key]: null })}
+      // Suchfeld erst ab längeren Listen (z. B. Gewerk) – sonst reines Menü.
+      searchable={config.options.length > 8}
+      clearOption={config.allLabel ?? "Alle"}
+      tone={tone}
+      className={tone === "onDark" ? FIELD_WIDTH : "w-full"}
+    />
   );
 }
 
@@ -201,26 +186,12 @@ function MoreFilters({ filters }: { filters: FilterConfig[] }) {
       {open ? (
         <div className="absolute right-0 z-30 mt-1.5 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200/70 bg-white p-3 shadow-e2 max-sm:left-0 max-sm:right-auto">
           <div className="space-y-3">
-            {filters.map((f) => {
-              const value = searchParams.get(f.key) ?? "";
-              return (
-                <label key={f.key} className="block">
-                  <span className="mb-1 block text-xs font-medium text-gray-500">{f.label}</span>
-                  <select
-                    value={value}
-                    onChange={(e) => apply({ [f.key]: e.target.value })}
-                    className={inputClass}
-                  >
-                    <option value="">{f.allLabel ?? "Alle"}</option>
-                    {f.options.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              );
-            })}
+            {filters.map((f) => (
+              <div key={f.key}>
+                <span className="mb-1 block text-xs font-medium text-gray-500">{f.label}</span>
+                <SelectFilter config={f} tone="onLight" />
+              </div>
+            ))}
           </div>
           {activeCount > 0 ? (
             <button

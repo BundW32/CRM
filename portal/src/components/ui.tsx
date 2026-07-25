@@ -35,7 +35,7 @@ export const fieldFillClass =
 // Füllung mit Hairline-Kontur – die Filterleiste schwebt frei unter dem Seitentitel
 // (macOS-Werkzeugleiste), ohne weißen Kasten. Höhe h-9 wie die helle Variante.
 export const fieldOnDarkClass =
-  "h-9 w-full rounded-[10px] bg-white/[0.12] px-3 text-sm text-gray-100 ring-1 ring-inset ring-white/[0.18] transition placeholder:text-gray-300/70 hover:bg-white/[0.17] focus:bg-white/[0.19] focus:outline-none focus:ring-2 focus:ring-brand-orange/60";
+  "h-9 w-full rounded-[10px] bg-white/[0.07] px-3 text-sm text-gray-100 ring-1 ring-inset ring-white/10 transition placeholder:text-gray-400 hover:bg-white/[0.12] focus:bg-white/[0.14] focus:outline-none focus:ring-2 focus:ring-brand-orange/50";
 
 // Primäraktion: Orange mit dunkler Schrift – wie die CTAs auf der Website (gut lesbar)
 export const buttonClass =

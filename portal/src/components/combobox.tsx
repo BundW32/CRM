@@ -37,6 +37,8 @@ export function Combobox({
   disabled = false,
   disabledHint,
   tone = "onLight",
+  searchable = true,
+  clearOption,
   className = "",
 }: {
   label: string;
@@ -51,6 +53,10 @@ export function Combobox({
   disabledHint?: string;
   /** Feld-Optik: auf heller Fläche oder auf dem dunklen Shell-Hintergrund. */
   tone?: "onLight" | "onDark";
+  /** Bei kurzen Listen (z. B. Status) das Suchfeld weglassen – reines Menü. */
+  searchable?: boolean;
+  /** Label der „kein Filter"-Zeile ganz oben (z. B. „Alle"). */
+  clearOption?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -118,7 +124,20 @@ export function Combobox({
     close();
   }
 
+  function clear() {
+    onClear();
+    close();
+  }
+
   function onKeyDown(e: React.KeyboardEvent) {
+    if (!open) {
+      // Geschlossenes Menü per Tastatur öffnen (Enter löst schon den Klick aus).
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        openMenu();
+      }
+      return;
+    }
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setActive((a) => Math.min(a + 1, filtered.length - 1));
@@ -135,9 +154,13 @@ export function Combobox({
     }
   }
 
+  // Suchfeld nur bei durchsuchbaren Listen; sonst bleibt der Auslöser stehen und
+  // es klappt nur das Menü auf – dadurch sehen alle Filter identisch aus.
+  const showInput = open && searchable;
+
   return (
     <div ref={rootRef} className={`relative ${className}`}>
-      {open ? (
+      {showInput ? (
         <input
           autoFocus
           type="text"
@@ -159,8 +182,11 @@ export function Combobox({
         <button
           type="button"
           disabled={disabled}
-          onClick={openMenu}
+          onClick={() => (open ? close() : openMenu())}
+          onKeyDown={onKeyDown}
           aria-label={label}
+          aria-expanded={open}
+          aria-haspopup="listbox"
           title={disabled ? disabledHint : undefined}
           className={`${fieldClass} flex items-center gap-2 pr-8 text-left ${disabledFieldClass}`}
         >
@@ -174,10 +200,7 @@ export function Combobox({
       {value && !disabled ? (
         <button
           type="button"
-          onClick={() => {
-            onClear();
-            close();
-          }}
+          onClick={clear}
           aria-label={`${label} zurücksetzen`}
           className={`absolute right-2.5 top-1/2 -translate-y-1/2 rounded transition hover:text-red-500 ${iconClass}`}
         >
@@ -196,6 +219,22 @@ export function Combobox({
           role="listbox"
           className="absolute z-20 mt-1.5 max-h-60 w-full min-w-[14rem] overflow-auto rounded-xl border border-gray-200/70 bg-white py-1 shadow-e2"
         >
+          {/* „Alle"-Zeile: hebt den Filter auf, ohne dass man das × treffen muss. */}
+          {clearOption && !query.trim() ? (
+            <li role="option" aria-selected={!value}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  clear();
+                }}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50"
+              >
+                {clearOption}
+                {!value ? <Check className="h-4 w-4 shrink-0 text-brand-green" /> : null}
+              </button>
+            </li>
+          ) : null}
           {filtered.length === 0 ? (
             <li className="px-3 py-2.5 text-xs text-gray-400">Keine Treffer.</li>
           ) : (

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowDownUp, ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
+import { ArrowDownUp, Check, ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import { fieldFillClass, inputClass } from "@/components/ui";
 import { Combobox, type ComboOption } from "@/components/combobox";
 
@@ -253,8 +253,6 @@ export function FilterBar({
   searchPlaceholder,
   filters = [],
   comboboxes = [],
-  sortOptions = [],
-  defaultSort,
   className = "",
 }: {
   searchParamKey?: string;
@@ -262,13 +260,9 @@ export function FilterBar({
   searchPlaceholder?: string;
   filters?: FilterConfig[];
   comboboxes?: ComboboxFilterConfig[];
-  sortOptions?: SortOption[];
-  defaultSort?: string;
   className?: string;
 }) {
   const { apply, searchParams, pathname, router } = useUrlUpdater();
-  const sortValue = searchParams.get("sort") ?? defaultSort ?? sortOptions[0]?.value ?? "";
-  const dir = searchParams.get("dir") === "asc" ? "asc" : "desc";
 
   const primaryFilters = filters.filter((f) => f.primary);
   const secondaryFilters = filters.filter((f) => !f.primary);
@@ -288,7 +282,7 @@ export function FilterBar({
     comboboxes.some((c) => searchParams.get(c.key));
 
   return (
-    <div className={`rounded-2xl bg-white p-2.5 shadow-e1 ring-1 ring-gray-200/70 ${className}`}>
+    <div className={`rounded-2xl bg-white p-2 shadow-e1 ring-1 ring-gray-200/70 ${className}`}>
       <div className="flex flex-wrap items-center gap-2">
         {searchPlaceholder ? <SearchBox paramKey={searchParamKey} placeholder={searchPlaceholder} /> : null}
 
@@ -308,40 +302,11 @@ export function FilterBar({
             disabledHint={c.disabledHint}
             onSelect={(v) => applyCombo(c, v)}
             onClear={() => applyCombo(c, null)}
-            className="min-w-[12rem]"
+            className="min-w-[10.5rem]"
           />
         ))}
 
         {secondaryFilters.length > 0 ? <MoreFilters filters={secondaryFilters} /> : null}
-
-        {sortOptions.length > 0 ? (
-          <div className="ml-auto flex items-center gap-1.5">
-            <div className="relative">
-              <select
-                value={sortValue}
-                onChange={(e) => apply({ sort: e.target.value })}
-                aria-label="Sortierfeld"
-                className={`${fieldFillClass} w-auto cursor-pointer appearance-none pr-8 text-gray-600`}
-              >
-                {sortOptions.map((o) => (
-                  <option key={o.value} value={o.value} className="text-gray-900">
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-              {chevron}
-            </div>
-            <button
-              type="button"
-              onClick={() => apply({ dir: dir === "asc" ? "desc" : "asc" })}
-              aria-label={dir === "asc" ? "Aufsteigend – zu absteigend wechseln" : "Absteigend – zu aufsteigend wechseln"}
-              title={dir === "asc" ? "Aufsteigend" : "Absteigend"}
-              className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[10px] bg-gray-100/80 text-gray-500 transition hover:bg-gray-200/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-orange"
-            >
-              <ArrowDownUp className="h-4 w-4" />
-            </button>
-          </div>
-        ) : null}
       </div>
 
       {anyActive ? (
@@ -355,6 +320,76 @@ export function FilterBar({
             <X className="h-3.5 w-3.5" />
             Alle zurücksetzen
           </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ── Sortier-Steuerung (kompaktes Menü für die Ergebniszeile) ─────────────────
+// Bewusst NICHT Teil der Filterleiste: sitzt dezent rechts neben der Trefferzahl
+// („X Vorgänge"), damit die Leiste einzeilig und schmal bleibt.
+export function SortControl({
+  sortOptions,
+  defaultSort,
+}: {
+  sortOptions: SortOption[];
+  defaultSort?: string;
+}) {
+  const { apply, searchParams } = useUrlUpdater();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: PointerEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [open]);
+
+  if (sortOptions.length === 0) return null;
+  const sortValue = searchParams.get("sort") ?? defaultSort ?? sortOptions[0].value;
+  const dir = searchParams.get("dir") === "asc" ? "asc" : "desc";
+  const current = sortOptions.find((o) => o.value === sortValue) ?? sortOptions[0];
+
+  const row =
+    "flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-left text-sm transition hover:bg-gray-50";
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+      >
+        <ArrowDownUp className="h-3.5 w-3.5" />
+        {current.label}
+        <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+      </button>
+
+      {open ? (
+        <div className="absolute right-0 z-30 mt-1.5 w-56 rounded-xl border border-gray-200/70 bg-white p-1 shadow-e2">
+          <p className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            Sortieren nach
+          </p>
+          {sortOptions.map((o) => (
+            <button key={o.value} type="button" onClick={() => apply({ sort: o.value })} className={row}>
+              <span className={o.value === sortValue ? "font-medium text-gray-900" : "text-gray-700"}>{o.label}</span>
+              {o.value === sortValue ? <Check className="h-4 w-4 shrink-0 text-brand-green" /> : null}
+            </button>
+          ))}
+          <div className="my-1 border-t border-gray-100" />
+          {(["desc", "asc"] as const).map((d) => (
+            <button key={d} type="button" onClick={() => apply({ dir: d })} className={row}>
+              <span className={dir === d ? "font-medium text-gray-900" : "text-gray-700"}>
+                {d === "desc" ? "Absteigend" : "Aufsteigend"}
+              </span>
+              {dir === d ? <Check className="h-4 w-4 shrink-0 text-brand-green" /> : null}
+            </button>
+          ))}
         </div>
       ) : null}
     </div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Prisma, TicketPriority, TicketStatus, TicketType, Trade } from "@/generated/prisma/client";
 import { Pagination, Alert, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
-import { FilterBar, type ComboboxFilterConfig, type FilterConfig } from "@/components/filter-bar";
+import { FilterBar, SortControl, type ComboboxFilterConfig, type FilterConfig } from "@/components/filter-bar";
 import { propertyWhereForVerwalter, ticketWhereForUser, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
@@ -216,13 +216,20 @@ export default async function TicketsPage({
       ) : null}
 
       <FilterBar
-        className="mb-4"
+        className="mb-3"
         searchPlaceholder="Nr., Titel oder Beschreibung suchen…"
         filters={filters}
         comboboxes={comboboxes}
-        sortOptions={sortOptions}
-        defaultSort="aktualisiert"
       />
+
+      {/* Ergebniszeile: Trefferzahl links, dezente Sortierung rechts eingebettet. */}
+      <div className="mb-2 flex items-center justify-between gap-3 px-1">
+        <p className="text-xs text-gray-400">
+          {total} {total === 1 ? "Vorgang" : "Vorgänge"}
+          {q || status || typ || prio || gewerk || objektId || einheitId || nutzerId ? " (gefiltert)" : ""}
+        </p>
+        {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="aktualisiert" /> : null}
+      </div>
 
       {tickets.length === 0 ? (
         <EmptyState>Keine Vorgänge gefunden.</EmptyState>

@@ -1,10 +1,9 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert, Card, EmptyState, Field, PageTitle, Pagination, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
-import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
+import { FilterBar, SortControl, type FilterConfig, type SortOption } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { bookingKindLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
-import { optionsFrom } from "@/lib/list-filters";
 import { normalizeSearch, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
@@ -15,13 +14,12 @@ export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
 
-// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
-const SORT_FIELDS = { datum: "bookingDate", betrag: "amountCents", erfasst: "createdAt" } as const;
+// Sortierfelder als Whitelist – niemals ein Feld direkt aus der URL in `orderBy`.
+const SORT_FIELDS = { datum: "bookingDate", betrag: "amountCents" } as const;
 
-const sortOptions = [
-  { value: "datum", label: "Buchungsdatum" },
+const SORT_OPTIONS: SortOption[] = [
+  { value: "datum", label: "Datum" },
   { value: "betrag", label: "Betrag" },
-  { value: "erfasst", label: "Erfasst am" },
 ];
 
 // Kontostand: Anfangsbestand + Σ EINNAHME − Σ AUSGABE ± UMBUCHUNGen
@@ -62,42 +60,39 @@ export default async function WegBuchhaltungPage({
   const { propertyId } = await params;
   const { property } = await requireWegProperty(propertyId);
   const sp = await searchParams;
-  const currentPage = parsePage(sp.page);
 
-  // ── Filter für die Buchungsliste ──
-  // Die Kontostände (groupBy) bleiben bewusst UNGEFILTERT: ein Saldo, der sich
-  // je nach Filter ändert, wäre schlicht falsch.
+  // ── Filter ────────────────────────────────────────────────────────────────
+  // Ausgangspunkt ist immer das Objekt aus `requireWegProperty` – die Filter
+  // verengen nur. Vorher zeigte die Seite die letzten 100 Buchungen und schnitt
+  // danach ab: Ältere Belege waren über die Oberfläche gar nicht erreichbar.
   const q = normalizeSearch(sp.q);
-  const kontoId = sp.konto;
-  const kostenartId = sp.kostenart;
-  const bkind = sp.bkind && sp.bkind in bookingKindLabels ? sp.bkind : undefined;
-  const jahr = /^\d{4}$/.test(sp.jahr ?? "") ? Number(sp.jahr) : undefined;
-  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "datum", "desc");
+  const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "datum");
 
-  // `propertyId` steht als erste Bedingung fest – Konto/Kostenart können damit
-  // nur INNERHALB dieses Objekts verengen. Eine fremde ID liefert schlicht
-  // keine Treffer und gibt nichts preis.
   const bookingAnd: Prisma.BookingWhereInput[] = [{ propertyId: property.id }];
   if (q) {
     bookingAnd.push({
       OR: [
         { text: { contains: q, mode: "insensitive" } },
-        { reference: { contains: q, mode: "insensitive" } },
         { counterparty: { contains: q, mode: "insensitive" } },
       ],
     });
   }
-  if (bkind) bookingAnd.push({ kind: bkind as Prisma.BookingWhereInput["kind"] });
-  if (kontoId) bookingAnd.push({ accountId: kontoId });
-  if (kostenartId) bookingAnd.push({ costTypeId: kostenartId });
-  if (jahr) {
+  if (sp.konto) bookingAnd.push({ accountId: sp.konto });
+  if (sp.art === "EINNAHME" || sp.art === "AUSGABE" || sp.art === "UMBUCHUNG") {
+    bookingAnd.push({ kind: sp.art });
+  }
+  if (sp.kostenart) bookingAnd.push({ costTypeId: sp.kostenart });
+  const jahr = Number.parseInt(sp.jahr ?? "", 10);
+  if (Number.isFinite(jahr) && jahr > 1900 && jahr < 2200) {
     bookingAnd.push({
       bookingDate: { gte: new Date(jahr, 0, 1), lt: new Date(jahr + 1, 0, 1) },
     });
   }
   const bookingWhere: Prisma.BookingWhereInput = { AND: bookingAnd };
+  const hasFilter = Boolean(q || sp.konto || sp.art || sp.kostenart || sp.jahr);
 
-  const [accounts, costTypes, sums, bookingTotal, bookings, batches] = await Promise.all([
+  const [accounts, costTypes, sums, bookingTotal, bookings, aeltesteBuchung, batches] = await Promise.all([
     db.ledgerAccount.findMany({
       where: { propertyId: property.id, active: true },
       orderBy: [{ kind: "asc" }, { createdAt: "asc" }],
@@ -107,6 +102,8 @@ export default async function WegBuchhaltungPage({
       orderBy: [{ orderIndex: "asc" }, { name: "asc" }],
       select: { id: true, name: true },
     }),
+    // Kontensalden immer über ALLE Buchungen – ein Saldo, der sich mit dem
+    // Filter verändert, wäre kein Saldo mehr.
     db.booking.groupBy({
       by: ["accountId", "kind", "transferOut"],
       where: { propertyId: property.id },
@@ -119,9 +116,15 @@ export default async function WegBuchhaltungPage({
         account: { select: { name: true, kind: true } },
         costType: { select: { name: true } },
       },
-      orderBy: toOrderBy(sort.field, sort.dir) as Prisma.BookingOrderByWithRelationInput,
+      orderBy: [toOrderBy(sort.field, sort.dir), { createdAt: "desc" }],
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
+    }),
+    // Ältester Beleg – daraus entsteht die Jahresauswahl.
+    db.booking.findFirst({
+      where: { propertyId: property.id },
+      orderBy: { bookingDate: "asc" },
+      select: { bookingDate: true },
     }),
     db.bankImportBatch.findMany({
       where: { propertyId: property.id },
@@ -135,34 +138,35 @@ export default async function WegBuchhaltungPage({
   const ruecklage = accounts.filter((a) => a.kind === "RUECKLAGE");
 
   const totalPages = Math.max(1, Math.ceil(bookingTotal / PAGE_SIZE));
-  const hasBookingFilter = Boolean(q || bkind || jahr || kontoId || kostenartId);
 
-  // Jahres-Auswahl aus dem Bestand ableiten (kein leerer Jahrgang in der Liste).
-  const oldest = await db.booking.findFirst({
-    where: { propertyId: property.id },
-    orderBy: { bookingDate: "asc" },
-    select: { bookingDate: true },
-  });
-  const thisYear = new Date().getFullYear();
-  const firstYear = oldest ? oldest.bookingDate.getFullYear() : thisYear;
-  const yearOptions = Array.from({ length: thisYear - firstYear + 1 }, (_, i) => {
-    const y = thisYear - i;
-    return { value: String(y), label: String(y) };
-  });
+  // Jahre vom ältesten Beleg bis heute – die Wirtschaftsjahre, die es gibt.
+  const jetzt = new Date().getFullYear();
+  const erstesJahr = aeltesteBuchung?.bookingDate.getFullYear() ?? jetzt;
+  const jahre = Array.from({ length: Math.max(1, jetzt - erstesJahr + 1) }, (_, i) => jetzt - i);
 
   const bookingFilters: FilterConfig[] = [
-    { key: "jahr", label: "Jahr", allLabel: "Alle Jahre", primary: true, options: yearOptions },
-    { key: "bkind", label: "Art", allLabel: "Alle Arten", options: optionsFrom(bookingKindLabels) },
+    {
+      key: "jahr",
+      label: "Jahr",
+      primary: true,
+      options: jahre.map((j) => ({ value: String(j), label: String(j) })),
+    },
     {
       key: "konto",
       label: "Konto",
-      allLabel: "Alle Konten",
+      primary: true,
       options: accounts.map((a) => ({ value: a.id, label: a.name })),
+    },
+    {
+      key: "art",
+      label: "Art",
+      options: (Object.keys(bookingKindLabels) as Array<keyof typeof bookingKindLabels>).map(
+        (k) => ({ value: k, label: bookingKindLabels[k] }),
+      ),
     },
     {
       key: "kostenart",
       label: "Kostenart",
-      allLabel: "Alle Kostenarten",
       options: costTypes.map((c) => ({ value: c.id, label: c.name })),
     },
   ];
@@ -418,24 +422,22 @@ export default async function WegBuchhaltungPage({
         </Card>
 
         {/* Buchungsliste */}
-        <Card title={`Buchungen (${bookingTotal})`}>
+        <Card title="Buchungen">
           <FilterBar
-            className="mb-3"
             searchPlaceholder="Suchen"
-            searchHint="Nach Text, Verwendungszweck oder Zahlungspartner suchen"
+            searchHint="In Buchungstext und Empfänger/Zahler suchen"
             filters={bookingFilters}
           />
-          <div className="mb-3 flex items-center justify-between gap-3 px-1">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
             <p className="text-xs text-gray-400">
               {bookingTotal} {bookingTotal === 1 ? "Buchung" : "Buchungen"}
-              {hasBookingFilter ? " (gefiltert)" : ""}
+              {hasFilter ? " (gefiltert)" : ""}
             </p>
-            {bookingTotal > 0 ? <SortControl sortOptions={sortOptions} defaultSort="datum" /> : null}
+            <SortControl sortOptions={SORT_OPTIONS} defaultSort="datum" />
           </div>
-
           {bookings.length === 0 ? (
             <EmptyState>
-              {hasBookingFilter ? "Keine Buchungen gefunden." : "Noch keine Buchungen."}
+              {hasFilter ? "Keine Buchungen gefunden." : "Noch keine Buchungen."}
             </EmptyState>
           ) : (
             <div className="overflow-x-auto">
@@ -498,7 +500,6 @@ export default async function WegBuchhaltungPage({
               </table>
             </div>
           )}
-
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}

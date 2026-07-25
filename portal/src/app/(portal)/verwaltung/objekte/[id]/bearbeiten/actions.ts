@@ -3,12 +3,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { User } from "@/generated/prisma/client";
-import {
-  canVerwalterAccessProperty,
-  canVerwalterManageUser,
-  userWhereForVerwalter,
-} from "@/lib/access";
+import { canVerwalterAccessProperty, canVerwalterManageUser } from "@/lib/access";
 import { db } from "@/lib/db";
+import { type PersonTreffer, searchPersons } from "@/lib/person-search";
 import { requireVerwalter } from "@/lib/session";
 import { parseEuroToCents } from "@/lib/money";
 import { DOCUMENT_TYPES, IMAGE_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
@@ -311,43 +308,9 @@ export async function deleteProperty(formData: FormData) {
 export async function searchPersonsForUnit(
   query: string,
   role: "MIETER" | "EIGENTUEMER",
-): Promise<{ id: string; name: string; hint: string }[]> {
+): Promise<PersonTreffer[]> {
   const actor = await requireVerwalter();
-  const q = query.trim();
-  if (q.length < 2) return [];
-  const persons = await db.user.findMany({
-    where: {
-      AND: [
-        { role },
-        { active: true },
-        { anonymizedAt: null },
-        { name: { contains: q, mode: "insensitive" } },
-        await userWhereForVerwalter(actor),
-      ],
-    },
-    orderBy: { name: "asc" },
-    take: 10,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      username: true,
-      tenancies: {
-        where: { active: true },
-        select: { unit: { select: { label: true, property: { select: { name: true } } } } },
-      },
-      ownerships: { select: { property: { select: { name: true } } } },
-    },
-  });
-  return persons.map((p) => {
-    const zuordnung =
-      role === "MIETER"
-        ? p.tenancies.map((t) => `${t.unit.property.name} · ${t.unit.label}`)
-        : p.ownerships.map((o) => o.property.name);
-    // Hinweis hilft beim Unterscheiden gleichnamiger Personen.
-    const teile = [p.email ?? (p.username ? `Benutzer: ${p.username}` : null), ...zuordnung];
-    return { id: p.id, name: p.name, hint: teile.filter(Boolean).join(" · ") || "ohne Zuordnung" };
-  });
+  return searchPersons(actor, query, role);
 }
 
 // ── Eigentümer/Mieter je Einheit (aus dem Objekt heraus) ────────────────────

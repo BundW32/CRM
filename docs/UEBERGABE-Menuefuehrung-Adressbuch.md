@@ -1,6 +1,8 @@
 # Übergabe: Menüführung & Adressbuch
 
 Stand: 25.07.2026 · Der Umbau ist **abgeschlossen und gemergt** (PRs #26–#31).
+Die vier Restpunkte aus Abschnitt 3 sind auf `claude/program-analysis-tasks-au9wmc`
+umgesetzt und **warten auf die Prüfung in der Preview** (siehe Abschnitt 3).
 
 Dieses Dokument ist für eine **neue Sitzung** geschrieben, die hier weitermacht.
 Es nennt die getroffenen Entscheidungen samt Begründung, damit sie nicht versehentlich
@@ -14,14 +16,10 @@ rückgängig gemacht werden, und listet auf, was noch offen ist.
 
 ## Hier weitermachen
 
-Nichts ist halb fertig – alle Änderungen sind gemergt, geprüft und in Betrieb. Die
-folgenden Punkte sind eigenständige, abgeschlossene Aufgaben. Empfohlene Reihenfolge:
-
-1. **Dubletten-Vorbeugung beim Anlegen eines neuen Objekts** (Abschnitt 3.1) – der
-   einzige verbliebene Weg, auf dem noch Mehrfachkonten entstehen können.
-2. **Gewerk-Feld abhängig von der Art ein-/ausblenden** (3.2) – klein, rein Oberfläche.
-3. **Filterleiste für die WEG-Unterseiten** (3.3).
-4. **⌘K-Suche** (3.4) – war von Anfang an als spätere Ausbaustufe geplant.
+Alle vier Punkte aus Abschnitt 3 sind gebaut, lokal geprüft und einzeln committet.
+**Offen ist nur noch die Prüfung mit echten Daten** – lokal gibt es keine
+Datenbank. Was zu prüfen ist, steht in Abschnitt 6; die wichtigste Prüfung ist
+und bleibt die Rollen-Gegenprobe.
 
 **Wichtig zur Umgebung:** Es gibt **keine Datenbankverbindung** (kein `.env`). Alles,
 was echte Daten braucht, muss in der Vercel-Preview geprüft werden. Lokal laufen
@@ -50,6 +48,16 @@ Konto (Handwerker, Dienstleister, Versorger, Behörden) stehen in **einer** List
 | `src/app/(portal)/verwaltung/kontakte/` | Liste, Zeile, Detailseite, Karteikarten-Formular |
 | `src/app/(portal)/verwaltung/nutzer/person-einstellungen.tsx` | Personen-Einstellungen, von zwei Orten genutzt |
 | `src/app/(portal)/verwaltung/objekte/[id]/bearbeiten/AddPersonForm.tsx` | Vorschlag vorhandener Personen |
+
+Dazu aus den Restpunkten (Abschnitt 3):
+
+| Datei | Zweck |
+|---|---|
+| `src/lib/person-search.ts` | Personensuche + Prüfung der gewählten ID, für beide Anlege-Wege |
+| `src/app/(portal)/verwaltung/objekte/neu/PersonVorschlag.tsx` | Vorschlag je Zeile beim Anlegen |
+| `src/app/(portal)/verwaltung/kontakte/ArtUndGewerk.tsx` | Art steuert das Gewerk-Feld |
+| `src/components/command-palette.tsx` | ⌘K-Palette (Sprungziele + Datensuche) |
+| `src/lib/portal-search.ts` / `-server.ts` | Typ und Konstante / die Abfrage |
 
 ---
 
@@ -99,43 +107,95 @@ die weiteren Einheiten zuordnen, die übrigen Konten löschen.
 
 ---
 
-## 3. Was offen ist
+## 3. Die vier Restpunkte – umgesetzt am 25.07.2026
 
-### 3.1 Dubletten-Vorbeugung beim **Anlegen eines neuen Objekts**
+Alle vier auf `claude/program-analysis-tasks-au9wmc`, je ein Commit. `tsc`,
+`eslint`, `vitest` (185 Tests) und `next build` sind grün; **mit echten Daten
+ungeprüft**.
+
+### 3.1 Dubletten-Vorbeugung beim **Anlegen eines neuen Objekts** ✔
 
 `inviteOrLetter` (`lib/user-invite.ts:26`) prüft **nur bei angegebener E-Mail**, ob
 die Person schon existiert. Ohne E-Mail – der Zugangsschreiben-Weg – legt es immer
 ein neues Konto an. So entstanden fünf Konten für einen Mieter mit fünf Einheiten
 (`hakki.guer`, `hakki.guer2` …).
 
-**Bereits behoben** für Mieter/Eigentümer an einer Einheit und Eigentümer an einem
-Objekt: `objekte/[id]/bearbeiten/` nutzt `AddPersonForm`, das ab zwei getippten
-Zeichen vorhandene Personen vorschlägt (`searchPersonsForUnit` in dessen
-`actions.ts`).
+`objekte/neu/` schlägt jetzt vorhandene Personen vor, wie `bearbeiten/` es schon
+tat – und zwar in **allen drei** Personen-Wegen des Formulars: Objekt-Eigentümer,
+WEG-Eigentümer je Einheit, Mieter je Einheit (`PersonVorschlag.tsx`).
 
-**Noch offen:** `objekte/neu/` (Objekt mit Einheiten und Mieternamen in einem Zug
-anlegen) hat den Vorschlag nicht. Dort können weiterhin Dubletten entstehen. Das
-Muster aus `bearbeiten/AddPersonForm.tsx` lässt sich übernehmen.
+`inviteOrLetter` blieb bewusst unverändert: Sind beide Anlege-Wege in der
+Oberfläche abgesichert, gibt es keinen ungeschützten Aufrufer mehr. Eine
+Namensprüfung in der Funktion selbst sähe den Access-Scope nicht und würde zwei
+gleichnamige Menschen zusammenwerfen – genau das, was Abschnitt 2 verbietet.
 
-### 3.2 Gewerk-Feld abhängig von der Art
+Die Suche liegt jetzt einmal in `lib/person-search.ts` und wird von beiden Wegen
+genutzt. `verifyExistingPerson` prüft die gewählte ID gegen Organisation und
+Rolle – sie kommt aus einem versteckten Feld, ohne Prüfung ließe sich eine fremde
+Person an ein eigenes Objekt hängen.
 
-Im Formular „Kontakt hinzufügen" (`verwaltung/kontakte/page.tsx`) erscheint das
-Gewerk auch bei Art „Behörde" – nur mit dem Hinweis „(nur bei Handwerkern
-relevant)". Sauberer wäre, es abhängig von der gewählten Art ein-/auszublenden
-(erfordert eine kleine Client-Komponente, da die Auswahl im Browser passiert).
-`kindUsesTrade()` in `lib/labels.ts` gibt es schon dafür.
+> **Falle für später:** Die Zeilen werden serverseitig über `getAll()` indexgleich
+> eingelesen. Das versteckte `…UserId`-Feld muss deshalb in **jeder** Zeile
+> gerendert werden, auch leer – fehlt es, verschiebt sich die Zuordnung aller
+> folgenden Zeilen. Aus demselben Grund sind verknüpfte Felder `readOnly` und
+> nicht `disabled`: Deaktivierte Felder werden nicht mitgeschickt.
 
-### 3.3 Filterleiste für die WEG-Unterseiten
+### 3.2 Gewerk-Feld abhängig von der Art ✔
 
-Buchhaltung, Hausgeld, Jahresabrechnung usw. unter `verwaltung/weg/[propertyId]/`
-haben keine Filterleiste. Sie waren beim Rollout durch das Kriterium „Seite hat
-Paginierung" durchgerutscht (in PR #28 vermerkt). Werkzeuge: `FilterBar`,
-`lib/list-query.ts`, `lib/list-filters.ts`.
+Art und Gewerk liegen zusammen in `kontakte/ArtUndGewerk.tsx` und entscheiden über
+`kindUsesTrade()`. Sie stehen bewusst direkt beieinander – das Feld erscheint dort,
+wo die Auswahl passiert. Im ausgeblendeten Zustand geht `ALLGEMEIN` mit, weil
+`Craftsman.trade` im Schema ein Pflichtfeld ist.
 
-### 3.4 ⌘K-Suche
+### 3.3 Filterleiste für die WEG-Unterseiten ✔ (Buchhaltung + Hausgeld)
 
-War von Anfang an als spätere Ausbaustufe markiert, nicht begonnen. Gedacht als
-Ergänzung zur Leiste, nicht als Ersatz.
+Bewusst **nur diese beiden**: Es sind die einzigen mit gedeckelten Listen, und dort
+fehlte mehr als Komfort – die Listen endeten hart an ihrem Deckel, ohne Weg zu
+älteren Einträgen. Erhaltungsplanung, Sonderumlagen, Prüfpflichten und Stammdaten
+zeigen eine Handvoll Zeilen; eine Filterleiste darüber wäre Störung statt Hilfe.
+
+- **Buchhaltung**: Suche, Filter (Jahr, Konto, Art, Kostenart), Sortierung, 50/Seite
+  (vorher: die letzten 100, danach nichts). Kontensalden laufen weiter über **alle**
+  Buchungen – ein Saldo, der sich mit dem Filter ändert, wäre kein Saldo.
+- **Hausgeld**: Rückstandsliste nach Stand, Mahnwesen nach Versandstatus, offene
+  Zahlungseingänge durchsuchbar und geblättert. Die Summenzeile bleibt die Summe
+  über alle Einheiten und sagt das, sobald gefiltert wird.
+
+Dabei behoben: Die nächste Mahnstufe je Einheit wurde aus derselben Liste
+abgeleitet, die angezeigt wird – mit Filter (und schon vorher ab dem 51. Schreiben)
+hätte das eine bereits versendete Stufe erneut angeboten. Die Eskalation hat jetzt
+eine eigene, ungefilterte Quelle ohne Deckel.
+
+> **Falle für später:** Je Seite wird nur **eine** Liste geblättert. `page` gibt es
+> in der URL nur einmal; zwei Paginierungen nebeneinander verstellen einander.
+
+### 3.4 ⌘K-Suche ✔
+
+Ergänzung zur Leiste, nicht Ersatz. Zwei Quellen, unterschiedlich weit gefasst:
+
+- **Sprungziele** aus dem Menü-Modell, für **jede** Rolle – exakt die Punkte, die
+  dieselbe Person auch in der Leiste sieht, plus die Einstellungs-Seiten hinter dem
+  Zahnrad (die sucht man am ehesten).
+- **Daten** (Objekte, Kontakte, Vorgänge) nur für **Verwalter**, ausgehend von den
+  `…WhereForVerwalter`-Grenzen. Begründung siehe Abschnitt 6.
+
+Erreichbar auch ohne Tastatur: „Suchen" am Kopf der Leiste, Lupe in der mobilen
+Kopfzeile. Eine Tastenkombination allein findet nur, wer sie kennt.
+
+> **Falle für später:** `portal-search.ts` trägt nur Typ und Konstante, die Abfrage
+> liegt in `portal-search-server.ts`. Holt die Palette einen **Wert** aus dem
+> Server-Modul, zieht sie die gesamte Prisma-Kette ins Browser-Bündel und der Build
+> bricht. Gleiche Aufteilung wie `url.ts`/`url-server.ts`.
+
+### Was bewusst offen blieb
+
+- **Filterleisten für die übrigen WEG-Seiten** – siehe Begründung oben. Wenn ein
+  Bestand wächst, sind Prüfpflichten (Status-Filter) der nächste sinnvolle Schritt.
+- **⌘K-Aktionen** („Neues Objekt anlegen" o. Ä.). Sprungziele leisten davon das
+  meiste; Aktionen wären die nächste Ausbaustufe.
+- **Datensuche für Mieter und Eigentümer.** Technisch über `…WhereForUser`
+  machbar, aber jede Rolle bräuchte ihre eigene Gegenprobe – und die ist ohne
+  Datenbank nicht zu haben.
 
 ---
 
@@ -184,7 +244,7 @@ und Lesezeichen laufen sonst ins Leere. Die Seite hat einen Rückweg zu den Kont
 cd portal
 npx tsc --noEmit      # 0 Fehler
 npx eslint src        # 0 Warnungen
-npx vitest run        # 180 Tests
+npx vitest run        # 185 Tests
 npx next build        # grün
 ```
 
@@ -192,3 +252,19 @@ In der Vercel-Preview zusätzlich die **Rollen-Gegenprobe**: als Mieter und als
 Eigentümer anmelden – dort darf **kein** Verwaltungspunkt in der Leiste erscheinen,
 insbesondere kein „Kontakte". Das Adressbuch enthält Telefonnummern aller Mieter; ein
 Leck wäre ein Datenschutzproblem. Das ist die wichtigste Prüfung im ganzen Umbau.
+
+**Die Gegenprobe gilt seit der ⌘K-Suche auch für die Palette.** Als Mieter und als
+Eigentümer ⌘K drücken: Es dürfen **nur Sprungziele** erscheinen, niemals ein Name,
+ein Objekt oder ein Vorgang. Eine Suchfläche, die zu viel findet, ist dasselbe Leck
+in neuer Form – nur unauffälliger, weil sie kein Menüpunkt ist.
+
+Was mit echten Daten noch zu prüfen ist (lokal nicht möglich):
+
+| Prüfung | Worauf achten |
+|---|---|
+| Rollen-Gegenprobe ⌘K | Mieter/Eigentümer: nur Sprungziele, keine Daten |
+| Eingeschränkter Verwalter (kein SuperAdmin) | Findet in ⌘K nur seine eigenen Objekte, Kontakte, Vorgänge |
+| Objekt anlegen mit vorhandener Person | Vorschlag erscheint ab 2 Zeichen; nach Auswahl entsteht **kein** zweites Konto und **kein** Zugangsschreiben |
+| Objekt anlegen mit mehreren Zeilen | Zeile 2 verknüpft, Zeile 1 und 3 neu → Namen landen bei den richtigen Einheiten (Index-Zuordnung) |
+| Buchhaltung mit >100 Buchungen | Ältere Belege über Jahr-Filter und Blättern erreichbar; Kontensalden bleiben unverändert |
+| Hausgeld-Mahnwesen | Bei gesetztem Status-Filter bietet die Rückstandsliste weiter die **richtige** nächste Mahnstufe an |

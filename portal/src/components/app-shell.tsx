@@ -33,6 +33,7 @@ import {
   PieChart,
   Plug,
   Receipt,
+  Search,
   Settings,
   ShieldCheck,
   StickyNote,
@@ -43,6 +44,7 @@ import {
   X,
 } from "lucide-react";
 import { logout } from "@/app/login/actions";
+import { openCommandPalette, useIsMac } from "@/components/command-palette";
 import { OrgLogo } from "@/components/logo";
 import { SETTINGS_HREF, type NavGroup, type NavIcon } from "@/lib/app-nav";
 
@@ -156,6 +158,7 @@ export function AppShell({
   const [accountOpen, setAccountOpen] = useState(false);
   const [badges, setBadges] = useState<CountBadges | undefined>(undefined);
   const collapsed = useCollapsed();
+  const isMac = useIsMac();
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -183,6 +186,37 @@ export function AppShell({
   function closeAll() {
     setDrawerOpen(false);
     setAccountOpen(false);
+  }
+
+  /** Sichtbarer Einstieg in die ⌘K-Palette. Eine Tastenkombination allein
+   *  findet nur, wer sie schon kennt – der Knopf macht sie auffindbar und ist
+   *  auf dem Telefon ohnehin der einzige Weg. */
+  function renderSearch(rail: boolean) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          closeAll();
+          openCommandPalette();
+        }}
+        title={rail ? "Suchen" : undefined}
+        className={`mb-1 flex w-full items-center gap-2.5 rounded-lg py-2 text-sm text-gray-600 transition hover:bg-gray-100 hover:text-brand-green ${
+          rail ? "justify-center px-2" : "px-3"
+        }`}
+      >
+        <Search className="h-[18px] w-[18px] shrink-0 text-gray-400" />
+        {rail ? (
+          <span className="sr-only">Suchen</span>
+        ) : (
+          <>
+            <span className="min-w-0 flex-1 truncate text-left">Suchen</span>
+            <kbd className="shrink-0 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
+              {isMac ? "⌘" : "Strg"} K
+            </kbd>
+          </>
+        )}
+      </button>
+    );
   }
 
   /** @param rail Icon-Leiste (eingeklappt) – nur im Desktop-Fall relevant. */
@@ -427,10 +461,18 @@ export function AppShell({
         <Link href="/dashboard" className="shrink-0">
           <OrgLogo src={logoUrl} alt={orgName} className="h-8 w-auto" />
         </Link>
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          aria-label="Suchen"
+          className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-gray-500 shadow-sm"
+        >
+          <Search className="h-[18px] w-[18px]" />
+        </button>
         <Link
           href="/konto"
           aria-label="Konto"
-          className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-[11px] font-bold text-brand-orange-dark shadow-sm"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-[11px] font-bold text-brand-orange-dark shadow-sm"
         >
           {initialsOf(user.name)}
         </Link>
@@ -444,6 +486,7 @@ export function AppShell({
             mitschrumpfen und würden sich bei knapper Höhe überlappen. */}
         <div className="sticky top-8 flex max-h-[calc(100vh-4rem)] flex-col rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
           <div className="shrink-0">{renderSidebarHead(collapsed)}</div>
+          <div className="shrink-0">{renderSearch(collapsed)}</div>
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
             {renderNav(collapsed)}
           </div>
@@ -476,6 +519,7 @@ export function AppShell({
                 <X className="h-5 w-5" />
               </button>
             </div>
+            <div className="shrink-0">{renderSearch(false)}</div>
             <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
               {renderNav(false)}
             </div>

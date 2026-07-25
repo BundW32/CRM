@@ -14,21 +14,19 @@ import {
   loadAddressBook,
   parseKind,
 } from "@/lib/address-book";
-import { contactKindLabels, roleLabels, tradeLabels } from "@/lib/labels";
+import { contactKindLabels, roleLabels } from "@/lib/labels";
 import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { isSelfManaged, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { NewUserForm } from "../nutzer/new-user-form";
 import { createCraftsman } from "./actions";
+import { ArtUndGewerk } from "./ArtUndGewerk";
 import { KontaktZeile } from "./KontaktZeile";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
-
-const TRADE_ORDER = Object.keys(tradeLabels) as Array<keyof typeof tradeLabels>;
-const KIND_ORDER = Object.keys(contactKindLabels) as Array<keyof typeof contactKindLabels>;
 
 // Beschriftung der „Art“ – Personenrollen und Kontaktarten in einer Liste.
 function kindLabel(value: string): string {
@@ -169,15 +167,7 @@ export default async function KontaktePage({
               Versorger, Behörden.
             </p>
             <form action={createCraftsman} className="space-y-3">
-              <Field label="Art">
-                <select name="kind" required className={inputClass} defaultValue="HANDWERKER">
-                  {KIND_ORDER.map((k) => (
-                    <option key={k} value={k}>
-                      {contactKindLabels[k]}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              <ArtUndGewerk />
               <Field label="Firma (optional)">
                 <input
                   type="text"
@@ -188,15 +178,6 @@ export default async function KontaktePage({
               </Field>
               <Field label="Ansprechpartner / Name">
                 <input type="text" name="name" required minLength={2} className={inputClass} />
-              </Field>
-              <Field label="Gewerk (nur bei Handwerkern relevant)">
-                <select name="trade" required className={inputClass} defaultValue="SANITAER">
-                  {TRADE_ORDER.map((t) => (
-                    <option key={t} value={t}>
-                      {tradeLabels[t]}
-                    </option>
-                  ))}
-                </select>
               </Field>
               <Field label="Telefon">
                 <input type="tel" name="phone" className={inputClass} />

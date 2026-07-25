@@ -1101,6 +1101,7 @@ export async function generateCertificate(formData: FormData) {
       wohnungsgeberId: owner?.id ?? null,
       imAuftrag,
       vollmachtErteiltAm: owner?.certMandateGrantedAt?.toISOString() ?? null,
+      vollmachtQuelle: owner?.certMandateSource ?? null,
     },
     ip: await getClientIp(),
   });

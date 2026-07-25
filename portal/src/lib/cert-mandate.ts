@@ -14,7 +14,33 @@
 export type CertMandateFields = {
   certMandateGrantedAt: Date | null;
   certMandateRevokedAt: Date | null;
+  certMandateSource?: string | null;
 };
+
+/**
+ * Woher stammt die Ermächtigung?
+ *
+ * `SELBST` — der Eigentümer hat sie im Portal erteilt.
+ * `SCHRIFTLICH` — unterschriebene Vollmacht auf Papier, von der Verwaltung
+ *   vermerkt. Nötig für Eigentümer ohne Portalzugang; ohne diesen Weg bliebe
+ *   für sie überhaupt keine Bescheinigung möglich.
+ *
+ * Rechtlich sind beide gleichwertig – § 19 Abs. 5 BMG schreibt keine Form vor.
+ * Unterschieden werden sie trotzdem, weil nur der schriftliche Weg eine
+ * Fundstelle braucht und weil der Eigentümer sehen soll, was in seinem Namen
+ * vermerkt wurde.
+ */
+export const CERT_MANDATE_SOURCES = ["SELBST", "SCHRIFTLICH"] as const;
+export type CertMandateSource = (typeof CERT_MANDATE_SOURCES)[number];
+
+export const certMandateSourceLabels: Record<CertMandateSource, string> = {
+  SELBST: "im Portal erteilt",
+  SCHRIFTLICH: "schriftlich erteilt, von der Verwaltung vermerkt",
+};
+
+export function isCertMandateSource(wert: string | null | undefined): wert is CertMandateSource {
+  return (CERT_MANDATE_SOURCES as readonly string[]).includes(wert ?? "");
+}
 
 /** Liegt eine gültige, nicht widerrufene Ermächtigung vor? */
 export function hasCertMandate(user: CertMandateFields | null | undefined): boolean {

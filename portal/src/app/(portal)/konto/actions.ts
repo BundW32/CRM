@@ -79,15 +79,24 @@ export async function grantCertMandate() {
   const now = new Date();
   await db.user.update({
     where: { id: user.id },
-    // Widerruf zurücksetzen: Wer erneut bevollmächtigt, soll nicht durch einen
-    // alten Widerruf blockiert bleiben.
-    data: { certMandateGrantedAt: now, certMandateRevokedAt: null },
+    data: {
+      certMandateGrantedAt: now,
+      // Widerruf zurücksetzen: Wer erneut bevollmächtigt, soll nicht durch
+      // einen alten Widerruf blockiert bleiben.
+      certMandateRevokedAt: null,
+      certMandateSource: "SELBST",
+      // Einen früheren Papier-Vermerk ablösen: Ab jetzt gilt die im Portal
+      // selbst erteilte Vollmacht, Fundstelle und Vermerkender wären irreführend.
+      certMandateNote: null,
+      certMandateRecordedById: null,
+    },
   });
   await logAudit({
     actorId: user.id,
     action: AUDIT.CERT_MANDATE_GRANTED,
     targetType: "User",
     targetId: user.id,
+    meta: { quelle: "SELBST" },
     ip: await getClientIp(),
   });
   revalidatePath("/konto");
@@ -105,6 +114,7 @@ export async function revokeCertMandate() {
     action: AUDIT.CERT_MANDATE_REVOKED,
     targetType: "User",
     targetId: user.id,
+    meta: { durch: "EIGENTUEMER" },
     ip: await getClientIp(),
   });
   revalidatePath("/konto");

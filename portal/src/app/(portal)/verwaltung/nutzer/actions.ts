@@ -141,6 +141,95 @@ export async function uploadStammdaten(formData: FormData) {
   }
 }
 
+// ── Schriftliche Vollmacht vermerken ────────────────────────────────────────
+// Der Self-Service unter „Konto" setzt einen Portalzugang voraus, den der
+// Eigentümer auch nutzt. Viele Eigentümer haben beides nicht – ihre Vollmacht
+// liegt unterschrieben im Ordner. Ohne diesen Weg bliebe für sie überhaupt
+// keine Bescheinigung möglich.
+//
+// Der Vermerk verlangt bewusst Datum UND Fundstelle: Ein blosses Häkchen wäre
+// kein Nachweis, sondern nur die Behauptung des Verwalters, es gebe eine
+// Vollmacht. Wer den Vermerk gesetzt hat, wird mitgeführt und protokolliert.
+const paperMandateSchema = z.object({
+  // Datum der unterschriebenen Vollmacht, nicht das Datum des Vermerks.
+  datum: z.coerce.date(),
+  // Fundstelle: Wo liegt das Papier? Ohne Angabe ist der Vermerk wertlos.
+  fundstelle: z.string().trim().min(3).max(500),
+});
+
+export async function recordPaperMandate(formData: FormData) {
+  const actor = await requireVerwalter();
+  const id = String(formData.get("id") ?? "");
+  await ensureCanManageUser(actor, id);
+  const user = await db.user.findUnique({ where: { id } });
+  // Nur Eigentümer sind Wohnungsgeber – nur sie können bevollmächtigen.
+  if (!user || user.role !== "EIGENTUEMER") redirect(zurueckZu(formData));
+
+  const parsed = paperMandateSchema.safeParse({
+    datum: formData.get("datum"),
+    fundstelle: formData.get("fundstelle"),
+  });
+  if (!parsed.success) {
+    redirect(zurueckZu(formData, "?fehler=vollmacht"));
+  }
+  // Eine auf die Zukunft datierte Vollmacht gibt es nicht.
+  if (parsed.data.datum.getTime() > Date.now()) {
+    redirect(zurueckZu(formData, "?fehler=vollmacht_datum"));
+  }
+
+  await db.user.update({
+    where: { id },
+    data: {
+      certMandateGrantedAt: parsed.data.datum,
+      certMandateRevokedAt: null,
+      certMandateSource: "SCHRIFTLICH",
+      certMandateNote: parsed.data.fundstelle,
+      certMandateRecordedById: actor.id,
+    },
+  });
+
+  await logAudit({
+    actorId: actor.id,
+    action: AUDIT.CERT_MANDATE_GRANTED,
+    targetType: "User",
+    targetId: id,
+    meta: {
+      quelle: "SCHRIFTLICH",
+      vollmachtVom: parsed.data.datum.toISOString(),
+      fundstelle: parsed.data.fundstelle,
+    },
+    ip: await getClientIp(),
+  });
+
+  revalidatePath("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=vollmacht-vermerkt"));
+}
+
+export async function revokePaperMandate(formData: FormData) {
+  const actor = await requireVerwalter();
+  const id = String(formData.get("id") ?? "");
+  await ensureCanManageUser(actor, id);
+  const user = await db.user.findUnique({ where: { id } });
+  if (!user) redirect(zurueckZu(formData));
+
+  await db.user.update({
+    where: { id },
+    data: { certMandateRevokedAt: new Date() },
+  });
+
+  await logAudit({
+    actorId: actor.id,
+    action: AUDIT.CERT_MANDATE_REVOKED,
+    targetType: "User",
+    targetId: id,
+    meta: { durch: "VERWALTER" },
+    ip: await getClientIp(),
+  });
+
+  revalidatePath("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=vollmacht-widerrufen"));
+}
+
 const userSchema = z.object({
   firstName: z.string().trim().min(1).max(100),
   lastName: z.string().trim().min(1).max(100),

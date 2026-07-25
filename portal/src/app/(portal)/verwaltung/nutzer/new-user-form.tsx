@@ -98,9 +98,11 @@ export function NewUserForm({
             value={role}
             onChange={(e) => setRole(e.target.value)}
           >
-            {/* Selbstverwaltung: keine Mieter/Handwerker-Konten (kein professionelles
-                Mietverhältnis) – nur Eigentümer und (für den internen Admin) Verwalter. */}
-            {!selfManaged ? <option value="MIETER">Mieter</option> : null}
+            {/* Mieter gibt es auch in der Selbstverwaltung: Ein Eigentümer kann
+                seine Einheit vermieten. Der Objekt-Weg (`objekte/neu`) legt dort
+                längst Mieter an – das Dropdown hatte sie ohne fachlichen Grund
+                verborgen. In der Selbstverwaltung steht nur der Eigentümer vorn. */}
+            <option value="MIETER">Mieter</option>
             <option value="EIGENTUEMER">Eigentümer</option>
             {/* Handwerker bekommen bewusst kein Portalkonto – sie werden unter
                 „Kontakte" gepflegt und erhalten ihre Aufträge per E-Mail-Link. */}

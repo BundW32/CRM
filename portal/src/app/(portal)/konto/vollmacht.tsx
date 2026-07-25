@@ -10,6 +10,8 @@ type EigentuemerFelder = {
   signatureSelfSigned: boolean;
   certMandateGrantedAt: Date | null;
   certMandateRevokedAt: Date | null;
+  certMandateSource: string | null;
+  certMandateNote: string | null;
 };
 
 /**
@@ -67,6 +69,24 @@ export function VollmachtKarte({ user }: { user: EigentuemerFelder }) {
               Ihre <strong>vermieteten</strong> Einheiten in Ihrem Namen ausstellen. Für
               selbst genutzte Einheiten gilt das nicht – dort gibt es nichts zu bescheinigen.
             </p>
+            {/* Wurde die Vollmacht auf Papier erteilt, hat die Verwaltung sie hier
+                vermerkt. Der Eigentümer muss sehen, was in seinem Namen eingetragen
+                wurde – sonst wäre der Vermerk für ihn unsichtbar. */}
+            {user.certMandateSource === "SCHRIFTLICH" ? (
+              <p className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                Diese Vollmacht hat Ihre Verwaltung anhand Ihrer{" "}
+                <strong>schriftlich erteilten</strong> Vollmacht vermerkt.
+                {user.certMandateNote ? (
+                  <span className="mt-0.5 block text-gray-500">
+                    Hinterlegt als: {user.certMandateNote}
+                  </span>
+                ) : null}
+                <span className="mt-0.5 block text-gray-500">
+                  Stimmt das nicht? Dann widerrufen Sie sie hier und wenden Sie sich an
+                  Ihre Verwaltung.
+                </span>
+              </p>
+            ) : null}
             <form action={revokeCertMandate} className="mt-3">
               <ConfirmActionButton
                 className="text-xs text-red-600 hover:underline"

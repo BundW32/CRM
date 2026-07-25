@@ -38,6 +38,10 @@ export const flashMessages = {
     text: "Vollmacht erteilt. Die Verwaltung darf Bescheinigungen für Ihre vermieteten Einheiten ausstellen.",
     tone: "success",
   },
+  "vollmacht-vermerkt": {
+    text: "Schriftliche Vollmacht vermerkt.",
+    tone: "success",
+  },
   "vollmacht-widerrufen": {
     text: "Vollmacht widerrufen. Es werden keine neuen Bescheinigungen in Ihrem Namen erstellt.",
     tone: "info",

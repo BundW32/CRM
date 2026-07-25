@@ -1,7 +1,11 @@
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { inputClass } from "@/components/ui";
-import { hasCertMandate } from "@/lib/cert-mandate";
+import {
+  certMandateSourceLabels,
+  hasCertMandate,
+  isCertMandateSource,
+} from "@/lib/cert-mandate";
 import { formatDate } from "@/lib/labels";
 import { db } from "@/lib/db";
 import type { User } from "@/generated/prisma/client";
@@ -16,8 +20,10 @@ import {
   removeCraftsmanAssignment,
   removeOwnership,
   removePropertyAssignment,
+  recordPaperMandate,
   removeTenancy,
   resendInvite,
+  revokePaperMandate,
   toggleSuperAdmin,
   toggleUserActive,
   uploadStammdaten,
@@ -350,31 +356,116 @@ export function PersonEinstellungen({
             Unterschrift mit Finger oder Maus zeichnen. Wird automatisch
             in generierte Bescheinigungen eingefügt.
           </p>
-
-          {/* Vollmacht: nur der Eigentümer selbst kann sie erteilen. Hier steht
-              deshalb ausschließlich der Status – ohne ihn liefe der Verwalter
-              erst beim Erstellen der Bescheinigung in die Sperre. */}
-          {u.role === "EIGENTUEMER" ? (
-            <div className="mt-3 border-t border-gray-100 pt-3">
-              {hasCertMandate(u) ? (
-                <p className="text-[11px] text-green-700">
-                  Vollmacht für Bescheinigungen erteilt
-                  {u.certMandateGrantedAt ? ` am ${formatDate(u.certMandateGrantedAt)}` : ""}.
-                  {u.signatureSelfSigned
-                    ? " Eigenhändige Unterschrift liegt vor."
-                    : " Ohne eigenhändige Unterschrift erscheinen Bescheinigungen mit dem Zusatz „i. A.“."}
-                </p>
-              ) : (
-                <p className="text-[11px] text-amber-700">
-                  Keine Vollmacht erteilt – es können keine Bescheinigungen im Namen dieses
-                  Eigentümers erstellt werden. Er erteilt sie selbst unter „Konto →
-                  Unterschrift &amp; Vollmacht“.
-                </p>
-              )}
-            </div>
-          ) : null}
         </form>
       ) : null}
+
+      {/* Vollmacht: Status und – für Eigentümer ohne Portalzugang – der Vermerk
+          der schriftlichen Vollmacht. Bewusst ein eigenes Formular NEBEN den
+          Stammdaten: Verschachtelte <form>-Elemente sind ungültig, und die
+          beiden Angaben gehören auch fachlich nicht zusammen. */}
+      {u.role === "EIGENTUEMER" ? (
+        <div className="rounded-lg border border-gray-100 bg-white p-2">
+          <p className="mb-2 text-xs font-medium text-gray-500">
+            Vollmacht für Bescheinigungen
+          </p>
+          <VollmachtVermerk u={u} zurueck={zurueck} />
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * Vollmacht aus Sicht der Verwaltung.
+ *
+ * Erteilen kann sie nur der Eigentümer – entweder selbst im Portal, oder
+ * schriftlich auf Papier. Der zweite Weg ist kein Ersatz, sondern der einzige
+ * für Eigentümer ohne Portalzugang: Ohne ihn bliebe für sie überhaupt keine
+ * Bescheinigung möglich.
+ *
+ * Der Vermerk verlangt Datum **und** Fundstelle. Ein blosses Häkchen wäre kein
+ * Nachweis, sondern nur die Behauptung des Verwalters, es gebe eine Vollmacht –
+ * und genau darauf käme es im Streitfall an.
+ */
+function VollmachtVermerk({ u, zurueck }: { u: PersonMitBezug; zurueck: string }) {
+  if (!u) return null;
+  const aktiv = hasCertMandate(u);
+  const schriftlich = u.certMandateSource === "SCHRIFTLICH";
+  const heute = new Date().toISOString().slice(0, 10);
+
+  if (aktiv) {
+    return (
+      <>
+        <p className="text-[11px] text-green-700">
+          Erteilt{u.certMandateGrantedAt ? ` am ${formatDate(u.certMandateGrantedAt)}` : ""}
+          {u.certMandateSource && isCertMandateSource(u.certMandateSource)
+            ? ` – ${certMandateSourceLabels[u.certMandateSource]}`
+            : ""}
+          .
+        </p>
+        {schriftlich && u.certMandateNote ? (
+          <p className="mt-0.5 text-[11px] text-gray-500">
+            Fundstelle: {u.certMandateNote}
+          </p>
+        ) : null}
+        <p className="mt-0.5 text-[11px] text-gray-500">
+          {u.signatureSelfSigned
+            ? "Eigenhändige Unterschrift liegt vor – Bescheinigungen tragen den Namen des Eigentümers."
+            : "Ohne eigenhändige Unterschrift erscheinen Bescheinigungen mit dem Zusatz „i. A.“."}
+        </p>
+        <form action={revokePaperMandate} className="mt-2">
+          <input type="hidden" name="zurueck" value={zurueck} />
+          <input type="hidden" name="id" value={u.id} />
+          <ConfirmActionButton
+            className="text-[11px] text-red-600 hover:underline"
+            confirmLabel="Vollmacht wirklich widerrufen?"
+            pendingLabel="Wird widerrufen…"
+          >
+            Vollmacht widerrufen
+          </ConfirmActionButton>
+        </form>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <p className="mb-2 text-[11px] text-amber-700">
+        Keine Vollmacht – es können keine Bescheinigungen im Namen dieses Eigentümers
+        erstellt werden. Er kann sie selbst unter „Konto“ erteilen; liegt sie
+        unterschrieben auf Papier vor, hier vermerken:
+      </p>
+      <form action={recordPaperMandate} className="space-y-2">
+        <input type="hidden" name="zurueck" value={zurueck} />
+        <input type="hidden" name="id" value={u.id} />
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-[11px] text-gray-500">
+            Vollmacht vom
+            <input
+              type="date"
+              name="datum"
+              required
+              max={heute}
+              className={`${inputClass} mt-0.5 w-40`}
+            />
+          </label>
+          <label className="flex-1 text-[11px] text-gray-500">
+            Fundstelle (wo liegt das Original?)
+            <input
+              type="text"
+              name="fundstelle"
+              required
+              minLength={3}
+              maxLength={500}
+              placeholder="z. B. Ordner Eigentümer A–M, Reiter 12"
+              className={`${inputClass} mt-0.5`}
+            />
+          </label>
+        </div>
+        <PendingButton className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+          Schriftliche Vollmacht vermerken
+        </PendingButton>
+      </form>
+    </>
   );
 }

@@ -51,16 +51,15 @@ export function KontaktAnlegen({
   isSuperAdmin: boolean;
   selfManaged: boolean;
 }) {
-  // Selbstverwaltung kennt keine Mieter-Konten (kein professionelles
-  // Mietverhältnis) – die Vorauswahl beginnt dort beim Eigentümer.
+  // In der Selbstverwaltung steht der Eigentümer im Vordergrund – Mieter sind
+  // dort die Ausnahme, aber möglich: Auch in einer WEG kann eine Einheit
+  // vermietet sein. Deshalb nur eine andere Vorauswahl, keine Sperre.
   const [art, setArt] = useState<Auswahl>(selfManaged ? "EIGENTUEMER" : "MIETER");
 
   const zugang = istZugangsRolle(art);
-  const verfuegbareRollen = ZUGANGS_ROLLEN.filter((r) => {
-    if (r === "MIETER" && selfManaged) return false;
-    if (r === "VERWALTER" && !isSuperAdmin) return false;
-    return true;
-  });
+  const verfuegbareRollen = ZUGANGS_ROLLEN.filter(
+    (r) => r !== "VERWALTER" || isSuperAdmin,
+  );
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">

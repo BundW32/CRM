@@ -32,6 +32,7 @@ export async function loadNavCounts(verwalter: User): Promise<CountBadges> {
         AND: [{ role: { in: ["MIETER", "EIGENTUEMER"] } }, await userWhereForVerwalter(verwalter)],
       },
     }),
+    // Adressbuch: alle aktiven Karteikarten, nicht nur Handwerker.
     db.craftsman.count({
       where: { active: true, ...(await craftsmanWhereForVerwalter(verwalter)) },
     }),

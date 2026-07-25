@@ -33,6 +33,20 @@ function zurueckZu(formData: FormData, suffix = ""): string {
   return base + suffix;
 }
 
+/**
+ * Wie `zurueckZu`, aber immer auf die **Liste** – ohne die Kennung am Ende.
+ *
+ * Nötig für Aktionen, die den Datensatz unsichtbar machen: Nach einer
+ * DSGVO-Löschung gibt es die Detailseite der Person nicht mehr (sie weist
+ * anonymisierte Datensätze bewusst ab). Ein Rücksprung dorthin endete in 404.
+ */
+function zurueckZurListe(formData: FormData, suffix = ""): string {
+  const raw = String(formData.get("zurueck") ?? "").trim();
+  if (!ZURUECK_ERLAUBT.test(raw)) return "/verwaltung/nutzer" + suffix;
+  const liste = raw.startsWith("/verwaltung/kontakte") ? "/verwaltung/kontakte" : "/verwaltung/nutzer";
+  return liste + suffix;
+}
+
 // ── Scope-Wächter ───────────────────────────────────────────────────
 // Eingeschränkte Verwalter (kein SuperAdmin) dürfen nur Nutzer/Objekte
 // im eigenen Zuständigkeitsbereich berühren. Verstößt eine Aktion dagegen,
@@ -282,13 +296,13 @@ export async function createUser(formData: FormData) {
 export async function anonymizeUser(formData: FormData) {
   const verwalter = await requireVerwalter();
   // DSGVO-Löschung ist unwiderruflich und rechtlich sensibel: nur SuperAdmin.
-  if (!verwalter.isSuperAdmin) redirect(zurueckZu(formData));
+  if (!verwalter.isSuperAdmin) redirect(zurueckZurListe(formData));
   const id = String(formData.get("id") ?? "");
   if (!id || id === verwalter.id) {
-    redirect(zurueckZu(formData));
+    redirect(zurueckZurListe(formData));
   }
   const user = await db.user.findUnique({ where: { id } });
-  if (!user) redirect(zurueckZu(formData));
+  if (!user) redirect(zurueckZurListe(formData));
 
   // DSGVO Art. 17: Blobs mit personenbezogenen Daten löschen
   if (user.signatureStoredName) {
@@ -385,7 +399,7 @@ export async function anonymizeUser(formData: FormData) {
   }
 
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZu(formData, "?anonymisiert=1"));
+  redirect(zurueckZurListe(formData, "?anonymisiert=1"));
 }
 
 export async function toggleUserActive(formData: FormData) {

@@ -259,28 +259,48 @@ export function AppShell({
     );
   }
 
-  /** Kopf der Leiste: Logo (eingeklappt nur die Bildmarke) + Einklapp-Schalter. */
+  /** Kopf der Leiste: Logo (eingeklappt nur die Bildmarke) + Einklapp-Schalter.
+   *  Das Logo steht mittig und bewusst groß – es ist White-Label und trägt die
+   *  Marke der jeweiligen Hausverwaltung. Der Schalter sitzt daneben am Rand,
+   *  damit er die Mitte nicht verschiebt. */
   function renderSidebarHead(rail: boolean) {
+    if (rail) {
+      return (
+        <div className="mb-3 flex flex-col items-center gap-2 pt-1">
+          <Link href="/dashboard" onClick={closeAll} className="shrink-0">
+            <OrgLogo src={logoUrl} alt={orgName} className="h-9 w-9 object-contain" />
+          </Link>
+          <button
+            type="button"
+            onClick={() => collapseStore.set(false)}
+            aria-label="Menü ausklappen"
+            aria-expanded={false}
+            title="Menü ausklappen"
+            className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-brand-green"
+          >
+            <PanelLeftOpen className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+      );
+    }
     return (
-      <div className={`mb-2 flex items-center gap-2 ${rail ? "flex-col" : "px-1"}`}>
-        <Link href="/dashboard" onClick={closeAll} className="min-w-0 shrink-0">
-          <OrgLogo src={logoUrl} alt={orgName} className={rail ? "h-8 w-8 object-contain" : "h-9 w-auto"} />
+      <div className="relative mb-3 flex items-center justify-center px-1 pt-1">
+        <Link href="/dashboard" onClick={closeAll} className="min-w-0">
+          <OrgLogo
+            src={logoUrl}
+            alt={orgName}
+            className="h-14 w-auto max-w-[9.5rem] object-contain"
+          />
         </Link>
         <button
           type="button"
-          onClick={() => collapseStore.set(!rail)}
-          aria-label={rail ? "Menü ausklappen" : "Menü einklappen"}
-          aria-expanded={!rail}
-          title={rail ? "Menü ausklappen" : "Menü einklappen"}
-          className={`rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-brand-green ${
-            rail ? "" : "ml-auto"
-          }`}
+          onClick={() => collapseStore.set(true)}
+          aria-label="Menü einklappen"
+          aria-expanded
+          title="Menü einklappen"
+          className="absolute right-0 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-brand-green"
         >
-          {rail ? (
-            <PanelLeftOpen className="h-[18px] w-[18px]" />
-          ) : (
-            <PanelLeftClose className="h-[18px] w-[18px]" />
-          )}
+          <PanelLeftClose className="h-[18px] w-[18px]" />
         </button>
       </div>
     );
@@ -436,13 +456,17 @@ export function AppShell({
             className="fixed inset-0 z-40 cursor-default bg-black/40 md:hidden"
           />
           <aside className="fixed inset-y-0 left-0 z-50 flex w-[82%] max-w-xs animate-drawer-in flex-col overflow-y-auto rounded-r-2xl border-r border-gray-200 bg-white p-2 shadow-2xl motion-reduce:animate-none md:hidden">
-            <div className="flex items-center justify-between px-1 pb-1">
-              <OrgLogo src={logoUrl} alt={orgName} className="h-8 w-auto" />
+            <div className="relative flex items-center justify-center px-1 pb-2 pt-1">
+              <OrgLogo
+                src={logoUrl}
+                alt={orgName}
+                className="h-12 w-auto max-w-[9.5rem] object-contain"
+              />
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}
                 aria-label="Schließen"
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                className="absolute right-0 top-1/2 -translate-y-1/2 rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
               >
                 <X className="h-5 w-5" />
               </button>

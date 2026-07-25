@@ -168,7 +168,7 @@ export default async function TicketsPage({
         {
           key: "objekt",
           label: "Objekt",
-          placeholder: "Objekt suchen …",
+          placeholder: "Objekt wählen",
           options: properties.map((p) => ({
             value: p.id,
             label: p.name,
@@ -180,16 +180,16 @@ export default async function TicketsPage({
         {
           key: "einheit",
           label: "Einheit",
-          placeholder: "Einheit wählen …",
+          placeholder: "Einheit wählen",
           options: unitOptions,
           currentValue: einheitId,
           disabled: !objektId,
-          disabledHint: "Zuerst Objekt wählen",
+          disabledHint: "Erst Objekt wählen",
         },
         {
           key: "nutzer",
           label: "Nutzer",
-          placeholder: "Nutzer wählen …",
+          placeholder: "Nutzer wählen",
           options: nutzerOptions,
           currentValue: nutzerId,
           hidden: !objektId,

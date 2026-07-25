@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, X } from "lucide-react";
-import { inputClass } from "@/components/ui";
+import { fieldFillClass } from "@/components/ui";
 
 export type ComboOption = { value: string; label: string; sublabel?: string };
 
@@ -121,96 +121,97 @@ export function Combobox({
   }
 
   return (
-    <div className={`block ${className}`}>
-      <span className="mb-1 block text-xs font-medium text-gray-500">{label}</span>
-      <div ref={rootRef} className="relative">
-        {open ? (
-          <input
-            autoFocus
-            type="text"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setActive(0);
-            }}
-            onKeyDown={onKeyDown}
-            placeholder={selectedLabel || placeholder}
-            className={`${inputClass} pr-8`}
-            autoComplete="off"
-            role="combobox"
-            aria-expanded
-            aria-controls={listId}
-          />
-        ) : (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={openMenu}
-            title={disabled ? disabledHint : undefined}
-            className={`${inputClass} flex items-center gap-2 pr-8 text-left disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400`}
-          >
-            <span className={`truncate ${selectedLabel ? "text-gray-900" : "text-gray-400"}`}>
-              {selectedLabel || (disabled && disabledHint ? disabledHint : placeholder)}
-            </span>
-          </button>
-        )}
+    <div ref={rootRef} className={`relative ${className}`}>
+      {open ? (
+        <input
+          autoFocus
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setActive(0);
+          }}
+          onKeyDown={onKeyDown}
+          placeholder={selectedLabel || placeholder}
+          className={`${fieldFillClass} pr-8`}
+          autoComplete="off"
+          role="combobox"
+          aria-label={label}
+          aria-expanded
+          aria-controls={listId}
+        />
+      ) : (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={openMenu}
+          aria-label={label}
+          title={disabled ? disabledHint : undefined}
+          className={`${fieldFillClass} flex items-center gap-2 pr-8 text-left disabled:cursor-not-allowed disabled:bg-gray-100/60 disabled:text-gray-400 disabled:hover:bg-gray-100/60`}
+        >
+          <span className={`truncate ${selectedLabel ? "text-gray-900" : "text-gray-400"}`}>
+            {selectedLabel || (disabled && disabledHint ? disabledHint : placeholder)}
+          </span>
+        </button>
+      )}
 
-        {/* Rechts: Inline-„×" (Feld zurücksetzen) sobald ein Wert gewählt ist, sonst Chevron. */}
-        {value && !disabled ? (
-          <button
-            type="button"
-            onClick={() => {
-              onClear();
-              close();
-            }}
-            aria-label={`${label} zurücksetzen`}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded text-gray-400 transition hover:text-red-600"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        ) : (
-          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        )}
+      {/* Rechts: Inline-„×" (Feld zurücksetzen) sobald ein Wert gewählt ist, sonst Chevron. */}
+      {value && !disabled ? (
+        <button
+          type="button"
+          onClick={() => {
+            onClear();
+            close();
+          }}
+          aria-label={`${label} zurücksetzen`}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded text-gray-400 transition hover:text-red-600"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      ) : (
+        <ChevronDown
+          className={`pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 ${disabled ? "text-gray-300" : "text-gray-400"}`}
+        />
+      )}
 
-        {open ? (
-          <ul
-            ref={listRef}
-            id={listId}
-            role="listbox"
-            className="absolute z-20 mt-1 max-h-60 w-full min-w-[14rem] overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
-          >
-            {filtered.length === 0 ? (
-              <li className="px-3 py-2 text-xs text-gray-400">Keine Treffer.</li>
-            ) : (
-              filtered.map((opt, i) => (
-                <li key={opt.value} role="option" aria-selected={opt.value === value}>
-                  <button
-                    type="button"
-                    data-idx={i}
-                    onMouseEnter={() => setActive(i)}
-                    // onMouseDown + preventDefault: Auswahl feuert, bevor das Feld den Fokus verliert.
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      choose(opt);
-                    }}
-                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${
-                      i === active ? "bg-brand-orange-light" : "hover:bg-gray-50"
-                    }`}
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-gray-900">{opt.label}</span>
-                      {opt.sublabel ? (
-                        <span className="block truncate text-xs text-gray-400">{opt.sublabel}</span>
-                      ) : null}
-                    </span>
-                    {opt.value === value ? <Check className="h-4 w-4 shrink-0 text-brand-green" /> : null}
-                  </button>
+      {open ? (
+        <ul
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          className="absolute z-20 mt-1.5 max-h-60 w-full min-w-[14rem] overflow-auto rounded-xl border border-gray-200/70 bg-white py-1 shadow-e2"
+        >
+          {filtered.length === 0 ? (
+            <li className="px-3 py-2.5 text-xs text-gray-400">Keine Treffer.</li>
+          ) : (
+            filtered.map((opt, i) => (
+              <li key={opt.value} role="option" aria-selected={opt.value === value}>
+                <button
+                  type="button"
+                  data-idx={i}
+                  onMouseEnter={() => setActive(i)}
+                  // onMouseDown + preventDefault: Auswahl feuert, bevor das Feld den Fokus verliert.
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    choose(opt);
+                  }}
+                  className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${
+                    i === active ? "bg-gray-100" : "hover:bg-gray-50"
+                  }`}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-gray-900">{opt.label}</span>
+                    {opt.sublabel ? (
+                      <span className="block truncate text-xs text-gray-400">{opt.sublabel}</span>
+                    ) : null}
+                  </span>
+                  {opt.value === value ? <Check className="h-4 w-4 shrink-0 text-brand-green" /> : null}
+                </button>
                 </li>
               ))
             )}
           </ul>
         ) : null}
-      </div>
     </div>
   );
 }

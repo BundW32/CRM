@@ -25,7 +25,14 @@ Die Shell wird **einmal** in `src/app/(portal)/layout.tsx` eingehängt und gilt 
 jede Portalseite. Neue Seiten brauchen **kein** eigenes Layout.
 
 **Einen neuen Menüpunkt trägt man in `app-nav.ts` ein.** Ein Eintrag anderswo erscheint
-nicht in der Leiste und wird schlicht übersehen.
+nicht in der Leiste und wird schlicht übersehen. Das Modell speist zugleich die
+**⌘K-Palette** (`src/components/command-palette.tsx`) — ein dort eingetragener Punkt ist
+damit automatisch auch über die Suche erreichbar.
+
+Die Palette hat zwei Hälften mit verschiedenen Grenzen: Sprungziele sieht **jede** Rolle,
+die Datensuche (`lib/portal-search-server.ts`) läuft **nur für Verwalter** und immer
+ausgehend von `…WhereForVerwalter`. Wer daran etwas ändert, prüft es gegen die
+Rollen-Gegenprobe — das Adressbuch enthält die Telefonnummern aller Mieter.
 
 Selten genutzte Punkte (Branding, Integrationen, Dokument-Quellen, Abrechnung,
 Audit-Log) gehören **nicht** in die Hauptnavigation, sondern in `settingsItems` — sie
@@ -56,6 +63,26 @@ Nie selbst gebaut — es gibt ein gemeinsames System:
    immer `…WhereForVerwalter` / `…WhereForUser` aus `src/lib/access.ts`.
 2. Sortierfelder laufen über die **Whitelist** in `resolveSort` — niemals ein Feld direkt
    aus der URL in `orderBy` reichen.
+
+## Personen anlegen: Dubletten vorbeugen
+
+`inviteOrLetter` (`lib/user-invite.ts`) legt **ohne E-Mail-Adresse immer ein neues
+Konto** an — der Zugangsschreiben-Weg kann eine Person nicht wiedererkennen. So bekam
+ein Mieter mit fünf Einheiten fünf getrennte Zugänge.
+
+**Jedes Formular, das Personen anlegt, schlägt deshalb vorhandene an.** Werkzeug:
+`lib/person-search.ts` (`searchPersons` für den Vorschlag, `verifyExistingPerson` für
+die Prüfung der gewählten ID). Im Einsatz in `objekte/neu/` und
+`objekte/[id]/bearbeiten/`.
+
+**Kein automatisches Zusammenführen über den Namen** — zwei verschiedene Menschen können
+gleich heißen. Der Vorschlag nennt Objekt und Einheit; entscheiden muss der Verwalter.
+
+Zwei Fallen bei den Zeilen-Formularen (`getAll()` liest indexgleich ein):
+- Das versteckte `…UserId`-Feld gehört in **jede** Zeile, auch leer. Fehlt es, rutscht
+  die Zuordnung aller folgenden Zeilen.
+- Verknüpfte Felder werden `readOnly`, nie `disabled` — deaktivierte Felder werden nicht
+  mitgeschickt und verschieben denselben Index.
 
 ## Rollen
 

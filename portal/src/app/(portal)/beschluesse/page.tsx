@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
 import { Pagination, Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { FilterBar } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels, voteChoiceLabels } from "@/lib/labels";
+import { propertyScopeFilters } from "@/lib/list-filters";
+import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import {
   computeOutcome,
@@ -95,7 +98,7 @@ function VoteSummary({
 export default async function BeschluessePage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; page?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
   if (user.role !== "VERWALTER" && user.role !== "EIGENTUEMER") {
@@ -103,20 +106,38 @@ export default async function BeschluessePage({
   }
   const params = await searchParams;
   const { fehler } = params;
-  const currentPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
+  const currentPage = parsePage(params.page);
   const isVerwalter = user.role === "VERWALTER";
 
-  let baseWhere: Record<string, unknown> = {};
+  let scopeWhere: Record<string, unknown> = {};
   if (isVerwalter) {
     const propWhere = await propertyWhereForVerwalter(user);
-    baseWhere = { property: propWhere };
+    scopeWhere = { property: propWhere };
   } else {
     // Defense-in-Depth: Eigentum zusätzlich auf die eigene Org einschränken.
     const props = (await ownedProperties(user.id)).filter(
       (p) => p.organizationId === user.organizationId,
     );
-    baseWhere = { propertyId: { in: props.map((p) => p.id) } };
+    scopeWhere = { propertyId: { in: props.map((p) => p.id) } };
   }
+
+  // ── Filter: Suche und Objekt (Status trennt die Seite bereits selbst) ──
+  // Einheit entfällt: ein Beschluss betrifft immer das ganze Objekt.
+  const scope = await propertyScopeFilters(user, params, { withUnit: false });
+  const q = normalizeSearch(params.q);
+
+  const baseAnd: Record<string, unknown>[] = [scopeWhere];
+  if (q) {
+    baseAnd.push({
+      OR: [
+        { title: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (scope.objektId) baseAnd.push({ propertyId: scope.objektId });
+  const baseWhere = { AND: baseAnd };
+  const hasFilter = Boolean(q || scope.active);
 
   const include = { property: true, votes: { include: { user: true, castBy: true } } } as const;
   // Laufende Abstimmungen IMMER vollständig laden (nie paginieren – sonst könnte
@@ -140,11 +161,15 @@ export default async function BeschluessePage({
   const resolutions = [...open, ...decided];
   const totalPages = Math.max(1, Math.ceil(decidedTotal / PAGE_SIZE));
 
+  // Paginierung muss alle aktiven Filter mittragen.
   function pageHref(p: number) {
     const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v && k !== "page") sp.set(k, v);
+    }
     if (p > 1) sp.set("page", String(p));
-    const q = sp.toString();
-    return `/beschluesse${q ? `?${q}` : ""}`;
+    const qs = sp.toString();
+    return `/beschluesse${qs ? `?${qs}` : ""}`;
   }
 
   const propIds = [...new Set(resolutions.map((r) => r.propertyId))];
@@ -265,13 +290,24 @@ export default async function BeschluessePage({
         </Alert>
       ) : null}
 
+      <FilterBar
+        className="mb-5"
+        searchPlaceholder="Suchen"
+        searchHint="Nach Titel oder Beschlusstext suchen"
+        comboboxes={scope.comboboxes}
+      />
+
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-300">
             Laufende Abstimmungen
           </h2>
           {open.length === 0 ? (
-            <EmptyState>Derzeit keine laufenden Abstimmungen.</EmptyState>
+            <EmptyState>
+              {hasFilter
+                ? "Keine laufenden Abstimmungen für diese Filter."
+                : "Derzeit keine laufenden Abstimmungen."}
+            </EmptyState>
           ) : (
             open.map((r) => {
               const myVote = r.votes.find((v) => v.userId === user.id);
@@ -476,7 +512,11 @@ export default async function BeschluessePage({
             Beschlusssammlung
           </h2>
           {decided.length === 0 ? (
-            <EmptyState>Noch keine abgeschlossenen Beschlüsse.</EmptyState>
+            <EmptyState>
+              {hasFilter
+                ? "Keine abgeschlossenen Beschlüsse für diese Filter."
+                : "Noch keine abgeschlossenen Beschlüsse."}
+            </EmptyState>
           ) : (
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
               <ul className="divide-y divide-gray-100">

@@ -20,7 +20,7 @@ folgenden Punkte sind eigenständige, abgeschlossene Aufgaben. Empfohlene Reihen
 1. **Dubletten-Vorbeugung beim Anlegen eines neuen Objekts** (Abschnitt 3.1) – der
    einzige verbliebene Weg, auf dem noch Mehrfachkonten entstehen können.
 2. **Gewerk-Feld abhängig von der Art ein-/ausblenden** (3.2) – klein, rein Oberfläche.
-3. **Filterleiste für die WEG-Unterseiten** (3.3).
+3. ~~Filterleiste für die WEG-Unterseiten (3.3)~~ – **erledigt**, siehe Abschnitt 3.3.
 4. **⌘K-Suche** (3.4) – war von Anfang an als spätere Ausbaustufe geplant.
 
 **Wichtig zur Umgebung:** Es gibt **keine Datenbankverbindung** (kein `.env`). Alles,
@@ -125,12 +125,35 @@ relevant)". Sauberer wäre, es abhängig von der gewählten Art ein-/auszublende
 (erfordert eine kleine Client-Komponente, da die Auswahl im Browser passiert).
 `kindUsesTrade()` in `lib/labels.ts` gibt es schon dafür.
 
-### 3.3 Filterleiste für die WEG-Unterseiten
+### 3.3 Filterleiste für die WEG-Unterseiten — **erledigt**
 
-Buchhaltung, Hausgeld, Jahresabrechnung usw. unter `verwaltung/weg/[propertyId]/`
-haben keine Filterleiste. Sie waren beim Rollout durch das Kriterium „Seite hat
-Paginierung" durchgerutscht (in PR #28 vermerkt). Werkzeuge: `FilterBar`,
-`lib/list-query.ts`, `lib/list-filters.ts`.
+Umgesetzt im Branch `claude/list-filters-search` (Commits „WEG 1/4" bis „WEG 4/4").
+
+Der Auslöser war richtig erkannt, das Ausmaß aber größer als vermerkt: Neben den
+fehlenden Filtern gab es **stille Obergrenzen** (`take: 100` in der Buchhaltung,
+`50/20` im Hausgeld, `300` in Finanzen, `200` bei den Plattform-Rechnungen, `20`
+in Gemeinschaft) sowie **unbegrenzt geladene Listen** (Verbrauch mit allen
+Ablesungen aller Zähler, Beschluss-Sammlung, Versammlungen, Übergabeprotokolle).
+Jenseits der Grenzen waren Daten schlicht nicht erreichbar, ohne Hinweis.
+
+Drei Berechnungen hingen an der jeweils **angezeigten** Liste und wären mit
+Paginierung falsch geworden — sie laufen jetzt über die Datenbank:
+
+- **Mahnstufe** (Hausgeld) — aus 50 angezeigten Mahnungen abgeleitet; bei mehr
+  Mahnungen konnte die nächste Stufe zu niedrig ausfallen.
+- **MEA-Summe** (Eigentümer) — aus der geladenen Liste addiert.
+- **Jahres-Vorschlag** (Jahresabrechnung, Wirtschaftsplan) — gegen die Liste
+  geprüft statt gegen alle Jahrgänge.
+
+Wer hier weiterarbeitet: Diese Klasse von Fehlern entsteht immer dann, wenn eine
+Kennzahl aus einer Liste berechnet wird, die anschließend paginiert oder
+gefiltert wird. Vor jeder neuen Paginierung prüfen, ob eine Summe, ein Maximum
+oder ein „gibt es schon"-Test an derselben Liste hängt.
+
+**Noch offen:** Die Seiten sind lokal nur gegen `tsc`, `eslint`, `vitest` und
+`next build` geprüft — es gibt keine Datenbankverbindung. Die Filter, die
+Paginierung und besonders die drei korrigierten Berechnungen sollten in der
+Vercel-Preview mit echten Daten gegengeprüft werden.
 
 ### 3.4 ⌘K-Suche
 

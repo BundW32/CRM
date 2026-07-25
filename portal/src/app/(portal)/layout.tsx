@@ -7,6 +7,7 @@ import { PageTransition } from "@/components/page-transition";
 import { AppShell } from "@/components/app-shell";
 import { AssistantWidget } from "@/components/assistant-widget";
 import { BrandTheme } from "@/components/brand-theme";
+import { CommandPalette, type PaletteNavItem } from "@/components/command-palette";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import {
   isBoardMember,
@@ -14,7 +15,7 @@ import {
   ownsWegProperty,
   propertyWhereForVerwalter,
 } from "@/lib/access";
-import { canSeeSettings, navFor, usesCounts } from "@/lib/app-nav";
+import { canSeeSettings, navFor, settingsItems, usesCounts } from "@/lib/app-nav";
 import { canUseAssistant, isAssistantEnabled } from "@/lib/assistant";
 import { db } from "@/lib/db";
 import { loadNavCounts } from "@/lib/nav-counts";
@@ -57,6 +58,24 @@ export default async function PortalLayout({
     boardMember,
   };
   const navGroups = navFor(navContext);
+
+  // Sprungziele der ⌘K-Palette: exakt die Punkte, die diese Rolle ohnehin
+  // erreichen kann. Die Einstellungs-Seiten sind bewusst dabei – sie liegen
+  // hinter dem Zahnrad und sind genau deshalb die, die man sucht.
+  const paletteItems: PaletteNavItem[] = [
+    ...navGroups.flatMap((g) =>
+      g.items.map((i) => ({ title: i.title, href: i.href, group: g.label ?? "Bereiche" })),
+    ),
+    ...(canSeeSettings(navContext)
+      ? settingsItems(selfManaged).map((i) => ({
+          title: i.title,
+          href: i.href,
+          group: "Einstellungen",
+        }))
+      : []),
+    { title: "Konto", href: "/konto", group: "Konto" },
+    ...(isPlatformAdmin ? [{ title: "Plattform", href: "/plattform", group: "Konto" }] : []),
+  ];
 
   // Zähler-Badges: Promise NICHT awaiten – die Leiste rendert sofort, die Zahlen
   // streamen nach. Nur für Verwalter, sonst entstünden Abfragen ohne Nutzen.
@@ -125,6 +144,9 @@ export default async function PortalLayout({
         </Link>
       </footer>
       <InstallHint />
+      {/* Datensuche nur für Verwalter – siehe `lib/portal-search.ts`. Die
+          Sprungliste bekommt jede Rolle. */}
+      <CommandPalette navItems={paletteItems} canSearchData={user.role === "VERWALTER"} />
       {showAssistant ? <AssistantWidget /> : null}
     </div>
   );

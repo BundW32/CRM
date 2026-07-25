@@ -61,7 +61,6 @@ export default async function AuditPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Audit-Log
       </PageTitle>

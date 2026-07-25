@@ -31,7 +31,7 @@ export default async function NeuesObjektPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung", label: "Verwaltung" }}
+        back={{ href: "/verwaltung/objekte", label: "Objekte" }}
       >
         Objekt anlegen
       </PageTitle>

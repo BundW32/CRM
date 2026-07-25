@@ -75,7 +75,7 @@ export default async function UebergabeOverviewPage() {
               </svg>
               Verwaltung
             </a>
-            <h1 className="text-2xl font-bold text-white">Wohnungsübergaben</h1>
+            <h1 className="text-xl font-bold text-white sm:text-2xl">Wohnungsübergaben</h1>
           </div>
           <a href="/uebergabe/neu" className={buttonClass}>
             <svg viewBox="0 0 24 24" className="mr-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5">

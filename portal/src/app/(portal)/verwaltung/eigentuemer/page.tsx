@@ -42,7 +42,6 @@ export default async function EigentuemerPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Eigentümer &amp; Miteigentumsanteile
       </PageTitle>

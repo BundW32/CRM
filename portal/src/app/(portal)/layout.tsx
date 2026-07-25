@@ -5,6 +5,7 @@ import { NavProgress } from "@/components/nav-progress";
 import { NumericAutoselect } from "@/components/numeric-autoselect";
 import { PageTransition } from "@/components/page-transition";
 import { PortalHeader } from "@/components/portal-header";
+import { PortalMain } from "@/components/portal-main";
 import { AssistantWidget } from "@/components/assistant-widget";
 import { BrandTheme } from "@/components/brand-theme";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
@@ -91,6 +92,9 @@ export default async function PortalLayout({
     user.role === "EIGENTUEMER" ? isBoardMember(user.id) : Promise.resolve(false),
   ]);
   const selfManaged = isSelfManaged(org);
+  // Volle Bildschirmbreite nur für die Verwaltungs-Arbeitsfläche des professionellen
+  // Verwalters – Mieter/Eigentümer behalten die zentrierte, gut lesbare Spalte.
+  const wideEnabled = user.role === "VERWALTER" && !selfManaged;
 
   let nav: ReadonlyArray<{ href: string; label: string }>;
   if (selfManaged && (user.role === "VERWALTER" || user.role === "EIGENTUEMER")) {
@@ -146,10 +150,11 @@ export default async function PortalLayout({
         roleLabel={roleLabels[user.role]}
         logoUrl={logoUrl}
         orgName={orgName}
+        wideEnabled={wideEnabled}
       />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+      <PortalMain wideEnabled={wideEnabled}>
         <PageTransition>{children}</PageTransition>
-      </main>
+      </PortalMain>
       <footer className="mt-4 px-4 py-6 text-center text-xs text-gray-400">
         {footerLegal}
         {footerAddress ? ` · ${footerAddress}` : ""}

@@ -107,7 +107,7 @@ export function PageTitle({
         </div>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+        <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
           {children}
         </h1>
         {action}

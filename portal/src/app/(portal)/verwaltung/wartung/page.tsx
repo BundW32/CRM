@@ -80,7 +80,6 @@ export default async function WartungPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Wartung &amp; Prüfungen
       </PageTitle>

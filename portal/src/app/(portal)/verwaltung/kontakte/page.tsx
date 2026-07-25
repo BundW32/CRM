@@ -45,7 +45,6 @@ export default async function KontaktePage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung", label: "Verwaltung" }}
       >
         Kontaktbuch
       </PageTitle>

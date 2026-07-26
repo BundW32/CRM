@@ -22,11 +22,16 @@ type Toast = {
   tone: FlashTone;
 };
 
+// Markenfarben statt der üblichen Ampel: Erfolg trägt das Orange, das im
+// Portal ohnehin jede Primäraktion markiert – ein grüner Toast stünde allein
+// auf weiter Flur. Für die Schrift dient `brand-orange-ink`, weil das helle
+// Orange auf Weiß zu schwach läge; der Balken darf das volle Orange zeigen.
+// Fehler bleiben rot: Das ist keine Markenfrage, sondern eine Warnung.
 const toneStyles: Record<FlashTone, { box: string; icon: string; bar: string; node: React.ReactNode }> = {
   success: {
-    box: "border-green-200 bg-white",
-    icon: "text-green-600",
-    bar: "bg-green-500",
+    box: "border-brand-orange/30 bg-white",
+    icon: "text-brand-orange-ink",
+    bar: "bg-brand-orange",
     node: <CheckCircle2 className="h-5 w-5" />,
   },
   error: {
@@ -37,8 +42,8 @@ const toneStyles: Record<FlashTone, { box: string; icon: string; bar: string; no
   },
   info: {
     box: "border-gray-200 bg-white",
-    icon: "text-brand-green",
-    bar: "bg-brand-green",
+    icon: "text-gray-500",
+    bar: "bg-gray-400",
     node: <Info className="h-5 w-5" />,
   },
 };

@@ -222,6 +222,21 @@ export default async function TicketDetailPage({
             : "Bitte einen Titel für das Dokument angeben."}
         </Alert>
       ) : null}
+      {fehler === "vollmacht" ? (
+        <Alert variant="warning" className="mb-4">
+          Der Eigentümer hat noch keine Vollmacht erteilt. Bescheinigungen dürfen nur mit
+          seiner Ermächtigung in seinem Namen erstellt werden (§ 19 Abs. 5 BMG). Der
+          Eigentümer erteilt sie selbst im Portal unter &bdquo;Konto → Unterschrift &amp;
+          Vollmacht&ldquo;. Alternativ ein unterschriebenes Dokument hochladen.
+        </Alert>
+      ) : null}
+      {fehler === "keine_vermietung" ? (
+        <Alert variant="warning" className="mb-4">
+          Für diese Einheit ist kein aktives Mietverhältnis hinterlegt. Eine
+          Wohnungsgeber- oder Mietbescheinigung setzt eine Vermietung voraus – bitte
+          zuerst das Mietverhältnis erfassen.
+        </Alert>
+      ) : null}
       {fehler === "cert" ? (
         <Alert variant="error" className="mb-4">
           Die Bescheinigung konnte nicht automatisch erstellt werden. Bitte prüfen Sie, ob
@@ -701,8 +716,8 @@ export default async function TicketDetailPage({
                 <div className="mb-4 rounded-lg border border-brand-orange/40 bg-brand-orange-light p-3">
                   <p className="mb-2 text-xs text-brand-green-dark">
                     Diese Bescheinigung kann <strong>automatisch</strong> aus den hinterlegten
-                    Daten erstellt werden (Eigentümer als Wohnungsgeber, Unterschrift sofern
-                    hinterlegt).
+                    Daten erstellt werden. Voraussetzung: Der Eigentümer hat die Vollmacht
+                    erteilt und die Einheit ist vermietet.
                   </p>
                   <form action={generateCertificate}>
                     <input type="hidden" name="ticketId" value={ticket.id} />

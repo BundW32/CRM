@@ -3,6 +3,7 @@ import { PushToggle } from "@/components/push-toggle";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { getOrganization, requireUser } from "@/lib/session";
 import { changePassword } from "./actions";
+import { VollmachtKarte } from "./vollmacht";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +16,10 @@ const errorMessages: Record<string, string> = {
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; ok?: string }>;
+  searchParams: Promise<{ fehler?: string }>;
 }) {
   const user = await requireUser();
-  const { fehler, ok } = await searchParams;
+  const { fehler } = await searchParams;
   const org = await getOrganization();
 
   return (
@@ -70,14 +71,11 @@ export default async function AccountPage({
         </Card>
 
         <Card title="Passwort ändern">
-          {fehler ? (
+          {/* Erfolg meldet der ToastHost (`?flash=…`). Fehler bleiben hier als
+              Banner am Formular stehen, bis sie behoben sind. */}
+          {fehler && fehler !== "signatur" ? (
             <Alert variant="error" className="mb-3">
               {errorMessages[fehler] ?? "Passwortänderung fehlgeschlagen."}
-            </Alert>
-          ) : null}
-          {ok ? (
-            <Alert variant="success" className="mb-3">
-              Ihr Passwort wurde geändert.
             </Alert>
           ) : null}
           <form action={changePassword} className="space-y-3">
@@ -115,6 +113,19 @@ export default async function AccountPage({
             </button>
           </form>
         </Card>
+
+        {/* Unterschrift und Vollmacht führt nur der Eigentümer selbst – er ist
+            der Wohnungsgeber, in dessen Namen die Bescheinigung entsteht. */}
+        {user.role === "EIGENTUEMER" ? (
+          <Card title="Unterschrift & Vollmacht">
+            {fehler === "signatur" ? (
+              <Alert variant="error" className="mb-3">
+                Die Unterschrift konnte nicht gespeichert werden. Bitte erneut versuchen.
+              </Alert>
+            ) : null}
+            <VollmachtKarte user={user} />
+          </Card>
+        ) : null}
 
         <Card title="Benachrichtigungen">
           <p className="mb-3 text-sm text-gray-600">

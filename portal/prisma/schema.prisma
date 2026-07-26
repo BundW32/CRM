@@ -343,6 +343,26 @@ model User {
   zip                  String?
   city                 String?
   signatureStoredName  String? // hinterlegte Unterschrift (Bild) für Bescheinigungen
+  // Hat die Person selbst unterschrieben (Self-Service unter „Konto")? Nur dann
+  // darf die Unterschrift unter ihrem eigenen Namen erscheinen. Vom Verwalter
+  // erfasste Unterschriften gelten als Fremderfassung.
+  signatureSelfSigned  Boolean                   @default(false)
+  // Ermächtigung des Eigentümers (§ 19 Abs. 5 BMG): erlaubt der Verwaltung,
+  // Wohnungsgeberbestätigungen und Mietbescheinigungen in seinem Namen zu
+  // erstellen. Gilt pro Person – greift aber nur für tatsächlich vermietete
+  // Einheiten, weil ohne Mietverhältnis nichts zu bescheinigen ist.
+  certMandateGrantedAt DateTime?
+  certMandateRevokedAt DateTime?
+  // Wie kam die Ermächtigung zustande? "SELBST" = im Portal erteilt,
+  // "SCHRIFTLICH" = unterschriebene Vollmacht auf Papier, von der Verwaltung
+  // vermerkt. Beim schriftlichen Weg hält `certMandateNote` die Fundstelle fest
+  // (welches Dokument, wo abgelegt) und `certMandateRecordedById`, wer den
+  // Vermerk gesetzt hat – ohne beides wäre der Vermerk kein Nachweis, sondern
+  // nur eine Behauptung. Bewusst keine Relation: Der Vermerkende soll den
+  // Nachweis auch dann noch belegen, wenn sein Konto später entfällt.
+  certMandateSource    String?
+  certMandateNote      String?
+  certMandateRecordedById String?
   createdAt            DateTime                  @default(now())
   passwordResetToken   String?                   @unique
   passwordResetExpiry  DateTime?

@@ -82,7 +82,7 @@ export async function createCraftsman(formData: FormData) {
   });
 
   revalidatePath("/verwaltung/kontakte");
-  redirect("/verwaltung/kontakte?angelegt=1");
+  redirect("/verwaltung/kontakte?flash=kontakt-angelegt");
 }
 
 export async function toggleCraftsmanActive(formData: FormData) {
@@ -167,7 +167,7 @@ export async function updatePersonContact(formData: FormData) {
     data: { name: parsed.data.name, email, phone: parsed.data.phone || null, preferredContact },
   });
   revalidatePath("/verwaltung/kontakte");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=kontakt-gespeichert"));
 }
 
 export async function updateCraftsman(formData: FormData) {
@@ -204,5 +204,5 @@ export async function updateCraftsman(formData: FormData) {
     },
   });
   revalidatePath("/verwaltung/kontakte");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=kontakt-gespeichert"));
 }

@@ -85,6 +85,32 @@
   to   { opacity: 0; transform: translateX(16px) scale(0.96); }
 }
 
+/* Kurzmeldung oben rechts (ToastHost): Einblenden und ablaufender Balken.
+   Der Balken macht sichtbar, wie lange die Meldung noch steht – ohne ihn wirkt
+   das Verschwinden willkürlich. Bei `prefers-reduced-motion` bleibt die Meldung
+   stehen und schiebt nicht ein; die Dauer steuert weiterhin der Timer in JS. */
+.toast-einblenden {
+  animation: var(--animate-toast-in);
+}
+
+.toast-ablauf {
+  animation-name: toastAblauf;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  transform-origin: left center;
+}
+
+@keyframes toastAblauf {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-einblenden {
+    animation: var(--animate-fade-in);
+  }
+}
+
 @keyframes spinOnce {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }

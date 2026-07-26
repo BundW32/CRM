@@ -12,10 +12,14 @@ import { assignPayment, createMahnung, deleteMahnung, markMahnungSent } from "./
 
 export const dynamic = "force-dynamic";
 
-// Nur die Zahlungseingänge werden geblättert – `page` gibt es je Seite nur
-// einmal, zwei Paginierungen nebeneinander würden sich denselben Parameter
-// teilen und einander verstellen.
+// Drei Listen auf einer Seite, drei Paginierungen. Der Einwand „`page` gibt es je
+// Seite nur einmal" stimmt – deshalb bekommt jede Liste ihren EIGENEN Parameter
+// (`page`, `aseite`, `mseite`). Damit setzt Blättern in einer Liste die anderen
+// nicht zurück. Ohne das blieben zugeordnete Zahlungen bei 20 und Mahnschreiben
+// bei 50 hängen, ohne Weg zu älteren Einträgen.
 const PAGE_SIZE = 25;
+const ASSIGNED_PAGE_SIZE = 20;
+const MAHNUNG_PAGE_SIZE = 50;
 
 const STAND_FILTER: FilterConfig = {
   key: "stand",
@@ -74,6 +78,8 @@ export default async function HausgeldPage({
   // Arbeitsliste, die zuvor nach 50 Einträgen endete.
   const q = normalizeSearch(sp.q);
   const currentPage = parsePage(sp.page);
+  const aPage = parsePage(sp.aseite);
+  const mPage = parsePage(sp.mseite);
 
   const offeneAnd: Prisma.BookingWhereInput[] = [
     { propertyId: property.id, kind: "EINNAHME", unitId: null },
@@ -89,7 +95,14 @@ export default async function HausgeldPage({
   }
   const offeneWhere: Prisma.BookingWhereInput = { AND: offeneAnd };
 
-  const [units, dueSums, paidSums, unassignedTotal, unassigned, assigned] = await Promise.all([
+  const zugeordnetWhere: Prisma.BookingWhereInput = {
+    propertyId: property.id,
+    kind: "EINNAHME",
+    unitId: { not: null },
+  };
+
+  const [units, dueSums, paidSums, unassignedTotal, unassigned, assigned, assignedTotal] =
+    await Promise.all([
     db.unit.findMany({
       where: { propertyId: property.id },
       orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
@@ -118,25 +131,30 @@ export default async function HausgeldPage({
     }),
     // Bereits zugeordnete (zur Kontrolle, mit Lösen-Option)
     db.booking.findMany({
-      where: { propertyId: property.id, kind: "EINNAHME", unitId: { not: null } },
+      where: zugeordnetWhere,
       include: { unit: { select: { label: true } } },
       orderBy: { bookingDate: "desc" },
-      take: 20,
+      skip: (aPage - 1) * ASSIGNED_PAGE_SIZE,
+      take: ASSIGNED_PAGE_SIZE,
     }),
+    db.booking.count({ where: zugeordnetWhere }),
   ]);
   const mahnstatus = sp.mahnstatus === "entwurf" || sp.mahnstatus === "versendet" ? sp.mahnstatus : undefined;
-  const [mahnungen, mahnStufen] = await Promise.all([
-    // Angezeigte Schreiben – filterbar.
+  const mahnungWhere: Prisma.HausgeldMahnungWhereInput = {
+    propertyId: property.id,
+    ...(mahnstatus === "entwurf" ? { sentAt: null } : {}),
+    ...(mahnstatus === "versendet" ? { sentAt: { not: null } } : {}),
+  };
+  const [mahnungen, mahnungTotal, mahnStufen] = await Promise.all([
+    // Angezeigte Schreiben – filterbar und geblättert.
     db.hausgeldMahnung.findMany({
-      where: {
-        propertyId: property.id,
-        ...(mahnstatus === "entwurf" ? { sentAt: null } : {}),
-        ...(mahnstatus === "versendet" ? { sentAt: { not: null } } : {}),
-      },
+      where: mahnungWhere,
       include: { unit: { select: { label: true } } },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      skip: (mPage - 1) * MAHNUNG_PAGE_SIZE,
+      take: MAHNUNG_PAGE_SIZE,
     }),
+    db.hausgeldMahnung.count({ where: mahnungWhere }),
     // Grundlage der Eskalation – bewusst ungefiltert und ohne Deckel. Würde die
     // Stufe aus der angezeigten Liste abgeleitet, böte ein gesetzter Filter (oder
     // das Abschneiden bei 50) eine bereits versendete Mahnstufe erneut an.
@@ -175,16 +193,18 @@ export default async function HausgeldPage({
 
   const totalPages = Math.max(1, Math.ceil(unassignedTotal / PAGE_SIZE));
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
+  // Paginierung muss alle aktiven Filter mittragen. `param` benennt die Liste,
+  // die geblättert wird – die übrigen behalten dadurch ihre Position.
+  function hrefWith(param: string, p: number) {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
+      if (v && k !== param) params.set(k, v);
     }
-    if (p > 1) params.set("page", String(p));
+    if (p > 1) params.set(param, String(p));
     const qs = params.toString();
     return `/verwaltung/weg/${property.id}/hausgeld${qs ? `?${qs}` : ""}`;
   }
+  const pageHref = (p: number) => hrefWith("page", p);
 
   return (
     <>
@@ -422,6 +442,14 @@ export default async function HausgeldPage({
                 </div>
               ))}
             </div>
+
+            <Pagination
+              currentPage={mPage}
+              totalPages={Math.max(1, Math.ceil(mahnungTotal / MAHNUNG_PAGE_SIZE))}
+              total={mahnungTotal}
+              itemLabel="Schreiben"
+              hrefFor={(p) => hrefWith("mseite", p)}
+            />
           </Card>
         ) : null}
 
@@ -499,8 +527,8 @@ export default async function HausgeldPage({
         </Card>
 
         {/* Zugeordnete Zahlungen */}
-        {assigned.length > 0 ? (
-          <Card title="Zuletzt zugeordnete Zahlungen">
+        {assignedTotal > 0 ? (
+          <Card title={`Zugeordnete Zahlungen (${assignedTotal})`}>
             <div className="grid gap-2">
               {assigned.map((b) => (
                 <form
@@ -521,6 +549,14 @@ export default async function HausgeldPage({
                 </form>
               ))}
             </div>
+
+            <Pagination
+              currentPage={aPage}
+              totalPages={Math.max(1, Math.ceil(assignedTotal / ASSIGNED_PAGE_SIZE))}
+              total={assignedTotal}
+              itemLabel="Zahlungen"
+              hrefFor={(p) => hrefWith("aseite", p)}
+            />
           </Card>
         ) : null}
       </div>

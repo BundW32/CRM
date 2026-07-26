@@ -1,13 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import type { Prisma } from "@/generated/prisma/client";
+import { Alert, Card, EmptyState, Field, PageTitle, Pagination, buttonClass, inputClass } from "@/components/ui";
+import { FilterBar } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
+import { propertyScopeFilters } from "@/lib/list-filters";
+import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import { createMeeting } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 25;
 
 const statusTone: Record<string, string> = {
   GEPLANT: "bg-blue-100 text-blue-800",
@@ -25,12 +31,14 @@ const statusLabel: Record<string, string> = {
 export default async function VersammlungenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
   if (user.role !== "VERWALTER" && user.role !== "EIGENTUEMER") redirect("/dashboard");
-  const { fehler } = await searchParams;
+  const sp = await searchParams;
+  const { fehler } = sp;
   const isVerwalter = user.role === "VERWALTER";
+  const currentPage = parsePage(sp.page);
 
   // Zugängliche WEG-Objekte.
   let propWhere;
@@ -49,11 +57,44 @@ export default async function VersammlungenPage({
   });
   const propIds = properties.map((p) => p.id);
 
-  const meetings = await db.ownersMeeting.findMany({
-    where: { propertyId: { in: propIds } },
-    orderBy: { scheduledAt: "desc" },
-    include: { property: { select: { name: true } }, _count: { select: { agendaItems: true } } },
-  });
+  // Versammlungen sammeln sich über die Jahre – paginiert statt vollständig.
+  const scope = await propertyScopeFilters(user, sp, { withUnit: false });
+  const q = normalizeSearch(sp.q);
+
+  const meetingAnd: Prisma.OwnersMeetingWhereInput[] = [{ propertyId: { in: propIds } }];
+  if (q) {
+    meetingAnd.push({
+      OR: [
+        { title: { contains: q, mode: "insensitive" } },
+        { location: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (scope.objektId) meetingAnd.push({ propertyId: scope.objektId });
+  const meetingWhere: Prisma.OwnersMeetingWhereInput = { AND: meetingAnd };
+  const hasFilter = Boolean(q || scope.active);
+
+  const [meetings, meetingTotal] = await Promise.all([
+    db.ownersMeeting.findMany({
+      where: meetingWhere,
+      orderBy: { scheduledAt: "desc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: { property: { select: { name: true } }, _count: { select: { agendaItems: true } } },
+    }),
+    db.ownersMeeting.count({ where: meetingWhere }),
+  ]);
+
+  // Paginierung muss alle aktiven Filter mittragen.
+  function pageHref(p: number) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "page") params.set(k, v);
+    }
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return `/versammlungen${qs ? `?${qs}` : ""}`;
+  }
 
   return (
     <>
@@ -69,8 +110,21 @@ export default async function VersammlungenPage({
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
+          <FilterBar
+            className="mb-3"
+            searchPlaceholder="Suchen"
+            searchHint="Nach Titel oder Ort suchen"
+            comboboxes={scope.comboboxes}
+          />
+          <p className="mb-2 px-1 text-xs text-gray-400">
+            {meetingTotal} {meetingTotal === 1 ? "Versammlung" : "Versammlungen"}
+            {hasFilter ? " (gefiltert)" : ""}
+          </p>
+
           {meetings.length === 0 ? (
-            <EmptyState>Noch keine Versammlungen angelegt.</EmptyState>
+            <EmptyState>
+              {hasFilter ? "Keine Versammlungen gefunden." : "Noch keine Versammlungen angelegt."}
+            </EmptyState>
           ) : (
             meetings.map((m) => (
               <Link
@@ -92,6 +146,14 @@ export default async function VersammlungenPage({
               </Link>
             ))
           )}
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.max(1, Math.ceil(meetingTotal / PAGE_SIZE))}
+            total={meetingTotal}
+            itemLabel="Versammlungen"
+            hrefFor={pageHref}
+          />
         </div>
 
         {isVerwalter ? (

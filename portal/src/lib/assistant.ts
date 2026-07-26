@@ -131,11 +131,11 @@ export async function retrieveContext(user: User, question: string, limit = 14):
   ]);
 
   for (const a of announcements) {
-    out.push(cand("Aushang", a.title, "/infos", `${objTag(a.property?.name)}${a.body}`, a.createdAt, ts));
+    out.push(cand("Aushang", a.title, "/aushaenge", `${objTag(a.property?.name)}${a.body}`, a.createdAt, ts));
   }
   for (const d of documents) {
     out.push(
-      cand("Dokument", d.title, "/infos", `${objTag(d.property?.name)}${documentCategoryLabels[d.category]}`, d.createdAt, ts),
+      cand("Dokument", d.title, "/dokumente", `${objTag(d.property?.name)}${documentCategoryLabels[d.category]}`, d.createdAt, ts),
     );
   }
   for (const t of tickets) {

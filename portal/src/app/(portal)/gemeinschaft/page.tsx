@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import type { Prisma } from "@/generated/prisma/client";
+import { Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass } from "@/components/ui";
 import { ownedProperties, isSelfManaged, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
@@ -10,9 +11,12 @@ import {
   resolutionStatusLabels,
   votingPrincipleLabels,
 } from "@/lib/labels";
+import { parsePage } from "@/lib/list-query";
 import { getOrganization, requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
+
+const LIST_PAGE_SIZE = 20;
 
 const statusTone: Record<string, string> = {
   ANGENOMMEN: "bg-green-100 text-green-800",
@@ -28,14 +32,17 @@ const statusTone: Record<string, string> = {
 export default async function GemeinschaftPage({
   searchParams,
 }: {
-  searchParams: Promise<{ objekt?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
   if (user.role !== "VERWALTER" && user.role !== "EIGENTUEMER") redirect("/dashboard");
   // Nur in selbstverwalteten Organisationen – im Profi-Profil bleibt WEG unter „Verwaltung".
   if (!isSelfManaged(await getOrganization())) redirect("/dashboard");
 
-  const { objekt } = await searchParams;
+  const sp = await searchParams;
+  const { objekt } = sp;
+  const bPage = parsePage(sp.bseite);
+  const dPage = parsePage(sp.dseite);
 
   // Zugängliche WEG-Objekte (Verwalter: Scope; Eigentümer: eigene, org-gesichert).
   let propWhere;
@@ -65,26 +72,46 @@ export default async function GemeinschaftPage({
   const totalMea = owners.reduce((s, o) => s + (o.mea ?? 0), 0);
   const boardMembers = owners.filter((o) => o.isBoardMember);
 
-  const resolutions = selected
-    ? await db.resolution.findMany({
-        where: { propertyId: selected.id, status: { in: ["ANGENOMMEN", "ABGELEHNT"] } },
-        orderBy: [{ number: "asc" }, { decidedAt: "asc" }],
-        select: { id: true, number: true, title: true, status: true, decidedAt: true },
-      })
-    : [];
+  // Beschlüsse und Dokumente wachsen dauerhaft – beide paginiert. Vorher waren
+  // die Beschlüsse unbegrenzt und die Dokumente still auf 20 gedeckelt.
+  const resolutionWhere: Prisma.ResolutionWhereInput | undefined = selected
+    ? { propertyId: selected.id, status: { in: ["ANGENOMMEN", "ABGELEHNT"] } }
+    : undefined;
+  const documentWhere: Prisma.DocumentWhereInput | undefined = selected
+    ? { propertyId: selected.id, audience: { in: ["EIGENTUEMER", "ALLE"] } }
+    : undefined;
 
-  // Für Eigentümer freigegebene Dokumente dieses Objekts (inkl. Protokolle).
-  const documents = selected
-    ? await db.document.findMany({
-        where: {
-          propertyId: selected.id,
-          audience: { in: ["EIGENTUEMER", "ALLE"] },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-        select: { id: true, title: true, category: true, createdAt: true, size: true },
-      })
-    : [];
+  const [resolutions, resolutionTotal, documents, documentTotal] = selected
+    ? await Promise.all([
+        db.resolution.findMany({
+          where: resolutionWhere,
+          orderBy: [{ number: "asc" }, { decidedAt: "asc" }],
+          skip: (bPage - 1) * LIST_PAGE_SIZE,
+          take: LIST_PAGE_SIZE,
+          select: { id: true, number: true, title: true, status: true, decidedAt: true },
+        }),
+        db.resolution.count({ where: resolutionWhere }),
+        db.document.findMany({
+          where: documentWhere,
+          orderBy: { createdAt: "desc" },
+          skip: (dPage - 1) * LIST_PAGE_SIZE,
+          take: LIST_PAGE_SIZE,
+          select: { id: true, title: true, category: true, createdAt: true, size: true },
+        }),
+        db.document.count({ where: documentWhere }),
+      ])
+    : [[], 0, [], 0];
+
+  // Blättern in einer Liste erhält Objektauswahl und die andere Liste.
+  function hrefWith(param: string, p: number) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== param) params.set(k, v);
+    }
+    if (p > 1) params.set(param, String(p));
+    const qs = params.toString();
+    return `/gemeinschaft${qs ? `?${qs}` : ""}`;
+  }
 
   return (
     <>
@@ -234,6 +261,14 @@ export default async function GemeinschaftPage({
                     ))}
                   </ul>
                 )}
+
+                <Pagination
+                  currentPage={bPage}
+                  totalPages={Math.max(1, Math.ceil(resolutionTotal / LIST_PAGE_SIZE))}
+                  total={resolutionTotal}
+                  itemLabel="Beschlüsse"
+                  hrefFor={(p) => hrefWith("bseite", p)}
+                />
               </Card>
 
               {/* Dokumente & Protokolle */}
@@ -264,10 +299,19 @@ export default async function GemeinschaftPage({
                     ))}
                   </ul>
                 )}
+
+                <Pagination
+                  currentPage={dPage}
+                  totalPages={Math.max(1, Math.ceil(documentTotal / LIST_PAGE_SIZE))}
+                  total={documentTotal}
+                  itemLabel="Dokumente"
+                  hrefFor={(p) => hrefWith("dseite", p)}
+                />
+
                 <p className="mt-3 text-xs text-gray-400">
                   Alle für Eigentümer freigegebenen Unterlagen finden Sie unter{" "}
-                  <Link href="/infos?t=dokumente" className="underline">
-                    Infos → Dokumente
+                  <Link href="/dokumente" className="underline">
+                    Dokumente
                   </Link>
                   .
                 </p>

@@ -1,16 +1,20 @@
 import { redirect } from "next/navigation";
+import type { Prisma } from "@/generated/prisma/client";
 import { Alert,
   Card,
   EmptyState,
   Field,
   PageTitle,
+  Pagination,
   buttonClass,
   buttonSecondaryClass,
   inputClass,
 } from "@/components/ui";
+import { FilterBar } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
+import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { getOrganization, requireUser } from "@/lib/session";
 import {
   adoptMotionAsResolution,
@@ -20,6 +24,8 @@ import {
 } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 25;
 
 const typeLabels: Record<string, string> = {
   BESCHLUSSANTRAG: "Beschlussantrag",
@@ -54,12 +60,7 @@ const errorText: Record<string, string> = {
 export default async function AntraegePage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    eingereicht?: string;
-    uebernommen?: string;
-    abgelehnt?: string;
-    fehler?: string;
-  }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
   const org = await getOrganization();
@@ -84,11 +85,45 @@ export default async function AntraegePage({
   const isVerwalter = user.role === "VERWALTER";
 
   // Eigene Anträge (Status-Verlauf für den Eigentümer).
-  const myMotions = await db.ownerMotion.findMany({
-    where: { submittedById: user.id },
-    include: { property: { select: { name: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  // Eigene Anträge sammeln sich über die Jahre – paginiert und durchsuchbar.
+  const currentPage = parsePage(sp.page);
+  const q = normalizeSearch(sp.q);
+  const myMotionWhere: Prisma.OwnerMotionWhereInput = {
+    AND: [
+      { submittedById: user.id },
+      ...(q
+        ? [
+            {
+              OR: [
+                { title: { contains: q, mode: "insensitive" as const } },
+                { description: { contains: q, mode: "insensitive" as const } },
+              ],
+            },
+          ]
+        : []),
+    ],
+  };
+  const [myMotions, myMotionTotal] = await Promise.all([
+    db.ownerMotion.findMany({
+      where: myMotionWhere,
+      include: { property: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+    db.ownerMotion.count({ where: myMotionWhere }),
+  ]);
+
+  // Paginierung muss die aktive Suche mittragen.
+  function pageHref(p: number) {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "page") params.set(k, v);
+    }
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return `/antraege${qs ? `?${qs}` : ""}`;
+  }
 
   // Review-Bereich für den internen Verwalter: offene Anträge im Scope.
   let reviewMotions: Awaited<ReturnType<typeof loadReview>>["motions"] = [];
@@ -251,9 +286,17 @@ export default async function AntraegePage({
 
       {/* Eigene Anträge */}
       <div className="mt-6">
-        <Card title="Meine Anträge">
+        <Card title={`Meine Anträge (${myMotionTotal})`}>
+          <FilterBar
+            className="mb-3"
+            searchPlaceholder="Suchen"
+            searchHint="Nach Titel oder Antragstext suchen"
+          />
+
           {myMotions.length === 0 ? (
-            <EmptyState>Sie haben noch keine Anträge eingereicht.</EmptyState>
+            <EmptyState>
+              {q ? "Keine Anträge gefunden." : "Sie haben noch keine Anträge eingereicht."}
+            </EmptyState>
           ) : (
             <ul className="divide-y divide-gray-50">
               {myMotions.map((m) => (
@@ -279,6 +322,14 @@ export default async function AntraegePage({
               ))}
             </ul>
           )}
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.max(1, Math.ceil(myMotionTotal / PAGE_SIZE))}
+            total={myMotionTotal}
+            itemLabel="Anträge"
+            hrefFor={pageHref}
+          />
         </Card>
       </div>
     </>

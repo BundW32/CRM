@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { formatDateOnly } from "@/lib/labels";
 import { requireWegProperty } from "@/lib/weg/scope";
@@ -12,19 +13,39 @@ export default async function JahresabrechnungListPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{ geloescht?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const { propertyId } = await params;
   const { property } = await requireWegProperty(propertyId);
   const sp = await searchParams;
+  const jahr = /^\d{4}$/.test(sp.jahr ?? "") ? Number(sp.jahr) : undefined;
 
   const statements = await db.annualStatement.findMany({
-    where: { propertyId: property.id },
+    where: { propertyId: property.id, ...(jahr ? { year: jahr } : {}) },
     orderBy: { year: "desc" },
   });
 
+  // Alle vorhandenen Jahrgänge für die Auswahl – unabhängig vom aktiven Filter.
+  const allYears = await db.annualStatement.findMany({
+    where: { propertyId: property.id },
+    orderBy: { year: "desc" },
+    select: { year: true },
+  });
+
   const lastYear = new Date().getFullYear() - 1;
-  const suggestedYear = statements.some((s) => s.year === lastYear) ? lastYear + 1 : lastYear;
+  // Bewusst gegen ALLE Jahrgänge geprüft, nicht gegen die gefilterte Liste –
+  // sonst schlüge das Formular bei aktivem Filter ein falsches Jahr vor.
+  const suggestedYear = allYears.some((s) => s.year === lastYear) ? lastYear + 1 : lastYear;
+
+  const yearFilters: FilterConfig[] = [
+    {
+      key: "jahr",
+      label: "Jahr",
+      allLabel: "Alle Jahre",
+      primary: true,
+      options: allYears.map((s) => ({ value: String(s.year), label: String(s.year) })),
+    },
+  ];
 
   return (
     <>
@@ -77,8 +98,14 @@ export default async function JahresabrechnungListPage({
         </Card>
 
         <Card title="Abrechnungen">
+          {allYears.length > 1 ? <FilterBar className="mb-3" filters={yearFilters} /> : null}
+
           {statements.length === 0 ? (
-            <EmptyState>Noch keine Jahresabrechnung vorhanden.</EmptyState>
+            <EmptyState>
+              {jahr
+                ? "Für dieses Jahr liegt keine Abrechnung vor."
+                : "Noch keine Jahresabrechnung vorhanden."}
+            </EmptyState>
           ) : (
             <div className="grid gap-3">
               {statements.map((s) => (

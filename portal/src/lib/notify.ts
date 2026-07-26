@@ -201,7 +201,7 @@ export async function notifyDocumentPublished(documentId: string): Promise<void>
     if (targets.length === 0) return;
 
     const branding = await getBrandingForOrg(doc.organizationId);
-    const link = portalUrl("/infos?t=dokumente");
+    const link = portalUrl("/dokumente");
     await Promise.all(
       targets
         .filter((u) => u.email)
@@ -212,7 +212,7 @@ export async function notifyDocumentPublished(documentId: string): Promise<void>
             `Guten Tag ${u.name},\n\n` +
               `Ihre Hausverwaltung hat ein neues Dokument für Sie bereitgestellt:\n` +
               `„${doc.title}"\n\n` +
-              `Sie finden es im Portal unter Infos → Dokumente:\n${link}\n\n` +
+              `Sie finden es im Portal unter Dokumente:\n${link}\n\n` +
               `Mit freundlichen Grüßen\n${branding.legalName}`,
             undefined,
             branding
@@ -221,7 +221,7 @@ export async function notifyDocumentPublished(documentId: string): Promise<void>
     );
     await sendPushToUsers(
       targets.map((u) => u.id),
-      { title: "Neues Dokument verfügbar", body: doc.title, url: "/infos?t=dokumente" }
+      { title: "Neues Dokument verfügbar", body: doc.title, url: "/dokumente" }
     );
   } catch {
     // Benachrichtigung darf den Upload nie blockieren

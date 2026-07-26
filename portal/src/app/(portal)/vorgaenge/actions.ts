@@ -885,7 +885,7 @@ export async function uploadRequestedDocument(formData: FormData) {
       data: {
         ticketId,
         authorId: verwalter.id,
-        body: `Dokument bereitgestellt: „${title}". Sie finden es unter „Infos → Dokumente".`,
+        body: `Dokument bereitgestellt: „${title}". Sie finden es unter „Dokumente".`,
       },
     }),
     db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } }),
@@ -893,7 +893,7 @@ export async function uploadRequestedDocument(formData: FormData) {
   await notifyCreatorNewComment(ticketId, verwalter);
 
   revalidatePath(`/vorgaenge/${ticketId}`);
-  revalidatePath("/infos");
+  revalidatePath("/dokumente");
   redirect(`/vorgaenge/${ticketId}?bereitgestellt=1`);
 }
 
@@ -1027,7 +1027,7 @@ export async function generateCertificate(formData: FormData) {
       data: {
         ticketId,
         authorId: verwalter.id,
-        body: `${title} automatisch erstellt und bereitgestellt. Abrufbar unter „Infos → Dokumente".`,
+        body: `${title} automatisch erstellt und bereitgestellt. Abrufbar unter „Dokumente".`,
       },
     }),
     db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } }),
@@ -1035,7 +1035,7 @@ export async function generateCertificate(formData: FormData) {
   await notifyCreatorNewComment(ticketId, verwalter);
 
   revalidatePath(`/vorgaenge/${ticketId}`);
-  revalidatePath("/infos");
+  revalidatePath("/dokumente");
   redirect(`/vorgaenge/${ticketId}?bereitgestellt=1`);
   } catch (e) {
     if (isNextControlFlowError(e)) throw e; // redirect()/notFound() durchlassen

@@ -24,20 +24,20 @@ export async function createAnnouncement(formData: FormData) {
     body: formData.get("body"),
   });
   if (!parsed.success) {
-    redirect("/infos?t=aushaenge&fehler=eingabe");
+    redirect("/aushaenge?fehler=eingabe");
   }
 
   // Scope-Prüfung: nur Objekte im Zuständigkeitsbereich
   if (!(await canVerwalterAccessProperty(user, parsed.data.propertyId))) {
-    redirect("/infos?t=aushaenge&fehler=eingabe");
+    redirect("/aushaenge?fehler=eingabe");
   }
 
   await db.announcement.create({
     data: { ...parsed.data, createdById: user.id, organizationId: user.organizationId },
   });
 
-  revalidatePath("/infos");
-  redirect("/infos?t=aushaenge");
+  revalidatePath("/aushaenge");
+  redirect("/aushaenge");
 }
 
 // Mieter/Eigentümer bestätigen, einen Aushang zur Kenntnis genommen zu haben
@@ -49,8 +49,8 @@ export async function acknowledgeAnnouncement(formData: FormData) {
       .create({ data: { userId: user.id, announcementId } })
       .catch(() => {});
   }
-  revalidatePath("/infos");
-  redirect("/infos?t=aushaenge");
+  revalidatePath("/aushaenge");
+  redirect("/aushaenge");
 }
 
 export async function deleteAnnouncement(formData: FormData) {
@@ -66,6 +66,6 @@ export async function deleteAnnouncement(formData: FormData) {
       await db.announcement.delete({ where: { id } }).catch(() => {});
     }
   }
-  revalidatePath("/infos");
-  redirect("/infos?t=aushaenge");
+  revalidatePath("/aushaenge");
+  redirect("/aushaenge");
 }

@@ -79,10 +79,16 @@ export const HELP_TOPICS: HelpTopic[] = [
     body: `Unter Zähler erfassen Sie Zählerstände (Einzel- und Allgemeinzähler). Unter Verbrauch sehen Sie die unterjährige Verbrauchsinformation.`,
   },
   {
-    title: "Dokumente und Aushänge",
+    title: "Dokumente",
     roles: ["VERWALTER", "EIGENTUEMER"],
-    href: "/infos",
-    body: `Dokumente und Aushänge finden Sie unter Infos. Die Verwaltung lädt Dokumente mit einer Zielgruppe hoch (Mieter, Eigentümer, Beirat oder Alle).`,
+    href: "/dokumente",
+    body: `Unter Dokumente finden Sie alle abgelegten Unterlagen. Die Verwaltung lädt Dokumente mit einer Zielgruppe hoch (Mieter, Eigentümer, Beirat oder Alle).`,
+  },
+  {
+    title: "Aushänge",
+    roles: ["VERWALTER", "EIGENTUEMER"],
+    href: "/aushaenge",
+    body: `Unter Aushänge veröffentlicht die Verwaltung Mitteilungen für ein Objekt. Empfänger können einen Aushang zur Kenntnis nehmen; die Verwaltung sieht, wer ihn gelesen hat.`,
   },
   {
     title: "Wohnungsübergabe",

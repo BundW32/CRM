@@ -97,7 +97,7 @@ export async function triggerSync(formData: FormData) {
   const result = await syncDocumentSource(id, verwalter.id);
 
   revalidatePath("/verwaltung/dokument-quellen");
-  revalidatePath("/infos");
+  revalidatePath("/dokumente");
 
   const msg = result.errors.length > 0 ? "fehler" : "ok";
   const imported = result.imported;

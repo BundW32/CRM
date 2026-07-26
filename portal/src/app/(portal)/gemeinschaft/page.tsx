@@ -310,8 +310,8 @@ export default async function GemeinschaftPage({
 
                 <p className="mt-3 text-xs text-gray-400">
                   Alle für Eigentümer freigegebenen Unterlagen finden Sie unter{" "}
-                  <Link href="/infos?t=dokumente" className="underline">
-                    Infos → Dokumente
+                  <Link href="/dokumente" className="underline">
+                    Dokumente
                   </Link>
                   .
                 </p>

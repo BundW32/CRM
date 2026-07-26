@@ -17,8 +17,35 @@ const COST_CATEGORIES = ["BETRIEBSKOSTEN", "INSTANDHALTUNG", "VERWALTUNG", "RUEC
 const LABOR_SHARE_TYPES = ["KEINE", "HAUSHALTSNAHE_DIENSTLEISTUNG", "HANDWERKERLEISTUNG"] as const;
 const ACCOUNT_KINDS = ["GIRO", "RUECKLAGE"] as const;
 
+// Anker je Rückmeldung: Nach welchem Abschnitt der Seite geht es weiter?
+//
+// Server-Actions enden mit einer Weiterleitung, und die setzt den Browser an
+// den Seitenanfang zurück. Auf einer langen Seite wie den Stammdaten heißt das:
+// Man speichert eine Einheit weit unten und findet sich oben bei den
+// Objekt-Einstellungen wieder – nach jedem einzelnen Speichern.
+//
+// Der Anker im Ziel-Pfad behebt das, ohne die Rückmeldungs-Konvention
+// anzutasten: Der Flash-/Fehler-Parameter bleibt, das Fragment führt nur
+// zusätzlich an die Stelle zurück, an der gearbeitet wurde.
+const ANKER: Record<string, string> = {
+  einstellungen: "objekt-einstellungen",
+  einheit: "einheiten",
+  eigentuemer: "eigentuemer",
+  datum: "eigentuemer",
+  katalog: "kostenarten",
+  kostenart: "kostenarten",
+  konto: "konten",
+  betrag: "konten",
+};
+
 function back(propertyId: string, param?: string): never {
-  redirect(`/verwaltung/weg/${propertyId}/stammdaten${param ? `?${param}` : ""}`);
+  const wert = param?.split("=")[1];
+  const anker = wert ? ANKER[wert] : undefined;
+  redirect(
+    `/verwaltung/weg/${propertyId}/stammdaten` +
+      (param ? `?${param}` : "") +
+      (anker ? `#${anker}` : ""),
+  );
 }
 
 // Optionale Ganzzahl/Dezimalzahl aus deutschem Formular-Input ("76,38" → 76.38)

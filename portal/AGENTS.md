@@ -107,6 +107,14 @@ wächst die Lücke nach.
    Zurückziehen laufen über `ConfirmActionButton` (Text) oder
    `ConfirmDeleteButton` (Icon in Listenzeilen). Umkehrbar ist hier fast nichts.
 
+**Auf langen Seiten gehört ein Anker dazu.** Die Weiterleitung setzt den Browser an den
+Seitenanfang. Wer unten eine Einheit speichert, landet oben bei den Objekt-Einstellungen —
+nach jedem einzelnen Speichern. Deshalb: `Card` nimmt ein `id` entgegen, und der
+Erfolgs-`redirect()` hängt das Fragment an (`…?flash=gespeichert#einheiten`). Vorbild ist
+`weg/[propertyId]/stammdaten/actions.ts`, wo der zentrale `back()`-Helfer den Anker aus der
+Rückmeldung ableitet. Nötig ist das erst, wenn eine Seite mehrere Formulare untereinander
+trägt — bei einem einzelnen Formular oben ist der Sprung nach oben kein Verlust.
+
 **Drei Fallen, die schon zugeschlagen haben:**
 
 - **Kein doppeltes Feedback.** Trägt der Rücksprung bereits einen

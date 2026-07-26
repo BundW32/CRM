@@ -128,9 +128,27 @@ export function PageTitle({
   );
 }
 
-export function Card({ title, children }: { title?: ReactNode; children: ReactNode }) {
+export function Card({
+  title,
+  id,
+  children,
+}: {
+  title?: ReactNode;
+  /**
+   * Sprungziel für den Rücksprung nach einer Server-Action. Diese enden mit
+   * einer Weiterleitung, und die setzt den Browser an den Seitenanfang – auf
+   * einer langen Seite landet man nach jedem Speichern wieder ganz oben. Trägt
+   * die Karte einen Anker, führt der Rücksprung an die Stelle zurück, an der
+   * gearbeitet wurde (`redirect("…?flash=…#anker")`).
+   */
+  id?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div
+      id={id}
+      className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm${id ? " scroll-mt-6" : ""}`}
+    >
       {title ? (
         <h2 className="mb-4 text-base font-semibold text-gray-900">{title}</h2>
       ) : null}

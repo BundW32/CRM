@@ -108,7 +108,7 @@ export default async function WegStammdatenPage({
 
       <div className="grid gap-4">
         {/* Objekt-Finanzeinstellungen */}
-        <Card title="Objekt-Einstellungen">
+        <Card id="objekt-einstellungen" title="Objekt-Einstellungen">
           <form action={saveFinanceSettings} className="grid gap-4 sm:grid-cols-3">
             <input type="hidden" name="propertyId" value={property.id} />
             <Field label="MEA-Nenner (Summe aller Anteile, z. B. 1000)">
@@ -164,7 +164,7 @@ export default async function WegStammdatenPage({
         )}
 
         {/* Einheiten */}
-        <Card title="Einheiten (MEA, Fläche, Personen)">
+        <Card id="einheiten" title="Einheiten (MEA, Fläche, Personen)">
           <p className="mb-3 text-xs text-gray-500">
             Der MEA-Zähler je Einheit ist die zentrale Angabe: Er steuert die Kostenverteilung in
             Abrechnung und Wirtschaftsplan und bestimmt zugleich das Stimmgewicht der Eigentümer
@@ -264,7 +264,7 @@ export default async function WegStammdatenPage({
         </Card>
 
         {/* Eigentümerschaft je Einheit (tagesgenau) */}
-        <Card title="Eigentümer je Einheit (tagesgenau — Grundlage der Jahresabrechnung)">
+        <Card id="eigentuemer" title="Eigentümer je Einheit (tagesgenau — Grundlage der Jahresabrechnung)">
           {units.length === 0 ? (
             <EmptyState>Dieses Objekt hat noch keine Einheiten.</EmptyState>
           ) : (
@@ -373,7 +373,7 @@ export default async function WegStammdatenPage({
         </Card>
 
         {/* Kostenarten */}
-        <Card title="Kostenarten & Umlageschlüssel">
+        <Card id="kostenarten" title="Kostenarten & Umlageschlüssel">
           {costTypes.length === 0 ? (
             <EmptyState
               action={
@@ -527,7 +527,7 @@ export default async function WegStammdatenPage({
         </Card>
 
         {/* Konten */}
-        <Card title="Konten (Girokonto & Erhaltungsrücklage)">
+        <Card id="konten" title="Konten (Girokonto & Erhaltungsrücklage)">
           {accounts.length === 0 ? (
             <EmptyState>
               Noch keine Konten. Legen Sie das Girokonto der Gemeinschaft und das

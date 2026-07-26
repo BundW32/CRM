@@ -186,17 +186,23 @@ export default async function WegStammdatenPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {units.map((u) => (
-                    <tr key={u.id} className="border-b border-gray-100 align-top">
-                      <td className="py-2 pr-3 font-medium text-gray-900">{u.label}</td>
-                      <td className="py-2 pr-3" colSpan={5}>
-                        <form
-                          action={saveUnitFinanceData}
-                          className="flex flex-wrap items-center gap-2"
-                        >
-                          <input type="hidden" name="propertyId" value={property.id} />
-                          <input type="hidden" name="unitId" value={u.id} />
+                  {/* Ein Feld je Spalte, damit die Kopfzeile auch beschriftet, was
+                      darunter steht. Zuvor lagen alle Felder in EINER Zelle
+                      (`colSpan={5}`) als umbrechende Reihe – die Überschriften
+                      zeigten damit ins Leere, sobald es eng wurde.
+
+                      Das Formular steht in der letzten Zelle; die Felder gehören
+                      über das `form`-Attribut dazu. Ein <form> darf in einer
+                      Tabelle keine Zellen umspannen – so bleibt beides gültig:
+                      ausgerichtete Spalten und ein Formular je Zeile. */}
+                  {units.map((u) => {
+                    const formId = `einheit-${u.id}`;
+                    return (
+                      <tr key={u.id} className="border-b border-gray-100 align-middle">
+                        <td className="py-2 pr-3 font-medium text-gray-900">{u.label}</td>
+                        <td className="py-2 pr-3">
                           <select
+                            form={formId}
                             name="unitType"
                             defaultValue={u.unitType}
                             className={`${inputClass} w-auto`}
@@ -208,37 +214,49 @@ export default async function WegStammdatenPage({
                               </option>
                             ))}
                           </select>
+                        </td>
+                        <td className="py-2 pr-3">
                           <input
+                            form={formId}
                             name="mea"
                             type="number"
                             min={0}
                             defaultValue={u.mea ?? ""}
-                            placeholder="MEA"
                             className={`${inputClass} w-24`}
                             aria-label={`MEA-Zähler der Einheit ${u.label}`}
                           />
+                        </td>
+                        <td className="py-2 pr-3">
                           <input
+                            form={formId}
                             name="livingArea"
                             defaultValue={u.livingArea ?? ""}
-                            placeholder="m²"
                             inputMode="decimal"
                             className={`${inputClass} w-24`}
                             aria-label={`Wohnfläche der Einheit ${u.label}`}
                           />
+                        </td>
+                        <td className="py-2 pr-3">
                           <input
+                            form={formId}
                             name="personCount"
                             type="number"
                             min={0}
                             defaultValue={u.personCount ?? ""}
-                            placeholder="Pers."
                             className={`${inputClass} w-20`}
                             aria-label={`Personenzahl der Einheit ${u.label}`}
                           />
-                          <PendingButton className={buttonSecondaryClass}>Speichern</PendingButton>
-                        </form>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-2">
+                          <form id={formId} action={saveUnitFinanceData}>
+                            <input type="hidden" name="propertyId" value={property.id} />
+                            <input type="hidden" name="unitId" value={u.id} />
+                            <PendingButton className={buttonSecondaryClass}>Speichern</PendingButton>
+                          </form>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -277,11 +295,17 @@ export default async function WegStammdatenPage({
                               <form action={endUnitOwnership} className="flex items-center gap-1.5">
                                 <input type="hidden" name="propertyId" value={property.id} />
                                 <input type="hidden" name="ownershipId" value={o.id} />
+                                {/* Sichtbare Beschriftung: In dieser Karte stehen
+                                    zwei Datumsfelder – eines beendet die laufende
+                                    Eigentümerschaft, eines beginnt eine neue.
+                                    Ohne Beschriftung sagt keines, welches was tut. */}
+                                <span className="text-xs text-gray-500">beenden zum</span>
                                 <input
                                   type="date"
                                   name="validTo"
                                   className={`${inputClass} w-auto py-1 text-xs`}
                                   aria-label={`Eigentümerschaft von ${o.user.name} beenden zum`}
+                                  title={`Eigentümerschaft von ${o.user.name} zu diesem Tag beenden`}
                                 />
                                 <ConfirmActionButton
                                   className="text-xs text-red-600 underline"
@@ -296,6 +320,18 @@ export default async function WegStammdatenPage({
                         ))}
                       </ul>
                     )}
+                    {/* Steht ein Eigentümer, ist das Eintragen die Ausnahme (Verkauf,
+                        Miteigentum) – ein immer offenes Formular liest sich dann wie
+                        eine Pflicht, obwohl die Zuordnung längst da ist und darüber
+                        steht. Als aufklappbarer Block bleibt beides wahr: Der Bestand
+                        ist sichtbar, der Wechsel bleibt einen Klick entfernt.
+                        Ist noch niemand erfasst, ist der Block offen. */}
+                    <details className="mt-3 group" open={list.length === 0}>
+                      <summary className="cursor-pointer list-none text-sm font-medium text-brand-green hover:underline">
+                        {list.length === 0
+                          ? "Eigentümer eintragen"
+                          : "+ Eigentümerwechsel oder Miteigentümer eintragen"}
+                      </summary>
                     <form action={addUnitOwnership} className="mt-3 flex flex-wrap items-end gap-2">
                       <input type="hidden" name="propertyId" value={property.id} />
                       <input type="hidden" name="unitId" value={u.id} />
@@ -309,7 +345,7 @@ export default async function WegStammdatenPage({
                           ))}
                         </select>
                       </Field>
-                      <Field label="Gültig ab">
+                      <Field label="Eigentümer seit">
                         <input type="date" name="validFrom" className={`${inputClass} w-auto`} required />
                       </Field>
                       <Field label="Anteil (%)">
@@ -328,6 +364,7 @@ export default async function WegStammdatenPage({
                       </label>
                       <PendingButton className={buttonSecondaryClass}>Eintragen</PendingButton>
                     </form>
+                    </details>
                   </div>
                 );
               })}
@@ -354,8 +391,18 @@ export default async function WegStammdatenPage({
               <div className="mb-4">
                 <form action={adoptCostCatalog}>
                   <input type="hidden" name="propertyId" value={property.id} />
-                  <PendingButton className={buttonSecondaryClass}>Fehlende Standard-Kostenarten ergänzen</PendingButton>
+                  <PendingButton className={buttonSecondaryClass}>
+                    Standardkatalog abgleichen
+                  </PendingButton>
                 </form>
+                {/* Der Knopf hieß „Fehlende Standard-Kostenarten ergänzen" und
+                    ließ offen, ob er etwas überschreibt. Beim ersten Mal ist die
+                    Frage entscheidend – wer sie nicht beantworten kann, drückt
+                    lieber nicht. */}
+                <p className="mt-1.5 text-xs text-gray-500">
+                  Legt die üblichen WEG-Kostenarten an, die hier noch fehlen. Vorhandene Einträge
+                  bleiben unverändert – auch umbenannte. Eigene Kostenarten legen Sie unten an.
+                </p>
               </div>
               <div className="grid gap-3">
                 {costTypes.map((c) => (

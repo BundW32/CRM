@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
-import { propertyWhereForVerwalter } from "@/lib/access";
+import { isSelfManaged, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
-import { requireVerwalter } from "@/lib/session";
+import { getOrganization, requireVerwalter } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 // WEG-Finanzbereich: Einstieg über die Objektauswahl (nur WEG-Objekte im Scope).
 export default async function WegOverviewPage() {
   const verwalter = await requireVerwalter();
+  const selfManaged = isSelfManaged(await getOrganization());
   const where = await propertyWhereForVerwalter(verwalter);
   const properties = await db.property.findMany({
     where: { ...where, managementType: "WEG" },
@@ -24,22 +25,38 @@ export default async function WegOverviewPage() {
     orderBy: { name: "asc" },
   });
 
+  // Selbstverwaltete WEG mit genau einem Objekt: Statt einer Auswahlliste mit
+  // einem einzigen Eintrag ist die Seite direkt der Finanz-Einstieg dieses
+  // Objekts. Kein Weiterleiten – die Unterseiten springen über ihren
+  // „WEG-Finanzen"-Rückweg hierher zurück und landen sonst im Kreis.
+  const einzelnesObjekt = selfManaged && properties.length === 1;
+
   return (
     <>
       <PageTitle
       >
-        WEG-Finanzen
+        {einzelnesObjekt ? `Finanzen · ${properties[0].name}` : "WEG-Finanzen"}
       </PageTitle>
 
       {properties.length === 0 ? (
         <Card>
           <EmptyState>
-            Kein WEG-Objekt vorhanden. Legen Sie unter „Objekte“ ein Objekt mit
-            Verwaltungsart „WEG“ an, um Finanzen zu verwalten.
+            {selfManaged ? (
+              <>
+                Hier entstehen die Finanzen Ihrer Gemeinschaft – sobald das Objekt angelegt
+                ist. Die <a href="/dashboard" className="underline">Übersicht</a> führt Sie
+                Schritt für Schritt hindurch.
+              </>
+            ) : (
+              <>
+                Kein WEG-Objekt vorhanden. Legen Sie unter „Objekte“ ein Objekt mit
+                Verwaltungsart „WEG“ an, um Finanzen zu verwalten.
+              </>
+            )}
           </EmptyState>
         </Card>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className={einzelnesObjekt ? "grid gap-4" : "grid gap-4 lg:grid-cols-2"}>
           {properties.map((p) => {
             // Themengruppen für eine übersichtliche Struktur statt einer langen
             // Button-Reihe: Stammdaten · Laufendes Jahr · Abrechnung · Pflichten.
@@ -75,7 +92,9 @@ export default async function WegOverviewPage() {
               },
             ];
             return (
-              <Card key={p.id} title={p.name}>
+              // Bei genau einem Objekt trägt bereits die Seitenüberschrift den
+              // Namen – ihn in der Karte zu wiederholen wäre Lärm.
+              <Card key={p.id} title={einzelnesObjekt ? undefined : p.name}>
                 <p className="text-sm text-gray-500">
                   {p.street}, {p.zip} {p.city}
                 </p>

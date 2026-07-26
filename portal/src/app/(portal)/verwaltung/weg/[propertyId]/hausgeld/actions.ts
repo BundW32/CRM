@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
 import { loadWegProperty } from "@/lib/weg/scope";
 
@@ -193,4 +194,86 @@ export async function deleteMahnung(formData: FormData) {
   });
   revalidatePath(`/verwaltung/weg/${property.id}/hausgeld`);
   back(property.id, "gespeichert=geloescht");
+}
+
+/**
+ * Übernimmt den Hausgeld-Stand je Einheit aus der bisherigen Verwaltung.
+ *
+ * Der Moment, in dem eine Selbstverwaltung beginnt, ist die Aktenübergabe. Die
+ * Kontostände landen als Anfangsbestand am Konto — was fehlte, waren die
+ * **offenen Posten je Einheit**. Schuldete eine Einheit dem alten Verwalter
+ * noch 800 €, wusste unser System davon nichts: Die Rückstandsliste startete
+ * bei null, das Mahnwesen ebenso, und die Forderung war faktisch verschwunden.
+ *
+ * Bewusst kein neues Datenmodell: Ein Rückstand ist eine fällige Sollstellung,
+ * und genau das ist `DuePosting`. Mit `source = "UEBERNAHME"` fließt er ohne
+ * Weiteres in Rückstandsliste, offene Posten und Mahnwesen ein — alles, was
+ * daran hängt, funktioniert unverändert.
+ *
+ * Sollstellungen berühren **keine Kontostände**: Sie sind Forderungen, kein
+ * Geld. Deshalb ist das hier auch der richtige Ort für ein Guthaben (negativer
+ * Betrag) — eine Buchung würde stattdessen den Kontostand verfälschen, denn
+ * das Geld liegt längst im übernommenen Anfangsbestand.
+ */
+export async function saveUebernahme(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "").trim();
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const stichtagRoh = String(formData.get("stichtag") ?? "").trim();
+  const stichtag = new Date(stichtagRoh);
+  if (!stichtagRoh || Number.isNaN(stichtag.getTime())) {
+    redirect(`/verwaltung/weg/${property.id}/hausgeld?fehler=stichtag#uebernahme`);
+  }
+
+  const units = await db.unit.findMany({
+    where: { propertyId: property.id },
+    select: { id: true },
+  });
+
+  const postings = units.flatMap((u) => {
+    const roh = String(formData.get(`betrag_${u.id}`) ?? "").trim();
+    if (!roh) return [];
+    // Guthaben als negativer Betrag: `parseEuroToCents` lässt kein Minus zu,
+    // deshalb das Vorzeichen abtrennen und danach wieder anlegen.
+    const negativ = roh.startsWith("-") || roh.startsWith("−");
+    const cents = parseEuroToCents(negativ ? roh.slice(1) : roh);
+    if (cents === null || cents === 0) return [];
+    return [
+      {
+        organizationId: verwalter.organizationId,
+        propertyId: property.id,
+        unitId: u.id,
+        dueDate: stichtag,
+        periodYear: stichtag.getFullYear(),
+        periodMonth: stichtag.getMonth() + 1,
+        amountCents: negativ ? -cents : cents,
+        source: "UEBERNAHME",
+      },
+    ];
+  });
+
+  // Ersetzen statt ergänzen: Die Übernahme ist ein einmaliger Stand, kein
+  // Zugang. Zweimaliges Speichern darf ihn nicht verdoppeln.
+  await db.$transaction([
+    db.duePosting.deleteMany({ where: { propertyId: property.id, source: "UEBERNAHME" } }),
+    ...(postings.length > 0 ? [db.duePosting.createMany({ data: postings })] : []),
+  ]);
+
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_BOOKING_CREATED,
+    targetType: "Property",
+    targetId: property.id,
+    meta: {
+      kind: "uebernahme-offene-posten",
+      stichtag: stichtagRoh,
+      einheiten: postings.length,
+      summeCents: postings.reduce((s, p) => s + p.amountCents, 0),
+    },
+  });
+
+  revalidatePath(`/verwaltung/weg/${property.id}/hausgeld`);
+  redirect(`/verwaltung/weg/${property.id}/hausgeld?flash=gespeichert#uebernahme`);
 }

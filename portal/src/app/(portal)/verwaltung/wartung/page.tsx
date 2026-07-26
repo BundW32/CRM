@@ -1,4 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { Pagination, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { SubmitButton } from "@/components/submit-button";
@@ -219,28 +221,22 @@ export default async function WartungPage({
                       ) : (
                         <form action={createTicketFromTask}>
                           <input type="hidden" name="id" value={t.id} />
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                          >
-                            Vorgang anlegen
-                          </button>
+                          <PendingButton className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Vorgang anlegen</PendingButton>
                         </form>
                       )}
                       <form action={completeMaintenanceTask}>
                         <input type="hidden" name="id" value={t.id} />
-                        <button
-                          type="submit"
-                          className="rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-green-dark hover:bg-brand-orange-dark"
-                        >
-                          Erledigt
-                        </button>
+                        <PendingButton className="rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-green-dark hover:bg-brand-orange-dark">Erledigt</PendingButton>
                       </form>
                       <form action={deleteMaintenanceTask}>
                         <input type="hidden" name="id" value={t.id} />
-                        <button type="submit" className="text-xs text-red-600 hover:underline">
+                        <ConfirmActionButton
+                          className="text-xs text-red-600 hover:underline"
+                          confirmLabel="Wirklich löschen?"
+                          pendingLabel="Wird gelöscht…"
+                        >
                           Löschen
-                        </button>
+                        </ConfirmActionButton>
                       </form>
                     </div>
                   </div>

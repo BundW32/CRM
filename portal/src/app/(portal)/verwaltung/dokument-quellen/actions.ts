@@ -51,7 +51,7 @@ export async function createDocumentSourceConfig(formData: FormData) {
   });
 
   revalidatePath("/verwaltung/dokument-quellen");
-  redirect("/verwaltung/dokument-quellen");
+  redirect("/verwaltung/dokument-quellen?flash=erstellt");
 }
 
 export async function deleteDocumentSourceConfig(formData: FormData) {
@@ -75,7 +75,7 @@ export async function deleteDocumentSourceConfig(formData: FormData) {
 
   await db.documentSourceConfig.delete({ where: { id } }).catch(() => {});
   revalidatePath("/verwaltung/dokument-quellen");
-  redirect("/verwaltung/dokument-quellen");
+  redirect("/verwaltung/dokument-quellen?flash=geloescht");
 }
 
 export async function triggerSync(formData: FormData) {

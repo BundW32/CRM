@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PendingButton } from "@/components/pending-button";
 import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { BwLogo } from "@/components/logo";
 import { db } from "@/lib/db";
@@ -50,9 +51,7 @@ export default async function SetupPage({
                 className={inputClass}
               />
             </Field>
-            <button type="submit" className={`${buttonClass} w-full`}>
-              Zugang anlegen
-            </button>
+            <PendingButton className={`${buttonClass} w-full`}>Zugang anlegen</PendingButton>
           </form>
         </div>
       </div>

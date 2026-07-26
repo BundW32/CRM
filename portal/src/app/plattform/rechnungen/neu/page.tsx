@@ -1,4 +1,5 @@
 import { Alert, Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/platform";
 import { createInvoice } from "../actions";
@@ -64,7 +65,7 @@ export default async function NeueRechnungPage({
             <span className="mb-1 block text-sm font-medium text-gray-700">Positionen</span>
             <InvoiceItemsField />
           </div>
-          <button type="submit" className={buttonClass}>Rechnung anlegen (Entwurf)</button>
+          <PendingButton className={buttonClass}>Rechnung anlegen (Entwurf)</PendingButton>
           <p className="text-xs text-gray-400">
             Die Rechnung wird als Entwurf mit fortlaufender Nummer angelegt. Erst beim
             Übergang auf den Status „Offen“ gilt sie als gestellt.

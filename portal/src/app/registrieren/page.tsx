@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PendingButton } from "@/components/pending-button";
 import { redirect } from "next/navigation";
 import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { AccountTypeFields } from "./account-type-fields";
@@ -108,9 +109,7 @@ export default async function RegisterPage({
                 gelesen.
               </span>
             </label>
-            <button type="submit" className={`${buttonClass} w-full py-2.5`}>
-              Konto erstellen
-            </button>
+            <PendingButton className={`${buttonClass} w-full py-2.5`}>Konto erstellen</PendingButton>
           </form>
 
           <p className="mt-6 text-sm text-gray-500">

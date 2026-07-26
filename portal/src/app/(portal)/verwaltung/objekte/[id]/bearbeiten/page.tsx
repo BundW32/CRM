@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { redirect } from "next/navigation";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
@@ -59,9 +61,13 @@ function TenancyContract({
         <span className="text-sm font-medium text-gray-800">{t.user.name}</span>
         <form action={removeUnitTenant} className="inline">
           <input type="hidden" name="tenancyId" value={t.id} />
-          <button type="submit" className="text-xs text-gray-400 hover:text-red-600">
+          <ConfirmActionButton
+            className="text-xs text-gray-400 hover:text-red-600"
+            confirmLabel="Wirklich entfernen?"
+            pendingLabel="Wird entfernt…"
+          >
             Mieter entfernen
-          </button>
+          </ConfirmActionButton>
         </form>
       </div>
       <form action={updateTenancy} className="space-y-2">
@@ -453,12 +459,13 @@ export default async function ObjektBearbeitenPage({
                     {deletable ? (
                       <form action={removeUnit}>
                         <input type="hidden" name="unitId" value={u.id} />
-                        <button
-                          type="submit"
+                        <ConfirmActionButton
                           className="text-sm font-medium text-red-600 hover:text-red-700 hover:underline"
+                          confirmLabel="Wirklich löschen?"
+                          pendingLabel="Wird gelöscht…"
                         >
                           Einheit löschen
-                        </button>
+                        </ConfirmActionButton>
                       </form>
                     ) : (
                       <p className="text-xs text-gray-400">
@@ -548,32 +555,29 @@ export default async function ObjektBearbeitenPage({
               {p.active ? (
                 <form action={archiveProperty}>
                   <input type="hidden" name="id" value={p.id} />
-                  <button
-                    type="submit"
+                  <ConfirmActionButton
                     className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100"
+                    confirmLabel="Wirklich archivieren?"
+                    pendingLabel="Wird archiviert…"
                   >
                     Objekt archivieren
-                  </button>
+                  </ConfirmActionButton>
                 </form>
               ) : (
                 <form action={unarchiveProperty}>
                   <input type="hidden" name="id" value={p.id} />
-                  <button
-                    type="submit"
-                    className="rounded-lg border border-brand-green/40 bg-brand-green/5 px-4 py-2 text-sm font-medium text-brand-green transition hover:bg-brand-green/10"
-                  >
-                    Objekt reaktivieren
-                  </button>
+                  <PendingButton className="rounded-lg border border-brand-green/40 bg-brand-green/5 px-4 py-2 text-sm font-medium text-brand-green transition hover:bg-brand-green/10">Objekt reaktivieren</PendingButton>
                 </form>
               )}
               <form action={deleteProperty}>
                 <input type="hidden" name="id" value={p.id} />
-                <button
-                  type="submit"
+                <ConfirmActionButton
                   className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
+                  confirmLabel="Wirklich löschen?"
+                  pendingLabel="Wird gelöscht…"
                 >
                   Objekt endgültig löschen
-                </button>
+                </ConfirmActionButton>
               </form>
             </div>
             <p className="mt-3 text-xs text-gray-400">

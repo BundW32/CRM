@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/lib/db";
@@ -220,7 +221,13 @@ export default async function Co2Page({
                     <form action={deleteCo2Allocation}>
                       <input type="hidden" name="propertyId" value={property.id} />
                       <input type="hidden" name="id" value={a.id} />
-                      <button type="submit" className="text-xs text-red-600 hover:underline">löschen</button>
+                      <ConfirmActionButton
+                        className="text-xs text-red-600 hover:underline"
+                        confirmLabel="Wirklich löschen?"
+                        pendingLabel="Wird gelöscht…"
+                      >
+                        löschen
+                      </ConfirmActionButton>
                     </form>
                   </li>
                 ))}

@@ -151,7 +151,7 @@ export async function castVote(formData: FormData) {
   if (closedMeanwhile) redirect(`/beschluesse?fehler=geschlossen#${resolutionId}`);
 
   revalidatePath("/beschluesse");
-  redirect(`/beschluesse#${resolutionId}`);
+  redirect(`/beschluesse#${resolutionId}?flash=gespeichert`);
 }
 
 // Stellvertretende Stimmabgabe durch den Verwalter (Notiz 8): trägt für einen
@@ -244,7 +244,7 @@ export async function castVoteForOwner(formData: FormData) {
   }
 
   revalidatePath("/beschluesse");
-  redirect(`/beschluesse#${resolutionId}`);
+  redirect(`/beschluesse#${resolutionId}?flash=gespeichert`);
 }
 
 export async function closeResolution(formData: FormData) {
@@ -298,7 +298,7 @@ export async function closeResolution(formData: FormData) {
     }
   }
   revalidatePath("/beschluesse");
-  redirect(`/beschluesse#${id}`);
+  redirect(`/beschluesse#${id}?flash=gespeichert`);
 }
 
 export async function withdrawResolution(formData: FormData) {
@@ -316,7 +316,7 @@ export async function withdrawResolution(formData: FormData) {
     });
   }
   revalidatePath("/beschluesse");
-  redirect("/beschluesse");
+  redirect("/beschluesse?flash=gespeichert");
 }
 
 export async function deleteResolution(formData: FormData) {
@@ -339,5 +339,5 @@ export async function deleteResolution(formData: FormData) {
   }
   await db.resolution.delete({ where: { id } });
   revalidatePath("/beschluesse");
-  redirect("/beschluesse");
+  redirect("/beschluesse?flash=geloescht");
 }

@@ -25,6 +25,27 @@ export type FlashMessage = {
 };
 
 export const flashMessages = {
+  // ── Allgemeines Vokabular ─────────────────────────────────────────────────
+  // Für den Großteil der Aktionen reicht eine knappe Bestätigung. Ein eigener
+  // Code je Aktion wäre bei über hundert Formularen unpflegbar und brächte
+  // keinen Erkenntnisgewinn: Wer gerade „Kostenart speichern" gedrückt hat,
+  // weiß, was gespeichert wurde. Ein eigener Code lohnt erst, wenn die Meldung
+  // mehr sagt als „hat geklappt" – siehe die spezifischen Einträge unten.
+  gespeichert: { text: "Gespeichert.", tone: "success" },
+  erstellt: { text: "Angelegt.", tone: "success" },
+  aktualisiert: { text: "Änderungen übernommen.", tone: "success" },
+  geloescht: { text: "Gelöscht.", tone: "success" },
+  entfernt: { text: "Entfernt.", tone: "success" },
+  zugeordnet: { text: "Zugeordnet.", tone: "success" },
+  gesendet: { text: "Versandt.", tone: "success" },
+  hochgeladen: { text: "Hochgeladen.", tone: "success" },
+  importiert: { text: "Import abgeschlossen.", tone: "success" },
+  archiviert: { text: "Archiviert.", tone: "info" },
+  wiederhergestellt: { text: "Wiederhergestellt.", tone: "success" },
+
+  // ── Spezifische Meldungen ─────────────────────────────────────────────────
+  // Hier sagt die Meldung mehr als „hat geklappt": eine Folge, eine
+  // Einschränkung oder etwas, das der Nutzer sonst nicht sähe.
   "nutzer-geloescht": {
     text: "Nutzer gelöscht. Personenbezogene Daten wurden entfernt.",
     tone: "success",

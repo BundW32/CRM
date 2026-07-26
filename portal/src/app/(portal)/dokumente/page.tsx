@@ -1,4 +1,5 @@
 import { Download, Eye } from "lucide-react";
+import { PendingButton } from "@/components/pending-button";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   Pagination,
@@ -224,12 +225,7 @@ export default async function DokumentePage({
                       ) : (
                         <form action={acknowledgeDocument}>
                           <input type="hidden" name="id" value={doc.id} />
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                          >
-                            Zur Kenntnis nehmen
-                          </button>
+                          <PendingButton className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">Zur Kenntnis nehmen</PendingButton>
                         </form>
                       )}
                     </div>
@@ -361,9 +357,7 @@ export default async function DokumentePage({
                       className={inputClass}
                     />
                   </Field>
-                  <button type="submit" className={buttonClass}>
-                    Anfordern
-                  </button>
+                  <PendingButton className={buttonClass}>Anfordern</PendingButton>
                 </form>
               </Card>
             </>

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { PLANS, isBillingEnabled, planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { formatDate } from "@/lib/labels";
@@ -71,12 +72,12 @@ export default async function BillingPage({
           <div className="mt-6 flex flex-wrap gap-2">
             {org.plan !== "pro" ? (
               <form action={startCheckout}>
-                <button type="submit" className={buttonClass}>Auf Pro upgraden</button>
+                <PendingButton className={buttonClass}>Auf Pro upgraden</PendingButton>
               </form>
             ) : null}
             {org.stripeCustomerId ? (
               <form action={openBillingPortal}>
-                <button type="submit" className={buttonSecondaryClass}>Abo verwalten</button>
+                <PendingButton className={buttonSecondaryClass}>Abo verwalten</PendingButton>
               </form>
             ) : null}
           </div>

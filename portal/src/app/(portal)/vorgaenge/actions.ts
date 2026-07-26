@@ -204,7 +204,7 @@ export async function addComment(formData: FormData) {
   }
 
   revalidatePath(`/vorgaenge/${ticketId}`);
-  redirect(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?flash=erstellt`);
 }
 
 const updateTicketSchema = z.object({
@@ -312,7 +312,7 @@ export async function updateTicket(formData: FormData) {
   }
 
   revalidatePath(`/vorgaenge/${parsed.data.ticketId}`);
-  redirect(`/vorgaenge/${parsed.data.ticketId}`);
+  redirect(`/vorgaenge/${parsed.data.ticketId}?flash=aktualisiert`);
 }
 
 // Verwalter ordnet einen (z. B. per E-Mail eingegangenen) Vorgang einem Objekt/einer Einheit zu
@@ -376,7 +376,7 @@ export async function assignCraftsman(formData: FormData) {
   });
 
   revalidatePath(`/vorgaenge/${ticketId}`);
-  redirect(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?flash=zugeordnet`);
 }
 
 // Verwalter gibt die Beauftragung EXTERNER Handwerker für diesen Vorgang frei.
@@ -1142,7 +1142,7 @@ export async function setOwnTicketStatus(formData: FormData) {
   await notifyCreatorStatusChange(ticketId, user);
 
   revalidatePath(`/vorgaenge/${ticketId}`);
-  redirect(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?flash=gespeichert`);
 }
 
 // Vorgang endgültig löschen (nur SuperAdmin). Für Test-/Fehleinträge. Der

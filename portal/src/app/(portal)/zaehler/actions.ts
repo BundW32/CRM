@@ -43,7 +43,7 @@ export async function createMeter(formData: FormData) {
     },
   });
   revalidatePath("/zaehler");
-  redirect("/zaehler");
+  redirect("/zaehler?flash=erstellt");
 }
 
 export async function deleteMeter(formData: FormData) {
@@ -53,7 +53,7 @@ export async function deleteMeter(formData: FormData) {
     await db.meter.delete({ where: { id } }).catch(() => {});
   }
   revalidatePath("/zaehler");
-  redirect("/zaehler");
+  redirect("/zaehler?flash=geloescht");
 }
 
 export async function submitReading(formData: FormData) {

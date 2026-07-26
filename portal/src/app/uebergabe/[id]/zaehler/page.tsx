@@ -26,7 +26,7 @@ export default async function ZaehlerPage({
 
   return (
     <div className="pb-10 animate-page-in">
-      <StepHeader currentStep={4} title="Zählerstände" backHref={`/uebergabe/${id}/checkliste`} handoverId={id} />
+      <StepHeader currentStep={4} backHref={`/uebergabe/${id}/checkliste`} handoverId={id} />
 
       <div className="mx-auto max-w-2xl px-4 pt-6 space-y-5">
         <div>

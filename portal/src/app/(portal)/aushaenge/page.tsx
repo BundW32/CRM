@@ -122,9 +122,7 @@ export default async function AushaengePage({
                 {total} {total === 1 ? "Aushang" : "Aushänge"}
                 {hasFilter ? " (gefiltert)" : ""}
               </p>
-              {isVerwalter && total > 0 ? (
-                <SortControl sortOptions={sortOptions} defaultSort="datum" />
-              ) : null}
+              <SortControl sortOptions={sortOptions} defaultSort="datum" total={total} />
             </div>
           </div>
 

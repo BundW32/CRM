@@ -156,7 +156,7 @@ export default async function WartungPage({
                 {total} {total === 1 ? "Aufgabe" : "Aufgaben"}
                 {hasFilter ? " (gefiltert)" : ""}
               </p>
-              {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="faellig" /> : null}
+              <SortControl sortOptions={sortOptions} defaultSort="faellig" total={total} />
             </div>
           </div>
 

@@ -180,9 +180,7 @@ export default async function ZaehlerPage({
                 {totalMeters} {totalMeters === 1 ? "Zähler" : "Zähler"}
                 {hasFilter ? " (gefiltert)" : ""}
               </p>
-              {totalMeters > 0 ? (
-                <SortControl sortOptions={sortOptions} defaultSort="angelegt" />
-              ) : null}
+              <SortControl sortOptions={sortOptions} defaultSort="angelegt" total={totalMeters} />
             </div>
           </div>
 

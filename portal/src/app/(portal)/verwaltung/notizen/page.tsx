@@ -125,7 +125,7 @@ export default async function NotizenPage({
                 {total} {total === 1 ? "Notiz" : "Notizen"}
                 {hasFilter ? " (gefiltert)" : ""}
               </p>
-              {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="datum" /> : null}
+              <SortControl sortOptions={sortOptions} defaultSort="datum" total={total} />
             </div>
           </div>
 

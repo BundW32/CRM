@@ -59,6 +59,11 @@ Nie selbst gebaut — es gibt ein gemeinsames System:
   Kaskade, `optionsFrom()` für einfache Auswahllisten.
 - Feldoptik: `fieldFillClass` auf hellen Karten, `fieldOnDarkClass` auf dem dunklen Shell.
 
+**`SortControl` bekommt die Trefferzahl über `total`.** Unter fünf Treffern blendet
+es sich selbst aus — bei einer Handvoll Einträgen sieht man alles auf einen Blick. Die
+Grenze steht in der Komponente, nicht in den Seiten; Rollen-Sperren („nur Verwalter")
+gehören nicht davor: ob eine Liste lang wird, entscheidet der Bestand, nicht die Rolle.
+
 **Der Seiten-Param heißt `page`.** Die `FilterBar` setzt ihn bei jeder Änderung zurück —
 sonst stünde man nach dem Filtern auf Seite 4 eines viel kürzeren Ergebnisses und sähe
 „nichts gefunden", obwohl es Treffer gibt. Genau das war auf fünf Seiten der Fall, die

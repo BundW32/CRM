@@ -365,13 +365,28 @@ export function FilterBar({
 // ── Sortier-Steuerung (kompaktes Menü für die Ergebniszeile) ─────────────────
 // Bewusst NICHT Teil der Filterleiste: sitzt dezent rechts neben der Trefferzahl
 // („X Vorgänge"), damit die Leiste einzeilig und schmal bleibt.
+/**
+ * Ab wie vielen Treffern ein Sortiermenü überhaupt erscheint. Bei einer
+ * Handvoll Einträge sieht man alles auf einen Blick – ein Menü kostete dort nur
+ * Platz und Aufmerksamkeit. Die Grenze steht hier und nicht in den Seiten,
+ * damit sie überall dieselbe ist.
+ */
+const SORT_MIN_ITEMS = 5;
+
 export function SortControl({
   sortOptions,
   defaultSort,
+  total,
   pageParam,
 }: {
   sortOptions: SortOption[];
   defaultSort?: string;
+  /**
+   * Trefferzahl der Liste. Darunter blendet sich das Menü aus – außer es ist
+   * gerade eine Sortierung aktiv: sonst verschwände beim Einengen der Suche der
+   * einzige Weg, sie wieder zu ändern, während sie weiter wirkt.
+   */
+  total?: number;
   /** Wie bei `FilterBar`: eine geänderte Sortierung muss die Seite zurücksetzen. */
   pageParam?: string | string[];
 }) {
@@ -389,6 +404,8 @@ export function SortControl({
   }, [open]);
 
   if (sortOptions.length === 0) return null;
+  const sortActive = searchParams.get("sort") !== null || searchParams.get("dir") !== null;
+  if (total !== undefined && total < SORT_MIN_ITEMS && !sortActive) return null;
   const sortValue = searchParams.get("sort") ?? defaultSort ?? sortOptions[0].value;
   const dir = searchParams.get("dir") === "asc" ? "asc" : "desc";
   const current = sortOptions.find((o) => o.value === sortValue) ?? sortOptions[0];

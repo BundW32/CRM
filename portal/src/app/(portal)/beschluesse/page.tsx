@@ -162,13 +162,16 @@ export default async function BeschluessePage({
     db.resolution.count({ where: { ...baseWhere, status: { not: "OFFEN" } } }),
     db.resolution.findMany({
       where: { ...baseWhere, status: { not: "OFFEN" } },
-      orderBy: { createdAt: "desc" },
+      orderBy: toOrderBy(sort.field, sort.dir),
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include,
     }),
   ]);
   const resolutions = [...open, ...decided];
+  // Beide Listen stehen untereinander auf der Seite und tragen dieselbe
+  // Sortierung – für die Sichtbarkeitsgrenze zählt deshalb ihre Summe.
+  const resolutionTotal = open.length + decidedTotal;
   const totalPages = Math.max(1, Math.ceil(decidedTotal / PAGE_SIZE));
 
   const pageHref = pageHrefFor(`/beschluesse`, params);
@@ -302,7 +305,7 @@ export default async function BeschluessePage({
           searchHint="Nach Titel oder Beschlusstext suchen"
           comboboxes={scope.comboboxes}
         />
-        {isVerwalter ? <SortControl sortOptions={sortOptions} defaultSort="datum" /> : null}
+        <SortControl sortOptions={sortOptions} defaultSort="datum" total={resolutionTotal} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">

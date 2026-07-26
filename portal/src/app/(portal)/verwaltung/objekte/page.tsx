@@ -165,7 +165,7 @@ export default async function PropertiesPage({
               {total} Objekt{total !== 1 ? "e" : ""}
               {hasFilter ? " (gefiltert)" : ""}
             </p>
-            {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="name" /> : null}
+            <SortControl sortOptions={sortOptions} defaultSort="name" total={total} />
           </div>
 
           {properties.length === 0 ? (

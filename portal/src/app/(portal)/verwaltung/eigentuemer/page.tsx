@@ -173,9 +173,7 @@ export default async function EigentuemerPage({
                   searchPlaceholder="Suchen"
                   searchHint="Nach Name oder E-Mail suchen"
                 />
-                {ownerTotal > 0 ? (
-                  <SortControl sortOptions={sortOptions} defaultSort="name" />
-                ) : null}
+                <SortControl sortOptions={sortOptions} defaultSort="name" total={ownerTotal} />
               </div>
 
               {owners.length === 0 ? (

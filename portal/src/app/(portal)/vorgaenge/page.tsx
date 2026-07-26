@@ -135,7 +135,7 @@ export default async function TicketsPage({
           {total} {total === 1 ? "Vorgang" : "Vorgänge"}
           {q || status || typ || prio || gewerk || objektId || einheitId || nutzerId ? " (gefiltert)" : ""}
         </p>
-        {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="aktualisiert" /> : null}
+        <SortControl sortOptions={sortOptions} defaultSort="aktualisiert" total={total} />
       </div>
 
       {tickets.length === 0 ? (

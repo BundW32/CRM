@@ -296,9 +296,7 @@ export default async function AntraegePage({
               searchPlaceholder="Suchen"
               searchHint="Nach Titel oder Antragstext suchen"
             />
-            {isVerwalter && myMotionTotal > 0 ? (
-              <SortControl sortOptions={sortOptions} defaultSort="datum" />
-            ) : null}
+            <SortControl sortOptions={sortOptions} defaultSort="datum" total={myMotionTotal} />
           </div>
 
           {myMotions.length === 0 ? (

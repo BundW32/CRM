@@ -121,7 +121,7 @@ export default async function KontaktePage({
               {total} Kontakt{total !== 1 ? "e" : ""}
               {hasFilter ? " (gefiltert)" : ""}
             </p>
-            {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="name" /> : null}
+            <SortControl sortOptions={sortOptions} defaultSort="name" total={total} />
           </div>
 
           {entries.length === 0 ? (

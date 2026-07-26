@@ -243,9 +243,7 @@ export default async function UebergabeOverviewPage({
                 searchPlaceholder="Suchen"
                 searchHint="Nach Objekt oder Einheit suchen"
               />
-              {doneTotal > 0 ? (
-                <SortControl sortOptions={sortOptions} defaultSort="bearbeitet" />
-              ) : null}
+              <SortControl sortOptions={sortOptions} defaultSort="bearbeitet" total={doneTotal} />
             </div>
 
             {abgeschlossen.length === 0 ? (

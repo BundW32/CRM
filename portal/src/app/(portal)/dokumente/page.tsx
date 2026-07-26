@@ -154,7 +154,7 @@ export default async function DokumentePage({
                 {total} {total === 1 ? "Dokument" : "Dokumente"}
                 {hasFilter ? " (gefiltert)" : ""}
               </p>
-              {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="datum" /> : null}
+              <SortControl sortOptions={sortOptions} defaultSort="datum" total={total} />
             </div>
           </div>
 

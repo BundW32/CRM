@@ -247,7 +247,7 @@ export default async function RechnungenPage({
           {invoiceTotal} {invoiceTotal === 1 ? "Rechnung" : "Rechnungen"}
           {hasFilter ? " (gefiltert)" : ""}
         </p>
-        {invoiceTotal > 0 ? <SortControl sortOptions={sortOptions} defaultSort="nummer" /> : null}
+        <SortControl sortOptions={sortOptions} defaultSort="nummer" total={invoiceTotal} />
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">

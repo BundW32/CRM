@@ -223,7 +223,7 @@ export default async function UsersPage({
               {total} {total === 1 ? "Nutzer" : "Nutzer"}
               {hasFilter ? " (gefiltert)" : ""}
             </p>
-            {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="rolle" /> : null}
+            <SortControl sortOptions={sortOptions} defaultSort="rolle" total={total} />
           </div>
 
           <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">

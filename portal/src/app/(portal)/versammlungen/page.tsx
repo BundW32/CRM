@@ -125,9 +125,7 @@ export default async function VersammlungenPage({
               {meetingTotal} {meetingTotal === 1 ? "Versammlung" : "Versammlungen"}
               {hasFilter ? " (gefiltert)" : ""}
             </p>
-            {isVerwalter && meetingTotal > 0 ? (
-              <SortControl sortOptions={sortOptions} defaultSort="termin" />
-            ) : null}
+            <SortControl sortOptions={sortOptions} defaultSort="termin" total={meetingTotal} />
           </div>
 
           {meetings.length === 0 ? (

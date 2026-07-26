@@ -129,7 +129,7 @@ export default async function OrganisationenPage({
           {total} {total === 1 ? "Verwaltung" : "Verwaltungen"}
           {hasFilter ? " (gefiltert)" : ""}
         </p>
-        {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="registriert" /> : null}
+        <SortControl sortOptions={sortOptions} defaultSort="registriert" total={total} />
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">

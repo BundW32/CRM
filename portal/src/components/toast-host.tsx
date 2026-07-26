@@ -16,10 +16,18 @@ import { FLASH_PARAM, resolveFlash, type FlashTone } from "@/lib/flash";
 
 const SICHTDAUER_MS = 5000;
 
+// Höchstens drei gleichzeitig. Darüber stapeln sich Karten in den Bildschirm
+// hinein und man liest ohnehin nur die obersten. Gleiche Meldungen werden
+// vorher zusammengefasst (siehe unten), diese Grenze greift also erst, wenn
+// wirklich VERSCHIEDENE Dinge kurz hintereinander passieren.
+const MAX_SICHTBAR = 3;
+
 type Toast = {
   id: number;
   text: string;
   tone: FlashTone;
+  /** Wie oft dieselbe Meldung zusammengefasst wurde (1 = einmalig). */
+  anzahl: number;
 };
 
 // Markenfarben statt der üblichen Ampel: Erfolg trägt das Orange, das im
@@ -47,6 +55,38 @@ const toneStyles: Record<FlashTone, { box: string; icon: string; bar: string; no
     node: <Info className="h-5 w-5" />,
   },
 };
+
+/**
+ * Reiht eine neue Meldung in die sichtbaren Karten ein.
+ *
+ * Zwei Regeln, beide aus der Praxis:
+ *
+ * **Gleiches zusammenfassen.** Wer auf einer dichten Seite fünf Blöcke
+ * nacheinander speichert, will nicht fünf Mal „Gespeichert." lesen – ein Zähler
+ * sagt dasselbe in einer Zeile. Die Karte bekommt dabei eine neue `id`, damit
+ * React sie neu aufbaut und Ablaufbalken wie Zeitgeber von vorn beginnen; sonst
+ * verschwände sie mitten in der Serie.
+ *
+ * **Bei Überlauf weicht der ÄLTESTE.** Die neueste Meldung gehört zu der
+ * Aktion, die gerade ausgelöst wurde. Die neue zu verwerfen hieße, ausgerechnet
+ * die Rückmeldung zu verschlucken, auf die man wartet.
+ *
+ * Als reine Funktion herausgezogen, weil sich Verhalten prüfen lässt, das nicht
+ * in einem Effekt eingeschlossen ist.
+ */
+export function naechsteToasts(
+  vorher: Toast[],
+  meldung: { text: string; tone: FlashTone },
+  neueId: number,
+): Toast[] {
+  const letzter = vorher[vorher.length - 1];
+  if (letzter && letzter.text === meldung.text && letzter.tone === meldung.tone) {
+    return [...vorher.slice(0, -1), { ...letzter, anzahl: letzter.anzahl + 1, id: neueId }];
+  }
+  return [...vorher, { id: neueId, text: meldung.text, tone: meldung.tone, anzahl: 1 }].slice(
+    -MAX_SICHTBAR,
+  );
+}
 
 export function ToastHost() {
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -82,10 +122,7 @@ export function ToastHost() {
     router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
 
     if (!meldung) return;
-    setToasts((vorher) => [
-      ...vorher,
-      { id: nextId.current++, text: meldung.text, tone: meldung.tone },
-    ]);
+    setToasts((vorher) => naechsteToasts(vorher, meldung, nextId.current++));
   }, [pathname, router, searchParams]);
 
   if (toasts.length === 0) return null;
@@ -124,7 +161,14 @@ function ToastKarte({ toast, onClose }: { toast: Toast; onClose: () => void }) {
     >
       <div className="flex items-start gap-3 px-4 py-3">
         <span className={`mt-0.5 shrink-0 ${s.icon}`}>{s.node}</span>
-        <p className="min-w-0 flex-1 text-sm text-gray-800">{toast.text}</p>
+        <p className="min-w-0 flex-1 text-sm text-gray-800">
+          {toast.text}
+          {toast.anzahl > 1 ? (
+            <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-600">
+              ×{toast.anzahl}
+            </span>
+          ) : null}
+        </p>
         <button
           type="button"
           onClick={onClose}

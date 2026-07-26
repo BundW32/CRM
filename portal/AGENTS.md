@@ -139,6 +139,33 @@ Typprüfung oder Build etwas merken) und `src/lib/button-feedback.test.ts`
 gehören in die Ausnahmeliste im Test, mit Begründung — nicht in ein
 abgeschaltetes `it.skip`.
 
+### Rücksprung-Helfer
+
+Fast jedes Aktions-Modul hat einen kleinen Helfer, der den Pfad für den
+Rücksprung baut. Das ist richtig so — jedes Modul kehrt woandershin zurück.
+Gewachsen ist daraus allerdings ein Zoo: vier Namen (`back`, `backTo`,
+`zurueckZu`, `zurueckZurListe`) und Signaturen, die sich widersprechen — mal
+ist das zweite Argument Pflicht, mal optional, mal heißt es `param`, mal
+`query`, mal `suffix`, und einer nimmt drei. Ein Durchgang über alle Aktionen
+ist dadurch unnötig fehleranfällig.
+
+**Neue Module halten sich an diese Form:**
+
+```ts
+function backTo(id: string, suffix = ""): string {
+  return `/pfad/${id}/unterseite${suffix}`;
+}
+// Aufruf: redirect(backTo(propertyId, "?flash=gespeichert"))
+```
+
+Also: Name `backTo`, zweites Argument **optional**, und das Suffix bringt sein
+`?` selbst mit — dann lässt es sich unverändert anhängen und man muss beim
+Aufruf nicht wissen, ob der Helfer schon eines gesetzt hat.
+
+Die vorhandenen Abweichungen werden **nicht** in einem Rutsch umgebaut: Das
+wären viele Dateien ohne jede sichtbare Verbesserung. Wer ohnehin in einer
+solchen Datei arbeitet, zieht sie mit.
+
 ## Rollen
 
 `VERWALTER`, `EIGENTUEMER`, `MIETER`. Zusätzlich `isSuperAdmin` (Admin innerhalb einer

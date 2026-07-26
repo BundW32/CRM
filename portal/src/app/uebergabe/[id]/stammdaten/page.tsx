@@ -34,7 +34,7 @@ export default async function StammdatenPage({
 
   return (
     <div className="pb-10 animate-page-in">
-      <StepHeader currentStep={1} title="Stammdaten" backHref="/uebergabe" handoverId={id} />
+      <StepHeader currentStep={1} backHref="/uebergabe" handoverId={id} />
 
       <div className="mx-auto max-w-2xl px-4 pt-6">
         <StammdatenForm

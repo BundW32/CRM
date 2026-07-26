@@ -1,12 +1,12 @@
 import { Alert, EmptyState, PageTitle, Pagination } from "@/components/ui";
-import { FilterBar, type FilterConfig } from "@/components/filter-bar";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import {
   ADDRESS_BOOK_KINDS,
   loadAddressBook,
   parseKind,
 } from "@/lib/address-book";
 import { contactKindLabels, roleLabels } from "@/lib/labels";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list-query";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { isSelfManaged, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -16,6 +16,16 @@ import { KontaktZeile } from "./KontaktZeile";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
+
+// Whitelist der Sortierfelder. Das Adressbuch führt Personen und Firmen aus
+// zwei Tabellen zusammen und sortiert im Speicher – die Schlüssel benennen
+// deshalb keine Spalten, sondern die Vergleichsart.
+const SORT_FIELDS = { name: "name", art: "art" } as const;
+
+const sortOptions = [
+  { value: "name", label: "Name" },
+  { value: "art", label: "Art" },
+];
 
 // Beschriftung der „Art“ – Personenrollen und Kontaktarten in einer Liste.
 function kindLabel(value: string): string {
@@ -37,12 +47,15 @@ export default async function KontaktePage({
   const q = normalizeSearch(params.q);
   const kind = parseKind(params.art);
   const currentPage = parsePage(params.page);
+  const sort = resolveSort(params.sort, params.dir, SORT_FIELDS, "name", "asc");
 
   const { entries, total } = await loadAddressBook(verwalter, {
     q,
     kind,
     page: currentPage,
     pageSize: PAGE_SIZE,
+    sort: sort.key,
+    dir: sort.dir,
   });
   // Objektliste für das Anlegen einer Person mit Zugang (Mieter/Eigentümer-Zuordnung).
   const propsForNewUser = (
@@ -65,16 +78,7 @@ export default async function KontaktePage({
     },
   ];
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v && k !== "page") sp.set(k, v);
-    }
-    if (p > 1) sp.set("page", String(p));
-    const qs = sp.toString();
-    return `/verwaltung/kontakte${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/verwaltung/kontakte`, params);
 
   return (
     <>
@@ -104,6 +108,7 @@ export default async function KontaktePage({
               {total} Kontakt{total !== 1 ? "e" : ""}
               {hasFilter ? " (gefiltert)" : ""}
             </p>
+            <SortControl sortOptions={sortOptions} defaultSort="name" total={total} />
           </div>
 
           {entries.length === 0 ? (

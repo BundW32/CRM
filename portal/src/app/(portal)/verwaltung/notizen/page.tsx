@@ -1,13 +1,13 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { PendingButton } from "@/components/pending-button";
 import { Pagination, Card, EmptyState, PageTitle } from "@/components/ui";
-import { FilterBar, type FilterConfig } from "@/components/filter-bar";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { noteWhereForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { formatDate } from "@/lib/labels";
 import { propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { deleteNote, togglePinNote } from "./actions";
 import { NoteForm } from "./note-form";
 
@@ -24,6 +24,14 @@ function buildWhere(type: FilterType) {
 
 const PAGE_SIZE = 30;
 
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { datum: "createdAt", objekt: "property.name" } as const;
+
+const sortOptions = [
+  { value: "datum", label: "Datum" },
+  { value: "objekt", label: "Objekt" },
+];
+
 export default async function NotizenPage({
   searchParams,
 }: {
@@ -35,6 +43,7 @@ export default async function NotizenPage({
   const params = await searchParams;
   const type = (params.type ?? "alle") as FilterType;
   const currentPage = parsePage(params.page);
+  const sort = resolveSort(params.sort, params.dir, SORT_FIELDS, "datum", "desc");
 
   // ── Filter: Suche, Bezug (Objekt/Einheit/Person), Objekt/Einheit ──
   const scope = await propertyScopeFilters(verwalter, params, { withUnit: true });
@@ -58,7 +67,8 @@ export default async function NotizenPage({
     db.note.count({ where: noteWhere }),
     db.note.findMany({
       where: noteWhere,
-      orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
+      // Angeheftete bleiben immer oben – sonst verlören sie ihren Zweck.
+      orderBy: [{ pinned: "desc" }, toOrderBy(sort.field, sort.dir)],
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: {
@@ -78,16 +88,7 @@ export default async function NotizenPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v && k !== "page") sp.set(k, v);
-    }
-    if (p > 1) sp.set("page", String(p));
-    const qs = sp.toString();
-    return `/verwaltung/notizen${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/verwaltung/notizen`, params);
 
   const noteFilters: FilterConfig[] = [
     {
@@ -120,10 +121,13 @@ export default async function NotizenPage({
               filters={noteFilters}
               comboboxes={scope.comboboxes}
             />
-            <p className="mt-2 px-1 text-xs text-gray-400">
-              {total} {total === 1 ? "Notiz" : "Notizen"}
-              {hasFilter ? " (gefiltert)" : ""}
-            </p>
+            <div className="mt-2 flex items-center justify-between gap-3 px-1">
+              <p className="text-xs text-gray-400">
+                {total} {total === 1 ? "Notiz" : "Notizen"}
+                {hasFilter ? " (gefiltert)" : ""}
+              </p>
+              <SortControl sortOptions={sortOptions} defaultSort="datum" total={total} />
+            </div>
           </div>
 
           {/* Notes */}

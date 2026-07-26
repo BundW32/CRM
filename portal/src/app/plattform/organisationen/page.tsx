@@ -4,7 +4,7 @@ import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-b
 import { planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
-import { normalizeSearch, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
+import { normalizeSearch, parsePage, resolveSort, toOrderBy, pageHrefFor } from "@/lib/list-query";
 import { requirePlatformAdmin } from "@/lib/platform";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -129,7 +129,7 @@ export default async function OrganisationenPage({
           {total} {total === 1 ? "Verwaltung" : "Verwaltungen"}
           {hasFilter ? " (gefiltert)" : ""}
         </p>
-        {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="registriert" /> : null}
+        <SortControl sortOptions={sortOptions} defaultSort="registriert" total={total} />
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -192,15 +192,7 @@ export default async function OrganisationenPage({
         totalPages={totalPages}
         total={total}
         itemLabel="Verwaltungen"
-        hrefFor={(p) => {
-          const params = new URLSearchParams();
-          for (const [k, v] of Object.entries(sp)) {
-            if (v && k !== "page") params.set(k, v);
-          }
-          if (p > 1) params.set("page", String(p));
-          const qs = params.toString();
-          return `/plattform/organisationen${qs ? `?${qs}` : ""}`;
-        }}
+        hrefFor={pageHrefFor("/plattform/organisationen", sp)}
       />
     </>
   );

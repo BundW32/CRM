@@ -45,7 +45,13 @@ export type ComboboxFilterConfig = {
 const FIELD_WIDTH = "w-[10rem]";
 
 // ── URL-Helfer ───────────────────────────────────────────────────────────────
-function useUrlUpdater() {
+/**
+ * @param pageParam Seiten-Param, den eine Änderung zurücksetzt. Ohne das würde
+ *   man beim Filtern auf Seite 4 eines danach viel kürzeren Ergebnisses stehen
+ *   bleiben und „nichts gefunden" sehen, obwohl es Treffer gibt. Mehrere Namen
+ *   für Seiten mit mehreren Listen; `[]` wenn die Liste gar nicht blättert.
+ */
+function useUrlUpdater(pageParam: string | string[] = "page") {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -57,7 +63,7 @@ function useUrlUpdater() {
       if (v === null || v === "") sp.delete(k);
       else sp.set(k, v);
     }
-    sp.delete("page");
+    for (const p of Array.isArray(pageParam) ? pageParam : [pageParam]) sp.delete(p);
     const qs = sp.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
@@ -70,13 +76,15 @@ function SearchBox({
   paramKey,
   placeholder,
   hint,
+  pageParam,
 }: {
   paramKey: string;
   placeholder: string;
   /** Ausführliche Beschreibung (Tooltip + Screenreader), wenn der Platzhalter kurz ist. */
   hint?: string;
+  pageParam?: string | string[];
 }) {
-  const { apply, searchParams } = useUrlUpdater();
+  const { apply, searchParams } = useUrlUpdater(pageParam);
   const urlValue = searchParams.get(paramKey) ?? "";
   const [text, setText] = useState(urlValue);
   const [prevUrl, setPrevUrl] = useState(urlValue);
@@ -119,11 +127,13 @@ function SearchBox({
 function SelectFilter({
   config,
   tone = "onDark",
+  pageParam,
 }: {
   config: FilterConfig;
   tone?: "onLight" | "onDark";
+  pageParam?: string | string[];
 }) {
-  const { apply, searchParams } = useUrlUpdater();
+  const { apply, searchParams } = useUrlUpdater(pageParam);
   const value = searchParams.get(config.key) ?? "";
   return (
     <Combobox
@@ -143,8 +153,14 @@ function SelectFilter({
 }
 
 // ── „Weitere Filter"-Popover ─────────────────────────────────────────────────
-function MoreFilters({ filters }: { filters: FilterConfig[] }) {
-  const { apply, searchParams } = useUrlUpdater();
+function MoreFilters({
+  filters,
+  pageParam,
+}: {
+  filters: FilterConfig[];
+  pageParam?: string | string[];
+}) {
+  const { apply, searchParams } = useUrlUpdater(pageParam);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -189,7 +205,7 @@ function MoreFilters({ filters }: { filters: FilterConfig[] }) {
             {filters.map((f) => (
               <div key={f.key}>
                 <span className="mb-1 block text-xs font-medium text-gray-500">{f.label}</span>
-                <SelectFilter config={f} tone="onLight" />
+                <SelectFilter config={f} tone="onLight" pageParam={pageParam} />
               </div>
             ))}
           </div>
@@ -209,8 +225,14 @@ function MoreFilters({ filters }: { filters: FilterConfig[] }) {
 }
 
 // ── Aktive-Filter-Chips (nur für versteckte „Weitere Filter") ────────────────
-function SecondaryChips({ filters }: { filters: FilterConfig[] }) {
-  const { apply, searchParams } = useUrlUpdater();
+function SecondaryChips({
+  filters,
+  pageParam,
+}: {
+  filters: FilterConfig[];
+  pageParam?: string | string[];
+}) {
+  const { apply, searchParams } = useUrlUpdater(pageParam);
   const chips = filters
     .map((f) => {
       const v = searchParams.get(f.key);
@@ -249,6 +271,7 @@ export function FilterBar({
   searchHint,
   filters = [],
   comboboxes = [],
+  pageParam,
   className = "",
 }: {
   searchParamKey?: string;
@@ -258,9 +281,15 @@ export function FilterBar({
   searchHint?: string;
   filters?: FilterConfig[];
   comboboxes?: ComboboxFilterConfig[];
+  /**
+   * Seiten-Param dieser Liste, falls er nicht `page` heißt (Seiten mit mehreren
+   * blätterbaren Listen). Muss zum `param` von `pageHrefFor` passen, sonst
+   * bleibt die Seitenzahl beim Filtern stehen.
+   */
+  pageParam?: string | string[];
   className?: string;
 }) {
-  const { apply, searchParams, pathname, router } = useUrlUpdater();
+  const { apply, searchParams, pathname, router } = useUrlUpdater(pageParam);
 
   const primaryFilters = filters.filter((f) => f.primary);
   const secondaryFilters = filters.filter((f) => !f.primary);
@@ -284,11 +313,16 @@ export function FilterBar({
     <div className={className}>
       <div className="flex flex-wrap items-center gap-2">
         {searchPlaceholder ? (
-          <SearchBox paramKey={searchParamKey} placeholder={searchPlaceholder} hint={searchHint} />
+          <SearchBox
+            paramKey={searchParamKey}
+            placeholder={searchPlaceholder}
+            hint={searchHint}
+            pageParam={pageParam}
+          />
         ) : null}
 
         {primaryFilters.map((f) => (
-          <SelectFilter key={f.key} config={f} />
+          <SelectFilter key={f.key} config={f} pageParam={pageParam} />
         ))}
 
         {visibleCombos.map((c) => (
@@ -308,12 +342,12 @@ export function FilterBar({
           />
         ))}
 
-        {secondaryFilters.length > 0 ? <MoreFilters filters={secondaryFilters} /> : null}
+        {secondaryFilters.length > 0 ? <MoreFilters filters={secondaryFilters} pageParam={pageParam} /> : null}
       </div>
 
       {anyActive ? (
         <div className="mt-2 flex flex-wrap items-center gap-2 px-0.5">
-          <SecondaryChips filters={secondaryFilters} />
+          <SecondaryChips filters={secondaryFilters} pageParam={pageParam} />
           <button
             type="button"
             onClick={() => router.replace(pathname, { scroll: false })}
@@ -331,14 +365,32 @@ export function FilterBar({
 // ── Sortier-Steuerung (kompaktes Menü für die Ergebniszeile) ─────────────────
 // Bewusst NICHT Teil der Filterleiste: sitzt dezent rechts neben der Trefferzahl
 // („X Vorgänge"), damit die Leiste einzeilig und schmal bleibt.
+/**
+ * Ab wie vielen Treffern ein Sortiermenü überhaupt erscheint. Bei einer
+ * Handvoll Einträge sieht man alles auf einen Blick – ein Menü kostete dort nur
+ * Platz und Aufmerksamkeit. Die Grenze steht hier und nicht in den Seiten,
+ * damit sie überall dieselbe ist.
+ */
+const SORT_MIN_ITEMS = 5;
+
 export function SortControl({
   sortOptions,
   defaultSort,
+  total,
+  pageParam,
 }: {
   sortOptions: SortOption[];
   defaultSort?: string;
+  /**
+   * Trefferzahl der Liste. Darunter blendet sich das Menü aus – außer es ist
+   * gerade eine Sortierung aktiv: sonst verschwände beim Einengen der Suche der
+   * einzige Weg, sie wieder zu ändern, während sie weiter wirkt.
+   */
+  total?: number;
+  /** Wie bei `FilterBar`: eine geänderte Sortierung muss die Seite zurücksetzen. */
+  pageParam?: string | string[];
 }) {
-  const { apply, searchParams } = useUrlUpdater();
+  const { apply, searchParams } = useUrlUpdater(pageParam);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -352,6 +404,8 @@ export function SortControl({
   }, [open]);
 
   if (sortOptions.length === 0) return null;
+  const sortActive = searchParams.get("sort") !== null || searchParams.get("dir") !== null;
+  if (total !== undefined && total < SORT_MIN_ITEMS && !sortActive) return null;
   const sortValue = searchParams.get("sort") ?? defaultSort ?? sortOptions[0].value;
   const dir = searchParams.get("dir") === "asc" ? "asc" : "desc";
   const current = sortOptions.find((o) => o.value === sortValue) ?? sortOptions[0];

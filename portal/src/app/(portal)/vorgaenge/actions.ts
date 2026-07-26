@@ -13,6 +13,7 @@ import {
   ticketTargetsForUser,
 } from "@/lib/access";
 import { db } from "@/lib/db";
+import { hasCertMandate } from "@/lib/cert-mandate";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { ticketPriorityLabels, unitPublicLabel } from "@/lib/labels";
 import { portalUrl, sendMail } from "@/lib/mailer";
@@ -933,6 +934,39 @@ export async function generateCertificate(formData: FormData) {
   });
   const owner = ownership?.user ?? null;
 
+  // ── Darf diese Bescheinigung überhaupt entstehen? ──────────────────────────
+  // Die Wohnungsgeberbestätigung nach § 19 BMG schuldet der Wohnungsgeber; ein
+  // Beauftragter darf sie nach § 19 Abs. 5 BMG ausstellen, aber nur mit
+  // belegbarer Beauftragung. Zwei Bedingungen, beide zum Zeitpunkt der
+  // Erzeugung geprüft:
+  //
+  //  1. Der Eigentümer hat die Vollmacht erteilt (unter „Konto" – nur er selbst).
+  //  2. Die Einheit ist tatsächlich vermietet. Das muss niemand pflegen: Ohne
+  //     aktives Mietverhältnis gibt es keinen Mieter, über den etwas zu
+  //     bescheinigen wäre.
+  //
+  // Gibt es gar keinen hinterlegten Eigentümer, ist die Verwaltung selbst
+  // Wohnungsgeber (Briefkopf-Fallback) – dann entfällt die Vollmacht, weil
+  // niemand in fremdem Namen handelt.
+  if (owner && !hasCertMandate(owner)) {
+    redirect(`/vorgaenge/${ticketId}?fehler=vollmacht`);
+  }
+  // Vermietung nachweisen. Ist dem Vorgang eine Einheit zugeordnet, zählt deren
+  // aktives Mietverhältnis. Fehlt die Einheit, greifen wir auf den Anfragenden
+  // zurück – er muss dann wenigstens irgendwo in diesem Objekt aktiv Mieter sein.
+  const istVermietet =
+    tenancies.length > 0 ||
+    (await db.tenancy.count({
+      where: {
+        userId: ticket.createdBy.id,
+        active: true,
+        unit: { propertyId: property.id },
+      },
+    })) > 0;
+  if (!istVermietet) {
+    redirect(`/vorgaenge/${ticketId}?fehler=keine_vermietung`);
+  }
+
   // Branding der ausstellenden Hausverwaltung (Briefkopf + Fallback-Wohnungsgeber).
   const branding = await getBrandingForOrg(ticket.organizationId);
   const brandingPlzOrt = [branding.zip, branding.city].filter(Boolean).join(" ");
@@ -946,15 +980,35 @@ export async function generateCertificate(formData: FormData) {
   const wohnungStrasse = property.street;
   const wohnungPlzOrt = `${property.zip} ${property.city}`;
   const wohnungZusatz = unitPublic;
-  const unterzeichner = owner?.name ?? branding.legalName;
   const ausstellungsOrt = branding.city ?? "";
   const issuer = {
     legalName: branding.legalName,
     contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
   };
 
-  // Unterschrift (Eigentümer bevorzugt, sonst Verwalter)
-  const sigSource = owner?.signatureStoredName ?? verwalter.signatureStoredName ?? null;
+  // ── Wer unterschreibt, und unter welchem Namen? ────────────────────────────
+  // Bisher wurde stillschweigend die Verwalter-Unterschrift eingesetzt, wenn der
+  // Eigentümer keine hinterlegt hatte – sie erschien dann unter dem NAMEN des
+  // Eigentümers. Eine fremde Unterschrift unter fremdem Namen ist genau das,
+  // was eine Bestätigung wertlos bis angreifbar macht. Deshalb jetzt getrennt:
+  //
+  //  • Eigenhändige Unterschrift des Eigentümers → unter seinem Namen.
+  //  • Sonst: Unterschrift der Verwaltung, sichtbar als „i. A." (im Auftrag).
+  //
+  // `signatureSelfSigned` ist nur gesetzt, wenn der Eigentümer selbst im Portal
+  // unterschrieben hat. Alt-Unterschriften (vom Verwalter erfasst) laufen damit
+  // bewusst über den „i. A."-Weg.
+  const eigeneUnterschrift = Boolean(owner?.signatureStoredName && owner.signatureSelfSigned);
+  const imAuftrag = Boolean(owner) && !eigeneUnterschrift;
+  const unterzeichner = owner
+    ? imAuftrag
+      ? `i. A. ${branding.legalName} für ${owner.name}`
+      : owner.name
+    : branding.legalName;
+
+  const sigSource = eigeneUnterschrift
+    ? owner!.signatureStoredName
+    : (verwalter.signatureStoredName ?? null);
   let signature: SignatureImage = null;
   if (sigSource) {
     try {
@@ -1034,9 +1088,27 @@ export async function generateCertificate(formData: FormData) {
   ]);
   await notifyCreatorNewComment(ticketId, verwalter);
 
+  // Nachweis: Wer hat wann in wessen Namen auf welcher Grundlage bescheinigt?
+  // Ohne diesen Eintrag ließe sich später nicht belegen, dass eine Vollmacht
+  // vorlag – und genau darauf käme es im Streitfall an.
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.CERTIFICATE_GENERATED,
+    targetType: "Ticket",
+    targetId: ticketId,
+    meta: {
+      art: kind,
+      wohnungsgeberId: owner?.id ?? null,
+      imAuftrag,
+      vollmachtErteiltAm: owner?.certMandateGrantedAt?.toISOString() ?? null,
+      vollmachtQuelle: owner?.certMandateSource ?? null,
+    },
+    ip: await getClientIp(),
+  });
+
   revalidatePath(`/vorgaenge/${ticketId}`);
   revalidatePath("/dokumente");
-  redirect(`/vorgaenge/${ticketId}?bereitgestellt=1`);
+  redirect(`/vorgaenge/${ticketId}?flash=bescheinigung-erstellt`);
   } catch (e) {
     if (isNextControlFlowError(e)) throw e; // redirect()/notFound() durchlassen
     redirect(`/vorgaenge/${ticketId}?fehler=cert&msg=${encodeURIComponent(errorMessage(e))}`);

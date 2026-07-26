@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { InstallHint } from "@/components/install-hint";
 import { NavProgress } from "@/components/nav-progress";
 import { NumericAutoselect } from "@/components/numeric-autoselect";
 import { PageTransition } from "@/components/page-transition";
+import { ToastHost } from "@/components/toast-host";
 import { AppShell } from "@/components/app-shell";
 import { AssistantWidget } from "@/components/assistant-widget";
 import { BrandTheme } from "@/components/brand-theme";
@@ -100,6 +102,11 @@ export default async function PortalLayout({
         <ImpersonationBanner customerName={user.name} adminName={session.realUser?.name ?? "Betreiber"} />
       ) : null}
       <BrandTheme primaryColor={org?.primaryColor ?? null} />
+      {/* Kurzmeldungen nach Server-Actions (`?flash=…`). Liest die URL-Parameter
+          und braucht deshalb eine Suspense-Grenze. */}
+      <Suspense fallback={null}>
+        <ToastHost />
+      </Suspense>
       <NavProgress />
       <NumericAutoselect />
       <main className="mx-auto w-full max-w-[120rem] flex-1 px-4 py-8">

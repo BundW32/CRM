@@ -1,4 +1,5 @@
 import { Alert, buttonClass, Field, inputClass } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
 import { BwLogo } from "@/components/logo";
 import { requestPasswordReset } from "./actions";
 
@@ -50,9 +51,7 @@ export default async function ForgotPasswordPage({
                     className={inputClass}
                   />
                 </Field>
-                <button type="submit" className={`${buttonClass} w-full`}>
-                  Reset-Link anfordern
-                </button>
+                <PendingButton className={`${buttonClass} w-full`}>Reset-Link anfordern</PendingButton>
               </form>
               <p className="mt-4 text-center text-sm">
                 <a href="/login" className="text-brand-green hover:underline">

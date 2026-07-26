@@ -1,4 +1,5 @@
 import { propertyWhereForVerwalter } from "@/lib/access";
+import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { buttonClass, inputClass } from "@/components/ui";
@@ -76,9 +77,7 @@ export default async function NeueUebergabePage() {
             </div>
 
             <div className="pt-2">
-              <button type="submit" className={buttonClass}>
-                Protokoll erstellen →
-              </button>
+              <PendingButton className={buttonClass}>Protokoll erstellen →</PendingButton>
             </div>
           </form>
         </div>

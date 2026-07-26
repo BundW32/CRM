@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { PendingButton } from "@/components/pending-button";
 import {
   Pagination,
   Alert,
@@ -162,12 +163,7 @@ export default async function AushaengePage({
                   ) : (
                     <form action={acknowledgeAnnouncement}>
                       <input type="hidden" name="id" value={a.id} />
-                      <button
-                        type="submit"
-                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                      >
-                        Zur Kenntnis nehmen
-                      </button>
+                      <PendingButton className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Zur Kenntnis nehmen</PendingButton>
                     </form>
                   )}
                 </div>
@@ -205,9 +201,7 @@ export default async function AushaengePage({
               <Field label="Text">
                 <textarea name="body" required minLength={3} maxLength={5000} rows={6} className={inputClass} />
               </Field>
-              <button type="submit" className={buttonClass}>
-                Veröffentlichen
-              </button>
+              <PendingButton className={buttonClass}>Veröffentlichen</PendingButton>
             </form>
           </Card>
         ) : null}

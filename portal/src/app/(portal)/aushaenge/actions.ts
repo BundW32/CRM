@@ -37,7 +37,7 @@ export async function createAnnouncement(formData: FormData) {
   });
 
   revalidatePath("/aushaenge");
-  redirect("/aushaenge");
+  redirect("/aushaenge?flash=erstellt");
 }
 
 // Mieter/Eigentümer bestätigen, einen Aushang zur Kenntnis genommen zu haben
@@ -50,7 +50,7 @@ export async function acknowledgeAnnouncement(formData: FormData) {
       .catch(() => {});
   }
   revalidatePath("/aushaenge");
-  redirect("/aushaenge");
+  redirect("/aushaenge?flash=gespeichert");
 }
 
 export async function deleteAnnouncement(formData: FormData) {
@@ -67,5 +67,5 @@ export async function deleteAnnouncement(formData: FormData) {
     }
   }
   revalidatePath("/aushaenge");
-  redirect("/aushaenge");
+  redirect("/aushaenge?flash=geloescht");
 }

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/lib/db";
@@ -227,9 +229,13 @@ export default async function ErhaltungsplanungPage({
                         <form action={deleteMeasure}>
                           <input type="hidden" name="propertyId" value={property.id} />
                           <input type="hidden" name="id" value={m.id} />
-                          <button type="submit" className="text-xs text-red-600 hover:underline">
+                          <ConfirmActionButton
+                            className="text-xs text-red-600 hover:underline"
+                            confirmLabel="Wirklich löschen?"
+                            pendingLabel="Wird gelöscht…"
+                          >
                             löschen
-                          </button>
+                          </ConfirmActionButton>
                         </form>
                       </div>
                     </div>
@@ -245,9 +251,7 @@ export default async function ErhaltungsplanungPage({
                         <input type="number" name="targetYear" defaultValue={m.targetYear} required className={inputClass} />
                         <input type="text" inputMode="decimal" name="estimate" defaultValue={(m.estimatedCents / 100).toFixed(2).replace(".", ",")} required className={inputClass} />
                         <textarea name="note" defaultValue={m.note ?? ""} rows={2} className={`${inputClass} sm:col-span-2`} />
-                        <button type="submit" className="text-xs text-brand-green hover:underline">
-                          Speichern
-                        </button>
+                        <PendingButton className="text-xs text-brand-green hover:underline">Speichern</PendingButton>
                       </form>
                     </details>
                   </li>

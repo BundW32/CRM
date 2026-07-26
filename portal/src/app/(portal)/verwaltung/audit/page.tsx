@@ -18,6 +18,9 @@ const ACTION_LABELS: Record<string, string> = {
   TICKET_REOPENED: "Vorgang wieder geöffnet",
   TICKET_EXTERNAL_RELEASED: "Externe Beauftragung freigegeben",
   DSGVO_EXPORT: "DSGVO-Datenexport",
+  CERT_MANDATE_GRANTED: "Vollmacht für Bescheinigungen erteilt",
+  CERT_MANDATE_REVOKED: "Vollmacht für Bescheinigungen widerrufen",
+  CERTIFICATE_GENERATED: "Bescheinigung erstellt",
 };
 
 function actionClass(action: string) {

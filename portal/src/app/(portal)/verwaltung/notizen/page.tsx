@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { PendingButton } from "@/components/pending-button";
 import { Pagination, Card, EmptyState, PageTitle } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { noteWhereForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
@@ -188,13 +189,8 @@ export default async function NotizenPage({
 
                       {/* Delete button */}
                       <form action={boundDelete}>
-                        <button
-                          type="submit"
-                          title="Notiz löschen"
-                          className="flex-shrink-0 rounded px-1.5 py-0.5 text-sm font-bold text-red-400 transition hover:bg-red-50 hover:text-red-600"
-                        >
-                          ×
-                        </button>
+                        <PendingButton title="Notiz löschen"
+                          className="flex-shrink-0 rounded px-1.5 py-0.5 text-sm font-bold text-red-400 transition hover:bg-red-50 hover:text-red-600">×</PendingButton>
                       </form>
                     </div>
                   </li>

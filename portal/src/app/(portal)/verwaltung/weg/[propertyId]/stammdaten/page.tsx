@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import {
@@ -133,9 +135,7 @@ export default async function WegStammdatenPage({
               </select>
             </Field>
             <div className="flex items-end">
-              <button type="submit" className={buttonClass}>
-                Speichern
-              </button>
+              <PendingButton className={buttonClass}>Speichern</PendingButton>
             </div>
           </form>
         </Card>
@@ -234,9 +234,7 @@ export default async function WegStammdatenPage({
                             className={`${inputClass} w-20`}
                             aria-label={`Personenzahl der Einheit ${u.label}`}
                           />
-                          <button type="submit" className={buttonSecondaryClass}>
-                            Speichern
-                          </button>
+                          <PendingButton className={buttonSecondaryClass}>Speichern</PendingButton>
                         </form>
                       </td>
                     </tr>
@@ -285,9 +283,13 @@ export default async function WegStammdatenPage({
                                   className={`${inputClass} w-auto py-1 text-xs`}
                                   aria-label={`Eigentümerschaft von ${o.user.name} beenden zum`}
                                 />
-                                <button type="submit" className="text-xs text-red-600 underline">
+                                <ConfirmActionButton
+                                  className="text-xs text-red-600 underline"
+                                  confirmLabel="Wirklich löschen?"
+                                  pendingLabel="Wird gelöscht…"
+                                >
                                   beenden / löschen
-                                </button>
+                                </ConfirmActionButton>
                               </form>
                             ) : null}
                           </li>
@@ -324,9 +326,7 @@ export default async function WegStammdatenPage({
                         <input type="checkbox" name="endPrevious" />
                         Wechsel (Vor-Eigentümer zum Stichtag beenden)
                       </label>
-                      <button type="submit" className={buttonSecondaryClass}>
-                        Eintragen
-                      </button>
+                      <PendingButton className={buttonSecondaryClass}>Eintragen</PendingButton>
                     </form>
                   </div>
                 );
@@ -342,9 +342,7 @@ export default async function WegStammdatenPage({
               action={
                 <form action={adoptCostCatalog}>
                   <input type="hidden" name="propertyId" value={property.id} />
-                  <button type="submit" className={buttonClass}>
-                    WEG-Standardkatalog übernehmen
-                  </button>
+                  <PendingButton className={buttonClass}>WEG-Standardkatalog übernehmen</PendingButton>
                 </form>
               }
             >
@@ -356,9 +354,7 @@ export default async function WegStammdatenPage({
               <div className="mb-4">
                 <form action={adoptCostCatalog}>
                   <input type="hidden" name="propertyId" value={property.id} />
-                  <button type="submit" className={buttonSecondaryClass}>
-                    Fehlende Standard-Kostenarten ergänzen
-                  </button>
+                  <PendingButton className={buttonSecondaryClass}>Fehlende Standard-Kostenarten ergänzen</PendingButton>
                 </form>
               </div>
               <div className="grid gap-3">
@@ -478,9 +474,7 @@ export default async function WegStammdatenPage({
                 umlagefähig (BetrKV)
               </label>
               <input type="hidden" name="active" value="on" />
-              <button type="submit" className={buttonClass}>
-                Anlegen
-              </button>
+              <PendingButton className={buttonClass}>Anlegen</PendingButton>
             </form>
           </details>
         </Card>
@@ -592,9 +586,7 @@ export default async function WegStammdatenPage({
               <Field label="Stichtag">
                 <input name="openingBalanceDate" type="date" className={`${inputClass} w-auto`} />
               </Field>
-              <button type="submit" className={buttonClass}>
-                Anlegen
-              </button>
+              <PendingButton className={buttonClass}>Anlegen</PendingButton>
             </form>
           </details>
         </Card>

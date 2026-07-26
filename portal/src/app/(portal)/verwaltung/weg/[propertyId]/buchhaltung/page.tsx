@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PendingButton } from "@/components/pending-button";
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert, Card, EmptyState, Field, PageTitle, Pagination, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig, type SortOption } from "@/components/filter-bar";
@@ -324,9 +325,7 @@ export default async function WegBuchhaltungPage({
                   className={inputClass}
                 />
               </Field>
-              <button type="submit" className={buttonClass}>
-                Buchen
-              </button>
+              <PendingButton className={buttonClass}>Buchen</PendingButton>
             </form>
           )}
         </Card>
@@ -380,9 +379,7 @@ export default async function WegBuchhaltungPage({
                   minLength={2}
                 />
               </Field>
-              <button type="submit" className={buttonClass}>
-                Umbuchen
-              </button>
+              <PendingButton className={buttonClass}>Umbuchen</PendingButton>
             </form>
           </Card>
         ) : null}

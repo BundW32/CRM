@@ -33,7 +33,7 @@ export async function addBeiratTask(formData: FormData) {
     },
   });
   revalidatePath("/beirat");
-  redirect("/beirat");
+  redirect("/beirat?flash=erstellt");
 }
 
 export async function toggleBeiratTask(formData: FormData) {
@@ -48,7 +48,7 @@ export async function toggleBeiratTask(formData: FormData) {
 
   await db.beiratTask.update({ where: { id }, data: { done: !task.done } });
   revalidatePath("/beirat");
-  redirect("/beirat");
+  redirect("/beirat?flash=gespeichert");
 }
 
 export async function deleteBeiratTask(formData: FormData) {
@@ -63,5 +63,5 @@ export async function deleteBeiratTask(formData: FormData) {
 
   await db.beiratTask.delete({ where: { id } });
   revalidatePath("/beirat");
-  redirect("/beirat");
+  redirect("/beirat?flash=geloescht");
 }

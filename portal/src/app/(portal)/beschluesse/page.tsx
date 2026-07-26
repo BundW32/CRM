@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { Pagination, Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
@@ -471,9 +473,7 @@ export default async function BeschluessePage({
                                 accept="image/*,application/pdf"
                                 className="block max-w-full text-xs text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-green hover:file:bg-gray-50"
                               />
-                              <button type="submit" className={buttonSecondaryClass}>
-                                Stimme eintragen
-                              </button>
+                              <PendingButton className={buttonSecondaryClass}>Stimme eintragen</PendingButton>
                             </div>
                             <p className="text-[11px] text-gray-400">
                               Nachweis optional (Bild/PDF des unterschriebenen Stimmzettels).
@@ -494,22 +494,28 @@ export default async function BeschluessePage({
                           <option value="ANGENOMMEN">Angenommen</option>
                           <option value="ABGELEHNT">Abgelehnt</option>
                         </select>
-                        <button type="submit" className={buttonClass}>
-                          Schließen
-                        </button>
+                        <PendingButton className={buttonClass}>Schließen</PendingButton>
                       </form>
                       <div className="mt-2 flex flex-wrap items-center gap-3">
                         <form action={withdrawResolution}>
                           <input type="hidden" name="id" value={r.id} />
-                          <button type="submit" className="text-xs text-gray-500 hover:underline">
+                          <ConfirmActionButton
+                            className="text-xs text-gray-500 hover:underline"
+                            confirmLabel="Wirklich zurückziehen?"
+                            pendingLabel="Wird ausgeführt…"
+                          >
                             Zurückziehen
-                          </button>
+                          </ConfirmActionButton>
                         </form>
                         <form action={deleteResolution}>
                           <input type="hidden" name="id" value={r.id} />
-                          <button type="submit" className="text-xs text-red-600 hover:underline">
+                          <ConfirmActionButton
+                            className="text-xs text-red-600 hover:underline"
+                            confirmLabel="Wirklich löschen?"
+                            pendingLabel="Wird gelöscht…"
+                          >
                             Löschen
-                          </button>
+                          </ConfirmActionButton>
                         </form>
                       </div>
                     </div>
@@ -604,9 +610,7 @@ export default async function BeschluessePage({
                 <Field label="Frist (optional)">
                   <input type="date" name="deadline" className={inputClass} />
                 </Field>
-                <button type="submit" className={buttonClass}>
-                  Abstimmung starten
-                </button>
+                <PendingButton className={buttonClass}>Abstimmung starten</PendingButton>
                 <p className="text-xs text-gray-500">
                   Alle Eigentümer des Objekts werden per E-Mail zur Abstimmung eingeladen.
                 </p>

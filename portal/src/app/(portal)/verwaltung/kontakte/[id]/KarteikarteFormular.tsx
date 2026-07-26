@@ -1,6 +1,8 @@
 "use client";
 
 import { inputClass } from "@/components/ui";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { contactKindLabels, contactMethodLabels, tradeLabels } from "@/lib/labels";
 import {
   deleteCraftsman,
@@ -139,12 +141,7 @@ export function KarteikarteFormular({
           />
         </label>
         <div className="sm:col-span-2">
-          <button
-            type="submit"
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Speichern
-          </button>
+          <PendingButton className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Speichern</PendingButton>
         </div>
       </form>
 
@@ -166,9 +163,13 @@ export function KarteikarteFormular({
         <form action={deleteCraftsman}>
           <input type="hidden" name="id" value={k.id} />
         <input type="hidden" name="zurueck" value={zurueck} />
-          <button type="submit" className="text-xs text-red-600 hover:underline">
+          <ConfirmActionButton
+            className="text-xs text-red-600 hover:underline"
+            confirmLabel="Wirklich löschen?"
+            pendingLabel="Wird gelöscht…"
+          >
             Löschen
-          </button>
+          </ConfirmActionButton>
         </form>
       </div>
     </>

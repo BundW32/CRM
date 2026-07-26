@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessHandover } from "@/lib/access";
@@ -51,7 +52,7 @@ ${handover.managerName ?? ""}`.trim();
 
   return (
     <div className="pb-10 animate-page-in">
-      <StepHeader currentStep={6} title="Abschluss" backHref={`/uebergabe/${id}/unterschriften`} handoverId={id} />
+      <StepHeader currentStep={6} backHref={`/uebergabe/${id}/unterschriften`} handoverId={id} />
 
       <div className="mx-auto max-w-2xl px-4 pt-6 space-y-5">
         {/* Success banner */}
@@ -88,9 +89,7 @@ ${handover.managerName ?? ""}`.trim();
                 PDF herunterladen
               </a>
               <form action={generateHandoverPdf.bind(null, id)}>
-                <button type="submit" className={buttonSecondaryClass}>
-                  PDF neu generieren
-                </button>
+                <PendingButton className={buttonSecondaryClass}>PDF neu generieren</PendingButton>
               </form>
             </div>
           ) : (

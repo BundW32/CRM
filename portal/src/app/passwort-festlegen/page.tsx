@@ -1,4 +1,5 @@
 import { Alert, buttonClass, Field, inputClass } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
 import { BwLogo } from "@/components/logo";
 import { requireUser } from "@/lib/session";
 import { setInitialPassword } from "./actions";
@@ -53,9 +54,7 @@ export default async function PasswortFestlegenPage({
                 className={inputClass}
               />
             </Field>
-            <button type="submit" className={`${buttonClass} w-full py-2.5`}>
-              Passwort speichern &amp; fortfahren
-            </button>
+            <PendingButton className={`${buttonClass} w-full py-2.5`}>Passwort speichern &amp; fortfahren</PendingButton>
           </form>
         </div>
       </div>

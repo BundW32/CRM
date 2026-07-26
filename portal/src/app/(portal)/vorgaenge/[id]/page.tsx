@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Mail, MessageSquare, Phone } from "lucide-react";
@@ -222,6 +224,21 @@ export default async function TicketDetailPage({
             : "Bitte einen Titel für das Dokument angeben."}
         </Alert>
       ) : null}
+      {fehler === "vollmacht" ? (
+        <Alert variant="warning" className="mb-4">
+          Der Eigentümer hat noch keine Vollmacht erteilt. Bescheinigungen dürfen nur mit
+          seiner Ermächtigung in seinem Namen erstellt werden (§ 19 Abs. 5 BMG). Der
+          Eigentümer erteilt sie selbst im Portal unter &bdquo;Konto → Unterschrift &amp;
+          Vollmacht&ldquo;. Alternativ ein unterschriebenes Dokument hochladen.
+        </Alert>
+      ) : null}
+      {fehler === "keine_vermietung" ? (
+        <Alert variant="warning" className="mb-4">
+          Für diese Einheit ist kein aktives Mietverhältnis hinterlegt. Eine
+          Wohnungsgeber- oder Mietbescheinigung setzt eine Vermietung voraus – bitte
+          zuerst das Mietverhältnis erfassen.
+        </Alert>
+      ) : null}
       {fehler === "cert" ? (
         <Alert variant="error" className="mb-4">
           Die Bescheinigung konnte nicht automatisch erstellt werden. Bitte prüfen Sie, ob
@@ -352,9 +369,7 @@ export default async function TicketDetailPage({
                   Interne Notiz (für Mieter/Eigentümer nicht sichtbar)
                 </label>
               ) : null}
-              <button type="submit" className={buttonClass}>
-                Senden
-              </button>
+              <PendingButton className={buttonClass}>Senden</PendingButton>
             </form>
           </Card>
         </div>
@@ -520,9 +535,7 @@ export default async function TicketDetailPage({
                     className={inputClass}
                   />
                 </Field>
-                <button type="submit" className={buttonClass}>
-                  Speichern
-                </button>
+                <PendingButton className={buttonClass}>Speichern</PendingButton>
               </form>
             </CollapsibleCard>
           ) : null}
@@ -536,9 +549,13 @@ export default async function TicketDetailPage({
               </p>
               <form action={deleteTicket}>
                 <input type="hidden" name="ticketId" value={ticket.id} />
-                <button type="submit" className={`${buttonDangerClass} w-full`}>
+                <ConfirmActionButton
+                  className={`${buttonDangerClass} w-full`}
+                  confirmLabel="Wirklich löschen?"
+                  pendingLabel="Wird gelöscht…"
+                >
                   Vorgang endgültig löschen
-                </button>
+                </ConfirmActionButton>
               </form>
             </CollapsibleCard>
           ) : null}
@@ -567,16 +584,12 @@ export default async function TicketDetailPage({
                   <div className="space-y-2 border-t border-gray-100 pt-3">
                     <form action={acceptInvoice}>
                       <input type="hidden" name="ticketId" value={ticket.id} />
-                      <button type="submit" className={`${buttonClass} w-full`}>
-                        Rechnung akzeptieren &amp; als Kosten übernehmen
-                      </button>
+                      <PendingButton className={`${buttonClass} w-full`}>Rechnung akzeptieren &amp; als Kosten übernehmen</PendingButton>
                     </form>
                     <form action={rejectInvoice} className="space-y-2">
                       <input type="hidden" name="ticketId" value={ticket.id} />
                       <textarea name="reason" rows={2} placeholder="Ablehnungsgrund (optional) …" className={inputClass} />
-                      <button type="submit" className={`${buttonDangerClass} w-full`}>
-                        Rechnung ablehnen
-                      </button>
+                      <PendingButton className={`${buttonDangerClass} w-full`}>Rechnung ablehnen</PendingButton>
                     </form>
                   </div>
                 ) : (
@@ -611,12 +624,7 @@ export default async function TicketDetailPage({
                       placeholder="Grund der Wiedereröffnung (optional) …"
                       className={inputClass}
                     />
-                    <button
-                      type="submit"
-                      className={`${buttonSecondaryClass} w-full`}
-                    >
-                      Vorgang wieder öffnen
-                    </button>
+                    <PendingButton className={`${buttonSecondaryClass} w-full`}>Vorgang wieder öffnen</PendingButton>
                   </form>
                 </div>
               ) : ticket.status === "ERLEDIGT" ? (
@@ -634,9 +642,7 @@ export default async function TicketDetailPage({
                   </div>
                   <form action={confirmCompletion}>
                     <input type="hidden" name="ticketId" value={ticket.id} />
-                    <button type="submit" className={`${buttonClass} w-full`}>
-                      Abschluss bestätigen &amp; schließen
-                    </button>
+                    <PendingButton className={`${buttonClass} w-full`}>Abschluss bestätigen &amp; schließen</PendingButton>
                   </form>
                   <form action={reopenTicket} className="space-y-2 border-t border-gray-100 pt-3">
                     <input type="hidden" name="ticketId" value={ticket.id} />
@@ -646,12 +652,7 @@ export default async function TicketDetailPage({
                       placeholder="Was muss nachgearbeitet werden? (optional) …"
                       className={inputClass}
                     />
-                    <button
-                      type="submit"
-                      className={`${buttonSecondaryClass} w-full`}
-                    >
-                      Nacharbeit nötig – wieder öffnen
-                    </button>
+                    <PendingButton className={`${buttonSecondaryClass} w-full`}>Nacharbeit nötig – wieder öffnen</PendingButton>
                   </form>
                 </div>
               ) : (
@@ -677,18 +678,11 @@ export default async function TicketDetailPage({
                       placeholder="Notiz zur Erledigung (optional) …"
                       className={inputClass}
                     />
-                    <button type="submit" className={`${buttonClass} w-full`}>
-                      Erledigung melden
-                    </button>
+                    <PendingButton className={`${buttonClass} w-full`}>Erledigung melden</PendingButton>
                   </form>
                   <form action={confirmCompletion} className="border-t border-gray-100 pt-3">
                     <input type="hidden" name="ticketId" value={ticket.id} />
-                    <button
-                      type="submit"
-                      className={`${buttonSecondaryClass} w-full`}
-                    >
-                      Direkt als erledigt abschließen
-                    </button>
+                    <PendingButton className={`${buttonSecondaryClass} w-full`}>Direkt als erledigt abschließen</PendingButton>
                   </form>
                 </div>
               )}
@@ -701,8 +695,8 @@ export default async function TicketDetailPage({
                 <div className="mb-4 rounded-lg border border-brand-orange/40 bg-brand-orange-light p-3">
                   <p className="mb-2 text-xs text-brand-green-dark">
                     Diese Bescheinigung kann <strong>automatisch</strong> aus den hinterlegten
-                    Daten erstellt werden (Eigentümer als Wohnungsgeber, Unterschrift sofern
-                    hinterlegt).
+                    Daten erstellt werden. Voraussetzung: Der Eigentümer hat die Vollmacht
+                    erteilt und die Einheit ist vermietet.
                   </p>
                   <form action={generateCertificate}>
                     <input type="hidden" name="ticketId" value={ticket.id} />
@@ -752,9 +746,7 @@ export default async function TicketDetailPage({
                     className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
                   />
                 </Field>
-                <button type="submit" className={buttonClass}>
-                  Hochladen &amp; bereitstellen
-                </button>
+                <PendingButton className={buttonClass}>Hochladen &amp; bereitstellen</PendingButton>
               </form>
             </Card>
           ) : null}
@@ -825,9 +817,7 @@ export default async function TicketDetailPage({
                   <input type="checkbox" name="setBeauftragt" defaultChecked />
                   Status auf „Beauftragt“ setzen
                 </label>
-                <button type="submit" className={buttonClass}>
-                  Zuordnen
-                </button>
+                <PendingButton className={buttonClass}>Zuordnen</PendingButton>
               </form>
 
               {ticket.craftsman ? (
@@ -915,9 +905,7 @@ export default async function TicketDetailPage({
                       {ticket.craftsman.email ? (
                         <form action={notifyCraftsman}>
                           <input type="hidden" name="ticketId" value={ticket.id} />
-                          <button type="submit" className={`${buttonClass} w-full`}>
-                            Auftrag intern per E-Mail senden
-                          </button>
+                          <PendingButton className={`${buttonClass} w-full`}>Auftrag intern per E-Mail senden</PendingButton>
                         </form>
                       ) : null}
                     </div>
@@ -929,9 +917,7 @@ export default async function TicketDetailPage({
                       {ticket.craftsman.email ? (
                         <form action={notifyCraftsman}>
                           <input type="hidden" name="ticketId" value={ticket.id} />
-                          <button type="submit" className={`${buttonClass} w-full`}>
-                            Auftrag per E-Mail senden (mit Portal-Link)
-                          </button>
+                          <PendingButton className={`${buttonClass} w-full`}>Auftrag per E-Mail senden (mit Portal-Link)</PendingButton>
                         </form>
                       ) : null}
                     </div>
@@ -944,12 +930,7 @@ export default async function TicketDetailPage({
                       </p>
                       <form action={releaseExternalCraftsman} className="mt-2">
                         <input type="hidden" name="ticketId" value={ticket.id} />
-                        <button
-                          type="submit"
-                          className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
-                        >
-                          Externe Beauftragung freigeben
-                        </button>
+                        <PendingButton className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100">Externe Beauftragung freigeben</PendingButton>
                       </form>
                     </div>
                   )}
@@ -973,18 +954,11 @@ export default async function TicketDetailPage({
                         <div className="mt-2 flex flex-wrap gap-2">
                           <form action={confirmAppointment}>
                             <input type="hidden" name="ticketId" value={ticket.id} />
-                            <button type="submit" className={buttonClass}>
-                              Termin bestätigen
-                            </button>
+                            <PendingButton className={buttonClass}>Termin bestätigen</PendingButton>
                           </form>
                           <form action={declineAppointment}>
                             <input type="hidden" name="ticketId" value={ticket.id} />
-                            <button
-                              type="submit"
-                              className={buttonSecondaryClass}
-                            >
-                              Ablehnen / neuen Termin anfragen
-                            </button>
+                            <PendingButton className={buttonSecondaryClass}>Ablehnen / neuen Termin anfragen</PendingButton>
                           </form>
                         </div>
                       </div>
@@ -1001,16 +975,12 @@ export default async function TicketDetailPage({
                 <form action={setOwnTicketStatus}>
                   <input type="hidden" name="ticketId" value={ticket.id} />
                   <input type="hidden" name="status" value="IN_BEARBEITUNG" />
-                  <button type="submit" className={`${buttonClass} w-full`}>
-                    Arbeit begonnen
-                  </button>
+                  <PendingButton className={`${buttonClass} w-full`}>Arbeit begonnen</PendingButton>
                 </form>
                 <form action={setOwnTicketStatus}>
                   <input type="hidden" name="ticketId" value={ticket.id} />
                   <input type="hidden" name="status" value="ERLEDIGT" />
-                  <button type="submit" className={`${buttonClass} w-full`}>
-                    Auftrag erledigt
-                  </button>
+                  <PendingButton className={`${buttonClass} w-full`}>Auftrag erledigt</PendingButton>
                 </form>
                 <p className="text-xs text-gray-500">
                   Bitte dokumentieren Sie die Ausführung mit Fotos über das

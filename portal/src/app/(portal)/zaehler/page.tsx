@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { Pagination, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { PendingButton } from "@/components/pending-button";
@@ -207,9 +208,13 @@ export default async function ZaehlerPage({
                         {isVerwalter ? (
                           <form action={deleteMeter}>
                             <input type="hidden" name="id" value={m.id} />
-                            <button type="submit" className="text-xs text-red-600 hover:underline">
+                            <ConfirmActionButton
+                              className="text-xs text-red-600 hover:underline"
+                              confirmLabel="Wirklich löschen?"
+                              pendingLabel="Wird gelöscht…"
+                            >
                               Zähler löschen
-                            </button>
+                            </ConfirmActionButton>
                           </form>
                         ) : null}
                       </div>

@@ -1,14 +1,5 @@
-import {
-  Alert,
-  CollapsibleCard,
-  EmptyState,
-  Field,
-  PageTitle,
-  Pagination,
-  inputClass,
-} from "@/components/ui";
+import { Alert, EmptyState, PageTitle, Pagination } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
-import { SubmitButton } from "@/components/submit-button";
 import {
   ADDRESS_BOOK_KINDS,
   loadAddressBook,
@@ -19,9 +10,7 @@ import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { isSelfManaged, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
-import { NewUserForm } from "../nutzer/new-user-form";
-import { createCraftsman } from "./actions";
-import { ArtUndGewerk } from "./ArtUndGewerk";
+import { KontaktAnlegen } from "./KontaktAnlegen";
 import { KontaktZeile } from "./KontaktZeile";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +42,7 @@ export default async function KontaktePage({
   const verwalter = await requireVerwalter();
   const selfManaged = isSelfManaged(await getOrganization());
   const params = await searchParams;
-  const { fehler, angelegt } = params;
+  const { fehler } = params;
 
   const q = normalizeSearch(params.q);
   const kind = parseKind(params.art);
@@ -95,11 +84,9 @@ export default async function KontaktePage({
     <>
       <PageTitle>Kontakte</PageTitle>
 
-      {angelegt ? (
-        <Alert variant="success" className="mb-4">
-          Kontakt wurde gespeichert.
-        </Alert>
-      ) : null}
+      {/* Erfolg meldet der ToastHost (`?flash=…`) – er erscheint auch dann,
+          wenn die Aktion von einer anderen Seite zurückspringt. Fehler bleiben
+          als Banner am Formular stehen. */}
       {fehler ? (
         <Alert variant="error" className="mb-4">
           {fehler === "email"
@@ -148,88 +135,14 @@ export default async function KontaktePage({
           />
         </div>
 
-        {/* Zwei Wege, einen Kontakt anzulegen – die Weiche ist der Portalzugang:
-            Mieter/Eigentümer/Verwalter bekommen ein Konto, alle übrigen sind
-            reine Karteikarten. */}
+        {/* Ein Formular, eine Weiche: Ganz oben steht die Art, alles Weitere
+            folgt daraus – auch, ob ein Portalzugang entsteht. */}
         <div className="space-y-5">
-          <CollapsibleCard title="Person mit Zugang anlegen">
-            <p className="mb-3 text-xs text-gray-500">
-              Mieter, Eigentümer oder Verwalter – erhält einen Portalzugang per E-Mail-Einladung
-              oder Zugangsschreiben.
-            </p>
-            <NewUserForm
-              zurueck="/verwaltung/kontakte"
-              properties={propsForNewUser}
-              isSuperAdmin={verwalter.isSuperAdmin}
-              selfManaged={selfManaged}
-            />
-          </CollapsibleCard>
-
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-1 text-base font-semibold text-gray-900">Kontakt hinzufügen</h2>
-            <p className="mb-4 text-xs text-gray-500">
-              Firma oder Ansprechpartner ohne Portalzugang – Handwerker, Dienstleister,
-              Versorger, Behörden.
-            </p>
-            <form action={createCraftsman} className="space-y-3">
-              <ArtUndGewerk />
-              <Field label="Firma (optional)">
-                <input
-                  type="text"
-                  name="company"
-                  className={inputClass}
-                  placeholder="z. B. Müller Sanitär GmbH"
-                />
-              </Field>
-              <Field label="Ansprechpartner / Name">
-                <input type="text" name="name" required minLength={2} className={inputClass} />
-              </Field>
-              <Field label="Telefon">
-                <input type="tel" name="phone" className={inputClass} />
-              </Field>
-              <Field label="E-Mail">
-                <input type="email" name="email" className={inputClass} />
-              </Field>
-              <Field label="Bevorzugter Kontaktweg">
-                <select
-                  name="preferredContact"
-                  required
-                  className={inputClass}
-                  defaultValue="TELEFON"
-                >
-                  {[
-                    ["EMAIL", "E-Mail"],
-                    ["TELEFON", "Telefon"],
-                    ["MOBIL", "Mobil"],
-                    ["POST", "Post"],
-                  ].map(([v, l]) => (
-                    <option key={v} value={v}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Notizen (optional)">
-                <textarea
-                  name="notes"
-                  rows={2}
-                  className={inputClass}
-                  placeholder="z. B. Verfügbarkeiten, Konditionen"
-                />
-              </Field>
-              <label className="flex items-start gap-2 text-sm text-gray-700">
-                <input type="checkbox" name="isInternal" className="mt-0.5" />
-                <span>
-                  <span className="font-medium">Intern (Eigenleistung)</span>
-                  <span className="block text-xs text-gray-500">
-                    Wird bei der Vorgangszuordnung zuerst angeboten. Externe können erst nach
-                    ausdrücklicher Freigabe beauftragt werden.
-                  </span>
-                </span>
-              </label>
-              <SubmitButton pendingLabel="Wird gespeichert…">Speichern</SubmitButton>
-            </form>
-          </div>
+          <KontaktAnlegen
+            properties={propsForNewUser}
+            isSuperAdmin={verwalter.isSuperAdmin}
+            selfManaged={selfManaged}
+          />
         </div>
       </div>
     </>

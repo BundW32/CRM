@@ -97,6 +97,48 @@ Zwei Fallen bei den Zeilen-Formularen (`getAll()` liest indexgleich ein):
 - Verknüpfte Felder werden `readOnly`, nie `disabled` — deaktivierte Felder werden nicht
   mitgeschickt und verschieben denselben Index.
 
+## Buttons: jede Aktion meldet sich zurück
+
+Server-Actions können nach `redirect()` nichts mehr rendern. Ohne Vorkehrung
+klickt man also, und sichtbar passiert nichts — also klickt man nochmal. Genau
+das hatte sich über 161 Formulare angesammelt, bevor es in einem Durchgang
+begradigt wurde. **Neue Formulare halten sich an dieselben drei Regeln**, sonst
+wächst die Lücke nach.
+
+1. **Rückmeldung** — der Erfolgs-`redirect()` trägt `?flash=<code>`. Die Codes
+   stehen in **`src/lib/flash.ts`**; das allgemeine Vokabular (`gespeichert`,
+   `erstellt`, `geloescht`, `entfernt`, `gesendet`, …) deckt den Normalfall ab.
+   Ein eigener Code lohnt nur, wenn die Meldung mehr sagt als „hat geklappt".
+   Der `ToastHost` in der Portal-Shell zeigt sie auf **jeder** Seite und räumt
+   den Parameter danach aus der URL.
+
+2. **Pending-Zustand** — Submit-Buttons sind `PendingButton` oder
+   `SubmitButton`, nie ein nacktes `<button type="submit">`. Beide sperren
+   während der Aktion und zeigen einen Spinner.
+
+3. **Rückfrage bei Destruktivem** — Löschen, Entfernen, Archivieren und
+   Zurückziehen laufen über `ConfirmActionButton` (Text) oder
+   `ConfirmDeleteButton` (Icon in Listenzeilen). Umkehrbar ist hier fast nichts.
+
+**Drei Fallen, die schon zugeschlagen haben:**
+
+- **Kein doppeltes Feedback.** Trägt der Rücksprung bereits einen
+  Erfolgsparameter, den die Zielseite als `<Alert>` rendert, kommt **kein**
+  zusätzlicher Flash dazu.
+- **Fehler bleiben Banner.** Formularfehler gehören als `<Alert>` ans Formular,
+  nicht in einen Toast: Sie müssen stehen bleiben, bis der Fehler behoben ist.
+- **Wächter melden keinen Erfolg.** Der Flash gehört an den Erfolgs-Redirect am
+  Ende der Funktion — niemals an ein frühes `if (!erlaubt) redirect(…)`. Ein
+  Rechte-Fehler, der „Gespeichert." meldet, ist schlimmer als gar keine
+  Rückmeldung.
+
+Zwei Tests halten das fest: `src/lib/flash.test.ts` (jeder verwendete Code
+existiert — ein fehlender schaltet die Meldung **still** ab, ohne dass
+Typprüfung oder Build etwas merken) und `src/lib/button-feedback.test.ts`
+(Rückfrage und Pending-Zustand). Beide laufen in der CI. Begründete Sonderfälle
+gehören in die Ausnahmeliste im Test, mit Begründung — nicht in ein
+abgeschaltetes `it.skip`.
+
 ## Rollen
 
 `VERWALTER`, `EIGENTUEMER`, `MIETER`. Zusätzlich `isSuperAdmin` (Admin innerhalb einer

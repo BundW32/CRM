@@ -484,3 +484,62 @@ export async function updateOwnershipStart(formData: FormData) {
   revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
   back(property.id, "gespeichert=eigentuemer");
 }
+
+/**
+ * Entfernt eine Kostenart — aber nur, solange nichts daran hängt.
+ *
+ * Bis hierher ließ sich eine Kostenart gar nicht loswerden; es gab nur das
+ * Häkchen „aktiv". Das war der Grund, warum „Standardkatalog abgleichen"
+ * sinnlos wirkte: Fehlen konnte nie etwas, weil sich nichts entfernen ließ.
+ *
+ * Gelöscht wird deshalb nur, was **unbenutzt** ist. Sobald eine Buchung, ein
+ * Planwert oder eine Abrechnungsposition darauf verweist, wird stattdessen
+ * deaktiviert — und das ist keine Bequemlichkeit, sondern Pflicht: Das Schema
+ * würde Planwerte und Abrechnungspositionen mitlöschen (`onDelete: Cascade`).
+ * Eine beschlossene Jahresabrechnung nachträglich um eine Position zu
+ * erleichtern, wäre Geschichtsfälschung.
+ */
+export async function deleteCostType(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const costTypeId = String(formData.get("costTypeId") ?? "");
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const costType = await db.costType.findFirst({
+    where: { id: costTypeId, propertyId: property.id },
+    select: { id: true, name: true },
+  });
+  if (!costType) back(property.id, "fehler=kostenart");
+
+  const [buchungen, planwerte, abrechnungen] = await Promise.all([
+    db.booking.count({ where: { costTypeId: costType.id } }),
+    db.economicPlanItem.count({ where: { costTypeId: costType.id } }),
+    db.statementUnitAmount.count({ where: { costTypeId: costType.id } }),
+  ]);
+  const benutzt = buchungen + planwerte + abrechnungen;
+
+  if (benutzt > 0) {
+    await db.costType.update({ where: { id: costType.id }, data: { active: false } });
+    await logAudit({
+      actorId: verwalter.id,
+      action: AUDIT.WEG_COSTTYPE_SAVED,
+      targetType: "CostType",
+      targetId: costType.id,
+      meta: { deaktiviert: true, buchungen, planwerte, abrechnungen },
+    });
+    revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+    back(property.id, "gespeichert=deaktiviert");
+  }
+
+  await db.costType.delete({ where: { id: costType.id } });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_COSTTYPE_SAVED,
+    targetType: "CostType",
+    targetId: costType.id,
+    meta: { geloescht: true, name: costType.name },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+  back(property.id, "gespeichert=kostenart");
+}

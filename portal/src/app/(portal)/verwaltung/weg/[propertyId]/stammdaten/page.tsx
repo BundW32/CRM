@@ -11,6 +11,7 @@ import {
   unitTypeLabels,
 } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
+import { WEG_COST_CATALOG } from "@/lib/weg/cost-catalog";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { formatDateOnly } from "@/lib/labels";
 import {
@@ -22,6 +23,7 @@ import {
   saveFinanceSettings,
   saveUnitFinanceData,
   updateOwnershipStart,
+  deleteCostType,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -74,6 +76,13 @@ export default async function WegStammdatenPage({
     ownershipsByUnit.set(o.unitId, list);
   }
 
+  // Wie viele Standard-Kostenarten fehlen noch? Entscheidet, ob der
+  // Abgleich-Knopf überhaupt erscheint — im Normalfall gibt es nichts zu tun.
+  const vorhandeneNamen = new Set(costTypes.map((c) => c.name.toLowerCase()));
+  const fehlendeStandardarten = WEG_COST_CATALOG.filter(
+    (e) => !vorhandeneNamen.has(e.name.toLowerCase()),
+  ).length;
+
   // MEA-Summenprüfung: Σ Zähler der Einheiten muss den Nenner ergeben.
   const meaSum = units.reduce((sum, u) => sum + (u.mea ?? 0), 0);
   const unitsWithoutMea = units.filter((u) => u.mea == null).length;
@@ -95,8 +104,16 @@ export default async function WegStammdatenPage({
       </PageTitle>
 
       {sp.gespeichert ? (
-        <Alert variant="success" className="mb-4">
-          Änderungen gespeichert.
+        // „deaktiviert" ist ein Erfolg mit Einschränkung: Die Kostenart ließ sich
+        // nicht löschen, weil Buchungen oder Abrechnungen daran hängen. Das
+        // stillschweigend als „gespeichert" zu melden, verschwiege den Grund.
+        <Alert
+          variant={sp.gespeichert === "deaktiviert" ? "warning" : "success"}
+          className="mb-4"
+        >
+          {sp.gespeichert === "deaktiviert"
+            ? "Die Kostenart wird bereits verwendet und wurde deshalb nur deaktiviert, nicht gelöscht — sonst verlören Buchungen und Abrechnungen ihre Zuordnung. Sie erscheint in neuen Plänen nicht mehr."
+            : "Änderungen gespeichert."}
         </Alert>
       ) : null}
       {sp.fehler ? (
@@ -417,31 +434,38 @@ export default async function WegStammdatenPage({
             </EmptyState>
           ) : (
             <>
-              <div className="mb-4">
-                <form action={adoptCostCatalog}>
-                  <input type="hidden" name="propertyId" value={property.id} />
-                  <PendingButton className={buttonSecondaryClass}>
-                    Standardkatalog abgleichen
-                  </PendingButton>
-                </form>
-                {/* Der Knopf hieß „Fehlende Standard-Kostenarten ergänzen" und
-                    ließ offen, ob er etwas überschreibt. Beim ersten Mal ist die
-                    Frage entscheidend – wer sie nicht beantworten kann, drückt
-                    lieber nicht. */}
-                <p className="mt-1.5 text-xs text-gray-500">
-                  Legt die üblichen WEG-Kostenarten an, die hier noch fehlen. Vorhandene Einträge
-                  bleiben unverändert – auch umbenannte. Eigene Kostenarten legen Sie unten an.
-                </p>
-              </div>
+              {/* Nur zeigen, wenn tatsächlich etwas fehlt. Zuvor stand der Knopf
+                  dauerhaft und prominent da, obwohl er im Normalfall nichts tun
+                  konnte – das war der Grund, warum sein Sinn sich niemandem
+                  erschloss. Jetzt erscheint er genau dann, wenn er etwas
+                  bewirkt, und sagt auch was. */}
+              {fehlendeStandardarten > 0 ? (
+                <div className="mb-4">
+                  <form action={adoptCostCatalog}>
+                    <input type="hidden" name="propertyId" value={property.id} />
+                    <PendingButton className={buttonSecondaryClass}>
+                      {fehlendeStandardarten} fehlende Standard-Kostenart
+                      {fehlendeStandardarten === 1 ? "" : "en"} ergänzen
+                    </PendingButton>
+                  </form>
+                  <p className="mt-1.5 text-xs text-gray-500">
+                    Vorhandene Einträge bleiben unverändert – auch umbenannte.
+                  </p>
+                </div>
+              ) : null}
               <div className="grid gap-3">
                 {costTypes.map((c) => (
-                  <form
+                  // Zwei Formulare je Kostenart – bearbeiten und entfernen –,
+                  // deshalb ein umschließender Block: Ein <form> darf kein
+                  // zweites enthalten, und das Entfernen darf die Felder des
+                  // Bearbeitens nicht mitschicken.
+                  <div
                     key={c.id}
-                    action={saveCostType}
-                    className={`flex flex-wrap items-center gap-2 rounded-xl border p-3 ${
+                    className={`rounded-xl border p-3 ${
                       c.active ? "border-gray-200" : "border-gray-100 bg-gray-50 opacity-70"
                     }`}
                   >
+                  <form action={saveCostType} className="flex flex-wrap items-center gap-2">
                     <input type="hidden" name="propertyId" value={property.id} />
                     <input type="hidden" name="costTypeId" value={c.id} />
                     <input
@@ -499,10 +523,26 @@ export default async function WegStammdatenPage({
                       <input type="checkbox" name="active" defaultChecked={c.active} />
                       aktiv
                     </label>
-                    <button type="submit" className={buttonSecondaryClass}>
-                      Speichern
-                    </button>
+                    <PendingButton className={buttonSecondaryClass}>Speichern</PendingButton>
                   </form>
+
+                  {/* Entfernen als eigenes Formular: Es darf nicht die Felder des
+                      Bearbeiten-Formulars mitschicken. Gelöscht wird nur, was
+                      unbenutzt ist — hängt eine Buchung, ein Planwert oder eine
+                      Abrechnungsposition daran, wird stattdessen deaktiviert und
+                      die Meldung sagt warum. */}
+                  <form action={deleteCostType} className="mt-2">
+                    <input type="hidden" name="propertyId" value={property.id} />
+                    <input type="hidden" name="costTypeId" value={c.id} />
+                    <ConfirmActionButton
+                      className="text-xs text-red-600 underline"
+                      confirmLabel="Wirklich entfernen?"
+                      pendingLabel="Wird entfernt…"
+                    >
+                      entfernen
+                    </ConfirmActionButton>
+                  </form>
+                  </div>
                 ))}
               </div>
             </>

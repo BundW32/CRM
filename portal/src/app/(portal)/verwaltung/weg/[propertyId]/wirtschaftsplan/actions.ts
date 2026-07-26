@@ -250,3 +250,98 @@ export async function resolvePlan(formData: FormData) {
   revalidatePath(`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}`);
   back(property.id, `/${plan.id}`, "beschlossen=1");
 }
+
+/**
+ * Bringt einen Wirtschaftsplan-Entwurf zur Abstimmung — als Tagesordnungspunkt
+ * einer Versammlung oder als Umlaufbeschluss.
+ *
+ * Bisher gab es hier nur den Rückweg: „beschlossen am …" eintragen, also
+ * nachtragen, was außerhalb des Programms passiert war. Der Weg nach vorn
+ * fehlte, obwohl beide Bausteine längst existieren — Versammlungen mit
+ * Beschluss-TOPs und die Umlaufabstimmung.
+ *
+ * Die Mehrheit ist bewusst gesetzt statt wählbar: In der Versammlung genügt für
+ * den Wirtschaftsplan die einfache Mehrheit (§ 28 Abs. 1 WEG), im Umlauf
+ * verlangt § 23 Abs. 3 Satz 1 WEG die Zustimmung ALLER. Wer das verwechselt,
+ * fasst einen angreifbaren Beschluss.
+ */
+export async function planZurAbstimmung(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "").trim();
+  const planId = String(formData.get("planId") ?? "").trim();
+  const modus = String(formData.get("modus") ?? "").trim();
+  const meetingId = String(formData.get("meetingId") ?? "").trim();
+
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+  const plan = await loadPlan(verwalter, property.id, planId);
+  if (!plan) back(property.id);
+  // Ein beschlossener Plan braucht keine Abstimmung mehr.
+  if (plan.status !== "ENTWURF") back(property.id, `/${plan.id}`, "fehler=beschlossen");
+
+  const titel = `Wirtschaftsplan ${plan.year}`;
+  const text =
+    `Die Gemeinschaft der Wohnungseigentümer beschließt gemäß § 28 Abs. 1 WEG auf Grundlage ` +
+    `des vorgelegten Wirtschaftsplans für das Wirtschaftsjahr ${plan.year} die Vorschüsse zur ` +
+    `Kostentragung und zur Zuführung zur Erhaltungsrücklage. Die monatlichen Hausgeld-Vorschüsse ` +
+    `je Einheit ergeben sich aus den Einzelwirtschaftsplänen und sind jeweils zum 1. eines ` +
+    `Monats fällig.`;
+
+  if (modus === "versammlung") {
+    // Versammlung muss zum Objekt gehören und noch offen sein (Scope-Prüfung).
+    const meeting = await db.ownersMeeting.findFirst({
+      where: {
+        id: meetingId,
+        propertyId: property.id,
+        organizationId: verwalter.organizationId,
+        status: { in: ["GEPLANT", "EINBERUFEN"] },
+      },
+      select: { id: true },
+    });
+    if (!meeting) back(property.id, `/${plan.id}`, "fehler=versammlung");
+
+    const resolution = await db.resolution.create({
+      data: {
+        propertyId: property.id,
+        title: titel,
+        description: text,
+        // In der Versammlung genügt die einfache Mehrheit.
+        majority: "EINFACH",
+        createdById: verwalter.id,
+        organizationId: verwalter.organizationId,
+      },
+    });
+    await db.$transaction(async (tx) => {
+      const max = await tx.meetingAgendaItem.aggregate({
+        where: { meetingId: meeting.id },
+        _max: { sortOrder: true },
+      });
+      await tx.meetingAgendaItem.create({
+        data: {
+          meetingId: meeting.id,
+          sortOrder: (max._max.sortOrder ?? -1) + 1,
+          title: titel,
+          description: text,
+          type: "BESCHLUSS",
+          resolutionId: resolution.id,
+        },
+      });
+    });
+    revalidatePath(`/versammlungen/${meeting.id}`);
+    redirect(`/versammlungen/${meeting.id}?flash=erstellt`);
+  }
+
+  // Umlaufbeschluss: Allstimmigkeit ist hier gesetzlich zwingend.
+  await db.resolution.create({
+    data: {
+      propertyId: property.id,
+      title: titel,
+      description: text,
+      majority: "ALLSTIMMIG",
+      createdById: verwalter.id,
+      organizationId: verwalter.organizationId,
+    },
+  });
+  revalidatePath("/beschluesse");
+  redirect("/beschluesse?flash=erstellt");
+}

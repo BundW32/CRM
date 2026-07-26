@@ -17,7 +17,14 @@ const createSchema = z.object({
   title: z.string().trim().min(3).max(200),
   description: z.string().trim().min(3).max(5000),
   deadline: z.string().optional(),
-  majority: z.enum(MAJORITIES).default("EINFACH"),
+  // Umlaufbeschluss: Allstimmigkeit ist der gesetzliche Regelfall (§ 23 Abs. 3
+  // Satz 1 WEG) — im Umlauf müssen ALLE zustimmen, nicht die Mehrheit. Der
+  // Rückfall darf deshalb nicht „EINFACH" sein: Ein fehlendes Feld erzeugte
+  // sonst still einen Beschluss, der die gesetzliche Hürde verfehlt und
+  // angreifbar ist. Eine geringere Mehrheit ist nur mit vorherigem
+  // Absenkungsbeschluss zulässig (§ 23 Abs. 3 Satz 2) — sie muss also bewusst
+  // gewählt werden.
+  majority: z.enum(MAJORITIES).default("ALLSTIMMIG"),
 });
 
 export async function createResolution(formData: FormData) {

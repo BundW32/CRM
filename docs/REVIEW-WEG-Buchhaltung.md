@@ -228,21 +228,30 @@ Verbrauchskosten-Anteil (Default 30/70) erzwingen, oder die Funktion für diese
 Kostenarten sperren und auf den Messdienst-Import verweisen. Zusätzlich fehlt
 die Trennung Heizung/Warmwasser (§ 9 HeizkostenV).
 
-### B4. § 35a-Bescheinigung weist den Bruttobetrag aus, nicht den Lohnanteil
+### B4. § 35a-Ausweis: die Zeile heißt „begünstigte Aufwendungen", enthält aber den Bruttobetrag
 
 `computeLaborShares` summiert für jede geflaggte Kostenart den **vollen**
 Kostenanteil der Einheit. Steuerlich begünstigt ist aber nur der Anteil für
 Arbeitslohn, Maschinen- und Fahrtkosten — Material ausdrücklich nicht (§ 35a
 Abs. 5 Satz 2 EStG).
 
-Bei einer Handwerkerrechnung mit 60 % Materialanteil ist der bescheinigte Betrag
-um das Zweieinhalbfache zu hoch. Der Eigentümer reicht das beim Finanzamt ein.
-Der Hinweis „Muster, ersetzt keine Steuerberatung" im UI trägt das nicht — die
-Zahl ist schlicht falsch, nicht nur unverbindlich.
+Fairerweise: das PDF (`einzelabrechnung.ts`) *sagt* es dazu — „Maßgeblich ist der
+in den Rechnungen ausgewiesene Lohn-/Fahrtkostenanteil." Die Software behauptet
+also nichts Falsches. Das Problem ist der Widerspruch zwischen Beschriftung und
+Inhalt: Die Überschrift lautet „Steuerlich begünstigte Aufwendungen (§ 35a
+EStG)", darunter steht ein Eurobetrag, und **genau diesen Betrag trägt der
+Eigentümer in die Anlage seiner Steuererklärung ein.** Die Fußnote in 7,5 pt
+verhindert das nicht. Bei 60 % Materialanteil ist der eingetragene Wert um das
+Zweieinhalbfache zu hoch.
 
 Zwei weitere Punkte fehlen: § 35a setzt **unbare Zahlung** voraus (Rechnung +
 Überweisung) — nicht geprüft; und maßgeblich ist das **Jahr der Zahlung**, was
 hier durch die Ist-Rechnung immerhin automatisch stimmt.
+
+*Nötig:* entweder das Feld je Buchung/Kostenart mit einem Lohnanteil (absolut
+oder %) hinterlegen und den echten Wert ausweisen — oder, als kleine Lösung, die
+Spalte ehrlich in „Gesamtaufwand der begünstigten Kostenarten" umbenennen und
+den Betrag nicht als bescheinigungsfähig darstellen.
 
 *Nötig:* je Buchung (oder je Kostenart) ein Feld „davon Lohn-/Fahrt-/
 Maschinenanteil" — absolut oder in Prozent, mit Vorbelegung aus der Kostenart.
@@ -263,15 +272,96 @@ Der Plan kennt nur ENTWURF/BESCHLOSSEN, kein „bestandskräftig ab". Für die
 Selbstverwaltung wäre gerade das wertvoll — „dieser Beschluss ist seit dem
 12.04. bestandskräftig" beantwortet die häufigste Frage im Beirat.
 
-### B6. Fälligkeit fest auf den 1. des Monats
+### B6. Fälligkeit fest auf den 1. des Monats — entschärft, aber nicht gelöst
 
-`resolvePlan` setzt `dueDate` unverrückbar auf den Monatsersten. Üblich und in
-vielen Gemeinschaftsordnungen so geregelt ist der **3. Werktag**. Weil der Verzug
-nach § 286 Abs. 2 Nr. 1 BGB kalendermäßig eintritt, ist damit auch der
-Verzugsbeginn falsch — und darauf setzt das Mahnwesen auf.
+*Korrektur gegenüber der ersten Fassung dieses Berichts:* Ich hatte das zu hart
+bewertet. Die mitgelieferte **Beschlussvorlage nennt den 1. des Monats
+ausdrücklich** („… und sind jeweils zum 1. eines Monats fällig"). Beschließt die
+WEG diesen Text, ist der Monatserste die vereinbarte Fälligkeit, und der Verzug
+nach § 286 Abs. 2 Nr. 1 BGB tritt korrekt ein. Das ist sauber gelöst.
 
-*Nötig:* Fälligkeitsregel je Objekt konfigurierbar (Monatserster / 3. Werktag /
-freier Tag), mit Hinweis auf die Gemeinschaftsordnung.
+Es bleibt ein engerer Fall: Sagt die **Gemeinschaftsordnung** etwas anderes —
+verbreitet ist der 3. Werktag —, dann widersprechen sich Beschlussvorlage und
+GO, und die Software kann dem nicht folgen. Der Nutzer merkt es nicht, weil der
+Mustertext plausibel aussieht.
+
+*Nötig, aber nicht dringend:* Fälligkeitsregel je Objekt (Monatserster /
+3. Werktag / freier Tag), die sowohl `dueDate` als auch den Text der
+Beschlussvorlage steuert.
+
+---
+
+## B7. Wirtschaftsplan im Detail — was er kann und was fehlt
+
+Nachgereichte Tiefenprüfung von `wirtschaftsplan/page.tsx`,
+`wirtschaftsplan/[planId]/page.tsx`, `economic-plan.ts` und
+`wirtschaftsplan-pdf.ts`.
+
+**Er kann mehr, als ich zunächst geschrieben habe.** Vorhanden und gut:
+Wirtschaftsjahr mit frei wählbarem Beginn (nicht nur Kalenderjahr — das können
+viele kommerzielle Programme nicht), Vorbelegung und Vergleichsspalte aus dem
+Vorjahres-Ist, Planwerte je Kostenart editierbar, automatische Verteilung auf
+die Einheiten nach dem jeweiligen Schlüssel, centgenaue 12 Monatsraten,
+fertige Beschlussvorlage im Gesetzeswortlaut, Beschluss erzeugt idempotent die
+Sollstellungen, danach unveränderlich, PDF, Beiratsvermerk, Eigentümersicht.
+Das ist ein tragfähiger Wirtschaftsplan.
+
+Was fehlt:
+
+**a) Keine Einnahmenseite (§ 28 Abs. 1 WEG).** Der Gesamtwirtschaftsplan muss die
+voraussichtlichen **Einnahmen und Ausgaben** enthalten. Hier gibt es nur
+Kostenarten — alle `CostCategory`-Werte sind Ausgabenarten, `amountCents` ist
+„immer positiv", und `computeUnitAdvances` wirft bei negativen Werten. Es gibt
+also keinen Weg, Zinserträge, Mieteinnahmen aus Gemeinschaftseigentum
+(vermietete Hausmeisterwohnung, Waschküche, Dachfläche für PV oder
+Mobilfunkantenne) oder PV-Einspeisevergütung abzubilden.
+
+Für eine WEG mit solchen Einnahmen ist der Plan strukturell unvollständig **und
+das Hausgeld systematisch zu hoch** — die Einnahmen mindern den Vorschussbedarf,
+tauchen aber nirgends auf. Das betrifft nicht wenige Gemeinschaften; PV auf dem
+Gemeinschaftsdach ist inzwischen Normalfall. Ich stufe das als kritisch ein,
+nicht als Komfortlücke.
+
+**b) Kein geänderter Wirtschaftsplan / kein Nachtrag.** Nach dem Beschluss ist
+der Plan unveränderlich, `deletePlan` greift nur bei ENTWURF, und
+`@@unique([propertyId, year])` verhindert einen zweiten Plan für dasselbe Jahr.
+Beschließt die WEG unterjährig einen geänderten Wirtschaftsplan — nach einem
+Energiepreissprung der klassische Fall —, gibt es dafür **keinen Weg**. Weder
+ändern noch löschen noch danebenlegen. Sackgasse, die nur über die Datenbank
+aufzulösen ist.
+
+**c) Der Einzelwirtschaftsplan wird nirgends erzeugt.** § 28 Abs. 1 verlangt
+Einzelwirtschaftspläne — also für jeden Eigentümer die Aufschlüsselung *seines*
+Anteils nach Kostenpositionen. Das PDF ist **ein** Dokument: Gesamtplan plus eine
+Tabelle aller Einheiten mit Jahresbetrag und Monatsrate. Jeder Eigentümer lädt
+dasselbe Blatt und sieht eine Summe, nicht ihre Zusammensetzung.
+
+Bemerkenswert: `computeUnitAdvances` berechnet mit `perItem` genau diese
+Aufschlüsselung bereits — sie wird **nirgends verwendet**. Die Rechenarbeit ist
+fertig, es fehlt nur die Darstellung. Das ist die billigste substanzielle
+Verbesserung in diesem ganzen Bericht.
+
+**d) Sollstellung ohne Aufteilung Hausgeld / Rücklage.** `DuePosting` ist ein
+Gesamtbetrag. Der Eigentümer erfährt nicht, welcher Teil seines Hausgelds
+Kostenvorschuss und welcher Zuführung zur Rücklage ist. Das ist keine
+Spitzfindigkeit: der Rücklagenanteil ist Vermögensbildung, kein Verbrauch — beim
+Verkauf der Wohnung ist genau diese Zahl gefragt, und der vermietende Eigentümer
+braucht sie für die Abgrenzung gegenüber dem Mieter.
+
+**e) Nur 12 Monatsraten.** `monthlyInstallments` ist fest auf 12. Quartals- oder
+Halbjahreszahlung — in kleinen Gemeinschaften nicht selten — ist nicht
+abbildbar.
+
+**f) Kein Übernahmeweg aus der Erhaltungsplanung.** `reserve-plan.ts` rechnet den
+Rücklagenbedarf samt Unterdeckungsjahr sauber aus. Der Wirtschaftsplan weiß
+nichts davon; die empfohlene Zuführung muss von Hand abgetippt werden. Ein
+„Bedarf übernehmen"-Knopf plus eine Warnung, wenn die geplante Zuführung 0 ist
+(§ 19 Abs. 2 Nr. 4 WEG — angemessene Rücklage gehört zur ordnungsgemäßen
+Verwaltung), wäre für Selbstverwalter der praktischste Hinweis im ganzen Modul.
+
+**g)** Fortgeltung (A4), Beschlussverknüpfung (B5) und die Vorbelegung mit
+unvollständigen Vorjahreswerten (Abschnitt D) betreffen ebenfalls den
+Wirtschaftsplan und stehen dort.
 
 ---
 
@@ -395,6 +485,8 @@ Was tatsächlich fehlt, nach Nutzen sortiert:
 | 3 | A2 Rücklagenentnahme neutralisieren | doppelte Belastung der Eigentümer |
 | 4 | A3 Rücklagenzuführung: Schlüssel aus dem Plan, Soll-/Ist-Abgleich | systematisch falsche Spitze |
 | 5 | A4 Fortgeltung des Wirtschaftsplans | häufigster Praxisfall |
+| 5b | B7a Einnahmenseite im Wirtschaftsplan | § 28 I; Hausgeld sonst zu hoch |
+| 5c | B7c Einzelwirtschaftsplan darstellen | Rechenlogik existiert bereits (`perItem`) |
 | 6 | B3 HeizkostenV-Sperre/Warnung | 15 % Kürzungsrecht |
 | 7 | B4 Lohnanteil für § 35a | falsche Zahl geht ans Finanzamt |
 | 8 | B2 echte Zahlungszuordnung | größter Umbau, aber löst OPOS/Mahnwesen/Vermögensbericht |

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Check, CircleAlert } from "lucide-react";
+import { PendingButton } from "@/components/pending-button";
 import { Card } from "@/components/ui";
 import type { SetupStatus, SetupStep } from "@/lib/weg/setup-status";
 import { markSetupStep } from "./setup-actions";
@@ -165,16 +166,16 @@ function AbhakenButton({
     <form action={markSetupStep}>
       <input type="hidden" name="propertyId" value={propertyId} />
       <input type="hidden" name="key" value={stepKey} />
-      <button
-        type="submit"
+      <PendingButton
+        pendingLabel="Wird vermerkt…"
         className={
           klein
-            ? "shrink-0 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
-            : "rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            ? "shrink-0 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-60"
+            : "rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
         }
       >
         Erledigt
-      </button>
+      </PendingButton>
     </form>
   );
 }

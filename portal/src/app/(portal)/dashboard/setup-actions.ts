@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
+import { withFlash } from "@/lib/flash";
 import { requireVerwalter } from "@/lib/session";
 import { MANUAL_SETUP_STEPS, type SetupStepKey } from "@/lib/weg/setup-status";
 
@@ -20,6 +21,8 @@ export async function markSetupStep(formData: FormData) {
 
   const propertyId = String(formData.get("propertyId") ?? "").trim();
   const key = String(formData.get("key") ?? "").trim();
+  // Wächter melden bewusst KEINEN Erfolg: Ein abgewiesener Versuch, der
+  // „abgehakt" meldet, wäre schlimmer als gar keine Rückmeldung.
   if (!propertyId || !MANUAL_SETUP_STEPS.includes(key as SetupStepKey)) redirect("/dashboard");
 
   // Org-/Zuständigkeits-Scope wie bei jeder schreibenden Aktion (IDOR-Schutz).
@@ -34,5 +37,5 @@ export async function markSetupStep(formData: FormData) {
   });
 
   revalidatePath("/dashboard");
-  redirect("/dashboard");
+  redirect(withFlash("/dashboard", "schritt-erledigt"));
 }

@@ -71,6 +71,13 @@ export const flashMessages = {
     text: "Bescheinigung erstellt und bereitgestellt.",
     tone: "success",
   },
+  // Eigener Code, weil die Meldung mehr sagt als „hat geklappt": Der Schritt
+  // verschwindet aus der Liste, und der Assistent rückt sichtbar auf den
+  // nächsten vor. Ohne den Hinweis wirkt der Sprung wie ein Fehler.
+  "schritt-erledigt": {
+    text: "Schritt abgehakt – weiter mit dem nächsten.",
+    tone: "success",
+  },
 } as const satisfies Record<string, FlashMessage>;
 
 export type FlashCode = keyof typeof flashMessages;

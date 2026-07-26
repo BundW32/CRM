@@ -59,6 +59,24 @@ export function KontaktZeile({ entry }: { entry: AddressBookEntry }) {
                 inaktiv
               </span>
             ) : null}
+            {/* Vollmacht für Bescheinigungen. Nur die beiden Zustände zeigen,
+                die eine Handlung nach sich ziehen – „alles in Ordnung" braucht
+                kein Abzeichen und würde die Zeile nur zustellen. */}
+            {entry.vollmacht === "keine" ? (
+              <span
+                title="Ohne Vollmacht können keine Bescheinigungen im Namen dieses Eigentümers erstellt werden."
+                className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+              >
+                Vollmacht fehlt
+              </span>
+            ) : entry.vollmacht === "im_auftrag" ? (
+              <span
+                title="Vollmacht liegt vor, aber keine eigenhändige Unterschrift – Bescheinigungen tragen den Zusatz „i. A.“."
+                className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600"
+              >
+                i.&nbsp;A.
+              </span>
+            ) : null}
           </span>
 
           {/* Telefon und E-Mail direkt in der Zeile – dafür schlägt man hier nach. */}

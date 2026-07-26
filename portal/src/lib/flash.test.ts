@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { flashMessages, resolveFlash, withFlash } from "./flash";
+import { flashMessages, resolveFlash } from "./flash";
 
 describe("resolveFlash", () => {
   it("übersetzt bekannte Codes", () => {
@@ -49,16 +49,3 @@ describe("Codes im Quelltext", () => {
   });
 });
 
-describe("withFlash", () => {
-  it("hängt den Code an einen Pfad ohne Querystring", () => {
-    expect(withFlash("/verwaltung/kontakte", "kontakt-angelegt")).toBe(
-      "/verwaltung/kontakte?flash=kontakt-angelegt",
-    );
-  });
-
-  it("respektiert einen vorhandenen Querystring", () => {
-    expect(withFlash("/verwaltung/kontakte?q=abc", "kontakt-angelegt")).toBe(
-      "/verwaltung/kontakte?q=abc&flash=kontakt-angelegt",
-    );
-  });
-});

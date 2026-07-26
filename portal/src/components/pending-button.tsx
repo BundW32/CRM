@@ -12,6 +12,7 @@ export function PendingButton({
   name,
   value,
   title,
+  spinnerClassName = "h-3.5 w-3.5",
 }: {
   children: React.ReactNode;
   pendingLabel?: string;
@@ -26,6 +27,8 @@ export function PendingButton({
   name?: string;
   value?: string;
   title?: string;
+  /** Optik des Spinners – `SubmitButton` nutzt einen etwas größeren. */
+  spinnerClassName?: string;
 }) {
   const { pending } = useFormStatus();
   return (
@@ -39,7 +42,7 @@ export function PendingButton({
     >
       {pending ? (
         <span className="inline-flex items-center gap-1.5">
-          <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg className={`${spinnerClassName} animate-spin`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M12 2a10 10 0 1 0 10 10" strokeLinecap="round" />
           </svg>
           {/* Ohne eigene Wartebeschriftung bleibt die normale stehen – nur mit

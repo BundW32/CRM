@@ -81,6 +81,37 @@ describe("isCertMandateSource", () => {
   });
 });
 
+/**
+ * Die Regel „ein Widerruf zählt nur, wenn er nach der Erteilung liegt" steht an
+ * zwei Stellen: hier in `hasCertMandate` und noch einmal als Prisma-Bedingung im
+ * Adressbuch-Filter (`mandateWhere`). Doppelt, weil Prisma keine TypeScript-
+ * Funktion in eine Abfrage übernehmen kann.
+ *
+ * Laufen die beiden auseinander, zeigt der Filter „Vollmacht fehlt" andere
+ * Eigentümer an, als die Bescheinigung tatsächlich abweist — ein Widerspruch,
+ * den niemand bemerkt, weil beide Seiten für sich plausibel aussehen. Diese
+ * Tabelle hält die Fälle fest, die beide gleich beantworten müssen.
+ */
+describe("Wahrheitstabelle (Vorlage für den Adressbuch-Filter)", () => {
+  const faelle: Array<{ erteilt: Date | null; widerrufen: Date | null; gilt: boolean }> = [
+    { erteilt: null, widerrufen: null, gilt: false },
+    { erteilt: null, widerrufen: T1, gilt: false },
+    { erteilt: T1, widerrufen: null, gilt: true },
+    { erteilt: T1, widerrufen: T2, gilt: false },
+    { erteilt: T2, widerrufen: T1, gilt: true },
+    { erteilt: T1, widerrufen: T1, gilt: true },
+  ];
+
+  it.each(faelle)(
+    "erteilt=$erteilt widerrufen=$widerrufen → $gilt",
+    ({ erteilt, widerrufen, gilt }) => {
+      expect(
+        hasCertMandate({ certMandateGrantedAt: erteilt, certMandateRevokedAt: widerrufen }),
+      ).toBe(gilt);
+    },
+  );
+});
+
 describe("certMandateGrantedOn", () => {
   it("liefert den Zeitpunkt nur bei gültiger Vollmacht", () => {
     expect(certMandateGrantedOn({ certMandateGrantedAt: T1, certMandateRevokedAt: null })).toEqual(T1);

@@ -4,6 +4,7 @@ import {
   ADDRESS_BOOK_KINDS,
   loadAddressBook,
   parseKind,
+  parseMandate,
 } from "@/lib/address-book";
 import { contactKindLabels, roleLabels } from "@/lib/labels";
 import { normalizeSearch, parsePage } from "@/lib/list-query";
@@ -36,11 +37,13 @@ export default async function KontaktePage({
 
   const q = normalizeSearch(params.q);
   const kind = parseKind(params.art);
+  const mandate = parseMandate(params.vollmacht);
   const currentPage = parsePage(params.page);
 
   const { entries, total } = await loadAddressBook(verwalter, {
     q,
     kind,
+    mandate,
     page: currentPage,
     pageSize: PAGE_SIZE,
   });
@@ -54,7 +57,7 @@ export default async function KontaktePage({
   ).map((p) => ({ id: p.id, name: p.name }));
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const hasFilter = Boolean(q || kind);
+  const hasFilter = Boolean(q || kind || mandate);
 
   const filters: FilterConfig[] = [
     {
@@ -62,6 +65,19 @@ export default async function KontaktePage({
       label: "Art",
       primary: true,
       options: ADDRESS_BOOK_KINDS.map((k) => ({ value: k, label: kindLabel(k) })),
+    },
+    {
+      // Betrifft nur Eigentümer und blendet darum alles andere aus. Macht die
+      // Fälle auffindbar, in denen eine Bescheinigung nicht automatisch
+      // entstehen kann – sonst merkt man das erst, wenn ein Mieter fragt.
+      key: "vollmacht",
+      label: "Vollmacht",
+      allLabel: "Alle Eigentümer",
+      options: [
+        { value: "fehlt", label: "Vollmacht fehlt" },
+        { value: "ohne_unterschrift", label: "Ohne eigene Unterschrift" },
+        { value: "erteilt", label: "Vollmacht erteilt" },
+      ],
     },
   ];
 

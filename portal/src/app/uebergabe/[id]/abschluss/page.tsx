@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessHandover } from "@/lib/access";
@@ -88,9 +89,7 @@ ${handover.managerName ?? ""}`.trim();
                 PDF herunterladen
               </a>
               <form action={generateHandoverPdf.bind(null, id)}>
-                <button type="submit" className={buttonSecondaryClass}>
-                  PDF neu generieren
-                </button>
+                <PendingButton className={buttonSecondaryClass}>PDF neu generieren</PendingButton>
               </form>
             </div>
           ) : (

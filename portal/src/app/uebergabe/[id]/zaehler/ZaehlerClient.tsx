@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef } from "react";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { inputClass, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { addMeter, updateMeter, deleteMeter, uploadMeterPhoto } from "./actions";
 
@@ -51,9 +53,13 @@ export function ZaehlerClient({ handoverId, initialMeters }: { handoverId: strin
               <form action={deleteMeter}>
                 <input type="hidden" name="meterId" value={meter.id} />
                 <input type="hidden" name="handoverId" value={handoverId} />
-                <button type="submit" className="text-xs text-red-500 hover:text-red-700 transition-colors">
+                <ConfirmActionButton
+                  className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                  confirmLabel="Wirklich entfernen?"
+                  pendingLabel="Wird entfernt…"
+                >
                   Entfernen
-                </button>
+                </ConfirmActionButton>
               </form>
             </div>
 
@@ -101,9 +107,7 @@ export function ZaehlerClient({ handoverId, initialMeters }: { handoverId: strin
                   placeholder="Optionale Notiz …"
                 />
               </div>
-              <button type="submit" className={buttonSecondaryClass}>
-                Speichern
-              </button>
+              <PendingButton className={buttonSecondaryClass}>Speichern</PendingButton>
             </form>
 
             {/* Foto */}
@@ -163,9 +167,7 @@ export function ZaehlerClient({ handoverId, initialMeters }: { handoverId: strin
               ))}
             </select>
           </div>
-          <button type="submit" className={buttonClass}>
-            + Hinzufügen
-          </button>
+          <PendingButton className={buttonClass}>+ Hinzufügen</PendingButton>
         </form>
       </div>
     </div>

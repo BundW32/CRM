@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, PageTitle } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/lib/db";
@@ -116,19 +118,18 @@ export default async function PruefpflichtenPage({
                         <form action={completeCompliance}>
                           <input type="hidden" name="propertyId" value={property.id} />
                           <input type="hidden" name="id" value={t.id} />
-                          <button
-                            type="submit"
-                            className="rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-green-dark hover:bg-brand-orange-dark"
-                          >
-                            Erledigt
-                          </button>
+                          <PendingButton className="rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-green-dark hover:bg-brand-orange-dark">Erledigt</PendingButton>
                         </form>
                         <form action={deleteCompliance}>
                           <input type="hidden" name="propertyId" value={property.id} />
                           <input type="hidden" name="id" value={t.id} />
-                          <button type="submit" className="text-xs text-red-600 hover:underline">
+                          <ConfirmActionButton
+                            className="text-xs text-red-600 hover:underline"
+                            confirmLabel="Wirklich löschen?"
+                            pendingLabel="Wird gelöscht…"
+                          >
                             Löschen
-                          </button>
+                          </ConfirmActionButton>
                         </form>
                       </div>
                       <form action={updateComplianceDue} className="flex items-center gap-1">
@@ -140,12 +141,7 @@ export default async function PruefpflichtenPage({
                           defaultValue={t.dueDate.toISOString().slice(0, 10)}
                           className="rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-700"
                         />
-                        <button
-                          type="submit"
-                          className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                          Fälligkeit setzen
-                        </button>
+                        <PendingButton className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">Fälligkeit setzen</PendingButton>
                       </form>
                     </div>
                   </div>

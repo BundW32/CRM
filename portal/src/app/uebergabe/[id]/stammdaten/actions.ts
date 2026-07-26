@@ -70,5 +70,5 @@ export async function saveStammdaten(formData: FormData) {
   });
 
   if (action === "save") redirect(`/uebergabe`);
-  redirect(`/uebergabe/${id}/raeume`);
+  redirect(`/uebergabe/${id}/raeume?flash=gespeichert`);
 }

@@ -508,7 +508,7 @@ export async function toggleUserActive(formData: FormData) {
     }
   }
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=gespeichert"));
 }
 
 export async function resendInvite(formData: FormData) {
@@ -555,7 +555,7 @@ export async function addOwnership(formData: FormData) {
     update: {},
   });
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=erstellt"));
 }
 
 export async function removeOwnership(formData: FormData) {
@@ -567,7 +567,7 @@ export async function removeOwnership(formData: FormData) {
   await ensurePropertyInScope(actor, ownership.propertyId);
   await db.ownership.delete({ where: { id } });
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=entfernt"));
 }
 
 export async function addTenancy(formData: FormData) {
@@ -583,7 +583,7 @@ export async function addTenancy(formData: FormData) {
     update: { active: true },
   });
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=erstellt"));
 }
 
 export async function removeTenancy(formData: FormData) {
@@ -598,7 +598,7 @@ export async function removeTenancy(formData: FormData) {
   await ensurePropertyInScope(actor, tenancy.unit.propertyId);
   await db.tenancy.delete({ where: { id } });
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=entfernt"));
 }
 
 export async function addPropertyAssignment(formData: FormData) {
@@ -621,7 +621,7 @@ export async function addPropertyAssignment(formData: FormData) {
     skipDuplicates: true,
   });
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=erstellt"));
 }
 
 export async function removePropertyAssignment(formData: FormData) {
@@ -637,7 +637,7 @@ export async function removePropertyAssignment(formData: FormData) {
   if (!a || a.user.organizationId !== actor.organizationId) redirect(zurueckZu(formData));
   await db.propertyAssignment.delete({ where: { id } });
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=entfernt"));
 }
 
 export async function addCraftsmanAssignment(formData: FormData) {
@@ -659,7 +659,7 @@ export async function addCraftsmanAssignment(formData: FormData) {
     skipDuplicates: true,
   });
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=erstellt"));
 }
 
 export async function removeCraftsmanAssignment(formData: FormData) {
@@ -675,7 +675,7 @@ export async function removeCraftsmanAssignment(formData: FormData) {
   if (!a || a.user.organizationId !== actor.organizationId) redirect(zurueckZu(formData));
   await db.craftsmanAssignment.delete({ where: { id } });
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=entfernt"));
 }
 
 export async function toggleSuperAdmin(formData: FormData) {
@@ -689,7 +689,7 @@ export async function toggleSuperAdmin(formData: FormData) {
   if (target.organizationId !== actor.organizationId) redirect(zurueckZu(formData));
   await db.user.update({ where: { id }, data: { isSuperAdmin: !target.isSuperAdmin } });
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=gespeichert"));
 }
 
 // Erzeugt für einen bestehenden Zugang ein neues Erst-Passwort (Zugangsschreiben neu drucken)

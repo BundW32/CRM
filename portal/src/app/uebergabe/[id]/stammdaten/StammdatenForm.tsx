@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { PendingButton } from "@/components/pending-button";
 import { inputClass, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { KeysSection } from "./KeysSection";
 import { saveStammdaten } from "./actions";
@@ -290,12 +291,8 @@ export function StammdatenForm({
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <button type="submit" name="_action" value="save" className={buttonSecondaryClass}>
-          Speichern &amp; schließen
-        </button>
-        <button type="submit" name="_action" value="next" className={buttonClass}>
-          Weiter: Räume →
-        </button>
+        <PendingButton name="_action" value="save" className={buttonSecondaryClass}>Speichern &amp; schließen</PendingButton>
+        <PendingButton name="_action" value="next" className={buttonClass}>Weiter: Räume →</PendingButton>
       </div>
     </form>
   );

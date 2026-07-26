@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
@@ -108,9 +110,7 @@ export default async function SonderumlagenPage({
               <input name="resolutionNote" maxLength={300} className={inputClass} placeholder="z. B. ETV 12.03.2026, TOP 5" />
             </Field>
             <div className="sm:col-span-2">
-              <button type="submit" className={buttonClass}>
-                Anlegen & verteilen
-              </button>
+              <PendingButton className={buttonClass}>Anlegen & verteilen</PendingButton>
             </div>
           </form>
         </Card>
@@ -142,9 +142,13 @@ export default async function SonderumlagenPage({
                       <form action={deleteSonderumlage}>
                         <input type="hidden" name="propertyId" value={property.id} />
                         <input type="hidden" name="sonderumlageId" value={su.id} />
-                        <button type="submit" className="text-xs text-red-600 underline">
+                        <ConfirmActionButton
+                          className="text-xs text-red-600 underline"
+                          confirmLabel="Wirklich löschen?"
+                          pendingLabel="Wird gelöscht…"
+                        >
                           Löschen
-                        </button>
+                        </ConfirmActionButton>
                       </form>
                     </div>
                     <div className="mt-3 overflow-x-auto">

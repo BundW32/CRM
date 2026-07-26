@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
@@ -91,9 +92,7 @@ export default async function JahresabrechnungListPage({
                 required
               />
             </Field>
-            <button type="submit" className={buttonClass}>
-              Abrechnung anlegen
-            </button>
+            <PendingButton className={buttonClass}>Abrechnung anlegen</PendingButton>
           </form>
         </Card>
 

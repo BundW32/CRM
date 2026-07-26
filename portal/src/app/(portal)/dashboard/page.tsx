@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PendingButton } from "@/components/pending-button";
 import { Building2, ClipboardCheck, Clock, Home, Inbox, Megaphone, Pin } from "lucide-react";
 import type { User } from "@/generated/prisma/client";
 import { PropertyStats } from "@/components/property-stats";
@@ -104,12 +105,7 @@ export default async function DashboardPage({
             title="E-Mail bestätigen:"
             action={
               <form action={resendVerification}>
-                <button
-                  type="submit"
-                  className="shrink-0 rounded-lg border border-amber-400 px-3 py-1.5 text-sm font-medium text-amber-900 transition hover:bg-amber-100"
-                >
-                  Erneut senden
-                </button>
+                <PendingButton className="shrink-0 rounded-lg border border-amber-400 px-3 py-1.5 text-sm font-medium text-amber-900 transition hover:bg-amber-100">Erneut senden</PendingButton>
               </form>
             }
           >

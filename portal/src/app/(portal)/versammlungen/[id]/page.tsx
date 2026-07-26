@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { notFound, redirect } from "next/navigation";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { canVerwalterAccessProperty, ownedProperties } from "@/lib/access";
@@ -203,9 +205,13 @@ export default async function MeetingDetailPage({
                           <form action={deleteAgendaItem}>
                             <input type="hidden" name="meetingId" value={meeting.id} />
                             <input type="hidden" name="itemId" value={it.id} />
-                            <button type="submit" className="text-xs text-red-600 hover:underline">
+                            <ConfirmActionButton
+                              className="text-xs text-red-600 hover:underline"
+                              confirmLabel="Wirklich entfernen?"
+                              pendingLabel="Wird entfernt…"
+                            >
                               entfernen
-                            </button>
+                            </ConfirmActionButton>
                           </form>
                         </div>
                       ) : null}
@@ -243,9 +249,7 @@ export default async function MeetingDetailPage({
                             rows={2}
                             className={inputClass}
                           />
-                          <button type="submit" className="text-xs text-brand-green hover:underline">
-                            Speichern
-                          </button>
+                          <PendingButton className="text-xs text-brand-green hover:underline">Speichern</PendingButton>
                         </form>
                       </details>
                     ) : null}
@@ -289,9 +293,7 @@ export default async function MeetingDetailPage({
                     ))}
                   </select>
                 </Field>
-                <button type="submit" className={buttonSecondaryClass}>
-                  Vorlage übernehmen
-                </button>
+                <PendingButton className={buttonSecondaryClass}>Vorlage übernehmen</PendingButton>
                 <p className="text-xs text-gray-500">
                   Übernimmt einen fertig formulierten TOP inkl. Beschlussvorschlag; danach
                   frei anpassbar.
@@ -311,9 +313,7 @@ export default async function MeetingDetailPage({
                     <option value="BESCHLUSS">Beschluss (Abstimmung)</option>
                   </select>
                 </Field>
-                <button type="submit" className={buttonClass}>
-                  Hinzufügen
-                </button>
+                <PendingButton className={buttonClass}>Hinzufügen</PendingButton>
                 <p className="text-xs text-gray-500">
                   Beschluss-TOPs erzeugen automatisch eine Abstimmung im Bereich Beschlüsse.
                 </p>
@@ -359,9 +359,7 @@ export default async function MeetingDetailPage({
                   <input type="checkbox" name="saveVideoDefault" className="mt-0.5" />
                   <span>Link als Standard für dieses Objekt speichern (künftige Versammlungen).</span>
                 </label>
-                <button type="submit" className={buttonSecondaryClass}>
-                  Eckdaten speichern
-                </button>
+                <PendingButton className={buttonSecondaryClass}>Eckdaten speichern</PendingButton>
               </form>
 
               <form action={updateAttendance} className="mt-4 space-y-2 border-t border-gray-100 pt-4">
@@ -375,9 +373,7 @@ export default async function MeetingDetailPage({
                     className={inputClass}
                   />
                 </Field>
-                <button type="submit" className="text-xs text-brand-green hover:underline">
-                  Anwesenheit speichern
-                </button>
+                <PendingButton className="text-xs text-brand-green hover:underline">Anwesenheit speichern</PendingButton>
               </form>
             </Card>
 
@@ -493,18 +489,26 @@ export default async function MeetingDetailPage({
                   {meeting.status === "GEPLANT" || meeting.status === "EINBERUFEN" ? (
                     <form action={cancelMeeting}>
                       <input type="hidden" name="meetingId" value={meeting.id} />
-                      <button type="submit" className="text-xs text-amber-700 hover:underline">
+                      <ConfirmActionButton
+                        className="text-xs text-amber-700 hover:underline"
+                        confirmLabel="Wirklich absagen?"
+                        pendingLabel="Wird ausgeführt…"
+                      >
                         Versammlung absagen
-                      </button>
+                      </ConfirmActionButton>
                     </form>
                   ) : (
                     <span className="text-xs text-gray-400">{statusLabel[meeting.status]}</span>
                   )}
                   <form action={deleteMeeting}>
                     <input type="hidden" name="meetingId" value={meeting.id} />
-                    <button type="submit" className="text-xs text-red-600 hover:underline">
+                    <ConfirmActionButton
+                      className="text-xs text-red-600 hover:underline"
+                      confirmLabel="Wirklich löschen?"
+                      pendingLabel="Wird gelöscht…"
+                    >
                       Löschen
-                    </button>
+                    </ConfirmActionButton>
                   </form>
                 </div>
               </div>

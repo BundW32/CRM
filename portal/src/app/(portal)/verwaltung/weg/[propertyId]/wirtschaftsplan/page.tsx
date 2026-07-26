@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
@@ -99,9 +100,7 @@ export default async function WirtschaftsplanListPage({
                 required
               />
             </Field>
-            <button type="submit" className={buttonClass}>
-              Plan anlegen
-            </button>
+            <PendingButton className={buttonClass}>Plan anlegen</PendingButton>
           </form>
         </Card>
 

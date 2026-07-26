@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
@@ -250,9 +252,7 @@ Muster — ersetzt keine Rechtsberatung.`;
             </div>
             {isDraft ? (
               <div className="mt-3 flex items-center gap-3">
-                <button type="submit" className={buttonSecondaryClass}>
-                  Kontenprüfung speichern
-                </button>
+                <PendingButton className={buttonSecondaryClass}>Kontenprüfung speichern</PendingButton>
                 <span className={`text-sm ${checksOk ? "text-green-700" : "text-amber-700"}`}>
                   {checksOk
                     ? "Alle Endbestände stimmen mit den Kontoauszügen überein."
@@ -297,9 +297,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                       <option value="SONSTIGES">Sonstiges</option>
                     </select>
                   </label>
-                  <button type="submit" className={buttonSecondaryClass}>
-                    Aus Zählern übernehmen
-                  </button>
+                  <PendingButton className={buttonSecondaryClass}>Aus Zählern übernehmen</PendingButton>
                 </form>
               ) : null}
               <form action={saveManualAmounts} className="flex flex-wrap items-end gap-2">
@@ -320,9 +318,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                   </label>
                 ))}
                 {isDraft ? (
-                  <button type="submit" className={buttonSecondaryClass}>
-                    Speichern
-                  </button>
+                  <PendingButton className={buttonSecondaryClass}>Speichern</PendingButton>
                 ) : null}
               </form>
 
@@ -345,9 +341,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                       className="block text-xs text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-orange-dark"
                     />
                   </label>
-                  <button type="submit" className={buttonSecondaryClass}>
-                    Importieren
-                  </button>
+                  <PendingButton className={buttonSecondaryClass}>Importieren</PendingButton>
                   <p className="w-full text-xs text-gray-400">
                     Beträge je Einheit aus der Abrechnung von ista/Techem/Minol/Brunata. Einheiten
                     werden über Bezeichnung oder Nummer zugeordnet; nicht Zuordenbares wird gemeldet.
@@ -545,9 +539,13 @@ Muster — ersetzt keine Rechtsberatung.`;
               <form action={deleteStatement}>
                 <input type="hidden" name="propertyId" value={property.id} />
                 <input type="hidden" name="statementId" value={statement.id} />
-                <button type="submit" className="text-sm text-red-600 underline">
+                <ConfirmActionButton
+                  className="text-sm text-red-600 underline"
+                  confirmLabel="Wirklich löschen?"
+                  pendingLabel="Wird gelöscht…"
+                >
                   Entwurf löschen
-                </button>
+                </ConfirmActionButton>
               </form>
             </div>
           ) : null}

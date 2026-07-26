@@ -1,4 +1,5 @@
 import { Alert, Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
 import { PushToggle } from "@/components/push-toggle";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { getOrganization, requireUser } from "@/lib/session";
@@ -108,9 +109,7 @@ export default async function AccountPage({
                 className={inputClass}
               />
             </Field>
-            <button type="submit" className={buttonClass}>
-              Passwort ändern
-            </button>
+            <PendingButton className={buttonClass}>Passwort ändern</PendingButton>
           </form>
         </Card>
 

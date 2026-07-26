@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { notFound } from "next/navigation";
 import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
@@ -193,9 +195,7 @@ Muster — ersetzt keine Rechtsberatung.`;
             </div>
             {isDraft ? (
               <div className="mt-4 flex flex-wrap gap-2">
-                <button type="submit" className={buttonClass}>
-                  Planwerte speichern
-                </button>
+                <PendingButton className={buttonClass}>Planwerte speichern</PendingButton>
               </div>
             ) : null}
           </form>
@@ -206,9 +206,13 @@ Muster — ersetzt keine Rechtsberatung.`;
             >
               <input type="hidden" name="propertyId" value={property.id} />
               <input type="hidden" name="planId" value={plan.id} />
-              <button type="submit" className="text-sm text-red-600 underline">
+              <ConfirmActionButton
+                className="text-sm text-red-600 underline"
+                confirmLabel="Wirklich löschen?"
+                pendingLabel="Wird gelöscht…"
+              >
                 Entwurf löschen
-              </button>
+              </ConfirmActionButton>
             </form>
           ) : null}
         </Card>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/lib/db";
@@ -188,7 +189,7 @@ export default async function LastschriftPage({
                 <Field label="Einzugstermin">
                   <input type="date" name="date" defaultValue={collectionDefault} className={inputClass} />
                 </Field>
-                <button type="submit" className={buttonClass}>XML herunterladen</button>
+                <PendingButton className={buttonClass}>XML herunterladen</PendingButton>
                 <p className="text-xs text-gray-500">
                   Eingezogen wird der zum Termin offene Hausgeld-Betrag je Einheit mit aktivem Mandat.
                   Anschließend die Datei im Online-Banking hochladen.

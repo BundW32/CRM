@@ -80,8 +80,3 @@ export function resolveFlash(code: string | null | undefined): FlashMessage | nu
   if (!code) return null;
   return (flashMessages as Record<string, FlashMessage>)[code] ?? null;
 }
-
-/** Hängt einen Flash-Code an einen Rücksprungpfad (`/pfad?flash=code`). */
-export function withFlash(path: string, code: FlashCode): string {
-  return `${path}${path.includes("?") ? "&" : "?"}${FLASH_PARAM}=${code}`;
-}

@@ -133,12 +133,17 @@ export async function loadAddressBook(
     mandate,
     page,
     pageSize,
+    sort = "name",
+    dir = "asc",
   }: {
     q?: string;
     kind?: AddressBookKind;
     mandate?: MandateFilter;
     page: number;
     pageSize: number;
+    /** "name" (Standard) oder "art"; Richtung über `dir`. */
+    sort?: "name" | "art";
+    dir?: "asc" | "desc";
   },
 ): Promise<{ entries: AddressBookEntry[]; total: number }> {
   const wantsPersons = !kind || PERSON_ROLES.includes(kind);
@@ -283,10 +288,22 @@ export async function loadAddressBook(
     })),
   ];
 
-  // Inaktive nach hinten, sonst alphabetisch – wie man ein Adressbuch erwartet.
+  // Inaktive stehen immer hinten – das bleibt unabhängig von der Sortierung,
+  // sonst mischten sich stillgelegte Einträge unter die aktiven.
+  const byName = (a: AddressBookEntry, b: AddressBookEntry) =>
+    (a.company ?? a.name).localeCompare(b.company ?? b.name, "de");
+  // „Art" ist bei Personen die Rolle, bei Firmen die Kontaktart – für die
+  // Sortierung genügt ein gemeinsamer Schlüssel; gleiche Art bleibt alphabetisch.
+  const artOf = (e: AddressBookEntry) => e.role ?? e.kind ?? "";
+  const factor = dir === "desc" ? -1 : 1;
   entries.sort((a, b) => {
     if (a.active !== b.active) return a.active ? -1 : 1;
-    return (a.company ?? a.name).localeCompare(b.company ?? b.name, "de");
+    if (sort === "art") {
+      const cmp = artOf(a).localeCompare(artOf(b), "de");
+      if (cmp !== 0) return cmp * factor;
+      return byName(a, b);
+    }
+    return byName(a, b) * factor;
   });
 
   const start = (page - 1) * pageSize;

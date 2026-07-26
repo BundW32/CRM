@@ -3,11 +3,11 @@ import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert, Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
-import { FilterBar, type FilterConfig } from "@/components/filter-bar";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { reminderLevelLabel } from "@/lib/dunning";
 import { formatDateOnly } from "@/lib/labels";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list-query";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { assignPayment, createMahnung, deleteMahnung, markMahnungSent } from "./actions";
@@ -22,6 +22,19 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 25;
 const ASSIGNED_PAGE_SIZE = 20;
 const MAHNUNG_PAGE_SIZE = 50;
+
+// Sortierung der Rückstandsliste. Sie liegt vollständig im Speicher (alle
+// Einheiten eines Objekts) und blättert nicht – daher kein Prisma-orderBy,
+// sondern ein Vergleich. Die Whitelist bleibt trotzdem: nichts aus der URL
+// darf ungeprüft ein Feld benennen.
+const STAND_SORT_FIELDS = { einheit: "einheit", saldo: "saldo", soll: "soll", gezahlt: "gezahlt" } as const;
+
+const standSortOptions = [
+  { value: "einheit", label: "Einheit" },
+  { value: "saldo", label: "Saldo" },
+  { value: "soll", label: "Soll (fällig)" },
+  { value: "gezahlt", label: "Gezahlt" },
+];
 
 const STAND_FILTER: FilterConfig = {
   key: "stand",
@@ -186,27 +199,41 @@ export default async function HausgeldPage({
 
   // Rückstandsliste filtern (im Speicher – die Einheiten liegen ohnehin alle vor).
   const saldoFor = (unitId: string) => (paidByUnit.get(unitId) ?? 0) - (dueByUnit.get(unitId) ?? 0);
-  const sichtbareUnits =
+  const gefilterteUnits =
     sp.stand === "rueckstand"
       ? units.filter((u) => saldoFor(u.id) < 0)
       : sp.stand === "ausgeglichen"
         ? units.filter((u) => saldoFor(u.id) >= 0)
         : units;
 
+  // „Wer schuldet am meisten" ist die häufigste Frage an diese Liste – deshalb
+  // steht beim Saldo aufsteigend (= größter Rückstand zuerst) als Voreinstellung.
+  const standSort = resolveSort(sp.sort, sp.dir, STAND_SORT_FIELDS, "einheit", "asc");
+  const standValue = (unitId: string) =>
+    standSort.key === "saldo"
+      ? saldoFor(unitId)
+      : standSort.key === "soll"
+        ? dueByUnit.get(unitId) ?? 0
+        : paidByUnit.get(unitId) ?? 0;
+  const sichtbareUnits = [...gefilterteUnits].sort((a, b) => {
+    const cmp =
+      standSort.key === "einheit"
+        ? a.label.localeCompare(b.label, "de", { numeric: true })
+        : standValue(a.id) - standValue(b.id);
+    return standSort.dir === "asc" ? cmp : -cmp;
+  });
+
   const totalPages = Math.max(1, Math.ceil(unassignedTotal / PAGE_SIZE));
 
   // Paginierung muss alle aktiven Filter mittragen. `param` benennt die Liste,
   // die geblättert wird – die übrigen behalten dadurch ihre Position.
-  function hrefWith(param: string, p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== param) params.set(k, v);
-    }
-    if (p > 1) params.set(param, String(p));
-    const qs = params.toString();
-    return `/verwaltung/weg/${property.id}/hausgeld${qs ? `?${qs}` : ""}`;
-  }
-  const pageHref = (p: number) => hrefWith("page", p);
+  // Drei unabhängig blätterbare Listen auf einer Seite – daher drei Params.
+  // Jede Filterleiste muss den ihren kennen (`pageParam`), sonst bliebe beim
+  // Filtern die Seitenzahl der falschen Liste stehen.
+  const hausgeldPath = `/verwaltung/weg/${property.id}/hausgeld`;
+  const mahnungHref = pageHrefFor(hausgeldPath, sp, "mseite");
+  const assignedHref = pageHrefFor(hausgeldPath, sp, "aseite");
+  const pageHref = pageHrefFor(hausgeldPath, sp);
 
   return (
     <>
@@ -281,7 +308,10 @@ export default async function HausgeldPage({
             </EmptyState>
           ) : (
             <>
-            <FilterBar filters={[STAND_FILTER]} />
+            <div className="flex items-center justify-between gap-3">
+              <FilterBar filters={[STAND_FILTER]} pageParam={[]} className="flex-1" />
+              <SortControl sortOptions={standSortOptions} defaultSort="einheit" pageParam={[]} />
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-left text-sm">
                 <thead>
@@ -383,7 +413,7 @@ export default async function HausgeldPage({
               erst versendete Schreiben schalten die nächste Mahnstufe frei. Keine automatischen
               Mahngebühren.
             </p>
-            <FilterBar filters={[MAHN_FILTER]} />
+            <FilterBar filters={[MAHN_FILTER]} pageParam="mseite" />
             {mahnungen.length === 0 ? (
               <EmptyState>
                 {mahnstatus === "entwurf"
@@ -452,7 +482,7 @@ export default async function HausgeldPage({
               totalPages={Math.max(1, Math.ceil(mahnungTotal / MAHNUNG_PAGE_SIZE))}
               total={mahnungTotal}
               itemLabel="Schreiben"
-              hrefFor={(p) => hrefWith("mseite", p)}
+              hrefFor={mahnungHref}
             />
           </Card>
         ) : null}
@@ -559,7 +589,7 @@ export default async function HausgeldPage({
               totalPages={Math.max(1, Math.ceil(assignedTotal / ASSIGNED_PAGE_SIZE))}
               total={assignedTotal}
               itemLabel="Zahlungen"
-              hrefFor={(p) => hrefWith("aseite", p)}
+              hrefFor={assignedHref}
             />
           </Card>
         ) : null}

@@ -6,7 +6,7 @@ import { FilterBar } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels } from "@/lib/labels";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -82,16 +82,7 @@ export default async function BeschlussSammlungPage({
       ])
     : [[], 0];
 
-  // Paginierung muss Objektauswahl und Suche mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/beschluesse/sammlung${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/beschluesse/sammlung`, sp);
 
   return (
     <>

@@ -11,7 +11,7 @@ import {
   resolutionStatusLabels,
   votingPrincipleLabels,
 } from "@/lib/labels";
-import { parsePage } from "@/lib/list-query";
+import { pageHrefFor, parsePage } from "@/lib/list-query";
 import { getOrganization, requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -103,15 +103,9 @@ export default async function GemeinschaftPage({
     : [[], 0, [], 0];
 
   // Blättern in einer Liste erhält Objektauswahl und die andere Liste.
-  function hrefWith(param: string, p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== param) params.set(k, v);
-    }
-    if (p > 1) params.set(param, String(p));
-    const qs = params.toString();
-    return `/gemeinschaft${qs ? `?${qs}` : ""}`;
-  }
+  // Zwei unabhängig blätterbare Listen auf einer Seite – daher zwei Params.
+  const beschluesseHref = pageHrefFor("/gemeinschaft", sp, "bseite");
+  const dokumenteHref = pageHrefFor("/gemeinschaft", sp, "dseite");
 
   return (
     <>
@@ -267,7 +261,7 @@ export default async function GemeinschaftPage({
                   totalPages={Math.max(1, Math.ceil(resolutionTotal / LIST_PAGE_SIZE))}
                   total={resolutionTotal}
                   itemLabel="Beschlüsse"
-                  hrefFor={(p) => hrefWith("bseite", p)}
+                  hrefFor={beschluesseHref}
                 />
               </Card>
 
@@ -305,7 +299,7 @@ export default async function GemeinschaftPage({
                   totalPages={Math.max(1, Math.ceil(documentTotal / LIST_PAGE_SIZE))}
                   total={documentTotal}
                   itemLabel="Dokumente"
-                  hrefFor={(p) => hrefWith("dseite", p)}
+                  hrefFor={dokumenteHref}
                 />
 
                 <p className="mt-3 text-xs text-gray-400">

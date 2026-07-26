@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert, Card, PageTitle, Pagination } from "@/components/ui";
-import { FilterBar, type FilterConfig } from "@/components/filter-bar";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
+import { parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { isSelfManaged, propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, roleLabels, tradeLabels } from "@/lib/labels";
@@ -12,6 +13,15 @@ import { PersonEinstellungen } from "./person-einstellungen";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 20;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { rolle: "role", name: "name", angelegt: "createdAt" } as const;
+
+const sortOptions = [
+  { value: "rolle", label: "Rolle" },
+  { value: "name", label: "Name" },
+  { value: "angelegt", label: "Angelegt" },
+];
 
 const errorMessages: Record<string, string> = {
   eingabe: "Bitte alle Pflichtfelder ausfüllen.",
@@ -33,13 +43,17 @@ export default async function UsersPage({
     q?: string;
     rolle?: string;
     objekt?: string;
+    sort?: string;
+    dir?: string;
     page?: string;
   }>;
 }) {
   const verwalter = await requireVerwalter();
   const selfManaged = isSelfManaged(await getOrganization());
-  const { fehler, msg, eingeladen, q, rolle, objekt, page } =
-    await searchParams;
+  const {
+    fehler, msg, eingeladen, q, rolle, objekt, page,
+    sort: sortRaw, dir: dirRaw,
+  } = await searchParams;
 
   // Filter (Rolle, Objekt/Region, Suche) zusätzlich zum Scope des Verwalters.
   const roleValues = ["VERWALTER", "EIGENTUEMER", "MIETER", "HANDWERKER"] as const;
@@ -67,13 +81,20 @@ export default async function UsersPage({
   const hasFilter = Boolean(roleFilter || objekt || term);
   const where = { AND: filterAnd };
 
-  const currentPage = Math.max(1, Number.parseInt(page ?? "1", 10) || 1);
+  const currentPage = parsePage(page);
+  const sort = resolveSort(sortRaw, dirRaw, SORT_FIELDS, "rolle", "asc");
+  // Nach Rolle gruppiert bleibt die Zweitsortierung der Name – sonst stünden
+  // die Mieter eines Objekts in zufälliger Reihenfolge untereinander.
+  const userOrderBy =
+    sort.key === "rolle"
+      ? [{ role: sort.dir }, { name: "asc" as const }]
+      : toOrderBy(sort.field, sort.dir);
 
   const [total, users, properties, craftsmen] = await Promise.all([
     db.user.count({ where }),
     db.user.findMany({
       where,
-      orderBy: [{ role: "asc" }, { name: "asc" }],
+      orderBy: userOrderBy,
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: {
@@ -113,6 +134,8 @@ export default async function UsersPage({
     if (term) sp.set("q", term);
     if (roleFilter) sp.set("rolle", roleFilter);
     if (objekt) sp.set("objekt", objekt);
+    if (sortRaw) sp.set("sort", sortRaw);
+    if (dirRaw) sp.set("dir", dirRaw);
     if (p > 1) sp.set("page", String(p));
     const qs = sp.toString();
     return qs ? `/verwaltung/nutzer?${qs}` : "/verwaltung/nutzer";
@@ -194,6 +217,7 @@ export default async function UsersPage({
               {total} {total === 1 ? "Nutzer" : "Nutzer"}
               {hasFilter ? " (gefiltert)" : ""}
             </p>
+            <SortControl sortOptions={sortOptions} defaultSort="rolle" total={total} />
           </div>
 
           <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">

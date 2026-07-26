@@ -6,7 +6,7 @@ import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
 import { optionsFrom } from "@/lib/list-filters";
-import { parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
+import { parsePage, resolveSort, toOrderBy, pageHrefFor } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 import { PropertyRow } from "./property-row";
 
@@ -96,16 +96,7 @@ export default async function PropertiesPage({
       })
     : [];
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/verwaltung/objekte${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/verwaltung/objekte`, sp);
 
   const propertyFilters: FilterConfig[] = [
     {
@@ -174,7 +165,7 @@ export default async function PropertiesPage({
               {total} Objekt{total !== 1 ? "e" : ""}
               {hasFilter ? " (gefiltert)" : ""}
             </p>
-            {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="name" /> : null}
+            <SortControl sortOptions={sortOptions} defaultSort="name" total={total} />
           </div>
 
           {properties.length === 0 ? (

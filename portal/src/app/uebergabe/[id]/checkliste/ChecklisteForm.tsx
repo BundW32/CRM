@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PendingButton } from "@/components/pending-button";
 import { buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { saveCheckliste } from "./actions";
 
@@ -154,12 +155,8 @@ export function ChecklisteForm({
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <button type="submit" name="_action" value="save" className={buttonSecondaryClass}>
-            Speichern &amp; schließen
-          </button>
-          <button type="submit" name="_action" value="next" className={buttonClass}>
-            Weiter: Zählerstände →
-          </button>
+          <PendingButton name="_action" value="save" className={buttonSecondaryClass}>Speichern &amp; schließen</PendingButton>
+          <PendingButton name="_action" value="next" className={buttonClass}>Weiter: Zählerstände →</PendingButton>
         </div>
       </form>
     </div>

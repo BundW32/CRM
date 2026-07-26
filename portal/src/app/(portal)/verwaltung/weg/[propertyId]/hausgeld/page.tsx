@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert, Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { FilterBar, type FilterConfig } from "@/components/filter-bar";
@@ -421,16 +423,18 @@ export default async function HausgeldPage({
                         <form action={markMahnungSent}>
                           <input type="hidden" name="propertyId" value={property.id} />
                           <input type="hidden" name="mahnungId" value={m.id} />
-                          <button type="submit" className={buttonSecondaryClass}>
-                            Als versendet markieren
-                          </button>
+                          <PendingButton className={buttonSecondaryClass}>Als versendet markieren</PendingButton>
                         </form>
                         <form action={deleteMahnung}>
                           <input type="hidden" name="propertyId" value={property.id} />
                           <input type="hidden" name="mahnungId" value={m.id} />
-                          <button type="submit" className="text-xs text-red-600 underline">
+                          <ConfirmActionButton
+                            className="text-xs text-red-600 underline"
+                            confirmLabel="Wirklich löschen?"
+                            pendingLabel="Wird gelöscht…"
+                          >
                             Entwurf löschen
-                          </button>
+                          </ConfirmActionButton>
                         </form>
                       </>
                     ) : (

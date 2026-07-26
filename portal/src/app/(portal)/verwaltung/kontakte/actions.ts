@@ -95,7 +95,7 @@ export async function toggleCraftsmanActive(formData: FormData) {
     await db.craftsman.update({ where: { id }, data: { active: !c.active } });
   }
   revalidatePath("/verwaltung/kontakte");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=gespeichert"));
 }
 
 export async function toggleCraftsmanInternal(formData: FormData) {
@@ -107,7 +107,7 @@ export async function toggleCraftsmanInternal(formData: FormData) {
     await db.craftsman.update({ where: { id }, data: { isInternal: !c.isInternal } });
   }
   revalidatePath("/verwaltung/kontakte");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=gespeichert"));
 }
 
 export async function deleteCraftsman(formData: FormData) {
@@ -122,7 +122,7 @@ export async function deleteCraftsman(formData: FormData) {
     await db.craftsman.delete({ where: { id } }).catch(() => {});
   }
   revalidatePath("/verwaltung/kontakte");
-  redirect(zurueckZu(formData));
+  redirect(zurueckZu(formData, "?flash=geloescht"));
 }
 
 const personSchema = z.object({

@@ -115,7 +115,7 @@ export async function addAgendaItem(formData: FormData) {
     });
   });
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=erstellt`);
 }
 
 export async function deleteAgendaItem(formData: FormData) {
@@ -150,7 +150,7 @@ export async function deleteAgendaItem(formData: FormData) {
     });
   }
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=geloescht`);
 }
 
 export async function updateAgendaItem(formData: FormData) {
@@ -184,7 +184,7 @@ export async function updateAgendaItem(formData: FormData) {
     });
   }
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=aktualisiert`);
 }
 
 // TOP nach oben/unten verschieben (sortOrder mit Nachbarn tauschen).
@@ -218,7 +218,7 @@ export async function moveAgendaItem(formData: FormData) {
     ),
   );
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=aktualisiert`);
 }
 
 // Versammlung absagen (Status ABGESAGT).
@@ -270,7 +270,7 @@ export async function cancelMeeting(formData: FormData) {
     );
   }
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=gespeichert`);
 }
 
 // Eckdaten ändern (Titel/Termin/Ort). Eine abgesagte Versammlung wird dabei
@@ -315,7 +315,11 @@ export async function updateMeeting(formData: FormData) {
   const rescheduled =
     meeting.status === "EINBERUFEN" && scheduledAt.getTime() !== meeting.scheduledAt.getTime();
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}${rescheduled ? "?hinweis=neuterminieren" : ""}`);
+  // Der Hinweis auf die Neuterminierung ist bedingt – der Flash-Parameter darf
+  // ihm nicht mit „&" folgen, wenn gar kein Querystring entstanden ist.
+  redirect(
+    `/versammlungen/${meetingId}?flash=aktualisiert${rescheduled ? "&hinweis=neuterminieren" : ""}`,
+  );
 }
 
 // Anwesenheits-/Vertretungsvermerk speichern (fürs Protokoll).
@@ -327,7 +331,7 @@ export async function updateAttendance(formData: FormData) {
   const note = String(formData.get("attendanceNote") ?? "").trim().slice(0, 1000) || null;
   await db.ownersMeeting.update({ where: { id: meetingId }, data: { attendanceNote: note } });
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=aktualisiert`);
 }
 
 export async function sendInvitation(formData: FormData) {
@@ -488,7 +492,7 @@ export async function addAgendaFromTemplate(formData: FormData) {
     });
   });
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=erstellt`);
 }
 
 export async function generateProtocol(formData: FormData) {
@@ -655,5 +659,5 @@ export async function deleteMeeting(formData: FormData) {
   if (protocolBlob) await deleteBlob(protocolBlob).catch(() => {});
 
   revalidatePath("/versammlungen");
-  redirect("/versammlungen");
+  redirect("/versammlungen?flash=geloescht");
 }

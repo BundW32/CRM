@@ -1,0 +1,46 @@
+# Typprüfung, Linter und Tests bei jedem Pull Request.
+#
+# Vercel baut zwar jeden Branch, führt aber weder Linter noch Tests aus – ein
+# grüner Deploy sagte deshalb nichts darüber, ob die Tests halten. Genau daran
+# hing die Konventions-Absicherung für Buttons und Rückmeldungen: Die Tests
+# existierten, liefen aber nur, wenn jemand sie von Hand startete.
+#
+# Bewusst ohne `next build`: Der Build-Befehl dieses Projekts führt
+# `prisma migrate deploy` aus und bräuchte eine Datenbank. Das Bauen übernimmt
+# Vercel, hier geht es um das, was Vercel nicht prüft.
+name: Prüfung
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  pruefung:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: portal
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+
+      # `npm ci` löst über postinstall `prisma generate` aus – das erzeugt den
+      # Client aus dem Schema und braucht keine Datenbankverbindung.
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Typprüfung
+        run: npx tsc --noEmit
+
+      - name: Linter
+        run: npm run lint
+
+      - name: Tests
+        run: npm test

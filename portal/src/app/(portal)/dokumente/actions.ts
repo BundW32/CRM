@@ -164,7 +164,7 @@ export async function acknowledgeDocument(formData: FormData) {
       .catch(() => {});
   }
   revalidatePath("/dokumente");
-  redirect("/dokumente");
+  redirect("/dokumente?flash=gespeichert");
 }
 
 export async function uploadDocument(formData: FormData) {
@@ -237,7 +237,7 @@ export async function uploadDocument(formData: FormData) {
   await notifyDocumentPublished(doc.id);
 
   revalidatePath("/dokumente");
-  redirect("/dokumente");
+  redirect("/dokumente?flash=hochgeladen");
 }
 
 // Mieter/Eigentümer fordern ein Dokument an → wird als Vorgang erfasst
@@ -274,5 +274,5 @@ export async function requestDocument(formData: FormData) {
   });
 
   revalidatePath("/vorgaenge");
-  redirect(`/vorgaenge/${ticket.id}`);
+  redirect(`/vorgaenge/${ticket.id}?flash=gespeichert`);
 }

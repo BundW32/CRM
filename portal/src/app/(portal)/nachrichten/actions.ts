@@ -236,7 +236,7 @@ export async function startConversation(formData: FormData) {
   await notifyParticipants(conversation.id, user.id, subject, body);
 
   revalidatePath("/nachrichten");
-  redirect(`/nachrichten/${conversation.id}`);
+  redirect(`/nachrichten/${conversation.id}?flash=gespeichert`);
 }
 
 // Antwort in einer bestehenden Konversation senden
@@ -266,5 +266,5 @@ export async function sendMessage(formData: FormData) {
 
   revalidatePath(`/nachrichten/${conversationId}`);
   revalidatePath("/nachrichten");
-  redirect(`/nachrichten/${conversationId}`);
+  redirect(`/nachrichten/${conversationId}?flash=gesendet`);
 }

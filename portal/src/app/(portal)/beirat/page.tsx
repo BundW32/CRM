@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { boardPropertiesFor, propertyWhereForVerwalter } from "@/lib/access";
@@ -93,9 +94,13 @@ export default async function BeiratPage() {
                       </div>
                       <form action={deleteBeiratTask}>
                         <input type="hidden" name="id" value={t.id} />
-                        <button type="submit" className="shrink-0 text-xs text-red-600 hover:underline">
+                        <ConfirmActionButton
+                          className="shrink-0 text-xs text-red-600 hover:underline"
+                          confirmLabel="Wirklich löschen?"
+                          pendingLabel="Wird gelöscht…"
+                        >
                           Löschen
-                        </button>
+                        </ConfirmActionButton>
                       </form>
                     </li>
                   ))}

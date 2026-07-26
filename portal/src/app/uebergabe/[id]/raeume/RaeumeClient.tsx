@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { PendingButton } from "@/components/pending-button";
 import { useRouter } from "next/navigation";
 import { inputClass, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
@@ -411,9 +412,7 @@ export function RaeumeClient({ handoverId, initialRooms }: { handoverId: string;
               ))}
             </select>
           </div>
-          <button type="submit" className={`${buttonClass} sm:h-[38px]`}>
-            Hinzufügen
-          </button>
+          <PendingButton className={`${buttonClass} sm:h-[38px]`}>Hinzufügen</PendingButton>
         </form>
       </div>
     </div>

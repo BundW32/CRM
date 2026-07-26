@@ -92,18 +92,14 @@ export function PersonEinstellungen({
           <form action={resendInvite}>
             <input type="hidden" name="zurueck" value={zurueck} />
             <input type="hidden" name="id" value={u.id} />
-            <button type="submit" className="text-xs text-amber-700 hover:underline">
-              Erneut einladen
-            </button>
+            <PendingButton className="text-xs text-amber-700 hover:underline">Erneut einladen</PendingButton>
           </form>
         ) : null}
         {u.active ? (
           <form action={regenerateAccessLetter}>
             <input type="hidden" name="zurueck" value={zurueck} />
             <input type="hidden" name="id" value={u.id} />
-            <button type="submit" className="text-xs text-brand-green hover:underline">
-              Zugangsschreiben
-            </button>
+            <PendingButton className="text-xs text-brand-green hover:underline">Zugangsschreiben</PendingButton>
           </form>
         ) : null}
         {u.id !== verwalter.id ? (
@@ -150,9 +146,13 @@ export function PersonEinstellungen({
                   <form action={removeTenancy}>
                     <input type="hidden" name="zurueck" value={zurueck} />
                     <input type="hidden" name="id" value={t.id} />
-                    <button type="submit" className="text-xs text-red-600 hover:underline">
+                    <ConfirmActionButton
+                      className="text-xs text-red-600 hover:underline"
+                      confirmLabel="Wirklich entfernen?"
+                      pendingLabel="Wird entfernt…"
+                    >
                       Entfernen
-                    </button>
+                    </ConfirmActionButton>
                   </form>
                 </li>
               ))}
@@ -181,9 +181,13 @@ export function PersonEinstellungen({
                   <form action={removeOwnership}>
                     <input type="hidden" name="zurueck" value={zurueck} />
                     <input type="hidden" name="id" value={o.id} />
-                    <button type="submit" className="text-xs text-red-600 hover:underline">
+                    <ConfirmActionButton
+                      className="text-xs text-red-600 hover:underline"
+                      confirmLabel="Wirklich entfernen?"
+                      pendingLabel="Wird entfernt…"
+                    >
                       Entfernen
-                    </button>
+                    </ConfirmActionButton>
                   </form>
                 </li>
               ))}
@@ -251,9 +255,13 @@ export function PersonEinstellungen({
                     <form action={removePropertyAssignment}>
                       <input type="hidden" name="zurueck" value={zurueck} />
                       <input type="hidden" name="id" value={a.id} />
-                      <button type="submit" className="text-xs text-red-600 hover:underline">
+                      <ConfirmActionButton
+                        className="text-xs text-red-600 hover:underline"
+                        confirmLabel="Wirklich entfernen?"
+                        pendingLabel="Wird entfernt…"
+                      >
                         Entfernen
-                      </button>
+                      </ConfirmActionButton>
                     </form>
                   </li>
                 ))}
@@ -290,9 +298,13 @@ export function PersonEinstellungen({
                       <form action={removeCraftsmanAssignment}>
                         <input type="hidden" name="zurueck" value={zurueck} />
                         <input type="hidden" name="id" value={a.id} />
-                        <button type="submit" className="text-xs text-red-600 hover:underline">
+                        <ConfirmActionButton
+                          className="text-xs text-red-600 hover:underline"
+                          confirmLabel="Wirklich entfernen?"
+                          pendingLabel="Wird entfernt…"
+                        >
                           Entfernen
-                        </button>
+                        </ConfirmActionButton>
                       </form>
                     </li>
                   ))}

@@ -1,4 +1,6 @@
 import { Alert, EmptyState, PageTitle } from "@/components/ui";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
 import { propertyIdsForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { requireVerwalter } from "@/lib/session";
@@ -140,12 +142,13 @@ export default async function DokumentQuellenPage({
                     </form>
                     <form action={deleteDocumentSourceConfig}>
                       <input type="hidden" name="id" value={cfg.id} />
-                      <button
-                        type="submit"
+                      <ConfirmActionButton
                         className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                        confirmLabel="Wirklich löschen?"
+                        pendingLabel="Wird gelöscht…"
                       >
                         Löschen
-                      </button>
+                      </ConfirmActionButton>
                     </form>
                   </div>
                 </div>
@@ -238,12 +241,7 @@ export default async function DokumentQuellenPage({
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="rounded-xl bg-brand-orange px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-          >
-            Quelle anlegen
-          </button>
+          <PendingButton className="rounded-xl bg-brand-orange px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90">Quelle anlegen</PendingButton>
         </form>
       </div>
     </>

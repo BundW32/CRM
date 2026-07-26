@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PendingButton } from "@/components/pending-button";
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert,
   Card,
@@ -173,9 +174,7 @@ export default async function AntraegePage({
                       {m.type !== "VERSAMMLUNG" ? (
                         <form action={adoptMotionAsResolution}>
                           <input type="hidden" name="motionId" value={m.id} />
-                          <button type="submit" className={buttonSecondaryClass}>
-                            Als Umlaufbeschluss
-                          </button>
+                          <PendingButton className={buttonSecondaryClass}>Als Umlaufbeschluss</PendingButton>
                         </form>
                       ) : null}
 
@@ -193,9 +192,7 @@ export default async function AntraegePage({
                               ))}
                             </select>
                           </label>
-                          <button type="submit" className={buttonSecondaryClass}>
-                            Zu Versammlung
-                          </button>
+                          <PendingButton className={buttonSecondaryClass}>Zu Versammlung</PendingButton>
                         </form>
                       ) : (
                         <span className="text-xs text-gray-400">
@@ -216,9 +213,7 @@ export default async function AntraegePage({
                             className={`${inputClass} mt-1 w-56`}
                           />
                         </label>
-                        <button type="submit" className="text-sm text-red-600 hover:underline">
-                          Ablehnen
-                        </button>
+                        <PendingButton className="text-sm text-red-600 hover:underline">Ablehnen</PendingButton>
                       </form>
                     </div>
                   </li>
@@ -276,9 +271,7 @@ export default async function AntraegePage({
                 Viertel der Eigentümer sie verlangt (§ 24 Abs. 2 WEG). Die Verwaltung prüft Ihren
                 Antrag und übernimmt ihn als Umlaufbeschluss oder Tagesordnungspunkt.
               </p>
-              <button type="submit" className={buttonClass}>
-                Antrag einreichen
-              </button>
+              <PendingButton className={buttonClass}>Antrag einreichen</PendingButton>
             </form>
           </Card>
         </div>

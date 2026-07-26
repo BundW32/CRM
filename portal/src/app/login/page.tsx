@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PendingButton } from "@/components/pending-button";
 import { Alert, buttonClass, inputClass, Field } from "@/components/ui";
 import { BrandTheme } from "@/components/brand-theme";
 import { BwLogo, OrgLogo } from "@/components/logo";
@@ -75,9 +76,7 @@ export default async function LoginPage({
                 className={inputClass}
               />
             </Field>
-            <button type="submit" className={`${buttonClass} w-full py-2.5`}>
-              Anmelden
-            </button>
+            <PendingButton className={`${buttonClass} w-full py-2.5`}>Anmelden</PendingButton>
           </form>
 
           <div className="mt-4 text-center">

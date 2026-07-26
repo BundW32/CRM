@@ -13,7 +13,8 @@ export type NavIcon =
   | "dashboard"
   | "vorgaenge"
   | "nachrichten"
-  | "infos"
+  | "aushaenge"
+  | "dokumente"
   | "objekte"
   | "nutzer"
   | "eigentuemer"
@@ -129,7 +130,8 @@ function verwalterGroups(ctx: NavContext): NavGroup[] {
         { href: "/dashboard", title: "Übersicht", icon: "dashboard" },
         { href: "/vorgaenge", title: "Vorgänge", icon: "vorgaenge" },
         { href: "/nachrichten", title: "Nachrichten", icon: "nachrichten" },
-        { href: "/infos", title: "Infos", icon: "infos" },
+        { href: "/aushaenge", title: "Aushänge", icon: "aushaenge" },
+        { href: "/dokumente", title: "Dokumente", icon: "dokumente" },
       ],
     },
     {
@@ -174,7 +176,8 @@ function selfManagedVerwalterGroups(): NavGroup[] {
       items: [
         { href: "/dashboard", title: "Übersicht", icon: "dashboard" },
         { href: "/nachrichten", title: "Nachrichten", icon: "nachrichten" },
-        { href: "/infos", title: "Infos", icon: "infos" },
+        { href: "/aushaenge", title: "Aushänge", icon: "aushaenge" },
+        { href: "/dokumente", title: "Dokumente", icon: "dokumente" },
       ],
     },
     {
@@ -222,7 +225,8 @@ function eigentuemerItems(ctx: NavContext): NavItem[] {
     { href: "/zaehler", title: "Zähler", icon: "zaehler" },
     { href: "/verbrauch", title: "Verbrauch", icon: "verbrauch" },
     { href: "/nachrichten", title: "Nachrichten", icon: "nachrichten" },
-    { href: "/infos", title: "Infos", icon: "infos" },
+    { href: "/aushaenge", title: "Aushänge", icon: "aushaenge" },
+    { href: "/dokumente", title: "Dokumente", icon: "dokumente" },
     ...(ctx.boardMember ? [{ href: "/beirat", title: "Beirat", icon: "beirat" as const }] : []),
   ];
 }
@@ -232,7 +236,8 @@ function mieterItems(): NavItem[] {
     { href: "/dashboard", title: "Übersicht", icon: "dashboard" },
     { href: "/vorgaenge", title: "Meine Vorgänge", icon: "vorgaenge" },
     { href: "/nachrichten", title: "Nachrichten", icon: "nachrichten" },
-    { href: "/infos", title: "Infos", icon: "infos" },
+    { href: "/aushaenge", title: "Aushänge", icon: "aushaenge" },
+    { href: "/dokumente", title: "Dokumente", icon: "dokumente" },
     { href: "/zaehler", title: "Zähler", icon: "zaehler" },
     { href: "/verbrauch", title: "Verbrauch", icon: "verbrauch" },
   ];

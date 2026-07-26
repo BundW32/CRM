@@ -717,7 +717,7 @@ export default async function TicketDetailPage({
               ) : null}
               <p className="mb-3 text-xs text-gray-500">
                 … oder ein vorhandenes Dokument hochladen — es wird automatisch für{" "}
-                {ticket.createdBy.name} unter „Infos → Dokumente“ sichtbar und der Vorgang
+                {ticket.createdBy.name} unter „Dokumente“ sichtbar und der Vorgang
                 als erledigt markiert.
               </p>
               <form action={uploadRequestedDocument} className="space-y-3">

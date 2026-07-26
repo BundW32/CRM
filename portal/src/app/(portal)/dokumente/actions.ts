@@ -29,7 +29,7 @@ const ownerUploadSchema = z.object({
 // andere Eigentümer es NICHT sehen.
 export async function uploadOwnerDocument(formData: FormData) {
   const user = await requireUser();
-  if (user.role !== "EIGENTUEMER") redirect("/infos?t=dokumente");
+  if (user.role !== "EIGENTUEMER") redirect("/dokumente");
 
   const parsed = ownerUploadSchema.safeParse({
     title: formData.get("title"),
@@ -38,19 +38,19 @@ export async function uploadOwnerDocument(formData: FormData) {
   });
   const file = formData.get("file");
   if (!parsed.success || !(file instanceof File) || file.size === 0) {
-    redirect("/infos?t=dokumente&fehler=eingabe");
+    redirect("/dokumente?fehler=eingabe");
   }
   const propertyId = parsed.data.propertyId;
   // Nur an eigene Objekte anhängen (Eigentümer-Prüfung, org-gesichert).
   if (!(await canViewProperty(user, propertyId))) {
-    redirect("/infos?t=dokumente&fehler=eingabe");
+    redirect("/dokumente?fehler=eingabe");
   }
 
   let upload;
   try {
     upload = await saveUpload(file, DOCUMENT_TYPES);
   } catch {
-    redirect("/infos?t=dokumente&fehler=datei");
+    redirect("/dokumente?fehler=datei");
   }
 
   const doc = await db.document.create({
@@ -81,8 +81,8 @@ export async function uploadOwnerDocument(formData: FormData) {
   });
 
   await notifyDocumentPublished(doc.id);
-  revalidatePath("/infos");
-  redirect("/infos?t=dokumente&hochgeladen=1");
+  revalidatePath("/dokumente");
+  redirect("/dokumente?hochgeladen=1");
 }
 
 // Typeahead-Suche nach möglichen Empfängern (Eigentümer/Mieter im Scope). Statt
@@ -138,20 +138,20 @@ export async function searchDocumentRecipients(query: string): Promise<Recipient
 export async function deleteDocument(formData: FormData) {
   const user = await requireVerwalter();
   const id = String(formData.get("id") ?? "").trim();
-  if (!id) redirect("/infos?t=dokumente");
+  if (!id) redirect("/dokumente");
   const doc = await db.document.findUnique({
     where: { id },
     select: { organizationId: true, propertyId: true, storedName: true },
   });
-  if (!doc || doc.organizationId !== user.organizationId) redirect("/infos?t=dokumente");
+  if (!doc || doc.organizationId !== user.organizationId) redirect("/dokumente");
   // Objektlose Dokumente (propertyId null) darf nur der SuperAdmin löschen –
   // canVerwalterAccessProperty(user, null) bildet das ab.
-  if (!(await canVerwalterAccessProperty(user, doc.propertyId))) redirect("/infos?t=dokumente");
+  if (!(await canVerwalterAccessProperty(user, doc.propertyId))) redirect("/dokumente");
 
   await db.document.delete({ where: { id } });
   await deleteBlob(doc.storedName);
-  revalidatePath("/infos");
-  redirect("/infos?t=dokumente&geloescht=1");
+  revalidatePath("/dokumente");
+  redirect("/dokumente?geloescht=1");
 }
 
 // Mieter/Eigentümer bestätigen, ein Dokument zur Kenntnis genommen zu haben
@@ -163,8 +163,8 @@ export async function acknowledgeDocument(formData: FormData) {
       .create({ data: { userId: user.id, documentId } })
       .catch(() => {});
   }
-  revalidatePath("/infos");
-  redirect("/infos?t=dokumente");
+  revalidatePath("/dokumente");
+  redirect("/dokumente");
 }
 
 export async function uploadDocument(formData: FormData) {
@@ -179,7 +179,7 @@ export async function uploadDocument(formData: FormData) {
   });
   const file = formData.get("file");
   if (!parsed.success || !(file instanceof File) || file.size === 0) {
-    redirect("/infos?t=dokumente&fehler=eingabe");
+    redirect("/dokumente?fehler=eingabe");
   }
 
   // Einheit muss zum Objekt gehören
@@ -187,21 +187,21 @@ export async function uploadDocument(formData: FormData) {
   const unitId = parsed.data.unitId || null;
   if (unitId) {
     const unit = await db.unit.findUnique({ where: { id: unitId } });
-    if (!unit) redirect("/infos?t=dokumente&fehler=eingabe");
+    if (!unit) redirect("/dokumente?fehler=eingabe");
     propertyId = unit.propertyId;
   }
 
   // Scope-Prüfung: eingeschränkte Verwalter dürfen Dokumente nur an eigene
   // Objekte hängen (verhindert Veröffentlichung an fremde Mieter/Eigentümer).
   if (!(await canVerwalterAccessProperty(user, propertyId))) {
-    redirect("/infos?t=dokumente&fehler=eingabe");
+    redirect("/dokumente?fehler=eingabe");
   }
 
   let upload;
   try {
     upload = await saveUpload(file, DOCUMENT_TYPES);
   } catch {
-    redirect("/infos?t=dokumente&fehler=datei");
+    redirect("/dokumente?fehler=datei");
   }
 
   const doc = await db.document.create({
@@ -236,8 +236,8 @@ export async function uploadDocument(formData: FormData) {
   // Mieter/Eigentümer im Scope (bzw. gezielte Empfänger) über das neue Dokument informieren
   await notifyDocumentPublished(doc.id);
 
-  revalidatePath("/infos");
-  redirect("/infos?t=dokumente");
+  revalidatePath("/dokumente");
+  redirect("/dokumente");
 }
 
 // Mieter/Eigentümer fordern ein Dokument an → wird als Vorgang erfasst
@@ -247,7 +247,7 @@ export async function requestDocument(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim().slice(0, 2000);
   // Es muss mindestens eine Dokumentart gewählt oder ein Text angegeben sein
   if (!art && description.length < 3) {
-    redirect("/infos?t=dokumente&fehler=anfrage");
+    redirect("/dokumente?fehler=anfrage");
   }
 
   // Bezugsobjekt ermitteln: erste Wohnung bzw. erstes Objekt des Nutzers
@@ -258,7 +258,7 @@ export async function requestDocument(formData: FormData) {
   const ownership = await db.ownership.findFirst({ where: { userId: user.id } });
   const propertyId = tenancy?.unit.propertyId ?? ownership?.propertyId;
   if (!propertyId) {
-    redirect("/infos?t=dokumente&fehler=anfrage");
+    redirect("/dokumente?fehler=anfrage");
   }
 
   const ticket = await db.ticket.create({

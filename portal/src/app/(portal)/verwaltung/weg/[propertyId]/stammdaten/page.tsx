@@ -21,6 +21,7 @@ import {
   saveCostType,
   saveFinanceSettings,
   saveUnitFinanceData,
+  updateOwnershipStart,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -102,7 +103,11 @@ export default async function WegStammdatenPage({
         <Alert variant="error" className="mb-4">
           {sp.fehler === "betrag"
             ? "Der Betrag konnte nicht gelesen werden (Format: 1.234,56)."
-            : "Die Eingabe konnte nicht gespeichert werden."}
+            : sp.fehler === "zeitraum"
+              ? "Der Beginn darf nicht nach dem Ende der Eigentümerschaft liegen."
+              : sp.fehler === "datum"
+                ? "Das Datum konnte nicht gelesen werden."
+                : "Die Eingabe konnte nicht gespeichert werden."}
         </Alert>
       ) : null}
 
@@ -285,12 +290,36 @@ export default async function WegStammdatenPage({
                             key={o.id}
                             className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-700"
                           >
-                            <span>
-                              {o.user.name}
-                              {o.sharePercent !== 100 ? ` (${o.sharePercent} %)` : ""} · seit{" "}
-                              {formatDateOnly(o.validFrom)}
-                              {o.validTo ? ` bis ${formatDateOnly(o.validTo)}` : " (laufend)"}
-                            </span>
+                            {/* „seit" ist änderbar: Beim Anlegen des Objekts stand
+                                hier zwangsläufig das Anlagedatum, und der Stichtag
+                                entscheidet, wer bei einem Verkauf welchen Teil der
+                                Jahresabrechnung trägt. */}
+                            <form
+                              action={updateOwnershipStart}
+                              className="flex flex-wrap items-center gap-1.5"
+                            >
+                              <input type="hidden" name="propertyId" value={property.id} />
+                              <input type="hidden" name="ownershipId" value={o.id} />
+                              <span className="font-medium text-gray-900">
+                                {o.user.name}
+                                {o.sharePercent !== 100 ? ` (${o.sharePercent} %)` : ""}
+                              </span>
+                              <span className="text-xs text-gray-500">seit</span>
+                              <input
+                                type="date"
+                                name="validFrom"
+                                required
+                                defaultValue={o.validFrom.toISOString().slice(0, 10)}
+                                className={`${inputClass} w-auto py-1 text-xs`}
+                                aria-label={`Beginn der Eigentümerschaft von ${o.user.name}`}
+                              />
+                              <PendingButton className="text-xs text-brand-green underline">
+                                übernehmen
+                              </PendingButton>
+                              <span className="text-xs text-gray-400">
+                                {o.validTo ? `bis ${formatDateOnly(o.validTo)}` : "(laufend)"}
+                              </span>
+                            </form>
                             {!o.validTo ? (
                               <form action={endUnitOwnership} className="flex items-center gap-1.5">
                                 <input type="hidden" name="propertyId" value={property.id} />

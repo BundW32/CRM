@@ -215,6 +215,10 @@ export async function createObjekt(formData: FormData) {
     const ownerEmails = formData.getAll("wegOwnerEmail").map((v) => String(v).trim().toLowerCase());
     const ownerPhones = formData.getAll("wegOwnerPhone").map((v) => String(v).trim());
     const ownerUnits = formData.getAll("wegOwnerUnit").map((v) => String(v).trim());
+    // „Eigentümer seit": Zuvor stand hier stumpf das Anlagedatum. Der Stichtag
+    // entscheidet aber, wer bei einem Verkauf welchen Teil der Jahresabrechnung
+    // trägt — ein falsches Datum verfälscht sie. Leer bleibt heute.
+    const ownerSince = formData.getAll("wegOwnerSince").map((v) => String(v).trim());
     // Im Vorschlag gewählte bestehende Person – indexgleich zu den Namensfeldern.
     const ownerUserIds = formData.getAll("wegOwnerUserId").map((v) => String(v).trim());
     const ownerCount = Math.min(ownerFirst.length, MAX_TENANTS);
@@ -242,7 +246,11 @@ export async function createObjekt(formData: FormData) {
               organizationId: actor.organizationId,
               unitId,
               userId: result.id,
-              validFrom: new Date(),
+              validFrom: (() => {
+                const roh = ownerSince[i] ?? "";
+                const d = roh ? new Date(roh) : null;
+                return d && !Number.isNaN(d.getTime()) ? d : new Date();
+              })(),
             },
           })
           .catch(() => {});

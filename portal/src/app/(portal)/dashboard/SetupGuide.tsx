@@ -129,6 +129,9 @@ function SchrittZeile({
             {step.warnung}
           </span>
         ) : null}
+        {step.done && step.href ? (
+          <span className="text-xs text-gray-400">Ansehen oder ändern →</span>
+        ) : null}
       </span>
     </>
   );
@@ -136,7 +139,10 @@ function SchrittZeile({
   return (
     <li className="border-b border-gray-50 py-2 last:border-0">
       <div className="flex items-start gap-3">
-        {step.href && !step.done ? (
+        {/* Auch erledigte Schritte sind anklickbar: Man will nachsehen, was man
+            eingetragen hat, oder etwas korrigieren – ein Häkchen ist kein Grund,
+            den Weg dorthin zu versperren. */}
+        {step.href ? (
           <Link href={step.href} className="flex flex-1 items-start gap-3 hover:opacity-80">
             {inhalt}
           </Link>

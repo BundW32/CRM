@@ -124,7 +124,10 @@ function leereBefunde(): Befunde {
 }
 
 function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
-  const stammdaten = propertyId ? `/verwaltung/weg/${propertyId}/stammdaten` : null;
+  // Anker je Schritt: Die Stammdaten tragen fünf Abschnitte untereinander –
+  // ohne Fragment landet man oben und sucht die Stelle, um die es geht.
+  const stammdaten = (anker: string) =>
+    propertyId ? `/verwaltung/weg/${propertyId}/stammdaten#${anker}` : null;
 
   // MEA stimmt, wenn ein Nenner gesetzt ist und die Anteile ihn treffen. Ohne
   // Nenner ist der Schritt trotzdem erledigt – MEA ist optional, solange die
@@ -151,7 +154,7 @@ function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
         b.unitCount > 0 && !meaStimmt
           ? `Die Anteile ergeben ${b.meaSumme}, der Nenner ist ${b.meaNenner}. Solange das nicht aufgeht, verteilt die Abrechnung falsch.`
           : undefined,
-      href: stammdaten,
+      href: stammdaten("einheiten"),
       manual: false,
     },
     {
@@ -165,7 +168,7 @@ function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
         b.unitCount > 0 && b.ownedUnits < b.unitCount
           ? `${b.unitCount - b.ownedUnits} von ${b.unitCount} Einheiten haben noch keinen Eigentümer.`
           : undefined,
-      href: stammdaten,
+      href: stammdaten("eigentuemer"),
       manual: false,
     },
     {
@@ -211,7 +214,7 @@ function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
           : b.hatGiro && !b.hatRuecklage
             ? "Die Erhaltungsrücklage fehlt noch. Sie muss vom laufenden Konto getrennt geführt werden."
             : undefined,
-      href: stammdaten,
+      href: stammdaten("konten"),
       manual: false,
     },
     {
@@ -221,7 +224,7 @@ function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
         "Welche Kosten es gibt und nach welchem Schlüssel sie verteilt werden. " +
         "Der Standardkatalog lässt sich per Knopfdruck übernehmen und danach anpassen.",
       done: b.kostenarten > 0,
-      href: stammdaten,
+      href: stammdaten("kostenarten"),
       manual: false,
     },
     // Der Wirtschaftsplan stand hier einmal als neunter Schritt. Er gehört nicht

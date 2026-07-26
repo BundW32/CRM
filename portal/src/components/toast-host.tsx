@@ -82,10 +82,14 @@ export function ToastHost() {
     router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
 
     if (!meldung) return;
-    setToasts((vorher) => [
-      ...vorher,
-      { id: nextId.current++, text: meldung.text, tone: meldung.tone },
-    ]);
+    setToasts((vorher) => {
+      // Dieselbe Meldung ersetzt sich selbst, statt sich zu stapeln: Wer
+      // dreimal hintereinander speichert, hat dreimal dasselbe getan – drei
+      // Kärtchen übereinander sind keine drei Informationen. Die neue ID setzt
+      // zugleich den Ausblend-Zeitgeber zurück.
+      const ohneGleiche = vorher.filter((t) => t.text !== meldung.text);
+      return [...ohneGleiche, { id: nextId.current++, text: meldung.text, tone: meldung.tone }];
+    });
   }, [pathname, router, searchParams]);
 
   if (toasts.length === 0) return null;

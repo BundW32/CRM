@@ -17,6 +17,8 @@ type PersonRow = {
   email: string;
   phone: string;
   unit: string;
+  /** „Eigentümer seit" – nur bei WEG-Eigentümern genutzt, leer = heute. */
+  since: string;
   person: GewaehltePerson | null;
 };
 type TenantRow = PersonRow;
@@ -39,6 +41,7 @@ const leereZeile = () => ({
   email: "",
   phone: "",
   unit: "",
+  since: "",
   person: null,
 });
 
@@ -553,6 +556,24 @@ export function ObjektForm({
                           )
                         }
                         className={o.person ? lockedClass : inputClass}
+                      />
+                    </Field>
+                    {/* Der Stichtag entscheidet, wer bei einem Verkauf welchen Teil
+                        der Jahresabrechnung trägt. Zuvor wurde stumpf das Anlagedatum
+                        gesetzt — bei einer Gemeinschaft, die schon Jahre besteht,
+                        ist das schlicht falsch. Leer = heute; nachtragen geht in
+                        den WEG-Stammdaten. */}
+                    <Field label="Eigentümer seit (optional)">
+                      <input
+                        type="date"
+                        name="wegOwnerSince"
+                        value={o.since}
+                        onChange={(e) =>
+                          setOwners((rows) =>
+                            rows.map((r) => (r.key === o.key ? { ...r, since: e.target.value } : r))
+                          )
+                        }
+                        className={inputClass}
                       />
                     </Field>
                   </div>

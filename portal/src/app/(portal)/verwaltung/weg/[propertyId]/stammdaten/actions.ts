@@ -36,6 +36,7 @@ const ANKER: Record<string, string> = {
   kostenart: "kostenarten",
   konto: "konten",
   betrag: "konten",
+  zeitraum: "eigentuemer",
 };
 
 function back(propertyId: string, param?: string): never {
@@ -436,4 +437,50 @@ export async function saveAccount(formData: FormData) {
   });
   revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
   back(property.id, "gespeichert=konto");
+}
+
+/**
+ * Korrigiert den Beginn einer bestehenden Eigentümerschaft.
+ *
+ * Bis hierher war das Datum nach dem Anlegen unveränderlich: Wer beim Anlegen
+ * des Objekts keinen Stichtag angeben konnte, bekam das Anlagedatum — und
+ * musste, um es zu berichtigen, dieselbe Person neu eintragen und die alte
+ * löschen. Der Stichtag entscheidet aber, wer bei einem Verkauf welchen Teil
+ * der Jahresabrechnung trägt; ihn nicht korrigieren zu können, hieß mit einem
+ * falschen Wert weiterzurechnen.
+ */
+export async function updateOwnershipStart(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const ownershipId = String(formData.get("ownershipId") ?? "");
+  const validFromRaw = String(formData.get("validFrom") ?? "").trim();
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const ownership = await db.unitOwnership.findFirst({
+    where: {
+      id: ownershipId,
+      organizationId: verwalter.organizationId,
+      unit: { propertyId: property.id },
+    },
+    select: { id: true, unitId: true, validTo: true },
+  });
+  if (!ownership) back(property.id, "fehler=eigentuemer");
+
+  const validFrom = new Date(validFromRaw);
+  if (!validFromRaw || isNaN(validFrom.getTime())) back(property.id, "fehler=datum");
+  // Ein Beginn nach dem Ende ergäbe einen Zeitraum, den es nicht gibt — und die
+  // zeitanteilige Abrechnung würde daran stillschweigend falsch rechnen.
+  if (ownership.validTo && validFrom > ownership.validTo) back(property.id, "fehler=zeitraum");
+
+  await db.unitOwnership.update({ where: { id: ownership.id }, data: { validFrom } });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_UNIT_OWNERSHIP_SAVED,
+    targetType: "Unit",
+    targetId: ownership.unitId,
+    meta: { ownershipId: ownership.id, validFrom: validFromRaw },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+  back(property.id, "gespeichert=eigentuemer");
 }

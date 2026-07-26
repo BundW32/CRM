@@ -284,7 +284,10 @@ export default async function HausgeldPage({
             damit die Karte nicht jeden Aufruf dominiert; sie steht aber VOR der
             Rückstandsliste, weil sie deren Ausgangswert setzt. */}
         <Card title="Stand aus der bisherigen Verwaltung">
-          <details id="uebernahme" open={uebernahmeSumme !== 0}>
+          {/* Offen, SOLANGE nichts erfasst ist – danach genügt die Zusammenfassung
+              in der Zeile. Die Übernahme macht man einmal beim Amtsantritt; steht
+              sie, ist sie Nachschlagewerk, kein Arbeitsplatz. */}
+          <details id="uebernahme" open={uebernahme.length === 0}>
             <summary className="cursor-pointer list-none text-sm font-medium text-brand-green hover:underline">
               {uebernahmeSumme !== 0
                 ? `Übernommen: ${formatCents(uebernahmeSumme)} zum ${uebernahmeStichtag ? formatDateOnly(uebernahmeStichtag) : "—"} — ändern`

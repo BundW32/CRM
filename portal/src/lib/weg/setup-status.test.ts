@@ -12,16 +12,18 @@ describe("MANUAL_SETUP_STEPS", () => {
   });
 
   it("enthält keinen Schritt, der aus Daten abgeleitet wird", () => {
-    const abgeleitet = [
-      "objekt",
-      "einheiten",
-      "eigentuemer",
-      "konten",
-      "kostenarten",
-      "wirtschaftsplan",
-    ];
+    const abgeleitet = ["objekt", "einheiten", "eigentuemer", "konten", "kostenarten"];
     for (const key of abgeleitet) {
       expect(MANUAL_SETUP_STEPS).not.toContain(key);
     }
+  });
+
+  // Der Wirtschaftsplan stand einmal als neunter Einrichtungsschritt hier. Er
+  // gehört in den Jahresfahrplan: Die Einrichtung erfasst Stammdaten und ist
+  // dann fertig, der Plan wiederholt sich jedes Jahr. Als Einrichtungsschritt
+  // hätte er die Einrichtung nie enden lassen, solange eine Gemeinschaft ihn
+  // noch gar nicht aufstellen kann (unterjährige Übernahme).
+  it("führt den Wirtschaftsplan nicht mehr als Einrichtungsschritt", () => {
+    expect(MANUAL_SETUP_STEPS).not.toContain("wirtschaftsplan");
   });
 });

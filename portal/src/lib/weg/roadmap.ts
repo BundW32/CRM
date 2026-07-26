@@ -21,6 +21,14 @@ export type RoadmapItem = {
   status: DueStatus;
   /** Kurzform der Frist für die Anzeige. */
   dueLabel: string;
+  /**
+   * Steht unabhängig von jeder Frist ganz oben. Für die eine Aufgabe, ohne die
+   * der laufende Betrieb nicht beginnt: den allerersten Wirtschaftsplan. Ohne
+   * ihn gibt es kein Hausgeld, ohne Hausgeld keine offenen Posten und nichts
+   * abzurechnen – ein Stichtag „31.12." würde das ans Ende sortieren und damit
+   * das Gegenteil dessen aussagen, was gilt.
+   */
+  vorrang?: boolean;
 };
 
 const MONAT = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
@@ -38,10 +46,16 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
   const jahr = now.getFullYear();
   const weg = `/verwaltung/weg/${propertyId}`;
 
-  const [planKommend, abrechnungVorjahr, versammlungImJahr, pruefpflichten, rueckstaende] =
+  const [planKommend, planIrgendeiner, abrechnungVorjahr, versammlungImJahr, pruefpflichten, rueckstaende] =
     await Promise.all([
       db.economicPlan.findFirst({
         where: { propertyId, year: jahr + 1, status: "BESCHLOSSEN" },
+        select: { id: true },
+      }),
+      // Gab es überhaupt je einen beschlossenen Plan? Entscheidet zwischen
+      // „erster Plan fehlt" (dringend) und „Plan fürs nächste Jahr steht aus".
+      db.economicPlan.findFirst({
+        where: { propertyId, status: "BESCHLOSSEN" },
         select: { id: true },
       }),
       db.annualStatement.findFirst({
@@ -75,6 +89,26 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
 
   const items: RoadmapItem[] = [];
 
+  // ── Der allererste Wirtschaftsplan ─────────────────────────────────────────
+  // Stand früher als neunter Schritt in der Einrichtung. Dort war er falsch: Die
+  // Einrichtung erfasst Stammdaten und ist dann fertig, der Plan wiederholt sich
+  // jedes Jahr. Er ist der Übergang von der Einrichtung in den Betrieb – und
+  // deshalb der erste Punkt hier, ohne Frist, aber mit Vorrang.
+  if (!planIrgendeiner) {
+    items.push({
+      key: "erster-plan",
+      title: "Ersten Wirtschaftsplan aufstellen und beschließen",
+      hint:
+        "Der Plan legt das Hausgeld je Einheit fest (§ 28 Abs. 1 WEG). Erst sein Beschluss " +
+        "macht daraus Forderungen – vorher gibt es nichts einzuziehen und nichts abzurechnen.",
+      href: `${weg}/wirtschaftsplan`,
+      due: null,
+      status: "soon",
+      dueLabel: "steht noch aus",
+      vorrang: true,
+    });
+  }
+
   // ── Jahresabrechnung fürs Vorjahr ──────────────────────────────────────────
   if (!abrechnungVorjahr) {
     // Richtwert: bis Ende Juni des Folgejahres. Das ist die gängige Praxis, kein
@@ -105,7 +139,9 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
   }
 
   // ── Wirtschaftsplan fürs kommende Jahr ─────────────────────────────────────
-  if (!planKommend) {
+  // Nur, wenn es schon einen gibt – sonst stünde der Punkt doppelt da, einmal
+  // als „erster Plan" und einmal als Fortschreibung.
+  if (planIrgendeiner && !planKommend) {
     // Soll vor Beginn des Jahres stehen, das er plant.
     items.push(
       mitFrist({
@@ -147,8 +183,9 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
     });
   }
 
-  // Überfälliges zuerst, danach nach Stichtag; Fristloses ans Ende.
+  // Vorrang zuerst, dann nach Stichtag; Fristloses ans Ende.
   return items.sort((a, b) => {
+    if (a.vorrang !== b.vorrang) return a.vorrang ? -1 : 1;
     if (!a.due && !b.due) return 0;
     if (!a.due) return 1;
     if (!b.due) return -1;

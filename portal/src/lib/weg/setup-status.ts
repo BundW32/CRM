@@ -22,8 +22,7 @@ export type SetupStepKey =
   | "konto"
   | "bestellung"
   | "konten"
-  | "kostenarten"
-  | "wirtschaftsplan";
+  | "kostenarten";
 
 export type SetupStep = {
   key: SetupStepKey;
@@ -61,7 +60,7 @@ export type SetupStatus = {
 export async function loadSetupStatus(propertyId: string | null): Promise<SetupStatus> {
   if (!propertyId) return baueStatus(null, leereBefunde());
 
-  const [property, unitAgg, unitCount, ownedUnits, konten, kostenarten, plan, manuell] =
+  const [property, unitAgg, unitCount, ownedUnits, konten, kostenarten, manuell] =
     await Promise.all([
       db.property.findUnique({
         where: { id: propertyId },
@@ -78,7 +77,6 @@ export async function loadSetupStatus(propertyId: string | null): Promise<SetupS
         select: { kind: true, openingBalanceDate: true },
       }),
       db.costType.count({ where: { propertyId, active: true } }),
-      db.economicPlan.count({ where: { propertyId, status: "BESCHLOSSEN" } }),
       db.wegSetupStep.findMany({ where: { propertyId }, select: { key: true } }),
     ]);
 
@@ -95,7 +93,6 @@ export async function loadSetupStatus(propertyId: string | null): Promise<SetupS
     // Ein Anfangsbestand ohne Stichtag ist wertlos – er sagt nicht, wann er galt.
     ohneStichtag: konten.filter((k) => !k.openingBalanceDate).length,
     kostenarten,
-    planBeschlossen: plan > 0,
     manuellErledigt: new Set(manuell.map((m) => m.key)),
   });
 }
@@ -109,7 +106,6 @@ type Befunde = {
   hatRuecklage: boolean;
   ohneStichtag: number;
   kostenarten: number;
-  planBeschlossen: boolean;
   manuellErledigt: Set<string>;
 };
 
@@ -123,14 +119,12 @@ function leereBefunde(): Befunde {
     hatRuecklage: false,
     ohneStichtag: 0,
     kostenarten: 0,
-    planBeschlossen: false,
     manuellErledigt: new Set(),
   };
 }
 
 function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
-  const weg = propertyId ? `/verwaltung/weg/${propertyId}` : null;
-  const stammdaten = weg ? `${weg}/stammdaten` : null;
+  const stammdaten = propertyId ? `/verwaltung/weg/${propertyId}/stammdaten` : null;
 
   // MEA stimmt, wenn ein Nenner gesetzt ist und die Anteile ihn treffen. Ohne
   // Nenner ist der Schritt trotzdem erledigt – MEA ist optional, solange die
@@ -230,16 +224,12 @@ function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
       href: stammdaten,
       manual: false,
     },
-    {
-      key: "wirtschaftsplan",
-      title: "Ersten Wirtschaftsplan beschließen",
-      why:
-        "Der Plan legt das Hausgeld je Einheit fest (§ 28 Abs. 1 WEG). Erst der " +
-        "Beschluss macht daraus Forderungen – vorher gibt es nichts einzuziehen.",
-      done: b.planBeschlossen,
-      href: weg ? `${weg}/wirtschaftsplan` : null,
-      manual: false,
-    },
+    // Der Wirtschaftsplan stand hier einmal als neunter Schritt. Er gehört nicht
+    // hierher: Die acht Schritte sind Stammdaten – einmal erfasst, dann fertig.
+    // Der Wirtschaftsplan ist laufender Betrieb und wiederholt sich jedes Jahr.
+    // Als Einrichtungsschritt hätte er die Einrichtung außerdem nie enden lassen,
+    // solange eine Gemeinschaft ihn (etwa bei unterjähriger Übernahme) noch gar
+    // nicht aufstellen kann. Er ist jetzt der erste Punkt des Jahresfahrplans.
   ];
 
   const erledigt = steps.filter((s) => s.done).length;

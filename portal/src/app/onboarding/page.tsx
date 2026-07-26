@@ -19,8 +19,14 @@ export default async function OnboardingPage({
   const org = await getOrganization();
   if (!org) redirect("/dashboard");
   // Selbstverwaltete WEGs überspringen die Branding-Einrichtung (kein eigenes
-  // Logo/Firmenname) und gehen direkt zur WEG-Verwaltung.
-  if (isSelfManaged(org)) redirect("/verwaltung");
+  // Logo/Firmenname) und gehen direkt zum geführten Erststart auf der Übersicht.
+  //
+  // Bewusst NICHT nach `/verwaltung`: Das leitet weiter auf die WEG-Finanzen,
+  // und die sind für eine frisch registrierte Gemeinschaft zwangsläufig leer –
+  // es gibt ja noch kein Objekt. Genau dieser erste Eindruck war der Anlass für
+  // den Einrichtungs-Assistenten; ihn dann nicht anzusteuern, hieße den Weg zu
+  // bauen und die Weiche stehen zu lassen.
+  if (isSelfManaged(org)) redirect("/dashboard");
   const { fehler } = await searchParams;
 
   const defaults: BrandingDefaults = {

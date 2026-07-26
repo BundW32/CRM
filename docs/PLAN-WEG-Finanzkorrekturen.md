@@ -86,10 +86,16 @@ Prüfvermerk setzen. Für ein späteres Vier-Augen-Prinzip ist das Fundament
 7. **Rechtlich vs. Praxis kennzeichnen.** Wo etwas nicht zwingend vorgeschrieben
    ist, gehört ein Kommentar „gesetzlich nicht zwingend, aber Best Practice"
    an den Code — wie bisher.
-8. **Deutsche UI, fachlich korrekte Begriffe, Zeitzone Europe/Berlin.**
+8. **Laientauglich, ohne fachlich falsch zu werden.** Zielgruppe ist der
+   Eigentümer, der das nebenbei macht. Fachbegriffe bleiben als Überschrift
+   (sie stehen so im Gesetz und im Beschluss), bekommen aber eine Klartextzeile
+   darunter; Erklärungen hängen an `User.showHints` (an für Selbstverwalter, aus
+   für Profis). Fehlermeldungen nennen immer den nächsten Klick. Details in
+   [`PRODUKT-Laientauglichkeit-und-UseCases.md`](./PRODUKT-Laientauglichkeit-und-UseCases.md).
+9. **Deutsche UI, fachlich korrekte Begriffe, Zeitzone Europe/Berlin.**
    Datumsgrenzen bleiben UTC-konsistent (`fiscalYearRange`, `parseGermanDate`) —
    das ist heute korrekt und darf nicht aufgeweicht werden.
-9. Nach jedem Paket: `npx prisma generate`, `next build`, `npm test` grün.
+10. Nach jedem Paket: `npx prisma generate`, `next build`, `npm test` grün.
    Selbstentscheidungen in `portal/DECISIONS.md` dokumentieren.
 
 ---
@@ -310,7 +316,9 @@ Damit nichts „repariert" wird, was Absicht ist:
 
 ### Block 4 — später, aus dem Bericht nicht verloren
 
-Bauabzugsteuer (§ 48 EStG, Freistellungsbescheinigung am Handwerker),
+**Assistent erweitern** (Finanzdaten der eigenen Einheiten, WEG-Recht als
+Wissensquelle, Seitenkontext), **geführter Jahreslauf** als Schritt-für-Schritt-
+Assistent, Bauabzugsteuer (§ 48 EStG, Freistellungsbescheinigung am Handwerker),
 Vier-Augen-Prinzip über `isBoardMemberOf`, Eigentümer-Kontoauszug je Einheit,
 Belegeinsicht für den Beirat (§ 18 IV WEG), Kreditoren
 (`CraftsmanInvoice` → `Booking`), Verbindlichkeiten im Vermögensbericht,

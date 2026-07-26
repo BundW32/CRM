@@ -57,7 +57,7 @@ export default async function Co2Page({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
       >
         CO₂-Kostenaufteilung · {property.name}
       </PageTitle>

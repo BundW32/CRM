@@ -4,6 +4,7 @@
 // live gerendert (ENTWURF) und bei FERTIG als Snapshot eingefroren.
 import type { DistributionKey, LaborShareType, LedgerAccountKind } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import {
   computeLaborShares,
   computePeakAmounts,
@@ -92,15 +93,27 @@ export async function computeStatementView(
       }),
       db.booking.groupBy({
         by: ["costTypeId"],
-        where: { propertyId: property.id, kind: "AUSGABE", costTypeId: { not: null }, bookingDate: inYear },
+        where: {
+          propertyId: property.id,
+          kind: "AUSGABE",
+          costTypeId: { not: null },
+          bookingDate: inYear,
+          ...NOT_REVERSED,
+        },
         _sum: { amountCents: true },
       }),
       db.booking.aggregate({
-        where: { propertyId: property.id, kind: "AUSGABE", costTypeId: null, bookingDate: inYear },
+        where: {
+          propertyId: property.id,
+          kind: "AUSGABE",
+          costTypeId: null,
+          bookingDate: inYear,
+          ...NOT_REVERSED,
+        },
         _sum: { amountCents: true },
       }),
       db.booking.aggregate({
-        where: { propertyId: property.id, kind: "EINNAHME", bookingDate: inYear },
+        where: { propertyId: property.id, kind: "EINNAHME", bookingDate: inYear, ...NOT_REVERSED },
         _sum: { amountCents: true },
       }),
       db.ledgerAccount.findMany({
@@ -129,7 +142,13 @@ export async function computeStatementView(
       }),
       db.booking.groupBy({
         by: ["unitId"],
-        where: { propertyId: property.id, kind: "EINNAHME", unitId: { not: null }, bookingDate: { lt: end } },
+        where: {
+          propertyId: property.id,
+          kind: "EINNAHME",
+          unitId: { not: null },
+          bookingDate: { lt: end },
+          ...NOT_REVERSED,
+        },
         _sum: { amountCents: true },
       }),
     ]);

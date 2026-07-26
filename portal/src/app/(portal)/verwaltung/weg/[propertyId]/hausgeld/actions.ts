@@ -6,6 +6,7 @@ import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
+import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { loadWegProperty } from "@/lib/weg/scope";
 
 function back(propertyId: string, param?: string): never {
@@ -64,7 +65,7 @@ async function currentArrears(unitId: string): Promise<number> {
       _sum: { amountCents: true },
     }),
     db.booking.aggregate({
-      where: { unitId, kind: "EINNAHME" },
+      where: { unitId, kind: "EINNAHME", ...NOT_REVERSED },
       _sum: { amountCents: true },
     }),
   ]);

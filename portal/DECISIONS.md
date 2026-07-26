@@ -440,3 +440,56 @@ indem sie in Fehlermeldungen lief.
     Teilungserklärung … ableiten aus der Wohnfläche lassen sie sich nicht").
     Fachlich richtige Begriffe ohne Erklärung waren der zweite Grund, warum der
     Bereich als undurchdringlich empfunden wurde.
+## Schritt 16 — Block 1 der Finanzkorrekturen: Zuordnung, Storno, Objekt-Startseite (26.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde A1, B1) und
+`docs/PLAN-WEG-Finanzkorrekturen.md` (KP1, KP2).
+
+77. **Kostenart wird nachträglich zuordenbar** (Befund A1): Bisher setzte nur die
+    manuelle Buchung eine `costTypeId`. CSV-importierte Umsätze blieben dauerhaft
+    ohne Kostenart, landeten in `otherExpenseCents` und lösten dort einen
+    Prüffehler aus — womit `finalizeStatement` dauerhaft abbrach. **Eine WEG, die
+    den vorgesehenen Zero-Key-Weg ging, konnte ihre Jahresabrechnung nie
+    fertigstellen.** Neu: `assignCostType` mit Massenauswahl über die
+    Buchungsliste. Umbuchungen bleiben ausgenommen — sie sind kein Aufwand,
+    sondern verschieben Geld zwischen Konten der Gemeinschaft.
+78. **Korrektur nur per Storno, nie per Änderung oder Löschung** (Befund B1): Eine
+    Fehlbuchung erzeugt eine Gegenbuchung (`Booking.reversalOfId`, `@unique`) mit
+    umgekehrter Richtung, gleichem Betrag, Konto und Buchungstag. Beide bleiben im
+    Journal sichtbar, der Saldo ist wieder korrekt. Eine Umbuchung wird immer
+    beidseitig storniert (gemeinsame `transferGroupId`), sonst stünde ein halber
+    Übertrag im Buch. Alternative „Buchung bearbeiten" bewusst verworfen: sie
+    zerstört die Nachvollziehbarkeit, auf der die Abrechnung beruht.
+79. **Stornopaare fallen aus allen fachlichen Auswertungen** (`NOT_REVERSED` in
+    `lib/weg/booking-scope.ts`): Im Kontostand heben sie sich von selbst auf, in
+    der Kostenverteilung nicht — das Storno einer Ausgabe ist eine Einnahme und
+    hätte die Ausgabensumme der Kostenart nicht gemindert. Die Kosten wären trotz
+    Storno umgelegt worden. Der Filter greift deshalb in Jahresabrechnung,
+    Vorjahres-Istwerten, Verbrauchsverteilung, Rückständen, SEPA-Lastschrift und
+    Eigentümersicht.
+80. **Import-Rücknahme als eng begrenzte Ausnahme vom Storno-Prinzip**: Ein falsch
+    zugeordneter Import (vertauschte Spalten) würde als Storno hunderte Zeilen
+    erzeugen und das Journal unlesbar machen. `undoImportBatch` löscht den Batch
+    deshalb im Ganzen — aber nur, solange kein Buchungstag in ein abgeschlossenes
+    Wirtschaftsjahr fällt und keine Buchung daraus storniert wurde. Vollständig im
+    Audit-Log.
+81. **Abgeschlossene Wirtschaftsjahre sind schreibgeschützt**
+    (`lib/weg/statement-lock.ts`): Liegt für ein Jahr eine Jahresabrechnung im
+    Status `FERTIG` vor, sind dessen Buchungen unantastbar — weder Kostenart noch
+    Storno. Sonst wiche der beschlossene Snapshot von der Buchhaltung ab, und
+    genau diese Abweichung macht eine Abrechnung angreifbar. `fiscalYearOf`
+    rechnet dabei in UTC, passend zu `fiscalYearRange` und `parseGermanDate`.
+82. **Objekt-Startseite statt Linkmenü** (`weg/[propertyId]/page.tsx`): Die
+    Einstiegsseite listete je Objekt elf gleichrangige Verweise. Buchhaltungs-
+    software wird aber danach beurteilt, ob sie beim Öffnen zwei Fragen
+    beantwortet: „wie viel Geld haben wir?" und „was muss ich als Nächstes tun?".
+    Neu daher: Kontostände (Giro und Rücklage getrennt), eine Bereitschaftsprüfung
+    für blockierende Lücken (fehlender MEA-Nenner, kein Rücklagenkonto, keine
+    Kostenarten) und ein Arbeitsvorrat mit Zahlen und Absprung. Die Navigation
+    folgt darunter der **Zeitachse** (einrichten · laufendes Jahr · Jahreslauf ·
+    Dauerthemen) statt Themengruppen — der Wirtschaftsplan entsteht vor dem Jahr,
+    die Abrechnung danach.
+83. **Objektauswahl nur noch bei mehreren Objekten**: Bei genau einer WEG — dem
+    Normalfall der Selbstverwaltung — leitet `/verwaltung/weg` direkt in den
+    Arbeitsbereich durch. Die Auswahlseite zeigt sonst je Objekt die Salden, statt
+    nur Namen und Verweise.

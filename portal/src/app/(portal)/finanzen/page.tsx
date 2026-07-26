@@ -10,6 +10,7 @@ import { formatDateOnly } from "@/lib/labels";
 import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { formatCents } from "@/lib/money";
 import { requireUser } from "@/lib/session";
+import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import type { StatementView } from "@/lib/weg/statement-service";
 import { setBeiratReview } from "../beirat/review-actions";
 
@@ -167,7 +168,7 @@ export default async function FinanzenPage({
     }),
     db.booking.groupBy({
       by: ["unitId"],
-      where: { unitId: { in: myUnitIds }, kind: "EINNAHME" },
+      where: { unitId: { in: myUnitIds }, kind: "EINNAHME", ...NOT_REVERSED },
       _sum: { amountCents: true },
     }),
     // Belegeinsicht: alle Buchungen der WEG (Leserecht der Gemeinschaft).
@@ -235,7 +236,7 @@ export default async function FinanzenPage({
       }),
       db.booking.groupBy({
         by: ["unitId"],
-        where: { unitId: { in: allUnitIds }, kind: "EINNAHME" },
+        where: { unitId: { in: allUnitIds }, kind: "EINNAHME", ...NOT_REVERSED },
         _sum: { amountCents: true },
       }),
     ]);

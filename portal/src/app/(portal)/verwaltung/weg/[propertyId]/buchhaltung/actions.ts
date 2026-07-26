@@ -15,7 +15,9 @@ import {
   parseCsv,
   type ColumnMapping,
 } from "@/lib/weg/bank-import";
+import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { loadWegProperty } from "@/lib/weg/scope";
+import { allDatesEditable } from "@/lib/weg/statement-lock";
 
 const MAX_CSV_SIZE = 2 * 1024 * 1024; // 2 MB — Bank-CSVs sind klein
 
@@ -395,4 +397,194 @@ export async function importCsvAction(formData: FormData) {
   });
   revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
   back(property.id, `import=${toImport.length}&uebersprungen=${rows.length - toImport.length}`);
+}
+
+// ── Kostenart nachträglich zuordnen ──────────────────────────────────────────
+// Importierte Bankumsätze kommen ohne Kostenart herein. Ohne diese Zuordnung
+// bleiben sie in der Jahresabrechnung als „Ausgaben ohne Kostenart" liegen,
+// lassen sich nicht umlegen und blockieren das Fertigstellen dauerhaft.
+// Zugelassen ist die Zuordnung für Einnahmen und Ausgaben; Umbuchungen sind
+// kein Aufwand und bekommen deshalb keine Kostenart.
+
+export async function assignCostType(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const costTypeId = String(formData.get("costTypeId") ?? "");
+  const bookingIds = formData
+    .getAll("bookingId")
+    .map((v) => String(v))
+    .filter(Boolean);
+
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+  if (bookingIds.length === 0) back(property.id, "fehler=keineauswahl");
+
+  // Kostenart muss zum Objekt gehören; leer = Zuordnung aufheben.
+  if (costTypeId) {
+    const costType = await db.costType.findFirst({
+      where: { id: costTypeId, propertyId: property.id },
+      select: { id: true },
+    });
+    if (!costType) back(property.id, "fehler=kostenart");
+  }
+
+  // Nur Buchungen dieses Objekts — und nur solche, die eine Kostenart tragen
+  // dürfen und nicht Teil eines Stornopaars sind.
+  const bookings = await db.booking.findMany({
+    where: {
+      id: { in: bookingIds },
+      propertyId: property.id,
+      kind: { in: ["EINNAHME", "AUSGABE"] },
+      ...NOT_REVERSED,
+    },
+    select: { id: true, bookingDate: true },
+  });
+  if (bookings.length === 0) back(property.id, "fehler=buchung");
+
+  if (!(await allDatesEditable(property, bookings.map((b) => b.bookingDate)))) {
+    back(property.id, "fehler=abgeschlossen");
+  }
+
+  await db.booking.updateMany({
+    where: { id: { in: bookings.map((b) => b.id) } },
+    data: { costTypeId: costTypeId || null },
+  });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_BOOKING_COSTTYPE_ASSIGNED,
+    targetType: "Booking",
+    targetId: bookings.length === 1 ? bookings[0].id : property.id,
+    meta: { count: bookings.length, costTypeId: costTypeId || null },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
+  back(property.id, `zugeordnet=${bookings.length}`);
+}
+
+// ── Storno ───────────────────────────────────────────────────────────────────
+// Buchungen werden nie geändert oder gelöscht. Eine falsche Buchung wird durch
+// eine Gegenbuchung neutralisiert: gleicher Betrag, gleiches Konto, gleicher
+// Buchungstag, umgekehrte Richtung. Beide bleiben im Journal sichtbar.
+
+export async function reverseBooking(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const bookingId = String(formData.get("bookingId") ?? "");
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const booking = await db.booking.findFirst({
+    where: { id: bookingId, propertyId: property.id },
+    include: { reversedBy: { select: { id: true } } },
+  });
+  if (!booking) back(property.id, "fehler=buchung");
+  // Ein Storno storniert man nicht; und zweimal geht es auch nicht.
+  if (booking.reversalOfId || booking.reversedBy) back(property.id, "fehler=schonstorniert");
+
+  if (!(await allDatesEditable(property, [booking.bookingDate]))) {
+    back(property.id, "fehler=abgeschlossen");
+  }
+
+  // Bei einer Umbuchung hängen zwei Gegenbuchungen zusammen — beide Seiten
+  // müssen storniert werden, sonst steht ein halber Übertrag im Buch.
+  const originals = booking.transferGroupId
+    ? await db.booking.findMany({
+        where: {
+          propertyId: property.id,
+          transferGroupId: booking.transferGroupId,
+          ...NOT_REVERSED,
+        },
+      })
+    : [booking];
+
+  const reverseKind = (kind: string) =>
+    kind === "EINNAHME" ? "AUSGABE" : kind === "AUSGABE" ? "EINNAHME" : "UMBUCHUNG";
+
+  await db.$transaction(
+    originals.map((o) =>
+      db.booking.create({
+        data: {
+          organizationId: verwalter.organizationId,
+          propertyId: property.id,
+          accountId: o.accountId,
+          costTypeId: o.costTypeId,
+          kind: reverseKind(o.kind) as typeof o.kind,
+          bookingDate: o.bookingDate,
+          valueDate: o.valueDate,
+          amountCents: o.amountCents,
+          text: `Storno: ${o.text}`.slice(0, 500),
+          counterparty: o.counterparty,
+          reference: o.reference,
+          // Richtung der Umbuchung umkehren; dedupeHash bleibt leer, damit ein
+          // späterer Import derselben Zeile nicht am Storno hängen bleibt.
+          transferGroupId: o.transferGroupId,
+          transferOut: o.transferOut === null ? null : !o.transferOut,
+          reversalOfId: o.id,
+          createdById: verwalter.id,
+        },
+      }),
+    ),
+  );
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_BOOKING_REVERSED,
+    targetType: "Booking",
+    targetId: booking.id,
+    meta: {
+      amountCents: booking.amountCents,
+      kind: booking.kind,
+      text: booking.text,
+      teile: originals.length,
+    },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
+  back(property.id, "storniert=1");
+}
+
+// ── Import zurücknehmen ──────────────────────────────────────────────────────
+// Eng begrenzte Ausnahme vom Storno-Prinzip: Bei einem falsch zugeordneten
+// Import (z. B. vertauschte Spalten) wären hunderte Stornozeilen im Journal
+// unlesbar. Der Import wird deshalb als Ganzes entfernt — aber nur, solange er
+// noch nirgends verwertet wurde.
+
+export async function undoImportBatch(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const batchId = String(formData.get("batchId") ?? "");
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const batch = await db.bankImportBatch.findFirst({
+    where: { id: batchId, propertyId: property.id, organizationId: verwalter.organizationId },
+    include: { bookings: { select: { id: true, bookingDate: true, reversalOfId: true } } },
+  });
+  if (!batch) back(property.id, "fehler=import");
+
+  // 1) Kein Buchungstag darf in ein abgeschlossenes Wirtschaftsjahr fallen.
+  if (!(await allDatesEditable(property, batch.bookings.map((b) => b.bookingDate)))) {
+    back(property.id, "fehler=abgeschlossen");
+  }
+  // 2) Keine Buchung des Imports darf storniert oder selbst ein Storno sein —
+  //    sonst hinge die Gegenbuchung nach dem Löschen in der Luft.
+  const reversedCount = await db.booking.count({
+    where: {
+      importBatchId: batch.id,
+      OR: [{ reversalOfId: { not: null } }, { reversedBy: { isNot: null } }],
+    },
+  });
+  if (reversedCount > 0) back(property.id, "fehler=importstorniert");
+
+  const count = batch.bookings.length;
+  await db.$transaction([
+    db.booking.deleteMany({ where: { importBatchId: batch.id } }),
+    db.bankImportBatch.delete({ where: { id: batch.id } }),
+  ]);
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_BANK_IMPORT_UNDONE,
+    targetType: "BankImportBatch",
+    targetId: batch.id,
+    meta: { fileName: batch.fileName, removed: count },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
+  back(property.id, `importzurueck=${count}`);
 }

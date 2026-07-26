@@ -1431,6 +1431,12 @@ model Booking {
   // gemeinsamer transferGroupId; beide kind=UMBUCHUNG, Richtung über transferOut.
   transferGroupId String?
   transferOut     Boolean? // nur bei UMBUCHUNG: true = Geld verlässt dieses Konto
+  // Storno: Buchungen werden nie geändert oder gelöscht, sondern durch eine
+  // Gegenbuchung neutralisiert. Diese zeigt über reversalOfId auf das Original;
+  // @unique stellt sicher, dass jede Buchung höchstens einmal storniert wird.
+  reversalOfId    String?          @unique
+  reversalOf      Booking?         @relation("BookingReversal", fields: [reversalOfId], references: [id], onDelete: Cascade)
+  reversedBy      Booking?         @relation("BookingReversal")
   // Beleg (gleiche Storage-Konvention wie Handover: storedName/fileName/mimeType)
   belegStoredName String?
   belegFileName   String?

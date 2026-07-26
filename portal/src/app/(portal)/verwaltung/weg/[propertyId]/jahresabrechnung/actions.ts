@@ -13,6 +13,7 @@ import { matchHeatingRows, parseHeatingCsv } from "@/lib/weg/heating-import";
 import { loadWegProperty } from "@/lib/weg/scope";
 import { fiscalYearRange } from "@/lib/weg/economic-plan";
 import { distributeByWeight } from "@/lib/weg/distribution";
+import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { consumptionInPeriod } from "@/lib/weg/meter-distribution";
 
 const METER_TYPES = ["STROM", "GAS", "WASSER_KALT", "WASSER_WARM", "HEIZUNG", "SONSTIGES"] as const;
@@ -165,6 +166,7 @@ export async function distributeByMeters(formData: FormData) {
       kind: "AUSGABE",
       costTypeId: costType.id,
       bookingDate: { gte: start, lt: end },
+      ...NOT_REVERSED,
     },
     _sum: { amountCents: true },
   });

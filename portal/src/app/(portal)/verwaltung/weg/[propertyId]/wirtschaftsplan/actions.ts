@@ -14,6 +14,7 @@ import {
   monthlyInstallments,
 } from "@/lib/weg/economic-plan";
 import { loadWegProperty } from "@/lib/weg/scope";
+import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 
 function back(propertyId: string, suffix = "", param?: string): never {
   redirect(`/verwaltung/weg/${propertyId}/wirtschaftsplan${suffix}${param ? `?${param}` : ""}`);
@@ -58,6 +59,7 @@ export async function createPlan(formData: FormData) {
       kind: "AUSGABE",
       costTypeId: { not: null },
       bookingDate: { gte: prev.start, lt: prev.end },
+      ...NOT_REVERSED,
     },
     _sum: { amountCents: true },
   });

@@ -291,8 +291,13 @@ export function FilterBar({
 }) {
   const { apply, searchParams, pathname, router } = useUrlUpdater(pageParam);
 
-  const primaryFilters = filters.filter((f) => f.primary);
-  const secondaryFilters = filters.filter((f) => !f.primary);
+  // Sekundäre Filter sammeln sich hinter dem Knopf „Filter“ – das lohnt aber
+  // erst ab zwei. Bei einem einzigen kostet das Aufklappfenster zwei Klicks und
+  // zeigt dann ein Feld, das genauso gut daneben stehen könnte; der Knopf
+  // verbirgt in dem Fall nichts, er schiebt nur einen Schritt dazwischen.
+  const alleInLeiste = filters.filter((f) => !f.primary).length <= 1;
+  const primaryFilters = alleInLeiste ? filters : filters.filter((f) => f.primary);
+  const secondaryFilters = alleInLeiste ? [] : filters.filter((f) => !f.primary);
   const visibleCombos = comboboxes.filter((c) => !c.hidden);
 
   // Kaskade: bei Änderung/Reset eines Combobox-Werts abhängige Felder mitleeren.

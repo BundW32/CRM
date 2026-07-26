@@ -10,11 +10,11 @@ import { Alert,
   buttonSecondaryClass,
   inputClass,
 } from "@/components/ui";
-import { FilterBar } from "@/components/filter-bar";
+import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
-import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { getOrganization, requireUser } from "@/lib/session";
 import {
   adoptMotionAsResolution,
@@ -26,6 +26,15 @@ import {
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { datum: "createdAt", titel: "title", status: "status" } as const;
+
+const sortOptions = [
+  { value: "datum", label: "Datum" },
+  { value: "titel", label: "Titel" },
+  { value: "status", label: "Status" },
+];
 
 const typeLabels: Record<string, string> = {
   BESCHLUSSANTRAG: "Beschlussantrag",
@@ -87,6 +96,7 @@ export default async function AntraegePage({
   // Eigene Anträge (Status-Verlauf für den Eigentümer).
   // Eigene Anträge sammeln sich über die Jahre – paginiert und durchsuchbar.
   const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "datum", "desc");
   const q = normalizeSearch(sp.q);
   const myMotionWhere: Prisma.OwnerMotionWhereInput = {
     AND: [
@@ -107,7 +117,7 @@ export default async function AntraegePage({
     db.ownerMotion.findMany({
       where: myMotionWhere,
       include: { property: { select: { name: true } } },
-      orderBy: { createdAt: "desc" },
+      orderBy: toOrderBy(sort.field, sort.dir),
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
@@ -278,11 +288,18 @@ export default async function AntraegePage({
       {/* Eigene Anträge */}
       <div className="mt-6">
         <Card title={`Meine Anträge (${myMotionTotal})`}>
-          <FilterBar
-            className="mb-3"
-            searchPlaceholder="Suchen"
-            searchHint="Nach Titel oder Antragstext suchen"
-          />
+          {/* Sortiermenü nur für den Verwalter – er sieht Anträge über viele
+              Objekte hinweg; für Eigentümer ist die Datumsfolge die richtige. */}
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <FilterBar
+              className="flex-1"
+              searchPlaceholder="Suchen"
+              searchHint="Nach Titel oder Antragstext suchen"
+            />
+            {isVerwalter && myMotionTotal > 0 ? (
+              <SortControl sortOptions={sortOptions} defaultSort="datum" />
+            ) : null}
+          </div>
 
           {myMotions.length === 0 ? (
             <EmptyState>

@@ -80,13 +80,13 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
   {
     title: "Dokumente",
-    roles: ["VERWALTER", "EIGENTUEMER"],
+    roles: ["VERWALTER", "EIGENTUEMER", "MIETER"],
     href: "/dokumente",
     body: `Unter Dokumente finden Sie alle abgelegten Unterlagen. Die Verwaltung lädt Dokumente mit einer Zielgruppe hoch (Mieter, Eigentümer, Beirat oder Alle).`,
   },
   {
     title: "Aushänge",
-    roles: ["VERWALTER", "EIGENTUEMER"],
+    roles: ["VERWALTER", "EIGENTUEMER", "MIETER"],
     href: "/aushaenge",
     body: `Unter Aushänge veröffentlicht die Verwaltung Mitteilungen für ein Objekt. Empfänger können einen Aushang zur Kenntnis nehmen; die Verwaltung sieht, wer ihn gelesen hat.`,
   },

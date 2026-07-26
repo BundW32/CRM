@@ -7,7 +7,7 @@ import {
   Pagination,
   inputClass,
 } from "@/components/ui";
-import { FilterBar, type FilterConfig } from "@/components/filter-bar";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { SubmitButton } from "@/components/submit-button";
 import {
   ADDRESS_BOOK_KINDS,
@@ -15,7 +15,7 @@ import {
   parseKind,
 } from "@/lib/address-book";
 import { contactKindLabels, roleLabels } from "@/lib/labels";
-import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list-query";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { isSelfManaged, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -27,6 +27,16 @@ import { KontaktZeile } from "./KontaktZeile";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
+
+// Whitelist der Sortierfelder. Das Adressbuch führt Personen und Firmen aus
+// zwei Tabellen zusammen und sortiert im Speicher – die Schlüssel benennen
+// deshalb keine Spalten, sondern die Vergleichsart.
+const SORT_FIELDS = { name: "name", art: "art" } as const;
+
+const sortOptions = [
+  { value: "name", label: "Name" },
+  { value: "art", label: "Art" },
+];
 
 // Beschriftung der „Art“ – Personenrollen und Kontaktarten in einer Liste.
 function kindLabel(value: string): string {
@@ -48,12 +58,15 @@ export default async function KontaktePage({
   const q = normalizeSearch(params.q);
   const kind = parseKind(params.art);
   const currentPage = parsePage(params.page);
+  const sort = resolveSort(params.sort, params.dir, SORT_FIELDS, "name", "asc");
 
   const { entries, total } = await loadAddressBook(verwalter, {
     q,
     kind,
     page: currentPage,
     pageSize: PAGE_SIZE,
+    sort: sort.key,
+    dir: sort.dir,
   });
   // Objektliste für das Anlegen einer Person mit Zugang (Mieter/Eigentümer-Zuordnung).
   const propsForNewUser = (
@@ -108,6 +121,7 @@ export default async function KontaktePage({
               {total} Kontakt{total !== 1 ? "e" : ""}
               {hasFilter ? " (gefiltert)" : ""}
             </p>
+            {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="name" /> : null}
           </div>
 
           {entries.length === 0 ? (

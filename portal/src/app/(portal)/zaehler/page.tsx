@@ -1,13 +1,13 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { Pagination, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
-import { FilterBar, type FilterConfig } from "@/components/filter-bar";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { PendingButton } from "@/components/pending-button";
 import { SubmitButton } from "@/components/submit-button";
 import { ownedProperties, propertyWhereForVerwalter, tenantUnits } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, meterTypeLabels } from "@/lib/labels";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import { createMeter, deleteMeter, submitReading } from "./actions";
 import { MeterTargetPicker } from "./meter-target-picker";
@@ -15,6 +15,18 @@ import { MeterTargetPicker } from "./meter-target-picker";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 30;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+// Bewusst NICHT nach Objekt: Allgemeinzähler hängen am Objekt statt an einer
+// Einheit, eine gemeinsame Sortierung darüber liefe über zwei verschiedene
+// Beziehungen und stellte sie ans Ende. Dafür gibt es den Objekt-Filter.
+const SORT_FIELDS = { nummer: "meterNumber", art: "type", angelegt: "createdAt" } as const;
+
+const sortOptions = [
+  { value: "nummer", label: "Zählernummer" },
+  { value: "art", label: "Zählerart" },
+  { value: "angelegt", label: "Anlagedatum" },
+];
 
 export default async function ZaehlerPage({
   searchParams,
@@ -25,6 +37,7 @@ export default async function ZaehlerPage({
   const sp = await searchParams;
   const { fehler, gespeichert } = sp;
   const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "angelegt", "asc");
   const isVerwalter = user.role === "VERWALTER";
   const isMieter = user.role === "MIETER";
 
@@ -85,7 +98,7 @@ export default async function ZaehlerPage({
     db.meter.count({ where: meterWhere }),
     db.meter.findMany({
       where: meterWhere,
-      orderBy: { createdAt: "asc" },
+      orderBy: toOrderBy(sort.field, sort.dir),
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: {
@@ -162,10 +175,15 @@ export default async function ZaehlerPage({
               filters={meterFilters}
               comboboxes={scope.comboboxes}
             />
-            <p className="mt-2 px-1 text-xs text-gray-400">
-              {totalMeters} {totalMeters === 1 ? "Zähler" : "Zähler"}
-              {hasFilter ? " (gefiltert)" : ""}
-            </p>
+            <div className="mt-2 flex items-center justify-between gap-3 px-1">
+              <p className="text-xs text-gray-400">
+                {totalMeters} {totalMeters === 1 ? "Zähler" : "Zähler"}
+                {hasFilter ? " (gefiltert)" : ""}
+              </p>
+              {totalMeters > 0 ? (
+                <SortControl sortOptions={sortOptions} defaultSort="angelegt" />
+              ) : null}
+            </div>
           </div>
 
           {groups.size === 0 ? (

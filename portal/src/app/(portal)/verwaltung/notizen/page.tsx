@@ -1,12 +1,12 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { Pagination, Card, EmptyState, PageTitle } from "@/components/ui";
-import { FilterBar, type FilterConfig } from "@/components/filter-bar";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { noteWhereForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { formatDate } from "@/lib/labels";
 import { propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { deleteNote, togglePinNote } from "./actions";
 import { NoteForm } from "./note-form";
 
@@ -23,6 +23,14 @@ function buildWhere(type: FilterType) {
 
 const PAGE_SIZE = 30;
 
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { datum: "createdAt", objekt: "property.name" } as const;
+
+const sortOptions = [
+  { value: "datum", label: "Datum" },
+  { value: "objekt", label: "Objekt" },
+];
+
 export default async function NotizenPage({
   searchParams,
 }: {
@@ -34,6 +42,7 @@ export default async function NotizenPage({
   const params = await searchParams;
   const type = (params.type ?? "alle") as FilterType;
   const currentPage = parsePage(params.page);
+  const sort = resolveSort(params.sort, params.dir, SORT_FIELDS, "datum", "desc");
 
   // ── Filter: Suche, Bezug (Objekt/Einheit/Person), Objekt/Einheit ──
   const scope = await propertyScopeFilters(verwalter, params, { withUnit: true });
@@ -57,7 +66,8 @@ export default async function NotizenPage({
     db.note.count({ where: noteWhere }),
     db.note.findMany({
       where: noteWhere,
-      orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
+      // Angeheftete bleiben immer oben – sonst verlören sie ihren Zweck.
+      orderBy: [{ pinned: "desc" }, toOrderBy(sort.field, sort.dir)],
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: {
@@ -110,10 +120,13 @@ export default async function NotizenPage({
               filters={noteFilters}
               comboboxes={scope.comboboxes}
             />
-            <p className="mt-2 px-1 text-xs text-gray-400">
-              {total} {total === 1 ? "Notiz" : "Notizen"}
-              {hasFilter ? " (gefiltert)" : ""}
-            </p>
+            <div className="mt-2 flex items-center justify-between gap-3 px-1">
+              <p className="text-xs text-gray-400">
+                {total} {total === 1 ? "Notiz" : "Notizen"}
+                {hasFilter ? " (gefiltert)" : ""}
+              </p>
+              {total > 0 ? <SortControl sortOptions={sortOptions} defaultSort="datum" /> : null}
+            </div>
           </div>
 
           {/* Notes */}

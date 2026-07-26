@@ -9,19 +9,28 @@ import {
   buttonClass,
   inputClass,
 } from "@/components/ui";
-import { FilterBar, type FilterConfig } from "@/components/filter-bar";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { announcementWhereForUser, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { audienceLabels, formatDate } from "@/lib/labels";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import { acknowledgeAnnouncement, createAnnouncement, deleteAnnouncement } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 30;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { datum: "createdAt", titel: "title", objekt: "property.name" } as const;
+
+const sortOptions = [
+  { value: "datum", label: "Datum" },
+  { value: "titel", label: "Titel" },
+  { value: "objekt", label: "Objekt" },
+];
 
 export default async function AushaengePage({
   searchParams,
@@ -33,6 +42,7 @@ export default async function AushaengePage({
   const { fehler } = sp;
   const isVerwalter = user.role === "VERWALTER";
   const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "datum", "desc");
 
   // ── Filter: Suche, Objekt, Sichtbarkeit (nur Verwalter) ──
   const scope = await propertyScopeFilters(user, sp, { withUnit: false });
@@ -57,13 +67,17 @@ export default async function AushaengePage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const announcements = await db.announcement.findMany({
     where: announcementWhere,
-    orderBy: { createdAt: "desc" },
+    orderBy: toOrderBy(sort.field, sort.dir),
     skip: (currentPage - 1) * PAGE_SIZE,
     take: PAGE_SIZE,
     include: { property: true, acknowledgements: { include: { user: true } } },
   });
   const properties = isVerwalter
-    ? await db.property.findMany({ where: await propertyWhereForVerwalter(user), orderBy: { name: "asc" } })
+    ? await db.property.findMany({
+        where: await propertyWhereForVerwalter(user),
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      })
     : [];
 
   const pageHref = pageHrefFor(`/aushaenge`, sp);
@@ -99,10 +113,19 @@ export default async function AushaengePage({
               filters={annFilters}
               comboboxes={scope.comboboxes}
             />
-            <p className="mt-2 px-1 text-xs text-gray-400">
-              {total} {total === 1 ? "Aushang" : "Aushänge"}
-              {hasFilter ? " (gefiltert)" : ""}
-            </p>
+            {/* Ergebniszeile: Trefferzahl links, Sortierung dezent rechts. Das
+                Sortiermenü sieht nur der Verwalter – er hat Aushänge über viele
+                Objekte hinweg; für Mieter und Eigentümer ist „neueste zuerst"
+                die einzige sinnvolle Ordnung. */}
+            <div className="mt-2 flex items-center justify-between gap-3 px-1">
+              <p className="text-xs text-gray-400">
+                {total} {total === 1 ? "Aushang" : "Aushänge"}
+                {hasFilter ? " (gefiltert)" : ""}
+              </p>
+              {isVerwalter && total > 0 ? (
+                <SortControl sortOptions={sortOptions} defaultSort="datum" />
+              ) : null}
+            </div>
           </div>
 
           {announcements.length === 0 ? (

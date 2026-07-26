@@ -1,14 +1,25 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
-import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 import { Pagination, buttonClass } from "@/components/ui";
-import { FilterBar } from "@/components/filter-bar";
+import { FilterBar, SortControl } from "@/components/filter-bar";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+// Gilt nur für die abgeschlossenen Protokolle – die Entwürfe stehen bewusst
+// weiter nach letzter Bearbeitung, das ist dort die Arbeitsreihenfolge.
+const SORT_FIELDS = { bearbeitet: "updatedAt", uebergabe: "handoverDate", art: "type" } as const;
+
+const sortOptions = [
+  { value: "bearbeitet", label: "Zuletzt bearbeitet" },
+  { value: "uebergabe", label: "Übergabedatum" },
+  { value: "art", label: "Art (Ein-/Auszug)" },
+];
 
 const typeLabels: Record<string, string> = {
   EINZUG: "Einzug",
@@ -56,6 +67,7 @@ export default async function UebergabeOverviewPage({
   const propWhere = await propertyWhereForVerwalter(verwalter);
   const sp = await searchParams;
   const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "bearbeitet", "desc");
   const q = normalizeSearch(sp.q);
 
   // Bisher wurden ALLE Protokolle geladen und erst im Speicher getrennt. Die
@@ -95,7 +107,7 @@ export default async function UebergabeOverviewPage({
     db.handover.findMany({
       where: doneWhere,
       include,
-      orderBy: { updatedAt: "desc" },
+      orderBy: toOrderBy(sort.field, sort.dir),
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
@@ -225,11 +237,16 @@ export default async function UebergabeOverviewPage({
               </span>
             </h2>
 
-            <FilterBar
-              className="mb-3"
-              searchPlaceholder="Suchen"
-              searchHint="Nach Objekt oder Einheit suchen"
-            />
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <FilterBar
+                className="flex-1"
+                searchPlaceholder="Suchen"
+                searchHint="Nach Objekt oder Einheit suchen"
+              />
+              {doneTotal > 0 ? (
+                <SortControl sortOptions={sortOptions} defaultSort="bearbeitet" />
+              ) : null}
+            </div>
 
             {abgeschlossen.length === 0 ? (
               <p className="text-sm text-white/50">Keine Protokolle gefunden.</p>

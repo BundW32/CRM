@@ -15,14 +15,17 @@ export function parsePage(raw: string | undefined): number {
  * `allowed` bildet den Param-Wert auf das Prisma-Feld ab (Whitelist – verhindert
  * beliebige Felder aus der URL). Fällt auf `defaultKey` zurück.
  */
-export function resolveSort<T extends string>(
+export function resolveSort<A extends Record<string, string>>(
   raw: string | undefined,
   dirRaw: string | undefined,
-  allowed: Record<T, string>,
-  defaultKey: T,
+  allowed: A,
+  defaultKey: keyof A & string,
   defaultDir: SortDir = "desc",
-): { key: T; field: string; dir: SortDir } {
-  const key = (raw && raw in allowed ? (raw as T) : defaultKey);
+): { key: keyof A & string; field: string; dir: SortDir } {
+  // Der Typparameter hängt bewusst an `allowed`, nicht am Default: sonst würde
+  // `key` auf den Default verengt und ein Vergleich mit den übrigen Schlüsseln
+  // als unmöglich gemeldet.
+  const key = (raw && raw in allowed ? raw : defaultKey) as keyof A & string;
   const dir: SortDir = dirRaw === "asc" || dirRaw === "desc" ? dirRaw : defaultDir;
   return { key, field: allowed[key], dir };
 }

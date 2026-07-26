@@ -152,6 +152,68 @@ function SelectFilter({
   );
 }
 
+// ── Offen liegende Optionen eines Filters (im „Filter"-Popover) ──────────────
+// Für kurze Listen gedacht: Der Knopf verbirgt den Filter ohnehin schon, ein
+// zweites zugeklapptes Feld dahinter wäre eine Hülle zu viel. Sehr lange Listen
+// (z. B. Gewerk) behalten die Combobox mit Suchfeld – dort wäre eine offene
+// Liste unübersichtlicher als eine durchsuchbare.
+const OFFENE_LISTE_MAX = 8;
+
+function FilterOptionen({
+  config,
+  pageParam,
+  onGewaehlt,
+}: {
+  config: FilterConfig;
+  pageParam?: string | string[];
+  /** Nach der Wahl schließt sich das Popover – die Aufgabe ist erledigt. */
+  onGewaehlt: () => void;
+}) {
+  const { apply, searchParams } = useUrlUpdater(pageParam);
+  const value = searchParams.get(config.key) ?? "";
+
+  if (config.options.length > OFFENE_LISTE_MAX) {
+    return (
+      <div>
+        <span className="mb-1 block text-xs font-medium text-gray-500">{config.label}</span>
+        <SelectFilter config={config} tone="onLight" pageParam={pageParam} />
+      </div>
+    );
+  }
+
+  const eintraege = [
+    { value: "", label: config.allLabel ?? "Alle" },
+    ...config.options,
+  ];
+
+  return (
+    <div>
+      <span className="mb-1 block text-xs font-medium text-gray-500">{config.label}</span>
+      <div className="-mx-1">
+        {eintraege.map((o) => {
+          const aktiv = o.value === value;
+          return (
+            <button
+              key={o.value || "__alle"}
+              type="button"
+              onClick={() => {
+                apply({ [config.key]: o.value || null });
+                onGewaehlt();
+              }}
+              className={`flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-gray-100 ${
+                aktiv ? "font-semibold text-brand-orange-ink" : "text-gray-700"
+              }`}
+            >
+              {o.label}
+              {aktiv ? <Check className="h-4 w-4 shrink-0" /> : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── „Weitere Filter"-Popover ─────────────────────────────────────────────────
 function MoreFilters({
   filters,
@@ -201,12 +263,20 @@ function MoreFilters({
           Leiste umbricht und der Button links steht, andersherum. */}
       {open ? (
         <div className="absolute right-0 z-30 mt-1.5 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200/70 bg-white p-3 shadow-e2 max-sm:left-0 max-sm:right-auto">
+          {/* Optionen direkt, nicht als weiteres Auswahlfeld.
+              Vorher stand hier je Filter eine Combobox – man klickte auf
+              „Filter", sah ein zugeklapptes Feld und musste es erst öffnen,
+              bevor überhaupt eine Option zu sehen war. Zwei Klicks, um an das
+              zu kommen, wofür man den Knopf gedrückt hat. Jetzt liegen die
+              Optionen offen: ein Klick auf den Knopf, einer auf die Wahl. */}
           <div className="space-y-3">
             {filters.map((f) => (
-              <div key={f.key}>
-                <span className="mb-1 block text-xs font-medium text-gray-500">{f.label}</span>
-                <SelectFilter config={f} tone="onLight" pageParam={pageParam} />
-              </div>
+              <FilterOptionen
+                key={f.key}
+                config={f}
+                pageParam={pageParam}
+                onGewaehlt={() => setOpen(false)}
+              />
             ))}
           </div>
           {activeCount > 0 ? (
@@ -291,13 +361,8 @@ export function FilterBar({
 }) {
   const { apply, searchParams, pathname, router } = useUrlUpdater(pageParam);
 
-  // Sekundäre Filter sammeln sich hinter dem Knopf „Filter“ – das lohnt aber
-  // erst ab zwei. Bei einem einzigen kostet das Aufklappfenster zwei Klicks und
-  // zeigt dann ein Feld, das genauso gut daneben stehen könnte; der Knopf
-  // verbirgt in dem Fall nichts, er schiebt nur einen Schritt dazwischen.
-  const alleInLeiste = filters.filter((f) => !f.primary).length <= 1;
-  const primaryFilters = alleInLeiste ? filters : filters.filter((f) => f.primary);
-  const secondaryFilters = alleInLeiste ? [] : filters.filter((f) => !f.primary);
+  const primaryFilters = filters.filter((f) => f.primary);
+  const secondaryFilters = filters.filter((f) => !f.primary);
   const visibleCombos = comboboxes.filter((c) => !c.hidden);
 
   // Kaskade: bei Änderung/Reset eines Combobox-Werts abhängige Felder mitleeren.

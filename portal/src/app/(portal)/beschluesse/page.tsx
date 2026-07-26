@@ -5,7 +5,7 @@ import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels, voteChoiceLabels } from "@/lib/labels";
 import { propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import {
   computeOutcome,
@@ -161,16 +161,7 @@ export default async function BeschluessePage({
   const resolutions = [...open, ...decided];
   const totalPages = Math.max(1, Math.ceil(decidedTotal / PAGE_SIZE));
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v && k !== "page") sp.set(k, v);
-    }
-    if (p > 1) sp.set("page", String(p));
-    const qs = sp.toString();
-    return `/beschluesse${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/beschluesse`, params);
 
   const propIds = [...new Set(resolutions.map((r) => r.propertyId))];
   const ownerCounts = await db.ownership.groupBy({

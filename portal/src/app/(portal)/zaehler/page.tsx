@@ -7,7 +7,7 @@ import { ownedProperties, propertyWhereForVerwalter, tenantUnits } from "@/lib/a
 import { db } from "@/lib/db";
 import { formatDate, meterTypeLabels } from "@/lib/labels";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import { createMeter, deleteMeter, submitReading } from "./actions";
 import { MeterTargetPicker } from "./meter-target-picker";
@@ -97,16 +97,7 @@ export default async function ZaehlerPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(totalMeters / PAGE_SIZE));
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/zaehler${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/zaehler`, sp);
 
   const meterFilters: FilterConfig[] = [
     {

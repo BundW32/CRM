@@ -4,7 +4,7 @@ import { Alert, Card, EmptyState, Field, PageTitle, Pagination, buttonClass, but
 import { FilterBar, SortControl, type FilterConfig, type SortOption } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { bookingKindLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
-import { normalizeSearch, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
+import { normalizeSearch, parsePage, resolveSort, toOrderBy, pageHrefFor } from "@/lib/list-query";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { createBooking, createTransfer } from "./actions";
@@ -171,16 +171,7 @@ export default async function WegBuchhaltungPage({
     },
   ];
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/verwaltung/weg/${property.id}/buchhaltung${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/verwaltung/weg/${property.id}/buchhaltung`, sp);
 
   return (
     <>

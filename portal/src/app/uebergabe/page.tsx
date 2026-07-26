@@ -1,7 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 import { Pagination, buttonClass } from "@/components/ui";
 import { FilterBar } from "@/components/filter-bar";
@@ -102,16 +102,7 @@ export default async function UebergabeOverviewPage({
     db.handover.count({ where: doneWhere }),
   ]);
 
-  // Paginierung muss die aktive Suche mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/uebergabe${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/uebergabe`, sp);
 
   return (
     <div className="min-h-screen bw-shell-bg px-4 py-8">

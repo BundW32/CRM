@@ -38,3 +38,34 @@ export function normalizeSearch(raw: string | undefined): string | undefined {
   const q = (raw ?? "").trim();
   return q.length > 0 ? q : undefined;
 }
+
+/**
+ * Baut die `hrefFor`-Funktion für `<Pagination>`: der Link zu Seite `p` trägt
+ * **alle** übrigen Params unverändert mit, damit Suche, Filter und Sortierung
+ * beim Blättern erhalten bleiben.
+ *
+ * Bewusst zentral: diese Funktion stand zuvor gut zwanzigmal wortgleich in den
+ * Seiten. Wer sie von Hand schreibt, vergisst irgendwann einen Param — dann
+ * fällt beim Umblättern still ein Filter weg.
+ *
+ * @param basePath Pfad ohne Querystring, z. B. `/vorgaenge`.
+ * @param sp       Die `searchParams` der Seite.
+ * @param param    Name des Seiten-Params. Nur abweichen, wenn eine Seite
+ *                 mehrere unabhängig blätterbare Listen trägt — sonst muss auch
+ *                 die `FilterBar` über `pageParam` davon erfahren.
+ */
+export function pageHrefFor(
+  basePath: string,
+  sp: Record<string, string | undefined>,
+  param = "page",
+): (p: number) => string {
+  return (p: number) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== param) params.set(k, v);
+    }
+    if (p > 1) params.set(param, String(p));
+    const qs = params.toString();
+    return `${basePath}${qs ? `?${qs}` : ""}`;
+  };
+}

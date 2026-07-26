@@ -11,7 +11,7 @@ import {
   tradeLabels,
 } from "@/lib/labels";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
+import { normalizeSearch, parsePage, resolveSort, toOrderBy, pageHrefFor } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 import {
   completeMaintenanceTask,
@@ -115,16 +115,7 @@ export default async function WartungPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v && k !== "page") sp.set(k, v);
-    }
-    if (p > 1) sp.set("page", String(p));
-    const qs = sp.toString();
-    return `/verwaltung/wartung${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/verwaltung/wartung`, params);
 
   const taskFilters: FilterConfig[] = [
     { key: "faellig", label: "Fälligkeit", allLabel: "Alle", primary: true, options: faelligOptions },

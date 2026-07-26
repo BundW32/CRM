@@ -12,7 +12,7 @@ import {
   tradeLabels,
 } from "@/lib/labels";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
+import { normalizeSearch, parsePage, resolveSort, toOrderBy, pageHrefFor } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -92,16 +92,7 @@ export default async function TicketsPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/vorgaenge${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/vorgaenge`, sp);
 
   const filters: FilterConfig[] = [
     { key: "status", label: "Status", options: optionsFrom(ticketStatusLabels), primary: true },

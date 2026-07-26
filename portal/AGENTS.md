@@ -53,10 +53,18 @@ Nie selbst gebaut — es gibt ein gemeinsames System:
 - **`src/components/filter-bar.tsx`** — `FilterBar` (Freitextsuche, Filter-Pillen,
   Typeahead-Comboboxen) und `SortControl`. Alles URL-getrieben, damit Deep-Links,
   Zurück-Button und Paginierung funktionieren.
-- **`src/lib/list-query.ts`** — `parsePage`, `normalizeSearch`, `resolveSort`, `toOrderBy`.
+- **`src/lib/list-query.ts`** — `parsePage`, `normalizeSearch`, `resolveSort`, `toOrderBy`,
+  `pageHrefFor` (die `hrefFor`-Funktion für `<Pagination>`).
 - **`src/lib/list-filters.ts`** — `propertyScopeFilters()` für die Objekt→Einheit→Nutzer-
   Kaskade, `optionsFrom()` für einfache Auswahllisten.
 - Feldoptik: `fieldFillClass` auf hellen Karten, `fieldOnDarkClass` auf dem dunklen Shell.
+
+**Der Seiten-Param heißt `page`.** Die `FilterBar` setzt ihn bei jeder Änderung zurück —
+sonst stünde man nach dem Filtern auf Seite 4 eines viel kürzeren Ergebnisses und sähe
+„nichts gefunden", obwohl es Treffer gibt. Genau das war auf fünf Seiten der Fall, die
+ihren Param anders benannt hatten. Trägt eine Seite **mehrere** blätterbare Listen
+(Hausgeld, Gemeinschaft), bekommt jede einen eigenen Namen — und dann muss ihre
+Filterleiste ihn über `pageParam` erfahren, passend zum `param` von `pageHrefFor`.
 
 **Zwei Regeln, die nicht verhandelbar sind:**
 1. Filter dürfen das Access-`where` nur **verengen**, nie erweitern. Ausgangspunkt bleibt

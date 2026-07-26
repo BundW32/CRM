@@ -117,7 +117,7 @@ export default async function FinanzenPage({
   const backTo = `/finanzen?objekt=${encodeURIComponent(selected.id)}`;
 
   // ── Belegeinsicht: Suche und Jahr, paginiert ──
-  const bPage = parsePage(sp.bseite);
+  const bPage = parsePage(sp.page);
   const bq = normalizeSearch(sp.bq);
   const bJahr = /^\d{4}$/.test(sp.bjahr ?? "") ? Number(sp.bjahr) : undefined;
   const bookingAnd: Prisma.BookingWhereInput[] = [{ propertyId: selected.id }];
@@ -207,9 +207,9 @@ export default async function FinanzenPage({
   function bookingPageHref(p: number) {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "bseite") params.set(k, v);
+      if (v && k !== "page") params.set(k, v);
     }
-    if (p > 1) params.set("bseite", String(p));
+    if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return `/finanzen${qs ? `?${qs}` : ""}`;
   }

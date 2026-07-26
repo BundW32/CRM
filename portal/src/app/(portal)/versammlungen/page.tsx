@@ -7,7 +7,7 @@ import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import { createMeeting } from "./actions";
 
@@ -85,16 +85,7 @@ export default async function VersammlungenPage({
     db.ownersMeeting.count({ where: meetingWhere }),
   ]);
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/versammlungen${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/versammlungen`, sp);
 
   return (
     <>

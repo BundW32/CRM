@@ -14,7 +14,7 @@ import { FilterBar } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { getOrganization, requireUser } from "@/lib/session";
 import {
   adoptMotionAsResolution,
@@ -114,16 +114,7 @@ export default async function AntraegePage({
     db.ownerMotion.count({ where: myMotionWhere }),
   ]);
 
-  // Paginierung muss die aktive Suche mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/antraege${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/antraege`, sp);
 
   // Review-Bereich für den internen Verwalter: offene Anträge im Scope.
   let reviewMotions: Awaited<ReturnType<typeof loadReview>>["motions"] = [];

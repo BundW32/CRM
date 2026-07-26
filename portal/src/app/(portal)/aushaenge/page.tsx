@@ -15,7 +15,7 @@ import { announcementWhereForUser, propertyWhereForVerwalter } from "@/lib/acces
 import { db } from "@/lib/db";
 import { audienceLabels, formatDate } from "@/lib/labels";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import { acknowledgeAnnouncement, createAnnouncement, deleteAnnouncement } from "./actions";
 
@@ -66,16 +66,7 @@ export default async function AushaengePage({
     ? await db.property.findMany({ where: await propertyWhereForVerwalter(user), orderBy: { name: "asc" } })
     : [];
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/aushaenge${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/aushaenge`, sp);
 
   const annFilters: FilterConfig[] = isVerwalter
     ? [

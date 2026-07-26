@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { formatDate } from "@/lib/labels";
 import { propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { deleteNote, togglePinNote } from "./actions";
 import { NoteForm } from "./note-form";
 
@@ -77,16 +77,7 @@ export default async function NotizenPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v && k !== "page") sp.set(k, v);
-    }
-    if (p > 1) sp.set("page", String(p));
-    const qs = sp.toString();
-    return `/verwaltung/notizen${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/verwaltung/notizen`, params);
 
   const noteFilters: FilterConfig[] = [
     {

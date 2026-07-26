@@ -3,7 +3,7 @@ import { Alert, Card, PageTitle, Pagination, buttonClass, buttonSecondaryClass }
 import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { formatCents, formatInvoiceNumber, invoiceGrossCents, requirePlatformAdmin } from "@/lib/platform";
 import { canRemindAgain, reminderLevelLabel } from "@/lib/dunning";
 import { isMailEnabled } from "@/lib/mailer";
@@ -43,7 +43,7 @@ export default async function RechnungenPage({
     : null;
   const mailReady = isMailEnabled();
   const now = new Date();
-  const currentPage = parsePage(sp.seite);
+  const currentPage = parsePage(sp.page);
   const q = normalizeSearch(sp.q);
   const jahr = /^\d{4}$/.test(sp.jahr ?? "") ? Number(sp.jahr) : undefined;
 
@@ -110,16 +110,7 @@ export default async function RechnungenPage({
     },
   ];
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "seite") params.set(k, v);
-    }
-    if (p > 1) params.set("seite", String(p));
-    const qs = params.toString();
-    return `/plattform/rechnungen${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/plattform/rechnungen`, sp);
 
   return (
     <>

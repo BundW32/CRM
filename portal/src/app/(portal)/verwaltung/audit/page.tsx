@@ -4,7 +4,7 @@ import { PageTitle, Pagination } from "@/components/ui";
 import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { optionsFrom } from "@/lib/list-filters";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,7 @@ export default async function AuditPage({
 
   const sp = await searchParams;
   const filterAction = sp.action && sp.action in ACTION_LABELS ? sp.action : undefined;
-  const page = parsePage(sp.seite);
+  const page = parsePage(sp.page);
   const pageSize = 50;
   const skip = (page - 1) * pageSize;
 
@@ -177,15 +177,7 @@ export default async function AuditPage({
         currentPage={page}
         totalPages={totalPages}
         total={total}
-        hrefFor={(p) => {
-          const params = new URLSearchParams();
-          for (const [k, v] of Object.entries(sp)) {
-            if (v && k !== "seite") params.set(k, v);
-          }
-          if (p > 1) params.set("seite", String(p));
-          const qs = params.toString();
-          return `/verwaltung/audit${qs ? `?${qs}` : ""}`;
-        }}
+        hrefFor={pageHrefFor("/verwaltung/audit", sp)}
       />
     </>
   );

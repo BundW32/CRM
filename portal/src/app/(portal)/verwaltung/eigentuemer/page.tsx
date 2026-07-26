@@ -4,7 +4,7 @@ import { Alert, Card, PageTitle, Pagination, buttonSecondaryClass, inputClass } 
 import { FilterBar } from "@/components/filter-bar";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 import { updateBoardMember, updateVotingPrinciple } from "./actions";
 
@@ -73,16 +73,7 @@ export default async function EigentuemerPage({
     : [[], 0, { _sum: { mea: null } }];
   const totalMea = meaAgg._sum.mea ?? 0;
 
-  // Paginierung muss Objektauswahl und Suche mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/verwaltung/eigentuemer${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/verwaltung/eigentuemer`, sp);
 
   // Läuft am gewählten Objekt eine Abstimmung? Dann Stimmgewichte/-prinzip sperren.
   const openVotes = selected

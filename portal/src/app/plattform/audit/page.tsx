@@ -1,7 +1,7 @@
 import { PageTitle, Pagination } from "@/components/ui";
 import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requirePlatformAdmin } from "@/lib/platform";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -55,7 +55,7 @@ export default async function PlatformAuditPage({
   const sp = await searchParams;
   const filterAction = sp.action && FILTER_ACTIONS.includes(sp.action) ? sp.action : undefined;
   const system = sp.system;
-  const page = parsePage(sp.seite);
+  const page = parsePage(sp.page);
   const pageSize = 50;
   const skip = (page - 1) * pageSize;
   const q = normalizeSearch(sp.q);
@@ -177,15 +177,7 @@ export default async function PlatformAuditPage({
         currentPage={page}
         totalPages={totalPages}
         total={total}
-        hrefFor={(p) => {
-          const params = new URLSearchParams();
-          for (const [k, v] of Object.entries(sp)) {
-            if (v && k !== "seite") params.set(k, v);
-          }
-          if (p > 1) params.set("seite", String(p));
-          const qs = params.toString();
-          return `/plattform/audit${qs ? `?${qs}` : ""}`;
-        }}
+        hrefFor={pageHrefFor("/plattform/audit", sp)}
       />
     </>
   );

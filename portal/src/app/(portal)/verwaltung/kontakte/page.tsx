@@ -15,7 +15,7 @@ import {
   parseKind,
 } from "@/lib/address-book";
 import { contactKindLabels, roleLabels } from "@/lib/labels";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { isSelfManaged, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -76,16 +76,7 @@ export default async function KontaktePage({
     },
   ];
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v && k !== "page") sp.set(k, v);
-    }
-    if (p > 1) sp.set("page", String(p));
-    const qs = sp.toString();
-    return `/verwaltung/kontakte${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/verwaltung/kontakte`, params);
 
   return (
     <>

@@ -5,7 +5,7 @@ import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { reminderLevelLabel } from "@/lib/dunning";
 import { formatDateOnly } from "@/lib/labels";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { assignPayment, createMahnung, deleteMahnung, markMahnungSent } from "./actions";
@@ -195,16 +195,13 @@ export default async function HausgeldPage({
 
   // Paginierung muss alle aktiven Filter mittragen. `param` benennt die Liste,
   // die geblättert wird – die übrigen behalten dadurch ihre Position.
-  function hrefWith(param: string, p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== param) params.set(k, v);
-    }
-    if (p > 1) params.set(param, String(p));
-    const qs = params.toString();
-    return `/verwaltung/weg/${property.id}/hausgeld${qs ? `?${qs}` : ""}`;
-  }
-  const pageHref = (p: number) => hrefWith("page", p);
+  // Drei unabhängig blätterbare Listen auf einer Seite – daher drei Params.
+  // Jede Filterleiste muss den ihren kennen (`pageParam`), sonst bliebe beim
+  // Filtern die Seitenzahl der falschen Liste stehen.
+  const hausgeldPath = `/verwaltung/weg/${property.id}/hausgeld`;
+  const mahnungHref = pageHrefFor(hausgeldPath, sp, "mseite");
+  const assignedHref = pageHrefFor(hausgeldPath, sp, "aseite");
+  const pageHref = pageHrefFor(hausgeldPath, sp);
 
   return (
     <>
@@ -279,7 +276,7 @@ export default async function HausgeldPage({
             </EmptyState>
           ) : (
             <>
-            <FilterBar filters={[STAND_FILTER]} />
+            <FilterBar filters={[STAND_FILTER]} pageParam={[]} />
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-left text-sm">
                 <thead>
@@ -381,7 +378,7 @@ export default async function HausgeldPage({
               erst versendete Schreiben schalten die nächste Mahnstufe frei. Keine automatischen
               Mahngebühren.
             </p>
-            <FilterBar filters={[MAHN_FILTER]} />
+            <FilterBar filters={[MAHN_FILTER]} pageParam="mseite" />
             {mahnungen.length === 0 ? (
               <EmptyState>
                 {mahnstatus === "entwurf"
@@ -448,7 +445,7 @@ export default async function HausgeldPage({
               totalPages={Math.max(1, Math.ceil(mahnungTotal / MAHNUNG_PAGE_SIZE))}
               total={mahnungTotal}
               itemLabel="Schreiben"
-              hrefFor={(p) => hrefWith("mseite", p)}
+              hrefFor={mahnungHref}
             />
           </Card>
         ) : null}
@@ -555,7 +552,7 @@ export default async function HausgeldPage({
               totalPages={Math.max(1, Math.ceil(assignedTotal / ASSIGNED_PAGE_SIZE))}
               total={assignedTotal}
               itemLabel="Zahlungen"
-              hrefFor={(p) => hrefWith("aseite", p)}
+              hrefFor={assignedHref}
             />
           </Card>
         ) : null}

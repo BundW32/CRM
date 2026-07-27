@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
-import { withFlash } from "@/lib/flash";
 import { requireVerwalter } from "@/lib/session";
 import { MANUAL_SETUP_STEPS, type SetupStepKey } from "@/lib/weg/setup-status";
 
@@ -37,5 +36,5 @@ export async function markSetupStep(formData: FormData) {
   });
 
   revalidatePath("/dashboard");
-  redirect(withFlash("/dashboard", "schritt-erledigt"));
+  redirect("/dashboard?flash=schritt-erledigt");
 }

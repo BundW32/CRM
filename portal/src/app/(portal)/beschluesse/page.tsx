@@ -2,12 +2,12 @@ import { redirect } from "next/navigation";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Pagination, Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
-import { FilterBar } from "@/components/filter-bar";
+import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels, voteChoiceLabels } from "@/lib/labels";
 import { propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import {
   computeOutcome,
@@ -29,6 +29,15 @@ import {
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 30;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { datum: "createdAt", titel: "title", objekt: "property.name" } as const;
+
+const sortOptions = [
+  { value: "datum", label: "Datum" },
+  { value: "titel", label: "Titel" },
+  { value: "objekt", label: "Objekt" },
+];
 
 const statusTone: Record<string, string> = {
   OFFEN: "bg-blue-100 text-blue-800",
@@ -110,6 +119,7 @@ export default async function BeschluessePage({
   const params = await searchParams;
   const { fehler } = params;
   const currentPage = parsePage(params.page);
+  const sort = resolveSort(params.sort, params.dir, SORT_FIELDS, "datum", "desc");
   const isVerwalter = user.role === "VERWALTER";
 
   let scopeWhere: Record<string, unknown> = {};
@@ -149,31 +159,25 @@ export default async function BeschluessePage({
   const [open, decidedTotal, decided] = await Promise.all([
     db.resolution.findMany({
       where: { ...baseWhere, status: "OFFEN" },
-      orderBy: { createdAt: "desc" },
+      orderBy: toOrderBy(sort.field, sort.dir),
       include,
     }),
     db.resolution.count({ where: { ...baseWhere, status: { not: "OFFEN" } } }),
     db.resolution.findMany({
       where: { ...baseWhere, status: { not: "OFFEN" } },
-      orderBy: { createdAt: "desc" },
+      orderBy: toOrderBy(sort.field, sort.dir),
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include,
     }),
   ]);
   const resolutions = [...open, ...decided];
+  // Beide Listen stehen untereinander auf der Seite und tragen dieselbe
+  // Sortierung – für die Sichtbarkeitsgrenze zählt deshalb ihre Summe.
+  const resolutionTotal = open.length + decidedTotal;
   const totalPages = Math.max(1, Math.ceil(decidedTotal / PAGE_SIZE));
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v && k !== "page") sp.set(k, v);
-    }
-    if (p > 1) sp.set("page", String(p));
-    const qs = sp.toString();
-    return `/beschluesse${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/beschluesse`, params);
 
   const propIds = [...new Set(resolutions.map((r) => r.propertyId))];
   const ownerCounts = await db.ownership.groupBy({
@@ -295,12 +299,17 @@ export default async function BeschluessePage({
         </Alert>
       ) : null}
 
-      <FilterBar
-        className="mb-5"
-        searchPlaceholder="Suchen"
-        searchHint="Nach Titel oder Beschlusstext suchen"
-        comboboxes={scope.comboboxes}
-      />
+      {/* Sortiermenü nur für den Verwalter – er sieht Beschlüsse über viele
+          Objekte hinweg; für Eigentümer ist die Datumsfolge die richtige. */}
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <FilterBar
+          className="flex-1"
+          searchPlaceholder="Suchen"
+          searchHint="Nach Titel oder Beschlusstext suchen"
+          comboboxes={scope.comboboxes}
+        />
+        <SortControl sortOptions={sortOptions} defaultSort="datum" total={resolutionTotal} />
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">

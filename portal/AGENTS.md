@@ -53,10 +53,23 @@ Nie selbst gebaut — es gibt ein gemeinsames System:
 - **`src/components/filter-bar.tsx`** — `FilterBar` (Freitextsuche, Filter-Pillen,
   Typeahead-Comboboxen) und `SortControl`. Alles URL-getrieben, damit Deep-Links,
   Zurück-Button und Paginierung funktionieren.
-- **`src/lib/list-query.ts`** — `parsePage`, `normalizeSearch`, `resolveSort`, `toOrderBy`.
+- **`src/lib/list-query.ts`** — `parsePage`, `normalizeSearch`, `resolveSort`, `toOrderBy`,
+  `pageHrefFor` (die `hrefFor`-Funktion für `<Pagination>`).
 - **`src/lib/list-filters.ts`** — `propertyScopeFilters()` für die Objekt→Einheit→Nutzer-
   Kaskade, `optionsFrom()` für einfache Auswahllisten.
 - Feldoptik: `fieldFillClass` auf hellen Karten, `fieldOnDarkClass` auf dem dunklen Shell.
+
+**`SortControl` bekommt die Trefferzahl über `total`.** Unter fünf Treffern blendet
+es sich selbst aus — bei einer Handvoll Einträgen sieht man alles auf einen Blick. Die
+Grenze steht in der Komponente, nicht in den Seiten; Rollen-Sperren („nur Verwalter")
+gehören nicht davor: ob eine Liste lang wird, entscheidet der Bestand, nicht die Rolle.
+
+**Der Seiten-Param heißt `page`.** Die `FilterBar` setzt ihn bei jeder Änderung zurück —
+sonst stünde man nach dem Filtern auf Seite 4 eines viel kürzeren Ergebnisses und sähe
+„nichts gefunden", obwohl es Treffer gibt. Genau das war auf fünf Seiten der Fall, die
+ihren Param anders benannt hatten. Trägt eine Seite **mehrere** blätterbare Listen
+(Hausgeld, Gemeinschaft), bekommt jede einen eigenen Namen — und dann muss ihre
+Filterleiste ihn über `pageParam` erfahren, passend zum `param` von `pageHrefFor`.
 
 **Zwei Regeln, die nicht verhandelbar sind:**
 1. Filter dürfen das Access-`where` nur **verengen**, nie erweitern. Ausgangspunkt bleibt
@@ -133,6 +146,33 @@ Typprüfung oder Build etwas merken) und `src/lib/button-feedback.test.ts`
 (Rückfrage und Pending-Zustand). Beide laufen in der CI. Begründete Sonderfälle
 gehören in die Ausnahmeliste im Test, mit Begründung — nicht in ein
 abgeschaltetes `it.skip`.
+
+### Rücksprung-Helfer
+
+Fast jedes Aktions-Modul hat einen kleinen Helfer, der den Pfad für den
+Rücksprung baut. Das ist richtig so — jedes Modul kehrt woandershin zurück.
+Gewachsen ist daraus allerdings ein Zoo: vier Namen (`back`, `backTo`,
+`zurueckZu`, `zurueckZurListe`) und Signaturen, die sich widersprechen — mal
+ist das zweite Argument Pflicht, mal optional, mal heißt es `param`, mal
+`query`, mal `suffix`, und einer nimmt drei. Ein Durchgang über alle Aktionen
+ist dadurch unnötig fehleranfällig.
+
+**Neue Module halten sich an diese Form:**
+
+```ts
+function backTo(id: string, suffix = ""): string {
+  return `/pfad/${id}/unterseite${suffix}`;
+}
+// Aufruf: redirect(backTo(propertyId, "?flash=gespeichert"))
+```
+
+Also: Name `backTo`, zweites Argument **optional**, und das Suffix bringt sein
+`?` selbst mit — dann lässt es sich unverändert anhängen und man muss beim
+Aufruf nicht wissen, ob der Helfer schon eines gesetzt hat.
+
+Die vorhandenen Abweichungen werden **nicht** in einem Rutsch umgebaut: Das
+wären viele Dateien ohne jede sichtbare Verbesserung. Wer ohnehin in einer
+solchen Datei arbeitet, zieht sie mit.
 
 ## Rollen
 

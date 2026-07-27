@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
-import { withFlash } from "@/lib/flash";
 import { requireVerwalter } from "@/lib/session";
 
 const INTERVALLE = [
@@ -61,5 +60,5 @@ export async function addOwnTermin(formData: FormData) {
   });
 
   revalidatePath("/dashboard");
-  redirect(withFlash("/dashboard", "erstellt"));
+  redirect("/dashboard?flash=erstellt");
 }

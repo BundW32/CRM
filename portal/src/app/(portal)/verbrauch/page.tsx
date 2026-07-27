@@ -6,7 +6,7 @@ import { ownedProperties, propertyWhereForVerwalter, tenantUnits } from "@/lib/a
 import { db } from "@/lib/db";
 import { formatDateOnly, meterTypeLabels } from "@/lib/labels";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import { latestConsumptionInfo } from "@/lib/weg/consumption";
 
@@ -116,16 +116,7 @@ export default async function VerbrauchPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/verbrauch${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/verbrauch`, sp);
 
   const meterFilters: FilterConfig[] = [
     {

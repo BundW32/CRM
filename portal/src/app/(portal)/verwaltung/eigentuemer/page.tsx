@@ -1,16 +1,25 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert, Card, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
-import { FilterBar } from "@/components/filter-bar";
+import { FilterBar, SortControl } from "@/components/filter-bar";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 import { updateBoardMember, updateVotingPrinciple } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { name: "user.name", mea: "mea", stimmen: "voteUnits" } as const;
+
+const sortOptions = [
+  { value: "name", label: "Name" },
+  { value: "mea", label: "MEA" },
+  { value: "stimmen", label: "Stimmanteil" },
+];
 
 export default async function EigentuemerPage({
   searchParams,
@@ -21,6 +30,7 @@ export default async function EigentuemerPage({
   const sp = await searchParams;
   const { objekt, fehler } = sp;
   const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "name", "asc");
   const q = normalizeSearch(sp.q);
 
   // Nur WEG-Objekte im eigenen Zuständigkeitsbereich.
@@ -60,7 +70,7 @@ export default async function EigentuemerPage({
         db.ownership.findMany({
           where: ownerWhere,
           include: { user: { select: { name: true, email: true } } },
-          orderBy: { user: { name: "asc" } },
+          orderBy: toOrderBy(sort.field, sort.dir),
           skip: (currentPage - 1) * PAGE_SIZE,
           take: PAGE_SIZE,
         }),
@@ -73,16 +83,7 @@ export default async function EigentuemerPage({
     : [[], 0, { _sum: { mea: null } }];
   const totalMea = meaAgg._sum.mea ?? 0;
 
-  // Paginierung muss Objektauswahl und Suche mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/verwaltung/eigentuemer${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/verwaltung/eigentuemer`, sp);
 
   // Läuft am gewählten Objekt eine Abstimmung? Dann Stimmgewichte/-prinzip sperren.
   const openVotes = selected
@@ -166,11 +167,14 @@ export default async function EigentuemerPage({
                 </a>
               </form>
 
-              <FilterBar
-                className="mb-3"
-                searchPlaceholder="Suchen"
-                searchHint="Nach Name oder E-Mail suchen"
-              />
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <FilterBar
+                  className="flex-1"
+                  searchPlaceholder="Suchen"
+                  searchHint="Nach Name oder E-Mail suchen"
+                />
+                <SortControl sortOptions={sortOptions} defaultSort="name" total={ownerTotal} />
+              </div>
 
               {owners.length === 0 ? (
                 <p className="text-sm text-gray-500">

@@ -12,7 +12,7 @@ import {
   buttonGhostClass,
   inputClass,
 } from "@/components/ui";
-import { FilterBar, type FilterConfig } from "@/components/filter-bar";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { PropertyUnitFields } from "@/components/property-unit-fields";
 import { RecipientPicker } from "@/components/recipient-picker";
@@ -27,7 +27,7 @@ import {
   requestableDocuments,
 } from "@/lib/labels";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import {
   acknowledgeDocument,
@@ -42,6 +42,15 @@ export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 30;
 
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { datum: "createdAt", titel: "title", groesse: "size" } as const;
+
+const sortOptions = [
+  { value: "datum", label: "Datum" },
+  { value: "titel", label: "Titel" },
+  { value: "groesse", label: "Dateigröße" },
+];
+
 export default async function DokumentePage({
   searchParams,
 }: {
@@ -52,6 +61,7 @@ export default async function DokumentePage({
   const { fehler, hochgeladen, geloescht } = sp;
   const isVerwalter = user.role === "VERWALTER";
   const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "datum", "desc");
 
   // ── Filter: Suche, Kategorie, Objekt → Einheit ──
   const scope = await propertyScopeFilters(user, sp, { withUnit: true });
@@ -77,22 +87,13 @@ export default async function DokumentePage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const documents = await db.document.findMany({
     where: documentWhere,
-    orderBy: { createdAt: "desc" },
+    orderBy: toOrderBy(sort.field, sort.dir),
     skip: (currentPage - 1) * PAGE_SIZE,
     take: PAGE_SIZE,
     include: { property: true, unit: true, acknowledgements: { include: { user: true } } },
   });
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/dokumente${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/dokumente`, sp);
 
   const docFilters: FilterConfig[] = [
     {
@@ -148,10 +149,14 @@ export default async function DokumentePage({
               filters={docFilters}
               comboboxes={scope.comboboxes}
             />
-            <p className="mt-2 px-1 text-xs text-gray-400">
-              {total} {total === 1 ? "Dokument" : "Dokumente"}
-              {hasFilter ? " (gefiltert)" : ""}
-            </p>
+            {/* Ergebniszeile: Trefferzahl links, Sortierung dezent rechts. */}
+            <div className="mt-2 flex items-center justify-between gap-3 px-1">
+              <p className="text-xs text-gray-400">
+                {total} {total === 1 ? "Dokument" : "Dokumente"}
+                {hasFilter ? " (gefiltert)" : ""}
+              </p>
+              <SortControl sortOptions={sortOptions} defaultSort="datum" total={total} />
+            </div>
           </div>
 
           {documents.length === 0 ? (

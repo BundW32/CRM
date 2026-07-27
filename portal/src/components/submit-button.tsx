@@ -1,36 +1,37 @@
 "use client";
 
-import { useFormStatus } from "react-dom";
+import { PendingButton } from "@/components/pending-button";
 import { buttonClass } from "@/components/ui";
 
+/**
+ * Primärer Speichern-Button eines Formulars.
+ *
+ * Nur noch eine Vorkonfiguration von `PendingButton`: gleiche Optik wie bisher
+ * (Primärstil, etwas größerer Spinner, Vorgaben „Speichern" und „Wird
+ * gespeichert…"), aber ohne eigene Pending-Logik.
+ *
+ * Beide Komponenten trugen dieselbe Mechanik doppelt – mit der Folge, dass
+ * Verbesserungen immer nur eine Hälfte erreichten: Als `PendingButton` gelernt
+ * hat, `name`/`value` durchzureichen (nötig bei Formularen mit mehreren
+ * Submit-Buttons), fehlte das hier weiterhin.
+ *
+ * Für alles außerhalb der Primäraktion – Inline-Links, sekundäre Knöpfe –
+ * ist `PendingButton` direkt die richtige Wahl.
+ */
 export function SubmitButton({
   children = "Speichern",
-  pendingLabel,
   className = buttonClass,
-}: {
-  children?: React.ReactNode;
-  pendingLabel?: string;
-  className?: string;
-}) {
-  const { pending } = useFormStatus();
+  pendingLabel = "Wird gespeichert…",
+  ...rest
+}: React.ComponentProps<typeof PendingButton>) {
   return (
-    <button type="submit" disabled={pending} className={className}>
-      {pending ? (
-        <>
-          <svg
-            className="mr-2 h-4 w-4 animate-spin"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-          >
-            <path d="M12 2a10 10 0 1 0 10 10" strokeLinecap="round" />
-          </svg>
-          {pendingLabel ?? "Wird gespeichert…"}
-        </>
-      ) : (
-        children
-      )}
-    </button>
+    <PendingButton
+      className={className}
+      pendingLabel={pendingLabel}
+      spinnerClassName="mr-2 h-4 w-4"
+      {...rest}
+    >
+      {children}
+    </PendingButton>
   );
 }

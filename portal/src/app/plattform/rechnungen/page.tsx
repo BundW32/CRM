@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { Alert, Card, PageTitle, Pagination, buttonClass, buttonSecondaryClass } from "@/components/ui";
-import { FilterBar, type FilterConfig } from "@/components/filter-bar";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { formatCents, formatInvoiceNumber, invoiceGrossCents, requirePlatformAdmin } from "@/lib/platform";
 import { canRemindAgain, reminderLevelLabel } from "@/lib/dunning";
 import { isMailEnabled } from "@/lib/mailer";
@@ -29,6 +29,23 @@ const STATUSES: PlatformInvoiceStatus[] = ["ENTWURF", "OFFEN", "BEZAHLT", "STORN
 
 const PAGE_SIZE = 50;
 
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+// Bewusst OHNE Betrag: die Summe entsteht erst aus den Positionen und steht
+// nicht als Spalte in der Tabelle – danach könnte die Datenbank nicht ordnen.
+const SORT_FIELDS = {
+  nummer: "number",
+  faellig: "dueAt",
+  status: "status",
+  verwaltung: "organization.name",
+} as const;
+
+const sortOptions = [
+  { value: "nummer", label: "Rechnungsnummer" },
+  { value: "faellig", label: "Fällig am" },
+  { value: "status", label: "Status" },
+  { value: "verwaltung", label: "Verwaltung" },
+];
+
 const gross = invoiceGrossCents;
 
 export default async function RechnungenPage({
@@ -43,7 +60,14 @@ export default async function RechnungenPage({
     : null;
   const mailReady = isMailEnabled();
   const now = new Date();
-  const currentPage = parsePage(sp.seite);
+  const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "nummer", "desc");
+  // Rechnungsnummern laufen pro Jahr – ohne das Jahr davor stünde die 1 aus
+  // diesem Jahr neben der 1 aus dem letzten.
+  const invoiceOrderBy =
+    sort.key === "nummer"
+      ? [{ year: sort.dir }, { number: sort.dir }]
+      : toOrderBy(sort.field, sort.dir);
   const q = normalizeSearch(sp.q);
   const jahr = /^\d{4}$/.test(sp.jahr ?? "") ? Number(sp.jahr) : undefined;
 
@@ -57,7 +81,7 @@ export default async function RechnungenPage({
   const [invoices, invoiceTotal, openInvoices, overdueInvoices] = await Promise.all([
     db.platformInvoice.findMany({
       where,
-      orderBy: [{ year: "desc" }, { number: "desc" }],
+      orderBy: invoiceOrderBy,
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: {
@@ -110,16 +134,7 @@ export default async function RechnungenPage({
     },
   ];
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "seite") params.set(k, v);
-    }
-    if (p > 1) params.set("seite", String(p));
-    const qs = params.toString();
-    return `/plattform/rechnungen${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/plattform/rechnungen`, sp);
 
   return (
     <>
@@ -227,10 +242,13 @@ export default async function RechnungenPage({
         searchHint="Nach Verwaltung suchen"
         filters={invoiceFilters}
       />
-      <p className="mb-3 mt-2 px-1 text-xs text-gray-400">
-        {invoiceTotal} {invoiceTotal === 1 ? "Rechnung" : "Rechnungen"}
-        {hasFilter ? " (gefiltert)" : ""}
-      </p>
+      <div className="mb-3 mt-2 flex items-center justify-between gap-3 px-1">
+        <p className="text-xs text-gray-400">
+          {invoiceTotal} {invoiceTotal === 1 ? "Rechnung" : "Rechnungen"}
+          {hasFilter ? " (gefiltert)" : ""}
+        </p>
+        <SortControl sortOptions={sortOptions} defaultSort="nummer" total={invoiceTotal} />
+      </div>
 
       <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full text-sm">

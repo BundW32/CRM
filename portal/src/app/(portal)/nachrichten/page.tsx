@@ -5,7 +5,7 @@ import { Pagination, Alert, Card, EmptyState, Field, PageTitle, inputClass } fro
 import { FilterBar } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import { startConversation } from "./actions";
 import { EmpfaengerSelect } from "./EmpfaengerSelect";
@@ -66,16 +66,7 @@ export default async function NachrichtenPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  // Paginierung muss die aktive Suche mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/nachrichten${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/nachrichten`, sp);
 
   return (
     <>

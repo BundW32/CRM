@@ -3,18 +3,27 @@ import { PendingButton } from "@/components/pending-button";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert, Card, EmptyState, Field, PageTitle, Pagination, buttonClass, inputClass } from "@/components/ui";
-import { FilterBar } from "@/components/filter-bar";
+import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { propertyScopeFilters } from "@/lib/list-filters";
-import { normalizeSearch, parsePage } from "@/lib/list-query";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
 import { createMeeting } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { termin: "scheduledAt", titel: "title", objekt: "property.name" } as const;
+
+const sortOptions = [
+  { value: "termin", label: "Termin" },
+  { value: "titel", label: "Titel" },
+  { value: "objekt", label: "Objekt" },
+];
 
 const statusTone: Record<string, string> = {
   GEPLANT: "bg-blue-100 text-blue-800",
@@ -40,6 +49,7 @@ export default async function VersammlungenPage({
   const { fehler } = sp;
   const isVerwalter = user.role === "VERWALTER";
   const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "termin", "desc");
 
   // Zugängliche WEG-Objekte.
   let propWhere;
@@ -78,7 +88,7 @@ export default async function VersammlungenPage({
   const [meetings, meetingTotal] = await Promise.all([
     db.ownersMeeting.findMany({
       where: meetingWhere,
-      orderBy: { scheduledAt: "desc" },
+      orderBy: toOrderBy(sort.field, sort.dir),
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: { property: { select: { name: true } }, _count: { select: { agendaItems: true } } },
@@ -86,16 +96,7 @@ export default async function VersammlungenPage({
     db.ownersMeeting.count({ where: meetingWhere }),
   ]);
 
-  // Paginierung muss alle aktiven Filter mittragen.
-  function pageHref(p: number) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/versammlungen${qs ? `?${qs}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/versammlungen`, sp);
 
   return (
     <>
@@ -117,10 +118,16 @@ export default async function VersammlungenPage({
             searchHint="Nach Titel oder Ort suchen"
             comboboxes={scope.comboboxes}
           />
-          <p className="mb-2 px-1 text-xs text-gray-400">
-            {meetingTotal} {meetingTotal === 1 ? "Versammlung" : "Versammlungen"}
-            {hasFilter ? " (gefiltert)" : ""}
-          </p>
+          {/* Sortiermenü nur für den Verwalter: er sieht Versammlungen über
+              viele Objekte hinweg. Für Eigentümer ist die Terminfolge die
+              natürliche und einzige sinnvolle Ordnung. */}
+          <div className="mb-2 flex items-center justify-between gap-3 px-1">
+            <p className="text-xs text-gray-400">
+              {meetingTotal} {meetingTotal === 1 ? "Versammlung" : "Versammlungen"}
+              {hasFilter ? " (gefiltert)" : ""}
+            </p>
+            <SortControl sortOptions={sortOptions} defaultSort="termin" total={meetingTotal} />
+          </div>
 
           {meetings.length === 0 ? (
             <EmptyState>

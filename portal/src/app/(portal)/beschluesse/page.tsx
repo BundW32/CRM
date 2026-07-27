@@ -1,11 +1,33 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
-import { Pagination, Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import {
+  Pagination,
+  Alert,
+  Card,
+  CollapsibleCard,
+  EmptyState,
+  Field,
+  PageTitle,
+  buttonClass,
+  buttonCompact,
+  buttonDangerClass,
+  buttonSecondaryClass,
+  inputClass,
+} from "@/components/ui";
+import {
+  Badge,
+  KeyFigure,
+  KeyFigures,
+  stackTight,
+  type BadgeTone,
+} from "@/components/data-display";
+import { DateField, SelectField } from "@/components/fields";
 import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
-import { formatDate, resolutionStatusLabels, voteChoiceLabels } from "@/lib/labels";
+import { formatDateOnly, resolutionStatusLabels, voteChoiceLabels } from "@/lib/labels";
 import { propertyScopeFilters } from "@/lib/list-filters";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
@@ -39,11 +61,13 @@ const sortOptions = [
   { value: "objekt", label: "Objekt" },
 ];
 
-const statusTone: Record<string, string> = {
-  OFFEN: "bg-blue-100 text-blue-800",
-  ANGENOMMEN: "bg-green-100 text-green-800",
-  ABGELEHNT: "bg-red-100 text-red-700",
-  ZURUECKGEZOGEN: "bg-gray-200 text-gray-700",
+// Beschluss-Status als Ton des gemeinsamen Etiketts – vorher eine eigene
+// Farbtabelle, die neben 60 weiteren im Portal stand.
+const statusTone: Record<string, BadgeTone> = {
+  OFFEN: "info",
+  ANGENOMMEN: "success",
+  ABGELEHNT: "danger",
+  ZURUECKGEZOGEN: "neutral",
 };
 
 // Zusammenfassung einer Abstimmung: Kopf-Zählung, Gewichtung nach Stimmprinzip,
@@ -56,6 +80,7 @@ function VoteSummary({
   eligible,
   eligibleMea,
   showSuggestion,
+  compact = false,
 }: {
   rawVotes: { choice: "JA" | "NEIN" | "ENTHALTUNG" }[];
   outcome: OutcomeResult;
@@ -64,45 +89,80 @@ function VoteSummary({
   eligible: number;
   eligibleMea: number;
   showSuggestion: boolean;
+  /**
+   * Abgeschlossene Beschlüsse stehen zu dreißigst auf einer Seite. Große
+   * Kennzahlen sind dort falsch: Sie machen die Liste unlesbar lang, obwohl die
+   * Zahlen nur noch der Nachschau dienen. Bei laufenden Abstimmungen ist es
+   * umgekehrt – da schaut man genau auf den Stand.
+   */
+  compact?: boolean;
 }) {
   const head = (c: string) => rawVotes.filter((v) => v.choice === c).length;
   const weightLabel = principle === "MEA" ? "MEA" : principle === "OBJEKT" ? "Einheiten" : "";
-  return (
-    <div className="mt-2 space-y-0.5 text-xs text-gray-500">
-      <p>
-        Ja: <strong className="text-gray-800">{head("JA")}</strong> · Nein:{" "}
-        <strong className="text-gray-800">{head("NEIN")}</strong> · Enthaltung:{" "}
-        <strong className="text-gray-800">{head("ENTHALTUNG")}</strong> · abgegeben{" "}
-        {rawVotes.length}
-        {eligible > 0 ? ` von ${eligible} Eigentümern` : ""}
+  // Die Prognose braucht mindestens eine Stimme. Vorher rechnet sie zwar richtig,
+  // sagt aber nichts – und „Voraussichtlich: Abgelehnt" unter einem Beschluss, über
+  // den noch niemand abgestimmt hat, liest sich wie ein Ergebnis.
+  const zeigeProgose = showSuggestion && rawVotes.length > 0;
+
+  if (compact) {
+    return (
+      <p className="mt-2 text-xs text-gray-500">
+        Ja: <strong className="text-good">{head("JA")}</strong> · Nein:{" "}
+        <strong className="text-critical">{head("NEIN")}</strong> · Enthaltung:{" "}
+        <strong className="text-gray-800">{head("ENTHALTUNG")}</strong>
+        {eligible > 0 ? ` · ${rawVotes.length} von ${eligible} Eigentümern` : ""} ·
+        Erforderlich: <strong className="text-gray-700">{MAJORITY_LABELS[majority]}</strong>
       </p>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-xl bg-gray-50 p-4">
+      <KeyFigures>
+        <KeyFigure label="Ja" value={head("JA")} tone="good" />
+        <KeyFigure label="Nein" value={head("NEIN")} tone="critical" />
+        <KeyFigure label="Enthaltung" value={head("ENTHALTUNG")} />
+        <KeyFigure
+          label="Beteiligung"
+          value={eligible > 0 ? `${rawVotes.length}/${eligible}` : rawVotes.length}
+          hint={eligible > 0 ? "Eigentümer" : undefined}
+        />
+      </KeyFigures>
+
       {principle !== "KOPF" ? (
-        <p>
+        <p className="mt-3 text-xs text-gray-500">
           Nach {weightLabel} – Ja: <strong className="text-gray-800">{outcome.ja}</strong> · Nein:{" "}
           <strong className="text-gray-800">{outcome.nein}</strong> · Enthaltung:{" "}
           <strong className="text-gray-800">{outcome.enthaltung}</strong>
           {principle === "MEA" && eligibleMea > 0 ? ` von ${eligibleMea} MEA` : ""}
         </p>
       ) : null}
-      <p>
-        Erforderlich: <strong className="text-gray-700">{MAJORITY_LABELS[majority]}</strong>
-      </p>
-      {showSuggestion ? (
-        <p>
-          Voraussichtlich:{" "}
-          <strong className={outcome.suggestion === "ANGENOMMEN" ? "text-green-700" : "text-red-700"}>
-            {outcome.suggestion === "ANGENOMMEN" ? "Angenommen" : "Abgelehnt"}
-          </strong>
-          {!outcome.reliable ? (
-            <span className="ml-1 text-amber-600">(unverbindlich – Daten prüfen)</span>
-          ) : null}
-        </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+        <span>
+          Erforderlich: <strong className="text-gray-700">{MAJORITY_LABELS[majority]}</strong>
+        </span>
+        {zeigeProgose ? (
+          <>
+            <span aria-hidden>·</span>
+            <span>Voraussichtlich:</span>
+            <Badge tone={outcome.suggestion === "ANGENOMMEN" ? "success" : "danger"}>
+              {outcome.suggestion === "ANGENOMMEN" ? "Angenommen" : "Abgelehnt"}
+            </Badge>
+            {!outcome.reliable ? (
+              <Badge tone="warning">unverbindlich – Daten prüfen</Badge>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+
+      {outcome.warnings.length > 0 ? (
+        <ul className="mt-2 space-y-0.5 text-xs text-warn">
+          {outcome.warnings.map((w, i) => (
+            <li key={i}>{w}</li>
+          ))}
+        </ul>
       ) : null}
-      {outcome.warnings.map((w, i) => (
-        <p key={i} className="text-amber-600">
-          {w}
-        </p>
-      ))}
     </div>
   );
 }
@@ -152,7 +212,17 @@ export default async function BeschluessePage({
   const baseWhere = { AND: baseAnd };
   const hasFilter = Boolean(q || scope.active);
 
-  const include = { property: true, votes: { include: { user: true, castBy: true } } } as const;
+  // Die Versammlungs-Verknüpfung entscheidet über das Verfahren (siehe unten),
+  // deshalb gehört sie in JEDE Abfrage dieser Seite.
+  const include = {
+    property: true,
+    votes: { include: { user: true, castBy: true } },
+    agendaItems: {
+      select: {
+        meeting: { select: { id: true, title: true, scheduledAt: true, status: true } },
+      },
+    },
+  } as const;
   // Laufende Abstimmungen IMMER vollständig laden (nie paginieren – sonst könnte
   // eine ältere offene Abstimmung auf Seite 2 rutschen und übersehen werden).
   // Nur die entschiedenen Beschlüsse werden paginiert.
@@ -171,6 +241,29 @@ export default async function BeschluessePage({
       include,
     }),
   ]);
+  // ── Zwei Verfahren, die man nicht vermischen darf ──────────────────────────
+  //
+  // Ein Beschluss-Tagesordnungspunkt einer Versammlung legt sofort einen
+  // Beschluss mit Status OFFEN an (`versammlungen/actions.ts`). Bis hierher sah
+  // die Seite ihn nicht anders als einen Umlaufbeschluss: Er stand ganz oben
+  // unter „Laufende Abstimmungen", trug eine Ergebnis-Prognose und – das war der
+  // ernste Teil – ein Stimmformular für die Eigentümer. Damit konnte über einen
+  // Punkt, der erst in der Versammlung nach Aussprache zu beschließen ist, vorab
+  // abgestimmt werden. Das Gesetz trennt beides: Beschlussfassung in der
+  // Versammlung (§ 23 Abs. 1 WEG) einerseits, Umlaufbeschluss mit eigenen
+  // Anforderungen (§ 23 Abs. 3 WEG) andererseits.
+  //
+  // Nach der Versammlung ist die Trennung hinfällig – dann muss die Verwaltung
+  // das dort gefasste Ergebnis eintragen können. Deshalb zählt nur eine noch
+  // bevorstehende Versammlung (geplant oder einberufen).
+  const bevorstehendeVersammlung = (r: (typeof open)[number]) =>
+    r.agendaItems
+      .map((a) => a.meeting)
+      .find((m) => m.status === "GEPLANT" || m.status === "EINBERUFEN");
+
+  const vorbereitet = open.filter((r) => bevorstehendeVersammlung(r));
+  const laufend = open.filter((r) => !bevorstehendeVersammlung(r));
+
   const resolutions = [...open, ...decided];
   // Beide Listen stehen untereinander auf der Seite und tragen dieselbe
   // Sortierung – für die Sichtbarkeitsgrenze zählt deshalb ihre Summe.
@@ -287,7 +380,9 @@ export default async function BeschluessePage({
             ? "Umlaufbeschlüsse sind nur für WEG-Objekte möglich."
             : fehler === "frist"
               ? "Die Abstimmungsfrist ist abgelaufen bzw. liegt in der Vergangenheit."
-              : fehler === "geschlossen"
+              : fehler === "versammlung"
+              ? "Über diesen Punkt wird in der Versammlung abgestimmt, nicht vorab im Portal."
+            : fehler === "geschlossen"
                 ? "Die Abstimmung wurde soeben geschlossen – Ihre Stimme wurde nicht mehr gewertet."
                 : fehler === "ergebnis"
                 ? "Bitte ein Ergebnis (angenommen/abgelehnt) auswählen."
@@ -311,41 +406,35 @@ export default async function BeschluessePage({
         <SortControl sortOptions={sortOptions} defaultSort="datum" total={resolutionTotal} />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+      <div className="space-y-4">
+        <div className="space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-300">
             Laufende Abstimmungen
           </h2>
-          {open.length === 0 ? (
+          {laufend.length === 0 ? (
             <EmptyState>
               {hasFilter
                 ? "Keine laufenden Abstimmungen für diese Filter."
                 : "Derzeit keine laufenden Abstimmungen."}
             </EmptyState>
           ) : (
-            open.map((r) => {
+            laufend.map((r) => {
               const myVote = r.votes.find((v) => v.userId === user.id);
               const outcome = outcomeFor(r);
               const expired = r.deadline != null && r.deadline < new Date();
               return (
-                <div
-                  key={r.id}
-                  id={r.id}
-                  className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
-                >
+                <Card key={r.id} id={r.id}>
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <h3 className="text-base font-semibold text-gray-900">{r.title}</h3>
                       <p className="text-xs text-gray-500">
                         {r.property.name}
-                        {r.deadline ? ` · Frist: ${formatDate(r.deadline)}` : ""}
+                        {r.deadline ? ` · Frist: ${formatDateOnly(r.deadline)}` : ""}
                       </p>
                     </div>
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusTone[r.status]}`}
-                    >
+                    <Badge tone={statusTone[r.status]} dot={r.status === "OFFEN"}>
                       {resolutionStatusLabels[r.status]}
-                    </span>
+                    </Badge>
                   </div>
                   <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">{r.description}</p>
 
@@ -501,7 +590,7 @@ export default async function BeschluessePage({
                         <form action={withdrawResolution}>
                           <input type="hidden" name="id" value={r.id} />
                           <ConfirmActionButton
-                            className="text-xs text-gray-500 hover:underline"
+                            className={`${buttonSecondaryClass} ${buttonCompact}`}
                             confirmLabel="Wirklich zurückziehen?"
                             pendingLabel="Wird ausgeführt…"
                           >
@@ -511,7 +600,7 @@ export default async function BeschluessePage({
                         <form action={deleteResolution}>
                           <input type="hidden" name="id" value={r.id} />
                           <ConfirmActionButton
-                            className="text-xs text-red-600 hover:underline"
+                            className={`${buttonDangerClass} ${buttonCompact}`}
                             confirmLabel="Wirklich löschen?"
                             pendingLabel="Wird gelöscht…"
                           >
@@ -521,10 +610,55 @@ export default async function BeschluessePage({
                       </div>
                     </div>
                   ) : null}
-                </div>
+                </Card>
               );
             })
           )}
+
+          {/* Für eine Versammlung vorbereitet: sichtbar, aber ohne Stimmformular und
+              ohne Prognose. Beschlossen wird in der Versammlung; von dort trägt die
+              Verwaltung das Ergebnis ein. */}
+          {vorbereitet.length > 0 ? (
+            <>
+              <h2 className="mt-6 text-sm font-semibold tracking-wide text-gray-300 uppercase">
+                Für die nächste Versammlung vorbereitet
+              </h2>
+              <div className="space-y-3">
+                {vorbereitet.map((r) => {
+                  const m = bevorstehendeVersammlung(r)!;
+                  return (
+                    <Card key={r.id} id={r.id}>
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold text-gray-900">{r.title}</h3>
+                          <p className="text-xs text-gray-500">
+                            {r.property.name} · Versammlung am {formatDateOnly(m.scheduledAt)}
+                          </p>
+                        </div>
+                        <Badge tone="info">Tagesordnungspunkt</Badge>
+                      </div>
+                      <p className="mt-3 text-sm whitespace-pre-wrap text-gray-700">
+                        {r.description}
+                      </p>
+                      <p className="mt-3 text-xs text-gray-500">
+                        Erforderlich:{" "}
+                        <strong className="text-gray-700">{MAJORITY_LABELS[r.majority]}</strong> ·
+                        Die Abstimmung findet in der Versammlung statt (§ 23 Abs. 1 WEG).
+                      </p>
+                      <div className="mt-3">
+                        <Link
+                          href={`/versammlungen/${m.id}`}
+                          className={`${buttonSecondaryClass} ${buttonCompact}`}
+                        >
+                          Zur Versammlung „{m.title}&ldquo;
+                        </Link>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            </>
+          ) : null}
 
           <h2 className="mt-6 text-sm font-semibold uppercase tracking-wide text-gray-300">
             Abgeschlossene Beschlüsse
@@ -545,15 +679,13 @@ export default async function BeschluessePage({
                         {r.number ? `Nr. ${r.number} · ` : ""}
                         {r.title}
                       </span>
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusTone[r.status]}`}
-                      >
+                      <Badge tone={statusTone[r.status]}>
                         {resolutionStatusLabels[r.status]}
-                      </span>
+                      </Badge>
                     </div>
                     <p className="text-xs text-gray-500">
                       {r.property.name}
-                      {r.decidedAt ? ` · entschieden am ${formatDate(r.decidedAt)}` : ""}
+                      {r.decidedAt ? ` · entschieden am ${formatDateOnly(r.decidedAt)}` : ""}
                     </p>
                     <p className="mt-1 text-sm text-gray-700">{r.description}</p>
                     <VoteSummary
@@ -564,6 +696,7 @@ export default async function BeschluessePage({
                       eligible={ownerCountMap.get(r.propertyId) ?? 0}
                       eligibleMea={meaTotalMap.get(r.propertyId) ?? 0}
                       showSuggestion={false}
+                      compact
                     />
                   </li>
                 ))}
@@ -574,24 +707,25 @@ export default async function BeschluessePage({
           <Pagination currentPage={currentPage} totalPages={totalPages} total={decidedTotal} hrefFor={pageHref} />
         </div>
 
+        {/* Eingeklappt und unter der Liste: Einen Umlaufbeschluss startet man
+            selten, die laufenden Abstimmungen liest man bei jedem Besuch. Als
+            feste Spalte daneben nahm das Formular der Liste ein Drittel der
+            Breite. */}
         {isVerwalter ? (
-          <Card title="Umlaufbeschluss starten">
+          <CollapsibleCard title="Umlaufbeschluss starten">
             {properties.length === 0 ? (
               <p className="text-sm text-gray-500">
                 Keine WEG-Objekte vorhanden. Legen Sie ein Objekt mit Verwaltungsart „WEG“ an,
                 um Umlaufbeschlüsse zu starten.
               </p>
             ) : (
-              <form action={createResolution} className="space-y-3">
-                <Field label="Objekt (WEG)">
-                  <select name="propertyId" required className={inputClass}>
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+              <form action={createResolution} className={stackTight}>
+                <SelectField
+                  label="Objekt (WEG)"
+                  name="propertyId"
+                  required
+                  options={properties.map((p) => ({ value: p.id, label: p.name }))}
+                />
                 <Field label="Titel">
                   <input type="text" name="title" required minLength={3} className={inputClass} />
                 </Field>
@@ -599,16 +733,14 @@ export default async function BeschluessePage({
                   <textarea name="description" required minLength={3} rows={6} className={inputClass} />
                 </Field>
                 <UmlaufMehrheit />
-                <Field label="Frist (optional)">
-                  <input type="date" name="deadline" className={inputClass} />
-                </Field>
+                <DateField label="Frist (optional)" name="deadline" />
                 <PendingButton className={buttonClass}>Abstimmung starten</PendingButton>
                 <p className="text-xs text-gray-500">
                   Alle Eigentümer des Objekts werden per E-Mail zur Abstimmung eingeladen.
                 </p>
               </form>
             )}
-          </Card>
+          </CollapsibleCard>
         ) : (
           <Card title="Hinweis">
             <p className="text-sm text-gray-600">

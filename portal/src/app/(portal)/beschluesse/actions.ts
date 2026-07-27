@@ -94,6 +94,29 @@ export async function createResolution(formData: FormData) {
   redirect(`/beschluesse#${resolution.id}`);
 }
 
+/**
+ * Gehört dieser Beschluss zu einer noch bevorstehenden Versammlung?
+ *
+ * Ein Beschluss-Tagesordnungspunkt legt sofort einen offenen Beschluss an. Über ihn
+ * wird aber in der Versammlung abgestimmt (§ 23 Abs. 1 WEG) und nicht vorab im
+ * Portal – der Umlaufbeschluss ist ein eigenes Verfahren mit eigenen Anforderungen
+ * (§ 23 Abs. 3 WEG). Ohne diese Prüfung ließe sich die Sperre umgehen, indem man
+ * das Formular einer laufenden Abstimmung auf eine andere Beschluss-Id umbiegt.
+ *
+ * Nach der Versammlung greift die Sperre nicht mehr: Dann trägt die Verwaltung das
+ * dort gefasste Ergebnis ein.
+ */
+async function istVersammlungsBeschluss(resolutionId: string): Promise<boolean> {
+  const top = await db.meetingAgendaItem.findFirst({
+    where: {
+      resolutionId,
+      meeting: { status: { in: ["GEPLANT", "EINBERUFEN"] } },
+    },
+    select: { id: true },
+  });
+  return top !== null;
+}
+
 export async function castVote(formData: FormData) {
   const user = await requireUser();
   const resolutionId = String(formData.get("resolutionId") ?? "");
@@ -113,6 +136,10 @@ export async function castVote(formData: FormData) {
   // Frist hart durchsetzen: nach Ablauf keine Stimmabgabe/-änderung mehr.
   if (resolution.deadline && resolution.deadline < new Date()) {
     redirect(`/beschluesse?fehler=frist#${resolutionId}`);
+  }
+
+  if (await istVersammlungsBeschluss(resolutionId)) {
+    redirect(`/beschluesse?fehler=versammlung#${resolutionId}`);
   }
 
   // Stimmberechtigt ist ausschließlich, wer Eigentümer des Objekts ist
@@ -181,6 +208,10 @@ export async function castVoteForOwner(formData: FormData) {
   if (resolution.deadline && resolution.deadline < new Date()) {
     redirect(`/beschluesse?fehler=frist#${resolutionId}`);
   }
+  if (await istVersammlungsBeschluss(resolutionId)) {
+    redirect(`/beschluesse?fehler=versammlung#${resolutionId}`);
+  }
+
   // Eingetragen werden darf nur für einen tatsächlichen Eigentümer des Objekts.
   if (!ownerId || !(await canVoteOnProperty(ownerId, resolution.propertyId))) {
     redirect(`/beschluesse?fehler=eigentuemer#${resolutionId}`);

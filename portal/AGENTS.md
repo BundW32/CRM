@@ -174,6 +174,24 @@ Die vorhandenen Abweichungen werden **nicht** in einem Rutsch umgebaut: Das
 wären viele Dateien ohne jede sichtbare Verbesserung. Wer ohnehin in einer
 solchen Datei arbeitet, zieht sie mit.
 
+## WEG: zwei Beschlussverfahren, die nie zusammenfallen
+
+Ein Beschluss-Tagesordnungspunkt einer Versammlung legt **sofort** einen `Resolution`
+mit Status `OFFEN` an (`versammlungen/actions.ts`) — technisch nicht unterscheidbar von
+einem Umlaufbeschluss. Fachlich sind es zwei Verfahren: Beschlussfassung **in der
+Versammlung** (§ 23 Abs. 1 WEG) gegenüber **Umlaufbeschluss** mit eigenen Anforderungen
+(§ 23 Abs. 3 WEG). Genau diese Vermischung hat schon dazu geführt, dass Eigentümer über
+einen Versammlungspunkt vorab im Portal abstimmen konnten.
+
+**Wer offene Beschlüsse anzeigt oder Stimmen entgegennimmt, prüft die Verknüpfung.**
+Maßgeblich ist ein `MeetingAgendaItem` mit einer Versammlung im Status `GEPLANT` oder
+`EINBERUFEN`: Dann keine Stimmabgabe und keine Ergebnis-Prognose. Nach der Versammlung
+fällt die Sperre weg — dort trägt die Verwaltung das gefasste Ergebnis ein.
+
+Die Sperre steht **serverseitig** in `beschluesse/actions.ts` (`istVersammlungsBeschluss`,
+in `castVote` **und** `castVoteForOwner`); das Ausblenden des Formulars allein genügt
+nicht. `src/lib/versammlungsbeschluss.test.ts` hält beide Aufrufe fest.
+
 ## Rollen
 
 `VERWALTER`, `EIGENTUEMER`, `MIETER`. Zusätzlich `isSuperAdmin` (Admin innerhalb einer

@@ -182,6 +182,10 @@ export function CollapsibleCard({
     <details
       id={id}
       open={defaultOpen}
+      // `data-collapsible` hängt die weiche Auf-/Zuklapp-Bewegung an (globals.css).
+      // Sie läuft rein über CSS; wo der Browser sie nicht kennt, klappt die Karte
+      // wie bisher sofort auf – ohne Ausfall, nur ohne Animation.
+      data-collapsible
       className={`group rounded-2xl border border-gray-200 bg-white shadow-sm${id ? " scroll-mt-6" : ""}`}
     >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-5 py-4 text-base font-semibold text-gray-900 marker:hidden [&::-webkit-details-marker]:hidden">

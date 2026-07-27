@@ -202,6 +202,39 @@ export function KeyFigure({
 }
 
 /**
+ * Kennzahlen für eine **Kopfzeile** – Zahl und Beschriftung nebeneinander statt
+ * untereinander.
+ *
+ * Gedacht für eingeklappte Karten: Dort steht in der Mitte ohnehin freie Fläche,
+ * und drei farbige Zahlen sagen dort mehr als eine graue Textzeile. Bewusst kleiner
+ * als `KeyFigure` – die Kopfzeile soll überflogen, nicht studiert werden.
+ */
+export function InlineFigures({
+  items,
+}: {
+  items: readonly { label: string; value: ReactNode; tone?: "neutral" | "good" | "warn" | "critical" }[];
+}) {
+  const color = (t?: string) =>
+    t === "good"
+      ? "text-good"
+      : t === "warn"
+        ? "text-warn"
+        : t === "critical"
+          ? "text-critical"
+          : "text-gray-900";
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+      {items.map((it) => (
+        <span key={it.label} className="flex items-baseline gap-1.5 whitespace-nowrap">
+          <span className={`text-lg font-semibold ${color(it.tone)}`}>{it.value}</span>
+          <span className="text-xs font-normal text-gray-500">{it.label}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
  * Reihe aus Kennzahlen – bricht auf Mobil in zwei Spalten statt zu quetschen.
  */
 export function KeyFigures({ children }: { children: ReactNode }) {

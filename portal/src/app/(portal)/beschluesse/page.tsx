@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import {
   Badge,
+  InlineFigures,
   KeyFigure,
   KeyFigures,
   type BadgeTone,
@@ -431,17 +432,35 @@ export default async function BeschluessePage({
                   // ausgeklappte Ansicht sonst eine Bildschirmseite pro Beschluss.
                   defaultOpen={ownedIds.has(r.propertyId) && !myVote && !expired}
                   title={
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+                      <div className="min-w-0 flex-1">
                         <h3 className="text-base font-semibold text-gray-900">{r.title}</h3>
                         <p className="mt-0.5 text-xs font-normal text-gray-500">
                           {r.property.name}
                           {r.deadline ? ` · Frist: ${formatDateOnly(r.deadline)}` : ""}
-                          {` · Ja ${r.votes.filter((v) => v.choice === "JA").length}`}
-                          {` · Nein ${r.votes.filter((v) => v.choice === "NEIN").length}`}
-                          {` · Enthaltung ${r.votes.filter((v) => v.choice === "ENTHALTUNG").length}`}
                         </p>
                       </div>
+                      {/* Der Stand gehört in die freie Mitte der Kopfzeile – dort war
+                          bisher nur weiße Fläche, und die Zahlen sind das, wonach man
+                          in einer Liste laufender Abstimmungen zuerst schaut. */}
+                      <InlineFigures
+                        items={[
+                          {
+                            label: "Ja",
+                            value: r.votes.filter((v) => v.choice === "JA").length,
+                            tone: "good",
+                          },
+                          {
+                            label: "Nein",
+                            value: r.votes.filter((v) => v.choice === "NEIN").length,
+                            tone: "critical",
+                          },
+                          {
+                            label: "Enthaltung",
+                            value: r.votes.filter((v) => v.choice === "ENTHALTUNG").length,
+                          },
+                        ]}
+                      />
                       <div className="flex shrink-0 flex-wrap items-center gap-2">
                         {ownedIds.has(r.propertyId) && !myVote && !expired ? (
                           <Badge tone="accent">Ihre Stimme fehlt</Badge>

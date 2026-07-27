@@ -40,6 +40,8 @@ const bookingSchema = z.object({
   bookingDate: z.string().min(1),
   amount: z.string().min(1),
   costTypeId: z.string().optional(),
+  /** §35a: Lohn-/Fahrt-/Maschinenkostenanteil laut Rechnung. Leer = nicht erfasst. */
+  laborShare: z.string().optional(),
   text: z.string().trim().min(2).max(500),
   counterparty: z.string().trim().max(200).optional(),
   reference: z.string().trim().max(500).optional(),
@@ -54,6 +56,7 @@ export async function createBooking(formData: FormData) {
     bookingDate: formData.get("bookingDate"),
     amount: formData.get("amount"),
     costTypeId: String(formData.get("costTypeId") ?? "") || undefined,
+    laborShare: String(formData.get("laborShare") ?? "") || undefined,
     text: formData.get("text"),
     counterparty: String(formData.get("counterparty") ?? "") || undefined,
     reference: String(formData.get("reference") ?? "") || undefined,
@@ -80,6 +83,18 @@ export async function createBooking(formData: FormData) {
     if (!costType) back(property.id, "fehler=kostenart");
   }
 
+  // §35a-Lohnanteil: nur bei Ausgaben sinnvoll und nie größer als die Ausgabe
+  // selbst. Ein Vertipper darf keinen Ausweis erzeugen, der über der Rechnung
+  // liegt — das Finanzamt prüft genau diese Zahl.
+  let laborShareCents: number | null = null;
+  if (parsed.data.laborShare) {
+    if (parsed.data.kind !== "AUSGABE") back(property.id, "fehler=lohnanteil");
+    laborShareCents = parseEuroToCents(parsed.data.laborShare);
+    if (laborShareCents === null || laborShareCents < 0 || laborShareCents > amountCents) {
+      back(property.id, "fehler=lohnanteil");
+    }
+  }
+
   // Optionaler Beleg (Foto/PDF)
   let beleg: { storedName: string; fileName: string; mimeType: string } | null = null;
   const file = formData.get("beleg");
@@ -100,6 +115,7 @@ export async function createBooking(formData: FormData) {
       kind: parsed.data.kind,
       bookingDate,
       amountCents,
+      laborShareCents,
       text: parsed.data.text,
       counterparty: parsed.data.counterparty ?? null,
       reference: parsed.data.reference ?? null,
@@ -458,6 +474,54 @@ export async function assignCostType(formData: FormData) {
   });
   revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
   back(property.id, `zugeordnet=${bookings.length}`);
+}
+
+// ── §35a-Lohnanteil nachtragen ───────────────────────────────────────────────
+// Beim Bankimport gibt es keinen Lohnanteil — die Bank kennt nur den
+// Gesamtbetrag. Er steht auf der Rechnung, und die liegt oft erst später vor.
+// Ohne diese Nachtragsmöglichkeit bliebe jede importierte Handwerkerrechnung
+// dauerhaft ohne §35a-Ausweis. Gleiche Sperre wie bei der Kostenart:
+// abgeschlossene Jahre und Stornopaare bleiben unverändert.
+
+export async function setLaborShare(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const bookingId = String(formData.get("bookingId") ?? "");
+  const eingabe = String(formData.get("laborShare") ?? "").trim();
+
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const booking = await db.booking.findFirst({
+    where: { id: bookingId, propertyId: property.id, kind: "AUSGABE", ...NOT_REVERSED },
+    select: { id: true, amountCents: true, bookingDate: true },
+  });
+  if (!booking) back(property.id, "fehler=buchung");
+
+  if (!(await allDatesEditable(property, [booking.bookingDate]))) {
+    back(property.id, "fehler=abgeschlossen");
+  }
+
+  // Leer = wieder auf „nicht erfasst" zurücksetzen. Das ist etwas anderes als
+  // „null Euro Lohnanteil" und muss deshalb möglich bleiben.
+  let laborShareCents: number | null = null;
+  if (eingabe !== "") {
+    laborShareCents = parseEuroToCents(eingabe);
+    if (laborShareCents === null || laborShareCents < 0 || laborShareCents > booking.amountCents) {
+      back(property.id, "fehler=lohnanteil");
+    }
+  }
+
+  await db.booking.update({ where: { id: booking.id }, data: { laborShareCents } });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_BOOKING_LABOR_SHARE_SET,
+    targetType: "Booking",
+    targetId: booking.id,
+    meta: { laborShareCents },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
+  back(property.id, "gespeichert=lohnanteil");
 }
 
 // ── Storno ───────────────────────────────────────────────────────────────────

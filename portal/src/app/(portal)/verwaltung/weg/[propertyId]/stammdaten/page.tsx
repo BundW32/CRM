@@ -515,6 +515,20 @@ export default async function WegStammdatenPage({
                         </option>
                       ))}
                     </select>
+                    {/* Erfahrungswert für den Lohnanteil. Leer lassen ist die
+                        ehrlichere Wahl: Ohne Angabe weist die Abrechnung die
+                        Lücke aus, statt eine Zahl zu erfinden. */}
+                    <input
+                      name="laborSharePercent"
+                      type="number"
+                      min={0}
+                      max={100}
+                      defaultValue={c.laborSharePercent ?? ""}
+                      placeholder="Lohn %"
+                      className={`${inputClass} w-24`}
+                      aria-label="Lohnanteil in Prozent (Schätzwert)"
+                      title="Erfahrungswert für den Lohn-/Fahrt-/Maschinenkostenanteil. Greift nur, wenn an der Buchung nichts erfasst ist."
+                    />
                     <label className="flex items-center gap-1.5 text-sm text-gray-700">
                       <input
                         type="checkbox"
@@ -588,6 +602,16 @@ export default async function WegStammdatenPage({
                     </option>
                   ))}
                 </select>
+              </Field>
+              <Field label="Lohnanteil %">
+                <input
+                  name="laborSharePercent"
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="leer"
+                  className={`${inputClass} w-24`}
+                />
               </Field>
               <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700">
                 <input type="checkbox" name="recoverableBetrKV" />

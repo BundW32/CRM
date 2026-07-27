@@ -518,6 +518,11 @@ Muster — ersetzt keine Rechtsberatung.`;
                       </td>
                       <td className="py-2 pr-3 text-right text-gray-600">
                         {euro(labor?.handwerker)}
+                        {labor && labor.unerfasst > 0 ? (
+                          <span className="block text-xs text-amber-600">
+                            {euro(labor.unerfasst)} ohne Lohnanteil
+                          </span>
+                        ) : null}
                       </td>
                       <td className="py-2 pr-3 text-right">
                         <a
@@ -536,9 +541,12 @@ Muster — ersetzt keine Rechtsberatung.`;
             </table>
           </div>
           <p className="mt-3 text-xs text-gray-400">
-            §35a: ausgewiesen sind die begünstigten Aufwendungen der geflaggten Kostenarten je
-            Einheit; steuerlich maßgeblich ist der Lohn-/Fahrtkostenanteil laut Rechnung. Muster —
-            ersetzt keine Steuerberatung.
+            §35a: ausgewiesen ist der Lohn-, Fahrt- und Maschinenkostenanteil — nur er ist
+            begünstigt, Material nicht. Quelle ist der Lohnanteil an der Buchung; fehlt er, greift
+            der Erfahrungswert der Kostenart. Ist beides nicht hinterlegt, erscheint der Betrag als
+            „ohne Lohnanteil&ldquo;: Er ist bewusst nicht ausgewiesen, weil eine geschätzte Zahl der
+            Rückfrage des Finanzamts nicht standhielte. Nachtragen lässt er sich in der
+            Buchhaltung. Muster — ersetzt keine Steuerberatung.
           </p>
         </Card>
 

@@ -51,6 +51,7 @@ export async function buildEinzelabrechnungPdf(args: {
       peakCents: view.peak[u.id] ?? 0,
       laborHaushaltsnahCents: labor?.haushaltsnah ?? 0,
       laborHandwerkerCents: labor?.handwerker ?? 0,
+      laborUnerfasstCents: labor?.unerfasst ?? 0,
     };
   });
 

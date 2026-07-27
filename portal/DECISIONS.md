@@ -670,3 +670,50 @@ wann was?".
 An echten Daten geprüft: erster Lauf 6 erstellt, zweiter Lauf 6 ersetzt (keine
 Dubletten); eine Einheit ohne `UnitOwnership` wurde übersprungen und gemeldet;
 Erika Eigentümerin sieht 4, Klaus Käufer 1 Dokument — niemand das des anderen.
+
+## Schritt 23 — Block 2, KP6: § 35a weist den Lohnanteil aus (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund B4).
+
+113. **Die Zeile hieß „Steuerlich begünstigte Aufwendungen" und enthielt den
+     Bruttobetrag.** Begünstigt sind nach § 35a EStG aber nur Lohn-, Fahrt- und
+     Maschinenkosten; Material ist es nicht. Genau diese Zahl trägt der
+     Eigentümer in seine Steuererklärung ein — bei einer Handwerkerrechnung mit
+     hohem Materialanteil war sie um ein Vielfaches zu hoch.
+114. **Zwei Quellen, klare Rangfolge.** `Booking.laborShareCents` ist der in der
+     Rechnung ausgewiesene Anteil und geht immer vor. Fehlt er, greift
+     `CostType.laborSharePercent` als Erfahrungswert der Kostenart. Der Wert an
+     der Buchung wird auf den Rechnungsbetrag gedeckelt: Ein Vertipper darf
+     keinen Ausweis erzeugen, der über der Ausgabe liegt.
+115. **Ohne beides wird nichts ausgewiesen, sondern die Lücke benannt.** Der
+     Betrag erscheint als „Lohnanteil nicht erfasst" — in der Verwalter-Tabelle,
+     im PDF und in der Eigentümer-Ansicht. Eine geschätzte Zahl wäre schlimmer
+     als keine: Sie sieht amtlich aus, hält aber der Rückfrage des Finanzamts
+     nicht stand (§ 35a Abs. 5 Satz 3 EStG verlangt die Rechnung).
+116. **Fehlt der Eintrag ganz, gilt der volle umgelegte Betrag als Lücke.**
+     `computeStatement` fällt dafür auf `verteilbarCents` zurück. Ohne diesen
+     Rückfall verschwände die Lücke stillschweigend und die Abrechnung sähe aus,
+     als gäbe es bei dieser Position nichts Begünstigtes.
+117. **Der Lohnanteil wird entlang derselben Verteilung umgelegt wie die
+     Position selbst.** Wer 3,7 % der Kosten trägt, trägt 3,7 % des Lohnanteils —
+     centgenau über `distributeByWeight`, damit Σ Einheiten == Lohnanteil.
+118. **Aus der Rücklage bezahlte Ausgaben bleiben außen vor.** Sie werden im Jahr
+     nicht umgelegt, also trägt sie kein Eigentümer und niemand kann sie
+     absetzen. Ist eine Position vollständig aus der Rücklage bezahlt, gibt es
+     zudem kein Gewicht, an dem sich der Anteil ausrichten könnte.
+119. **Nachtragen muss möglich sein.** Der Bankimport kennt nur den
+     Gesamtbetrag; die Rechnung liegt oft später vor. `setLaborShare` trägt den
+     Anteil an einer vorhandenen Buchung nach — mit derselben Sperre wie die
+     Kostenart-Zuordnung (abgeschlossene Jahre und Stornopaare bleiben
+     unverändert). Leeren setzt zurück auf „nicht erfasst"; das ist etwas
+     anderes als „null Euro Lohnanteil".
+120. **Die Spalte erscheint nur, wo sie eine Frage ist** — bei Ausgaben einer
+     §35a-eingestuften Kostenart. Sonst lüde sie zu einer Angabe ein, die nichts
+     bewirkt. Aus demselben Grund wird `laborSharePercent` geleert, sobald die
+     Kostenart auf KEINE gestellt wird.
+
+An echten Daten geprüft (Rechnung 1.000,00 €, Kostenart Hausmeister/MEA):
+nichts erfasst → 0,00 € ausgewiesen und 1.000,00 € als Lücke; 40 % an der
+Kostenart → 400,00 €, keine Lücke; Rechnung mit 620,00 € → 620,00 € (schlägt die
+Schätzung); Tippfehler 5.000,00 € → auf 1.000,00 € gedeckelt; 333,33 € →
+centgenau auf die Einheiten verteilt.

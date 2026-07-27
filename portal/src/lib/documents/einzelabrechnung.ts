@@ -39,6 +39,8 @@ export type EinzelabrechnungUnit = {
   peakCents: number; // + Nachschuss, − Guthaben
   laborHaushaltsnahCents: number;
   laborHandwerkerCents: number;
+  /** Anteil an Kosten, für die kein Lohnanteil erfasst ist (§ 35a EStG). */
+  laborUnerfasstCents: number;
 };
 export type EinzelabrechnungInput = {
   propertyName: string;
@@ -171,14 +173,28 @@ export async function generateEinzelabrechnungen(rawInput: EinzelabrechnungInput
     y -= 34;
 
     // ── §35a ─────────────────────────────────────────────────────────────────
-    if (unit.laborHaushaltsnahCents > 0 || unit.laborHandwerkerCents > 0) {
-      ensure(70);
+    if (
+      unit.laborHaushaltsnahCents > 0 ||
+      unit.laborHandwerkerCents > 0 ||
+      unit.laborUnerfasstCents > 0
+    ) {
+      ensure(90);
       page.drawText("Steuerlich begünstigte Aufwendungen (§ 35a EStG)", { x: COL_POS, y, size: 9, font: bold, color: BLACK });
       y -= 14;
       sumRow("  Haushaltsnahe Dienstleistungen", euro(unit.laborHaushaltsnahCents), { size: 9 });
       sumRow("  Handwerkerleistungen", euro(unit.laborHandwerkerCents), { size: 9 });
+      // Die Lücke wird benannt, nicht geschätzt: Eine erfundene Zahl sähe
+      // amtlich aus und hielte keiner Rückfrage des Finanzamts stand.
+      if (unit.laborUnerfasstCents > 0) {
+        sumRow("  davon Lohnanteil nicht erfasst", euro(unit.laborUnerfasstCents), {
+          size: 9,
+          color: RED,
+        });
+      }
       for (const l of wrapText(
-        "Maßgeblich ist der in den Rechnungen ausgewiesene Lohn-/Fahrtkostenanteil. Muster — ersetzt keine Steuerberatung.",
+        unit.laborUnerfasstCents > 0
+          ? `Ausgewiesen ist nur der Lohn-, Fahrt- und Maschinenkostenanteil — nur er ist begünstigt, Material nicht. Für ${euro(unit.laborUnerfasstCents)} Ihres Kostenanteils liegt dieser Anteil nicht vor; er ist deshalb oben NICHT enthalten. Bitte fragen Sie die Verwaltung nach den Rechnungen. Muster — ersetzt keine Steuerberatung.`
+          : "Ausgewiesen ist nur der in den Rechnungen ausgewiesene Lohn-, Fahrt- und Maschinenkostenanteil — nur er ist begünstigt, Material nicht. Muster — ersetzt keine Steuerberatung.",
         font,
         7.5,
         CW,

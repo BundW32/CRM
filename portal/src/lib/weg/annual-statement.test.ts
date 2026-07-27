@@ -119,11 +119,60 @@ describe("computePeakAmounts (Abrechnungsspitze)", () => {
 });
 
 describe("computeLaborShares (§35a)", () => {
-  it("summiert je Einheit nach haushaltsnah/Handwerker", () => {
-    const r = computeStatement(baseInput({ expenseByCostType: new Map([["hausmeister", 480_000], ["aufzug", 0]]), manualAmounts: new Map() }));
+  const nurHausmeister = (labor?: Map<string, { baseCents: number; unerfasstCents: number }>) =>
+    computeStatement(
+      baseInput({
+        expenseByCostType: new Map([["hausmeister", 480_000], ["aufzug", 0]]),
+        manualAmounts: new Map(),
+        laborByCostType: labor,
+      }),
+    );
+
+  it("weist den Lohnanteil aus, nicht den Bruttobetrag", () => {
+    // 480.000 Cent Hausmeisterkosten, davon 300.000 Lohn. we5 trägt 240/1000.
+    const r = nurHausmeister(new Map([["hausmeister", { baseCents: 300_000, unerfasstCents: 0 }]]));
     const labor = computeLaborShares(r.rows);
-    expect(labor.get("we5")?.haushaltsnah).toBe(115_200); // 240/1000 von 480.000
+    expect(labor.get("we5")?.haushaltsnah).toBe(72_000); // 240/1000 von 300.000
     expect(labor.get("we5")?.handwerker ?? 0).toBe(0);
+    expect(labor.get("we5")?.unerfasst ?? 0).toBe(0);
+  });
+
+  it("verteilt den Lohnanteil centgenau — Σ Einheiten == Lohnanteil", () => {
+    const r = nurHausmeister(new Map([["hausmeister", { baseCents: 100_001, unerfasstCents: 0 }]]));
+    const labor = computeLaborShares(r.rows);
+    const summe = [...labor.values()].reduce((a, l) => a + l.haushaltsnah, 0);
+    expect(summe).toBe(100_001);
+  });
+
+  it("weist ohne erfassten Lohnanteil NICHTS aus, sondern die Lücke", () => {
+    // Der eigentliche Befund: vorher stand hier der volle Bruttobetrag.
+    const r = nurHausmeister();
+    const labor = computeLaborShares(r.rows);
+    expect(labor.get("we5")?.haushaltsnah ?? 0).toBe(0);
+    expect(labor.get("we5")?.unerfasst).toBe(115_200); // 240/1000 von 480.000
+  });
+
+  it("führt erfassten Anteil und Lücke derselben Position nebeneinander", () => {
+    const r = nurHausmeister(
+      new Map([["hausmeister", { baseCents: 200_000, unerfasstCents: 80_000 }]]),
+    );
+    const labor = computeLaborShares(r.rows);
+    expect(labor.get("we5")?.haushaltsnah).toBe(48_000); // 240/1000 von 200.000
+    expect(labor.get("we5")?.unerfasst).toBe(19_200); // 240/1000 von 80.000
+  });
+
+  it("ignoriert Positionen, die vollständig aus der Rücklage bezahlt wurden", () => {
+    // Nicht umgelegt heißt: niemand trägt sie, also kann sie auch niemand absetzen.
+    const r = computeStatement(
+      baseInput({
+        expenseByCostType: new Map(),
+        reserveSpendByCostType: new Map([["dach", 500_000]]),
+        manualAmounts: new Map(),
+        laborByCostType: new Map([["dach", { baseCents: 0, unerfasstCents: 0 }]]),
+      }),
+    );
+    const labor = computeLaborShares(r.rows);
+    expect([...labor.values()].reduce((a, l) => a + l.handwerker + l.unerfasst, 0)).toBe(0);
   });
 });
 

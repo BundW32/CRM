@@ -24,6 +24,8 @@ export type StatementView = {
     laborShareType: LaborShareType;
     totalCents: number;
     reserveFundedCents?: number;
+    laborBaseCents?: number;
+    laborUnerfasstCents?: number;
     perUnit: Record<string, number> | null;
     error?: string;
   }[];
@@ -32,7 +34,7 @@ export type StatementView = {
   perUnitTotal: Record<string, number>;
   duePerUnit: Record<string, number>;
   peak: Record<string, number>; // Abrechnungsspitze: + Nachschuss / − Guthaben
-  labor: Record<string, { haushaltsnah: number; handwerker: number }>;
+  labor: Record<string, { haushaltsnah: number; handwerker: number; unerfasst: number }>;
   ownerSplit: Record<
     string,
     { shares: { userName: string; days: number; cents: number }[]; uncoveredCents: number }
@@ -82,7 +84,7 @@ export async function computeStatementView(
   const { start, end } = fiscalYearRange(year, property.fiscalYearStartMonth);
   const inYear = { gte: start, lt: end };
 
-  const [costTypes, units, expenseGroups, otherAgg, incomeAgg, ertragGroups, accounts, beforeGroups, yearGroups, manualRows, dueGroups, ownerships, paidGroups, plan] =
+  const [costTypes, units, expenseGroups, otherAgg, incomeAgg, ertragGroups, accounts, beforeGroups, yearGroups, manualRows, dueGroups, ownerships, paidGroups, laborBookings, plan] =
     await Promise.all([
       db.costType.findMany({
         where: { propertyId: property.id },
@@ -168,6 +170,25 @@ export async function computeStatementView(
         },
         _sum: { amountCents: true },
       }),
+      // §35a: die einzelnen Ausgabebuchungen der begünstigten Kostenarten.
+      // Gruppieren geht hier nicht — der Lohnanteil steht an der Buchung, und
+      // wo er fehlt, greift der Erfahrungswert der Kostenart auf *diesen* Betrag.
+      db.booking.findMany({
+        where: {
+          propertyId: property.id,
+          kind: "AUSGABE",
+          bookingDate: inYear,
+          costType: { laborShareType: { not: "KEINE" } },
+          ...NOT_REVERSED,
+        },
+        select: {
+          costTypeId: true,
+          accountId: true,
+          amountCents: true,
+          laborShareCents: true,
+          costType: { select: { laborSharePercent: true } },
+        },
+      }),
       // Beschlossener Wirtschaftsplan des Jahres: liefert Schlüssel und Sollwert
       // der Rücklagenzuführung. Ohne Plan bleibt es beim Rückfall auf MEA.
       db.economicPlan.findFirst({
@@ -201,6 +222,28 @@ export async function computeStatementView(
     ziel.set(id, (ziel.get(id) ?? 0) + cents);
   }
 
+  // §35a je Kostenart: erfasster Lohnanteil und die Lücke. Aus der Rücklage
+  // bezahlte Ausgaben bleiben außen vor — sie werden im Jahr nicht umgelegt,
+  // also trägt sie kein Eigentümer und niemand kann sie absetzen.
+  const laborByCostType = new Map<string, { baseCents: number; unerfasstCents: number }>();
+  for (const b of laborBookings) {
+    if (reserveIds.has(b.accountId)) continue;
+    const id = b.costTypeId as string;
+    const eintrag = laborByCostType.get(id) ?? { baseCents: 0, unerfasstCents: 0 };
+    const prozent = b.costType?.laborSharePercent;
+    if (b.laborShareCents != null) {
+      // Die Rechnung geht vor. Mehr als der Rechnungsbetrag kann nicht
+      // Lohnanteil sein — ein Tippfehler soll nicht zu einem Ausweis führen,
+      // der über der Ausgabe liegt.
+      eintrag.baseCents += Math.min(b.laborShareCents, b.amountCents);
+    } else if (prozent != null) {
+      eintrag.baseCents += Math.round((b.amountCents * prozent) / 100);
+    } else {
+      eintrag.unerfasstCents += b.amountCents;
+    }
+    laborByCostType.set(id, eintrag);
+  }
+
   // Schlüssel und Sollwert der Zuführung aus dem beschlossenen Plan.
   const reserveItem = plan?.items[0];
   const reserveTransferKey = reserveItem?.costType.distributionKey;
@@ -226,6 +269,7 @@ export async function computeStatementView(
     reserveTransferCents,
     reserveTransferKey,
     plannedReserveCents,
+    laborByCostType,
   });
 
   const duePerUnit = new Map(dueGroups.map((g) => [g.unitId, g._sum.amountCents ?? 0]));
@@ -305,6 +349,8 @@ export async function computeStatementView(
       laborShareType: r.laborShareType,
       totalCents: r.totalCents,
       reserveFundedCents: r.reserveFundedCents,
+      laborBaseCents: r.laborBaseCents,
+      laborUnerfasstCents: r.laborUnerfasstCents,
       perUnit: r.perUnit ? Object.fromEntries(r.perUnit) : null,
       error: r.error,
     })),

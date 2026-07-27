@@ -207,6 +207,15 @@ const costTypeSchema = z.object({
   category: z.enum(COST_CATEGORIES),
   distributionKey: z.enum(DISTRIBUTION_KEYS),
   laborShareType: z.enum(LABOR_SHARE_TYPES),
+  // Erfahrungswert für den §35a-Lohnanteil. Leer bleibt leer: Ohne Angabe wird
+  // die Position als „Lohnanteil nicht erfasst" ausgewiesen statt geschätzt.
+  laborSharePercent: z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? null : Number(v)))
+    .refine((v) => v === null || (Number.isInteger(v) && v >= 0 && v <= 100), {
+      message: "Der Lohnanteil muss zwischen 0 und 100 Prozent liegen.",
+    }),
   recoverableBetrKV: z.coerce.boolean(),
   active: z.coerce.boolean(),
 });
@@ -220,6 +229,7 @@ export async function saveCostType(formData: FormData) {
     category: formData.get("category"),
     distributionKey: formData.get("distributionKey"),
     laborShareType: formData.get("laborShareType"),
+    laborSharePercent: String(formData.get("laborSharePercent") ?? ""),
     recoverableBetrKV: formData.get("recoverableBetrKV") === "on",
     active: formData.get("active") === "on",
   });
@@ -232,6 +242,10 @@ export async function saveCostType(formData: FormData) {
     category: parsed.data.category,
     distributionKey: parsed.data.distributionKey,
     laborShareType: parsed.data.laborShareType,
+    // Ohne §35a-Einstufung ist ein Prozentsatz gegenstandslos — er würde sonst
+    // stumm weiterleben, wenn die Kostenart später wieder eingestuft wird.
+    laborSharePercent:
+      parsed.data.laborShareType === "KEINE" ? null : parsed.data.laborSharePercent,
     recoverableBetrKV: parsed.data.recoverableBetrKV,
     active: parsed.data.active,
   };

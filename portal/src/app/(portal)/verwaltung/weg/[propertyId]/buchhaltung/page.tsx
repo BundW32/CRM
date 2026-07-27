@@ -13,6 +13,7 @@ import { requireWegProperty } from "@/lib/weg/scope";
 import { isDateLocked } from "@/lib/weg/statement-lock";
 import {
   assignCostType,
+  setLaborShare,
   createBooking,
   createTransfer,
   reverseBooking,
@@ -53,6 +54,8 @@ const FEHLER_TEXTE: Record<string, string> = {
   betrag: "Der Betrag konnte nicht gelesen werden (Format: 1.234,56).",
   datum: "Das Datum konnte nicht gelesen werden.",
   kostenart: "Die gewählte Kostenart gehört nicht zu diesem Objekt.",
+  lohnanteil:
+    "Der Lohnanteil konnte nicht gelesen werden. Er gehört nur zu Ausgaben und darf den Rechnungsbetrag nicht übersteigen.",
   beleg: "Der Beleg konnte nicht gespeichert werden (erlaubt: Foto oder PDF).",
   gleicheskonto: "Quell- und Zielkonto müssen unterschiedlich sein.",
   mapping: "Bitte die Spalten für Datum, Betrag und Verwendungszweck zuordnen.",
@@ -123,7 +126,7 @@ export default async function WegBuchhaltungPage({
     db.costType.findMany({
       where: { propertyId: property.id, active: true },
       orderBy: [{ orderIndex: "asc" }, { name: "asc" }],
-      select: { id: true, name: true },
+      select: { id: true, name: true, laborShareType: true },
     }),
     // Kontensalden immer über ALLE Buchungen – ein Saldo, der sich mit dem
     // Filter verändert, wäre kein Saldo mehr.
@@ -137,7 +140,7 @@ export default async function WegBuchhaltungPage({
       where: bookingWhere,
       include: {
         account: { select: { name: true, kind: true } },
-        costType: { select: { name: true } },
+        costType: { select: { name: true, laborShareType: true, laborSharePercent: true } },
         reversedBy: { select: { id: true } },
       },
       orderBy: [toOrderBy(sort.field, sort.dir), { createdAt: "desc" }],
@@ -236,7 +239,11 @@ export default async function WegBuchhaltungPage({
 
       {sp.gespeichert ? (
         <Alert variant="success" className="mb-4">
-          {sp.gespeichert === "umbuchung" ? "Umbuchung erfasst." : "Buchung erfasst."}
+          {sp.gespeichert === "umbuchung"
+            ? "Umbuchung erfasst."
+            : sp.gespeichert === "lohnanteil"
+              ? "Lohnanteil gespeichert."
+              : "Buchung erfasst."}
         </Alert>
       ) : null}
       {sp.import !== undefined ? (
@@ -380,6 +387,17 @@ export default async function WegBuchhaltungPage({
                     </option>
                   ))}
                 </select>
+              </Field>
+              {/* §35a: nur der Lohn-, Fahrt- und Maschinenkostenanteil ist
+                  begünstigt. Er steht auf der Rechnung; leer lassen ist besser
+                  als raten — die Abrechnung weist die Lücke dann aus. */}
+              <Field label="davon Lohnanteil § 35a (€, optional)">
+                <input
+                  name="laborShare"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  className={`${inputClass} w-28`}
+                />
               </Field>
               <Field label="Buchungstext">
                 <input
@@ -557,7 +575,7 @@ export default async function WegBuchhaltungPage({
               </form>
             ) : null}
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+              <table className="w-full min-w-[920px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
                     <th className="py-2 pr-2">
@@ -568,6 +586,7 @@ export default async function WegBuchhaltungPage({
                     <th className="py-2 pr-3">Art</th>
                     <th className="py-2 pr-3">Text</th>
                     <th className="py-2 pr-3">Kostenart</th>
+                    <th className="py-2 pr-3">Lohnanteil § 35a</th>
                     <th className="py-2 pr-3 text-right">Betrag</th>
                     <th className="py-2 pr-3">Beleg</th>
                     <th className="py-2" />
@@ -586,6 +605,14 @@ export default async function WegBuchhaltungPage({
                       storniert ||
                       isDateLocked(b.bookingDate, lockedYears, property.fiscalYearStartMonth);
                     const kostenartMoeglich = b.kind !== "UMBUCHUNG" && !gesperrt;
+                    // Der Lohnanteil ist nur bei Ausgaben einer §35a-Kostenart
+                    // eine Frage. Bei allen anderen bleibt die Spalte leer,
+                    // statt zu einer Angabe einzuladen, die nichts bewirkt.
+                    const lohnanteilMoeglich =
+                      b.kind === "AUSGABE" &&
+                      !gesperrt &&
+                      b.costType != null &&
+                      b.costType.laborShareType !== "KEINE";
                     return (
                       <tr
                         key={b.id}
@@ -622,6 +649,35 @@ export default async function WegBuchhaltungPage({
                             <span className={b.kind === "UMBUCHUNG" ? "text-gray-300" : "text-amber-600"}>
                               {b.kind === "UMBUCHUNG" ? "—" : "fehlt"}
                             </span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3 whitespace-nowrap">
+                          {lohnanteilMoeglich ? (
+                            <form action={setLaborShare} className="flex items-center gap-1">
+                              <input type="hidden" name="propertyId" value={property.id} />
+                              <input type="hidden" name="bookingId" value={b.id} />
+                              <input
+                                name="laborShare"
+                                inputMode="decimal"
+                                defaultValue={
+                                  b.laborShareCents == null ? "" : formatCents(b.laborShareCents)
+                                }
+                                placeholder={
+                                  b.costType?.laborSharePercent == null
+                                    ? "nicht erfasst"
+                                    : `${b.costType.laborSharePercent} % geschätzt`
+                                }
+                                aria-label={`Lohnanteil für ${b.text}`}
+                                className={`${inputClass} w-32`}
+                              />
+                              <PendingButton className="text-xs text-gray-500 underline">
+                                ok
+                              </PendingButton>
+                            </form>
+                          ) : b.laborShareCents != null ? (
+                            formatCents(b.laborShareCents)
+                          ) : (
+                            <span className="text-gray-300">—</span>
                           )}
                         </td>
                         <td

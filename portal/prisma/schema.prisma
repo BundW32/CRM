@@ -1370,6 +1370,11 @@ model CostType {
   category          CostCategory    @default(BETRIEBSKOSTEN)
   distributionKey   DistributionKey @default(MEA)
   laborShareType    LaborShareType  @default(KEINE) // §35a EStG
+  // Erfahrungswert für den Lohn-/Fahrt-/Maschinenkostenanteil dieser Kostenart
+  // in Prozent (§ 35a EStG). Greift nur, wenn an der einzelnen Buchung nichts
+  // erfasst ist — die Rechnung geht immer vor. null = keine Vorbelegung, dann
+  // wird der Betrag als „Lohnanteil nicht erfasst" ausgewiesen statt geschätzt.
+  laborSharePercent Int?
   recoverableBetrKV Boolean         @default(false) // umlagefähig nach BetrKV (Mieter)
   active            Boolean         @default(true)
   orderIndex        Int             @default(0)
@@ -1424,6 +1429,11 @@ model Booking {
   bookingDate     DateTime
   valueDate       DateTime? // Wertstellung (aus Bankimport)
   amountCents     Int // immer positiv; Richtung über kind
+  // §35a EStG: der in der Rechnung ausgewiesene Lohn-, Fahrt- und
+  // Maschinenkostenanteil. NUR dieser Teil ist begünstigt — Material nicht.
+  // null = nicht erfasst (nicht: null Euro); dann greift der Erfahrungswert der
+  // Kostenart, und fehlt auch der, wird der Betrag als Lücke ausgewiesen.
+  laborShareCents Int?
   text            String
   counterparty    String? // Zahlungspartner
   reference       String? // Verwendungszweck

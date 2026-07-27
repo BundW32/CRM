@@ -311,6 +311,14 @@ export default async function FinanzenPage({
                                     {euro(labor.handwerker)} Handwerker
                                   </span>
                                 ) : null}
+                                {/* Die Lücke gehört dem Eigentümer gesagt — es
+                                    ist Geld, das er absetzen könnte, sobald der
+                                    Lohnanteil der Rechnung vorliegt. */}
+                                {labor && labor.unerfasst > 0 ? (
+                                  <span className="ml-2 text-xs text-amber-600">
+                                    für {euro(labor.unerfasst)} liegt kein Lohnanteil vor
+                                  </span>
+                                ) : null}
                               </div>
                               <span
                                 className={`text-sm font-semibold ${

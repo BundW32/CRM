@@ -43,6 +43,10 @@ export type StatementInput = {
   // Sie erscheinen in der Gesamtabrechnung als Ausgabe, werden aber NICHT
   // umgelegt — dazu siehe die Gegenposition unten.
   reserveSpendByCostType?: Map<string, number>;
+  // §35a EStG je Kostenart: der begünstigte Lohn-/Fahrt-/Maschinenkostenanteil
+  // (`baseCents`) und der Teil der Ausgaben, für den kein Anteil erfasst ist
+  // (`unerfasstCents`). Siehe `computeLaborShares`.
+  laborByCostType?: Map<string, { baseCents: number; unerfasstCents: number }>;
 };
 
 export type StatementCostRow = {
@@ -54,6 +58,10 @@ export type StatementCostRow = {
   /** Davon aus der Erhaltungsrücklage bezahlt — nicht umgelegt. */
   reserveFundedCents?: number;
   perUnit: Map<string, number> | null; // null, wenn Verteilung (noch) nicht möglich
+  /** §35a: begünstigter Lohnanteil dieser Position (nicht der Bruttobetrag). */
+  laborBaseCents?: number;
+  /** §35a: Betrag dieser Position, für den kein Lohnanteil erfasst ist. */
+  laborUnerfasstCents?: number;
   error?: string;
 };
 
@@ -100,6 +108,7 @@ export function computeStatement(input: StatementInput): StatementResult {
   const perUnitTotal = new Map<string, number>(input.units.map((u) => [u.id, 0]));
   const reserveSpend = input.reserveSpendByCostType ?? new Map<string, number>();
   const income = input.incomeByCostType ?? new Map<string, number>();
+  const labor = input.laborByCostType ?? new Map<string, { baseCents: number; unerfasstCents: number }>();
   let totalExpenseCents = 0;
   let reserveWithdrawalCents = 0;
 
@@ -159,6 +168,14 @@ export function computeStatement(input: StatementInput): StatementResult {
       totalCents,
       reserveFundedCents: ausRuecklageCents > 0 ? ausRuecklageCents : undefined,
       perUnit: null,
+      laborBaseCents: labor.get(ct.id)?.baseCents,
+      // Ohne Eintrag ist für die ganze Position nichts erfasst. Der Rückfall auf
+      // `verteilbarCents` ist wichtig: Sonst verschwände die Lücke stillschweigend
+      // und die Abrechnung sähe aus, als gäbe es hier nichts Begünstigtes.
+      laborUnerfasstCents:
+        ct.laborShareType === "KEINE"
+          ? undefined
+          : (labor.get(ct.id)?.unerfasstCents ?? verteilbarCents),
     };
 
     if (MANUAL_KEYS.includes(ct.distributionKey)) {
@@ -269,23 +286,67 @@ export function computePeakAmounts(
   return result;
 }
 
-// §35a-EStG-Ausweis je Einheit: begünstigte Aufwendungen aus den geflaggten
-// Kostenarten (Hinweis in der UI: maßgeblich ist der Lohn-/Fahrtkostenanteil
-// laut Rechnung — Muster, ersetzt keine Steuerberatung).
-export function computeLaborShares(
-  rows: StatementCostRow[],
-): Map<string, { haushaltsnah: number; handwerker: number }> {
-  const result = new Map<string, { haushaltsnah: number; handwerker: number }>();
+export type LaborShareResult = {
+  haushaltsnah: number;
+  handwerker: number;
+  /** Umgelegter Betrag, für den kein Lohnanteil erfasst ist — bewusste Lücke. */
+  unerfasst: number;
+};
+
+/**
+ * §35a-EStG-Ausweis je Einheit.
+ *
+ * **Ausgewiesen wird der Lohnanteil, nicht der Bruttobetrag.** Begünstigt sind
+ * nach § 35a EStG nur Lohn-, Fahrt- und Maschinenkosten; Material ist es nicht.
+ * Vorher stand hier der volle Rechnungsbetrag der geflaggten Kostenarten — und
+ * genau diese Zahl trägt der Eigentümer in seine Steuererklärung ein. Bei einer
+ * Handwerkerrechnung mit hohem Materialanteil war das um ein Vielfaches zu hoch.
+ *
+ * Der Anteil wird entlang derselben Verteilung umgelegt wie die Position selbst
+ * (`perUnit` als Gewicht) — wer 3,7 % der Kosten trägt, trägt 3,7 % des
+ * Lohnanteils. Verteilt wird centgenau, damit Σ Einheiten == Lohnanteil.
+ *
+ * **Wo nichts erfasst ist, wird nichts ausgewiesen.** Der Betrag wandert
+ * stattdessen nach `unerfasst` und wird in der Abrechnung als Lücke benannt.
+ * Eine geschätzte Zahl wäre schlimmer als keine: Sie sieht amtlich aus, hält
+ * aber keiner Rückfrage des Finanzamts stand (§ 35a Abs. 5 Satz 3 EStG verlangt
+ * die Rechnung).
+ */
+export function computeLaborShares(rows: StatementCostRow[]): Map<string, LaborShareResult> {
+  const result = new Map<string, LaborShareResult>();
+  const add = (unitId: string, feld: keyof LaborShareResult, cents: number) => {
+    const entry = result.get(unitId) ?? { haushaltsnah: 0, handwerker: 0, unerfasst: 0 };
+    entry[feld] += cents;
+    result.set(unitId, entry);
+  };
+
   for (const row of rows) {
     if (row.laborShareType === "KEINE" || !row.perUnit) continue;
-    for (const [unitId, cents] of row.perUnit) {
-      const entry = result.get(unitId) ?? { haushaltsnah: 0, handwerker: 0 };
-      if (row.laborShareType === "HAUSHALTSNAHE_DIENSTLEISTUNG") entry.haushaltsnah += cents;
-      else entry.handwerker += cents;
-      result.set(unitId, entry);
+    const feld = row.laborShareType === "HAUSHALTSNAHE_DIENSTLEISTUNG" ? "haushaltsnah" : "handwerker";
+    for (const [feldName, cents] of [
+      [feld, row.laborBaseCents ?? 0] as const,
+      ["unerfasst", row.laborUnerfasstCents ?? 0] as const,
+    ]) {
+      const verteilt = distributeAlong(row.perUnit, cents);
+      if (!verteilt) continue;
+      for (const [unitId, anteil] of verteilt) add(unitId, feldName, anteil);
     }
   }
   return result;
+}
+
+/**
+ * Verteilt `cents` entlang einer bereits berechneten Verteilung.
+ *
+ * Gibt `null` zurück, wenn nichts zu verteilen ist oder die Position vollständig
+ * aus der Rücklage bezahlt wurde (alle Anteile 0) — dann gibt es kein Gewicht,
+ * an dem sich der Lohnanteil ausrichten könnte, und umgelegt wurde ohnehin nichts.
+ */
+function distributeAlong(perUnit: Map<string, number>, cents: number): Map<string, number> | null {
+  if (cents <= 0) return null;
+  const shares = [...perUnit].map(([unitId, weight]) => ({ unitId, weight: weight > 0 ? weight : 0 }));
+  if (shares.reduce((sum, s) => sum + s.weight, 0) <= 0) return null;
+  return distributeByWeight(cents, shares);
 }
 
 // ── Tagesgenaue Aufteilung bei Eigentümerwechsel ─────────────────────────────

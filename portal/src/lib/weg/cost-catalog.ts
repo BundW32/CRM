@@ -11,6 +11,8 @@ export type CatalogEntry = {
   distributionKey: DistributionKey;
   laborShareType: LaborShareType;
   recoverableBetrKV: boolean;
+  /** Heiz-/Warmwasserkosten nach HeizkostenV — Zwangsaufteilung 50–70/Rest Fläche. */
+  heatingCost?: boolean;
 };
 
 export const WEG_COST_CATALOG: CatalogEntry[] = [
@@ -19,7 +21,7 @@ export const WEG_COST_CATALOG: CatalogEntry[] = [
   { name: "Allgemeinstrom", category: "BETRIEBSKOSTEN", distributionKey: "MEA", laborShareType: "KEINE", recoverableBetrKV: true },
   { name: "Wasser/Abwasser", category: "BETRIEBSKOSTEN", distributionKey: "PERSONEN", laborShareType: "KEINE", recoverableBetrKV: true },
   { name: "Müllabfuhr", category: "BETRIEBSKOSTEN", distributionKey: "PERSONEN", laborShareType: "KEINE", recoverableBetrKV: true },
-  { name: "Heizung/Warmwasser", category: "BETRIEBSKOSTEN", distributionKey: "VERBRAUCH", laborShareType: "KEINE", recoverableBetrKV: true },
+  { name: "Heizung/Warmwasser", category: "BETRIEBSKOSTEN", distributionKey: "VERBRAUCH", laborShareType: "KEINE", recoverableBetrKV: true, heatingCost: true },
   { name: "Gebäudeversicherung", category: "BETRIEBSKOSTEN", distributionKey: "MEA", laborShareType: "KEINE", recoverableBetrKV: true },
   { name: "Haftpflichtversicherung", category: "BETRIEBSKOSTEN", distributionKey: "MEA", laborShareType: "KEINE", recoverableBetrKV: true },
   { name: "Aufzug (Wartung)", category: "BETRIEBSKOSTEN", distributionKey: "FLAECHE", laborShareType: "HANDWERKERLEISTUNG", recoverableBetrKV: true },

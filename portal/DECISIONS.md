@@ -717,3 +717,41 @@ nichts erfasst → 0,00 € ausgewiesen und 1.000,00 € als Lücke; 40 % an der
 Kostenart → 400,00 €, keine Lücke; Rechnung mit 620,00 € → 620,00 € (schlägt die
 Schätzung); Tippfehler 5.000,00 € → auf 1.000,00 € gedeckelt; 333,33 € →
 centgenau auf die Einheiten verteilt.
+
+## Schritt 24 — Block 2, KP7: HeizkostenV-Schutz (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund B3).
+
+121. **Die Zählerverteilung legte Heizkosten zu 100 % nach Verbrauch um.** Das
+     sieht gerecht aus und ist trotzdem formell fehlerhaft: §§ 7 Abs. 1, 8
+     Abs. 1 HeizkostenV verlangen 50–70 % nach Verbrauch, den Rest als
+     Grundkosten nach Wohnfläche. Wer anders abrechnet, gibt jedem Eigentümer
+     nach § 12 Abs. 1 HeizkostenV ein Kürzungsrecht von 15 % — und die Differenz
+     trägt die Gemeinschaft.
+122. **Gekennzeichnet wird die Kostenart, nicht der Umlageschlüssel.**
+     `CostType.heatingCost` ist im Standardkatalog für „Heizung/Warmwasser"
+     gesetzt und in den Stammdaten umschaltbar. Am Schlüssel VERBRAUCH ließe
+     sich das nicht festmachen: Kaltwasser und Allgemeinstrom werden zu Recht
+     vollständig nach Verbrauch verteilt.
+123. **Werte außerhalb 50–70 % werden abgelehnt, nicht gerundet.** Die
+     Verordnung lässt keinen Spielraum, und eine stillschweigend korrigierte
+     Eingabe wäre nicht das, was der Verwalter entschieden hat. Vorbelegung ist
+     70 % — der in der Praxis üblichste Wert.
+124. **Die Restcents sitzen bei den Grundkosten.** Sie werden als
+     `totalCents − Verbrauchskosten` gebildet statt selbst gerundet. Dadurch ist
+     Σ Grundkosten + Σ Verbrauchskosten == Gesamtbetrag ohne Sonderfall.
+125. **Für die Grundkosten gilt die nachsichtige Flächengewichtung**
+     (`advanceWeightsForKey`). Ein Stellplatz hat keine Wohnfläche und wird
+     nicht beheizt — er trägt zu Recht null Grundkosten. Die strenge Variante
+     bräche ab und machte die Funktion für jede WEG mit Garagen unbrauchbar.
+     Fehlt die Fläche bei *allen* Einheiten, schlägt die Verteilung fehl und
+     meldet das.
+126. **Der Hinweis nennt den besseren Weg.** Der Messdienst-Import rechnet die
+     Rohrwärme (§ 9 HeizkostenV) und die Trennung von Heizung und Warmwasser
+     bereits ein; beides kann diese Funktion nicht leisten. Sie bleibt der
+     Notbehelf für Gemeinschaften, die selbst ablesen — mit dem Unterschied,
+     dass sie jetzt wenigstens nicht mehr rechtswidrig verteilt.
+
+An echten Daten geprüft (12.000,00 € Heizkosten, sechs Einheiten): bei 70/30
+entfallen 3.600,00 € auf Grundkosten; die Einheit ohne Verbrauch trägt jetzt
+683,60 € statt 0,00 €. Σ Einheiten == Gesamtbetrag bei 70 % wie bei 50 %.

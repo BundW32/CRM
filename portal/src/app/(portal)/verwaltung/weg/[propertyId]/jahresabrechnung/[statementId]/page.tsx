@@ -16,6 +16,11 @@ import {
   distributeByMeters,
   saveManualAmounts,
 } from "../actions";
+import {
+  HEATING_CONSUMPTION_DEFAULT,
+  HEATING_CONSUMPTION_MAX,
+  HEATING_CONSUMPTION_MIN,
+} from "@/lib/weg/heating-costs";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +29,10 @@ const FEHLER_TEXTE: Record<string, string> = {
   betrag: "Ein Betrag konnte nicht gelesen werden (Format: 1.234,56).",
   kostenart: "Unbekannte Kostenart.",
   zaehlerart: "Bitte eine gültige Zählerart wählen.",
+  heizanteil:
+    "Der Verbrauchsanteil muss zwischen 50 und 70 Prozent liegen (§§ 7, 8 HeizkostenV). Der Rest wird als Grundkosten nach Wohnfläche verteilt.",
+  flaeche:
+    "Für die Grundkosten fehlt bei mindestens einer Einheit die Wohnfläche. Bitte in den Stammdaten nachtragen.",
   keinekosten: "Für diese Kostenart sind im Wirtschaftsjahr keine Ausgaben gebucht.",
   keinverbrauch:
     "Keine Zählerstände für diese Art gefunden — bitte Einzelzähler und Ablesungen erfassen.",
@@ -354,7 +363,39 @@ Muster — ersetzt keine Rechtsberatung.`;
                       <option value="SONSTIGES">Sonstiges</option>
                     </select>
                   </label>
+                  {/* HeizkostenV: 50–70 % nach Verbrauch, der Rest nach Fläche
+                      (§§ 7 Abs. 1, 8 Abs. 1). Eine Verteilung zu 100 % nach
+                      Verbrauch ist formell fehlerhaft und gibt jedem
+                      Eigentümer 15 % Kürzungsrecht (§ 12 Abs. 1). */}
+                  {row.heatingCost ? (
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium text-gray-700">
+                        Verbrauchsanteil (50–70 %)
+                      </span>
+                      <input
+                        name="consumptionPercent"
+                        type="number"
+                        min={HEATING_CONSUMPTION_MIN}
+                        max={HEATING_CONSUMPTION_MAX}
+                        defaultValue={HEATING_CONSUMPTION_DEFAULT}
+                        className={`${inputClass} w-24`}
+                        required
+                      />
+                    </label>
+                  ) : null}
                   <PendingButton className={buttonSecondaryClass}>Aus Zählern übernehmen</PendingButton>
+                  {row.heatingCost ? (
+                    <p className="w-full text-xs text-gray-500">
+                      Heiz- und Warmwasserkosten dürfen nicht vollständig nach Verbrauch verteilt
+                      werden: {HEATING_CONSUMPTION_MIN}–{HEATING_CONSUMPTION_MAX} % nach Verbrauch,
+                      der Rest als Grundkosten nach Wohnfläche (§§ 7, 8 HeizkostenV). Sonst kann
+                      jeder Eigentümer seinen Anteil um 15 % kürzen (§ 12 Abs. 1 HeizkostenV) — die
+                      Differenz trägt die Gemeinschaft. <strong>Besser ist der Weg über den
+                      Messdienst</strong> (unten): Er rechnet die Rohrwärme (§ 9 HeizkostenV) und
+                      die Trennung von Heizung und Warmwasser bereits ein, was diese Funktion nicht
+                      leisten kann.
+                    </p>
+                  ) : null}
                 </form>
               ) : null}
               <form action={saveManualAmounts} className="flex flex-wrap items-end gap-2">

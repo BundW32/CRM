@@ -184,6 +184,7 @@ export async function adoptCostCatalog(formData: FormData) {
         category: e.category,
         distributionKey: e.distributionKey,
         laborShareType: e.laborShareType,
+        heatingCost: e.heatingCost ?? false,
         recoverableBetrKV: e.recoverableBetrKV,
         orderIndex: existing.length + i,
       })),
@@ -216,6 +217,9 @@ const costTypeSchema = z.object({
     .refine((v) => v === null || (Number.isInteger(v) && v >= 0 && v <= 100), {
       message: "Der Lohnanteil muss zwischen 0 und 100 Prozent liegen.",
     }),
+  // HeizkostenV-Kennzeichnung: erzwingt bei der Zählerverteilung den
+  // Grundkostenanteil (§§ 7, 8 HeizkostenV).
+  heatingCost: z.coerce.boolean(),
   recoverableBetrKV: z.coerce.boolean(),
   active: z.coerce.boolean(),
 });
@@ -230,6 +234,7 @@ export async function saveCostType(formData: FormData) {
     distributionKey: formData.get("distributionKey"),
     laborShareType: formData.get("laborShareType"),
     laborSharePercent: String(formData.get("laborSharePercent") ?? ""),
+    heatingCost: formData.get("heatingCost") === "on",
     recoverableBetrKV: formData.get("recoverableBetrKV") === "on",
     active: formData.get("active") === "on",
   });
@@ -246,6 +251,7 @@ export async function saveCostType(formData: FormData) {
     // stumm weiterleben, wenn die Kostenart später wieder eingestuft wird.
     laborSharePercent:
       parsed.data.laborShareType === "KEINE" ? null : parsed.data.laborSharePercent,
+    heatingCost: parsed.data.heatingCost,
     recoverableBetrKV: parsed.data.recoverableBetrKV,
     active: parsed.data.active,
   };

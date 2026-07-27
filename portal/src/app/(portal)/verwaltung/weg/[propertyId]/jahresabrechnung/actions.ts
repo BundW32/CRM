@@ -13,8 +13,9 @@ import { buildEinzelabrechnungPdf } from "@/lib/weg/einzelabrechnung-pdf";
 import { legeEigentuemerDokumenteAb } from "@/lib/weg/owner-documents";
 import { matchHeatingRows, parseHeatingCsv } from "@/lib/weg/heating-import";
 import { loadWegProperty } from "@/lib/weg/scope";
-import { fiscalYearRange } from "@/lib/weg/economic-plan";
+import { advanceWeightsForKey, fiscalYearRange } from "@/lib/weg/economic-plan";
 import { distributeByWeight } from "@/lib/weg/distribution";
+import { isValidHeatingPercent, splitHeatingCosts } from "@/lib/weg/heating-costs";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { consumptionInPeriod } from "@/lib/weg/meter-distribution";
 
@@ -155,9 +156,20 @@ export async function distributeByMeters(formData: FormData) {
 
   const costType = await db.costType.findFirst({
     where: { id: costTypeId, propertyId: property.id },
-    select: { id: true },
+    select: { id: true, heatingCost: true },
   });
   if (!costType) back(property.id, `/${statement.id}`, "fehler=kostenart");
+
+  // HeizkostenV: Bei Heiz-/Warmwasserkosten ist die reine Zählerverteilung
+  // unzulässig (§§ 7 Abs. 1, 8 Abs. 1). Der Verbrauchsanteil kommt aus dem
+  // Formular und muss zwischen 50 und 70 Prozent liegen.
+  let consumptionPercent = 100;
+  if (costType.heatingCost) {
+    consumptionPercent = Number(String(formData.get("consumptionPercent") ?? ""));
+    if (!isValidHeatingPercent(consumptionPercent)) {
+      back(property.id, `/${statement.id}`, "fehler=heizanteil");
+    }
+  }
 
   const { start, end } = fiscalYearRange(statement.year, property.fiscalYearStartMonth);
 
@@ -179,7 +191,7 @@ export async function distributeByMeters(formData: FormData) {
   // Einheit werden summiert). Allgemeinzähler (ohne unitId) zählen hier nicht.
   const units = await db.unit.findMany({
     where: { propertyId: property.id },
-    select: { id: true },
+    select: { id: true, mea: true, livingArea: true, personCount: true },
   });
   const meters = await db.meter.findMany({
     where: { unitId: { in: units.map((u) => u.id) }, type: meterType },
@@ -199,7 +211,29 @@ export async function distributeByMeters(formData: FormData) {
   const totalConsumption = weights.reduce((s, w) => s + w.weight, 0);
   if (totalConsumption <= 0) back(property.id, `/${statement.id}`, "fehler=keinverbrauch");
 
-  const distributed = distributeByWeight(totalCents, weights);
+  // Ohne HeizkostenV-Kennzeichnung bleibt es bei der reinen Zählerverteilung —
+  // für Kaltwasser oder Allgemeinstrom ist genau das richtig.
+  let distributed: Map<string, number>;
+  if (costType.heatingCost) {
+    try {
+      distributed = splitHeatingCosts({
+        totalCents,
+        consumptionPercent,
+        consumptionWeights: weights,
+        // Grundkosten nach Wohnfläche — bewusst die nachsichtige Gewichtung:
+        // Ein Stellplatz hat keine Wohnfläche und wird auch nicht beheizt, er
+        // trägt also zu Recht null Grundkosten. Die strenge Variante bräche
+        // hier ab und machte die Funktion für jede WEG mit Garagen unbrauchbar.
+        // Fehlt die Fläche bei *allen* Einheiten, schlägt die Verteilung fehl
+        // und landet im catch unten.
+        areaWeights: advanceWeightsForKey(units, "FLAECHE"),
+      }).perUnit;
+    } catch {
+      back(property.id, `/${statement.id}`, "fehler=flaeche");
+    }
+  } else {
+    distributed = distributeByWeight(totalCents, weights);
+  }
   const writes = units.map((u) =>
     db.statementUnitAmount.upsert({
       where: {
@@ -224,7 +258,7 @@ export async function distributeByMeters(formData: FormData) {
     action: AUDIT.WEG_STATEMENT_SAVED,
     targetType: "AnnualStatement",
     targetId: statement.id,
-    meta: { meterDistributedCostType: costType.id, meterType },
+    meta: { meterDistributedCostType: costType.id, meterType, consumptionPercent },
   });
   revalidatePath(`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}`);
   back(property.id, `/${statement.id}`, "gespeichert=zaehler");

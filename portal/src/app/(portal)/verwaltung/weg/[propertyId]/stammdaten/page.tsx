@@ -529,6 +529,15 @@ export default async function WegStammdatenPage({
                       aria-label="Lohnanteil in Prozent (Schätzwert)"
                       title="Erfahrungswert für den Lohn-/Fahrt-/Maschinenkostenanteil. Greift nur, wenn an der Buchung nichts erfasst ist."
                     />
+                    {/* Erzwingt bei der Zählerverteilung den Grundkostenanteil
+                        (§§ 7, 8 HeizkostenV). */}
+                    <label
+                      className="flex items-center gap-1.5 text-sm text-gray-700"
+                      title="Heiz- und Warmwasserkosten: 50–70 % nach Verbrauch, der Rest nach Wohnfläche."
+                    >
+                      <input type="checkbox" name="heatingCost" defaultChecked={c.heatingCost} />
+                      HeizkostenV
+                    </label>
                     <label className="flex items-center gap-1.5 text-sm text-gray-700">
                       <input
                         type="checkbox"
@@ -613,6 +622,10 @@ export default async function WegStammdatenPage({
                   className={`${inputClass} w-24`}
                 />
               </Field>
+              <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700">
+                <input type="checkbox" name="heatingCost" />
+                HeizkostenV
+              </label>
               <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700">
                 <input type="checkbox" name="recoverableBetrKV" />
                 umlagefähig (BetrKV)

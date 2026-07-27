@@ -1375,6 +1375,11 @@ model CostType {
   // erfasst ist — die Rechnung geht immer vor. null = keine Vorbelegung, dann
   // wird der Betrag als „Lohnanteil nicht erfasst" ausgewiesen statt geschätzt.
   laborSharePercent Int?
+  // Heiz-/Warmwasserkosten im Sinne der HeizkostenV. Für sie gilt die
+  // Zwangsaufteilung 50–70 % Verbrauch / Rest Fläche (§§ 7, 8 HeizkostenV);
+  // eine Verteilung zu 100 % nach Verbrauch wäre formell fehlerhaft und gäbe
+  // jedem Eigentümer ein Kürzungsrecht von 15 % (§ 12 Abs. 1 HeizkostenV).
+  heatingCost       Boolean         @default(false)
   recoverableBetrKV Boolean         @default(false) // umlagefähig nach BetrKV (Mieter)
   active            Boolean         @default(true)
   orderIndex        Int             @default(0)

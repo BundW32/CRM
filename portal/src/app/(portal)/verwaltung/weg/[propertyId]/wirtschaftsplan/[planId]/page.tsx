@@ -8,6 +8,7 @@ import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { computeUnitAdvances, monthlyInstallments, PositionNichtVerteilbar } from "@/lib/weg/economic-plan";
 import { requireWegProperty } from "@/lib/weg/scope";
+import { faelligkeitsText } from "@/lib/weg/plan-validity";
 import { deletePlan, planZurAbstimmung, resolvePlan, updatePlanItems } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,10 @@ const FEHLER_TEXTE: Record<string, string> = {
   leer: "Alle Planwerte sind 0 € — es gibt nichts zu beschließen.",
   versammlung:
     "Diese Versammlung gehört nicht zum Objekt oder ist bereits abgeschlossen — bitte erneut auswählen.",
+  geltungsbeginn:
+    "Der Geltungsbeginn muss auf einen Monatsersten fallen — das Hausgeld wird in Monatsraten geschuldet, ein Wechsel mitten im Monat hätte keine.",
+  rueckwirkend:
+    "Für diesen Zeitraum gilt bereits ein beschlossener Wirtschaftsplan. Ein geänderter Plan kann frühestens ab dem laufenden Monat greifen: Was ein Eigentümer in der Vergangenheit schuldete, lässt sich nicht rückwirkend ändern — es kann längst bezahlt oder gemahnt sein.",
 };
 
 export default async function WirtschaftsplanDetailPage({
@@ -201,7 +206,12 @@ Muster — ersetzt keine Rechtsberatung.`;
         <Alert variant="info" className="mb-4">
           Beschlossen am {plan.resolvedAt ? formatDateOnly(plan.resolvedAt) : "—"}
           {plan.resolutionNote ? ` (${plan.resolutionNote})` : ""} — der Plan ist unveränderlich;{" "}
-          {plan._count.duePostings} Sollstellungen aktiv.
+          {plan._count.duePostings} Sollstellungen aktiv. Geltung ab{" "}
+          {plan.validFrom ? formatDateOnly(plan.validFrom) : "—"}
+          {plan.validUntil
+            ? ` bis ${formatDateOnly(new Date(plan.validUntil.getTime() - 86400000))}`
+            : ", fortgeltend bis ein neuer Plan beschlossen ist (§ 28 Abs. 1 Satz 2 WEG)"}
+          .
         </Alert>
       ) : null}
 
@@ -384,6 +394,17 @@ Muster — ersetzt keine Rechtsberatung.`;
                 <Field label="Verweis (optional, z. B. „ETV 12.03.2026, TOP 4“)">
                   <input name="resolutionNote" className={`${inputClass} w-72`} maxLength={300} />
                 </Field>
+                {/* Nur für den unterjährig geänderten Wirtschaftsplan. Leer
+                    lassen heißt: ab Beginn des Wirtschaftsjahres — der
+                    Normalfall, auch wenn die Versammlung erst im April tagt. */}
+                <Field label="Gilt ab (optional, nur bei geändertem Plan)">
+                  <input
+                    name="validFrom"
+                    type="date"
+                    className={`${inputClass} w-auto`}
+                    title="Muss ein Monatserster sein. Leer = Beginn des Wirtschaftsjahres."
+                  />
+                </Field>
                 <PendingButton className={buttonClass} disabled={Boolean(advanceError)}>
                   Als beschlossen markieren &amp; Sollstellungen erzeugen
                 </PendingButton>
@@ -392,7 +413,10 @@ Muster — ersetzt keine Rechtsberatung.`;
           ) : null}
           <p className="mt-3 text-xs text-gray-400">
             „Als beschlossen markieren“ trägt einen Beschluss nach, der bereits gefasst wurde, und
-            erzeugt für jede Einheit 12 monatliche Sollstellungen (fällig zum 1. des Monats). Soll
+            erzeugt für jede Einheit die monatlichen Sollstellungen — fällig{" "}
+            {faelligkeitsText(property.dueDayRule, property.dueDayOfMonth)} (änderbar in den
+            Stammdaten). Tagt die Versammlung erst im Laufe des Jahres, entstehen die Forderungen
+            der zurückliegenden Monate mit: Der Plan gilt ab Beginn des Wirtschaftsjahres. Soll
             erst noch abgestimmt werden, nutzen Sie die Wege darunter.
           </p>
         </Card>

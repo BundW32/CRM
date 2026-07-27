@@ -11,7 +11,17 @@ import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
-import { assignPayment, createMahnung, deleteMahnung, markMahnungSent, saveUebernahme } from "./actions";
+import { ersterFehlenderSollmonat } from "@/lib/weg/due-postings";
+import {
+  assignPayment,
+  createMahnung,
+  deleteMahnung,
+  markMahnungSent,
+  saveUebernahme,
+  schreibeSollstellungenFort,
+} from "./actions";
+
+const MONAT = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +96,7 @@ export default async function HausgeldPage({
   const { propertyId } = await params;
   const { property } = await requireWegProperty(propertyId);
   const sp = await searchParams;
+  const fehlenderSollmonat = await ersterFehlenderSollmonat(property.id);
   const now = new Date();
 
   // ── Filter ────────────────────────────────────────────────────────────────
@@ -302,7 +313,39 @@ export default async function HausgeldPage({
                   ? "Versendete Schreiben bleiben als Nachweis erhalten und können nicht gelöscht werden."
                   : sp.fehler === "stichtag"
                     ? "Bitte einen gültigen Stichtag für die Übernahme angeben."
-                    : "Die Eingabe konnte nicht gespeichert werden."}
+                    : sp.fehler === "keinplan"
+                      ? "Es gibt keinen beschlossenen Wirtschaftsplan, der fortgelten könnte. Bitte zuerst einen Plan beschließen."
+                      : sp.fehler === "stammdaten"
+                        ? "Die Verteilung lässt sich nicht rechnen — bei mindestens einer Einheit fehlen Stammdaten (MEA, Wohnfläche oder Personenzahl)."
+                        : "Die Eingabe konnte nicht gespeichert werden."}
+        </Alert>
+      ) : null}
+
+      {sp.fortgeschrieben ? (
+        <Alert variant="success" className="mb-4">
+          {sp.fortgeschrieben === "0"
+            ? "Es fehlten keine Forderungen — alles war bereits erfasst."
+            : `${sp.fortgeschrieben} ${sp.fortgeschrieben === "1" ? "Forderung wurde" : "Forderungen wurden"} nachgezogen.`}
+        </Alert>
+      ) : null}
+
+      {/* Fortgeltung (§ 28 Abs. 1 Satz 2 WEG). Der Hinweis erscheint nur, wenn
+          tatsächlich Monate fehlen — sonst wäre er ein Knopf ohne Anlass. */}
+      {fehlenderSollmonat ? (
+        <Alert variant="warning" title="Hausgeld-Forderungen fehlen" className="mb-4">
+          <p>
+            Seit {MONAT[fehlenderSollmonat.month - 1]} {fehlenderSollmonat.year} sind keine
+            monatlichen Forderungen mehr entstanden. Der zuletzt beschlossene Wirtschaftsplan
+            gilt fort, bis ein neuer beschlossen ist (§ 28 Abs. 1 Satz 2 WEG) — die Eigentümer
+            schulden das Hausgeld also weiterhin, es war hier nur nicht erfasst. Ohne die
+            Forderungen gibt es keine Rückstände, nichts zu mahnen und nichts einzuziehen.
+          </p>
+          <form action={schreibeSollstellungenFort} className="mt-2">
+            <input type="hidden" name="propertyId" value={property.id} />
+            <PendingButton className={buttonSecondaryClass}>
+              Forderungen nachziehen
+            </PendingButton>
+          </form>
         </Alert>
       ) : null}
 

@@ -73,6 +73,12 @@ const settingsSchema = z.object({
   propertyId: z.string().min(1),
   meaTotal: optionalInt,
   fiscalYearStartMonth: z.coerce.number().int().min(1).max(12),
+  dueDayRule: z.enum(["MONATSERSTER", "DRITTER_WERKTAG", "FREIER_TAG"]),
+  // Auf den 28. begrenzt, damit es den Termin in jedem Monat gibt.
+  dueDayOfMonth: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() !== "" ? Number(v.trim()) : null),
+    z.number().int().min(1).max(28).nullable(),
+  ),
 });
 
 export async function saveFinanceSettings(formData: FormData) {
@@ -81,6 +87,8 @@ export async function saveFinanceSettings(formData: FormData) {
     propertyId: formData.get("propertyId"),
     meaTotal: formData.get("meaTotal"),
     fiscalYearStartMonth: formData.get("fiscalYearStartMonth"),
+    dueDayRule: formData.get("dueDayRule"),
+    dueDayOfMonth: formData.get("dueDayOfMonth"),
   });
   if (!parsed.success) redirect("/verwaltung/weg");
   const property = await loadWegProperty(verwalter, parsed.data.propertyId);
@@ -91,6 +99,10 @@ export async function saveFinanceSettings(formData: FormData) {
     data: {
       meaTotal: parsed.data.meaTotal,
       fiscalYearStartMonth: parsed.data.fiscalYearStartMonth,
+      dueDayRule: parsed.data.dueDayRule,
+      // Ein fester Tag ohne die passende Regel wäre ein stiller Blindgänger:
+      // Er stünde im Feld, wirkte aber nirgends.
+      dueDayOfMonth: parsed.data.dueDayRule === "FREIER_TAG" ? parsed.data.dueDayOfMonth : null,
     },
   });
   await logAudit({

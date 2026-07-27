@@ -209,6 +209,15 @@ enum BookingKind {
   UMBUCHUNG
 }
 
+// Fälligkeit der monatlichen Vorschüsse (§ 28 Abs. 1 WEG). Ein freier Tag ist
+// auf den 28. begrenzt, damit es den Termin in jedem Monat gibt — ein „31."
+// fiele im Februar aus.
+enum DueDayRule {
+  MONATSERSTER
+  DRITTER_WERKTAG
+  FREIER_TAG
+}
+
 // Status eines Wirtschaftsplans (§ 28 Abs. 1 WEG)
 enum PlanStatus {
   ENTWURF
@@ -468,6 +477,11 @@ model Property {
   // WEG-Finanzstammdaten
   meaTotal            Int? // MEA-Nenner (Summe aller Anteile, z. B. 1000)
   fiscalYearStartMonth Int                 @default(1) // Wirtschaftsjahr-Beginn (1 = Januar)
+  // Wann das monatliche Hausgeld fällig wird. Steuert die Sollstellungen und
+  // zugleich den Wortlaut der Beschlussvorlage — beides muss dasselbe sagen,
+  // sonst mahnt die Verwaltung zu einem Termin, den der Beschluss nicht nennt.
+  dueDayRule          DueDayRule           @default(MONATSERSTER)
+  dueDayOfMonth       Int? // nur bei FREIER_TAG (1–28)
   // SEPA-Lastschrift: Gläubiger-Identifikationsnummer der Gemeinschaft (Bundesbank)
   sepaCreditorId      String?
   // Standard-Link zur Video-Zuschaltung (externer Dienst, z. B. Jitsi/Zoom) —
@@ -1509,6 +1523,17 @@ model EconomicPlan {
   year           Int // Wirtschaftsjahr, das in diesem Kalenderjahr beginnt
   status         PlanStatus         @default(ENTWURF)
   resolvedAt     DateTime? // Datum des Beschlusses (Versammlung/Umlauf)
+  // Geltungszeitraum. Der Plan ist NICHT starr an sein Wirtschaftsjahr
+  // gebunden: Nach § 28 Abs. 1 Satz 2 WEG gilt ein beschlossener Plan fort,
+  // bis ein neuer beschlossen ist — sonst schuldete im Januar niemand Hausgeld,
+  // nur weil die Versammlung erst im April tagt. Umgekehrt kann ein geänderter
+  // Plan unterjährig beginnen.
+  //
+  // `validFrom` wird mit dem Beschluss gesetzt (null = noch nicht beschlossen),
+  // `validUntil` erst, wenn ein Nachfolgeplan beschlossen wird (null = gilt fort).
+  // Beide Grenzen sind Tagesdaten; `validUntil` ist exklusiv.
+  validFrom      DateTime?
+  validUntil     DateTime?
   resolutionNote String? // Verweis, z. B. "ETV 12.03.2026, TOP 4"
   createdById    String
   createdBy      User               @relation("EconomicPlanCreatedBy", fields: [createdById], references: [id])
@@ -1522,7 +1547,10 @@ model EconomicPlan {
   beiratReviewBy     User?              @relation("EconomicPlanBeiratReview", fields: [beiratReviewById], references: [id], onDelete: SetNull)
   beiratReviewedAt   DateTime?
 
-  @@unique([propertyId, year])
+  // Kein @@unique([propertyId, year]) mehr: Ein unterjährig geänderter
+  // Wirtschaftsplan ist ein zweiter Plan desselben Jahres. Die Abgrenzung
+  // leistet der Geltungszeitraum, nicht die Eindeutigkeit des Jahres.
+  @@index([propertyId, year])
   @@index([propertyId])
 }
 

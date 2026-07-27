@@ -8,6 +8,7 @@ import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { loadWegProperty } from "@/lib/weg/scope";
+import { fortgeltenderPlan, synchronisiereSollstellungen } from "@/lib/weg/due-postings";
 
 function back(propertyId: string, param?: string): never {
   redirect(`/verwaltung/weg/${propertyId}/hausgeld${param ? `?${param}` : ""}`);
@@ -277,4 +278,61 @@ export async function saveUebernahme(formData: FormData) {
 
   revalidatePath(`/verwaltung/weg/${property.id}/hausgeld`);
   redirect(`/verwaltung/weg/${property.id}/hausgeld?flash=gespeichert#uebernahme`);
+}
+
+// ── Fortgeltung: Sollstellungen fortschreiben ────────────────────────────────
+// § 28 Abs. 1 Satz 2 WEG: Der beschlossene Wirtschaftsplan gilt fort, bis ein
+// neuer beschlossen ist. Ohne diesen Schritt endeten die Forderungen mit dem
+// Wirtschaftsjahr — ab Januar schuldete niemand Hausgeld, es gäbe keine
+// Rückstände und nichts zu mahnen, nur weil die Versammlung noch nicht getagt
+// hat. Das Geld fehlt der Gemeinschaft trotzdem.
+//
+// Bewusst ein Knopf und kein stiller Automatismus beim Seitenaufruf: Neue
+// Forderungen sollen entstehen, weil jemand sie auslöst, nicht als Nebenwirkung
+// des Hinsehens. Der Fahrplan weist darauf hin, sobald Monate fehlen.
+
+export async function schreibeSollstellungenFort(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const plan = await fortgeltenderPlan(property.id);
+  if (!plan || !plan.validFrom) back(property.id, "fehler=keinplan");
+
+  const units = await db.unit.findMany({
+    where: { propertyId: property.id },
+    select: { id: true, mea: true, livingArea: true, personCount: true },
+  });
+  if (units.length === 0) back(property.id, "fehler=einheiten");
+
+  let ergebnis;
+  try {
+    ergebnis = await synchronisiereSollstellungen({
+      organizationId: verwalter.organizationId,
+      property,
+      planId: plan.id,
+      geltung: { validFrom: plan.validFrom, validUntil: plan.validUntil, year: plan.year },
+      items: plan.items.map((i) => ({
+        costTypeId: i.costTypeId,
+        distributionKey: i.costType.distributionKey,
+        amountCents: i.amountCents,
+        category: i.costType.category,
+      })),
+      units,
+    });
+  } catch {
+    // Fehlende Stammdaten (MEA, Fläche) — dieselbe Ursache wie beim Beschluss.
+    back(property.id, "fehler=stammdaten");
+  }
+
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_DUE_POSTINGS_EXTENDED,
+    targetType: "EconomicPlan",
+    targetId: plan.id,
+    meta: { ...ergebnis },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/hausgeld`);
+  back(property.id, `fortgeschrieben=${ergebnis.angelegt}`);
 }

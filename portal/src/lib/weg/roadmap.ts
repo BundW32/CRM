@@ -9,6 +9,7 @@
 
 import { db } from "@/lib/db";
 import { classifyDue, type DueStatus } from "./compliance";
+import { ersterFehlenderSollmonat } from "./due-postings";
 
 export type RoadmapItem = {
   key: string;
@@ -46,7 +47,7 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
   const jahr = now.getFullYear();
   const weg = `/verwaltung/weg/${propertyId}`;
 
-  const [planKommend, planIrgendeiner, abrechnungVorjahr, versammlungImJahr, pruefpflichten, rueckstaende] =
+  const [planKommend, planIrgendeiner, abrechnungVorjahr, versammlungImJahr, pruefpflichten, rueckstaende, fehlenderSollmonat] =
     await Promise.all([
       db.economicPlan.findFirst({
         where: { propertyId, year: jahr + 1, status: "BESCHLOSSEN" },
@@ -83,6 +84,9 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
         where: { propertyId, dueDate: { lte: now } },
         _sum: { amountCents: true },
       }),
+      // Fortgeltung (§ 28 Abs. 1 Satz 2 WEG): Gibt es Monate, für die schon
+      // Forderungen bestehen müssten, aber keine da sind?
+      ersterFehlenderSollmonat(propertyId, now),
     ]);
 
   const gezahlt = await db.booking.aggregate({
@@ -156,6 +160,26 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
         due: new Date(jahr, 11, 31),
       }, now),
     );
+  }
+
+  // ── Fehlende Sollstellungen (Fortgeltung) ──────────────────────────────────
+  // Der stillste aller Fehler: Es fehlt nichts Sichtbares, es entstehen nur
+  // keine Forderungen mehr. Ohne diesen Hinweis fällt es erst auf, wenn das
+  // Geld ausbleibt — und dann ist ein Quartal weg.
+  if (fehlenderSollmonat) {
+    items.push({
+      key: "sollstellungen",
+      title: "Hausgeld-Forderungen fehlen",
+      hint:
+        `Seit ${MONAT[fehlenderSollmonat.month - 1]} ${fehlenderSollmonat.year} sind keine Forderungen mehr entstanden. ` +
+        "Der zuletzt beschlossene Wirtschaftsplan gilt fort, bis ein neuer beschlossen ist " +
+        "(§ 28 Abs. 1 Satz 2 WEG) — die Forderungen lassen sich mit einem Klick nachziehen.",
+      href: `${weg}/hausgeld`,
+      due: null,
+      status: "overdue",
+      dueLabel: `ab ${MONAT[fehlenderSollmonat.month - 1]} ${fehlenderSollmonat.year}`,
+      vorrang: true,
+    });
   }
 
   // ── Fällige Prüfpflichten und eigene Termine ───────────────────────────────

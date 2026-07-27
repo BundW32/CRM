@@ -68,7 +68,10 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
   // Der Fahrplan ersetzt für die Verwaltung die reine Prüfpflichten-Liste – er
   // enthält sie und ordnet sie zwischen Abrechnung, Plan und Versammlung ein.
   // Miteigentümer bekommen ihn nicht: Seine Ziele sind Verwaltungsseiten.
-  const roadmap = isAdmin && propIds[0] ? await loadRoadmap(propIds[0], new Date()) : null;
+  // Der Fahrplan gehört zu genau einem Objekt – auch der eigene Termin und der
+  // Kalender-Export hängen daran. Deshalb die ID mitführen, nicht nur die Liste.
+  const fahrplanPropertyId = isAdmin ? (propIds[0] ?? null) : null;
+  const roadmap = fahrplanPropertyId ? await loadRoadmap(fahrplanPropertyId, new Date()) : null;
 
   const [openResolutions, nextMeeting, openMotions, announcements, complianceDuties] = await Promise.all([
     db.resolution.count({ where: { propertyId: { in: propIds }, status: "OFFEN" } }),
@@ -137,9 +140,9 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
         </Link>
       </div>
 
-      {roadmap ? (
+      {roadmap && fahrplanPropertyId ? (
         <div className="mt-6">
-          <Roadmap items={roadmap} />
+          <Roadmap items={roadmap} propertyId={fahrplanPropertyId} />
         </div>
       ) : null}
 

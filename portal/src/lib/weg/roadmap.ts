@@ -69,10 +69,14 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
         },
         select: { id: true },
       }),
+      // Alle aktiven Aufgaben, nicht nur die aus dem Prüfpflichten-Katalog:
+      // Eigene Termine der Gemeinschaft — einmalig wie wiederkehrend — laufen
+      // über dasselbe Modell und gehören in denselben Fahrplan. `catalogKey`
+      // unterscheidet nur noch die Herkunft für den Hinweistext.
       db.maintenanceTask.findMany({
-        where: { propertyId, active: true, catalogKey: { not: null } },
+        where: { propertyId, active: true },
         orderBy: { dueDate: "asc" },
-        select: { id: true, title: true, dueDate: true },
+        select: { id: true, title: true, dueDate: true, catalogKey: true, interval: true },
       }),
       // Rückstand = fällige Sollstellungen minus zugeordnete Zahlungseingänge.
       db.duePosting.aggregate({
@@ -154,16 +158,21 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
     );
   }
 
-  // ── Fällige Prüfpflichten ──────────────────────────────────────────────────
+  // ── Fällige Prüfpflichten und eigene Termine ───────────────────────────────
   for (const p of pruefpflichten) {
     if (!p.dueDate) continue;
     const { status } = classifyDue(p.dueDate, now, 30);
     if (status === "ok") continue;
+    const ausKatalog = p.catalogKey !== null;
     items.push(
       mitFrist({
         key: `pflicht-${p.id}`,
         title: p.title,
-        hint: "Wiederkehrende Prüfpflicht. Wird sie versäumt, haftet die Gemeinschaft – nicht der Dienstleister.",
+        hint: ausKatalog
+          ? "Wiederkehrende Prüfpflicht. Wird sie versäumt, haftet die Gemeinschaft – nicht der Dienstleister."
+          : p.interval === "EINMALIG"
+            ? "Eigener Termin der Gemeinschaft."
+            : "Eigene wiederkehrende Aufgabe der Gemeinschaft.",
         href: `${weg}/pruefpflichten`,
         due: p.dueDate,
       }, now),

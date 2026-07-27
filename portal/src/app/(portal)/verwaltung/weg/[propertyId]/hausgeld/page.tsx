@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import type { Prisma } from "@/generated/prisma/client";
-import { Alert, Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { reminderLevelLabel } from "@/lib/dunning";
@@ -10,7 +10,7 @@ import { formatDateOnly } from "@/lib/labels";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list-query";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
-import { assignPayment, createMahnung, deleteMahnung, markMahnungSent } from "./actions";
+import { assignPayment, createMahnung, deleteMahnung, markMahnungSent, saveUebernahme } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -189,6 +189,17 @@ export default async function HausgeldPage({
     }
   }
 
+  // Übernommener Stand aus der bisherigen Verwaltung (source = UEBERNAHME).
+  // Getrennt geladen, damit die Karte zeigen kann, was bereits erfasst ist –
+  // die Rückstandsliste selbst rechnet ihn ohne Sonderfall mit.
+  const uebernahme = await db.duePosting.findMany({
+    where: { propertyId: property.id, source: "UEBERNAHME" },
+    select: { unitId: true, amountCents: true, dueDate: true },
+  });
+  const uebernahmeByUnit = new Map(uebernahme.map((u) => [u.unitId, u.amountCents]));
+  const uebernahmeSumme = uebernahme.reduce((s, u) => s + u.amountCents, 0);
+  const uebernahmeStichtag = uebernahme[0]?.dueDate ?? null;
+
   const dueByUnit = new Map(dueSums.map((d) => [d.unitId, d._sum.amountCents ?? 0]));
   const paidByUnit = new Map(paidSums.map((p) => [p.unitId as string, p._sum.amountCents ?? 0]));
   const hasPostings = dueSums.length > 0;
@@ -288,12 +299,78 @@ export default async function HausgeldPage({
                 ? "Für diese Einheit ist kein Eigentümer erfasst — bitte in den Stammdaten zuordnen."
                 : sp.fehler === "versendet"
                   ? "Versendete Schreiben bleiben als Nachweis erhalten und können nicht gelöscht werden."
-                  : "Die Eingabe konnte nicht gespeichert werden."}
+                  : sp.fehler === "stichtag"
+                    ? "Bitte einen gültigen Stichtag für die Übernahme angeben."
+                    : "Die Eingabe konnte nicht gespeichert werden."}
         </Alert>
       ) : null}
 
       <div className="grid gap-4">
-        {/* Rückstandsliste */}
+        {/* Übernahme aus der bisherigen Verwaltung — der Moment, in dem eine
+            Selbstverwaltung beginnt. Eingeklappt, solange nichts erfasst ist,
+            damit die Karte nicht jeden Aufruf dominiert; sie steht aber VOR der
+            Rückstandsliste, weil sie deren Ausgangswert setzt. */}
+        <Card title="Stand aus der bisherigen Verwaltung">
+          {/* Offen, SOLANGE nichts erfasst ist – danach genügt die Zusammenfassung
+              in der Zeile. Die Übernahme macht man einmal beim Amtsantritt; steht
+              sie, ist sie Nachschlagewerk, kein Arbeitsplatz. */}
+          <details id="uebernahme" open={uebernahme.length === 0}>
+            <summary className="cursor-pointer list-none text-sm font-medium text-brand-green hover:underline">
+              {uebernahmeSumme !== 0
+                ? `Übernommen: ${formatCents(uebernahmeSumme)} zum ${uebernahmeStichtag ? formatDateOnly(uebernahmeStichtag) : "—"} — ändern`
+                : "Offene Posten der bisherigen Verwaltung übernehmen"}
+            </summary>
+            <p className="mt-3 text-sm text-gray-600">
+              Was einzelne Einheiten beim Amtsvorgänger noch schuldeten, steht sonst nirgends —
+              die Rückstandsliste startet bei null und die Forderung ist faktisch verschwunden.
+              Die Beträge stammen aus der letzten Abrechnung oder der Saldenliste der bisherigen
+              Verwaltung.
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Rückstand als positiver Betrag, Guthaben mit Minus davor. Kontostände ändern sich
+              dadurch nicht — das Geld liegt bereits im übernommenen Anfangsbestand. Erneutes
+              Speichern ersetzt den Stand, es summiert sich nichts auf.
+            </p>
+            <form action={saveUebernahme} className="mt-4">
+              <input type="hidden" name="propertyId" value={property.id} />
+              <Field label="Stichtag der Übernahme">
+                <input
+                  type="date"
+                  name="stichtag"
+                  required
+                  defaultValue={
+                    uebernahmeStichtag ? uebernahmeStichtag.toISOString().slice(0, 10) : undefined
+                  }
+                  className={`${inputClass} w-auto`}
+                />
+              </Field>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {units.map((u) => (
+                  <label key={u.id} className="flex items-center gap-2 text-sm">
+                    <span className="w-24 shrink-0 truncate text-gray-600">{u.label}</span>
+                    <input
+                      name={`betrag_${u.id}`}
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      defaultValue={
+                        uebernahmeByUnit.get(u.id) !== undefined
+                          ? (uebernahmeByUnit.get(u.id)! / 100).toFixed(2).replace(".", ",")
+                          : ""
+                      }
+                      className={`${inputClass} w-28`}
+                      aria-label={`Offener Posten der Einheit ${u.label} zum Stichtag`}
+                    />
+                    <span className="text-xs text-gray-400">€</span>
+                  </label>
+                ))}
+              </div>
+              <div className="mt-3">
+                <PendingButton className={buttonSecondaryClass}>Stand übernehmen</PendingButton>
+              </div>
+            </form>
+          </details>
+        </Card>
+
         <Card title="Rückstandsliste je Einheit">
           {!hasPostings ? (
             <EmptyState>

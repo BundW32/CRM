@@ -17,8 +17,38 @@ const COST_CATEGORIES = ["BETRIEBSKOSTEN", "INSTANDHALTUNG", "VERWALTUNG", "RUEC
 const LABOR_SHARE_TYPES = ["KEINE", "HAUSHALTSNAHE_DIENSTLEISTUNG", "HANDWERKERLEISTUNG"] as const;
 const ACCOUNT_KINDS = ["GIRO", "RUECKLAGE"] as const;
 
+// Anker je Rückmeldung: Nach welchem Abschnitt der Seite geht es weiter?
+//
+// Server-Actions enden mit einer Weiterleitung, und die setzt den Browser an
+// den Seitenanfang zurück. Auf einer langen Seite wie den Stammdaten heißt das:
+// Man speichert eine Einheit weit unten und findet sich oben bei den
+// Objekt-Einstellungen wieder – nach jedem einzelnen Speichern.
+//
+// Der Anker im Ziel-Pfad behebt das, ohne die Rückmeldungs-Konvention
+// anzutasten: Der Flash-/Fehler-Parameter bleibt, das Fragment führt nur
+// zusätzlich an die Stelle zurück, an der gearbeitet wurde.
+const ANKER: Record<string, string> = {
+  einstellungen: "objekt-einstellungen",
+  einheit: "einheiten",
+  eigentuemer: "eigentuemer",
+  datum: "eigentuemer",
+  katalog: "kostenarten",
+  kostenart: "kostenarten",
+  konto: "konten",
+  betrag: "konten",
+  bestand: "konten",
+  stichtag: "konten",
+  zeitraum: "eigentuemer",
+};
+
 function back(propertyId: string, param?: string): never {
-  redirect(`/verwaltung/weg/${propertyId}/stammdaten${param ? `?${param}` : ""}`);
+  const wert = param?.split("=")[1];
+  const anker = wert ? ANKER[wert] : undefined;
+  redirect(
+    `/verwaltung/weg/${propertyId}/stammdaten` +
+      (param ? `?${param}` : "") +
+      (anker ? `#${anker}` : ""),
+  );
 }
 
 // Optionale Ganzzahl/Dezimalzahl aus deutschem Formular-Input ("76,38" → 76.38)
@@ -368,23 +398,34 @@ export async function saveAccount(formData: FormData) {
   const property = await loadWegProperty(verwalter, parsed.data.propertyId);
   if (!property) redirect("/verwaltung/weg");
 
-  // Anfangsbestand: deutsches Format, darf negativ sein (Konto im Soll)
+  // Anfangsbestand und Stichtag sind Pflicht – anders als die IBAN.
+  //
+  // Ein Konto ohne beides ließ sich bisher anlegen, und das Ergebnis war ein
+  // Konto mit Bestand 0 € zu keinem Zeitpunkt: Die Buchhaltung rechnet ab dem
+  // Stichtag, also ab nirgendwo. Die Einrichtung meldete den Schritt danach als
+  // unfertig, ohne dass beim Speichern etwas darauf hingedeutet hätte.
+  //
+  // Null Euro bleibt ein zulässiger Bestand – ein neu eröffnetes Konto der
+  // Gemeinschaft steht tatsächlich auf null. Leer ist keine Angabe, „0,00" ist
+  // eine.
   const raw = (parsed.data.openingBalance ?? "").trim();
-  let openingBalanceCents = 0;
-  if (raw !== "") {
-    const negative = raw.startsWith("-");
-    const cents = parseEuroToCents(negative ? raw.slice(1) : raw);
-    if (cents === null) back(property.id, "fehler=betrag");
-    openingBalanceCents = negative ? -cents : cents;
-  }
-  const openingBalanceDate = parsed.data.openingBalanceDate ? new Date(parsed.data.openingBalanceDate) : null;
+  if (raw === "") back(property.id, "fehler=bestand");
+  const negative = raw.startsWith("-");
+  const cents = parseEuroToCents(negative ? raw.slice(1) : raw);
+  if (cents === null) back(property.id, "fehler=betrag");
+  const openingBalanceCents = negative ? -cents : cents;
+
+  const stichtagRoh = (parsed.data.openingBalanceDate ?? "").trim();
+  if (stichtagRoh === "") back(property.id, "fehler=stichtag");
+  const openingBalanceDate = new Date(stichtagRoh);
+  if (Number.isNaN(openingBalanceDate.getTime())) back(property.id, "fehler=stichtag");
 
   const data = {
     name: parsed.data.name,
     kind: parsed.data.kind,
     iban: parsed.data.iban || null,
     openingBalanceCents,
-    openingBalanceDate: openingBalanceDate && !isNaN(openingBalanceDate.getTime()) ? openingBalanceDate : null,
+    openingBalanceDate,
   };
   let targetId = parsed.data.accountId;
   if (targetId) {
@@ -409,4 +450,109 @@ export async function saveAccount(formData: FormData) {
   });
   revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
   back(property.id, "gespeichert=konto");
+}
+
+/**
+ * Korrigiert den Beginn einer bestehenden Eigentümerschaft.
+ *
+ * Bis hierher war das Datum nach dem Anlegen unveränderlich: Wer beim Anlegen
+ * des Objekts keinen Stichtag angeben konnte, bekam das Anlagedatum — und
+ * musste, um es zu berichtigen, dieselbe Person neu eintragen und die alte
+ * löschen. Der Stichtag entscheidet aber, wer bei einem Verkauf welchen Teil
+ * der Jahresabrechnung trägt; ihn nicht korrigieren zu können, hieß mit einem
+ * falschen Wert weiterzurechnen.
+ */
+export async function updateOwnershipStart(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const ownershipId = String(formData.get("ownershipId") ?? "");
+  const validFromRaw = String(formData.get("validFrom") ?? "").trim();
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const ownership = await db.unitOwnership.findFirst({
+    where: {
+      id: ownershipId,
+      organizationId: verwalter.organizationId,
+      unit: { propertyId: property.id },
+    },
+    select: { id: true, unitId: true, validTo: true },
+  });
+  if (!ownership) back(property.id, "fehler=eigentuemer");
+
+  const validFrom = new Date(validFromRaw);
+  if (!validFromRaw || isNaN(validFrom.getTime())) back(property.id, "fehler=datum");
+  // Ein Beginn nach dem Ende ergäbe einen Zeitraum, den es nicht gibt — und die
+  // zeitanteilige Abrechnung würde daran stillschweigend falsch rechnen.
+  if (ownership.validTo && validFrom > ownership.validTo) back(property.id, "fehler=zeitraum");
+
+  await db.unitOwnership.update({ where: { id: ownership.id }, data: { validFrom } });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_UNIT_OWNERSHIP_SAVED,
+    targetType: "Unit",
+    targetId: ownership.unitId,
+    meta: { ownershipId: ownership.id, validFrom: validFromRaw },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+  back(property.id, "gespeichert=eigentuemer");
+}
+
+/**
+ * Entfernt eine Kostenart — aber nur, solange nichts daran hängt.
+ *
+ * Bis hierher ließ sich eine Kostenart gar nicht loswerden; es gab nur das
+ * Häkchen „aktiv". Das war der Grund, warum „Standardkatalog abgleichen"
+ * sinnlos wirkte: Fehlen konnte nie etwas, weil sich nichts entfernen ließ.
+ *
+ * Gelöscht wird deshalb nur, was **unbenutzt** ist. Sobald eine Buchung, ein
+ * Planwert oder eine Abrechnungsposition darauf verweist, wird stattdessen
+ * deaktiviert — und das ist keine Bequemlichkeit, sondern Pflicht: Das Schema
+ * würde Planwerte und Abrechnungspositionen mitlöschen (`onDelete: Cascade`).
+ * Eine beschlossene Jahresabrechnung nachträglich um eine Position zu
+ * erleichtern, wäre Geschichtsfälschung.
+ */
+export async function deleteCostType(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const costTypeId = String(formData.get("costTypeId") ?? "");
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const costType = await db.costType.findFirst({
+    where: { id: costTypeId, propertyId: property.id },
+    select: { id: true, name: true },
+  });
+  if (!costType) back(property.id, "fehler=kostenart");
+
+  const [buchungen, planwerte, abrechnungen] = await Promise.all([
+    db.booking.count({ where: { costTypeId: costType.id } }),
+    db.economicPlanItem.count({ where: { costTypeId: costType.id } }),
+    db.statementUnitAmount.count({ where: { costTypeId: costType.id } }),
+  ]);
+  const benutzt = buchungen + planwerte + abrechnungen;
+
+  if (benutzt > 0) {
+    await db.costType.update({ where: { id: costType.id }, data: { active: false } });
+    await logAudit({
+      actorId: verwalter.id,
+      action: AUDIT.WEG_COSTTYPE_SAVED,
+      targetType: "CostType",
+      targetId: costType.id,
+      meta: { deaktiviert: true, buchungen, planwerte, abrechnungen },
+    });
+    revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+    back(property.id, "gespeichert=deaktiviert");
+  }
+
+  await db.costType.delete({ where: { id: costType.id } });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_COSTTYPE_SAVED,
+    targetType: "CostType",
+    targetId: costType.id,
+    meta: { geloescht: true, name: costType.name },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+  back(property.id, "gespeichert=kostenart");
 }

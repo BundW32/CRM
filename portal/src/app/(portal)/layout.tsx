@@ -11,6 +11,7 @@ import { AssistantWidget } from "@/components/assistant-widget";
 import { BrandTheme } from "@/components/brand-theme";
 import { CommandPalette, type PaletteNavItem } from "@/components/command-palette";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { SetupBanner } from "@/components/setup-banner";
 import {
   isBoardMember,
   isSelfManaged,
@@ -25,6 +26,7 @@ import { isPlatformAdminUser } from "@/lib/platform";
 import { orgLogoUrl } from "@/lib/branding";
 import { roleLabels } from "@/lib/labels";
 import { getOrganization, getSession, requireUser } from "@/lib/session";
+import { loadSetupStatus } from "@/lib/weg/setup-status";
 
 export default async function PortalLayout({
   children,
@@ -83,6 +85,21 @@ export default async function PortalLayout({
   // streamen nach. Nur für Verwalter, sonst entstünden Abfragen ohne Nutzen.
   const badgesPromise = usesCounts(navContext) ? loadNavCounts(user) : undefined;
 
+  // Einrichtungs-Band: nur für die verwaltende Person einer selbstverwalteten
+  // WEG und nur, solange die Einrichtung läuft. Das Band selbst blendet sich
+  // auf der Übersicht aus – dort steht der Assistent.
+  const setup =
+    selfManaged && user.role === "VERWALTER"
+      ? await loadSetupStatus(
+          (
+            await db.property.findFirst({
+              where: { ...(await propertyWhereForVerwalter(user)), managementType: "WEG" },
+              select: { id: true },
+            })
+          )?.id ?? null,
+        )
+      : null;
+
   // KI-Assistent erscheint als schwebende Bubble (unten rechts), nicht in der
   // Navigation – nur bei Feature-Freigabe und passender Rolle.
   const showAssistant = isAssistantEnabled() && canUseAssistant(user);
@@ -119,6 +136,13 @@ export default async function PortalLayout({
           showSettings={canSeeSettings(navContext)}
           showPlattform={isPlatformAdmin}
         >
+          {setup && !setup.fertig ? (
+            <SetupBanner
+              erledigt={setup.erledigt}
+              gesamt={setup.gesamt}
+              titel={setup.naechster?.title ?? null}
+            />
+          ) : null}
           <PageTransition>{children}</PageTransition>
         </AppShell>
       </main>

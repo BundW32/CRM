@@ -661,3 +661,50 @@ export async function deleteMeeting(formData: FormData) {
   revalidatePath("/versammlungen");
   redirect("/versammlungen?flash=geloescht");
 }
+
+/**
+ * Setzt die Reihenfolge der Tagesordnung in einem Zug.
+ *
+ * `moveAgendaItem` tauscht zwei Nachbarn und lädt danach die Seite neu — bei
+ * fünf TOPs wird das zur Klickerei, und jede Bewegung kostet einen
+ * Seitenaufbau. Diese Aktion nimmt die fertige Reihenfolge entgegen, wie sie im
+ * Sortier-Editor zusammengezogen wurde, und schreibt sie einmal.
+ *
+ * Es werden ALLE Positionen lückenlos neu vergeben (0..n-1) statt einzelne
+ * Werte zu setzen — das heilt zugleich Duplikate und Lücken aus der Zeit
+ * paralleler Einfügungen.
+ */
+export async function reorderAgendaItems(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const meetingId = String(formData.get("meetingId") ?? "").trim();
+  const meeting = await meetingInScope(verwalter, meetingId);
+  if (!meeting) redirect("/versammlungen");
+  if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
+
+  const gewuenscht = String(formData.get("order") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const vorhanden = await db.meetingAgendaItem.findMany({
+    where: { meetingId },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    select: { id: true },
+  });
+  const erlaubt = new Set(vorhanden.map((i) => i.id));
+
+  // Nur bekannte IDs übernehmen und fehlende hinten anhängen: Wer die Seite
+  // offen liegen lässt, während anderswo ein TOP entsteht, darf ihn mit einem
+  // veralteten Formular nicht verschwinden lassen.
+  const gefiltert = gewuenscht.filter((id) => erlaubt.has(id));
+  const fehlende = vorhanden.map((i) => i.id).filter((id) => !gefiltert.includes(id));
+  const endgueltig = [...gefiltert, ...fehlende];
+
+  await db.$transaction(
+    endgueltig.map((id, index) =>
+      db.meetingAgendaItem.update({ where: { id }, data: { sortOrder: index } }),
+    ),
+  );
+  revalidatePath(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=gespeichert`);
+}

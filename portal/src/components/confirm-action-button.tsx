@@ -72,7 +72,10 @@ function ConfirmSubmit({
     <button
       type="submit"
       disabled={pending}
-      className={`cursor-pointer disabled:cursor-wait disabled:opacity-60 ${className}`}
+      // Bewusst kein `disabled:cursor-wait`: Windows zeichnet dafür seinen
+      // Wartekringel neben den Zeiger, was wie ein hängendes Fenster aussieht.
+      // Dass die Aktion läuft, sagt der Knopf schon selbst („Wird gelöscht…").
+      className={`cursor-pointer disabled:opacity-60 ${className}`}
     >
       {pending ? pendingLabel : confirmLabel}
     </button>

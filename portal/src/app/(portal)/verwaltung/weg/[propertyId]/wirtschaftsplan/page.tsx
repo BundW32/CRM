@@ -87,6 +87,16 @@ export default async function WirtschaftsplanListPage({
             (Ausgaben je Kostenart) — anschließend anpassen, Hausgeld je Einheit
             prüfen und den Plan beschließen.
           </p>
+          {plans.length === 0 ? (
+            // Im ersten Jahr gibt es kein Vorjahr, aus dem sich schöpfen ließe.
+            // Ohne diesen Satz startet der Assistent scheinbar grundlos leer.
+            <p className="mb-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+              <strong className="font-medium">Erster Plan:</strong> Es gibt noch kein Vorjahr im
+              System, aus dem sich Werte übernehmen ließen — der Assistent startet deshalb mit
+              leeren Beträgen. Als Grundlage dienen der letzte Wirtschaftsplan oder die letzte
+              Jahresabrechnung der bisherigen Verwaltung.
+            </p>
+          ) : null}
           <form action={createPlan} className="flex flex-wrap items-end gap-2">
             <input type="hidden" name="propertyId" value={property.id} />
             <Field label="Wirtschaftsjahr (Beginn)">

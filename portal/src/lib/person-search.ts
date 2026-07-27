@@ -12,11 +12,33 @@
 // Die Suche geht immer von `userWhereForVerwalter` aus und verengt nur. Ein
 // eingeschränkter Verwalter sieht also ausschließlich Personen aus seinem
 // Zuständigkeitsbereich.
-import type { User } from "@/generated/prisma/client";
-import { userWhereForVerwalter } from "./access";
+import type { Role, User } from "@/generated/prisma/client";
+import { isSelfManaged, userWhereForVerwalter } from "./access";
 import { db } from "./db";
 
 export type PersonTreffer = { id: string; name: string; hint: string };
+
+/**
+ * Welche Rollen als „Eigentümer" in Frage kommen.
+ *
+ * In einer **Selbstverwaltung** verwaltet ein Eigentümer die Gemeinschaft: Das
+ * `VERWALTER`-Konto und der Eigentümer sind dieselbe Person. Wer sich
+ * registriert und sich danach als Eigentümer seiner eigenen Einheit einträgt,
+ * bekam bisher ein zweites Konto — die Dubletten-Vorbeugung suchte nur nach
+ * `EIGENTUEMER` und sah das eigene Verwalter-Konto nicht. Für diese Zielgruppe
+ * ist das nicht die Ausnahme, sondern der Normalfall.
+ *
+ * In der **professionellen Verwaltung** bleibt es bei `EIGENTUEMER`: Dort sind
+ * die Verwalter Angestellte der Hausverwaltung und gehören nicht als Eigentümer
+ * an eine Einheit.
+ */
+async function eigentuemerRollen(actor: User): Promise<Role[]> {
+  const org = await db.organization.findUnique({
+    where: { id: actor.organizationId },
+    select: { accountType: true },
+  });
+  return isSelfManaged(org) ? ["EIGENTUEMER", "VERWALTER"] : ["EIGENTUEMER"];
+}
 
 export async function searchPersons(
   actor: User,
@@ -25,10 +47,11 @@ export async function searchPersons(
 ): Promise<PersonTreffer[]> {
   const q = query.trim();
   if (q.length < 2) return [];
+  const rollen: Role[] = role === "MIETER" ? ["MIETER"] : await eigentuemerRollen(actor);
   const persons = await db.user.findMany({
     where: {
       AND: [
-        { role },
+        { role: { in: rollen } },
         { active: true },
         { anonymizedAt: null },
         { name: { contains: q, mode: "insensitive" } },
@@ -76,10 +99,14 @@ export async function verifyExistingPerson(
 ): Promise<string | null> {
   const id = userId.trim();
   if (!id) return null;
+  // Dieselbe Rollenmenge wie im Vorschlag – sonst böte die Suche eine Person an,
+  // die die Prüfung anschließend verwirft, und das Formular legte stillschweigend
+  // doch ein zweites Konto an.
+  const rollen: Role[] = role === "MIETER" ? ["MIETER"] : await eigentuemerRollen(actor);
   const person = await db.user.findFirst({
     where: {
       id,
-      role,
+      role: { in: rollen },
       active: true,
       anonymizedAt: null,
       organizationId: actor.organizationId,

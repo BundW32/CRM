@@ -174,6 +174,18 @@ Die vorhandenen Abweichungen werden **nicht** in einem Rutsch umgebaut: Das
 wären viele Dateien ohne jede sichtbare Verbesserung. Wer ohnehin in einer
 solchen Datei arbeitet, zieht sie mit.
 
+## Pflichtfelder markieren sich selbst
+
+Ein Feld mit `required` bekommt sein Sternchen **automatisch** — `globals.css` liest das
+Attribut aus und hängt es an die Beschriftung. Wer selbst ein `*` in ein Label schreibt,
+erzeugt einen doppelten Stern und eine Markierung, die beim nächsten Entfernen des
+`required` stehen bleibt.
+
+Grund für den Weg über CSS statt über eine Prop: Es gibt weit über hundert Felder. Jedes
+einzeln zu markieren hieße, jedes einzeln anzufassen — und ein vergessenes Feld sähe
+danach freiwillig aus, obwohl es Pflicht ist. Genau diese halbe Markierung gab es
+schon einmal und musste zurückgenommen werden.
+
 ## Anlegen gehört nicht neben die Liste
 
 Viele Seiten trugen das Anlegen-Formular als feste dritte Spalte rechts (`lg:col-span-2`

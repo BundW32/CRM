@@ -1,14 +1,11 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
-import { SubmitButton } from "@/components/submit-button";
-import { Pagination, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import { Pagination, Alert, EmptyState, PageTitle, buttonClass } from "@/components/ui";
 import { FilterBar } from "@/components/filter-bar";
 import { db } from "@/lib/db";
-import { formatDate } from "@/lib/labels";
+import { formatDateOnly } from "@/lib/labels";
 import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
-import { startConversation } from "./actions";
-import { EmpfaengerSelect } from "./EmpfaengerSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +67,15 @@ export default async function NachrichtenPage({
 
   return (
     <>
-      <PageTitle>Nachrichten</PageTitle>
+      <PageTitle
+        action={
+          <Link href="/nachrichten/neu" className={buttonClass}>
+            {isVerwalter ? "Neue Nachricht" : "Nachricht an die Verwaltung"}
+          </Link>
+        }
+      >
+        Nachrichten
+      </PageTitle>
 
       {fehler ? (
         <Alert variant="error" className="mb-4">
@@ -78,13 +83,12 @@ export default async function NachrichtenPage({
         </Alert>
       ) : null}
       {gesendet ? (
-        <p className="mb-4 rounded-md bg-green-50 px-3 py-2 text-sm text-green-800">
+        <Alert variant="success" className="mb-4">
           Nachricht an {gesendet} Empfänger gesendet (je ein eigener Verlauf).
-        </p>
+        </Alert>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div>
           <FilterBar
             className="mb-3"
             searchPlaceholder="Suchen"
@@ -125,7 +129,7 @@ export default async function NachrichtenPage({
                           </span>
                         </span>
                         <span className="shrink-0 text-xs text-gray-400">
-                          {formatDate(c.updatedAt)}
+                          {formatDateOnly(c.updatedAt)}
                         </span>
                       </Link>
                     </li>
@@ -136,24 +140,6 @@ export default async function NachrichtenPage({
           )}
 
           <Pagination currentPage={currentPage} totalPages={totalPages} total={total} itemLabel="Konversationen" hrefFor={pageHref} />
-        </div>
-
-        <Card title={isVerwalter ? "Neue Nachricht" : "Nachricht an die Verwaltung"}>
-          <form action={startConversation} className="space-y-3">
-            {isVerwalter ? (
-              <Field label="Empfänger">
-                <EmpfaengerSelect />
-              </Field>
-            ) : null}
-            <Field label="Betreff">
-              <input type="text" name="subject" required minLength={2} maxLength={200} className={inputClass} />
-            </Field>
-            <Field label="Nachricht">
-              <textarea name="body" required minLength={1} maxLength={5000} rows={5} className={inputClass} />
-            </Field>
-            <SubmitButton pendingLabel="Wird gesendet…">Senden</SubmitButton>
-          </form>
-        </Card>
       </div>
     </>
   );

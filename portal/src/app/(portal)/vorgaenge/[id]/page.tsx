@@ -17,6 +17,7 @@ import {
   buttonSecondaryClass,
   inputClass,
 } from "@/components/ui";
+import { Badge } from "@/components/data-display";
 import {
   canViewTicket,
   craftsmanWhereForVerwalter,
@@ -593,9 +594,11 @@ export default async function TicketDetailPage({
                     </form>
                   </div>
                 ) : (
-                  <p className={`text-xs font-medium ${ticket.invoice.status === "AKZEPTIERT" ? "text-green-700" : "text-red-600"}`}>
-                    {ticket.invoice.status === "AKZEPTIERT" ? "✓ akzeptiert und als Kosten übernommen" : "abgelehnt"}
-                  </p>
+                  <Badge tone={ticket.invoice.status === "AKZEPTIERT" ? "success" : "danger"}>
+                    {ticket.invoice.status === "AKZEPTIERT"
+                      ? "akzeptiert und als Kosten übernommen"
+                      : "abgelehnt"}
+                  </Badge>
                 )}
               </div>
             </CollapsibleCard>
@@ -608,14 +611,9 @@ export default async function TicketDetailPage({
             >
               {ticket.status === "GESCHLOSSEN" ? (
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-                    <p className="text-xs font-semibold text-green-800">✓ Abschluss bestätigt</p>
-                    {ticket.closedAt ? (
-                      <p className="mt-0.5 text-xs text-green-700">
-                        geschlossen am {formatDate(ticket.closedAt)}
-                      </p>
-                    ) : null}
-                  </div>
+                  <Alert variant="success" title="Abschluss bestätigt">
+                    {ticket.closedAt ? `geschlossen am ${formatDate(ticket.closedAt)}` : null}
+                  </Alert>
                   <form action={reopenTicket} className="space-y-2">
                     <input type="hidden" name="ticketId" value={ticket.id} />
                     <textarea
@@ -629,17 +627,12 @@ export default async function TicketDetailPage({
                 </div>
               ) : ticket.status === "ERLEDIGT" ? (
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <p className="text-xs font-semibold text-amber-800">
-                      Erledigung gemeldet – bitte prüfen und abnehmen
-                    </p>
-                    <p className="mt-0.5 text-xs text-amber-700">
-                      {ticket.completionReportedVia ? `Kanal: ${ticket.completionReportedVia}` : ""}
-                      {ticket.completionReportedAt
-                        ? `${ticket.completionReportedVia ? " · " : ""}gemeldet am ${formatDate(ticket.completionReportedAt)}`
-                        : ""}
-                    </p>
-                  </div>
+                  <Alert variant="warning" title="Erledigung gemeldet – bitte prüfen und abnehmen">
+                    {ticket.completionReportedVia ? `Kanal: ${ticket.completionReportedVia}` : ""}
+                    {ticket.completionReportedAt
+                      ? `${ticket.completionReportedVia ? " · " : ""}gemeldet am ${formatDate(ticket.completionReportedAt)}`
+                      : ""}
+                  </Alert>
                   <form action={confirmCompletion}>
                     <input type="hidden" name="ticketId" value={ticket.id} />
                     <PendingButton className={`${buttonClass} w-full`}>Abschluss bestätigen &amp; schließen</PendingButton>
@@ -922,15 +915,16 @@ export default async function TicketDetailPage({
                       ) : null}
                     </div>
                   ) : (
-                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                      <p className="text-xs text-amber-800">
-                        <span className="font-semibold">Externer Handwerker.</span> Bitte zuerst
-                        prüfen, ob die Arbeit intern (Eigenleistung) erledigt werden kann. Erst
-                        nach Freigabe kann extern beauftragt werden.
-                      </p>
-                      <form action={releaseExternalCraftsman} className="mt-2">
+                    <div className="mt-3 space-y-2">
+                      <Alert variant="warning" title="Externer Handwerker.">
+                        Bitte zuerst prüfen, ob die Arbeit intern (Eigenleistung) erledigt werden
+                        kann. Erst nach Freigabe kann extern beauftragt werden.
+                      </Alert>
+                      <form action={releaseExternalCraftsman}>
                         <input type="hidden" name="ticketId" value={ticket.id} />
-                        <PendingButton className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100">Externe Beauftragung freigeben</PendingButton>
+                        <PendingButton className={`${buttonSecondaryClass} w-full`}>
+                          Externe Beauftragung freigeben
+                        </PendingButton>
                       </form>
                     </div>
                   )}
@@ -938,13 +932,10 @@ export default async function TicketDetailPage({
                   {/* Terminvorschlag des Handwerkers – wird erst mit Bestätigung wirksam */}
                   {ticket.appointmentNote ? (
                     ticket.appointmentConfirmedAt ? (
-                      <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3">
-                        <p className="text-xs font-semibold text-green-800">✓ Termin bestätigt</p>
-                        <p className="mt-0.5 text-sm text-green-900">{ticket.appointmentNote}</p>
-                        <p className="mt-0.5 text-xs text-green-700">
-                          bestätigt am {formatDate(ticket.appointmentConfirmedAt)}
-                        </p>
-                      </div>
+                      <Alert variant="success" title="Termin bestätigt" className="mt-4">
+                        {ticket.appointmentNote} · bestätigt am{" "}
+                        {formatDate(ticket.appointmentConfirmedAt)}
+                      </Alert>
                     ) : (
                       <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
                         <p className="text-xs font-semibold text-amber-800">

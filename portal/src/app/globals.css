@@ -134,6 +134,31 @@
   }
 }
 
+/* Pflichtfelder markieren – automatisch, überall, ohne Zutun der Formulare.
+
+   Der Weg über eine Prop wäre hier der falsche: Es gibt weit über hundert
+   Formularfelder, jedes einzeln zu markieren hieße, jedes einzelne anzufassen –
+   und ein vergessenes Feld sähe danach freiwillig aus, obwohl es Pflicht ist.
+   Genau diese halbe Markierung war schon einmal da und musste zurückgenommen
+   werden.
+
+   Stattdessen liest das Stylesheet die Wahrheit direkt aus dem Formular: Trägt
+   ein `label` ein Feld mit `required`, bekommt seine Beschriftung ein Sternchen.
+   Neue Formulare sind damit von sich aus richtig markiert, und die Markierung
+   kann nicht mehr von der tatsächlichen Pflicht abweichen.
+
+   Bewusst rein visuell: Dass ein Feld Pflicht ist, sagt `required` dem
+   Screenreader ohnehin – ein zusätzlich vorgelesenes „Stern" wäre Lärm.
+
+   Absichtlich Nachfahre statt direktes Kind: Manche Felder stecken zur
+   Ausrichtung noch in einem `div`. Getroffen wird immer nur die erste
+   Beschriftungszeile des `label`. */
+label:has(input[required], select[required], textarea[required])
+  > span:first-child::after {
+  content: " *";
+  color: var(--color-brand-orange-ink);
+}
+
 /* Ausklappbare Karten (`CollapsibleCard`): weiches Auf- und Zuklappen.
    Natives <details> springt sonst hart auf – bei einer Liste laufender
    Abstimmungen verliert man dabei die Stelle, an der man gerade war.

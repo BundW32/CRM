@@ -167,7 +167,7 @@ export async function startConversation(formData: FormData) {
   const subject = String(formData.get("subject") ?? "").trim().slice(0, 200);
   const body = String(formData.get("body") ?? "").trim().slice(0, 5000);
   if (subject.length < 2 || body.length < 1) {
-    redirect("/nachrichten?fehler=eingabe");
+    redirect("/nachrichten/neu?fehler=eingabe");
   }
 
   if (user.role === "VERWALTER") {
@@ -183,7 +183,7 @@ export async function startConversation(formData: FormData) {
       valid.push(recipient.id);
     }
     if (valid.length === 0) {
-      redirect("/nachrichten?fehler=empfaenger");
+      redirect("/nachrichten/neu?fehler=empfaenger");
     }
 
     const createdIds: string[] = [];
@@ -216,7 +216,7 @@ export async function startConversation(formData: FormData) {
   });
   const recipientIds = verwalter.map((v) => v.id).filter((id) => id !== user.id);
   if (recipientIds.length === 0) {
-    redirect("/nachrichten?fehler=empfaenger");
+    redirect("/nachrichten/neu?fehler=empfaenger");
   }
 
   const conversation = await db.conversation.create({

@@ -385,6 +385,30 @@ Fahrplan noch Einrichtung.
 6. **Migrationen**: beide tragen `20260726120000`. Rein additiv, unterschiedliche
    Ordner, Prisma sortiert nach Namen — kein Handlungsbedarf, nur zu wissen.
 
+### Umzug auf die Design-Bausteine (beim selben Rebase)
+
+Die Bausteine aus Stufe 1 liegen auf `claude/admin-menu-reorganization-8o17fx`
+(`components/data-display.tsx`, `components/fields.tsx`). Sie sind noch nicht
+zusammengeführt — ein Import vorher bricht den Build. Der Umzug gehört deshalb in
+denselben Rebase; danach greift die spätere ESLint-Stufe von Anfang an.
+
+| Stelle | heute | künftig |
+|---|---|---|
+| `weg/[propertyId]/page.tsx` — Kontostände | 2× `<p className="text-3xl font-semibold">` in zwei Karten | `<KeyFigures>` mit zwei `<KeyFigure label value hint>` in **einer** Karte |
+| `weg/[propertyId]/page.tsx` — „wichtig" | `<span className="rounded-full bg-amber-100 …">` | `<Badge tone="warning">` |
+| `buchhaltung/page.tsx` — „storniert" | roter `<span>` | `<Badge tone="danger">` |
+| `buchhaltung/page.tsx` — „fehlt" (Kostenart) | amberfarbener `<span>` | `<Badge tone="warning">` |
+| 6 Dateien im WEG-Bereich | rohes `<input type="date">` | `<DateField>` + `toDateInputValue` |
+
+`KeyFigure` bringt sein Etikett selbst mit — die beiden Karten „Laufendes Konto"
+und „Erhaltungsrücklage" werden dabei zu einer Karte mit zwei Kennzahlen. Die
+Klartextzeile („Das Gesparte für große Reparaturen") wandert in `hint`.
+
+**Offen zu prüfen:** ob die Buchungstabelle auf `DataTable` passt. Sie trägt
+Auswahlkästchen, die über das `form`-Attribut zu einem Formular außerhalb der
+Tabelle gehören, und je Zeile ein eigenes Storno-Formular. Wenn `Column.render`
+das trägt, umziehen; sonst als begründete Ausnahme notieren.
+
 ### Was von Block 1 unberührt bleibt
 
 Die Substanz. KP1 (Kostenart nachtragen), KP2 (Storno, Import-Rücknahme),

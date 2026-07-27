@@ -1,7 +1,7 @@
 // Wirtschaftsplan-Logik (§ 28 Abs. 1 WEG): Wirtschaftsjahr, Vorschuss-Gewichte,
 // Einzelwirtschaftspläne und monatliche Hausgeld-Raten. Pure Funktionen —
 // DB/UI übernehmen die Server Actions.
-import type { DistributionKey } from "@/generated/prisma/client";
+import type { CostCategory, DistributionKey } from "@/generated/prisma/client";
 import { distributeByWeight, type Share, type UnitForDistribution } from "./distribution";
 
 // Die 12 Kalendermonate des Wirtschaftsjahres, das im Jahr `year` beginnt
@@ -56,7 +56,9 @@ export function advanceWeightsForKey(units: UnitForDistribution[], key: Distribu
 export type PlanItemInput = {
   costTypeId: string;
   distributionKey: DistributionKey;
-  amountCents: number; // Jahres-Planwert
+  amountCents: number; // Jahres-Planwert, immer positiv
+  /** ERTRAG mindert den Vorschussbedarf, statt ihn zu erhöhen. */
+  category?: CostCategory;
 };
 
 /**
@@ -101,18 +103,36 @@ export type UnitAdvances = {
   perUnit: Map<string, number>;
   // Aufschlüsselung je Position (für den Einzelwirtschaftsplan)
   perItem: Map<string, Map<string, number>>;
+  /** Vorschussbedarf gesamt: Ausgaben − Einnahmen. */
   totalCents: number;
+  /** Σ geplanter Ausgaben (ohne Einnahmen) — für die Darstellung. */
+  expenseCents: number;
+  /** Σ geplanter Einnahmen — mindert den Bedarf. */
+  incomeCents: number;
 };
 
-// Verteilt alle Planpositionen auf die Einheiten (Einzelwirtschaftspläne).
+/**
+ * Verteilt alle Planpositionen auf die Einheiten (Einzelwirtschaftspläne).
+ *
+ * § 28 Abs. 1 WEG verlangt einen Plan über die voraussichtlichen **Einnahmen und
+ * Ausgaben**. Positionen der Kategorie `ERTRAG` — Zinsen, Miete aus
+ * Gemeinschaftseigentum, PV-Einspeisung — mindern deshalb den Vorschussbedarf,
+ * verteilt nach ihrem eigenen Schlüssel. Ohne sie wäre das Hausgeld bei jeder
+ * Gemeinschaft mit Einnahmen systematisch zu hoch angesetzt.
+ *
+ * Die Beträge bleiben wie überall positiv; die Richtung steckt in der Kategorie.
+ */
 export function computeUnitAdvances(items: PlanItemInput[], units: UnitForDistribution[]): UnitAdvances {
   const perUnit = new Map<string, number>(units.map((u) => [u.id, 0]));
   const perItem = new Map<string, Map<string, number>>();
-  let totalCents = 0;
+  let expenseCents = 0;
+  let incomeCents = 0;
   for (const item of items) {
     if (item.amountCents < 0) throw new Error("Planwerte dürfen nicht negativ sein.");
     if (item.amountCents === 0) continue;
-    totalCents += item.amountCents;
+    const istErtrag = item.category === "ERTRAG";
+    if (istErtrag) incomeCents += item.amountCents;
+    else expenseCents += item.amountCents;
     let shares: Map<string, number>;
     try {
       shares = distributeByWeight(item.amountCents, advanceWeightsForKey(units, item.distributionKey));
@@ -135,12 +155,25 @@ export function computeUnitAdvances(items: PlanItemInput[], units: UnitForDistri
                 : "Verteilung nicht möglich.",
       );
     }
-    perItem.set(item.costTypeId, shares);
-    for (const [unitId, cents] of shares) {
+    // Einnahmen mit umgekehrtem Vorzeichen — je Einheit und in der
+    // Aufschlüsselung, damit der Einzelwirtschaftsplan beides zeigt.
+    // `0 * -1` ergibt in JavaScript `-0` — das reist durch JSON und Snapshots
+    // und liest sich in der Oberfläche als „−0,00 €". Deshalb explizit.
+    const gerichtet = istErtrag
+      ? new Map([...shares].map(([unitId, cents]) => [unitId, cents === 0 ? 0 : -cents]))
+      : shares;
+    perItem.set(item.costTypeId, gerichtet);
+    for (const [unitId, cents] of gerichtet) {
       perUnit.set(unitId, (perUnit.get(unitId) ?? 0) + cents);
     }
   }
-  return { perUnit, perItem, totalCents };
+  const totalCents = expenseCents - incomeCents;
+  if (totalCents < 0) {
+    throw new Error(
+      "Die geplanten Einnahmen übersteigen die geplanten Ausgaben — daraus lässt sich kein Hausgeld ableiten.",
+    );
+  }
+  return { perUnit, perItem, totalCents, expenseCents, incomeCents };
 }
 
 // 12 Monatsraten, die centgenau den Jahresbetrag ergeben (Restcents auf die

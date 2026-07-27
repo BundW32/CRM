@@ -202,6 +202,7 @@ export async function resolvePlan(formData: FormData) {
         costTypeId: i.costTypeId,
         distributionKey: i.costType.distributionKey,
         amountCents: i.amountCents,
+        category: i.costType.category,
       })),
       units,
     );
@@ -293,6 +294,7 @@ export async function planZurAbstimmung(formData: FormData) {
         costTypeId: i.costTypeId,
         distributionKey: i.costType.distributionKey,
         amountCents: i.amountCents,
+        category: i.costType.category,
       })),
       units,
     );

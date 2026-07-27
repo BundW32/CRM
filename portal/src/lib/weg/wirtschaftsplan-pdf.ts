@@ -20,15 +20,17 @@ export async function buildWirtschaftsplanPdf(args: {
 }): Promise<Buffer> {
   const { propertyName, organizationId, plan, units } = args;
 
-  const totalCents = plan.items.reduce((sum, i) => sum + i.amountCents, 0);
   const advances = computeUnitAdvances(
     plan.items.map((i) => ({
       costTypeId: i.costTypeId,
       distributionKey: i.costType.distributionKey,
       amountCents: i.amountCents,
+      category: i.costType.category,
     })),
     units,
   );
+  // Vorschussbedarf = Ausgaben − Einnahmen (§ 28 Abs. 1 WEG).
+  const totalCents = advances.totalCents;
 
   const planUnits: WirtschaftsplanUnit[] = units.map((u) => {
     const annual = advances.perUnit.get(u.id) ?? 0;
@@ -54,9 +56,9 @@ export async function buildWirtschaftsplanPdf(args: {
         ? { date: plan.resolvedAt, note: plan.resolutionNote }
         : null,
     positions: plan.items.map((i) => ({
-      name: i.costType.name,
+      name: i.costType.category === "ERTRAG" ? `${i.costType.name} (Einnahme)` : i.costType.name,
       keyLabel: distributionKeyLabels[i.costType.distributionKey] ?? i.costType.distributionKey,
-      amountCents: i.amountCents,
+      amountCents: i.costType.category === "ERTRAG" ? -i.amountCents : i.amountCents,
     })),
     totalCents,
     units: planUnits,

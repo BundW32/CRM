@@ -61,7 +61,15 @@ export default async function WirtschaftsplanDetailPage({
       : [];
 
   const isDraft = plan.status === "ENTWURF";
-  const totalCents = plan.items.reduce((sum, i) => sum + i.amountCents, 0);
+  // Vorschussbedarf = geplante Ausgaben − geplante Einnahmen (§ 28 Abs. 1 WEG).
+  // Die rohe Summe aller Positionen wäre falsch, sobald es Erträge gibt.
+  const ausgabenCents = plan.items
+    .filter((i) => i.costType.category !== "ERTRAG")
+    .reduce((sum, i) => sum + i.amountCents, 0);
+  const einnahmenCents = plan.items
+    .filter((i) => i.costType.category === "ERTRAG")
+    .reduce((sum, i) => sum + i.amountCents, 0);
+  const totalCents = ausgabenCents - einnahmenCents;
 
   // Einzelwirtschaftspläne (Vorschau) — schlägt die Verteilung fehl, muss die
   // Meldung sagen, WELCHE Kostenart es ist und WAS fehlt. Ein „Verteilung nicht
@@ -75,6 +83,7 @@ export default async function WirtschaftsplanDetailPage({
         costTypeId: i.costTypeId,
         distributionKey: i.costType.distributionKey,
         amountCents: i.amountCents,
+        category: i.costType.category,
       })),
       units,
     );
@@ -172,7 +181,13 @@ Muster — ersetzt keine Rechtsberatung.`;
 
       <div className="grid gap-4">
         {/* Planwerte */}
-        <Card title={`Planwerte (Jahresbeträge) — gesamt ${formatCents(totalCents)}`}>
+        <Card
+          title={
+            einnahmenCents > 0
+              ? `Planwerte (Jahresbeträge) — ${formatCents(ausgabenCents)} Ausgaben − ${formatCents(einnahmenCents)} Einnahmen = ${formatCents(totalCents)} Vorschussbedarf`
+              : `Planwerte (Jahresbeträge) — gesamt ${formatCents(totalCents)}`
+          }
+        >
           <form action={updatePlanItems}>
             <input type="hidden" name="propertyId" value={property.id} />
             <input type="hidden" name="planId" value={plan.id} />
@@ -214,6 +229,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                           />
                         ) : (
                           <span className="font-medium text-gray-900">
+                            {item.costType.category === "ERTRAG" ? "− " : ""}
                             {formatCents(item.amountCents)}
                           </span>
                         )}

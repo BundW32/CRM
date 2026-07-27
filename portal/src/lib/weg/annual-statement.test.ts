@@ -29,6 +29,7 @@ const costTypes = [
   { id: "konto", name: "Kontoführung", category: B, distributionKey: "EINHEITEN" as const, laborShareType: "KEINE" as const },
   { id: "dach", name: "Dachsanierung", category: "INSTANDHALTUNG" as const, distributionKey: "MEA" as const, laborShareType: "HANDWERKERLEISTUNG" as const },
   { id: "zufuehrung", name: "Zuführung Erhaltungsrücklage", category: "RUECKLAGENZUFUEHRUNG" as const, distributionKey: "MEA" as const, laborShareType: "KEINE" as const },
+  { id: "pv", name: "PV-Einspeisung", category: "ERTRAG" as const, distributionKey: "MEA" as const, laborShareType: "KEINE" as const },
 ];
 
 function baseInput(overrides: Partial<StatementInput> = {}): StatementInput {
@@ -278,5 +279,35 @@ describe("Zuführung zur Erhaltungsrücklage", () => {
       baseInput({ reserveTransferCents: 600_000, plannedReserveCents: 600_000 }),
     );
     expect(passend.warnings).toEqual([]);
+  });
+});
+
+// ── Einnahmen in der Abrechnung (Befund B7a) ────────────────────────────────
+
+describe("Ist-Einnahmen mit Ertrags-Kostenart", () => {
+  it("mindern den Kostenanteil je Einheit", () => {
+    const ohne = computeStatement(baseInput());
+    const mit = computeStatement(baseInput({ incomeByCostType: new Map([["pv", 240_000]]) }));
+    const summeOhne = [...ohne.perUnitTotal.values()].reduce((a, b) => a + b, 0);
+    const summeMit = [...mit.perUnitTotal.values()].reduce((a, b) => a + b, 0);
+    expect(summeOhne - summeMit).toBe(240_000);
+    expect(mit.errors).toEqual([]);
+  });
+
+  it("erscheinen als eigene Position mit negativem Betrag", () => {
+    const r = computeStatement(baseInput({ incomeByCostType: new Map([["pv", 240_000]]) }));
+    const zeile = r.rows.find((x) => x.costTypeId === "pv");
+    expect(zeile?.totalCents).toBe(-240_000);
+    expect(zeile?.name).toContain("Einnahme");
+    expect([...(zeile?.perUnit ?? new Map()).values()].reduce((a, b) => a + b, 0)).toBe(-240_000);
+  });
+
+  it("erzeugen keine negative Null", () => {
+    const r = computeStatement(baseInput({ incomeByCostType: new Map([["pv", 0]]) }));
+    for (const zeile of r.rows) {
+      for (const cents of zeile.perUnit?.values() ?? []) {
+        expect(Object.is(cents, -0)).toBe(false);
+      }
+    }
   });
 });

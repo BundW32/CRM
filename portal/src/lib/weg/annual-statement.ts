@@ -36,6 +36,9 @@ export type StatementInput = {
   reserveTransferKey?: DistributionKey;
   // Geplante Zuführung laut Wirtschaftsplan — nur für den Soll-Ist-Hinweis.
   plannedReserveCents?: number;
+  // Ist-Einnahmen je Kostenart der Kategorie ERTRAG (Zinsen, Miete aus
+  // Gemeinschaftseigentum, PV). Sie mindern die Umlage, statt sie zu erhöhen.
+  incomeByCostType?: Map<string, number>;
   // Ist-Ausgaben je Kostenart, die von einem RÜCKLAGEN-Konto bezahlt wurden.
   // Sie erscheinen in der Gesamtabrechnung als Ausgabe, werden aber NICHT
   // umgelegt — dazu siehe die Gegenposition unten.
@@ -84,6 +87,11 @@ export const RESERVE_WITHDRAWAL_ROW_ID = "__ruecklagenentnahme__";
  * 2. **Kostenarten der Kategorie RUECKLAGENZUFUEHRUNG.** Die Zuführung wird
  *    unten aus den tatsächlichen Umbuchungen gebildet. Stünde sie zusätzlich
  *    als Aufwandsposition hier, wäre sie doppelt enthalten.
+ *
+ * Kostenarten der Kategorie **ERTRAG** laufen umgekehrt: Ihre Ist-Einnahmen
+ * werden nach demselben Schlüssel verteilt und **abgezogen** — sonst trüge die
+ * Gemeinschaft Kosten, die durch Zinsen, Miete oder PV-Einspeisung längst
+ * gedeckt sind.
  */
 export function computeStatement(input: StatementInput): StatementResult {
   const rows: StatementCostRow[] = [];
@@ -91,6 +99,7 @@ export function computeStatement(input: StatementInput): StatementResult {
   const warnings: string[] = [];
   const perUnitTotal = new Map<string, number>(input.units.map((u) => [u.id, 0]));
   const reserveSpend = input.reserveSpendByCostType ?? new Map<string, number>();
+  const income = input.incomeByCostType ?? new Map<string, number>();
   let totalExpenseCents = 0;
   let reserveWithdrawalCents = 0;
 
@@ -103,6 +112,32 @@ export function computeStatement(input: StatementInput): StatementResult {
   for (const ct of input.costTypes) {
     // Siehe Punkt 2 oben: die Zuführung kommt aus den Umbuchungen, nicht von hier.
     if (ct.category === "RUECKLAGENZUFUEHRUNG") continue;
+
+    // Einnahmen: gleiche Verteilung, umgekehrtes Vorzeichen.
+    if (ct.category === "ERTRAG") {
+      const ertragCents = income.get(ct.id) ?? 0;
+      if (ertragCents === 0) continue;
+      const row: StatementCostRow = {
+        costTypeId: ct.id,
+        name: `${ct.name} (Einnahme)`,
+        distributionKey: ct.distributionKey,
+        laborShareType: "KEINE",
+        totalCents: -ertragCents,
+        perUnit: null,
+      };
+      try {
+        const shares = distributeByWeight(ertragCents, advanceWeightsForKey(input.units, ct.distributionKey));
+        // Kein `-0` erzeugen (siehe economic-plan.ts).
+        row.perUnit = new Map([...shares].map(([unitId, cents]) => [unitId, cents === 0 ? 0 : -cents]));
+        addToUnits(row.perUnit);
+        totalExpenseCents -= ertragCents;
+      } catch (e) {
+        row.error = e instanceof Error ? e.message : "Verteilung nicht möglich.";
+        errors.push(`${ct.name}: ${row.error}`);
+      }
+      rows.push(row);
+      continue;
+    }
 
     const giroCents = input.expenseByCostType.get(ct.id) ?? 0;
     const ausRuecklageCents = reserveSpend.get(ct.id) ?? 0;

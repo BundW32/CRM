@@ -29,4 +29,7 @@ export const WEG_COST_CATALOG: CatalogEntry[] = [
   { name: "Verwaltungskosten", category: "VERWALTUNG", distributionKey: "EINHEITEN", laborShareType: "KEINE", recoverableBetrKV: false },
   { name: "Kontoführung", category: "VERWALTUNG", distributionKey: "EINHEITEN", laborShareType: "KEINE", recoverableBetrKV: false },
   { name: "Zuführung Erhaltungsrücklage", category: "RUECKLAGENZUFUEHRUNG", distributionKey: "MEA", laborShareType: "KEINE", recoverableBetrKV: false },
+  // Einnahmen (§ 28 Abs. 1 WEG). Sie mindern den Vorschussbedarf — fehlen sie im
+  // Plan, ist das Hausgeld zu hoch angesetzt.
+  { name: "Zinserträge", category: "ERTRAG", distributionKey: "MEA", laborShareType: "KEINE", recoverableBetrKV: false },
 ];

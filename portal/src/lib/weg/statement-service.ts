@@ -82,7 +82,7 @@ export async function computeStatementView(
   const { start, end } = fiscalYearRange(year, property.fiscalYearStartMonth);
   const inYear = { gte: start, lt: end };
 
-  const [costTypes, units, expenseGroups, otherAgg, incomeAgg, accounts, beforeGroups, yearGroups, manualRows, dueGroups, ownerships, paidGroups, plan] =
+  const [costTypes, units, expenseGroups, otherAgg, incomeAgg, ertragGroups, accounts, beforeGroups, yearGroups, manualRows, dueGroups, ownerships, paidGroups, plan] =
     await Promise.all([
       db.costType.findMany({
         where: { propertyId: property.id },
@@ -117,6 +117,20 @@ export async function computeStatementView(
       }),
       db.booking.aggregate({
         where: { propertyId: property.id, kind: "EINNAHME", bookingDate: inYear, ...NOT_REVERSED },
+        _sum: { amountCents: true },
+      }),
+      // Einnahmen, die einer Ertrags-Kostenart zugeordnet sind (Zinsen, Miete
+      // aus Gemeinschaftseigentum, PV). Hausgeld-Eingänge tragen keine
+      // Kostenart und bleiben deshalb außen vor.
+      db.booking.groupBy({
+        by: ["costTypeId"],
+        where: {
+          propertyId: property.id,
+          kind: "EINNAHME",
+          costType: { category: "ERTRAG" },
+          bookingDate: inYear,
+          ...NOT_REVERSED,
+        },
         _sum: { amountCents: true },
       }),
       db.ledgerAccount.findMany({
@@ -203,6 +217,9 @@ export async function computeStatementView(
     costTypes,
     units,
     expenseByCostType,
+    incomeByCostType: new Map(
+      ertragGroups.map((g) => [g.costTypeId as string, g._sum.amountCents ?? 0]),
+    ),
     reserveSpendByCostType,
     otherExpenseCents: otherAgg._sum.amountCents ?? 0,
     manualAmounts,

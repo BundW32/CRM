@@ -7,13 +7,19 @@ import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
+import type { CostCategory } from "@/generated/prisma/client";
+import { costCategoryLabels } from "@/lib/labels";
 import { WEG_COST_CATALOG } from "@/lib/weg/cost-catalog";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 import { loadWegProperty } from "@/lib/weg/scope";
 
 const UNIT_TYPES = ["WOHNUNG", "TEILEIGENTUM", "STELLPLATZ", "SONSTIGES"] as const;
 const DISTRIBUTION_KEYS = ["MEA", "FLAECHE", "EINHEITEN", "PERSONEN", "VERBRAUCH", "FESTBETRAG", "INDIVIDUELL"] as const;
-const COST_CATEGORIES = ["BETRIEBSKOSTEN", "INSTANDHALTUNG", "VERWALTUNG", "RUECKLAGENZUFUEHRUNG", "SONSTIGES"] as const;
+// Aus dem Label-Verzeichnis abgeleitet, nicht abgeschrieben: Das Auswahlfeld der
+// Seite baut sich aus derselben Quelle. Eine handgepflegte zweite Liste hätte
+// beim Ergänzen von ERTRAG dazu geführt, dass die Oberfläche eine Kategorie
+// anbietet, die diese Action stillschweigend ablehnt.
+const COST_CATEGORIES = Object.keys(costCategoryLabels) as [CostCategory, ...CostCategory[]];
 const LABOR_SHARE_TYPES = ["KEINE", "HAUSHALTSNAHE_DIENSTLEISTUNG", "HANDWERKERLEISTUNG"] as const;
 const ACCOUNT_KINDS = ["GIRO", "RUECKLAGE"] as const;
 

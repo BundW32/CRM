@@ -183,6 +183,10 @@ enum CostCategory {
   VERWALTUNG
   RUECKLAGENZUFUEHRUNG
   SONSTIGES
+  // Einnahmen der Gemeinschaft (§ 28 Abs. 1 WEG verlangt Einnahmen UND Ausgaben):
+  // Zinsen, Miete aus Gemeinschaftseigentum, PV-Einspeisung. Der Betrag bleibt
+  // wie überall positiv; die Richtung steckt in der Kategorie.
+  ERTRAG
 }
 
 // §35a EStG — Lohnanteil-Klassifizierung einer Kostenart

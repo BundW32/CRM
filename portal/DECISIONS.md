@@ -557,3 +557,37 @@ Jahresfahrplan. Beide beantworteten „was ist als Nächstes zu tun".
     buchhalterischen Aufgaben ohne Frist — Buchungen ohne Kostenart und
     Zahlungseingänge ohne Einheit. Beide kann kein Fahrplan kennen, weil sie
     keinen Stichtag haben; beide blockieren den Jahresabschluss.
+
+## Schritt 20 — Block 2, KP4: Einnahmenseite im Wirtschaftsplan (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund B7a).
+
+94. **Neue Kategorie `CostCategory.ERTRAG` statt negativer Beträge.** § 28 Abs. 1
+    WEG verlangt einen Plan über voraussichtliche **Einnahmen und Ausgaben**.
+    Bisher gab es nur Ausgabenarten — Zinsen, Miete aus Gemeinschaftseigentum
+    und PV-Einspeisung waren nicht abbildbar, und das Hausgeld damit bei jeder
+    Gemeinschaft mit Einnahmen zu hoch. Die Invariante „`amountCents` immer
+    positiv" bleibt erhalten; die Richtung steckt in der Kategorie. Ein
+    signiertes Betragsfeld hätte jede Summenbildung im ganzen Modul
+    umgeschrieben.
+95. **Erträge folgen ihrem eigenen Schlüssel.** Ein PV-Erlös lässt sich nach
+    Fläche verteilen, eine Zinsgutschrift nach MEA. Sie mindern den
+    Vorschussbedarf über `computeUnitAdvances`, centgenau, und erscheinen im
+    Einzelwirtschaftsplan als eigene Position mit umgekehrtem Vorzeichen.
+96. **Kein `-0`.** `0 * -1` ergibt in JavaScript negative Null. Sie reist durch
+    JSON und Snapshots und liest sich in der Oberfläche als „−0,00 €". Beim
+    Vorzeichenwechsel deshalb explizit auf 0 geprüft — ein Test hält es fest.
+97. **Plan mit Überschuss wird abgewiesen.** Übersteigen die geplanten Einnahmen
+    die Ausgaben, lässt sich daraus kein Hausgeld ableiten; die Verteilung
+    bricht mit einer verständlichen Meldung ab statt mit negativen Vorschüssen.
+98. **In der Abrechnung laufen Ist-Einnahmen mit Ertrags-Kostenart gegen die
+    Umlage.** Hausgeld-Eingänge tragen keine Kostenart und bleiben außen vor —
+    die Abgrenzung ist genau diese Zuordnung.
+99. **Die Kategorienliste der Server-Action wird aus `costCategoryLabels`
+    abgeleitet.** Sie war handgepflegt, während sich das Auswahlfeld der Seite
+    aus dem Label-Verzeichnis baut. Beim Ergänzen von ERTRAG hätte die
+    Oberfläche eine Kategorie angeboten, die die Action stillschweigend ablehnt.
+
+An echten Daten geprüft: 3.600 € PV-Einspeisung senken den Vorschussbedarf von
+15.000 € auf 11.400 €; das monatliche Hausgeld sinkt bei jeder Einheit
+entsprechend, Σ Einzelpläne == Vorschussbedarf.

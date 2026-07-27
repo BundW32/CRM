@@ -440,12 +440,12 @@ indem sie in Fehlermeldungen lief.
     Teilungserklärung … ableiten aus der Wohnfläche lassen sie sich nicht").
     Fachlich richtige Begriffe ohne Erklärung waren der zweite Grund, warum der
     Bereich als undurchdringlich empfunden wurde.
-## Schritt 16 — Block 1 der Finanzkorrekturen: Zuordnung, Storno, Objekt-Startseite (26.07.2026)
+## Schritt 17 — Block 1 der Finanzkorrekturen: Zuordnung, Storno, Objekt-Startseite (26.07.2026)
 
 Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde A1, B1) und
 `docs/PLAN-WEG-Finanzkorrekturen.md` (KP1, KP2).
 
-77. **Kostenart wird nachträglich zuordenbar** (Befund A1): Bisher setzte nur die
+85. **Kostenart wird nachträglich zuordenbar** (Befund A1): Bisher setzte nur die
     manuelle Buchung eine `costTypeId`. CSV-importierte Umsätze blieben dauerhaft
     ohne Kostenart, landeten in `otherExpenseCents` und lösten dort einen
     Prüffehler aus — womit `finalizeStatement` dauerhaft abbrach. **Eine WEG, die
@@ -453,33 +453,33 @@ Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde A1, B1) und
     fertigstellen.** Neu: `assignCostType` mit Massenauswahl über die
     Buchungsliste. Umbuchungen bleiben ausgenommen — sie sind kein Aufwand,
     sondern verschieben Geld zwischen Konten der Gemeinschaft.
-78. **Korrektur nur per Storno, nie per Änderung oder Löschung** (Befund B1): Eine
+86. **Korrektur nur per Storno, nie per Änderung oder Löschung** (Befund B1): Eine
     Fehlbuchung erzeugt eine Gegenbuchung (`Booking.reversalOfId`, `@unique`) mit
     umgekehrter Richtung, gleichem Betrag, Konto und Buchungstag. Beide bleiben im
     Journal sichtbar, der Saldo ist wieder korrekt. Eine Umbuchung wird immer
     beidseitig storniert (gemeinsame `transferGroupId`), sonst stünde ein halber
     Übertrag im Buch. Alternative „Buchung bearbeiten" bewusst verworfen: sie
     zerstört die Nachvollziehbarkeit, auf der die Abrechnung beruht.
-79. **Stornopaare fallen aus allen fachlichen Auswertungen** (`NOT_REVERSED` in
+87. **Stornopaare fallen aus allen fachlichen Auswertungen** (`NOT_REVERSED` in
     `lib/weg/booking-scope.ts`): Im Kontostand heben sie sich von selbst auf, in
     der Kostenverteilung nicht — das Storno einer Ausgabe ist eine Einnahme und
     hätte die Ausgabensumme der Kostenart nicht gemindert. Die Kosten wären trotz
     Storno umgelegt worden. Der Filter greift deshalb in Jahresabrechnung,
     Vorjahres-Istwerten, Verbrauchsverteilung, Rückständen, SEPA-Lastschrift und
     Eigentümersicht.
-80. **Import-Rücknahme als eng begrenzte Ausnahme vom Storno-Prinzip**: Ein falsch
+88. **Import-Rücknahme als eng begrenzte Ausnahme vom Storno-Prinzip**: Ein falsch
     zugeordneter Import (vertauschte Spalten) würde als Storno hunderte Zeilen
     erzeugen und das Journal unlesbar machen. `undoImportBatch` löscht den Batch
     deshalb im Ganzen — aber nur, solange kein Buchungstag in ein abgeschlossenes
     Wirtschaftsjahr fällt und keine Buchung daraus storniert wurde. Vollständig im
     Audit-Log.
-81. **Abgeschlossene Wirtschaftsjahre sind schreibgeschützt**
+89. **Abgeschlossene Wirtschaftsjahre sind schreibgeschützt**
     (`lib/weg/statement-lock.ts`): Liegt für ein Jahr eine Jahresabrechnung im
     Status `FERTIG` vor, sind dessen Buchungen unantastbar — weder Kostenart noch
     Storno. Sonst wiche der beschlossene Snapshot von der Buchhaltung ab, und
     genau diese Abweichung macht eine Abrechnung angreifbar. `fiscalYearOf`
     rechnet dabei in UTC, passend zu `fiscalYearRange` und `parseGermanDate`.
-82. **Objekt-Startseite statt Linkmenü** (`weg/[propertyId]/page.tsx`): Die
+90. **Objekt-Startseite statt Linkmenü** (`weg/[propertyId]/page.tsx`): Die
     Einstiegsseite listete je Objekt elf gleichrangige Verweise. Buchhaltungs-
     software wird aber danach beurteilt, ob sie beim Öffnen zwei Fragen
     beantwortet: „wie viel Geld haben wir?" und „was muss ich als Nächstes tun?".
@@ -489,16 +489,16 @@ Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde A1, B1) und
     folgt darunter der **Zeitachse** (einrichten · laufendes Jahr · Jahreslauf ·
     Dauerthemen) statt Themengruppen — der Wirtschaftsplan entsteht vor dem Jahr,
     die Abrechnung danach.
-83. **Objektauswahl nur noch bei mehreren Objekten**: Bei genau einer WEG — dem
+91. **Objektauswahl nur noch bei mehreren Objekten**: Bei genau einer WEG — dem
     Normalfall der Selbstverwaltung — leitet `/verwaltung/weg` direkt in den
     Arbeitsbereich durch. Die Auswahlseite zeigt sonst je Objekt die Salden, statt
     nur Namen und Verweise.
 
-## Schritt 17 — Block 2, KP3: Erhaltungsrücklage richtig rechnen (27.07.2026)
+## Schritt 18 — Block 2, KP3: Erhaltungsrücklage richtig rechnen (27.07.2026)
 
 Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde A2, A3).
 
-84. **Ausgaben aus der Rücklage werden nicht erneut umgelegt** (Befund A2): Die
+92. **Ausgaben aus der Rücklage werden nicht erneut umgelegt** (Befund A2): Die
     Ist-Ausgaben wurden bisher über alle Konten gesammelt — auch über das
     Rücklagenkonto. Eine aus der Rücklage bezahlte Maßnahme erhöhte damit die
     Abrechnungsspitze, obwohl sie aus Geld bezahlt wurde, das die Eigentümer über
@@ -509,24 +509,51 @@ Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde A2, A3).
     wird aber über die Gegenposition „Entnahme aus der Erhaltungsrücklage" aus
     der Umlage genommen. An echten Daten geprüft: 80.000 € aus der Rücklage
     lassen den Kostenanteil je Einheit unverändert.
-85. **Zuführung folgt dem Schlüssel des Wirtschaftsplans** (Befund A3): Vorher
+93. **Zuführung folgt dem Schlüssel des Wirtschaftsplans** (Befund A3): Vorher
     fest MEA. Hatte die Gemeinschaft nach § 16 Abs. 2 Satz 2 WEG einen anderen
     Schlüssel beschlossen, verteilte der Plan anders als die Abrechnung — die
     Spitze war dann bei jedem Eigentümer falsch, in jedem Jahr. Der Schlüssel
     kommt jetzt aus dem beschlossenen Plan des Jahres, MEA bleibt Rückfall ohne Plan.
-86. **Die Zuführung nutzt `advanceWeightsForKey`, nicht `weightsForKey`.** Beim
+94. **Die Zuführung nutzt `advanceWeightsForKey`, nicht `weightsForKey`.** Beim
     Testen aufgefallen: Die strikte Verteilung der Abrechnung wirft bei einer
     Einheit ohne Wohnfläche, der Wirtschaftsplan zählt sie als 0. Mit der
     strikten Variante wäre genau die Abweichung zurückgekehrt, die diese
     Änderung behebt. Beide Seiten rechnen jetzt mit derselben Gewichtung.
-87. **Kostenarten der Kategorie RUECKLAGENZUFUEHRUNG werden übersprungen.** Die
+95. **Kostenarten der Kategorie RUECKLAGENZUFUEHRUNG werden übersprungen.** Die
     Zuführung entsteht aus den Ist-Umbuchungen. Wurde sie zusätzlich als
     Aufwandsposition gebucht, war sie doppelt enthalten.
-88. **Soll-Ist-Abgleich als Hinweis, nicht als Sperre** (neues Feld `warnings`,
+96. **Soll-Ist-Abgleich als Hinweis, nicht als Sperre** (neues Feld `warnings`,
     getrennt von `errors`): Eine bewusst abweichende Zuführung ist zulässig und
     darf das Fertigstellen nicht blockieren. Eine **vergessene** Umbuchung wäre
     dagegen ein stiller Fehler, der jedem Eigentümer ein Guthaben ausweist, das
     ihm nicht zusteht. Die Seed-Daten zeigen den Fall sofort: 6.000 € geplant,
     500 € umgebucht.
-89. **Prüfmeldungen in Euro statt in Cent.** Sie stehen in der Oberfläche vor
+97. **Prüfmeldungen in Euro statt in Cent.** Sie stehen in der Oberfläche vor
     Eigentümern; „600000 Cent" ist keine Sprache für die Zielgruppe.
+
+## Schritt 19 — Zusammenführung mit Erststart und Jahresfahrplan (27.07.2026)
+
+Nach dem Merge von PR #36 traf der Finanz-Einstieg auf den dort gebauten
+Jahresfahrplan. Beide beantworteten „was ist als Nächstes zu tun".
+
+90. **Der Fahrplan gewinnt, es gibt keine zweite Liste.** `loadRoadmap` ist die
+    bessere Ableitung — mit Fristen, Status und Klartext, und ausdrücklich als
+    Richtwert gekennzeichnet. Die vier Einträge, die ich dafür gebaut hatte
+    (Wirtschaftsplan, Jahresabrechnung, Prüfpflichten, Rückstände), sind
+    entfallen. Ebenso die Bereitschaftsprüfung: Das macht der `SetupGuide`
+    gründlicher und an der richtigen Stelle.
+91. **Der Fahrplan erscheint jetzt auch für professionelle Verwaltungen.** Er
+    lief nur im `SelfManagedDashboard` — B&W mit mehreren Objekten sah ihn
+    nirgends. Der Objekt-Arbeitsbereich rendert ihn deshalb über dasselbe
+    `loadRoadmap`; selbstverwaltete Gemeinschaften bekommen dort nur den
+    Verweis auf ihre Übersicht, damit er nicht doppelt steht.
+92. **Ein Baustein, zwei Routen** (`verwaltung/weg/Arbeitsbereich.tsx`): Die
+    Objektauswahl rendert ihn bei selbstverwalteter Org mit genau einem Objekt
+    direkt, `weg/[propertyId]` sonst. Meine ursprüngliche Weiterleitung ist
+    entfallen — die Begründung aus #36 (Unterseiten springen über ihren
+    Rückweg zurück und liefen im Kreis) trägt. Zwei Seiten mit gleichem Inhalt
+    wären auseinandergelaufen.
+93. **Was der Arbeitsbereich allein behält:** die Kontostände und die zwei
+    buchhalterischen Aufgaben ohne Frist — Buchungen ohne Kostenart und
+    Zahlungseingänge ohne Einheit. Beide kann kein Fahrplan kennen, weil sie
+    keinen Stichtag haben; beide blockieren den Jahresabschluss.

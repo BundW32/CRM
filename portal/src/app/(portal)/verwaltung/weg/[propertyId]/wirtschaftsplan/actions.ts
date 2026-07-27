@@ -279,6 +279,25 @@ export async function planZurAbstimmung(formData: FormData) {
   // Ein beschlossener Plan braucht keine Abstimmung mehr.
   if (plan.status !== "ENTWURF") back(property.id, `/${plan.id}`, "fehler=beschlossen");
 
+  // Dieselbe Prüfung wie beim Nachtragen eines Beschlusses: Ein Plan, dessen
+  // Einzelwirtschaftspläne sich nicht rechnen lassen, darf nicht zur Abstimmung.
+  // Sonst stimmt die Gemeinschaft über Beträge ab, die es nicht gibt — und der
+  // Beschluss stünde anschließend in der Sammlung, ohne dass ihm je Zahlen
+  // folgen könnten. Der graue Knopf in der Oberfläche allein reicht dafür nicht.
+  const units = await db.unit.findMany({ where: { propertyId: property.id } });
+  try {
+    computeUnitAdvances(
+      plan.items.map((i) => ({
+        costTypeId: i.costTypeId,
+        distributionKey: i.costType.distributionKey,
+        amountCents: i.amountCents,
+      })),
+      units,
+    );
+  } catch {
+    back(property.id, `/${plan.id}`, "fehler=stammdaten");
+  }
+
   const titel = `Wirtschaftsplan ${plan.year}`;
   const text =
     `Die Gemeinschaft der Wohnungseigentümer beschließt gemäß § 28 Abs. 1 WEG auf Grundlage ` +

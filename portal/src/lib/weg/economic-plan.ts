@@ -59,6 +59,42 @@ export type PlanItemInput = {
   amountCents: number; // Jahres-Planwert
 };
 
+/**
+ * Eine einzelne Position lässt sich nicht verteilen.
+ *
+ * Der Grund für eine eigene Fehlerklasse: Bis hierher fiel aus der Tiefe der
+ * Verteilung ein „Gesamtgewicht muss größer als 0 sein" nach oben durch — ein
+ * Satz aus der Rechenmaschine, der weder die Kostenart nennt noch das fehlende
+ * Feld. Eine Gemeinschaft, die den Standardkatalog übernommen hat, stand damit
+ * vor einem gesperrten Knopf und keiner Ahnung, wo sie ansetzen soll: Der
+ * Katalog verteilt auch nach Personenzahl und Fläche, die Einrichtung verlangt
+ * aber nur Miteigentumsanteile.
+ *
+ * `costTypeId` und `fehlendesFeld` reisen deshalb mit, damit die Oberfläche den
+ * Namen der Kostenart einsetzen und direkt an die richtige Stelle verlinken kann.
+ */
+export class PositionNichtVerteilbar extends Error {
+  constructor(
+    readonly costTypeId: string,
+    readonly distributionKey: DistributionKey,
+    /** Welches Stammdatenfeld fehlt – null, wenn die Ursache woanders liegt. */
+    readonly fehlendesFeld: "flaeche" | "personen" | "mea" | null,
+    message: string,
+  ) {
+    super(message);
+    this.name = "PositionNichtVerteilbar";
+  }
+}
+
+/** Welches Feld ein Schlüssel braucht – für die Fehlermeldung und die Vorprüfung. */
+export function benoetigtesFeld(key: DistributionKey): "flaeche" | "personen" | "mea" | null {
+  if (key === "FLAECHE") return "flaeche";
+  if (key === "PERSONEN") return "personen";
+  if (key === "EINHEITEN") return null;
+  // VERBRAUCH/FESTBETRAG/INDIVIDUELL laufen beim Vorschuss über MEA.
+  return "mea";
+}
+
 export type UnitAdvances = {
   // Jahres-Vorschuss je Einheit (Summe über alle Positionen) — centgenau:
   // Σ perUnit == Σ items.amountCents
@@ -77,8 +113,28 @@ export function computeUnitAdvances(items: PlanItemInput[], units: UnitForDistri
     if (item.amountCents < 0) throw new Error("Planwerte dürfen nicht negativ sein.");
     if (item.amountCents === 0) continue;
     totalCents += item.amountCents;
-    const weights = advanceWeightsForKey(units, item.distributionKey);
-    const shares = distributeByWeight(item.amountCents, weights);
+    let shares: Map<string, number>;
+    try {
+      shares = distributeByWeight(item.amountCents, advanceWeightsForKey(units, item.distributionKey));
+    } catch (e) {
+      // Den Rechenfehler in etwas übersetzen, mit dem eine Gemeinschaft etwas
+      // anfangen kann – siehe `PositionNichtVerteilbar`.
+      const feld = benoetigtesFeld(item.distributionKey);
+      throw new PositionNichtVerteilbar(
+        item.costTypeId,
+        item.distributionKey,
+        feld,
+        feld === "flaeche"
+          ? "Bei keiner Einheit ist eine Wohn-/Nutzfläche hinterlegt."
+          : feld === "personen"
+            ? "Bei keiner Einheit ist eine Personenzahl hinterlegt."
+            : feld === "mea"
+              ? "Die Miteigentumsanteile sind unvollständig."
+              : e instanceof Error
+                ? e.message
+                : "Verteilung nicht möglich.",
+      );
+    }
     perItem.set(item.costTypeId, shares);
     for (const [unitId, cents] of shares) {
       perUnit.set(unitId, (perUnit.get(unitId) ?? 0) + cents);

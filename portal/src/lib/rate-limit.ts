@@ -48,3 +48,21 @@ export async function checkRateLimit(
     return true;
   }
 }
+
+/**
+ * Setzt einen Zähler zurück – nach einer *erfolgreichen* Anmeldung.
+ *
+ * Ohne das zählt die Sperre auch geglückte Versuche mit und sperrt am Ende
+ * genau den aus, der sein Passwort kennt: Wer sich an einem Vormittag fünfmal
+ * an- und abmeldet, säße vor „zu viele Versuche". Gezählt gehören Fehlversuche;
+ * ein Erfolg ist der Beweis, dass hier niemand durchprobiert.
+ *
+ * Fail-open wie `checkRateLimit`: Ein DB-Fehler darf niemanden aussperren.
+ */
+export async function resetRateLimit(key: string): Promise<void> {
+  try {
+    await db.rateLimit.deleteMany({ where: { key } });
+  } catch {
+    // bewusst still
+  }
+}

@@ -5,8 +5,9 @@ liegt auf `claude/program-analysis-tasks-au9wmc` (PR #36).
 
 Dieses Dokument ist für eine **neue Sitzung** geschrieben. Es nennt die
 getroffenen Entscheidungen mit Begründung, damit sie nicht versehentlich
-rückgängig gemacht werden, und listet vier Funde aus einem
-Ende-zu-Ende-Durchlauf, die **offen geblieben sind**.
+rückgängig gemacht werden, und hält vier Funde aus einem
+Ende-zu-Ende-Durchlauf fest — samt der Korrekturen, mit denen sie behoben
+wurden.
 
 > **Zuerst lesen:** `portal/AGENTS.md` trägt die verbindlichen Konventionen und
 > wird über `CLAUDE.md` von jeder Sitzung automatisch geladen.
@@ -50,14 +51,15 @@ den meisten Tagen leer. Stattdessen ein `.ics`-Export unter
 
 ---
 
-## 2 · Vier Funde, die offen sind
+## 2 · Vier Funde aus dem Durchlauf — behoben
 
 Ergebnis eines Durchlaufs gegen eine frisch aufgesetzte Datenbank
 (Registrierung → Einrichtung → Wirtschaftsplan → Beschluss → Sollstellungen →
-Fahrplan → Rollen-Gegenprobe). Keiner davon ist ein Rückschritt aus PR #36 —
-alle vier waren vorher schon so und wurden durch den Durchlauf sichtbar.
+Fahrplan → Rollen-Gegenprobe). Keiner davon war ein Rückschritt aus PR #36 —
+alle vier waren vorher schon so und wurden erst durch den Durchlauf sichtbar.
+Alle vier sind inzwischen behoben und gegengeprüft.
 
-### 2.1 Der Wirtschaftsplan blockiert nach vollständiger Einrichtung
+### 2.1 Der Wirtschaftsplan blockierte nach vollständiger Einrichtung
 
 **Der wichtigste Punkt.** Die Einrichtung verlangt nur Miteigentumsanteile. Der
 WEG-Standardkatalog, den sie im letzten Schritt zu übernehmen empfiehlt,
@@ -65,53 +67,69 @@ verteilt aber auch nach **Personenzahl** (Wasser/Abwasser, Müllabfuhr) und nach
 **Fläche** (Aufzug, Treppenhausreinigung, Winterdienst).
 
 Folge: acht von acht Schritten erledigt, Katalog übernommen, Planwerte
-eingetragen — und „Als beschlossen markieren" ist gesperrt, mit der Meldung
-**„Gesamtgewicht muss größer als 0 sein."** Die nennt weder die Kostenart noch
-das fehlende Feld. Nach Nachtragen von Fläche und Personenzahl in den
-Stammdaten läuft alles.
+eingetragen — und „Als beschlossen markieren" war gesperrt, mit der Meldung
+**„Gesamtgewicht muss größer als 0 sein."** Ein Satz aus der Rechenmaschine, der
+weder die Kostenart noch das fehlende Feld nennt.
 
-Zwei Wege, beide vertretbar:
-- Die Einrichtung fragt Fläche und Personenzahl mit ab, sobald der übernommene
-  Katalog sie braucht — als Warnung am Schritt „Einheiten", nicht als Pflicht
-  (eine Gemeinschaft, die alles nach MEA umlegt, braucht beides nicht).
-- Die Meldung nennt Kostenart und fehlendes Feld: „Für ‚Wasser/Abwasser'
-  (Verteilung nach Personenzahl) ist bei keiner Einheit eine Personenzahl
-  hinterlegt."
+**Behoben:** `computeUnitAdvances` wirft jetzt `PositionNichtVerteilbar` mit
+`costTypeId`, `distributionKey` und `fehlendesFeld`. Die Oberfläche setzt daraus
+den Namen der Kostenart ein und verlinkt direkt an die Stelle:
 
-Quelle der Meldung: `computeUnitAdvances` in `lib/weg/` — der Fehler wird in
-`wirtschaftsplan/[planId]/page.tsx` als `advanceError` gefangen.
+> **„Wasser/Abwasser" lässt sich noch nicht verteilen**
+> Bei keiner Einheit ist eine Personenzahl hinterlegt. Diese Kostenart wird nach
+> Personenzahl verteilt. [Bei den Einheiten nachtragen](#).
 
-### 2.2 Der Grund steht zwei Bildschirmhöhen über dem gesperrten Knopf
+Die Grenze bleibt bewusst weich: Fehlt der Wert nur bei *einzelnen* Einheiten,
+zählen die als 0 (ein Stellplatz trägt keine Wasserkosten). Erst wenn **keine**
+Einheit den Wert hat, ist Schluss — drei Tests in `economic-plan.test.ts` halten
+das fest.
 
-`advanceError` erscheint als Warnung in der Karte „Hausgeld je Einheit", der
-davon gesperrte Knopf sitzt in der Karte „Beschlussvorlage & Beschluss"
-darunter. Wer unten klickt, sieht nur, dass nichts passiert. Der Hinweis gehört
-an den Knopf.
+### 2.2 Der Grund stand zwei Bildschirmhöhen über dem gesperrten Knopf
+
+Die Warnung erschien in der Karte „Hausgeld je Einheit", der davon gesperrte
+Knopf sitzt in der Karte darunter. Wer unten klickte, sah nur, dass nichts
+geschieht.
+
+**Behoben:** Der Hinweis steht jetzt auch unmittelbar am Knopf.
+
+**Dabei aufgefallen und mitbehoben:** Die beiden Wege unter „Zur Abstimmung
+bringen" waren *nicht* gesperrt. Ein Plan, dessen Einzelwirtschaftspläne sich
+nicht rechnen lassen, ließ sich also zur Umlaufabstimmung stellen — die
+Gemeinschaft hätte über Beträge abgestimmt, die es nicht gibt, und der Beschluss
+stünde in der Sammlung, ohne dass ihm je Zahlen folgen könnten. Beide Knöpfe
+sind jetzt gesperrt, und `planZurAbstimmung` prüft es **serverseitig** noch
+einmal: Ein grauer Knopf ist keine Sperre.
 
 ### 2.3 Doppelte Person beim eigenen Konto
 
-Wer sich registriert (Rolle `VERWALTER`) und sich anschließend selbst als
-Eigentümer einer Einheit einträgt, bekommt einen **zweiten** Datensatz mit Rolle
-`EIGENTUEMER`. Die Dubletten-Vorbeugung aus `lib/person-search.ts` greift nicht,
-weil sie nach Rolle sucht.
+Wer sich registrierte (Rolle `VERWALTER`) und sich anschließend selbst als
+Eigentümer einer Einheit eintrug, bekam einen **zweiten** Datensatz mit Rolle
+`EIGENTUEMER`. Die Dubletten-Vorbeugung suchte nur nach `EIGENTUEMER`.
 
 Für eine Selbstverwaltung ist das der Normalfall, nicht die Ausnahme: Die
-verwaltende Person **ist** Eigentümerin. Der Vorschlag sollte in einer
-selbstverwalteten Organisation auch Verwalter-Konten anbieten.
+verwaltende Person **ist** Eigentümerin.
 
-### 2.4 Login-Sperre trifft die ganze Gemeinschaft
+**Behoben:** `person-search.ts` bezieht in einer selbstverwalteten Organisation
+auch `VERWALTER`-Konten in den Vorschlag ein — `searchPersons` und
+`verifyExistingPerson` benutzen dieselbe Rollenmenge, sonst böte die Suche eine
+Person an, die die Prüfung anschließend verwirft. In der **professionellen
+Verwaltung** bleibt es bei `EIGENTUEMER`: Dort sind Verwalter Angestellte und
+gehören nicht als Eigentümer an eine Einheit.
+
+### 2.4 Login-Sperre traf die ganze Gemeinschaft
 
 `checkRateLimit("login:<ip>", 5, 900)` — fünf Versuche pro **IP** je 15 Minuten.
-In einer WEG, deren Eigentümer hinter demselben Anschluss sitzen, sperrt ein
-Nachbar mit fünf Fehlversuchen alle anderen mit aus. Ein Limit je Kennung
-(zusätzlich zum IP-Limit, nicht statt dessen) wäre treffsicherer.
+In einer WEG, deren Eigentümer hinter demselben Anschluss sitzen, sperrte ein
+Nachbar mit fünf Fehlversuchen alle anderen mit aus.
 
-**Das trifft auch die Entwicklung:** Wer mit mehreren Testkonten aus derselben
-Umgebung arbeitet, läuft nach fünf Fehlversuchen in `?fehler=limit` und hält das
-leicht für einen kaputten Login. Abhilfe zur Not:
-`delete from "RateLimit";`
+**Behoben:** Die enge Grenze (5) hängt jetzt an der **Kennung** — ein Angriff auf
+ein Passwort zielt immer auf ein bestimmtes Konto. Die IP behält eine weitere
+Grenze (30), die das massenhafte Durchprobieren vieler Konten von einer Stelle
+aus weiter abfängt, eine Familie am gemeinsamen Anschluss aber in Ruhe lässt.
 
----
+Dazu `resetRateLimit`: Gezählt werden nur **Fehlversuche**, ein Erfolg räumt
+beide Zähler ab. Sonst hätte die neue Grenze am Ende genau den ausgesperrt, der
+sein Passwort kennt und sich an einem Vormittag mehrfach anmeldet.
 
 ## 3 · Was der Durchlauf bestätigt hat
 

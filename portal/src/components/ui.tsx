@@ -62,6 +62,12 @@ export const buttonDangerClass =
 export const buttonGhostClass =
   `${buttonBase} bg-transparent font-medium text-gray-600 hover:bg-gray-100 hover:text-brand-green active:shadow-none`;
 
+// Kompakte Größe für Buttons in dichten Listen und Tabellenzeilen. Wird an eine der
+// Button-Klassen ANGEHÄNGT, ersetzt sie nicht – damit Farbe und Verhalten gleich
+// bleiben und sich nur die Größe ändert. Die `!`-Modifier sind hier nötig, weil sonst
+// nicht die Reihenfolge im Klassen-Attribut entscheidet, sondern die im Stylesheet.
+export const buttonCompact = "!px-3 !py-1.5 !text-xs";
+
 // Icon-Button (quadratisch, flächenlos) – für Aktions-Icons in dichten Listen.
 // Als Klassen-String, damit er auf <button> UND <a>/<Link> passt. Wird mit einem
 // Lucide-Icon befüllt; bei Icon-only immer aria-label/title setzen.

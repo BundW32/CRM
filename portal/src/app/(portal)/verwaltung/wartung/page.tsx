@@ -1,7 +1,28 @@
+import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
-import { Pagination, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
+import {
+  Pagination,
+  Alert,
+  Card,
+  EmptyState,
+  Field,
+  PageTitle,
+  inputClass,
+  buttonClass,
+  buttonDangerClass,
+  buttonSecondaryClass,
+  buttonCompact,
+} from "@/components/ui";
+import {
+  Badge,
+  DataTable,
+  stackTight,
+  type BadgeTone,
+  type Column,
+} from "@/components/data-display";
+import { DateField, SelectField } from "@/components/fields";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter, propertyIdsForVerwalter } from "@/lib/access";
@@ -126,6 +147,115 @@ export default async function WartungPage({
 
   const now = new Date().getTime();
 
+  // Fälligkeit als Etikett statt als eingefärbte Kachel: Vorher trug die ganze Karte
+  // die Farbe, wodurch eine Liste mit vielen überfälligen Aufgaben zur roten Wand
+  // wurde – und damit nichts mehr hervorhob. Jetzt trägt nur der Zustand Farbe.
+  const faelligkeit = (dueDate: Date): { tone: BadgeTone; text: string } => {
+    const days = Math.floor((dueDate.getTime() - now) / DAY);
+    if (days < 0) {
+      return { tone: "danger", text: `überfällig seit ${Math.abs(days)} Tag(en)` };
+    }
+    if (days === 0) return { tone: "warning", text: "heute fällig" };
+    if (days <= 14) return { tone: "warning", text: `fällig in ${days} Tag(en)` };
+    return { tone: "neutral", text: `fällig in ${days} Tag(en)` };
+  };
+
+  type Task = (typeof tasks)[number];
+
+  const columns: readonly Column<Task>[] = [
+    {
+      header: "Aufgabe",
+      cell: (t) => (
+        <div className="min-w-0">
+          <p className="font-medium text-gray-900">{t.title}</p>
+          <p className="text-xs text-gray-500">
+            {t.property ? t.property.name : "Allgemein"}
+            {t.craftsman
+              ? ` · ${t.craftsman.company ? t.craftsman.company + " / " : ""}${t.craftsman.name} (${tradeLabels[t.craftsman.trade]})`
+              : ""}
+          </p>
+          {t.description ? (
+            <p className="mt-1 text-xs text-gray-600">{t.description}</p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      header: "Intervall",
+      cell: (t) => maintenanceIntervalLabels[t.interval],
+      className: "whitespace-nowrap",
+    },
+    {
+      header: "Fällig",
+      cell: (t) => {
+        const f = faelligkeit(t.dueDate);
+        return (
+          <div className="space-y-1 whitespace-nowrap">
+            <div>{formatDate(t.dueDate)}</div>
+            <Badge tone={f.tone} dot>
+              {f.text}
+            </Badge>
+          </div>
+        );
+      },
+    },
+    {
+      header: "Zuletzt erledigt",
+      cell: (t) =>
+        t.lastDoneAt ? (
+          formatDate(t.lastDoneAt)
+        ) : (
+          <span className="text-gray-400">–</span>
+        ),
+      className: "whitespace-nowrap",
+    },
+    {
+      header: "Vorgang",
+      cell: (t) =>
+        t.generatedTickets[0] ? (
+          <Link
+            href={`/vorgaenge/${t.generatedTickets[0].id}`}
+            className={`${buttonSecondaryClass} ${buttonCompact}`}
+          >
+            #{t.generatedTickets[0].number} ·{" "}
+            {ticketStatusLabels[t.generatedTickets[0].status]}
+          </Link>
+        ) : (
+          <form action={createTicketFromTask}>
+            <input type="hidden" name="id" value={t.id} />
+            <PendingButton className={`${buttonSecondaryClass} ${buttonCompact}`}>
+              Vorgang anlegen
+            </PendingButton>
+          </form>
+        ),
+      className: "whitespace-nowrap",
+    },
+    {
+      cell: (t) => (
+        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+          <form action={completeMaintenanceTask}>
+            <input type="hidden" name="id" value={t.id} />
+            <PendingButton className={`${buttonClass} ${buttonCompact}`}>
+              Erledigt
+            </PendingButton>
+          </form>
+          <form action={deleteMaintenanceTask}>
+            <input type="hidden" name="id" value={t.id} />
+            <ConfirmActionButton
+              className={`${buttonDangerClass} ${buttonCompact}`}
+              confirmLabel="Wirklich löschen?"
+              pendingLabel="Wird gelöscht…"
+            >
+              Löschen
+            </ConfirmActionButton>
+          </form>
+        </div>
+      ),
+      align: "right",
+      className: "w-px",
+    },
+  ];
+
   return (
     <>
       <PageTitle
@@ -144,8 +274,8 @@ export default async function WartungPage({
         </Alert>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-3 lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
           <div>
             <FilterBar
               searchPlaceholder="Suchen"
@@ -162,121 +292,63 @@ export default async function WartungPage({
             </div>
           </div>
 
-          {tasks.length === 0 ? (
-            <EmptyState>
-              {hasFilter ? "Keine Aufgaben gefunden." : "Noch keine Wartungsaufgaben angelegt."}
-            </EmptyState>
-          ) : (
-            tasks.map((t) => {
-              const days = Math.floor((t.dueDate.getTime() - now) / DAY);
-              const tone =
-                days < 0
-                  ? "border-red-300 bg-red-50"
-                  : days <= 14
-                    ? "border-orange-300 bg-orange-50"
-                    : "border-gray-200 bg-white";
-              const statusText =
-                days < 0
-                  ? `überfällig seit ${Math.abs(days)} Tag(en)`
-                  : days === 0
-                    ? "heute fällig"
-                    : `fällig in ${days} Tag(en)`;
-              return (
-                <div key={t.id} className={`rounded-2xl border p-4 shadow-sm ${tone}`}>
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">{t.title}</p>
-                      <p className="text-xs text-gray-500">
-                        {maintenanceIntervalLabels[t.interval]} · fällig am{" "}
-                        {formatDate(t.dueDate)} · {statusText}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {t.property ? t.property.name : "Allgemein"}
-                        {t.craftsman
-                          ? ` · ${t.craftsman.company ? t.craftsman.company + " / " : ""}${t.craftsman.name} (${tradeLabels[t.craftsman.trade]})`
-                          : ""}
-                        {t.lastDoneAt ? ` · zuletzt erledigt ${formatDate(t.lastDoneAt)}` : ""}
-                      </p>
-                      {t.description ? (
-                        <p className="mt-1 text-sm text-gray-700">{t.description}</p>
-                      ) : null}
-                    </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-3">
-                      {t.generatedTickets[0] ? (
-                        <a
-                          href={`/vorgaenge/${t.generatedTickets[0].id}`}
-                          className="rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100"
-                        >
-                          Vorgang #{t.generatedTickets[0].number} ({ticketStatusLabels[t.generatedTickets[0].status]})
-                        </a>
-                      ) : (
-                        <form action={createTicketFromTask}>
-                          <input type="hidden" name="id" value={t.id} />
-                          <PendingButton className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Vorgang anlegen</PendingButton>
-                        </form>
-                      )}
-                      <form action={completeMaintenanceTask}>
-                        <input type="hidden" name="id" value={t.id} />
-                        <PendingButton className="rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-green-dark hover:bg-brand-orange-dark">Erledigt</PendingButton>
-                      </form>
-                      <form action={deleteMaintenanceTask}>
-                        <input type="hidden" name="id" value={t.id} />
-                        <ConfirmActionButton
-                          className="text-xs text-red-600 hover:underline"
-                          confirmLabel="Wirklich löschen?"
-                          pendingLabel="Wird gelöscht…"
-                        >
-                          Löschen
-                        </ConfirmActionButton>
-                      </form>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
+          <Card>
+            <DataTable
+              columns={columns}
+              rows={tasks}
+              getKey={(t) => t.id}
+              minWidth="52rem"
+              caption="Wartungs- und Prüfaufgaben"
+              empty={
+                <EmptyState>
+                  {hasFilter
+                    ? "Keine Aufgaben gefunden."
+                    : "Noch keine Wartungsaufgaben angelegt."}
+                </EmptyState>
+              }
+            />
+          </Card>
 
           <Pagination currentPage={currentPage} totalPages={totalPages} total={total} hrefFor={pageHref} />
         </div>
 
         <Card title="Wartung anlegen">
-          <form action={createMaintenanceTask} className="space-y-3">
+          <form action={createMaintenanceTask} className={stackTight}>
             <Field label="Titel">
               <input type="text" name="title" required minLength={2} className={inputClass} placeholder="z. B. Heizungswartung" />
             </Field>
-            <Field label="Intervall">
-              <select name="interval" required className={inputClass} defaultValue="JAEHRLICH">
-                {Object.entries(maintenanceIntervalLabels).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Nächste Fälligkeit">
-              <input type="date" name="dueDate" required className={inputClass} />
-            </Field>
-            <Field label="Objekt (optional)">
-              <select name="propertyId" className={inputClass} defaultValue="">
-                <option value="">– Allgemein –</option>
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Handwerker (optional)">
-              <select name="craftsmanId" className={inputClass} defaultValue="">
-                <option value="">– keiner –</option>
-                {craftsmen.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.company ? `${c.company} / ` : ""}
-                    {c.name} ({tradeLabels[c.trade]})
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <SelectField
+              label="Intervall"
+              name="interval"
+              required
+              defaultValue="JAEHRLICH"
+              options={Object.entries(maintenanceIntervalLabels).map(([value, label]) => ({
+                value,
+                label,
+              }))}
+            />
+            <DateField label="Nächste Fälligkeit" name="dueDate" required />
+            <SelectField
+              label="Objekt (optional)"
+              name="propertyId"
+              defaultValue=""
+              options={[
+                { value: "", label: "– Allgemein –" },
+                ...properties.map((p) => ({ value: p.id, label: p.name })),
+              ]}
+            />
+            <SelectField
+              label="Handwerker (optional)"
+              name="craftsmanId"
+              defaultValue=""
+              options={[
+                { value: "", label: "– keiner –" },
+                ...craftsmen.map((c) => ({
+                  value: c.id,
+                  label: `${c.company ? `${c.company} / ` : ""}${c.name} (${tradeLabels[c.trade]})`,
+                })),
+              ]}
+            />
             <Field label="Notiz (optional)">
               <textarea name="description" rows={2} className={inputClass} />
             </Field>

@@ -493,3 +493,40 @@ Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde A1, B1) und
     Normalfall der Selbstverwaltung — leitet `/verwaltung/weg` direkt in den
     Arbeitsbereich durch. Die Auswahlseite zeigt sonst je Objekt die Salden, statt
     nur Namen und Verweise.
+
+## Schritt 17 — Block 2, KP3: Erhaltungsrücklage richtig rechnen (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde A2, A3).
+
+84. **Ausgaben aus der Rücklage werden nicht erneut umgelegt** (Befund A2): Die
+    Ist-Ausgaben wurden bisher über alle Konten gesammelt — auch über das
+    Rücklagenkonto. Eine aus der Rücklage bezahlte Maßnahme erhöhte damit die
+    Abrechnungsspitze, obwohl sie aus Geld bezahlt wurde, das die Eigentümer über
+    die Zuführungen früherer Jahre bereits aufgebracht hatten. **Sie zahlten
+    dieselbe Maßnahme zweimal.** Neu: `expenseGroups` gruppiert zusätzlich nach
+    Konto; was von einem RUECKLAGE-Konto kam, erscheint als Ausgabe in der
+    Gesamtabrechnung (§ 28 Abs. 2 verlangt die Einnahmen-/Ausgabenrechnung),
+    wird aber über die Gegenposition „Entnahme aus der Erhaltungsrücklage" aus
+    der Umlage genommen. An echten Daten geprüft: 80.000 € aus der Rücklage
+    lassen den Kostenanteil je Einheit unverändert.
+85. **Zuführung folgt dem Schlüssel des Wirtschaftsplans** (Befund A3): Vorher
+    fest MEA. Hatte die Gemeinschaft nach § 16 Abs. 2 Satz 2 WEG einen anderen
+    Schlüssel beschlossen, verteilte der Plan anders als die Abrechnung — die
+    Spitze war dann bei jedem Eigentümer falsch, in jedem Jahr. Der Schlüssel
+    kommt jetzt aus dem beschlossenen Plan des Jahres, MEA bleibt Rückfall ohne Plan.
+86. **Die Zuführung nutzt `advanceWeightsForKey`, nicht `weightsForKey`.** Beim
+    Testen aufgefallen: Die strikte Verteilung der Abrechnung wirft bei einer
+    Einheit ohne Wohnfläche, der Wirtschaftsplan zählt sie als 0. Mit der
+    strikten Variante wäre genau die Abweichung zurückgekehrt, die diese
+    Änderung behebt. Beide Seiten rechnen jetzt mit derselben Gewichtung.
+87. **Kostenarten der Kategorie RUECKLAGENZUFUEHRUNG werden übersprungen.** Die
+    Zuführung entsteht aus den Ist-Umbuchungen. Wurde sie zusätzlich als
+    Aufwandsposition gebucht, war sie doppelt enthalten.
+88. **Soll-Ist-Abgleich als Hinweis, nicht als Sperre** (neues Feld `warnings`,
+    getrennt von `errors`): Eine bewusst abweichende Zuführung ist zulässig und
+    darf das Fertigstellen nicht blockieren. Eine **vergessene** Umbuchung wäre
+    dagegen ein stiller Fehler, der jedem Eigentümer ein Guthaben ausweist, das
+    ihm nicht zusteht. Die Seed-Daten zeigen den Fall sofort: 6.000 € geplant,
+    500 € umgebucht.
+89. **Prüfmeldungen in Euro statt in Cent.** Sie stehen in der Oberfläche vor
+    Eigentümern; „600000 Cent" ist keine Sprache für die Zielgruppe.

@@ -23,10 +23,12 @@ export type StatementView = {
     distributionKey: DistributionKey;
     laborShareType: LaborShareType;
     totalCents: number;
+    reserveFundedCents?: number;
     perUnit: Record<string, number> | null;
     error?: string;
   }[];
   errors: string[];
+  warnings: string[];
   perUnitTotal: Record<string, number>;
   duePerUnit: Record<string, number>;
   peak: Record<string, number>; // Abrechnungsspitze: + Nachschuss / − Guthaben
@@ -48,6 +50,7 @@ export type StatementView = {
   incomeCents: number;
   totalExpenseCents: number;
   reserveTransferCents: number;
+  reserveWithdrawalCents: number; // aus der Rücklage bezahlt, nicht umgelegt
   receivablesCents: number; // Forderungen (Hausgeldrückstände) zum Stichtag
 };
 
@@ -79,12 +82,12 @@ export async function computeStatementView(
   const { start, end } = fiscalYearRange(year, property.fiscalYearStartMonth);
   const inYear = { gte: start, lt: end };
 
-  const [costTypes, units, expenseGroups, otherAgg, incomeAgg, accounts, beforeGroups, yearGroups, manualRows, dueGroups, ownerships, paidGroups] =
+  const [costTypes, units, expenseGroups, otherAgg, incomeAgg, accounts, beforeGroups, yearGroups, manualRows, dueGroups, ownerships, paidGroups, plan] =
     await Promise.all([
       db.costType.findMany({
         where: { propertyId: property.id },
         orderBy: [{ orderIndex: "asc" }, { name: "asc" }],
-        select: { id: true, name: true, distributionKey: true, laborShareType: true },
+        select: { id: true, name: true, category: true, distributionKey: true, laborShareType: true },
       }),
       db.unit.findMany({
         where: { propertyId: property.id },
@@ -92,7 +95,7 @@ export async function computeStatementView(
         select: { id: true, mea: true, livingArea: true, personCount: true },
       }),
       db.booking.groupBy({
-        by: ["costTypeId"],
+        by: ["costTypeId", "accountId"],
         where: {
           propertyId: property.id,
           kind: "AUSGABE",
@@ -151,6 +154,17 @@ export async function computeStatementView(
         },
         _sum: { amountCents: true },
       }),
+      // Beschlossener Wirtschaftsplan des Jahres: liefert Schlüssel und Sollwert
+      // der Rücklagenzuführung. Ohne Plan bleibt es beim Rückfall auf MEA.
+      db.economicPlan.findFirst({
+        where: { propertyId: property.id, year, status: "BESCHLOSSEN" },
+        select: {
+          items: {
+            where: { costType: { category: "RUECKLAGENZUFUEHRUNG" } },
+            select: { amountCents: true, costType: { select: { distributionKey: true } } },
+          },
+        },
+      }),
     ]);
 
   // Rücklagenzuführung (Ist): Umbuchungen, die auf Rücklagenkonten eingehen
@@ -162,6 +176,22 @@ export async function computeStatementView(
     }
   }
 
+  // Ausgaben trennen: aus dem laufenden Konto (umlagefähig) und aus der
+  // Erhaltungsrücklage (bereits über frühere Zuführungen bezahlt).
+  const expenseByCostType = new Map<string, number>();
+  const reserveSpendByCostType = new Map<string, number>();
+  for (const g of expenseGroups) {
+    const id = g.costTypeId as string;
+    const cents = g._sum.amountCents ?? 0;
+    const ziel = reserveIds.has(g.accountId) ? reserveSpendByCostType : expenseByCostType;
+    ziel.set(id, (ziel.get(id) ?? 0) + cents);
+  }
+
+  // Schlüssel und Sollwert der Zuführung aus dem beschlossenen Plan.
+  const reserveItem = plan?.items[0];
+  const reserveTransferKey = reserveItem?.costType.distributionKey;
+  const plannedReserveCents = reserveItem?.amountCents;
+
   const manualAmounts = new Map<string, Map<string, number>>();
   for (const row of manualRows) {
     const inner = manualAmounts.get(row.costTypeId) ?? new Map<string, number>();
@@ -172,10 +202,13 @@ export async function computeStatementView(
   const result = computeStatement({
     costTypes,
     units,
-    expenseByCostType: new Map(expenseGroups.map((g) => [g.costTypeId as string, g._sum.amountCents ?? 0])),
+    expenseByCostType,
+    reserveSpendByCostType,
     otherExpenseCents: otherAgg._sum.amountCents ?? 0,
     manualAmounts,
     reserveTransferCents,
+    reserveTransferKey,
+    plannedReserveCents,
   });
 
   const duePerUnit = new Map(dueGroups.map((g) => [g.unitId, g._sum.amountCents ?? 0]));
@@ -254,10 +287,12 @@ export async function computeStatementView(
       distributionKey: r.distributionKey,
       laborShareType: r.laborShareType,
       totalCents: r.totalCents,
+      reserveFundedCents: r.reserveFundedCents,
       perUnit: r.perUnit ? Object.fromEntries(r.perUnit) : null,
       error: r.error,
     })),
     errors: result.errors,
+    warnings: result.warnings,
     perUnitTotal: Object.fromEntries(result.perUnitTotal),
     duePerUnit: Object.fromEntries(duePerUnit),
     peak: Object.fromEntries(peak),
@@ -267,6 +302,7 @@ export async function computeStatementView(
     incomeCents: incomeAgg._sum.amountCents ?? 0,
     totalExpenseCents: result.totalExpenseCents,
     reserveTransferCents,
+    reserveWithdrawalCents: result.reserveWithdrawalCents,
     receivablesCents,
   };
 }

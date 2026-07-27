@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   RESERVE_ROW_ID,
+  RESERVE_WITHDRAWAL_ROW_ID,
   computeLaborShares,
   computePeakAmounts,
   computeStatement,
@@ -19,11 +20,15 @@ const units: UnitForDistribution[] = [
   { id: "te6", mea: 50, livingArea: null, personCount: null },
 ];
 
+const B = "BETRIEBSKOSTEN" as const;
+
 const costTypes = [
-  { id: "hausmeister", name: "Hausmeister", distributionKey: "MEA" as const, laborShareType: "HAUSHALTSNAHE_DIENSTLEISTUNG" as const },
-  { id: "heizung", name: "Heizung/Warmwasser", distributionKey: "VERBRAUCH" as const, laborShareType: "KEINE" as const },
-  { id: "aufzug", name: "Aufzug", distributionKey: "FLAECHE" as const, laborShareType: "HANDWERKERLEISTUNG" as const },
-  { id: "konto", name: "Kontoführung", distributionKey: "EINHEITEN" as const, laborShareType: "KEINE" as const },
+  { id: "hausmeister", name: "Hausmeister", category: B, distributionKey: "MEA" as const, laborShareType: "HAUSHALTSNAHE_DIENSTLEISTUNG" as const },
+  { id: "heizung", name: "Heizung/Warmwasser", category: B, distributionKey: "VERBRAUCH" as const, laborShareType: "KEINE" as const },
+  { id: "aufzug", name: "Aufzug", category: B, distributionKey: "FLAECHE" as const, laborShareType: "HANDWERKERLEISTUNG" as const },
+  { id: "konto", name: "Kontoführung", category: B, distributionKey: "EINHEITEN" as const, laborShareType: "KEINE" as const },
+  { id: "dach", name: "Dachsanierung", category: "INSTANDHALTUNG" as const, distributionKey: "MEA" as const, laborShareType: "HANDWERKERLEISTUNG" as const },
+  { id: "zufuehrung", name: "Zuführung Erhaltungsrücklage", category: "RUECKLAGENZUFUEHRUNG" as const, distributionKey: "MEA" as const, laborShareType: "KEINE" as const },
 ];
 
 function baseInput(overrides: Partial<StatementInput> = {}): StatementInput {
@@ -180,5 +185,98 @@ describe("splitByOwnership (Eigentümerwechsel tagesgenau)", () => {
     const { shares, uncoveredCents } = splitByOwnership(500, [], fyStart, fyEnd);
     expect(shares).toEqual([]);
     expect(uncoveredCents).toBe(500);
+  });
+});
+
+// ── Erhaltungsrücklage (Befunde A2/A3) ──────────────────────────────────────
+
+describe("Ausgaben aus der Erhaltungsrücklage", () => {
+  it("erhöhen die Abrechnungsspitze nicht — sonst zahlen Eigentümer doppelt", () => {
+    const ohne = computeStatement(baseInput());
+    const mit = computeStatement(
+      baseInput({ reserveSpendByCostType: new Map([["dach", 8_000_000]]) }),
+    );
+    // Kostenanteil je Einheit bleibt unverändert
+    for (const [unitId, cents] of ohne.perUnitTotal) {
+      expect(mit.perUnitTotal.get(unitId)).toBe(cents);
+    }
+    expect(mit.errors).toEqual([]);
+  });
+
+  it("erscheinen trotzdem als Ausgabe und bekommen eine Gegenposition", () => {
+    const r = computeStatement(
+      baseInput({ reserveSpendByCostType: new Map([["dach", 8_000_000]]) }),
+    );
+    const dach = r.rows.find((x) => x.costTypeId === "dach");
+    expect(dach?.totalCents).toBe(8_000_000);
+    expect(dach?.reserveFundedCents).toBe(8_000_000);
+    expect(r.reserveWithdrawalCents).toBe(8_000_000);
+    expect(r.rows.some((x) => x.costTypeId === RESERVE_WITHDRAWAL_ROW_ID)).toBe(true);
+    // Ausgabe zählt zur Gesamtsumme, wird aber nicht verteilt
+    expect(dach?.perUnit && [...dach.perUnit.values()].reduce((a, b) => a + b, 0)).toBe(0);
+  });
+
+  it("teilweise aus der Rücklage bezahlt: nur der Rest wird umgelegt", () => {
+    const r = computeStatement(
+      baseInput({
+        expenseByCostType: new Map([["hausmeister", 300_000]]),
+        manualAmounts: new Map(),
+        reserveSpendByCostType: new Map([["hausmeister", 180_000]]),
+      }),
+    );
+    const row = r.rows.find((x) => x.costTypeId === "hausmeister");
+    expect(row?.totalCents).toBe(480_000);
+    expect(row?.reserveFundedCents).toBe(180_000);
+    const verteilt = [...(row?.perUnit ?? new Map()).values()].reduce((a, b) => a + b, 0);
+    expect(verteilt).toBe(300_000);
+  });
+});
+
+describe("Zuführung zur Erhaltungsrücklage", () => {
+  it("folgt dem Schlüssel des Wirtschaftsplans, nicht fest MEA", () => {
+    const nachFlaeche = computeStatement(
+      baseInput({ reserveTransferCents: 600_000, reserveTransferKey: "FLAECHE" }),
+    );
+    const nachMea = computeStatement(
+      baseInput({ reserveTransferCents: 600_000, reserveTransferKey: "MEA" }),
+    );
+    const zeileF = nachFlaeche.rows.find((x) => x.costTypeId === RESERVE_ROW_ID);
+    const zeileM = nachMea.rows.find((x) => x.costTypeId === RESERVE_ROW_ID);
+    expect(zeileF?.distributionKey).toBe("FLAECHE");
+    // Der Stellplatz ohne Wohnfläche trägt nach Fläche nichts, nach MEA schon
+    expect(zeileF?.perUnit?.get("te6")).toBe(0);
+    expect(zeileM?.perUnit?.get("te6")).toBeGreaterThan(0);
+    // centgenau bleibt beides
+    for (const z of [zeileF, zeileM]) {
+      expect([...(z?.perUnit ?? new Map()).values()].reduce((a, b) => a + b, 0)).toBe(600_000);
+    }
+  });
+
+  it("wird nicht doppelt gezählt, wenn sie auch als Kostenart gebucht wurde", () => {
+    const r = computeStatement(
+      baseInput({
+        expenseByCostType: new Map([["zufuehrung", 600_000]]),
+        manualAmounts: new Map(),
+        reserveTransferCents: 600_000,
+      }),
+    );
+    // Nur die Ist-Umbuchung zählt, die Aufwandsposition wird übersprungen
+    expect(r.rows.filter((x) => x.name.includes("Erhaltungsrücklage")).length).toBe(1);
+    const summe = [...r.perUnitTotal.values()].reduce((a, b) => a + b, 0);
+    expect(summe).toBe(600_000);
+  });
+
+  it("meldet eine Abweichung vom Plan als Hinweis, nicht als Fehler", () => {
+    const vergessen = computeStatement(
+      baseInput({ reserveTransferCents: 0, plannedReserveCents: 600_000 }),
+    );
+    expect(vergessen.warnings).toHaveLength(1);
+    expect(vergessen.warnings[0]).toContain("Erhaltungsrücklage");
+    expect(vergessen.errors).toEqual([]); // blockiert das Fertigstellen nicht
+
+    const passend = computeStatement(
+      baseInput({ reserveTransferCents: 600_000, plannedReserveCents: 600_000 }),
+    );
+    expect(passend.warnings).toEqual([]);
   });
 });

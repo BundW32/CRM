@@ -162,6 +162,18 @@ Muster — ersetzt keine Rechtsberatung.`;
         </Alert>
       )}
 
+      {/* Hinweise halten das Fertigstellen nicht auf — sie zeigen etwas, das
+          richtig sein kann, aber geprüft gehört. */}
+      {isDraft && view.warnings.length > 0 ? (
+        <Alert variant="info" title="Zur Kenntnis" className="mb-4">
+          <ul className="list-disc pl-4">
+            {view.warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        </Alert>
+      ) : null}
+
       <div className="grid gap-4">
         {/* Gesamtabrechnung */}
         <Card
@@ -184,6 +196,19 @@ Muster — ersetzt keine Rechtsberatung.`;
                 {euro(view.reserveTransferCents)}
               </dd>
             </div>
+            {view.reserveWithdrawalCents > 0 ? (
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-gray-400">
+                  Aus der Rücklage bezahlt
+                </dt>
+                <dd className="text-lg font-semibold text-gray-900">
+                  {euro(view.reserveWithdrawalCents)}
+                </dd>
+                <dd className="mt-0.5 text-xs text-gray-500">
+                  Wird nicht erneut umgelegt — dafür wurde in früheren Jahren schon eingezahlt.
+                </dd>
+              </div>
+            ) : null}
           </dl>
 
           <form action={saveAccountChecks}>
@@ -267,14 +292,17 @@ Muster — ersetzt keine Rechtsberatung.`;
         {manualPending.map((row) => {
           const saved = manualByCostType.get(row.costTypeId) ?? new Map<string, number>();
           const savedSum = [...saved.values()].reduce((a, b) => a + b, 0);
+          // Zielsumme ist der umlagefähige Teil: Was aus der Rücklage bezahlt
+          // wurde, wird nicht verteilt und darf hier nicht mitgezählt werden.
+          const zielCents = row.totalCents - (row.reserveFundedCents ?? 0);
           return (
             <Card
               key={row.costTypeId}
-              title={`Verteilung je Einheit: ${row.name} — ${euro(row.totalCents)} (${distributionKeyLabels[row.distributionKey]})`}
+              title={`Verteilung je Einheit: ${row.name} — ${euro(zielCents)} (${distributionKeyLabels[row.distributionKey]})`}
             >
               <p className="mb-3 text-sm text-gray-600">
                 Ergebnisse je Einheit erfassen (z. B. aus der Messdienst-Abrechnung). Die Summe
-                muss exakt {euro(row.totalCents)} ergeben — aktuell erfasst: {euro(savedSum)}.
+                muss exakt {euro(zielCents)} ergeben — aktuell erfasst: {euro(savedSum)}.
               </p>
               {isDraft && row.distributionKey === "VERBRAUCH" ? (
                 <form
@@ -371,9 +399,18 @@ Muster — ersetzt keine Rechtsberatung.`;
                     <td className="py-2 pr-3 text-gray-600">
                       {distributionKeyLabels[r.distributionKey]}
                     </td>
-                    <td className="py-2 pr-3 text-right">{euro(r.totalCents)}</td>
+                    <td className="py-2 pr-3 text-right">
+                      {euro(r.totalCents)}
+                      {r.reserveFundedCents ? (
+                        <span className="block text-xs text-gray-500">
+                          davon {euro(r.reserveFundedCents)} aus der Rücklage
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="py-2">
-                      {r.error ? (
+                      {r.costTypeId === "__ruecklagenentnahme__" ? (
+                        <span className="text-gray-500">Gegenposition</span>
+                      ) : r.error ? (
                         <span className="text-amber-700">offen</span>
                       ) : (
                         <span className="text-green-700">verteilt ✓</span>

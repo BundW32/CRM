@@ -3,8 +3,10 @@
 // Erfassung, z. B. Messdienst), Abrechnungsspitze gegen die Soll-Vorschüsse,
 // §35a-Ausweis und tagesgenaue Aufteilung bei Eigentümerwechsel.
 // Pure Funktionen — DB/UI übernehmen die Server Actions.
-import type { DistributionKey, LaborShareType } from "@/generated/prisma/client";
+import type { CostCategory, DistributionKey, LaborShareType } from "@/generated/prisma/client";
+import { formatCents } from "@/lib/money";
 import { distributeByWeight, weightsForKey, type UnitForDistribution } from "./distribution";
+import { advanceWeightsForKey } from "./economic-plan";
 
 // Schlüssel, die in der Abrechnung eine manuelle Verteilung je Einheit brauchen
 export const MANUAL_KEYS: DistributionKey[] = ["VERBRAUCH", "FESTBETRAG", "INDIVIDUELL"];
@@ -12,6 +14,7 @@ export const MANUAL_KEYS: DistributionKey[] = ["VERBRAUCH", "FESTBETRAG", "INDIV
 export type StatementCostTypeInput = {
   id: string;
   name: string;
+  category: CostCategory;
   distributionKey: DistributionKey;
   laborShareType: LaborShareType;
 };
@@ -25,8 +28,18 @@ export type StatementInput = {
   otherExpenseCents: number;
   // manuelle Verteilung je Kostenart → Einheit (für MANUAL_KEYS)
   manualAmounts: Map<string, Map<string, number>>;
-  // tatsächliche Umbuchungen Giro → Rücklage im Jahr (werden nach MEA verteilt)
+  // tatsächliche Umbuchungen Giro → Rücklage im Jahr
   reserveTransferCents: number;
+  // Schlüssel der Zuführung laut beschlossenem Wirtschaftsplan (Default MEA).
+  // Plan und Abrechnung müssen denselben Schlüssel verwenden, sonst ist die
+  // Abrechnungsspitze bei jedem Eigentümer falsch (§ 16 Abs. 2 Satz 2 WEG).
+  reserveTransferKey?: DistributionKey;
+  // Geplante Zuführung laut Wirtschaftsplan — nur für den Soll-Ist-Hinweis.
+  plannedReserveCents?: number;
+  // Ist-Ausgaben je Kostenart, die von einem RÜCKLAGEN-Konto bezahlt wurden.
+  // Sie erscheinen in der Gesamtabrechnung als Ausgabe, werden aber NICHT
+  // umgelegt — dazu siehe die Gegenposition unten.
+  reserveSpendByCostType?: Map<string, number>;
 };
 
 export type StatementCostRow = {
@@ -34,7 +47,9 @@ export type StatementCostRow = {
   name: string;
   distributionKey: DistributionKey;
   laborShareType: LaborShareType;
-  totalCents: number;
+  totalCents: number; // Ist-Ausgabe gesamt (Giro + Rücklage)
+  /** Davon aus der Erhaltungsrücklage bezahlt — nicht umgelegt. */
+  reserveFundedCents?: number;
   perUnit: Map<string, number> | null; // null, wenn Verteilung (noch) nicht möglich
   error?: string;
 };
@@ -42,19 +57,42 @@ export type StatementCostRow = {
 export type StatementResult = {
   rows: StatementCostRow[];
   perUnitTotal: Map<string, number>; // Kostenanteil je Einheit (inkl. Rücklagen-Ist)
-  totalExpenseCents: number; // Σ verteilte Kosten (ohne Rücklage)
+  totalExpenseCents: number; // Σ Ist-Ausgaben des Jahres (Giro + Rücklage)
   reserveTransferCents: number;
-  errors: string[]; // Prüfliste — leer = verteilungsplausibel
+  /** Σ Ausgaben, die aus der Rücklage bezahlt und deshalb nicht umgelegt wurden. */
+  reserveWithdrawalCents: number;
+  errors: string[]; // blockiert das Fertigstellen — leer = verteilungsplausibel
+  /** Hinweise, die NICHT blockieren (z. B. Zuführung weicht vom Plan ab). */
+  warnings: string[];
 };
 
 export const RESERVE_ROW_ID = "__ruecklage__";
+export const RESERVE_WITHDRAWAL_ROW_ID = "__ruecklagenentnahme__";
 
-// Verteilt alle Ist-Kosten des Jahres auf die Einheiten.
+/**
+ * Verteilt die Ist-Kosten des Jahres auf die Einheiten.
+ *
+ * Zwei Dinge, die hier bewusst NICHT umgelegt werden:
+ *
+ * 1. **Ausgaben aus der Erhaltungsrücklage.** Sie erscheinen in der
+ *    Gesamtabrechnung als Ausgabe (§ 28 Abs. 2 WEG verlangt die
+ *    Einnahmen-/Ausgabenrechnung), dürfen die Abrechnungsspitze aber nicht
+ *    erhöhen: Bezahlt wurden sie aus Geld, das die Eigentümer über die
+ *    Zuführungen früherer Jahre bereits aufgebracht haben. Ohne die
+ *    Gegenposition „Entnahme aus der Erhaltungsrücklage" zahlten sie dieselbe
+ *    Maßnahme ein zweites Mal.
+ * 2. **Kostenarten der Kategorie RUECKLAGENZUFUEHRUNG.** Die Zuführung wird
+ *    unten aus den tatsächlichen Umbuchungen gebildet. Stünde sie zusätzlich
+ *    als Aufwandsposition hier, wäre sie doppelt enthalten.
+ */
 export function computeStatement(input: StatementInput): StatementResult {
   const rows: StatementCostRow[] = [];
   const errors: string[] = [];
+  const warnings: string[] = [];
   const perUnitTotal = new Map<string, number>(input.units.map((u) => [u.id, 0]));
+  const reserveSpend = input.reserveSpendByCostType ?? new Map<string, number>();
   let totalExpenseCents = 0;
+  let reserveWithdrawalCents = 0;
 
   const addToUnits = (shares: Map<string, number>) => {
     for (const [unitId, cents] of shares) {
@@ -63,10 +101,20 @@ export function computeStatement(input: StatementInput): StatementResult {
   };
 
   for (const ct of input.costTypes) {
-    const totalCents = input.expenseByCostType.get(ct.id) ?? 0;
+    // Siehe Punkt 2 oben: die Zuführung kommt aus den Umbuchungen, nicht von hier.
+    if (ct.category === "RUECKLAGENZUFUEHRUNG") continue;
+
+    const giroCents = input.expenseByCostType.get(ct.id) ?? 0;
+    const ausRuecklageCents = reserveSpend.get(ct.id) ?? 0;
+    const totalCents = giroCents + ausRuecklageCents;
     const manual = input.manualAmounts.get(ct.id);
     if (totalCents === 0 && (!manual || manual.size === 0)) continue;
+
     totalExpenseCents += totalCents;
+    reserveWithdrawalCents += ausRuecklageCents;
+
+    // Umgelegt wird nur der Teil, der NICHT aus der Rücklage kam.
+    const verteilbarCents = giroCents;
 
     const row: StatementCostRow = {
       costTypeId: ct.id,
@@ -74,20 +122,24 @@ export function computeStatement(input: StatementInput): StatementResult {
       distributionKey: ct.distributionKey,
       laborShareType: ct.laborShareType,
       totalCents,
+      reserveFundedCents: ausRuecklageCents > 0 ? ausRuecklageCents : undefined,
       perUnit: null,
     };
 
     if (MANUAL_KEYS.includes(ct.distributionKey)) {
       const manualSum = manual ? [...manual.values()].reduce((a, b) => a + b, 0) : 0;
-      if (manualSum !== totalCents) {
-        row.error = `Manuelle Verteilung unvollständig: erfasst ${manualSum} von ${totalCents} Cent.`;
+      if (manualSum !== verteilbarCents) {
+        row.error = `Manuelle Verteilung unvollständig: erfasst ${formatCents(manualSum)} von ${formatCents(verteilbarCents)}.`;
         errors.push(`${ct.name}: ${row.error}`);
       } else {
         row.perUnit = new Map(manual);
       }
+    } else if (verteilbarCents === 0) {
+      // Vollständig aus der Rücklage bezahlt — nichts umzulegen, kein Fehler.
+      row.perUnit = new Map(input.units.map((u) => [u.id, 0]));
     } else {
       try {
-        row.perUnit = distributeByWeight(totalCents, weightsForKey(input.units, ct.distributionKey));
+        row.perUnit = distributeByWeight(verteilbarCents, weightsForKey(input.units, ct.distributionKey));
       } catch (e) {
         row.error = e instanceof Error ? e.message : "Verteilung nicht möglich.";
         errors.push(`${ct.name}: ${row.error}`);
@@ -97,18 +149,41 @@ export function computeStatement(input: StatementInput): StatementResult {
     rows.push(row);
   }
 
-  // Tatsächliche Rücklagenzuführung (Umbuchungen) als eigene Position nach MEA
+  // Gegenposition zu den aus der Rücklage bezahlten Ausgaben. Sie steht in der
+  // Gesamtabrechnung als Deckung und wird nicht auf die Einheiten verteilt.
+  if (reserveWithdrawalCents > 0) {
+    rows.push({
+      costTypeId: RESERVE_WITHDRAWAL_ROW_ID,
+      name: "Entnahme aus der Erhaltungsrücklage (Deckung)",
+      distributionKey: "MEA",
+      laborShareType: "KEINE",
+      totalCents: reserveWithdrawalCents,
+      perUnit: null,
+    });
+  }
+
+  // Tatsächliche Rücklagenzuführung (Umbuchungen) — nach dem Schlüssel des
+  // beschlossenen Wirtschaftsplans, damit Plan und Abrechnung übereinstimmen.
   if (input.reserveTransferCents > 0) {
+    const key = input.reserveTransferKey ?? "MEA";
     const row: StatementCostRow = {
       costTypeId: RESERVE_ROW_ID,
       name: "Zuführung Erhaltungsrücklage (Ist)",
-      distributionKey: "MEA",
+      distributionKey: key,
       laborShareType: "KEINE",
       totalCents: input.reserveTransferCents,
       perUnit: null,
     };
     try {
-      row.perUnit = distributeByWeight(input.reserveTransferCents, weightsForKey(input.units, "MEA"));
+      // Bewusst dieselbe Gewichtung wie der Wirtschaftsplan
+      // (`advanceWeightsForKey`), nicht die strikte der Abrechnung: Der Plan
+      // hat die Zuführung so verteilt, und beide müssen übereinstimmen. Sonst
+      // liefe genau der Fehler wieder ein, den diese Änderung behebt — eine
+      // Einheit ohne Wohnfläche trägt hier wie dort 0 statt zum Abbruch zu führen.
+      row.perUnit = distributeByWeight(
+        input.reserveTransferCents,
+        advanceWeightsForKey(input.units, key),
+      );
       addToUnits(row.perUnit);
     } catch (e) {
       row.error = e instanceof Error ? e.message : "Verteilung nicht möglich.";
@@ -117,9 +192,19 @@ export function computeStatement(input: StatementInput): StatementResult {
     rows.push(row);
   }
 
+  // Soll-Ist-Abgleich der Zuführung. Bewusst nur ein Hinweis: Eine bewusst
+  // abweichende Zuführung ist zulässig — eine vergessene Umbuchung wäre aber
+  // ein stiller Fehler, der jedem Eigentümer ein Guthaben ausweist, das ihm
+  // nicht zusteht.
+  if (input.plannedReserveCents !== undefined && input.plannedReserveCents !== input.reserveTransferCents) {
+    warnings.push(
+      `Zuführung zur Erhaltungsrücklage: laut Wirtschaftsplan ${formatCents(input.plannedReserveCents)}, tatsächlich umgebucht ${formatCents(input.reserveTransferCents)}. Bitte prüfen, ob die Umbuchung noch aussteht.`,
+    );
+  }
+
   if (input.otherExpenseCents > 0) {
     errors.push(
-      `Ausgaben ohne Kostenart: ${input.otherExpenseCents} Cent sind keiner Kostenart zugeordnet und können nicht umgelegt werden.`,
+      `Ausgaben ohne Kostenart: ${formatCents(input.otherExpenseCents)} sind keiner Kostenart zugeordnet und können nicht umgelegt werden.`,
     );
   }
 
@@ -128,7 +213,9 @@ export function computeStatement(input: StatementInput): StatementResult {
     perUnitTotal,
     totalExpenseCents,
     reserveTransferCents: input.reserveTransferCents,
+    reserveWithdrawalCents,
     errors,
+    warnings,
   };
 }
 

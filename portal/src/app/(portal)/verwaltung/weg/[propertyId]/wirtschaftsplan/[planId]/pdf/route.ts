@@ -2,12 +2,21 @@ import { NextResponse } from "next/server";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { buildWirtschaftsplanPdf } from "@/lib/weg/wirtschaftsplan-pdf";
+import {
+  buildEinzelwirtschaftsplanPdf,
+  buildWirtschaftsplanPdf,
+  ownerNamesByUnit,
+} from "@/lib/weg/wirtschaftsplan-pdf";
 
 export const dynamic = "force-dynamic";
 
-// Wirtschaftsplan als PDF (Gesamtplan + Einzelwirtschaftspläne). Verwalter im
-// Objekt-Scope. Enthält bei Entwürfen eine ENTWURF-Kennzeichnung.
+// Wirtschaftsplan als PDF. Verwalter im Objekt-Scope; Entwürfe tragen eine
+// ENTWURF-Kennzeichnung.
+//
+// Zwei Dokumente, wie § 28 Abs. 1 WEG sie verlangt:
+//   ohne Parameter               → Gesamtplan mit Übersicht aller Einheiten
+//   ?dokument=einzelplan         → Einzelwirtschaftspläne, eine Seite je Einheit
+//   ?dokument=einzelplan&einheit → nur diese Einheit (Einzelversand)
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ propertyId: string; planId: string }> },
@@ -36,15 +45,34 @@ export async function GET(
   ]);
   if (!plan) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
-  try {
-    const pdf = await buildWirtschaftsplanPdf({
-      propertyName: property.name,
-      organizationId: property.organizationId,
-      plan,
-      units,
-    });
+  const url = new URL(request.url);
+  const einzelplan = url.searchParams.get("dokument") === "einzelplan";
+  const einheitId = url.searchParams.get("einheit") ?? undefined;
+  if (einheitId && !units.some((u) => u.id === einheitId)) {
+    return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+  }
 
-    const fileName = `Wirtschaftsplan_${plan.year}_${property.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+  try {
+    const pdf = einzelplan
+      ? await buildEinzelwirtschaftsplanPdf({
+          propertyName: property.name,
+          organizationId: property.organizationId,
+          plan,
+          units,
+          ownerNamesByUnit: await ownerNamesByUnit(units.map((u) => u.id)),
+          onlyUnitIds: einheitId ? [einheitId] : undefined,
+        })
+      : await buildWirtschaftsplanPdf({
+          propertyName: property.name,
+          organizationId: property.organizationId,
+          plan,
+          units,
+        });
+
+    const einheitLabel = einheitId ? units.find((u) => u.id === einheitId)?.label : undefined;
+    const fileName = einzelplan
+      ? `Einzelwirtschaftsplan_${plan.year}_${(einheitLabel ?? property.name).replace(/[^a-zA-Z0-9]/g, "_")}.pdf`
+      : `Wirtschaftsplan_${plan.year}_${property.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         "Content-Type": "application/pdf",

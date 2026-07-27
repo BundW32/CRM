@@ -591,3 +591,34 @@ Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund B7a).
 An echten Daten geprüft: 3.600 € PV-Einspeisung senken den Vorschussbedarf von
 15.000 € auf 11.400 €; das monatliche Hausgeld sinkt bei jeder Einheit
 entsprechend, Σ Einzelpläne == Vorschussbedarf.
+
+## Schritt 21 — Block 2, KP5: Einzelwirtschaftsplan je Eigentümer (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund B7c).
+
+100. **Der Einzelwirtschaftsplan wird erstmals erzeugt.** § 28 Abs. 1 WEG
+     verlangt Gesamtplan **und** Einzelwirtschaftspläne. Vorhanden war nur ein
+     Dokument: der Gesamtplan mit einer Tabelle aller Einheiten. Jeder
+     Eigentümer sah dort eine Summe statt ihrer Zusammensetzung — und nebenbei
+     das Hausgeld aller Nachbarn.
+101. **Die Rechenarbeit lag bereits fertig da.** `computeUnitAdvances()` liefert
+     mit `perItem` die Aufschlüsselung je Position und Einheit; sie wurde
+     nirgends verwendet. Der neue Generator (`documents/einzelwirtschaftsplan.ts`)
+     rendert sie nur noch — kein neuer Rechenweg, keine zweite Wahrheit.
+102. **Ein Bauer, zwei Routen, unterschiedliche Grenzen.** Der Verwalter wählt
+     über `?dokument=einzelplan&einheit=…` frei; die Eigentümer-Route auf
+     `/finanzen` ignoriert einen solchen Parameter und filtert hart auf
+     `ownedUnitIdsInProperty`. Gerechnet wird in beiden Fällen über **alle**
+     Einheiten — sonst stimmten die Verteilungsgewichte nicht —, gefiltert erst
+     bei der Ausgabe.
+103. **Positionen ohne Planwert fallen raus, Positionen ohne eigenen Anteil
+     nicht.** Eine Nullzeile für eine Kostenart, die es im Plan nicht gibt, wäre
+     Lärm. Eine Position, an der die eigene Einheit mit 0 € beteiligt ist
+     (Stellplatz bei Verteilung nach Fläche), bleibt stehen: Sie beantwortet die
+     Frage, warum dort nichts steht.
+104. **Für Eigentümer heißt der Verweis „Mein Hausgeld im Detail"** und steht
+     vor dem Gesamtplan. Das ist die Frage, die sie tatsächlich haben.
+
+An echten Daten geprüft: WE 01 zeigt sechs Positionen mit Schlüssel und Anteil,
+Jahresvorschuss 2.699,84 €, Monatsrate 224,98–224,99 € — deckungsgleich mit der
+Hausgeld-Tabelle des Gesamtplans.

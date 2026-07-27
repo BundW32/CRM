@@ -365,14 +365,27 @@ export default async function FinanzenPage({
                         {p.resolutionNote ? ` · ${p.resolutionNote}` : ""}
                       </span>
                     </div>
-                    <a
-                      href={`/finanzen/wirtschaftsplan/${p.id}/pdf`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={buttonSecondaryClass}
-                    >
-                      Wirtschaftsplan als PDF
-                    </a>
+                    <div className="flex flex-wrap gap-2">
+                      {/* Der eigene Einzelplan zuerst: Er beantwortet die Frage,
+                          die der Eigentümer wirklich hat — woraus sich mein
+                          Hausgeld zusammensetzt. */}
+                      <a
+                        href={`/finanzen/wirtschaftsplan/${p.id}/pdf?dokument=einzelplan`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={buttonSecondaryClass}
+                      >
+                        Mein Hausgeld im Detail
+                      </a>
+                      <a
+                        href={`/finanzen/wirtschaftsplan/${p.id}/pdf`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={buttonSecondaryClass}
+                      >
+                        Gesamtplan als PDF
+                      </a>
+                    </div>
                   </div>
                   <ReviewBlock
                     kind="plan"

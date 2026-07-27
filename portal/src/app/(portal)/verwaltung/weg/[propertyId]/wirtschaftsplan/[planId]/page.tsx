@@ -125,14 +125,24 @@ Muster — ersetzt keine Rechtsberatung.`;
         action={
           <div className="flex gap-2">
             {!advanceError ? (
-              <a
-                href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf`}
-                target="_blank"
-                rel="noreferrer"
-                className={buttonSecondaryClass}
-              >
-                Als PDF
-              </a>
+              <>
+                <a
+                  href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={buttonSecondaryClass}
+                >
+                  Gesamtplan als PDF
+                </a>
+                <a
+                  href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf?dokument=einzelplan`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={buttonSecondaryClass}
+                >
+                  Einzelpläne (alle)
+                </a>
+              </>
             ) : null}
           </div>
         }
@@ -281,6 +291,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                     <th className="py-2 pr-3">Einheit</th>
                     <th className="py-2 pr-3 text-right">Jahres-Vorschuss</th>
                     <th className="py-2 pr-3 text-right">monatliches Hausgeld</th>
+                    <th className="py-2" />
                   </tr>
                 </thead>
                 <tbody>
@@ -300,6 +311,16 @@ Muster — ersetzt keine Rechtsberatung.`;
                           <span className="block text-xs text-gray-400">
                             12 Raten, centgenau
                           </span>
+                        </td>
+                        <td className="py-2 text-right whitespace-nowrap">
+                          <a
+                            href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf?dokument=einzelplan&einheit=${u.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm underline"
+                          >
+                            Einzelplan
+                          </a>
                         </td>
                       </tr>
                     );

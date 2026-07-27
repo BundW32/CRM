@@ -329,6 +329,71 @@ Aufbewahrungsfristen.
 
 ---
 
+## Anpassung an PR #36 (vor Block 2 zu erledigen)
+
+Parallel entstand **PR #36** („Geführter Erststart und Jahresfahrplan",
+Branch `claude/program-analysis-tasks-au9wmc`). Er wird zuerst zusammengeführt;
+dieser Branch setzt danach neu darauf auf. Der Fahrplan bleibt — er ist die
+bessere Antwort auf „was steht an" als das, was ich dafür gebaut hatte.
+
+### Was PR #36 mitbringt
+
+- `lib/weg/roadmap.ts` — `loadRoadmap(propertyId)`, reine Ableitung ohne eigene
+  Tabelle: Wirtschaftsplan, Jahresabrechnung, Versammlung, Prüfpflichten,
+  Rückstände, je mit Frist, Status (`overdue`/`soon`/`ok`) und Klartext-Hinweis.
+- `dashboard/Roadmap.tsx` („Was ansteht") und `dashboard/SetupGuide.tsx`
+  (neun Einrichtungsschritte) — beides auf dem **Dashboard**.
+- `verwaltung/weg/page.tsx`: bei selbstverwalteter Org **und** genau einem
+  Objekt wird die Seite selbst zum Finanz-Einstieg dieses Objekts — bewusst
+  **ohne** Weiterleitung, weil die Unterseiten über ihren „WEG-Finanzen"-Rückweg
+  sonst im Kreis laufen.
+
+### Was daraus folgt
+
+**Der Fahrplan gewinnt, mein Arbeitsvorrat wird auf das reduziert, was er
+allein weiß.** Vier meiner sechs Einträge (Wirtschaftsplan, Jahresabrechnung,
+Prüfpflichten, Rückstände) deckt `loadRoadmap` bereits ab — sie fliegen raus.
+Übrig bleiben die zwei buchhalterischen, die aus Block 1 stammen und in keinem
+Fahrplan stehen können, weil sie keine Frist haben, aber den Jahresabschluss
+blockieren:
+
+- Buchungen ohne Kostenart
+- Zahlungseingänge ohne Einheit
+
+Dazu die Kontostände — die Frage „wie viel Geld haben wir" beantwortet weder
+Fahrplan noch Einrichtung.
+
+### Konkrete Schritte
+
+1. **Objekt-Arbeitsbereich als Komponente** statt als Seite: den Inhalt von
+   `weg/[propertyId]/page.tsx` in eine Komponente ziehen, die **beide** Routen
+   rendern — `weg/page.tsx` inline für „selbstverwaltet + ein Objekt" (Muster
+   von #36 übernehmen), `weg/[propertyId]/page.tsx` für alle anderen Fälle
+   (B&W mit mehreren Objekten). Damit entfällt der Streit
+   Weiterleitung gegen Inline-Rendering, und es gibt keine zwei Fassungen.
+2. **Meine `redirect()`-Lösung in `weg/page.tsx` fällt weg** — die Variante aus
+   #36 ist die zusammengeführte Grundlage.
+3. **Arbeitsvorrat kürzen** auf die zwei buchhalterischen Einträge; statt der
+   gestrichenen ein Verweis auf den Fahrplan („Was ansteht" auf der Übersicht).
+4. **Bereitschaftsprüfung streichen** (MEA-Nenner, Konten, Kostenarten) — das
+   macht der `SetupGuide` aus #36 gründlicher und an der richtigen Stelle.
+   Der Hinweis auf einen fehlenden MEA-Nenner bleibt nur dort, wo er unmittelbar
+   blockiert (Wirtschaftsplan, Jahresabrechnung).
+5. **Rückwege der elf Unterseiten** gegen die Entscheidung von #36 prüfen: Zeigen
+   sie auf `weg/[propertyId]` oder auf `weg`? Bei „ein Objekt" muss beides zum
+   selben Ziel führen, ohne Schleife.
+6. **Migrationen**: beide tragen `20260726120000`. Rein additiv, unterschiedliche
+   Ordner, Prisma sortiert nach Namen — kein Handlungsbedarf, nur zu wissen.
+
+### Was von Block 1 unberührt bleibt
+
+Die Substanz. KP1 (Kostenart nachtragen), KP2 (Storno, Import-Rücknahme),
+`statement-lock.ts`, `booking-scope.ts` samt der neun `NOT_REVERSED`-Stellen,
+Schema, Migration und Audit-Konstanten berührt #36 an keiner Stelle. Betroffen
+ist allein die Einstiegsfläche.
+
+---
+
 ## Baureihenfolge
 
 | # | Paket | Abhängigkeit | Migration |

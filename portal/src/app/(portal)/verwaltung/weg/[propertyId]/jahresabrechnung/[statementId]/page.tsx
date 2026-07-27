@@ -15,6 +15,7 @@ import {
   saveAccountChecks,
   distributeByMeters,
   saveManualAmounts,
+  wiederholeAblage,
 } from "../actions";
 import {
   HEATING_CONSUMPTION_DEFAULT,
@@ -29,6 +30,10 @@ const FEHLER_TEXTE: Record<string, string> = {
   betrag: "Ein Betrag konnte nicht gelesen werden (Format: 1.234,56).",
   kostenart: "Unbekannte Kostenart.",
   zaehlerart: "Bitte eine gültige Zählerart wählen.",
+  nichtfertig:
+    "Dokumente lassen sich erst bereitstellen, wenn die Abrechnung fertiggestellt ist.",
+  ablage:
+    "Die Dokumente konnten nicht bereitgestellt werden. Bitte später erneut versuchen — die Abrechnung selbst bleibt unverändert.",
   heizanteil:
     "Der Verbrauchsanteil muss zwischen 50 und 70 Prozent liegen (§§ 7, 8 HeizkostenV). Der Rest wird als Grundkosten nach Wohnfläche verteilt.",
   flaeche:
@@ -70,6 +75,17 @@ export default async function JahresabrechnungDetailPage({
   });
   if (!statement) notFound();
   const isDraft = statement.status === "ENTWURF";
+  // Einmal gebaut, an drei Stellen gezeigt: bei fehlgeschlagener Ablage, bei
+  // übersprungenen Einheiten und dauerhaft im Hinweis zur fertigen Abrechnung.
+  const ablageWiederholen = (
+    <form action={wiederholeAblage} className="mt-2">
+      <input type="hidden" name="propertyId" value={property.id} />
+      <input type="hidden" name="statementId" value={statement.id} />
+      <PendingButton className={buttonSecondaryClass}>
+        Dokumente erneut bereitstellen
+      </PendingButton>
+    </form>
+  );
 
   // ENTWURF: live rechnen. FERTIG: eingefrorenen Snapshot rendern.
   const view: StatementView =
@@ -160,10 +176,13 @@ Muster — ersetzt keine Rechtsberatung.`;
         </Alert>
       ) : null}
 
+      {/* Wiederholung der Ablage. Rechnet aus dem Snapshot, ersetzt vorhandene
+          Dokumente statt sie zu verdoppeln — deshalb gefahrlos wiederholbar. */}
       {sp.ablage === "fehler" ? (
         <Alert variant="warning" title="Dokumente nicht abgelegt" className="mb-4">
           Die Abrechnung ist fertiggestellt, aber die Einzelabrechnungen konnten nicht in den
-          Dokumenten abgelegt werden. Erneutes Fertigstellen holt es nach.
+          Dokumenten abgelegt werden. Die PDFs sind weiterhin über die Tabelle unten abrufbar.
+          {ablageWiederholen}
         </Alert>
       ) : sp.abgelegt ? (
         <Alert
@@ -172,9 +191,12 @@ Muster — ersetzt keine Rechtsberatung.`;
         >
           {sp.abgelegt} {sp.abgelegt === "1" ? "Einzelabrechnung wurde" : "Einzelabrechnungen wurden"}{" "}
           den jeweiligen Eigentümern unter &bdquo;Dokumente&ldquo; bereitgestellt.
-          {sp.ohne && sp.ohne !== "0"
-            ? ` Für ${sp.ohne} ${sp.ohne === "1" ? "Einheit" : "Einheiten"} ist kein Eigentümer erfasst — dort wurde nichts abgelegt, damit die Abrechnung nicht für alle sichtbar wird.`
-            : ""}
+          {sp.ohne && sp.ohne !== "0" ? (
+            <>
+              {` Für ${sp.ohne} ${sp.ohne === "1" ? "Einheit" : "Einheiten"} ist kein Eigentümer erfasst — dort wurde nichts abgelegt, damit die Abrechnung nicht für alle sichtbar wird. Eigentümer in den Stammdaten nachtragen, dann hier erneut ablegen.`}
+              {ablageWiederholen}
+            </>
+          ) : null}
         </Alert>
       ) : null}
 
@@ -183,7 +205,11 @@ Muster — ersetzt keine Rechtsberatung.`;
           Fertiggestellt am {statement.finalizedAt ? formatDateOnly(statement.finalizedAt) : "—"} —
           alle Zahlen sind als Snapshot eingefroren (revisionssicher). Über die
           Abrechnungsspitze beschließt die Eigentümerversammlung; erst damit wird ein
-          Nachschuss fällig.
+          Nachschuss fällig. Die Einzelabrechnungen liegen bei den jeweiligen Eigentümern
+          unter &bdquo;Dokumente&ldquo;; sie lassen sich jederzeit erneut bereitstellen —
+          etwa nach einem Eigentümerwechsel oder wenn ein Eigentümer nachgetragen wurde.
+          Vorhandene Dokumente werden dabei ersetzt, nicht verdoppelt.
+          {ablageWiederholen}
         </Alert>
       ) : view.errors.length > 0 ? (
         <Alert variant="warning" title="Prüfliste — vor dem Fertigstellen zu klären" className="mb-4">

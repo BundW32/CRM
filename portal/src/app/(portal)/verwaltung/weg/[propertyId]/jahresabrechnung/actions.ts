@@ -442,9 +442,8 @@ export async function finalizeStatement(formData: FormData) {
   //
   // Schlägt die Ablage fehl, bleibt die Abrechnung fertiggestellt: Das
   // Einfrieren ist der fachliche Vorgang, die Ablage nur seine Folge. Der
-  // Verwalter sieht eine Warnung; die PDFs bleiben über die Abruf-Route
-  // erreichbar. Eine Wiederholung der Ablage gibt es noch nicht — sie wäre
-  // dank `refPrefix` gefahrlos, siehe offener Punkt in DECISIONS.md.
+  // Verwalter sieht eine Warnung und kann sie über `wiederholeAblage` erneut
+  // anstoßen — dank `refPrefix` entstehen dabei keine Dubletten.
   let ablage: Awaited<ReturnType<typeof legeEigentuemerDokumenteAb>> | null = null;
   try {
     ablage = await verteileEinzelabrechnungen(property, statement.id, statement.year, view, finalizedAt, verwalter.id);
@@ -475,6 +474,65 @@ export async function finalizeStatement(formData: FormData) {
 
 // Erzeugt je Einheit die Einzelabrechnung und legt sie ab. Ausgelagert, damit
 // `finalizeStatement` lesbar bleibt.
+// ── Ablage der Einzelabrechnungen wiederholen ────────────────────────────────
+// Die Ablage ist die Folge des Fertigstellens, nicht sein Kern: Schlägt sie
+// fehl (Speicher weg, Verbindung ab), bleibt die Abrechnung fertiggestellt und
+// die Dokumente fehlen. Ohne diesen Knopf gäbe es keinen Weg zurück, weil
+// `finalizeStatement` nur für Entwürfe läuft.
+//
+// Zweiter, häufigerer Fall: Beim Fertigstellen war für eine Einheit kein
+// Eigentümer erfasst; sie wurde übersprungen. Nachtragen und hier erneut
+// auslösen — die vorhandenen Dokumente werden dabei ersetzt, nicht verdoppelt.
+//
+// Gerechnet wird bewusst aus dem **Snapshot**, nicht neu: Eine fertige
+// Abrechnung ist eingefroren. Würde hier neu gerechnet, bekämen die Eigentümer
+// nach einer späteren Buchung andere Zahlen als in der Fassung, über die die
+// Versammlung beschlossen hat.
+export async function wiederholeAblage(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const statementId = String(formData.get("statementId") ?? "");
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+  const statement = await loadStatement(verwalter.organizationId, property.id, statementId);
+  if (!statement) back(property.id);
+  if (statement.status !== "FERTIG" || !statement.snapshot) {
+    back(property.id, `/${statement.id}`, "fehler=nichtfertig");
+  }
+
+  let ablage: Awaited<ReturnType<typeof legeEigentuemerDokumenteAb>>;
+  try {
+    ablage = await verteileEinzelabrechnungen(
+      property,
+      statement.id,
+      statement.year,
+      statement.snapshot as unknown as Awaited<ReturnType<typeof computeStatementView>>,
+      statement.finalizedAt ?? statement.createdAt,
+      verwalter.id,
+    );
+  } catch (err) {
+    console.error("Wiederholte Ablage der Einzelabrechnungen fehlgeschlagen", err);
+    back(property.id, `/${statement.id}`, "fehler=ablage");
+  }
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_STATEMENT_DOCUMENTS_RETRIED,
+    targetType: "AnnualStatement",
+    targetId: statement.id,
+    meta: {
+      year: statement.year,
+      abgelegt: ablage.erstellt + ablage.ersetzt,
+      ohneEigentuemer: ablage.uebersprungen.length,
+    },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}`);
+  back(
+    property.id,
+    `/${statement.id}`,
+    `abgelegt=${ablage.erstellt + ablage.ersetzt}&ohne=${ablage.uebersprungen.length}`,
+  );
+}
+
 async function verteileEinzelabrechnungen(
   property: { id: string; name: string; organizationId: string },
   statementId: string,

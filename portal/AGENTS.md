@@ -174,6 +174,25 @@ Die vorhandenen Abweichungen werden **nicht** in einem Rutsch umgebaut: Das
 wären viele Dateien ohne jede sichtbare Verbesserung. Wer ohnehin in einer
 solchen Datei arbeitet, zieht sie mit.
 
+## Anlegen gehört nicht neben die Liste
+
+Viele Seiten trugen das Anlegen-Formular als feste dritte Spalte rechts (`lg:col-span-2`
+für die Liste, Karte daneben). Das kostet dauerhaft ein Drittel der Breite für etwas,
+das man selten braucht — und die Liste, die man täglich liest, wird dafür gequetscht.
+Auf „Wartung" rutschte dadurch sogar die Aktionsspalte aus dem Bild.
+
+**Die Form ist stattdessen:**
+
+- **Eigene Route** `…/neu` mit dem Formular, erreichbar über einen Knopf im
+  `action`-Slot des `PageTitle` (oben rechts). Vorbild: `beschluesse/neu`.
+- Fehler des Formulars führen auf die **Formularseite** zurück (`…/neu?fehler=…`),
+  nicht in die Liste — sonst steht die Meldung ohne die Eingabefelder da.
+- Kurze Formulare mit zwei, drei Feldern dürfen stattdessen in einer
+  `CollapsibleCard` **unter** der Liste sitzen. Eine eigene Seite lohnt dort nicht.
+
+Der Bestand wird **nicht** in einem Rutsch umgestellt — das sind 18 Seiten. Wer eine
+davon ohnehin anfasst, zieht sie mit.
+
 ## WEG: zwei Beschlussverfahren, die nie zusammenfallen
 
 Ein Beschluss-Tagesordnungspunkt einer Versammlung legt **sofort** einen `Resolution`

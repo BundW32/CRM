@@ -97,6 +97,13 @@ Kein Seitenumbau in dieser Stufe. Danach ist nichts anders sichtbar — das ist 
   abgeschaltete Regeln.
 
 ### Stufe 4 — Ausrollen in Wellen
+
+Mit dabei: **das Anlegen-Formular als feste dritte Spalte auflösen.** 18 Seiten tragen
+es heute (`lg:col-span-2` plus Karte daneben) und verschenken damit dauerhaft ein
+Drittel der Breite an etwas, das man selten braucht. Die Form steht in `AGENTS.md`
+(eigene `…/neu`-Route mit Knopf oben rechts; kurze Formulare eingeklappt unter der
+Liste). Das ist kein eigener Arbeitsschritt, sondern gehört zu jeder Welle: Wer eine
+Seite auf die Bausteine umstellt, löst dort auch die Spalte auf.
 Erst nachdem die aktiven Zweige gemergt sind, Seite für Seite entlang der Menügruppen
 (Alltag → Stammdaten → WEG → Betrieb). Jede Welle ein eigener PR.
 

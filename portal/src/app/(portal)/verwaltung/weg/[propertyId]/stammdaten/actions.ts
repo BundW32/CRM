@@ -9,7 +9,7 @@ import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
 import type { CostCategory } from "@/generated/prisma/client";
 import { costCategoryLabels } from "@/lib/labels";
-import { WEG_COST_CATALOG } from "@/lib/weg/cost-catalog";
+import { WEG_COST_CATALOG, costTypeFieldsFrom } from "@/lib/weg/cost-catalog";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 import { loadWegProperty } from "@/lib/weg/scope";
 
@@ -180,12 +180,7 @@ export async function adoptCostCatalog(formData: FormData) {
       data: toCreate.map((e, i) => ({
         organizationId: verwalter.organizationId,
         propertyId: property.id,
-        name: e.name,
-        category: e.category,
-        distributionKey: e.distributionKey,
-        laborShareType: e.laborShareType,
-        heatingCost: e.heatingCost ?? false,
-        recoverableBetrKV: e.recoverableBetrKV,
+        ...costTypeFieldsFrom(e),
         orderIndex: existing.length + i,
       })),
     });

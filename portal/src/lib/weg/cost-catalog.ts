@@ -15,6 +15,26 @@ export type CatalogEntry = {
   heatingCost?: boolean;
 };
 
+/**
+ * Übersetzt einen Katalogeintrag in die Felder einer `CostType`-Zeile.
+ *
+ * Die Zuordnung stand zweimal fast wortgleich da — in der Server-Action und im
+ * Seed. Beim Ergänzen von `heatingCost` erwischte die Änderung nur eine der
+ * beiden Stellen, und die frisch aufgesetzte Demo-WEG hätte ihre Heizkosten
+ * wieder zu 100 % nach Verbrauch verteilt. Ein neues Feld gehört ab jetzt nur
+ * noch hierher.
+ */
+export function costTypeFieldsFrom(entry: CatalogEntry) {
+  return {
+    name: entry.name,
+    category: entry.category,
+    distributionKey: entry.distributionKey,
+    laborShareType: entry.laborShareType,
+    heatingCost: entry.heatingCost ?? false,
+    recoverableBetrKV: entry.recoverableBetrKV,
+  };
+}
+
 export const WEG_COST_CATALOG: CatalogEntry[] = [
   { name: "Hausmeister", category: "BETRIEBSKOSTEN", distributionKey: "MEA", laborShareType: "HAUSHALTSNAHE_DIENSTLEISTUNG", recoverableBetrKV: true },
   { name: "Gartenpflege", category: "BETRIEBSKOSTEN", distributionKey: "MEA", laborShareType: "HAUSHALTSNAHE_DIENSTLEISTUNG", recoverableBetrKV: true },

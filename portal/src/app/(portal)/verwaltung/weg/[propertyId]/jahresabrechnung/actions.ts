@@ -173,13 +173,17 @@ export async function distributeByMeters(formData: FormData) {
 
   const { start, end } = fiscalYearRange(statement.year, property.fiscalYearStartMonth);
 
-  // Gesamtkosten dieser Kostenart im Wirtschaftsjahr (IST-Ausgaben).
+  // Zu verteilen ist nur, was aus dem laufenden Konto bezahlt wurde. Ausgaben
+  // aus der Erhaltungsrücklage werden in der Abrechnung nicht umgelegt (siehe
+  // `computeStatement`); zählte man sie hier mit, ergäbe die Verteilung eine
+  // Summe, die die Abrechnung anschließend als „unvollständig" zurückweist.
   const totalAgg = await db.booking.aggregate({
     where: {
       propertyId: property.id,
       kind: "AUSGABE",
       costTypeId: costType.id,
       bookingDate: { gte: start, lt: end },
+      account: { kind: { not: "RUECKLAGE" } },
       ...NOT_REVERSED,
     },
     _sum: { amountCents: true },

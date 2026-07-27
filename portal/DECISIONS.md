@@ -755,3 +755,36 @@ Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund B3).
 An echten Daten geprüft (12.000,00 € Heizkosten, sechs Einheiten): bei 70/30
 entfallen 3.600,00 € auf Grundkosten; die Einheit ohne Verbrauch trägt jetzt
 683,60 € statt 0,00 €. Σ Einheiten == Gesamtbetrag bei 70 % wie bei 50 %.
+
+## Schritt 25 — Durchsicht des gesamten Zweigs (27.07.2026)
+
+Vor dem Zusammenführen einmal über alles geschaut. Zwei Fehler gefunden, beide
+Folgen derselben Ursache: eine Änderung, die an zwei Stellen hätte landen müssen.
+
+127. **Der Seed trug `heatingCost` nicht mit.** Die Zuordnung Katalog → Kostenart
+     stand zweimal fast wortgleich da (Server-Action und Seed); ergänzt wurde
+     nur eine. Eine frisch aufgesetzte Demo-WEG hätte ihre Heizkosten weiter zu
+     100 % nach Verbrauch verteilt — genau der Fehler, den KP7 behebt. Behoben
+     über `costTypeFieldsFrom()` in `cost-catalog.ts`: Ein neues Feld gehört ab
+     jetzt nur noch dorthin.
+128. **Die Zählerverteilung rechnete mit dem Gesamtbetrag statt dem umlegbaren
+     Teil.** Seit KP3 wird eine aus der Erhaltungsrücklage bezahlte Ausgabe nicht
+     mehr umgelegt; `distributeByMeters` zählte sie weiter mit. Bei einer
+     Heizungsposition, die teilweise aus der Rücklage bezahlt wurde, hätte die
+     automatische Verteilung eine Summe geschrieben, die die Abrechnung
+     anschließend als „Manuelle Verteilung unvollständig" zurückweist — ohne
+     erkennbaren Grund für den Verwalter. Jetzt filtert die Abfrage auf
+     Nicht-Rücklagenkonten, wie die Abrechnung selbst.
+
+Geprüft und in Ordnung:
+
+- **Abwärtsverträglichkeit der Snapshots.** Eine vor dieser Änderung
+  fertiggestellte Abrechnung hat weder `labor.unerfasst` noch `heatingCost` im
+  Snapshot. An echten Daten gegengeprüft: Das PDF entsteht unverändert, die
+  Lücken-Zeile bleibt aus. Das ist richtig so — ein fertiges Jahr zeigt weiter
+  das, was die Eigentümer bekommen haben. Die §35a-Zahlen abgeschlossener Jahre
+  bleiben damit die alten (Brutto-)Werte; korrigierbar nur über eine neue
+  Abrechnung.
+- **Wanderung der Migrationen.** Fünf neue, alle additiv: zwei Spalten, ein
+  Enum-Wert, eine Selbstrelation, ein Flag mit Bestandsaktualisierung. Keine
+  löscht oder ändert Bestandsdaten.

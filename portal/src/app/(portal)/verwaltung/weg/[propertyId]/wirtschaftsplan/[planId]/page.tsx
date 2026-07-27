@@ -29,7 +29,14 @@ export default async function WirtschaftsplanDetailPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string; planId: string }>;
-  searchParams: Promise<{ gespeichert?: string; beschlossen?: string; fehler?: string }>;
+  searchParams: Promise<{
+    gespeichert?: string;
+    beschlossen?: string;
+    fehler?: string;
+    abgelegt?: string;
+    ablage?: string;
+    ohne?: string;
+  }>;
 }) {
   const { propertyId, planId } = await params;
   const { property } = await requireWegProperty(propertyId);
@@ -155,10 +162,19 @@ Muster — ersetzt keine Rechtsberatung.`;
           Planwerte gespeichert.
         </Alert>
       ) : null}
+      {sp.ablage === "fehler" ? (
+        <Alert variant="warning" title="Dokumente nicht abgelegt" className="mb-4">
+          Der Plan ist beschlossen und die Sollstellungen sind erzeugt, aber die
+          Einzelwirtschaftspläne konnten nicht in den Dokumenten abgelegt werden.
+        </Alert>
+      ) : null}
       {sp.beschlossen ? (
         <Alert variant="success" className="mb-4">
           Wirtschaftsplan beschlossen — {plan._count.duePostings} monatliche Sollstellungen wurden
-          erzeugt. Die offenen Posten finden Sie unter{" "}
+          erzeugt{sp.abgelegt ? `, ${sp.abgelegt} Einzelwirtschaftspläne für die Eigentümer abgelegt` : ""}.
+          {sp.ohne && sp.ohne !== "0"
+            ? ` Für ${sp.ohne} ${sp.ohne === "1" ? "Einheit" : "Einheiten"} ist kein Eigentümer erfasst — dort wurde nichts abgelegt.`
+            : ""} Die offenen Posten finden Sie unter{" "}
           <Link href={`/verwaltung/weg/${property.id}/hausgeld`} className="underline">
             Hausgeld
           </Link>

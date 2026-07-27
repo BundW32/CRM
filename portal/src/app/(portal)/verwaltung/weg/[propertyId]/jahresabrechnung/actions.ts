@@ -9,6 +9,8 @@ import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
 import { computeStatementView } from "@/lib/weg/statement-service";
+import { buildEinzelabrechnungPdf } from "@/lib/weg/einzelabrechnung-pdf";
+import { legeEigentuemerDokumenteAb } from "@/lib/weg/owner-documents";
 import { matchHeatingRows, parseHeatingCsv } from "@/lib/weg/heating-import";
 import { loadWegProperty } from "@/lib/weg/scope";
 import { fiscalYearRange } from "@/lib/weg/economic-plan";
@@ -383,21 +385,92 @@ export async function finalizeStatement(formData: FormData) {
     }
   }
 
+  const finalizedAt = new Date();
   await db.annualStatement.update({
     where: { id: statement.id },
     data: {
       status: "FERTIG",
-      finalizedAt: new Date(),
+      finalizedAt,
       snapshot: view as unknown as Prisma.InputJsonValue,
     },
   });
+
+  // Jede Einheit bekommt ihre Einzelabrechnung in die Dokumente gelegt —
+  // gezielt an ihre Eigentümer. Der Zeitpunkt ist bewusst dieser: Die
+  // Abrechnung ist jetzt versandfertig, und die Eigentümer müssen sie **vor**
+  // der Versammlung prüfen können, weil dort über die Abrechnungsspitze
+  // beschlossen wird (§ 28 Abs. 2 Satz 1 WEG). Erst danach zu verteilen wäre
+  // zu spät.
+  //
+  // Schlägt die Ablage fehl, bleibt die Abrechnung fertiggestellt: Das
+  // Einfrieren ist der fachliche Vorgang, die Ablage nur seine Folge. Der
+  // Verwalter sieht eine Warnung; die PDFs bleiben über die Abruf-Route
+  // erreichbar. Eine Wiederholung der Ablage gibt es noch nicht — sie wäre
+  // dank `refPrefix` gefahrlos, siehe offener Punkt in DECISIONS.md.
+  let ablage: Awaited<ReturnType<typeof legeEigentuemerDokumenteAb>> | null = null;
+  try {
+    ablage = await verteileEinzelabrechnungen(property, statement.id, statement.year, view, finalizedAt, verwalter.id);
+  } catch (err) {
+    console.error("Ablage der Einzelabrechnungen fehlgeschlagen", err);
+  }
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_STATEMENT_FINALIZED,
     targetType: "AnnualStatement",
     targetId: statement.id,
-    meta: { year: statement.year, totalExpenseCents: view.totalExpenseCents },
+    meta: {
+      year: statement.year,
+      totalExpenseCents: view.totalExpenseCents,
+      dokumenteAbgelegt: ablage ? ablage.erstellt + ablage.ersetzt : 0,
+      ohneEigentuemer: ablage?.uebersprungen.length ?? 0,
+    },
   });
   revalidatePath(`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}`);
-  back(property.id, `/${statement.id}`, "fertig=1");
+  back(
+    property.id,
+    `/${statement.id}`,
+    ablage
+      ? `fertig=1&abgelegt=${ablage.erstellt + ablage.ersetzt}&ohne=${ablage.uebersprungen.length}`
+      : "fertig=1&ablage=fehler",
+  );
+}
+
+// Erzeugt je Einheit die Einzelabrechnung und legt sie ab. Ausgelagert, damit
+// `finalizeStatement` lesbar bleibt.
+async function verteileEinzelabrechnungen(
+  property: { id: string; name: string; organizationId: string },
+  statementId: string,
+  year: number,
+  view: Awaited<ReturnType<typeof computeStatementView>>,
+  finalizedAt: Date,
+  uploadedById: string,
+) {
+  const units = await db.unit.findMany({
+    where: { propertyId: property.id },
+    orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
+    select: { id: true, label: true },
+  });
+  const documents = await Promise.all(
+    units.map(async (u) => ({
+      unitId: u.id,
+      unitLabel: u.label,
+      title: `Einzelabrechnung ${year} — ${u.label}`,
+      fileName: `Einzelabrechnung_${year}_${u.label.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+      pdf: await buildEinzelabrechnungPdf({
+        propertyName: property.name,
+        organizationId: property.organizationId,
+        view,
+        units: [u],
+        finalizedAt,
+      }),
+    })),
+  );
+  return legeEigentuemerDokumenteAb({
+    organizationId: property.organizationId,
+    propertyId: property.id,
+    uploadedById,
+    category: "ABRECHNUNG",
+    refPrefix: `weg-einzelabrechnung:${statementId}`,
+    documents,
+  });
 }

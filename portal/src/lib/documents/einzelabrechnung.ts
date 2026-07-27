@@ -202,9 +202,16 @@ export async function generateEinzelabrechnungen(rawInput: EinzelabrechnungInput
     y -= 6;
     page.drawLine({ start: { x: ML, y }, end: { x: ML + CW, y }, thickness: 0.3, color: rgb(0.8, 0.8, 0.8) });
     y -= 12;
+    // „Fertiggestellt" heißt: der Verwalter hat die Abrechnung geprüft und das
+    // Ergebnis eingefroren — sie ist damit **versandfertige Beschlussvorlage**.
+    // Beschlossen wird die Abrechnungsspitze erst von der Eigentümerversammlung
+    // (§ 28 Abs. 2 Satz 1 WEG); erst damit wird ein Nachschuss fällig. Das
+    // Dokument hat das vorher „Beschlossene Abrechnung" genannt — eine Aussage,
+    // die zu diesem Zeitpunkt nicht stimmt und zu einer Zahlung auf eine noch
+    // nicht beschlossene Forderung verleiten kann.
     const footNote = input.finalizedAt
-      ? `Beschlossene Abrechnung, erstellt am ${fmtDate(input.generatedAt)}. Über Nachschüsse/Anpassungen beschließt die Eigentümerversammlung (§ 28 Abs. 2 WEG). Muster — ersetzt keine Rechtsberatung.`
-      : `ENTWURF, erstellt am ${fmtDate(input.generatedAt)} — noch nicht beschlossen. Muster — ersetzt keine Rechtsberatung.`;
+      ? `Erstellt am ${fmtDate(input.generatedAt)}, geprüft und abgeschlossen. Über die Abrechnungsspitze beschließt die Eigentümerversammlung (§ 28 Abs. 2 WEG) — erst mit diesem Beschluss wird ein Nachschuss fällig. Muster — ersetzt keine Rechtsberatung.`
+      : `ENTWURF, erstellt am ${fmtDate(input.generatedAt)} — noch in Bearbeitung. Muster — ersetzt keine Rechtsberatung.`;
     for (const l of wrapText(footNote, font, 7.5, CW)) {
       page.drawText(l, { x: COL_POS, y, size: 7.5, font, color: GRAY });
       y -= 10;

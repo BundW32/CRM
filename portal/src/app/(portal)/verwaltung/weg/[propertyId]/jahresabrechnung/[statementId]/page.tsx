@@ -41,7 +41,16 @@ export default async function JahresabrechnungDetailPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string; statementId: string }>;
-  searchParams: Promise<{ gespeichert?: string; fertig?: string; fehler?: string; importiert?: string; offen?: string }>;
+  searchParams: Promise<{
+    gespeichert?: string;
+    fertig?: string;
+    fehler?: string;
+    importiert?: string;
+    offen?: string;
+    abgelegt?: string;
+    ablage?: string;
+    ohne?: string;
+  }>;
 }) {
   const { propertyId, statementId } = await params;
   const { property } = await requireWegProperty(propertyId);
@@ -142,10 +151,30 @@ Muster — ersetzt keine Rechtsberatung.`;
         </Alert>
       ) : null}
 
+      {sp.ablage === "fehler" ? (
+        <Alert variant="warning" title="Dokumente nicht abgelegt" className="mb-4">
+          Die Abrechnung ist fertiggestellt, aber die Einzelabrechnungen konnten nicht in den
+          Dokumenten abgelegt werden. Erneutes Fertigstellen holt es nach.
+        </Alert>
+      ) : sp.abgelegt ? (
+        <Alert
+          variant={sp.ohne && sp.ohne !== "0" ? "warning" : "success"}
+          className="mb-4"
+        >
+          {sp.abgelegt} {sp.abgelegt === "1" ? "Einzelabrechnung wurde" : "Einzelabrechnungen wurden"}{" "}
+          den jeweiligen Eigentümern unter &bdquo;Dokumente&ldquo; bereitgestellt.
+          {sp.ohne && sp.ohne !== "0"
+            ? ` Für ${sp.ohne} ${sp.ohne === "1" ? "Einheit" : "Einheiten"} ist kein Eigentümer erfasst — dort wurde nichts abgelegt, damit die Abrechnung nicht für alle sichtbar wird.`
+            : ""}
+        </Alert>
+      ) : null}
+
       {!isDraft ? (
         <Alert variant="info" className="mb-4">
           Fertiggestellt am {statement.finalizedAt ? formatDateOnly(statement.finalizedAt) : "—"} —
-          alle Zahlen sind als Snapshot eingefroren (revisionssicher).
+          alle Zahlen sind als Snapshot eingefroren (revisionssicher). Über die
+          Abrechnungsspitze beschließt die Eigentümerversammlung; erst damit wird ein
+          Nachschuss fällig.
         </Alert>
       ) : view.errors.length > 0 ? (
         <Alert variant="warning" title="Prüfliste — vor dem Fertigstellen zu klären" className="mb-4">

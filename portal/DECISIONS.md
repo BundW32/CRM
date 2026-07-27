@@ -622,3 +622,51 @@ Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund B7c).
 An echten Daten geprüft: WE 01 zeigt sechs Positionen mit Schlüssel und Anteil,
 Jahresvorschuss 2.699,84 €, Monatsrate 224,98–224,99 € — deckungsgleich mit der
 Hausgeld-Tabelle des Gesamtplans.
+
+## Schritt 22 — Block 2, KP5b: Dokumente automatisch je Eigentümer ablegen (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund C), Nachfrage „wer bekommt
+wann was?".
+
+105. **Einzelwirtschaftsplan und Einzelabrechnung waren reine Abrufdokumente.**
+     Wer nicht von selbst unter „Finanzen" nachsah, bekam nichts. Beide werden
+     jetzt beim Erzeugen automatisch in die Dokumente der jeweiligen Eigentümer
+     gelegt (`lib/weg/owner-documents.ts`).
+106. **Die Auslöser folgen dem Gesetz, nicht der Bequemlichkeit.** Der
+     Einzelwirtschaftsplan wird mit dem **Beschluss** abgelegt (`resolvePlan`) —
+     erst der Beschluss macht die Vorschüsse fällig (§ 28 Abs. 1 WEG), vorher
+     gibt es keine aufbewahrenswerte Fassung. Die Einzelabrechnung wird mit dem
+     **Fertigstellen** abgelegt (`finalizeStatement`), also **vor** der
+     Versammlung: Dort wird über die Abrechnungsspitze beschlossen (§ 28 Abs. 2
+     Satz 1 WEG), und dafür müssen die Eigentümer sie vorher prüfen können.
+     Nach dem Beschluss zu verteilen wäre zu spät.
+107. **Adressiert wird gezielt über `DocumentRecipient`.** Sind Empfänger
+     gesetzt, sieht nur diese Person das Dokument (`documentWhereForUser`).
+     Niemand bekommt die Abrechnung des Nachbarn samt dessen Zahlungsdaten.
+108. **Einheiten ohne erfassten Eigentümer werden übersprungen — und gemeldet.**
+     Ein Dokument ohne Empfänger fiele auf die `audience`-Logik zurück und wäre
+     damit für **alle** Eigentümer des Objekts sichtbar. Das ist der Grund für
+     das Überspringen; die Rückmeldung nennt die Einheiten, damit der Verwalter
+     den Eigentümer nachträgt.
+109. **`externalRef` macht den Vorgang wiederholbar.** Ein zweiter Lauf ersetzt
+     die vorhandene Fassung, statt die Ablage zu verdoppeln. Ohne diesen
+     Schlüssel lägen nach drei Korrekturläufen drei Abrechnungen nebeneinander,
+     ohne Angabe welche gilt.
+110. **Reihenfolge: erst alle Dateien hochladen, dann die Datenbank in *einer*
+     Transaktion, und die ersetzten Dateien zuletzt löschen.** Der erste Entwurf
+     löschte die alte Datei sofort beim Ersetzen — ein Fehler danach hätte die
+     Datei gelöscht, auf die der zurückgerollte Datensatz noch zeigt.
+111. **Das Abrechnungs-PDF behauptete „Beschlossene Abrechnung".** Falsch:
+     `StatementStatus` kennt nur ENTWURF und FERTIG, keinen Beschlusszustand.
+     Der Fuß sagt jetzt, dass über die Abrechnungsspitze noch die Versammlung
+     beschließt — sonst hielte der Eigentümer eine Nachzahlung für fällig, die
+     es noch nicht ist.
+112. **Bekannte Lücke: keine Wiederholaktion.** Schlägt die Ablage fehl, wird
+     das protokolliert, aber die Abrechnung bleibt fertiggestellt; ein erneuter
+     Anlauf ist über `finalizeStatement` nicht möglich, weil das nur für
+     ENTWURF läuft. Der Helfer ist idempotent, ein Wiederholknopf wäre also
+     gefahrlos nachzurüsten.
+
+An echten Daten geprüft: erster Lauf 6 erstellt, zweiter Lauf 6 ersetzt (keine
+Dubletten); eine Einheit ohne `UnitOwnership` wurde übersprungen und gemeldet;
+Erika Eigentümerin sieht 4, Klaus Käufer 1 Dokument — niemand das des anderen.

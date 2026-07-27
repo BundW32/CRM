@@ -183,6 +183,10 @@ enum CostCategory {
   VERWALTUNG
   RUECKLAGENZUFUEHRUNG
   SONSTIGES
+  // Einnahmen der Gemeinschaft (§ 28 Abs. 1 WEG verlangt Einnahmen UND Ausgaben):
+  // Zinsen, Miete aus Gemeinschaftseigentum, PV-Einspeisung. Der Betrag bleibt
+  // wie überall positiv; die Richtung steckt in der Kategorie.
+  ERTRAG
 }
 
 // §35a EStG — Lohnanteil-Klassifizierung einer Kostenart
@@ -1366,6 +1370,16 @@ model CostType {
   category          CostCategory    @default(BETRIEBSKOSTEN)
   distributionKey   DistributionKey @default(MEA)
   laborShareType    LaborShareType  @default(KEINE) // §35a EStG
+  // Erfahrungswert für den Lohn-/Fahrt-/Maschinenkostenanteil dieser Kostenart
+  // in Prozent (§ 35a EStG). Greift nur, wenn an der einzelnen Buchung nichts
+  // erfasst ist — die Rechnung geht immer vor. null = keine Vorbelegung, dann
+  // wird der Betrag als „Lohnanteil nicht erfasst" ausgewiesen statt geschätzt.
+  laborSharePercent Int?
+  // Heiz-/Warmwasserkosten im Sinne der HeizkostenV. Für sie gilt die
+  // Zwangsaufteilung 50–70 % Verbrauch / Rest Fläche (§§ 7, 8 HeizkostenV);
+  // eine Verteilung zu 100 % nach Verbrauch wäre formell fehlerhaft und gäbe
+  // jedem Eigentümer ein Kürzungsrecht von 15 % (§ 12 Abs. 1 HeizkostenV).
+  heatingCost       Boolean         @default(false)
   recoverableBetrKV Boolean         @default(false) // umlagefähig nach BetrKV (Mieter)
   active            Boolean         @default(true)
   orderIndex        Int             @default(0)
@@ -1420,6 +1434,11 @@ model Booking {
   bookingDate     DateTime
   valueDate       DateTime? // Wertstellung (aus Bankimport)
   amountCents     Int // immer positiv; Richtung über kind
+  // §35a EStG: der in der Rechnung ausgewiesene Lohn-, Fahrt- und
+  // Maschinenkostenanteil. NUR dieser Teil ist begünstigt — Material nicht.
+  // null = nicht erfasst (nicht: null Euro); dann greift der Erfahrungswert der
+  // Kostenart, und fehlt auch der, wird der Betrag als Lücke ausgewiesen.
+  laborShareCents Int?
   text            String
   counterparty    String? // Zahlungspartner
   reference       String? // Verwendungszweck
@@ -1431,6 +1450,12 @@ model Booking {
   // gemeinsamer transferGroupId; beide kind=UMBUCHUNG, Richtung über transferOut.
   transferGroupId String?
   transferOut     Boolean? // nur bei UMBUCHUNG: true = Geld verlässt dieses Konto
+  // Storno: Buchungen werden nie geändert oder gelöscht, sondern durch eine
+  // Gegenbuchung neutralisiert. Diese zeigt über reversalOfId auf das Original;
+  // @unique stellt sicher, dass jede Buchung höchstens einmal storniert wird.
+  reversalOfId    String?          @unique
+  reversalOf      Booking?         @relation("BookingReversal", fields: [reversalOfId], references: [id], onDelete: Cascade)
+  reversedBy      Booking?         @relation("BookingReversal")
   // Beleg (gleiche Storage-Konvention wie Handover: storedName/fileName/mimeType)
   belegStoredName String?
   belegFileName   String?

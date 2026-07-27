@@ -10,6 +10,7 @@ import { formatDateOnly } from "@/lib/labels";
 import { normalizeSearch, parsePage } from "@/lib/list-query";
 import { formatCents } from "@/lib/money";
 import { requireUser } from "@/lib/session";
+import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import type { StatementView } from "@/lib/weg/statement-service";
 import { setBeiratReview } from "../beirat/review-actions";
 
@@ -167,7 +168,7 @@ export default async function FinanzenPage({
     }),
     db.booking.groupBy({
       by: ["unitId"],
-      where: { unitId: { in: myUnitIds }, kind: "EINNAHME" },
+      where: { unitId: { in: myUnitIds }, kind: "EINNAHME", ...NOT_REVERSED },
       _sum: { amountCents: true },
     }),
     // Belegeinsicht: alle Buchungen der WEG (Leserecht der Gemeinschaft).
@@ -235,7 +236,7 @@ export default async function FinanzenPage({
       }),
       db.booking.groupBy({
         by: ["unitId"],
-        where: { unitId: { in: allUnitIds }, kind: "EINNAHME" },
+        where: { unitId: { in: allUnitIds }, kind: "EINNAHME", ...NOT_REVERSED },
         _sum: { amountCents: true },
       }),
     ]);
@@ -310,6 +311,14 @@ export default async function FinanzenPage({
                                     {euro(labor.handwerker)} Handwerker
                                   </span>
                                 ) : null}
+                                {/* Die Lücke gehört dem Eigentümer gesagt — es
+                                    ist Geld, das er absetzen könnte, sobald der
+                                    Lohnanteil der Rechnung vorliegt. */}
+                                {labor && labor.unerfasst > 0 ? (
+                                  <span className="ml-2 text-xs text-amber-600">
+                                    für {euro(labor.unerfasst)} liegt kein Lohnanteil vor
+                                  </span>
+                                ) : null}
                               </div>
                               <span
                                 className={`text-sm font-semibold ${
@@ -364,14 +373,27 @@ export default async function FinanzenPage({
                         {p.resolutionNote ? ` · ${p.resolutionNote}` : ""}
                       </span>
                     </div>
-                    <a
-                      href={`/finanzen/wirtschaftsplan/${p.id}/pdf`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={buttonSecondaryClass}
-                    >
-                      Wirtschaftsplan als PDF
-                    </a>
+                    <div className="flex flex-wrap gap-2">
+                      {/* Der eigene Einzelplan zuerst: Er beantwortet die Frage,
+                          die der Eigentümer wirklich hat — woraus sich mein
+                          Hausgeld zusammensetzt. */}
+                      <a
+                        href={`/finanzen/wirtschaftsplan/${p.id}/pdf?dokument=einzelplan`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={buttonSecondaryClass}
+                      >
+                        Mein Hausgeld im Detail
+                      </a>
+                      <a
+                        href={`/finanzen/wirtschaftsplan/${p.id}/pdf`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={buttonSecondaryClass}
+                      >
+                        Gesamtplan als PDF
+                      </a>
+                    </div>
                   </div>
                   <ReviewBlock
                     kind="plan"

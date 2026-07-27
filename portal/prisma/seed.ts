@@ -5,7 +5,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { WEG_COST_CATALOG } from "../src/lib/weg/cost-catalog";
+import { WEG_COST_CATALOG, costTypeFieldsFrom } from "../src/lib/weg/cost-catalog";
 import { WEG_COMPLIANCE_CATALOG } from "../src/lib/weg/compliance-catalog";
 import { addMonths } from "../src/lib/weg/compliance";
 import {
@@ -150,11 +150,7 @@ async function main() {
       data: WEG_COST_CATALOG.map((e, i) => ({
         organizationId: org.id,
         propertyId: weg.id,
-        name: e.name,
-        category: e.category,
-        distributionKey: e.distributionKey,
-        laborShareType: e.laborShareType,
-        recoverableBetrKV: e.recoverableBetrKV,
+        ...costTypeFieldsFrom(e),
         orderIndex: i,
       })),
     });

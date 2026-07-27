@@ -1,16 +1,35 @@
 import { NextResponse } from "next/server";
-import { ownsProperty } from "@/lib/access";
+import { ownedUnitIdsInProperty, ownsProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/session";
-import { buildWirtschaftsplanPdf } from "@/lib/weg/wirtschaftsplan-pdf";
+import {
+  buildEinzelwirtschaftsplanPdf,
+  buildWirtschaftsplanPdf,
+  ownerNamesByUnit,
+} from "@/lib/weg/wirtschaftsplan-pdf";
 
 export const dynamic = "force-dynamic";
 
-// Wirtschaftsplan als PDF für einen Eigentümer (Gesamtplan + Einzelwirtschafts-
-// pläne). Nur BESCHLOSSENe Pläne — Entwürfe sind Verwalter-Arbeitsstände.
-// Analog zur eigenen Einzelabrechnung: Zugriff über die Eigentümerstellung.
+function pdfAntwort(pdf: Buffer, fileName: string): NextResponse {
+  return new NextResponse(new Uint8Array(pdf), {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${fileName}"`,
+      "Cache-Control": "private, no-store",
+    },
+  });
+}
+
+// Wirtschaftsplan als PDF für einen Eigentümer. Nur BESCHLOSSENe Pläne —
+// Entwürfe sind Verwalter-Arbeitsstände.
+//
+// `?dokument=einzelplan` liefert den **eigenen** Einzelwirtschaftsplan. Anders
+// als beim Verwalter ist die Einheit nicht frei wählbar: Gefiltert wird auf die
+// Einheiten, die dem Anmelder gehören. Ohne eigene Einheit im Objekt gibt es
+// den Einzelplan nicht — der Gesamtplan bleibt zugänglich, er ist ohnehin
+// Beschlussgegenstand der Gemeinschaft.
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ planId: string }> },
 ) {
   const user = await getUser();
@@ -34,21 +53,35 @@ export async function GET(
       where: { propertyId: plan.property.id },
       orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
     });
-    const pdf = await buildWirtschaftsplanPdf({
+    const einzelplan = new URL(request.url).searchParams.get("dokument") === "einzelplan";
+    if (!einzelplan) {
+      const pdf = await buildWirtschaftsplanPdf({
+        propertyName: plan.property.name,
+        organizationId: plan.property.organizationId,
+        plan,
+        units,
+      });
+      return pdfAntwort(
+        pdf,
+        `Wirtschaftsplan_${plan.year}_${plan.property.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+      );
+    }
+
+    // Eigene Einheiten — die Verteilung braucht trotzdem ALLE Einheiten, sonst
+    // stimmten die Gewichte nicht. Gefiltert wird erst bei der Ausgabe.
+    const eigene = new Set(await ownedUnitIdsInProperty(user.id, plan.property.id));
+    if (eigene.size === 0) {
+      return NextResponse.json({ error: "Keine eigene Einheit in diesem Objekt" }, { status: 404 });
+    }
+    const pdf = await buildEinzelwirtschaftsplanPdf({
       propertyName: plan.property.name,
       organizationId: plan.property.organizationId,
       plan,
       units,
+      ownerNamesByUnit: await ownerNamesByUnit([...eigene]),
+      onlyUnitIds: [...eigene],
     });
-
-    const fileName = `Wirtschaftsplan_${plan.year}_${plan.property.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    return pdfAntwort(pdf, `Einzelwirtschaftsplan_${plan.year}.pdf`);
   } catch (err) {
     console.error("Wirtschaftsplan-PDF (Eigentümer) fehlgeschlagen", err);
     const msg = err instanceof Error ? err.message : "Export fehlgeschlagen";

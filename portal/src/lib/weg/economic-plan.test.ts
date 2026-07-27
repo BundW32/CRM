@@ -172,3 +172,53 @@ describe("monthlyInstallments", () => {
     expect(monthlyInstallments(0)).toEqual(Array(12).fill(0));
   });
 });
+
+// ── Einnahmenseite (§ 28 Abs. 1 WEG, Befund B7a) ────────────────────────────
+
+describe("Einnahmen im Wirtschaftsplan", () => {
+  const ausgabe = (cents: number) => ({
+    costTypeId: "hausmeister",
+    distributionKey: "MEA" as const,
+    amountCents: cents,
+    category: "BETRIEBSKOSTEN" as const,
+  });
+  const ertrag = (cents: number, key: "MEA" | "FLAECHE" = "MEA") => ({
+    costTypeId: "pv",
+    distributionKey: key,
+    amountCents: cents,
+    category: "ERTRAG" as const,
+  });
+
+  it("mindern den Vorschussbedarf, statt ihn zu erhöhen", () => {
+    const ohne = computeUnitAdvances([ausgabe(1_200_000)], units);
+    const mit = computeUnitAdvances([ausgabe(1_200_000), ertrag(300_000)], units);
+    expect(ohne.totalCents).toBe(1_200_000);
+    expect(mit.totalCents).toBe(900_000);
+    expect(mit.expenseCents).toBe(1_200_000);
+    expect(mit.incomeCents).toBe(300_000);
+  });
+
+  it("verteilen sich centgenau und senken jeden Einzelplan", () => {
+    const ohne = computeUnitAdvances([ausgabe(1_200_000)], units);
+    const mit = computeUnitAdvances([ausgabe(1_200_000), ertrag(300_000)], units);
+    const summe = [...mit.perUnit.values()].reduce((a, b) => a + b, 0);
+    expect(summe).toBe(900_000);
+    for (const [unitId, cents] of mit.perUnit) {
+      expect(cents).toBeLessThan(ohne.perUnit.get(unitId)!);
+    }
+  });
+
+  it("folgen ihrem eigenen Schlüssel", () => {
+    // PV-Erlös nach Fläche: der Stellplatz ohne Wohnfläche bekommt nichts ab
+    const r = computeUnitAdvances([ausgabe(1_200_000), ertrag(300_000, "FLAECHE")], units);
+    const pv = r.perItem.get("pv")!;
+    expect(pv.get("te6")).toBe(0);
+    expect([...pv.values()].reduce((a, b) => a + b, 0)).toBe(-300_000);
+  });
+
+  it("weisen einen Plan ab, dessen Einnahmen die Ausgaben übersteigen", () => {
+    expect(() => computeUnitAdvances([ausgabe(100_000), ertrag(150_000)], units)).toThrow(
+      /Einnahmen übersteigen/,
+    );
+  });
+});

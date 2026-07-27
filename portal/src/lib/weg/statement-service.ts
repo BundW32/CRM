@@ -4,6 +4,7 @@
 // live gerendert (ENTWURF) und bei FERTIG als Snapshot eingefroren.
 import type { DistributionKey, LaborShareType, LedgerAccountKind } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import {
   computeLaborShares,
   computePeakAmounts,
@@ -22,14 +23,20 @@ export type StatementView = {
     distributionKey: DistributionKey;
     laborShareType: LaborShareType;
     totalCents: number;
+    reserveFundedCents?: number;
+    laborBaseCents?: number;
+    laborUnerfasstCents?: number;
+    /** HeizkostenV-Kostenart — die Verteilung braucht einen Grundkostenanteil. */
+    heatingCost?: boolean;
     perUnit: Record<string, number> | null;
     error?: string;
   }[];
   errors: string[];
+  warnings: string[];
   perUnitTotal: Record<string, number>;
   duePerUnit: Record<string, number>;
   peak: Record<string, number>; // Abrechnungsspitze: + Nachschuss / − Guthaben
-  labor: Record<string, { haushaltsnah: number; handwerker: number }>;
+  labor: Record<string, { haushaltsnah: number; handwerker: number; unerfasst: number }>;
   ownerSplit: Record<
     string,
     { shares: { userName: string; days: number; cents: number }[]; uncoveredCents: number }
@@ -47,6 +54,7 @@ export type StatementView = {
   incomeCents: number;
   totalExpenseCents: number;
   reserveTransferCents: number;
+  reserveWithdrawalCents: number; // aus der Rücklage bezahlt, nicht umgelegt
   receivablesCents: number; // Forderungen (Hausgeldrückstände) zum Stichtag
 };
 
@@ -78,12 +86,12 @@ export async function computeStatementView(
   const { start, end } = fiscalYearRange(year, property.fiscalYearStartMonth);
   const inYear = { gte: start, lt: end };
 
-  const [costTypes, units, expenseGroups, otherAgg, incomeAgg, accounts, beforeGroups, yearGroups, manualRows, dueGroups, ownerships, paidGroups] =
+  const [costTypes, units, expenseGroups, otherAgg, incomeAgg, ertragGroups, accounts, beforeGroups, yearGroups, manualRows, dueGroups, ownerships, paidGroups, laborBookings, plan] =
     await Promise.all([
       db.costType.findMany({
         where: { propertyId: property.id },
         orderBy: [{ orderIndex: "asc" }, { name: "asc" }],
-        select: { id: true, name: true, distributionKey: true, laborShareType: true },
+        select: { id: true, name: true, category: true, distributionKey: true, laborShareType: true, heatingCost: true },
       }),
       db.unit.findMany({
         where: { propertyId: property.id },
@@ -91,16 +99,42 @@ export async function computeStatementView(
         select: { id: true, mea: true, livingArea: true, personCount: true },
       }),
       db.booking.groupBy({
+        by: ["costTypeId", "accountId"],
+        where: {
+          propertyId: property.id,
+          kind: "AUSGABE",
+          costTypeId: { not: null },
+          bookingDate: inYear,
+          ...NOT_REVERSED,
+        },
+        _sum: { amountCents: true },
+      }),
+      db.booking.aggregate({
+        where: {
+          propertyId: property.id,
+          kind: "AUSGABE",
+          costTypeId: null,
+          bookingDate: inYear,
+          ...NOT_REVERSED,
+        },
+        _sum: { amountCents: true },
+      }),
+      db.booking.aggregate({
+        where: { propertyId: property.id, kind: "EINNAHME", bookingDate: inYear, ...NOT_REVERSED },
+        _sum: { amountCents: true },
+      }),
+      // Einnahmen, die einer Ertrags-Kostenart zugeordnet sind (Zinsen, Miete
+      // aus Gemeinschaftseigentum, PV). Hausgeld-Eingänge tragen keine
+      // Kostenart und bleiben deshalb außen vor.
+      db.booking.groupBy({
         by: ["costTypeId"],
-        where: { propertyId: property.id, kind: "AUSGABE", costTypeId: { not: null }, bookingDate: inYear },
-        _sum: { amountCents: true },
-      }),
-      db.booking.aggregate({
-        where: { propertyId: property.id, kind: "AUSGABE", costTypeId: null, bookingDate: inYear },
-        _sum: { amountCents: true },
-      }),
-      db.booking.aggregate({
-        where: { propertyId: property.id, kind: "EINNAHME", bookingDate: inYear },
+        where: {
+          propertyId: property.id,
+          kind: "EINNAHME",
+          costType: { category: "ERTRAG" },
+          bookingDate: inYear,
+          ...NOT_REVERSED,
+        },
         _sum: { amountCents: true },
       }),
       db.ledgerAccount.findMany({
@@ -129,8 +163,44 @@ export async function computeStatementView(
       }),
       db.booking.groupBy({
         by: ["unitId"],
-        where: { propertyId: property.id, kind: "EINNAHME", unitId: { not: null }, bookingDate: { lt: end } },
+        where: {
+          propertyId: property.id,
+          kind: "EINNAHME",
+          unitId: { not: null },
+          bookingDate: { lt: end },
+          ...NOT_REVERSED,
+        },
         _sum: { amountCents: true },
+      }),
+      // §35a: die einzelnen Ausgabebuchungen der begünstigten Kostenarten.
+      // Gruppieren geht hier nicht — der Lohnanteil steht an der Buchung, und
+      // wo er fehlt, greift der Erfahrungswert der Kostenart auf *diesen* Betrag.
+      db.booking.findMany({
+        where: {
+          propertyId: property.id,
+          kind: "AUSGABE",
+          bookingDate: inYear,
+          costType: { laborShareType: { not: "KEINE" } },
+          ...NOT_REVERSED,
+        },
+        select: {
+          costTypeId: true,
+          accountId: true,
+          amountCents: true,
+          laborShareCents: true,
+          costType: { select: { laborSharePercent: true } },
+        },
+      }),
+      // Beschlossener Wirtschaftsplan des Jahres: liefert Schlüssel und Sollwert
+      // der Rücklagenzuführung. Ohne Plan bleibt es beim Rückfall auf MEA.
+      db.economicPlan.findFirst({
+        where: { propertyId: property.id, year, status: "BESCHLOSSEN" },
+        select: {
+          items: {
+            where: { costType: { category: "RUECKLAGENZUFUEHRUNG" } },
+            select: { amountCents: true, costType: { select: { distributionKey: true } } },
+          },
+        },
       }),
     ]);
 
@@ -143,6 +213,44 @@ export async function computeStatementView(
     }
   }
 
+  // Ausgaben trennen: aus dem laufenden Konto (umlagefähig) und aus der
+  // Erhaltungsrücklage (bereits über frühere Zuführungen bezahlt).
+  const expenseByCostType = new Map<string, number>();
+  const reserveSpendByCostType = new Map<string, number>();
+  for (const g of expenseGroups) {
+    const id = g.costTypeId as string;
+    const cents = g._sum.amountCents ?? 0;
+    const ziel = reserveIds.has(g.accountId) ? reserveSpendByCostType : expenseByCostType;
+    ziel.set(id, (ziel.get(id) ?? 0) + cents);
+  }
+
+  // §35a je Kostenart: erfasster Lohnanteil und die Lücke. Aus der Rücklage
+  // bezahlte Ausgaben bleiben außen vor — sie werden im Jahr nicht umgelegt,
+  // also trägt sie kein Eigentümer und niemand kann sie absetzen.
+  const laborByCostType = new Map<string, { baseCents: number; unerfasstCents: number }>();
+  for (const b of laborBookings) {
+    if (reserveIds.has(b.accountId)) continue;
+    const id = b.costTypeId as string;
+    const eintrag = laborByCostType.get(id) ?? { baseCents: 0, unerfasstCents: 0 };
+    const prozent = b.costType?.laborSharePercent;
+    if (b.laborShareCents != null) {
+      // Die Rechnung geht vor. Mehr als der Rechnungsbetrag kann nicht
+      // Lohnanteil sein — ein Tippfehler soll nicht zu einem Ausweis führen,
+      // der über der Ausgabe liegt.
+      eintrag.baseCents += Math.min(b.laborShareCents, b.amountCents);
+    } else if (prozent != null) {
+      eintrag.baseCents += Math.round((b.amountCents * prozent) / 100);
+    } else {
+      eintrag.unerfasstCents += b.amountCents;
+    }
+    laborByCostType.set(id, eintrag);
+  }
+
+  // Schlüssel und Sollwert der Zuführung aus dem beschlossenen Plan.
+  const reserveItem = plan?.items[0];
+  const reserveTransferKey = reserveItem?.costType.distributionKey;
+  const plannedReserveCents = reserveItem?.amountCents;
+
   const manualAmounts = new Map<string, Map<string, number>>();
   for (const row of manualRows) {
     const inner = manualAmounts.get(row.costTypeId) ?? new Map<string, number>();
@@ -153,10 +261,17 @@ export async function computeStatementView(
   const result = computeStatement({
     costTypes,
     units,
-    expenseByCostType: new Map(expenseGroups.map((g) => [g.costTypeId as string, g._sum.amountCents ?? 0])),
+    expenseByCostType,
+    incomeByCostType: new Map(
+      ertragGroups.map((g) => [g.costTypeId as string, g._sum.amountCents ?? 0]),
+    ),
+    reserveSpendByCostType,
     otherExpenseCents: otherAgg._sum.amountCents ?? 0,
     manualAmounts,
     reserveTransferCents,
+    reserveTransferKey,
+    plannedReserveCents,
+    laborByCostType,
   });
 
   const duePerUnit = new Map(dueGroups.map((g) => [g.unitId, g._sum.amountCents ?? 0]));
@@ -235,10 +350,15 @@ export async function computeStatementView(
       distributionKey: r.distributionKey,
       laborShareType: r.laborShareType,
       totalCents: r.totalCents,
+      reserveFundedCents: r.reserveFundedCents,
+      laborBaseCents: r.laborBaseCents,
+      laborUnerfasstCents: r.laborUnerfasstCents,
+      heatingCost: costTypes.find((c) => c.id === r.costTypeId)?.heatingCost,
       perUnit: r.perUnit ? Object.fromEntries(r.perUnit) : null,
       error: r.error,
     })),
     errors: result.errors,
+    warnings: result.warnings,
     perUnitTotal: Object.fromEntries(result.perUnitTotal),
     duePerUnit: Object.fromEntries(duePerUnit),
     peak: Object.fromEntries(peak),
@@ -248,6 +368,7 @@ export async function computeStatementView(
     incomeCents: incomeAgg._sum.amountCents ?? 0,
     totalExpenseCents: result.totalExpenseCents,
     reserveTransferCents,
+    reserveWithdrawalCents: result.reserveWithdrawalCents,
     receivablesCents,
   };
 }

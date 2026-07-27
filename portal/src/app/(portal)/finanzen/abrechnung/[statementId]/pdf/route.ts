@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
 import { ownedUnitIdsInProperty, ownsProperty } from "@/lib/access";
-import { getBrandingForOrg } from "@/lib/branding-server";
 import { db } from "@/lib/db";
-import { distributionKeyLabels } from "@/lib/labels";
 import { getUser } from "@/lib/session";
-import { generateEinzelabrechnungen, type EinzelabrechnungUnit } from "@/lib/documents/einzelabrechnung";
+import { buildEinzelabrechnungPdf } from "@/lib/weg/einzelabrechnung-pdf";
 import type { StatementView } from "@/lib/weg/statement-service";
 
 export const dynamic = "force-dynamic";
 
-function fmtDate(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}.${m}.${y}`;
-}
 
 // Eigene Einzelabrechnung eines Eigentümers als PDF (nur die Einheiten, die ihm
 // gehören). Nur FERTIGe Abrechnungen (eingefrorener Snapshot) – Entwürfe sind
@@ -49,42 +43,12 @@ export async function GET(
       select: { id: true, label: true },
     });
 
-    const units: EinzelabrechnungUnit[] = myUnits.map((u) => {
-      const split = view.ownerSplit?.[u.id];
-      const labor = view.labor?.[u.id];
-      return {
-        label: u.label,
-        owners: (split?.shares ?? []).map((s) => ({ name: s.userName, days: s.days, cents: s.cents })),
-        uncoveredCents: split?.uncoveredCents ?? 0,
-        costRows: view.rows
-          .filter((r) => r.perUnit)
-          .map((r) => ({
-            name: r.name,
-            keyLabel: distributionKeyLabels[r.distributionKey] ?? r.distributionKey,
-            totalCents: r.totalCents,
-            shareCents: r.perUnit![u.id] ?? 0,
-          })),
-        kostenanteilCents: view.perUnitTotal?.[u.id] ?? 0,
-        sollCents: view.duePerUnit?.[u.id] ?? 0,
-        peakCents: view.peak?.[u.id] ?? 0,
-        laborHaushaltsnahCents: labor?.haushaltsnah ?? 0,
-        laborHandwerkerCents: labor?.handwerker ?? 0,
-      };
-    });
-
-    const branding = await getBrandingForOrg(statement.property.organizationId);
-    const endInclusive = new Date(new Date(view.fyEnd).getTime() - 86400000).toISOString().slice(0, 10);
-    const pdf = await generateEinzelabrechnungen({
+    const pdf = await buildEinzelabrechnungPdf({
       propertyName: statement.property.name,
-      issuer: {
-        legalName: branding.legalName,
-        contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-      },
-      year: view.year,
-      periodLabel: `${fmtDate(view.fyStart)} – ${fmtDate(endInclusive)}`,
+      organizationId: statement.property.organizationId,
+      view,
+      units: myUnits,
       finalizedAt: statement.finalizedAt,
-      units,
-      generatedAt: new Date(),
     });
 
     const fileName = `Meine_Einzelabrechnung_${view.year}.pdf`;

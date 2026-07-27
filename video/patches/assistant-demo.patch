@@ -1,0 +1,35 @@
+diff --git a/portal/src/lib/assistant.ts b/portal/src/lib/assistant.ts
+index e021b06..f7b4f18 100644
+--- a/portal/src/lib/assistant.ts
++++ b/portal/src/lib/assistant.ts
+@@ -31,7 +31,16 @@ export type AssistantResult = {
+   sources: AssistantSource[];
+ };
+ 
++// NUR FÜR DIE VIDEO-AUFNAHME. Wird über video/patches/ eingespielt und danach
++// zurückgenommen – dieser Zweig darf niemals in einem Deployment landen.
++// Er ersetzt ausschließlich den formulierten Antworttext; die Quellen stammen
++// unverändert aus retrieveContext, also aus echten, rechtegeprüften Daten.
++function demoAnswer(): string | null {
++  return process.env.ASSISTANT_DEMO_ANSWER || null;
++}
++
+ export function isAssistantEnabled(): boolean {
++  if (demoAnswer()) return true;
+   return process.env.AI_ASSISTANT_ENABLED === "true" && Boolean(process.env.GEMINI_API_KEY);
+ }
+ 
+@@ -252,6 +261,13 @@ export async function askAssistant(user: User, question: string): Promise<Assist
+     return { answer: "Dazu finde ich in Ihren Unterlagen nichts.", sources: [] };
+   }
+ 
++  // Aufnahme-Modus (siehe demoAnswer): feste Antwort, echte Quellen.
++  const demo = demoAnswer();
++  if (demo) {
++    await new Promise((r) => setTimeout(r, 1400)); // Denkpause fürs Video
++    return { answer: demo, sources: sources.slice(0, 2) };
++  }
++
+   const context = sources
+     .map((s, i) => `[${i + 1}] (${s.type}) ${s.title}\n${s.snippet}`)
+     .join("\n\n");

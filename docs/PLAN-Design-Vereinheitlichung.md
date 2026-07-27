@@ -82,8 +82,26 @@ Kein Seitenumbau in dieser Stufe. Danach ist nichts anders sichtbar — das ist 
 Erst nachdem die aktiven Zweige gemergt sind, Seite für Seite entlang der Menügruppen
 (Alltag → Stammdaten → WEG → Betrieb). Jede Welle ein eigener PR.
 
-## Offene Abstimmung
+## Aufgabenteilung (abgestimmt, verbindlich)
 
-Der andere Account plant dieselbe Arbeit. **Einer** von beiden sollte sie machen, nicht
-beide. Wer, ist gleich — es muss nur vorher feststehen. Bis das geklärt ist, wird
-Stufe 1 nicht begonnen.
+**Das Designsystem baut dieser Zweig.** Der Fachlogik-Zweig
+(`claude/program-analysis-tasks-au9wmc`) fasst `src/components/`, `globals.css` und die
+neuen Bausteine **nicht** an — auch nicht kurz. Fehlt ihm beim Bauen ein Baustein, meldet
+er es, statt ihn selbst zu bauen. Nachgemessen: Sein Zweig berührt heute keine einzige
+Datei unter `src/components/` und `globals.css` nicht — die Trennung ist also real und
+nicht bloß Vorsatz.
+
+### Reihenfolge-Bedingung: Stufe 3 kommt nach seinem Merge
+
+Die harten ESLint-Regeln würden fertige, getestete Arbeit in seinem Zweig zu
+Build-Fehlern machen. Betroffen sind genau drei Stellen — allesamt echte Eigenbauten,
+die Regeln treffen also richtig:
+
+- zwei handgebaute Kennzahlen (`text-3xl font-semibold`) für Kontostände → `KeyFigure`
+- ein handgebautes Etikett (`rounded-full bg-amber-100 …`) für „wichtig" → `Badge`
+- sechs Dateien im WEG-Bereich mit rohem `type="date"` → `DateField`
+
+**Deshalb: Stufe 3 erst nach dem Merge seines Zweiges.** Wird sie früher gebraucht, zieht
+er seine drei Stellen vorher auf die Bausteine um (rund eine halbe Stunde) — das muss
+aber vereinbart sein, nicht unterstellt. Stufe 1 ist davon unberührt und läuft sofort:
+Sie ist rein additiv, es ändert sich zunächst nichts Sichtbares.

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Prisma, TicketPriority, TicketStatus, TicketType, Trade } from "@/generated/prisma/client";
 import { Pagination, Alert, EmptyState, PageTitle, StatusBadge, buttonClass } from "@/components/ui";
+import { Badge } from "@/components/data-display";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { ticketWhereForUser } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -166,8 +167,21 @@ export default async function TicketsPage({
                     </span>
                   </span>
                   <span className="flex items-center gap-2">
+                    {/* Priorität nur, wenn sie von „Normal" abweicht – sonst stünde
+                        an jeder Zeile dasselbe Wort. Dringend und Hoch tragen Farbe,
+                        Niedrig bleibt still. */}
                     {ticket.priority !== "NORMAL" ? (
-                      <span className="text-xs text-gray-500">{ticketPriorityLabels[ticket.priority]}</span>
+                      <Badge
+                        tone={
+                          ticket.priority === "DRINGEND"
+                            ? "danger"
+                            : ticket.priority === "HOCH"
+                              ? "warning"
+                              : "neutral"
+                        }
+                      >
+                        {ticketPriorityLabels[ticket.priority]}
+                      </Badge>
                     ) : null}
                     <StatusBadge status={ticket.status} />
                   </span>

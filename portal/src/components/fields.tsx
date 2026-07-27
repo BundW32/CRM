@@ -11,16 +11,14 @@
 import type { ReactNode } from "react";
 import { inputClass } from "@/components/ui";
 
-/** Gemeinsame Hülle: Beschriftung, Pflicht-Markierung, Hilfetext. */
+/** Gemeinsame Hülle: Beschriftung und Hilfetext. */
 function FieldShell({
   label,
-  required,
   hint,
   htmlFor,
   children,
 }: {
   label?: ReactNode;
-  required?: boolean;
   hint?: ReactNode;
   htmlFor?: string;
   children: ReactNode;
@@ -30,10 +28,11 @@ function FieldShell({
   if (!label) return <>{children}</>;
   return (
     <label className="block" htmlFor={htmlFor}>
-      <span className="mb-1 block text-sm font-medium text-gray-700">
-        {label}
-        {required ? <span className="ml-0.5 text-brand-orange-ink">*</span> : null}
-      </span>
+      {/* Kein Pflicht-Sternchen: Das übrige Portal markiert Pflichtfelder nirgends,
+          und nur die neuen Felder zu markieren sieht aus, als wären die anderen
+          freiwillig. Entweder überall oder nirgends – das ist eine eigene
+          Entscheidung, keine Nebenwirkung dieses Umbaus. */}
+      <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>
       {children}
       {hint ? <span className="mt-1 block text-xs text-gray-500">{hint}</span> : null}
     </label>
@@ -73,7 +72,7 @@ export function DateField({
   "type" | "name" | "defaultValue" | "required" | "min" | "max" | "id" | "className"
 >) {
   return (
-    <FieldShell label={label} required={required} hint={hint} htmlFor={id}>
+    <FieldShell label={label} hint={hint} htmlFor={id}>
       <input
         type="date"
         id={id}
@@ -140,7 +139,7 @@ export function SelectField({
   "name" | "defaultValue" | "required" | "id" | "className" | "children"
 >) {
   return (
-    <FieldShell label={label} required={required} hint={hint} htmlFor={id}>
+    <FieldShell label={label} hint={hint} htmlFor={id}>
       <select
         id={id}
         name={name}

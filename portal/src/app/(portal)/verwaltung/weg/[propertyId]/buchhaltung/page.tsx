@@ -261,7 +261,8 @@ export default async function WegBuchhaltungPage({
       ) : null}
       {sp.importzurueck ? (
         <Alert variant="success" className="mb-4">
-          Import zurückgenommen: {sp.importzurueck} Buchung(en) entfernt.
+          Import zurückgenommen: {sp.importzurueck}{" "}
+          {sp.importzurueck === "1" ? "Buchung" : "Buchungen"} entfernt.
         </Alert>
       ) : null}
       {sp.fehler ? (
@@ -490,7 +491,7 @@ export default async function WegBuchhaltungPage({
                             <input type="hidden" name="batchId" value={b.id} />
                             <ConfirmActionButton
                               className="text-xs text-red-600 hover:underline"
-                              confirmLabel={`${b._count.bookings} Buchung(en) entfernen?`}
+                              confirmLabel={`${b._count.bookings} ${b._count.bookings === 1 ? "Buchung" : "Buchungen"} entfernen?`}
                               pendingLabel="Wird zurückgenommen…"
                             >
                               Import zurücknehmen

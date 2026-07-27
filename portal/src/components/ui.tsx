@@ -169,19 +169,23 @@ export function Card({
 export function CollapsibleCard({
   title,
   defaultOpen = false,
+  id,
   children,
 }: {
   title: ReactNode;
   defaultOpen?: boolean;
+  /** Sprungziel für Rücksprünge nach einer Server-Action – wie bei `Card`. */
+  id?: string;
   children: ReactNode;
 }) {
   return (
     <details
+      id={id}
       open={defaultOpen}
-      className="group rounded-2xl border border-gray-200 bg-white shadow-sm"
+      className={`group rounded-2xl border border-gray-200 bg-white shadow-sm${id ? " scroll-mt-6" : ""}`}
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-5 py-4 text-base font-semibold text-gray-900 marker:hidden [&::-webkit-details-marker]:hidden">
-        {title}
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-5 py-4 text-base font-semibold text-gray-900 marker:hidden [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0 flex-1">{title}</div>
         <ChevronDown className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180" />
       </summary>
       <div className="px-5 pb-5">{children}</div>

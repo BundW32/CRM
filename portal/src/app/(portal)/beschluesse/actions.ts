@@ -37,24 +37,24 @@ export async function createResolution(formData: FormData) {
     majority: formData.get("majority") || undefined,
   });
   if (!parsed.success) {
-    redirect("/beschluesse?fehler=eingabe");
+    redirect("/beschluesse/neu?fehler=eingabe");
   }
 
   // Scope-Prüfung: nur Objekte im Zuständigkeitsbereich des Verwalters
   if (!(await canVerwalterAccessProperty(user, parsed.data.propertyId))) {
-    redirect("/beschluesse?fehler=eingabe");
+    redirect("/beschluesse/neu?fehler=eingabe");
   }
 
   // Umlaufbeschlüsse gibt es nur für WEG-Objekte, nicht für Mietverwaltung
   const property = await db.property.findUnique({ where: { id: parsed.data.propertyId } });
   if (!property || property.managementType !== "WEG") {
-    redirect("/beschluesse?fehler=keinweg");
+    redirect("/beschluesse/neu?fehler=keinweg");
   }
 
   const deadline = parsed.data.deadline ? new Date(parsed.data.deadline) : null;
   // Fristen in der Vergangenheit sind sinnlos (es könnte nie abgestimmt werden).
   if (deadline && !Number.isNaN(deadline.getTime()) && deadline < new Date()) {
-    redirect("/beschluesse?fehler=frist");
+    redirect("/beschluesse/neu?fehler=frist");
   }
 
   const resolution = await db.resolution.create({

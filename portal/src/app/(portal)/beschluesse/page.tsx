@@ -8,7 +8,6 @@ import {
   Card,
   CollapsibleCard,
   EmptyState,
-  Field,
   PageTitle,
   buttonClass,
   buttonCompact,
@@ -20,10 +19,8 @@ import {
   Badge,
   KeyFigure,
   KeyFigures,
-  stackTight,
   type BadgeTone,
 } from "@/components/data-display";
-import { DateField, SelectField } from "@/components/fields";
 import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -38,12 +35,10 @@ import {
   type MajorityType,
   type OutcomeResult,
 } from "@/lib/weg-voting";
-import { UmlaufMehrheit } from "./UmlaufMehrheit";
 import {
   castVote,
   castVoteForOwner,
   closeResolution,
-  createResolution,
   deleteResolution,
   withdrawResolution,
 } from "./actions";
@@ -355,10 +350,6 @@ export default async function BeschluessePage({
   });
   const ownedIds = new Set(myOwnership.map((o) => o.propertyId));
 
-  // Nur WEG-Objekte können Umlaufbeschlüsse haben
-  const properties = isVerwalter
-    ? await db.property.findMany({ where: { ...await propertyWhereForVerwalter(user), managementType: "WEG" }, orderBy: { name: "asc" } })
-    : [];
 
   return (
     <>
@@ -366,9 +357,16 @@ export default async function BeschluessePage({
         // Führt zur formellen Beschluss-Sammlung je WEG-Objekt mit PDF-Export
         // (§ 24 Abs. 7 WEG) – nicht zu verwechseln mit der Auflistung unten.
         action={
-          <a href="/beschluesse/sammlung" className={buttonSecondaryClass}>
-            Beschluss-Sammlung (PDF)
-          </a>
+          <div className="flex flex-wrap items-center gap-2">
+            {isVerwalter ? (
+              <Link href="/beschluesse/neu" className={buttonClass}>
+                Umlaufbeschluss starten
+              </Link>
+            ) : null}
+            <Link href="/beschluesse/sammlung" className={buttonSecondaryClass}>
+              Beschluss-Sammlung (PDF)
+            </Link>
+          </div>
         }
       >
         Beschlüsse &amp; Abstimmungen
@@ -423,20 +421,39 @@ export default async function BeschluessePage({
               const outcome = outcomeFor(r);
               const expired = r.deadline != null && r.deadline < new Date();
               return (
-                <Card key={r.id} id={r.id}>
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-base font-semibold text-gray-900">{r.title}</h3>
-                      <p className="text-xs text-gray-500">
-                        {r.property.name}
-                        {r.deadline ? ` · Frist: ${formatDateOnly(r.deadline)}` : ""}
-                      </p>
+                <CollapsibleCard
+                  key={r.id}
+                  id={r.id}
+                  // Offen, solange man selbst noch am Zug ist: Ein Eigentümer, der
+                  // noch nicht abgestimmt hat, soll den Beschluss nicht erst
+                  // aufklappen müssen. Wer schon gestimmt hat, und die Verwaltung,
+                  // sehen die Kurzfassung – bei fünf laufenden Abstimmungen ist die
+                  // ausgeklappte Ansicht sonst eine Bildschirmseite pro Beschluss.
+                  defaultOpen={ownedIds.has(r.propertyId) && !myVote && !expired}
+                  title={
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="text-base font-semibold text-gray-900">{r.title}</h3>
+                        <p className="mt-0.5 text-xs font-normal text-gray-500">
+                          {r.property.name}
+                          {r.deadline ? ` · Frist: ${formatDateOnly(r.deadline)}` : ""}
+                          {` · Ja ${r.votes.filter((v) => v.choice === "JA").length}`}
+                          {` · Nein ${r.votes.filter((v) => v.choice === "NEIN").length}`}
+                          {` · Enthaltung ${r.votes.filter((v) => v.choice === "ENTHALTUNG").length}`}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        {ownedIds.has(r.propertyId) && !myVote && !expired ? (
+                          <Badge tone="accent">Ihre Stimme fehlt</Badge>
+                        ) : null}
+                        <Badge tone={statusTone[r.status]} dot={r.status === "OFFEN"}>
+                          {resolutionStatusLabels[r.status]}
+                        </Badge>
+                      </div>
                     </div>
-                    <Badge tone={statusTone[r.status]} dot={r.status === "OFFEN"}>
-                      {resolutionStatusLabels[r.status]}
-                    </Badge>
-                  </div>
-                  <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">{r.description}</p>
+                  }
+                >
+                  <p className="text-sm whitespace-pre-wrap text-gray-700">{r.description}</p>
 
                   <VoteSummary
                     rawVotes={r.votes}
@@ -610,7 +627,7 @@ export default async function BeschluessePage({
                       </div>
                     </div>
                   ) : null}
-                </Card>
+                </CollapsibleCard>
               );
             })
           )}
@@ -707,48 +724,17 @@ export default async function BeschluessePage({
           <Pagination currentPage={currentPage} totalPages={totalPages} total={decidedTotal} hrefFor={pageHref} />
         </div>
 
-        {/* Eingeklappt und unter der Liste: Einen Umlaufbeschluss startet man
-            selten, die laufenden Abstimmungen liest man bei jedem Besuch. Als
-            feste Spalte daneben nahm das Formular der Liste ein Drittel der
-            Breite. */}
-        {isVerwalter ? (
-          <CollapsibleCard title="Umlaufbeschluss starten">
-            {properties.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Keine WEG-Objekte vorhanden. Legen Sie ein Objekt mit Verwaltungsart „WEG“ an,
-                um Umlaufbeschlüsse zu starten.
-              </p>
-            ) : (
-              <form action={createResolution} className={stackTight}>
-                <SelectField
-                  label="Objekt (WEG)"
-                  name="propertyId"
-                  required
-                  options={properties.map((p) => ({ value: p.id, label: p.name }))}
-                />
-                <Field label="Titel">
-                  <input type="text" name="title" required minLength={3} className={inputClass} />
-                </Field>
-                <Field label="Beschlusstext">
-                  <textarea name="description" required minLength={3} rows={6} className={inputClass} />
-                </Field>
-                <UmlaufMehrheit />
-                <DateField label="Frist (optional)" name="deadline" />
-                <PendingButton className={buttonClass}>Abstimmung starten</PendingButton>
-                <p className="text-xs text-gray-500">
-                  Alle Eigentümer des Objekts werden per E-Mail zur Abstimmung eingeladen.
-                </p>
-              </form>
-            )}
-          </CollapsibleCard>
-        ) : (
+        {/* Der Hinweis für Eigentümer bleibt – der Knopf oben rechts erscheint
+            nur der Verwaltung, und ohne ihn wäre für Eigentümer nirgends erklärt,
+            worum es auf dieser Seite geht. */}
+        {!isVerwalter ? (
           <Card title="Hinweis">
             <p className="text-sm text-gray-600">
               Hier stimmen Sie über Umlaufbeschlüsse Ihrer Eigentümergemeinschaft ab. Ihre
               Stimme können Sie bis zum Abschluss der Abstimmung ändern.
             </p>
           </Card>
-        )}
+        ) : null}
       </div>
     </>
   );

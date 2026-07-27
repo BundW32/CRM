@@ -36,6 +36,8 @@ const ANKER: Record<string, string> = {
   kostenart: "kostenarten",
   konto: "konten",
   betrag: "konten",
+  bestand: "konten",
+  stichtag: "konten",
   zeitraum: "eigentuemer",
 };
 
@@ -396,23 +398,34 @@ export async function saveAccount(formData: FormData) {
   const property = await loadWegProperty(verwalter, parsed.data.propertyId);
   if (!property) redirect("/verwaltung/weg");
 
-  // Anfangsbestand: deutsches Format, darf negativ sein (Konto im Soll)
+  // Anfangsbestand und Stichtag sind Pflicht – anders als die IBAN.
+  //
+  // Ein Konto ohne beides ließ sich bisher anlegen, und das Ergebnis war ein
+  // Konto mit Bestand 0 € zu keinem Zeitpunkt: Die Buchhaltung rechnet ab dem
+  // Stichtag, also ab nirgendwo. Die Einrichtung meldete den Schritt danach als
+  // unfertig, ohne dass beim Speichern etwas darauf hingedeutet hätte.
+  //
+  // Null Euro bleibt ein zulässiger Bestand – ein neu eröffnetes Konto der
+  // Gemeinschaft steht tatsächlich auf null. Leer ist keine Angabe, „0,00" ist
+  // eine.
   const raw = (parsed.data.openingBalance ?? "").trim();
-  let openingBalanceCents = 0;
-  if (raw !== "") {
-    const negative = raw.startsWith("-");
-    const cents = parseEuroToCents(negative ? raw.slice(1) : raw);
-    if (cents === null) back(property.id, "fehler=betrag");
-    openingBalanceCents = negative ? -cents : cents;
-  }
-  const openingBalanceDate = parsed.data.openingBalanceDate ? new Date(parsed.data.openingBalanceDate) : null;
+  if (raw === "") back(property.id, "fehler=bestand");
+  const negative = raw.startsWith("-");
+  const cents = parseEuroToCents(negative ? raw.slice(1) : raw);
+  if (cents === null) back(property.id, "fehler=betrag");
+  const openingBalanceCents = negative ? -cents : cents;
+
+  const stichtagRoh = (parsed.data.openingBalanceDate ?? "").trim();
+  if (stichtagRoh === "") back(property.id, "fehler=stichtag");
+  const openingBalanceDate = new Date(stichtagRoh);
+  if (Number.isNaN(openingBalanceDate.getTime())) back(property.id, "fehler=stichtag");
 
   const data = {
     name: parsed.data.name,
     kind: parsed.data.kind,
     iban: parsed.data.iban || null,
     openingBalanceCents,
-    openingBalanceDate: openingBalanceDate && !isNaN(openingBalanceDate.getTime()) ? openingBalanceDate : null,
+    openingBalanceDate,
   };
   let targetId = parsed.data.accountId;
   if (targetId) {

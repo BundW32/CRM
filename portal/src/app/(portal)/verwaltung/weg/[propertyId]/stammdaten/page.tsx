@@ -120,11 +120,15 @@ export default async function WegStammdatenPage({
         <Alert variant="error" className="mb-4">
           {sp.fehler === "betrag"
             ? "Der Betrag konnte nicht gelesen werden (Format: 1.234,56)."
-            : sp.fehler === "zeitraum"
-              ? "Der Beginn darf nicht nach dem Ende der Eigentümerschaft liegen."
-              : sp.fehler === "datum"
-                ? "Das Datum konnte nicht gelesen werden."
-                : "Die Eingabe konnte nicht gespeichert werden."}
+            : sp.fehler === "bestand"
+              ? "Bitte den Anfangsbestand angeben. Ein neu eröffnetes Konto trägt „0,00“ — leer lassen geht nicht, sonst rechnet die Buchhaltung mit einem Stand, den niemand geprüft hat."
+              : sp.fehler === "stichtag"
+                ? "Bitte den Stichtag des Anfangsbestands angeben. Ohne ihn sagt der Betrag nicht, wann er galt — und die Buchhaltung weiß nicht, ab wann sie mitrechnet."
+                : sp.fehler === "zeitraum"
+                  ? "Der Beginn darf nicht nach dem Ende der Eigentümerschaft liegen."
+                  : sp.fehler === "datum"
+                    ? "Das Datum konnte nicht gelesen werden."
+                    : "Die Eingabe konnte nicht gespeichert werden."}
         </Alert>
       ) : null}
 
@@ -643,6 +647,7 @@ export default async function WegStammdatenPage({
                     name="openingBalance"
                     defaultValue={(a.openingBalanceCents / 100).toFixed(2).replace(".", ",")}
                     inputMode="decimal"
+                    required
                     className={`${inputClass} w-28`}
                     aria-label="Anfangsbestand in Euro"
                   />
@@ -650,15 +655,14 @@ export default async function WegStammdatenPage({
                     name="openingBalanceDate"
                     type="date"
                     defaultValue={a.openingBalanceDate?.toISOString().slice(0, 10) ?? ""}
+                    required
                     className={`${inputClass} w-auto`}
                     aria-label="Stichtag des Anfangsbestands"
                   />
                   <span className="text-sm text-gray-500">
                     Anfangsbestand: {formatCents(a.openingBalanceCents)}
                   </span>
-                  <button type="submit" className={buttonSecondaryClass}>
-                    Speichern
-                  </button>
+                  <PendingButton className={buttonSecondaryClass}>Speichern</PendingButton>
                 </form>
               ))}
             </div>
@@ -695,12 +699,18 @@ export default async function WegStammdatenPage({
                 <input
                   name="openingBalance"
                   inputMode="decimal"
+                  required
                   className={`${inputClass} w-28`}
                   placeholder="0,00"
                 />
               </Field>
               <Field label="Stichtag">
-                <input name="openingBalanceDate" type="date" className={`${inputClass} w-auto`} />
+                <input
+                  name="openingBalanceDate"
+                  type="date"
+                  required
+                  className={`${inputClass} w-auto`}
+                />
               </Field>
               <PendingButton className={buttonClass}>Anlegen</PendingButton>
             </form>

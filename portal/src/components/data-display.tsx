@@ -91,6 +91,11 @@ export type Column<T> = {
  *
  * `empty` ersetzt die Tabelle vollständig, wenn es nichts zu zeigen gibt – eine
  * Kopfzeile über einer leeren Fläche sieht nach Fehler aus.
+ *
+ * **Die entscheidende Spalte gehört nach vorn.** Auf einem Telefon sieht man nur die
+ * ersten beiden Spalten, der Rest liegt hinter dem Scroll. Steht dort etwas
+ * Nebensächliches, muss man für jede Zeile schieben. Auf „Wartung" stand zuerst das
+ * Intervall vor der Fälligkeit – also alles außer dem, weshalb man die Seite öffnet.
  */
 export function DataTable<T>({
   columns,

@@ -6,6 +6,7 @@ import {
   Pagination,
   Alert,
   Card,
+  CollapsibleCard,
   EmptyState,
   Field,
   PageTitle,
@@ -28,7 +29,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter, propertyIdsForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
-  formatDate,
+  formatDateOnly,
   maintenanceIntervalLabels,
   ticketStatusLabels,
   tradeLabels,
@@ -173,17 +174,16 @@ export default async function WartungPage({
             {t.craftsman
               ? ` · ${t.craftsman.company ? t.craftsman.company + " / " : ""}${t.craftsman.name} (${tradeLabels[t.craftsman.trade]})`
               : ""}
+            {/* Letzte Erledigung steht hier statt in einer eigenen Spalte: Sie ist bei
+                den meisten Aufgaben leer und hätte eine Spalte voller „–" ergeben.
+                Sortieren lässt sich weiterhin danach. */}
+            {t.lastDoneAt ? ` · zuletzt erledigt ${formatDateOnly(t.lastDoneAt)}` : ""}
           </p>
           {t.description ? (
-            <p className="mt-1 text-xs text-gray-600">{t.description}</p>
+            <p className="mt-1 line-clamp-2 text-xs text-gray-600">{t.description}</p>
           ) : null}
         </div>
       ),
-    },
-    {
-      header: "Intervall",
-      cell: (t) => maintenanceIntervalLabels[t.interval],
-      className: "whitespace-nowrap",
     },
     {
       header: "Fällig",
@@ -191,7 +191,7 @@ export default async function WartungPage({
         const f = faelligkeit(t.dueDate);
         return (
           <div className="space-y-1 whitespace-nowrap">
-            <div>{formatDate(t.dueDate)}</div>
+            <div>{formatDateOnly(t.dueDate)}</div>
             <Badge tone={f.tone} dot>
               {f.text}
             </Badge>
@@ -200,13 +200,8 @@ export default async function WartungPage({
       },
     },
     {
-      header: "Zuletzt erledigt",
-      cell: (t) =>
-        t.lastDoneAt ? (
-          formatDate(t.lastDoneAt)
-        ) : (
-          <span className="text-gray-400">–</span>
-        ),
+      header: "Intervall",
+      cell: (t) => maintenanceIntervalLabels[t.interval],
       className: "whitespace-nowrap",
     },
     {
@@ -274,45 +269,47 @@ export default async function WartungPage({
         </Alert>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          <div>
-            <FilterBar
-              searchPlaceholder="Suchen"
-              searchHint="Nach Titel oder Beschreibung suchen"
-              filters={taskFilters}
-              comboboxes={scope.comboboxes}
-            />
-            <div className="mt-2 flex items-center justify-between gap-3 px-1">
-              <p className="text-xs text-gray-400">
-                {total} {total === 1 ? "Aufgabe" : "Aufgaben"}
-                {hasFilter ? " (gefiltert)" : ""}
-              </p>
-              <SortControl sortOptions={sortOptions} defaultSort="faellig" total={total} />
-            </div>
+      <div className="space-y-4">
+        <div>
+          <FilterBar
+            searchPlaceholder="Suchen"
+            searchHint="Nach Titel oder Beschreibung suchen"
+            filters={taskFilters}
+            comboboxes={scope.comboboxes}
+          />
+          <div className="mt-2 flex items-center justify-between gap-3 px-1">
+            <p className="text-xs text-gray-400">
+              {total} {total === 1 ? "Aufgabe" : "Aufgaben"}
+              {hasFilter ? " (gefiltert)" : ""}
+            </p>
+            <SortControl sortOptions={sortOptions} defaultSort="faellig" total={total} />
           </div>
-
-          <Card>
-            <DataTable
-              columns={columns}
-              rows={tasks}
-              getKey={(t) => t.id}
-              minWidth="52rem"
-              caption="Wartungs- und Prüfaufgaben"
-              empty={
-                <EmptyState>
-                  {hasFilter
-                    ? "Keine Aufgaben gefunden."
-                    : "Noch keine Wartungsaufgaben angelegt."}
-                </EmptyState>
-              }
-            />
-          </Card>
-
-          <Pagination currentPage={currentPage} totalPages={totalPages} total={total} hrefFor={pageHref} />
         </div>
 
-        <Card title="Wartung anlegen">
+        <Card>
+          <DataTable
+            columns={columns}
+            rows={tasks}
+            getKey={(t) => t.id}
+            minWidth="52rem"
+            caption="Wartungs- und Prüfaufgaben"
+            empty={
+              <EmptyState>
+                {hasFilter
+                  ? "Keine Aufgaben gefunden."
+                  : "Noch keine Wartungsaufgaben angelegt."}
+              </EmptyState>
+            }
+          />
+        </Card>
+
+        <Pagination currentPage={currentPage} totalPages={totalPages} total={total} hrefFor={pageHref} />
+
+        {/* Anlegen steht unter der Liste und eingeklappt: Eine Wartung trägt man
+            selten ein, die Liste liest man täglich. Als feste Spalte daneben nahm
+            das Formular der Tabelle ein Drittel der Breite – und die Aktionsspalte
+            rutschte aus dem Bild. */}
+        <CollapsibleCard title="Wartung anlegen">
           <form action={createMaintenanceTask} className={stackTight}>
             <Field label="Titel">
               <input type="text" name="title" required minLength={2} className={inputClass} placeholder="z. B. Heizungswartung" />
@@ -354,7 +351,7 @@ export default async function WartungPage({
             </Field>
             <SubmitButton pendingLabel="Wird angelegt…">Anlegen</SubmitButton>
           </form>
-        </Card>
+        </CollapsibleCard>
       </div>
     </>
   );

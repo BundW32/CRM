@@ -16,6 +16,7 @@ import {
   type MajorityType,
   type OutcomeResult,
 } from "@/lib/weg-voting";
+import { UmlaufMehrheit } from "./UmlaufMehrheit";
 import {
   castVote,
   castVoteForOwner,
@@ -597,16 +598,7 @@ export default async function BeschluessePage({
                 <Field label="Beschlusstext">
                   <textarea name="description" required minLength={3} rows={6} className={inputClass} />
                 </Field>
-                <Field label="Erforderliche Mehrheit">
-                  <select name="majority" defaultValue="EINFACH" className={inputClass}>
-                    <option value="EINFACH">Einfache Mehrheit (Standard)</option>
-                    <option value="DREIVIERTEL">Qualifizierte 3/4-Mehrheit</option>
-                    <option value="DOPPELT_QUALIFIZIERT">
-                      Doppelt qualifiziert (§21 II: 2/3 Stimmen + 1/2 MEA)
-                    </option>
-                    <option value="ALLSTIMMIG">Allstimmigkeit (alle Eigentümer)</option>
-                  </select>
-                </Field>
+                <UmlaufMehrheit />
                 <Field label="Frist (optional)">
                   <input type="date" name="deadline" className={inputClass} />
                 </Field>

@@ -6,6 +6,10 @@ import { announcementWhereForUser, ownedProperties, propertyWhereForVerwalter } 
 import { db } from "@/lib/db";
 import { formatDate, formatDateOnly } from "@/lib/labels";
 import { classifyDue, dueLabel } from "@/lib/weg/compliance";
+import { loadRoadmap } from "@/lib/weg/roadmap";
+import { loadSetupStatus } from "@/lib/weg/setup-status";
+import { Roadmap } from "./Roadmap";
+import { SetupGuide } from "./SetupGuide";
 
 // Schnellzugriff-Buttons: klar lesbarer Marken-Kontrast (dunkelgrüner Text auf
 // Weiß, oranger Rahmen/Hover) statt der früheren grau-in-grau-Optik („Ton in Ton").
@@ -27,10 +31,48 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
       ).map((p) => p.id)
     : (await ownedProperties(user.id)).filter((p) => p.managementType === "WEG").map((p) => p.id);
 
+  // ── Einrichtung zuerst ────────────────────────────────────────────────────
+  // Solange die WEG nicht eingerichtet ist, IST die Übersicht die Anleitung.
+  // Zahlen und Aushänge daneben zu zeigen wäre sinnlos: Sie stünden alle auf
+  // null, weil noch nichts da ist, was sie zählen könnten.
+  //
+  // Nur der verwaltende Eigentümer richtet ein; die übrigen sehen so lange,
+  // wie weit die Gemeinschaft ist, ohne selbst hakeln zu können.
+  const setup = await loadSetupStatus(propIds[0] ?? null);
+  if (!setup.fertig) {
+    return (
+      <>
+        <PageTitle>Willkommen, {user.name}</PageTitle>
+        {isAdmin ? (
+          <SetupGuide status={setup} isAdmin />
+        ) : (
+          // Miteigentümer sehen den Fortschritt, aber keine Verwaltungs-Links:
+          // Die führten für sie ins Leere, weil die Stammdaten-Seiten der
+          // Verwaltung vorbehalten sind.
+          <Card title="Die Einrichtung läuft">
+            <p className="text-sm text-gray-600">
+              Ihre Gemeinschaft richtet die Verwaltung gerade ein – {setup.erledigt} von{" "}
+              {setup.gesamt} Schritten sind erledigt. Sobald der Wirtschaftsplan beschlossen
+              ist, finden Sie hier Ihr Hausgeld, die Abrechnungen und alle Beschlüsse.
+            </p>
+          </Card>
+        )}
+      </>
+    );
+  }
+
   const now = new Date();
   // Fällige/überfällige Prüfpflichten (Vorwarnfenster 30 Tage) im Scope.
   const dueHorizon = new Date(now.getTime());
   dueHorizon.setDate(dueHorizon.getDate() + 30);
+  // Der Fahrplan ersetzt für die Verwaltung die reine Prüfpflichten-Liste – er
+  // enthält sie und ordnet sie zwischen Abrechnung, Plan und Versammlung ein.
+  // Miteigentümer bekommen ihn nicht: Seine Ziele sind Verwaltungsseiten.
+  // Der Fahrplan gehört zu genau einem Objekt – auch der eigene Termin und der
+  // Kalender-Export hängen daran. Deshalb die ID mitführen, nicht nur die Liste.
+  const fahrplanPropertyId = isAdmin ? (propIds[0] ?? null) : null;
+  const roadmap = fahrplanPropertyId ? await loadRoadmap(fahrplanPropertyId, new Date()) : null;
+
   const [openResolutions, nextMeeting, openMotions, announcements, complianceDuties] = await Promise.all([
     db.resolution.count({ where: { propertyId: { in: propIds }, status: "OFFEN" } }),
     db.ownersMeeting.findFirst({
@@ -98,7 +140,13 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
         </Link>
       </div>
 
-      {complianceDuties.length > 0 ? (
+      {roadmap && fahrplanPropertyId ? (
+        <div className="mt-6">
+          <Roadmap items={roadmap} propertyId={fahrplanPropertyId} />
+        </div>
+      ) : null}
+
+      {!roadmap && complianceDuties.length > 0 ? (
         <div className="mt-6">
           <Card title="Fällige Prüfpflichten">
             <ul className="space-y-2">

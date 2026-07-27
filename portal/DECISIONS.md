@@ -391,3 +391,52 @@ Build-Auftrag: „entscheide selbst und dokumentiere die Entscheidung").
     Protokoll-PDF „Hybride Versammlung (§ 23 Abs. 1a WEG) — Video-Zuschaltung: …";
     das Anwesenheitsfeld schlägt die Präsenz/online-Aufteilung vor. Damit ist die
     Teilnahmemöglichkeit rechtssicher dokumentiert.
+
+## Schritt 16 — Geführter Erststart für Selbstverwalter (26.07.2026)
+
+Vorarbeit: Analyse des IST-Stands plus Marktvergleich (dotega, Matera). Ergebnis
+war, dass es dem Bereich nicht an Funktionen fehlt — die Pflichten aus dem
+WEG-Gesetz sind vollständig abgedeckt —, sondern am **Weg durch sie hindurch**.
+Eine frisch registrierte Gemeinschaft landete auf einer leeren Seite mit einem
+Satz Bedienungsanleitung und lernte die zwingende Reihenfolge der Einrichtung,
+indem sie in Fehlermeldungen lief.
+
+77. **Einrichtungsstand wird aus den Daten abgeleitet, nicht gespeichert**
+    (`weg/setup-status.ts`): Objekt, Einheiten samt MEA-Summenprüfung,
+    Eigentümer je Einheit, Konten mit Anfangsbestand *und Stichtag*,
+    Kostenkatalog, beschlossener Wirtschaftsplan. Ein abgeleiteter Zustand kann
+    nicht veralten, ein gespeichertes Häkchen schon.
+78. **Nur die drei Schritte außerhalb des Systems bekommen einen Vermerk**
+    (`WegSetupStep`): Unterlagen der bisherigen Verwaltung angefordert,
+    Konto der Gemeinschaft eröffnet, Verwaltung durch Beschluss bestellt. Sie
+    sind aus keinen Daten ableitbar und zugleich der schwierigste Teil des
+    Umstiegs. Unique über `(propertyId, key)` — das Abhaken ist idempotent.
+    `MANUAL_SETUP_STEPS` ist zugleich die Whitelist der Server-Action: Ohne sie
+    ließe sich über ein untergeschobenes Feld ein abgeleiteter Schritt als
+    erledigt melden und die Einrichtung Vollzug verkünden, obwohl die
+    Buchhaltung leer ist.
+79. **Die Übersicht IST die Einrichtung, solange sie läuft.** Kennzahlen daneben
+    zu zeigen wäre sinnlos — sie stünden alle auf null. Ist die Einrichtung
+    fertig, wird aus derselben Seite der Jahresfahrplan. Kein eigener Menüpunkt,
+    der nach zwei Wochen tot wäre.
+80. **Miteigentümer sehen den Fortschritt, aber keine Verwaltungs-Links.** Die
+    Ziele der Einrichtungsschritte sind Stammdaten-Seiten der Verwaltung; für
+    einen Eigentümer ohne Verwalterrolle führten sie ins Leere.
+81. **Jahresfahrplan als reine Ableitung** (`weg/roadmap.ts`): Jahresabrechnung
+    fürs Vorjahr, Versammlung im laufenden Jahr (§ 24 Abs. 1), Wirtschaftsplan
+    fürs kommende Jahr, fällige Prüfpflichten, offene Hausgeld-Rückstände —
+    überfällig zuerst. Die Fristen sind ausdrücklich als **Richtwerte**
+    ausgewiesen: § 28 Abs. 2 WEG nennt für die Jahresabrechnung kein Datum auf
+    den Tag. Wer hier harte Stichtage behauptet, erfindet Recht.
+82. **Der Fahrplan ersetzt die Prüfpflichten-Karte, statt neben ihr zu stehen**:
+    Er enthält sie und ordnet sie zwischen Abrechnung, Plan und Versammlung ein.
+83. **Objektauswahl entfällt bei genau einem Objekt** (nur Selbstverwalter):
+    Die Seite `/verwaltung/weg` ist dann direkt der Finanz-Einstieg dieses
+    Objekts. Bewusst **keine** Weiterleitung auf eine Unterseite — die
+    Unterseiten springen über ihren „WEG-Finanzen"-Rückweg hierher zurück und
+    liefen sonst im Kreis.
+84. **Jeder Schritt sagt, wozu er gut ist**, in der Sprache eines Eigentümers
+    statt in Verwalterdeutsch („Die Miteigentumsanteile stehen in der
+    Teilungserklärung … ableiten aus der Wohnfläche lassen sie sich nicht").
+    Fachlich richtige Begriffe ohne Erklärung waren der zweite Grund, warum der
+    Bereich als undurchdringlich empfunden wurde.

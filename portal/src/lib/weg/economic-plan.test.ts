@@ -5,6 +5,7 @@ import {
   fiscalYearMonths,
   fiscalYearRange,
   monthlyInstallments,
+  PositionNichtVerteilbar,
 } from "./economic-plan";
 import type { UnitForDistribution } from "./distribution";
 
@@ -96,6 +97,63 @@ describe("computeUnitAdvances", () => {
     expect(() =>
       computeUnitAdvances([{ costTypeId: "a", distributionKey: "MEA", amountCents: -1 }], units),
     ).toThrow();
+  });
+
+  /**
+   * Der Fall, an dem eine frisch eingerichtete Gemeinschaft hängen blieb: Die
+   * Einrichtung verlangt nur Miteigentumsanteile, der WEG-Standardkatalog
+   * verteilt aber auch nach Personenzahl und Fläche. Ohne diese Angaben brach
+   * die Verteilung mit „Gesamtgewicht muss größer als 0 sein" ab — einem Satz
+   * aus der Rechenmaschine, der weder die Kostenart noch das fehlende Feld
+   * nennt. Der Fehler muss beides mitbringen, sonst kann die Oberfläche nicht
+   * sagen, wo anzusetzen ist.
+   */
+  const ohneZusatzdaten = [
+    { id: "we1", mea: 400, livingArea: null, personCount: null },
+    { id: "we2", mea: 600, livingArea: null, personCount: null },
+  ];
+
+  it("nennt Kostenart und fehlendes Feld, wenn die Personenzahl fehlt", () => {
+    try {
+      computeUnitAdvances(
+        [{ costTypeId: "muell", distributionKey: "PERSONEN", amountCents: 96_000 }],
+        ohneZusatzdaten,
+      );
+      throw new Error("hätte werfen müssen");
+    } catch (e) {
+      expect(e).toBeInstanceOf(PositionNichtVerteilbar);
+      const f = e as PositionNichtVerteilbar;
+      expect(f.costTypeId).toBe("muell");
+      expect(f.fehlendesFeld).toBe("personen");
+      expect(f.message).toMatch(/Personenzahl/);
+    }
+  });
+
+  it("nennt die Fläche, wenn sie fehlt", () => {
+    try {
+      computeUnitAdvances(
+        [{ costTypeId: "reinigung", distributionKey: "FLAECHE", amountCents: 240_000 }],
+        ohneZusatzdaten,
+      );
+      throw new Error("hätte werfen müssen");
+    } catch (e) {
+      expect((e as PositionNichtVerteilbar).fehlendesFeld).toBe("flaeche");
+      expect((e as PositionNichtVerteilbar).message).toMatch(/Wohn-\/Nutzfläche/);
+    }
+  });
+
+  it("verteilt weiter, sobald eine einzige Einheit den Wert trägt", () => {
+    const gemischt = [
+      { id: "we1", mea: 400, livingArea: null, personCount: 2 },
+      { id: "we2", mea: 600, livingArea: null, personCount: null },
+    ];
+    const { perItem } = computeUnitAdvances(
+      [{ costTypeId: "muell", distributionKey: "PERSONEN", amountCents: 96_000 }],
+      gemischt,
+    );
+    // Fehlende Einzelwerte zählen als 0 – nur wenn ALLE fehlen, ist Schluss.
+    expect(perItem.get("muell")?.get("we1")).toBe(96_000);
+    expect(perItem.get("muell")?.get("we2")).toBe(0);
   });
 });
 

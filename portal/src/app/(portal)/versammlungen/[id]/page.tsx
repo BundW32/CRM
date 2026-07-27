@@ -8,7 +8,6 @@ import { db } from "@/lib/db";
 import { formatDate, formatDateOnly, resolutionStatusLabels } from "@/lib/labels";
 import { isMailEnabled } from "@/lib/mailer";
 import { requireUser } from "@/lib/session";
-import { MEETING_AGENDA_TEMPLATES } from "@/lib/weg/meeting-agenda-templates";
 import {
   INVITATION_MIN_WEEKS,
   checkInvitationDeadline,
@@ -22,12 +21,14 @@ import {
   deleteMeeting,
   generateProtocol,
   markInvitationSent,
-  moveAgendaItem,
   sendInvitation,
   updateAgendaItem,
   updateAttendance,
   updateMeeting,
 } from "../actions";
+
+import { TopReihenfolge } from "./TopReihenfolge";
+import { VorlagenWahl } from "./VorlagenWahl";
 
 export const dynamic = "force-dynamic";
 
@@ -176,32 +177,6 @@ export default async function MeetingDetailPage({
                       </span>
                       {canEditAgenda ? (
                         <div className="flex items-center gap-2">
-                          <form action={moveAgendaItem}>
-                            <input type="hidden" name="meetingId" value={meeting.id} />
-                            <input type="hidden" name="itemId" value={it.id} />
-                            <input type="hidden" name="direction" value="up" />
-                            <button
-                              type="submit"
-                              disabled={i === 0}
-                              className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                              aria-label="nach oben"
-                            >
-                              ↑
-                            </button>
-                          </form>
-                          <form action={moveAgendaItem}>
-                            <input type="hidden" name="meetingId" value={meeting.id} />
-                            <input type="hidden" name="itemId" value={it.id} />
-                            <input type="hidden" name="direction" value="down" />
-                            <button
-                              type="submit"
-                              disabled={i === meeting.agendaItems.length - 1}
-                              className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                              aria-label="nach unten"
-                            >
-                              ↓
-                            </button>
-                          </form>
                           <form action={deleteAgendaItem}>
                             <input type="hidden" name="meetingId" value={meeting.id} />
                             <input type="hidden" name="itemId" value={it.id} />
@@ -258,6 +233,21 @@ export default async function MeetingDetailPage({
               </ol>
             )}
 
+            {/* Sortieren in einer eigenen, schmalen Liste statt an den Zeilen
+                selbst: Die tragen verschachtelte Formulare (bearbeiten,
+                entfernen, abstimmen), an denen sich nicht ziehen lässt. */}
+            {canEditAgenda && meeting.agendaItems.length > 1 ? (
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Reihenfolge
+                </p>
+                <TopReihenfolge
+                  meetingId={meeting.id}
+                  items={meeting.agendaItems.map((it) => ({ id: it.id, title: it.title }))}
+                />
+              </div>
+            ) : null}
+
             {meeting.protocolDocumentId ? (
               <p className="mt-4 text-sm">
                 <a
@@ -283,20 +273,11 @@ export default async function MeetingDetailPage({
             <Card title="Tagesordnungspunkt hinzufügen">
               <form action={addAgendaFromTemplate} className="mb-4 space-y-2 border-b border-gray-100 pb-4">
                 <input type="hidden" name="meetingId" value={meeting.id} />
-                <Field label="Aus Vorlagenkatalog">
-                  <select name="templateKey" defaultValue={MEETING_AGENDA_TEMPLATES[0].key} className={inputClass}>
-                    {MEETING_AGENDA_TEMPLATES.map((t) => (
-                      <option key={t.key} value={t.key}>
-                        {t.title}
-                        {t.type === "BESCHLUSS" ? " (Beschluss)" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                <VorlagenWahl />
                 <PendingButton className={buttonSecondaryClass}>Vorlage übernehmen</PendingButton>
                 <p className="text-xs text-gray-500">
-                  Übernimmt einen fertig formulierten TOP inkl. Beschlussvorschlag; danach
-                  frei anpassbar.
+                  Übernimmt den oben gezeigten TOP inkl. Beschlussvorschlag; danach frei
+                  anpassbar.
                 </p>
               </form>
               <form action={addAgendaItem} className="space-y-3">

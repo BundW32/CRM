@@ -418,6 +418,7 @@ model User {
   maintenanceMeasuresCreated MaintenanceMeasure[]     @relation("MaintenanceMeasureCreatedBy")
   sepaMandatesCreated        SepaMandate[]            @relation("SepaMandateCreatedBy")
   co2AllocationsCreated      Co2Allocation[]          @relation("Co2AllocationCreatedBy")
+  wegSetupStepsDone          WegSetupStep[]           @relation("WegSetupStepDoneBy")
 
   @@index([role])
   @@index([role, active])
@@ -510,6 +511,7 @@ model Property {
   sepaMandates          SepaMandate[]
   co2Allocations        Co2Allocation[]
   beiratTasks           BeiratTask[]
+  setupSteps            WegSetupStep[]
 
   @@index([organizationId])
 }
@@ -1562,6 +1564,25 @@ model UnitOwnership {
 
   @@index([unitId])
   @@index([userId])
+}
+
+// Erledigt-Vermerk für die Einrichtungsschritte einer selbstverwalteten WEG,
+// die AUSSERHALB des Systems stattfinden — Unterlagen vom alten Verwalter,
+// WEG-Bankkonto, Verwalterbestellung. Alle übrigen Schritte der Einrichtung
+// leitet `weg/setup-status.ts` aus den Daten selbst ab und braucht hier nichts:
+// Ein abgeleiteter Zustand kann nicht veralten, ein gespeichertes Häkchen schon.
+model WegSetupStep {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  // Schlüssel aus MANUAL_SETUP_STEPS (weg/setup-status.ts).
+  key        String
+  doneAt     DateTime @default(now())
+  doneById   String?
+  doneBy     User?    @relation("WegSetupStepDoneBy", fields: [doneById], references: [id], onDelete: SetNull)
+
+  // Ein Vermerk je Schritt und Objekt; das Abhaken ist damit idempotent.
+  @@unique([propertyId, key])
 }
 
 // Jahresabrechnung (§ 28 Abs. 2 WEG). ENTWURF wird live aus der Buchhaltung

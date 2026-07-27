@@ -56,6 +56,24 @@ Deshalb ist Hausgeld **nicht** der Tabellen-Archetyp — **Wartung** ist es, die
 frei. Die Stufen sind so geschnitten, dass Stufe 1 ausschließlich konfliktfreie bzw. neue
 Dateien berührt.
 
+## Stand (27.07.2026)
+
+- **Stufe 1 — fertig.** `DateField`, `SelectField`, `toDateInputValue`, `Badge`,
+  `DataTable`, `KeyFigure`/`KeyFigures`, `buttonCompact`, drei Abstands-Stufen.
+- **Stufe 2 — fertig.** Musterseiten **Wartung** (Tabellen-Archetyp) und **Beschlüsse**
+  (Detail-/Formular-Archetyp), beide lokal mit Datenbank und Seed-Daten angesehen.
+- **Stufe 3 — wartet** auf den Merge des Fachlogik-Zweiges (siehe Bedingung unten).
+- **Stufe 4 — offen.**
+
+**Was das Ansehen gebracht hat:** Auf Wartung lag die Aktionsspalte außerhalb des Bildes
+(„Erledigt"/„Löschen" nicht erreichbar) und auf dem Telefon war die Fälligkeit hinter dem
+Scroll versteckt. Beides war im grünen Build unsichtbar. Auf Beschlüssen kam ein
+fachlicher Fehler heraus, der mit Gestaltung nichts zu tun hatte — siehe die Konvention
+„zwei Beschlussverfahren" in `portal/AGENTS.md`.
+
+**Lehre für Stufe 4:** Jede Welle wird lokal angesehen, nicht nur gebaut. Ein grüner
+Build sagt über eine Oberfläche wenig.
+
 ## Stufen
 
 ### Stufe 1 — Bausteine (nur neue/konfliktfreie Dateien)

@@ -29,7 +29,14 @@ export default async function WirtschaftsplanDetailPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string; planId: string }>;
-  searchParams: Promise<{ gespeichert?: string; beschlossen?: string; fehler?: string }>;
+  searchParams: Promise<{
+    gespeichert?: string;
+    beschlossen?: string;
+    fehler?: string;
+    abgelegt?: string;
+    ablage?: string;
+    ohne?: string;
+  }>;
 }) {
   const { propertyId, planId } = await params;
   const { property } = await requireWegProperty(propertyId);
@@ -61,7 +68,15 @@ export default async function WirtschaftsplanDetailPage({
       : [];
 
   const isDraft = plan.status === "ENTWURF";
-  const totalCents = plan.items.reduce((sum, i) => sum + i.amountCents, 0);
+  // Vorschussbedarf = geplante Ausgaben − geplante Einnahmen (§ 28 Abs. 1 WEG).
+  // Die rohe Summe aller Positionen wäre falsch, sobald es Erträge gibt.
+  const ausgabenCents = plan.items
+    .filter((i) => i.costType.category !== "ERTRAG")
+    .reduce((sum, i) => sum + i.amountCents, 0);
+  const einnahmenCents = plan.items
+    .filter((i) => i.costType.category === "ERTRAG")
+    .reduce((sum, i) => sum + i.amountCents, 0);
+  const totalCents = ausgabenCents - einnahmenCents;
 
   // Einzelwirtschaftspläne (Vorschau) — schlägt die Verteilung fehl, muss die
   // Meldung sagen, WELCHE Kostenart es ist und WAS fehlt. Ein „Verteilung nicht
@@ -75,6 +90,7 @@ export default async function WirtschaftsplanDetailPage({
         costTypeId: i.costTypeId,
         distributionKey: i.costType.distributionKey,
         amountCents: i.amountCents,
+        category: i.costType.category,
       })),
       units,
     );
@@ -116,14 +132,24 @@ Muster — ersetzt keine Rechtsberatung.`;
         action={
           <div className="flex gap-2">
             {!advanceError ? (
-              <a
-                href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf`}
-                target="_blank"
-                rel="noreferrer"
-                className={buttonSecondaryClass}
-              >
-                Als PDF
-              </a>
+              <>
+                <a
+                  href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={buttonSecondaryClass}
+                >
+                  Gesamtplan als PDF
+                </a>
+                <a
+                  href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf?dokument=einzelplan`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={buttonSecondaryClass}
+                >
+                  Einzelpläne (alle)
+                </a>
+              </>
             ) : null}
           </div>
         }
@@ -136,10 +162,19 @@ Muster — ersetzt keine Rechtsberatung.`;
           Planwerte gespeichert.
         </Alert>
       ) : null}
+      {sp.ablage === "fehler" ? (
+        <Alert variant="warning" title="Dokumente nicht abgelegt" className="mb-4">
+          Der Plan ist beschlossen und die Sollstellungen sind erzeugt, aber die
+          Einzelwirtschaftspläne konnten nicht in den Dokumenten abgelegt werden.
+        </Alert>
+      ) : null}
       {sp.beschlossen ? (
         <Alert variant="success" className="mb-4">
           Wirtschaftsplan beschlossen — {plan._count.duePostings} monatliche Sollstellungen wurden
-          erzeugt. Die offenen Posten finden Sie unter{" "}
+          erzeugt{sp.abgelegt ? `, ${sp.abgelegt} Einzelwirtschaftspläne für die Eigentümer abgelegt` : ""}.
+          {sp.ohne && sp.ohne !== "0"
+            ? ` Für ${sp.ohne} ${sp.ohne === "1" ? "Einheit" : "Einheiten"} ist kein Eigentümer erfasst — dort wurde nichts abgelegt.`
+            : ""} Die offenen Posten finden Sie unter{" "}
           <Link href={`/verwaltung/weg/${property.id}/hausgeld`} className="underline">
             Hausgeld
           </Link>
@@ -172,7 +207,13 @@ Muster — ersetzt keine Rechtsberatung.`;
 
       <div className="grid gap-4">
         {/* Planwerte */}
-        <Card title={`Planwerte (Jahresbeträge) — gesamt ${formatCents(totalCents)}`}>
+        <Card
+          title={
+            einnahmenCents > 0
+              ? `Planwerte (Jahresbeträge) — ${formatCents(ausgabenCents)} Ausgaben − ${formatCents(einnahmenCents)} Einnahmen = ${formatCents(totalCents)} Vorschussbedarf`
+              : `Planwerte (Jahresbeträge) — gesamt ${formatCents(totalCents)}`
+          }
+        >
           <form action={updatePlanItems}>
             <input type="hidden" name="propertyId" value={property.id} />
             <input type="hidden" name="planId" value={plan.id} />
@@ -214,6 +255,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                           />
                         ) : (
                           <span className="font-medium text-gray-900">
+                            {item.costType.category === "ERTRAG" ? "− " : ""}
                             {formatCents(item.amountCents)}
                           </span>
                         )}
@@ -265,6 +307,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                     <th className="py-2 pr-3">Einheit</th>
                     <th className="py-2 pr-3 text-right">Jahres-Vorschuss</th>
                     <th className="py-2 pr-3 text-right">monatliches Hausgeld</th>
+                    <th className="py-2" />
                   </tr>
                 </thead>
                 <tbody>
@@ -284,6 +327,16 @@ Muster — ersetzt keine Rechtsberatung.`;
                           <span className="block text-xs text-gray-400">
                             12 Raten, centgenau
                           </span>
+                        </td>
+                        <td className="py-2 text-right whitespace-nowrap">
+                          <a
+                            href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf?dokument=einzelplan&einheit=${u.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm underline"
+                          >
+                            Einzelplan
+                          </a>
                         </td>
                       </tr>
                     );

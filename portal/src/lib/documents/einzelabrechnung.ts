@@ -39,6 +39,8 @@ export type EinzelabrechnungUnit = {
   peakCents: number; // + Nachschuss, − Guthaben
   laborHaushaltsnahCents: number;
   laborHandwerkerCents: number;
+  /** Anteil an Kosten, für die kein Lohnanteil erfasst ist (§ 35a EStG). */
+  laborUnerfasstCents: number;
 };
 export type EinzelabrechnungInput = {
   propertyName: string;
@@ -171,14 +173,28 @@ export async function generateEinzelabrechnungen(rawInput: EinzelabrechnungInput
     y -= 34;
 
     // ── §35a ─────────────────────────────────────────────────────────────────
-    if (unit.laborHaushaltsnahCents > 0 || unit.laborHandwerkerCents > 0) {
-      ensure(70);
+    if (
+      unit.laborHaushaltsnahCents > 0 ||
+      unit.laborHandwerkerCents > 0 ||
+      unit.laborUnerfasstCents > 0
+    ) {
+      ensure(90);
       page.drawText("Steuerlich begünstigte Aufwendungen (§ 35a EStG)", { x: COL_POS, y, size: 9, font: bold, color: BLACK });
       y -= 14;
       sumRow("  Haushaltsnahe Dienstleistungen", euro(unit.laborHaushaltsnahCents), { size: 9 });
       sumRow("  Handwerkerleistungen", euro(unit.laborHandwerkerCents), { size: 9 });
+      // Die Lücke wird benannt, nicht geschätzt: Eine erfundene Zahl sähe
+      // amtlich aus und hielte keiner Rückfrage des Finanzamts stand.
+      if (unit.laborUnerfasstCents > 0) {
+        sumRow("  davon Lohnanteil nicht erfasst", euro(unit.laborUnerfasstCents), {
+          size: 9,
+          color: RED,
+        });
+      }
       for (const l of wrapText(
-        "Maßgeblich ist der in den Rechnungen ausgewiesene Lohn-/Fahrtkostenanteil. Muster — ersetzt keine Steuerberatung.",
+        unit.laborUnerfasstCents > 0
+          ? `Ausgewiesen ist nur der Lohn-, Fahrt- und Maschinenkostenanteil — nur er ist begünstigt, Material nicht. Für ${euro(unit.laborUnerfasstCents)} Ihres Kostenanteils liegt dieser Anteil nicht vor; er ist deshalb oben NICHT enthalten. Bitte fragen Sie die Verwaltung nach den Rechnungen. Muster — ersetzt keine Steuerberatung.`
+          : "Ausgewiesen ist nur der in den Rechnungen ausgewiesene Lohn-, Fahrt- und Maschinenkostenanteil — nur er ist begünstigt, Material nicht. Muster — ersetzt keine Steuerberatung.",
         font,
         7.5,
         CW,
@@ -202,9 +218,16 @@ export async function generateEinzelabrechnungen(rawInput: EinzelabrechnungInput
     y -= 6;
     page.drawLine({ start: { x: ML, y }, end: { x: ML + CW, y }, thickness: 0.3, color: rgb(0.8, 0.8, 0.8) });
     y -= 12;
+    // „Fertiggestellt" heißt: der Verwalter hat die Abrechnung geprüft und das
+    // Ergebnis eingefroren — sie ist damit **versandfertige Beschlussvorlage**.
+    // Beschlossen wird die Abrechnungsspitze erst von der Eigentümerversammlung
+    // (§ 28 Abs. 2 Satz 1 WEG); erst damit wird ein Nachschuss fällig. Das
+    // Dokument hat das vorher „Beschlossene Abrechnung" genannt — eine Aussage,
+    // die zu diesem Zeitpunkt nicht stimmt und zu einer Zahlung auf eine noch
+    // nicht beschlossene Forderung verleiten kann.
     const footNote = input.finalizedAt
-      ? `Beschlossene Abrechnung, erstellt am ${fmtDate(input.generatedAt)}. Über Nachschüsse/Anpassungen beschließt die Eigentümerversammlung (§ 28 Abs. 2 WEG). Muster — ersetzt keine Rechtsberatung.`
-      : `ENTWURF, erstellt am ${fmtDate(input.generatedAt)} — noch nicht beschlossen. Muster — ersetzt keine Rechtsberatung.`;
+      ? `Erstellt am ${fmtDate(input.generatedAt)}, geprüft und abgeschlossen. Über die Abrechnungsspitze beschließt die Eigentümerversammlung (§ 28 Abs. 2 WEG) — erst mit diesem Beschluss wird ein Nachschuss fällig. Muster — ersetzt keine Rechtsberatung.`
+      : `ENTWURF, erstellt am ${fmtDate(input.generatedAt)} — noch in Bearbeitung. Muster — ersetzt keine Rechtsberatung.`;
     for (const l of wrapText(footNote, font, 7.5, CW)) {
       page.drawText(l, { x: COL_POS, y, size: 7.5, font, color: GRAY });
       y -= 10;

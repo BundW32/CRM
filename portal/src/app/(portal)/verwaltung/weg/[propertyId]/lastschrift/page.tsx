@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
+import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { deleteMandate, saveCreditorId, saveMandate } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +55,7 @@ export default async function LastschriftPage({
     }),
     db.booking.groupBy({
       by: ["unitId"],
-      where: { propertyId: property.id, kind: "EINNAHME", unitId: { not: null } },
+      where: { propertyId: property.id, kind: "EINNAHME", unitId: { not: null }, ...NOT_REVERSED },
       _sum: { amountCents: true },
     }),
   ]);
@@ -71,7 +72,7 @@ export default async function LastschriftPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
         action={
           <div className="flex gap-2">
             <Link href={`/verwaltung/weg/${property.id}/hausgeld`} className={buttonSecondaryClass}>

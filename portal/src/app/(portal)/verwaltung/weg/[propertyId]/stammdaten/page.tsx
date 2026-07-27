@@ -91,7 +91,7 @@ export default async function WegStammdatenPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
         action={
           <div className="flex gap-2">
             <Link href={`/verwaltung/weg/${property.id}/buchhaltung`} className={buttonSecondaryClass}>
@@ -515,6 +515,29 @@ export default async function WegStammdatenPage({
                         </option>
                       ))}
                     </select>
+                    {/* Erfahrungswert für den Lohnanteil. Leer lassen ist die
+                        ehrlichere Wahl: Ohne Angabe weist die Abrechnung die
+                        Lücke aus, statt eine Zahl zu erfinden. */}
+                    <input
+                      name="laborSharePercent"
+                      type="number"
+                      min={0}
+                      max={100}
+                      defaultValue={c.laborSharePercent ?? ""}
+                      placeholder="Lohn %"
+                      className={`${inputClass} w-24`}
+                      aria-label="Lohnanteil in Prozent (Schätzwert)"
+                      title="Erfahrungswert für den Lohn-/Fahrt-/Maschinenkostenanteil. Greift nur, wenn an der Buchung nichts erfasst ist."
+                    />
+                    {/* Erzwingt bei der Zählerverteilung den Grundkostenanteil
+                        (§§ 7, 8 HeizkostenV). */}
+                    <label
+                      className="flex items-center gap-1.5 text-sm text-gray-700"
+                      title="Heiz- und Warmwasserkosten: 50–70 % nach Verbrauch, der Rest nach Wohnfläche."
+                    >
+                      <input type="checkbox" name="heatingCost" defaultChecked={c.heatingCost} />
+                      HeizkostenV
+                    </label>
                     <label className="flex items-center gap-1.5 text-sm text-gray-700">
                       <input
                         type="checkbox"
@@ -589,6 +612,20 @@ export default async function WegStammdatenPage({
                   ))}
                 </select>
               </Field>
+              <Field label="Lohnanteil %">
+                <input
+                  name="laborSharePercent"
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="leer"
+                  className={`${inputClass} w-24`}
+                />
+              </Field>
+              <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700">
+                <input type="checkbox" name="heatingCost" />
+                HeizkostenV
+              </label>
               <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700">
                 <input type="checkbox" name="recoverableBetrKV" />
                 umlagefähig (BetrKV)

@@ -13,7 +13,10 @@ import {
   fiscalYearRange,
   monthlyInstallments,
 } from "@/lib/weg/economic-plan";
+import { legeEigentuemerDokumenteAb } from "@/lib/weg/owner-documents";
 import { loadWegProperty } from "@/lib/weg/scope";
+import { buildEinzelwirtschaftsplanPdf, ownerNamesByUnit } from "@/lib/weg/wirtschaftsplan-pdf";
+import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 
 function back(propertyId: string, suffix = "", param?: string): never {
   redirect(`/verwaltung/weg/${propertyId}/wirtschaftsplan${suffix}${param ? `?${param}` : ""}`);
@@ -58,6 +61,7 @@ export async function createPlan(formData: FormData) {
       kind: "AUSGABE",
       costTypeId: { not: null },
       bookingDate: { gte: prev.start, lt: prev.end },
+      ...NOT_REVERSED,
     },
     _sum: { amountCents: true },
   });
@@ -200,6 +204,7 @@ export async function resolvePlan(formData: FormData) {
         costTypeId: i.costTypeId,
         distributionKey: i.costType.distributionKey,
         amountCents: i.amountCents,
+        category: i.costType.category,
       })),
       units,
     );
@@ -240,15 +245,71 @@ export async function resolvePlan(formData: FormData) {
     db.duePosting.deleteMany({ where: { planId: plan.id } }),
     db.duePosting.createMany({ data: postings }),
   ]);
+  // Jeder Eigentümer bekommt seinen Einzelwirtschaftsplan in die Dokumente
+  // gelegt. Der Beschluss ist der richtige Moment: Erst er macht die Vorschüsse
+  // fällig (§ 28 Abs. 1 WEG), und dies ist die Fassung, die der Eigentümer
+  // aufbewahrt — „ab Januar zahle ich X, so setzt es sich zusammen".
+  //
+  // Ein Fehler bei der Ablage nimmt den Beschluss nicht zurück: Der Beschluss
+  // und seine Sollstellungen sind der fachliche Vorgang, die Ablage die Folge.
+  let ablage: Awaited<ReturnType<typeof legeEigentuemerDokumenteAb>> | null = null;
+  try {
+    const beschlossen = await db.economicPlan.findFirstOrThrow({
+      where: { id: plan.id },
+      include: { items: { include: { costType: true }, orderBy: { costType: { orderIndex: "asc" } } } },
+    });
+    const alleEinheiten = await db.unit.findMany({
+      where: { propertyId: property.id },
+      orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
+    });
+    const namen = await ownerNamesByUnit(alleEinheiten.map((u) => u.id));
+    ablage = await legeEigentuemerDokumenteAb({
+      organizationId: verwalter.organizationId,
+      propertyId: property.id,
+      uploadedById: verwalter.id,
+      category: "ABRECHNUNG",
+      refPrefix: `weg-einzelwirtschaftsplan:${plan.id}`,
+      documents: await Promise.all(
+        alleEinheiten.map(async (u) => ({
+          unitId: u.id,
+          unitLabel: u.label,
+          title: `Einzelwirtschaftsplan ${plan.year} — ${u.label}`,
+          fileName: `Einzelwirtschaftsplan_${plan.year}_${u.label.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+          pdf: await buildEinzelwirtschaftsplanPdf({
+            propertyName: property.name,
+            organizationId: verwalter.organizationId,
+            plan: beschlossen,
+            units: alleEinheiten,
+            ownerNamesByUnit: namen,
+            onlyUnitIds: [u.id],
+          }),
+        })),
+      ),
+    });
+  } catch (err) {
+    console.error("Ablage der Einzelwirtschaftspläne fehlgeschlagen", err);
+  }
+
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_PLAN_RESOLVED,
     targetType: "EconomicPlan",
     targetId: plan.id,
-    meta: { year: plan.year, totalCents: advances.totalCents, postings: postings.length },
+    meta: {
+      year: plan.year,
+      totalCents: advances.totalCents,
+      postings: postings.length,
+      dokumenteAbgelegt: ablage ? ablage.erstellt + ablage.ersetzt : 0,
+    },
   });
   revalidatePath(`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}`);
-  back(property.id, `/${plan.id}`, "beschlossen=1");
+  back(
+    property.id,
+    `/${plan.id}`,
+    ablage
+      ? `beschlossen=1&abgelegt=${ablage.erstellt + ablage.ersetzt}&ohne=${ablage.uebersprungen.length}`
+      : "beschlossen=1&ablage=fehler",
+  );
 }
 
 /**
@@ -291,6 +352,7 @@ export async function planZurAbstimmung(formData: FormData) {
         costTypeId: i.costTypeId,
         distributionKey: i.costType.distributionKey,
         amountCents: i.amountCents,
+        category: i.costType.category,
       })),
       units,
     );

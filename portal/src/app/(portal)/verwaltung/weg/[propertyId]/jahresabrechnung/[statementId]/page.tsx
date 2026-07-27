@@ -15,7 +15,13 @@ import {
   saveAccountChecks,
   distributeByMeters,
   saveManualAmounts,
+  wiederholeAblage,
 } from "../actions";
+import {
+  HEATING_CONSUMPTION_DEFAULT,
+  HEATING_CONSUMPTION_MAX,
+  HEATING_CONSUMPTION_MIN,
+} from "@/lib/weg/heating-costs";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +30,14 @@ const FEHLER_TEXTE: Record<string, string> = {
   betrag: "Ein Betrag konnte nicht gelesen werden (Format: 1.234,56).",
   kostenart: "Unbekannte Kostenart.",
   zaehlerart: "Bitte eine gültige Zählerart wählen.",
+  nichtfertig:
+    "Dokumente lassen sich erst bereitstellen, wenn die Abrechnung fertiggestellt ist.",
+  ablage:
+    "Die Dokumente konnten nicht bereitgestellt werden. Bitte später erneut versuchen — die Abrechnung selbst bleibt unverändert.",
+  heizanteil:
+    "Der Verbrauchsanteil muss zwischen 50 und 70 Prozent liegen (§§ 7, 8 HeizkostenV). Der Rest wird als Grundkosten nach Wohnfläche verteilt.",
+  flaeche:
+    "Für die Grundkosten fehlt bei mindestens einer Einheit die Wohnfläche. Bitte in den Stammdaten nachtragen.",
   keinekosten: "Für diese Kostenart sind im Wirtschaftsjahr keine Ausgaben gebucht.",
   keinverbrauch:
     "Keine Zählerstände für diese Art gefunden — bitte Einzelzähler und Ablesungen erfassen.",
@@ -41,7 +55,16 @@ export default async function JahresabrechnungDetailPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string; statementId: string }>;
-  searchParams: Promise<{ gespeichert?: string; fertig?: string; fehler?: string; importiert?: string; offen?: string }>;
+  searchParams: Promise<{
+    gespeichert?: string;
+    fertig?: string;
+    fehler?: string;
+    importiert?: string;
+    offen?: string;
+    abgelegt?: string;
+    ablage?: string;
+    ohne?: string;
+  }>;
 }) {
   const { propertyId, statementId } = await params;
   const { property } = await requireWegProperty(propertyId);
@@ -52,6 +75,17 @@ export default async function JahresabrechnungDetailPage({
   });
   if (!statement) notFound();
   const isDraft = statement.status === "ENTWURF";
+  // Einmal gebaut, an drei Stellen gezeigt: bei fehlgeschlagener Ablage, bei
+  // übersprungenen Einheiten und dauerhaft im Hinweis zur fertigen Abrechnung.
+  const ablageWiederholen = (
+    <form action={wiederholeAblage} className="mt-2">
+      <input type="hidden" name="propertyId" value={property.id} />
+      <input type="hidden" name="statementId" value={statement.id} />
+      <PendingButton className={buttonSecondaryClass}>
+        Dokumente erneut bereitstellen
+      </PendingButton>
+    </form>
+  );
 
   // ENTWURF: live rechnen. FERTIG: eingefrorenen Snapshot rendern.
   const view: StatementView =
@@ -142,10 +176,40 @@ Muster — ersetzt keine Rechtsberatung.`;
         </Alert>
       ) : null}
 
+      {/* Wiederholung der Ablage. Rechnet aus dem Snapshot, ersetzt vorhandene
+          Dokumente statt sie zu verdoppeln — deshalb gefahrlos wiederholbar. */}
+      {sp.ablage === "fehler" ? (
+        <Alert variant="warning" title="Dokumente nicht abgelegt" className="mb-4">
+          Die Abrechnung ist fertiggestellt, aber die Einzelabrechnungen konnten nicht in den
+          Dokumenten abgelegt werden. Die PDFs sind weiterhin über die Tabelle unten abrufbar.
+          {ablageWiederholen}
+        </Alert>
+      ) : sp.abgelegt ? (
+        <Alert
+          variant={sp.ohne && sp.ohne !== "0" ? "warning" : "success"}
+          className="mb-4"
+        >
+          {sp.abgelegt} {sp.abgelegt === "1" ? "Einzelabrechnung wurde" : "Einzelabrechnungen wurden"}{" "}
+          den jeweiligen Eigentümern unter &bdquo;Dokumente&ldquo; bereitgestellt.
+          {sp.ohne && sp.ohne !== "0" ? (
+            <>
+              {` Für ${sp.ohne} ${sp.ohne === "1" ? "Einheit" : "Einheiten"} ist kein Eigentümer erfasst — dort wurde nichts abgelegt, damit die Abrechnung nicht für alle sichtbar wird. Eigentümer in den Stammdaten nachtragen, dann hier erneut ablegen.`}
+              {ablageWiederholen}
+            </>
+          ) : null}
+        </Alert>
+      ) : null}
+
       {!isDraft ? (
         <Alert variant="info" className="mb-4">
           Fertiggestellt am {statement.finalizedAt ? formatDateOnly(statement.finalizedAt) : "—"} —
-          alle Zahlen sind als Snapshot eingefroren (revisionssicher).
+          alle Zahlen sind als Snapshot eingefroren (revisionssicher). Über die
+          Abrechnungsspitze beschließt die Eigentümerversammlung; erst damit wird ein
+          Nachschuss fällig. Die Einzelabrechnungen liegen bei den jeweiligen Eigentümern
+          unter &bdquo;Dokumente&ldquo;; sie lassen sich jederzeit erneut bereitstellen —
+          etwa nach einem Eigentümerwechsel oder wenn ein Eigentümer nachgetragen wurde.
+          Vorhandene Dokumente werden dabei ersetzt, nicht verdoppelt.
+          {ablageWiederholen}
         </Alert>
       ) : view.errors.length > 0 ? (
         <Alert variant="warning" title="Prüfliste — vor dem Fertigstellen zu klären" className="mb-4">
@@ -161,6 +225,18 @@ Muster — ersetzt keine Rechtsberatung.`;
           Gesamtabrechnung.
         </Alert>
       )}
+
+      {/* Hinweise halten das Fertigstellen nicht auf — sie zeigen etwas, das
+          richtig sein kann, aber geprüft gehört. */}
+      {isDraft && view.warnings.length > 0 ? (
+        <Alert variant="info" title="Zur Kenntnis" className="mb-4">
+          <ul className="list-disc pl-4">
+            {view.warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        </Alert>
+      ) : null}
 
       <div className="grid gap-4">
         {/* Gesamtabrechnung */}
@@ -184,6 +260,19 @@ Muster — ersetzt keine Rechtsberatung.`;
                 {euro(view.reserveTransferCents)}
               </dd>
             </div>
+            {view.reserveWithdrawalCents > 0 ? (
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-gray-400">
+                  Aus der Rücklage bezahlt
+                </dt>
+                <dd className="text-lg font-semibold text-gray-900">
+                  {euro(view.reserveWithdrawalCents)}
+                </dd>
+                <dd className="mt-0.5 text-xs text-gray-500">
+                  Wird nicht erneut umgelegt — dafür wurde in früheren Jahren schon eingezahlt.
+                </dd>
+              </div>
+            ) : null}
           </dl>
 
           <form action={saveAccountChecks}>
@@ -267,14 +356,17 @@ Muster — ersetzt keine Rechtsberatung.`;
         {manualPending.map((row) => {
           const saved = manualByCostType.get(row.costTypeId) ?? new Map<string, number>();
           const savedSum = [...saved.values()].reduce((a, b) => a + b, 0);
+          // Zielsumme ist der umlagefähige Teil: Was aus der Rücklage bezahlt
+          // wurde, wird nicht verteilt und darf hier nicht mitgezählt werden.
+          const zielCents = row.totalCents - (row.reserveFundedCents ?? 0);
           return (
             <Card
               key={row.costTypeId}
-              title={`Verteilung je Einheit: ${row.name} — ${euro(row.totalCents)} (${distributionKeyLabels[row.distributionKey]})`}
+              title={`Verteilung je Einheit: ${row.name} — ${euro(zielCents)} (${distributionKeyLabels[row.distributionKey]})`}
             >
               <p className="mb-3 text-sm text-gray-600">
                 Ergebnisse je Einheit erfassen (z. B. aus der Messdienst-Abrechnung). Die Summe
-                muss exakt {euro(row.totalCents)} ergeben — aktuell erfasst: {euro(savedSum)}.
+                muss exakt {euro(zielCents)} ergeben — aktuell erfasst: {euro(savedSum)}.
               </p>
               {isDraft && row.distributionKey === "VERBRAUCH" ? (
                 <form
@@ -297,7 +389,39 @@ Muster — ersetzt keine Rechtsberatung.`;
                       <option value="SONSTIGES">Sonstiges</option>
                     </select>
                   </label>
+                  {/* HeizkostenV: 50–70 % nach Verbrauch, der Rest nach Fläche
+                      (§§ 7 Abs. 1, 8 Abs. 1). Eine Verteilung zu 100 % nach
+                      Verbrauch ist formell fehlerhaft und gibt jedem
+                      Eigentümer 15 % Kürzungsrecht (§ 12 Abs. 1). */}
+                  {row.heatingCost ? (
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium text-gray-700">
+                        Verbrauchsanteil (50–70 %)
+                      </span>
+                      <input
+                        name="consumptionPercent"
+                        type="number"
+                        min={HEATING_CONSUMPTION_MIN}
+                        max={HEATING_CONSUMPTION_MAX}
+                        defaultValue={HEATING_CONSUMPTION_DEFAULT}
+                        className={`${inputClass} w-24`}
+                        required
+                      />
+                    </label>
+                  ) : null}
                   <PendingButton className={buttonSecondaryClass}>Aus Zählern übernehmen</PendingButton>
+                  {row.heatingCost ? (
+                    <p className="w-full text-xs text-gray-500">
+                      Heiz- und Warmwasserkosten dürfen nicht vollständig nach Verbrauch verteilt
+                      werden: {HEATING_CONSUMPTION_MIN}–{HEATING_CONSUMPTION_MAX} % nach Verbrauch,
+                      der Rest als Grundkosten nach Wohnfläche (§§ 7, 8 HeizkostenV). Sonst kann
+                      jeder Eigentümer seinen Anteil um 15 % kürzen (§ 12 Abs. 1 HeizkostenV) — die
+                      Differenz trägt die Gemeinschaft. <strong>Besser ist der Weg über den
+                      Messdienst</strong> (unten): Er rechnet die Rohrwärme (§ 9 HeizkostenV) und
+                      die Trennung von Heizung und Warmwasser bereits ein, was diese Funktion nicht
+                      leisten kann.
+                    </p>
+                  ) : null}
                 </form>
               ) : null}
               <form action={saveManualAmounts} className="flex flex-wrap items-end gap-2">
@@ -371,9 +495,18 @@ Muster — ersetzt keine Rechtsberatung.`;
                     <td className="py-2 pr-3 text-gray-600">
                       {distributionKeyLabels[r.distributionKey]}
                     </td>
-                    <td className="py-2 pr-3 text-right">{euro(r.totalCents)}</td>
+                    <td className="py-2 pr-3 text-right">
+                      {euro(r.totalCents)}
+                      {r.reserveFundedCents ? (
+                        <span className="block text-xs text-gray-500">
+                          davon {euro(r.reserveFundedCents)} aus der Rücklage
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="py-2">
-                      {r.error ? (
+                      {r.costTypeId === "__ruecklagenentnahme__" ? (
+                        <span className="text-gray-500">Gegenposition</span>
+                      ) : r.error ? (
                         <span className="text-amber-700">offen</span>
                       ) : (
                         <span className="text-green-700">verteilt ✓</span>
@@ -452,6 +585,11 @@ Muster — ersetzt keine Rechtsberatung.`;
                       </td>
                       <td className="py-2 pr-3 text-right text-gray-600">
                         {euro(labor?.handwerker)}
+                        {labor && labor.unerfasst > 0 ? (
+                          <span className="block text-xs text-amber-600">
+                            {euro(labor.unerfasst)} ohne Lohnanteil
+                          </span>
+                        ) : null}
                       </td>
                       <td className="py-2 pr-3 text-right">
                         <a
@@ -470,9 +608,12 @@ Muster — ersetzt keine Rechtsberatung.`;
             </table>
           </div>
           <p className="mt-3 text-xs text-gray-400">
-            §35a: ausgewiesen sind die begünstigten Aufwendungen der geflaggten Kostenarten je
-            Einheit; steuerlich maßgeblich ist der Lohn-/Fahrtkostenanteil laut Rechnung. Muster —
-            ersetzt keine Steuerberatung.
+            §35a: ausgewiesen ist der Lohn-, Fahrt- und Maschinenkostenanteil — nur er ist
+            begünstigt, Material nicht. Quelle ist der Lohnanteil an der Buchung; fehlt er, greift
+            der Erfahrungswert der Kostenart. Ist beides nicht hinterlegt, erscheint der Betrag als
+            „ohne Lohnanteil&ldquo;: Er ist bewusst nicht ausgewiesen, weil eine geschätzte Zahl der
+            Rückfrage des Finanzamts nicht standhielte. Nachtragen lässt er sich in der
+            Buchhaltung. Muster — ersetzt keine Steuerberatung.
           </p>
         </Card>
 

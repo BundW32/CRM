@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   RESERVE_ROW_ID,
+  RESERVE_WITHDRAWAL_ROW_ID,
   computeLaborShares,
   computePeakAmounts,
   computeStatement,
@@ -19,11 +20,16 @@ const units: UnitForDistribution[] = [
   { id: "te6", mea: 50, livingArea: null, personCount: null },
 ];
 
+const B = "BETRIEBSKOSTEN" as const;
+
 const costTypes = [
-  { id: "hausmeister", name: "Hausmeister", distributionKey: "MEA" as const, laborShareType: "HAUSHALTSNAHE_DIENSTLEISTUNG" as const },
-  { id: "heizung", name: "Heizung/Warmwasser", distributionKey: "VERBRAUCH" as const, laborShareType: "KEINE" as const },
-  { id: "aufzug", name: "Aufzug", distributionKey: "FLAECHE" as const, laborShareType: "HANDWERKERLEISTUNG" as const },
-  { id: "konto", name: "Kontoführung", distributionKey: "EINHEITEN" as const, laborShareType: "KEINE" as const },
+  { id: "hausmeister", name: "Hausmeister", category: B, distributionKey: "MEA" as const, laborShareType: "HAUSHALTSNAHE_DIENSTLEISTUNG" as const },
+  { id: "heizung", name: "Heizung/Warmwasser", category: B, distributionKey: "VERBRAUCH" as const, laborShareType: "KEINE" as const },
+  { id: "aufzug", name: "Aufzug", category: B, distributionKey: "FLAECHE" as const, laborShareType: "HANDWERKERLEISTUNG" as const },
+  { id: "konto", name: "Kontoführung", category: B, distributionKey: "EINHEITEN" as const, laborShareType: "KEINE" as const },
+  { id: "dach", name: "Dachsanierung", category: "INSTANDHALTUNG" as const, distributionKey: "MEA" as const, laborShareType: "HANDWERKERLEISTUNG" as const },
+  { id: "zufuehrung", name: "Zuführung Erhaltungsrücklage", category: "RUECKLAGENZUFUEHRUNG" as const, distributionKey: "MEA" as const, laborShareType: "KEINE" as const },
+  { id: "pv", name: "PV-Einspeisung", category: "ERTRAG" as const, distributionKey: "MEA" as const, laborShareType: "KEINE" as const },
 ];
 
 function baseInput(overrides: Partial<StatementInput> = {}): StatementInput {
@@ -113,11 +119,60 @@ describe("computePeakAmounts (Abrechnungsspitze)", () => {
 });
 
 describe("computeLaborShares (§35a)", () => {
-  it("summiert je Einheit nach haushaltsnah/Handwerker", () => {
-    const r = computeStatement(baseInput({ expenseByCostType: new Map([["hausmeister", 480_000], ["aufzug", 0]]), manualAmounts: new Map() }));
+  const nurHausmeister = (labor?: Map<string, { baseCents: number; unerfasstCents: number }>) =>
+    computeStatement(
+      baseInput({
+        expenseByCostType: new Map([["hausmeister", 480_000], ["aufzug", 0]]),
+        manualAmounts: new Map(),
+        laborByCostType: labor,
+      }),
+    );
+
+  it("weist den Lohnanteil aus, nicht den Bruttobetrag", () => {
+    // 480.000 Cent Hausmeisterkosten, davon 300.000 Lohn. we5 trägt 240/1000.
+    const r = nurHausmeister(new Map([["hausmeister", { baseCents: 300_000, unerfasstCents: 0 }]]));
     const labor = computeLaborShares(r.rows);
-    expect(labor.get("we5")?.haushaltsnah).toBe(115_200); // 240/1000 von 480.000
+    expect(labor.get("we5")?.haushaltsnah).toBe(72_000); // 240/1000 von 300.000
     expect(labor.get("we5")?.handwerker ?? 0).toBe(0);
+    expect(labor.get("we5")?.unerfasst ?? 0).toBe(0);
+  });
+
+  it("verteilt den Lohnanteil centgenau — Σ Einheiten == Lohnanteil", () => {
+    const r = nurHausmeister(new Map([["hausmeister", { baseCents: 100_001, unerfasstCents: 0 }]]));
+    const labor = computeLaborShares(r.rows);
+    const summe = [...labor.values()].reduce((a, l) => a + l.haushaltsnah, 0);
+    expect(summe).toBe(100_001);
+  });
+
+  it("weist ohne erfassten Lohnanteil NICHTS aus, sondern die Lücke", () => {
+    // Der eigentliche Befund: vorher stand hier der volle Bruttobetrag.
+    const r = nurHausmeister();
+    const labor = computeLaborShares(r.rows);
+    expect(labor.get("we5")?.haushaltsnah ?? 0).toBe(0);
+    expect(labor.get("we5")?.unerfasst).toBe(115_200); // 240/1000 von 480.000
+  });
+
+  it("führt erfassten Anteil und Lücke derselben Position nebeneinander", () => {
+    const r = nurHausmeister(
+      new Map([["hausmeister", { baseCents: 200_000, unerfasstCents: 80_000 }]]),
+    );
+    const labor = computeLaborShares(r.rows);
+    expect(labor.get("we5")?.haushaltsnah).toBe(48_000); // 240/1000 von 200.000
+    expect(labor.get("we5")?.unerfasst).toBe(19_200); // 240/1000 von 80.000
+  });
+
+  it("ignoriert Positionen, die vollständig aus der Rücklage bezahlt wurden", () => {
+    // Nicht umgelegt heißt: niemand trägt sie, also kann sie auch niemand absetzen.
+    const r = computeStatement(
+      baseInput({
+        expenseByCostType: new Map(),
+        reserveSpendByCostType: new Map([["dach", 500_000]]),
+        manualAmounts: new Map(),
+        laborByCostType: new Map([["dach", { baseCents: 0, unerfasstCents: 0 }]]),
+      }),
+    );
+    const labor = computeLaborShares(r.rows);
+    expect([...labor.values()].reduce((a, l) => a + l.handwerker + l.unerfasst, 0)).toBe(0);
   });
 });
 
@@ -180,5 +235,128 @@ describe("splitByOwnership (Eigentümerwechsel tagesgenau)", () => {
     const { shares, uncoveredCents } = splitByOwnership(500, [], fyStart, fyEnd);
     expect(shares).toEqual([]);
     expect(uncoveredCents).toBe(500);
+  });
+});
+
+// ── Erhaltungsrücklage (Befunde A2/A3) ──────────────────────────────────────
+
+describe("Ausgaben aus der Erhaltungsrücklage", () => {
+  it("erhöhen die Abrechnungsspitze nicht — sonst zahlen Eigentümer doppelt", () => {
+    const ohne = computeStatement(baseInput());
+    const mit = computeStatement(
+      baseInput({ reserveSpendByCostType: new Map([["dach", 8_000_000]]) }),
+    );
+    // Kostenanteil je Einheit bleibt unverändert
+    for (const [unitId, cents] of ohne.perUnitTotal) {
+      expect(mit.perUnitTotal.get(unitId)).toBe(cents);
+    }
+    expect(mit.errors).toEqual([]);
+  });
+
+  it("erscheinen trotzdem als Ausgabe und bekommen eine Gegenposition", () => {
+    const r = computeStatement(
+      baseInput({ reserveSpendByCostType: new Map([["dach", 8_000_000]]) }),
+    );
+    const dach = r.rows.find((x) => x.costTypeId === "dach");
+    expect(dach?.totalCents).toBe(8_000_000);
+    expect(dach?.reserveFundedCents).toBe(8_000_000);
+    expect(r.reserveWithdrawalCents).toBe(8_000_000);
+    expect(r.rows.some((x) => x.costTypeId === RESERVE_WITHDRAWAL_ROW_ID)).toBe(true);
+    // Ausgabe zählt zur Gesamtsumme, wird aber nicht verteilt
+    expect(dach?.perUnit && [...dach.perUnit.values()].reduce((a, b) => a + b, 0)).toBe(0);
+  });
+
+  it("teilweise aus der Rücklage bezahlt: nur der Rest wird umgelegt", () => {
+    const r = computeStatement(
+      baseInput({
+        expenseByCostType: new Map([["hausmeister", 300_000]]),
+        manualAmounts: new Map(),
+        reserveSpendByCostType: new Map([["hausmeister", 180_000]]),
+      }),
+    );
+    const row = r.rows.find((x) => x.costTypeId === "hausmeister");
+    expect(row?.totalCents).toBe(480_000);
+    expect(row?.reserveFundedCents).toBe(180_000);
+    const verteilt = [...(row?.perUnit ?? new Map()).values()].reduce((a, b) => a + b, 0);
+    expect(verteilt).toBe(300_000);
+  });
+});
+
+describe("Zuführung zur Erhaltungsrücklage", () => {
+  it("folgt dem Schlüssel des Wirtschaftsplans, nicht fest MEA", () => {
+    const nachFlaeche = computeStatement(
+      baseInput({ reserveTransferCents: 600_000, reserveTransferKey: "FLAECHE" }),
+    );
+    const nachMea = computeStatement(
+      baseInput({ reserveTransferCents: 600_000, reserveTransferKey: "MEA" }),
+    );
+    const zeileF = nachFlaeche.rows.find((x) => x.costTypeId === RESERVE_ROW_ID);
+    const zeileM = nachMea.rows.find((x) => x.costTypeId === RESERVE_ROW_ID);
+    expect(zeileF?.distributionKey).toBe("FLAECHE");
+    // Der Stellplatz ohne Wohnfläche trägt nach Fläche nichts, nach MEA schon
+    expect(zeileF?.perUnit?.get("te6")).toBe(0);
+    expect(zeileM?.perUnit?.get("te6")).toBeGreaterThan(0);
+    // centgenau bleibt beides
+    for (const z of [zeileF, zeileM]) {
+      expect([...(z?.perUnit ?? new Map()).values()].reduce((a, b) => a + b, 0)).toBe(600_000);
+    }
+  });
+
+  it("wird nicht doppelt gezählt, wenn sie auch als Kostenart gebucht wurde", () => {
+    const r = computeStatement(
+      baseInput({
+        expenseByCostType: new Map([["zufuehrung", 600_000]]),
+        manualAmounts: new Map(),
+        reserveTransferCents: 600_000,
+      }),
+    );
+    // Nur die Ist-Umbuchung zählt, die Aufwandsposition wird übersprungen
+    expect(r.rows.filter((x) => x.name.includes("Erhaltungsrücklage")).length).toBe(1);
+    const summe = [...r.perUnitTotal.values()].reduce((a, b) => a + b, 0);
+    expect(summe).toBe(600_000);
+  });
+
+  it("meldet eine Abweichung vom Plan als Hinweis, nicht als Fehler", () => {
+    const vergessen = computeStatement(
+      baseInput({ reserveTransferCents: 0, plannedReserveCents: 600_000 }),
+    );
+    expect(vergessen.warnings).toHaveLength(1);
+    expect(vergessen.warnings[0]).toContain("Erhaltungsrücklage");
+    expect(vergessen.errors).toEqual([]); // blockiert das Fertigstellen nicht
+
+    const passend = computeStatement(
+      baseInput({ reserveTransferCents: 600_000, plannedReserveCents: 600_000 }),
+    );
+    expect(passend.warnings).toEqual([]);
+  });
+});
+
+// ── Einnahmen in der Abrechnung (Befund B7a) ────────────────────────────────
+
+describe("Ist-Einnahmen mit Ertrags-Kostenart", () => {
+  it("mindern den Kostenanteil je Einheit", () => {
+    const ohne = computeStatement(baseInput());
+    const mit = computeStatement(baseInput({ incomeByCostType: new Map([["pv", 240_000]]) }));
+    const summeOhne = [...ohne.perUnitTotal.values()].reduce((a, b) => a + b, 0);
+    const summeMit = [...mit.perUnitTotal.values()].reduce((a, b) => a + b, 0);
+    expect(summeOhne - summeMit).toBe(240_000);
+    expect(mit.errors).toEqual([]);
+  });
+
+  it("erscheinen als eigene Position mit negativem Betrag", () => {
+    const r = computeStatement(baseInput({ incomeByCostType: new Map([["pv", 240_000]]) }));
+    const zeile = r.rows.find((x) => x.costTypeId === "pv");
+    expect(zeile?.totalCents).toBe(-240_000);
+    expect(zeile?.name).toContain("Einnahme");
+    expect([...(zeile?.perUnit ?? new Map()).values()].reduce((a, b) => a + b, 0)).toBe(-240_000);
+  });
+
+  it("erzeugen keine negative Null", () => {
+    const r = computeStatement(baseInput({ incomeByCostType: new Map([["pv", 0]]) }));
+    for (const zeile of r.rows) {
+      for (const cents of zeile.perUnit?.values() ?? []) {
+        expect(Object.is(cents, -0)).toBe(false);
+      }
+    }
   });
 });

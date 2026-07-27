@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { requireVerwalter } from "@/lib/session";
 import { buildPain008, isoDate, type SepaPayment } from "@/lib/weg/sepa";
 
@@ -58,7 +59,7 @@ export async function GET(
     }),
     db.booking.groupBy({
       by: ["unitId"],
-      where: { propertyId: property.id, kind: "EINNAHME", unitId: { not: null } },
+      where: { propertyId: property.id, kind: "EINNAHME", unitId: { not: null }, ...NOT_REVERSED },
       _sum: { amountCents: true },
     }),
   ]);

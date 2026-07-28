@@ -951,3 +951,41 @@ zweimal — einmal als Summe je Einheit (`dueSums`, „Soll fällig") und einmal
 vollständig für die offenen Posten. Zusammenlegen ginge nicht ohne Verlust: Die
 Spalte zeigt **alle fälligen** Forderungen, die offenen Posten nur die **noch
 offenen**. Aus dem einen lässt sich das andere nicht ableiten.
+
+## Schritt 31 — LP1: Erklärungen ein- und ausschaltbar (28.07.2026)
+
+Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP1).
+
+158. **Es gab bisher keinerlei Nutzereinstellung.** `User` trug nur Kontoflags.
+     `showHints` ist das erste Feld, das eine *Vorliebe* speichert — und
+     deshalb ein neues Muster, kein Anbau an ein vorhandenes.
+159. **Standardmäßig an.** Die umgekehrte Voreinstellung erreichte genau die
+     nicht, für die die Hinweise gedacht sind: Wer nicht weiß, was eine
+     Sollstellung ist, sucht keinen Schalter für ihre Erklärung.
+160. **Am Nutzer, nicht an der Organisation.** Zwei Eigentümer derselben WEG
+     dürfen es verschieden wollen. Deshalb steht der Schalter unter „Konto" und
+     nicht in den Verwalter-Einstellungen.
+161. **Serverseitig entschieden.** `<Tipp>` rendert gar nicht erst, wenn die
+     Hinweise aus sind. Rendern und per CSS verstecken hätte den Text trotzdem
+     über die Leitung geschickt und ihn beim Laden aufblitzen lassen.
+     `getUser()` ist pro Request gecacht — beliebig viele Hinweise auf einer
+     Seite kosten zusammen eine Abfrage.
+162. **Warnungen und Fehlermeldungen hängen NICHT daran.** Ein abgeschalteter
+     Tipp darf niemanden in einen Fehler laufen lassen, den er hätte vermeiden
+     können. `src/lib/tipp-regeln.test.ts` hält das fest: kein `<Alert>` in
+     einem `<Tipp>`, und keine Seite liest `showHints` selbst aus — sonst stünde
+     die Regel bald in dreißig Dateien und gälte in achtundzwanzig davon.
+163. **Der Wächter hätte sich fast selbst ausgehebelt.** Erster Wurf:
+     `join(__dirname, "..")` statt `".." , ".."` — der Glob fand **null**
+     Dateien und der Test meldete Erfolg, ohne eine einzige gesehen zu haben.
+     Aufgefallen nur, weil ein absichtlicher Verstoß eingebaut und geprüft
+     wurde, ob der Test ihn fängt. Seitdem sichert eine eigene Zusicherung
+     (`dateien.length > 50`) genau das ab.
+164. **Die 229 vorhandenen Hilfetexte bleiben zunächst.** Umgestellt sind die
+     Erklärungen, die diese Arbeitsreihe selbst geschrieben hat (§ 35a,
+     Fälligkeit, Beschluss-Nachtrag). Der Rest zieht nach, wenn jemand die
+     Seite ohnehin anfasst — wie beim Rücksprung-Helfer.
+
+An echten Daten geprüft: Schalter vorbelegt an; ausgeschaltet verschwinden die
+Erklärungen auf Stammdaten und Wirtschaftsplan-Detail, Warnungen und
+Rückstandshinweise bleiben; wieder eingeschaltet sind sie zurück.

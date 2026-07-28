@@ -3,6 +3,7 @@ import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { notFound } from "next/navigation";
 import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -413,14 +414,14 @@ Muster — ersetzt keine Rechtsberatung.`;
               </form>
             </>
           ) : null}
-          <p className="mt-3 text-xs text-gray-400">
+          <Tipp className="mt-3">
             „Als beschlossen markieren“ trägt einen Beschluss nach, der bereits gefasst wurde, und
             erzeugt für jede Einheit die monatlichen Sollstellungen — fällig{" "}
             {faelligkeitsText(property.dueDayRule, property.dueDayOfMonth)} (änderbar in den
             Stammdaten). Tagt die Versammlung erst im Laufe des Jahres, entstehen die Forderungen
             der zurückliegenden Monate mit: Der Plan gilt ab Beginn des Wirtschaftsjahres. Soll
             erst noch abgestimmt werden, nutzen Sie die Wege darunter.
-          </p>
+          </Tipp>
         </Card>
 
         {/* Weg nach vorn: abstimmen lassen, statt nur nachzutragen. Bisher gab es

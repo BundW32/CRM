@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import {
   costCategoryLabels,
@@ -190,12 +191,12 @@ export default async function WegStammdatenPage({
               <PendingButton className={buttonClass}>Speichern</PendingButton>
             </div>
           </form>
-          <p className="mt-3 text-xs text-gray-500">
+          <Tipp className="mt-3">
             Die Fälligkeit bestimmt, ab wann ein Hausgeld als Rückstand gilt und wann Verzug
             eintritt (§ 286 BGB). Sie erscheint zugleich im Text der Beschlussvorlage zum
             Wirtschaftsplan — damit die Gemeinschaft genau das beschließt, wonach später
             gemahnt wird.
-          </p>
+          </Tipp>
         </Card>
 
         {/* MEA-Summenprüfung */}

@@ -120,3 +120,19 @@ export async function revokeCertMandate() {
   revalidatePath("/konto");
   redirect("/konto?flash=vollmacht-widerrufen");
 }
+
+// ── Erklärende Hinweise ein/aus ─────────────────────────────────────────────
+// Eine Vorliebe der Person, nicht der Organisation: Zwei Eigentümer derselben
+// WEG dürfen es verschieden wollen. Deshalb am Nutzer und nicht am Mandanten.
+//
+// Kein Audit-Eintrag: Ob jemand Erklärtexte sieht, ist keine nachweispflichtige
+// Handlung — und ein Protokoll darüber wäre eher Überwachung als Nachweis.
+export async function saveShowHints(formData: FormData) {
+  const user = await requireUser();
+  await db.user.update({
+    where: { id: user.id },
+    data: { showHints: formData.get("showHints") === "on" },
+  });
+  revalidatePath("/", "layout");
+  redirect("/konto?gespeichert=hinweise");
+}

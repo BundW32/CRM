@@ -3,7 +3,7 @@ import { PendingButton } from "@/components/pending-button";
 import { PushToggle } from "@/components/push-toggle";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { getOrganization, requireUser } from "@/lib/session";
-import { changePassword } from "./actions";
+import { changePassword, saveShowHints } from "./actions";
 import { VollmachtKarte } from "./vollmacht";
 
 export const dynamic = "force-dynamic";
@@ -17,15 +17,21 @@ const errorMessages: Record<string, string> = {
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
 }) {
   const user = await requireUser();
-  const { fehler } = await searchParams;
+  const { fehler, gespeichert } = await searchParams;
   const org = await getOrganization();
 
   return (
     <>
       <PageTitle>Konto</PageTitle>
+
+      {gespeichert === "hinweise" ? (
+        <Alert variant="success" className="mb-4">
+          Gespeichert.
+        </Alert>
+      ) : null}
 
       <div className="grid max-w-3xl gap-5 md:grid-cols-2">
         <Card title="Ihre Daten">
@@ -133,6 +139,37 @@ export default async function AccountPage({
             „Zum Startbildschirm hinzufügen“ installieren.
           </p>
           <PushToggle />
+        </Card>
+
+        {/* Hinweise ein/aus. Bewusst hier und nicht in den
+            Verwalter-Einstellungen: Es ist eine Vorliebe der Person, nicht der
+            Organisation — zwei Eigentümer derselben WEG dürfen es verschieden
+            wollen. */}
+        <Card title="Erklärungen">
+          <form action={saveShowHints} className="space-y-3">
+            <label className="flex items-start gap-2 text-sm text-gray-800">
+              <input
+                type="checkbox"
+                name="showHints"
+                defaultChecked={user.showHints}
+                className="mt-0.5"
+              />
+              <span>
+                Erklärende Hinweise anzeigen
+                <span className="mt-1 block text-xs text-gray-500">
+                  Kurze Erläuterungen zu Fachbegriffen und Eingaben — etwa was eine
+                  Sollstellung ist oder warum der Verbrauchsanteil bei Heizkosten
+                  zwischen 50 und 70 Prozent liegen muss. Wer das Programm kennt,
+                  schaltet sie hier ab.
+                </span>
+                <span className="mt-1 block text-xs text-gray-500">
+                  Warnungen und Fehlermeldungen bleiben immer sichtbar — sie sind
+                  keine Erklärungen, sondern Hinweise auf etwas, das zu tun ist.
+                </span>
+              </span>
+            </label>
+            <PendingButton className={buttonClass}>Speichern</PendingButton>
+          </form>
         </Card>
       </div>
     </>

@@ -3,6 +3,7 @@ import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -606,14 +607,14 @@ Muster — ersetzt keine Rechtsberatung.`;
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-xs text-gray-400">
+          <Tipp className="mt-3">
             §35a: ausgewiesen ist der Lohn-, Fahrt- und Maschinenkostenanteil — nur er ist
             begünstigt, Material nicht. Quelle ist der Lohnanteil an der Buchung; fehlt er, greift
             der Erfahrungswert der Kostenart. Ist beides nicht hinterlegt, erscheint der Betrag als
             „ohne Lohnanteil&ldquo;: Er ist bewusst nicht ausgewiesen, weil eine geschätzte Zahl der
             Rückfrage des Finanzamts nicht standhielte. Nachtragen lässt er sich in der
             Buchhaltung. Muster — ersetzt keine Steuerberatung.
-          </p>
+          </Tipp>
         </Card>
 
         {/* Vermögensbericht */}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Badge } from "@/components/data-display";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@/generated/prisma/client";
 import { Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass } from "@/components/ui";
@@ -172,9 +173,7 @@ export default async function GemeinschaftPage({
                                 <span className="flex flex-wrap items-center gap-2">
                                   {o.user.name}
                                   {o.isBoardMember ? (
-                                    <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-xs font-medium text-brand-green">
-                                      Beirat
-                                    </span>
+                                    <Badge tone="success">Beirat</Badge>
                                   ) : null}
                                 </span>
                               </td>

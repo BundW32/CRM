@@ -10,7 +10,7 @@ import {
   ledgerAccountKindLabels,
   unitTypeLabels,
 } from "@/lib/labels";
-import { SelectField } from "@/components/fields";
+import { DateField, SelectField, toDateInputValue } from "@/components/fields";
 import { formatCents } from "@/lib/money";
 import { WEG_COST_CATALOG } from "@/lib/weg/cost-catalog";
 import { requireWegProperty } from "@/lib/weg/scope";
@@ -358,13 +358,12 @@ export default async function WegStammdatenPage({
                                 {o.sharePercent !== 100 ? ` (${o.sharePercent} %)` : ""}
                               </span>
                               <span className="text-xs text-gray-500">seit</span>
-                              <input
-                                type="date"
+                              <DateField
                                 name="validFrom"
                                 required
-                                defaultValue={o.validFrom.toISOString().slice(0, 10)}
-                                className={`${inputClass} w-auto py-1 text-xs`}
+                                defaultValue={toDateInputValue(o.validFrom)}
                                 aria-label={`Beginn der Eigentümerschaft von ${o.user.name}`}
+                                className="w-auto py-1 text-xs"
                               />
                               <PendingButton className="text-xs text-brand-green underline">
                                 übernehmen
@@ -382,12 +381,11 @@ export default async function WegStammdatenPage({
                                     Eigentümerschaft, eines beginnt eine neue.
                                     Ohne Beschriftung sagt keines, welches was tut. */}
                                 <span className="text-xs text-gray-500">beenden zum</span>
-                                <input
-                                  type="date"
+                                <DateField
                                   name="validTo"
-                                  className={`${inputClass} w-auto py-1 text-xs`}
                                   aria-label={`Eigentümerschaft von ${o.user.name} beenden zum`}
                                   title={`Eigentümerschaft von ${o.user.name} zu diesem Tag beenden`}
+                                  className="w-auto py-1 text-xs"
                                 />
                                 <ConfirmActionButton
                                   className="text-xs text-red-600 underline"
@@ -427,9 +425,12 @@ export default async function WegStammdatenPage({
                           ))}
                         </select>
                       </Field>
-                      <Field label="Eigentümer seit">
-                        <input type="date" name="validFrom" className={`${inputClass} w-auto`} required />
-                      </Field>
+                      <DateField
+                        label="Eigentümer seit"
+                        name="validFrom"
+                        required
+                        className="w-auto"
+                      />
                       <Field label="Anteil (%)">
                         <input
                           name="sharePercent"
@@ -720,13 +721,12 @@ export default async function WegStammdatenPage({
                     className={`${inputClass} w-28`}
                     aria-label="Anfangsbestand in Euro"
                   />
-                  <input
+                  <DateField
                     name="openingBalanceDate"
-                    type="date"
-                    defaultValue={a.openingBalanceDate?.toISOString().slice(0, 10) ?? ""}
+                    defaultValue={toDateInputValue(a.openingBalanceDate)}
                     required
-                    className={`${inputClass} w-auto`}
                     aria-label="Stichtag des Anfangsbestands"
+                    className="w-auto"
                   />
                   <span className="text-sm text-gray-500">
                     Anfangsbestand: {formatCents(a.openingBalanceCents)}
@@ -773,14 +773,12 @@ export default async function WegStammdatenPage({
                   placeholder="0,00"
                 />
               </Field>
-              <Field label="Stichtag">
-                <input
-                  name="openingBalanceDate"
-                  type="date"
-                  required
-                  className={`${inputClass} w-auto`}
-                />
-              </Field>
+              <DateField
+                label="Stichtag"
+                name="openingBalanceDate"
+                required
+                className="w-auto"
+              />
               <PendingButton className={buttonClass}>Anlegen</PendingButton>
             </form>
           </details>

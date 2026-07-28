@@ -20,6 +20,7 @@ import {
   undoImportBatch,
 } from "./actions";
 import { ImportClient } from "./ImportClient";
+import { DateField } from "@/components/fields";
 
 export const dynamic = "force-dynamic";
 
@@ -366,9 +367,12 @@ export default async function WegBuchhaltungPage({
                   <option value="AUSGABE">Ausgabe</option>
                 </select>
               </Field>
-              <Field label="Buchungstag">
-                <input name="bookingDate" type="date" className={`${inputClass} w-auto`} required />
-              </Field>
+              <DateField
+                label="Buchungstag"
+                name="bookingDate"
+                required
+                className="w-auto"
+              />
               <Field label="Betrag (€)">
                 <input
                   name="amount"
@@ -452,9 +456,12 @@ export default async function WegBuchhaltungPage({
                   ))}
                 </select>
               </Field>
-              <Field label="Datum">
-                <input name="bookingDate" type="date" className={`${inputClass} w-auto`} required />
-              </Field>
+              <DateField
+                label="Datum"
+                name="bookingDate"
+                required
+                className="w-auto"
+              />
               <Field label="Betrag (€)">
                 <input
                   name="amount"

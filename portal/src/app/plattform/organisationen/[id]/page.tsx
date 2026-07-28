@@ -5,6 +5,7 @@ import { PLANS, SUBSCRIPTION_STATUSES, planLabel, subscriptionStatusLabel } from
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { requirePlatformAdmin } from "@/lib/platform";
+import { DateField } from "@/components/fields";
 import {
   extendTrial,
   savePlatformNote,
@@ -193,7 +194,10 @@ export default async function OrganisationDetailPage({
                 <input type="hidden" name="mode" value="date" />
                 <label className="text-xs text-gray-500">
                   bis Datum
-                  <input type="date" name="date" className={`${inputClass} mt-1`} />
+                  <DateField
+                    name="date"
+                    className="mt-1"
+                  />
                 </label>
                 <PendingButton className={buttonSecondaryClass}>Setzen</PendingButton>
               </form>

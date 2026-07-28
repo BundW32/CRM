@@ -1,4 +1,5 @@
 import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { Badge } from "@/components/data-display";
 import { PendingButton } from "@/components/pending-button";
 import { SignatureCanvas } from "@/app/(portal)/verwaltung/nutzer/signature-canvas";
 import { formatDate } from "@/lib/labels";
@@ -55,9 +56,7 @@ export function VollmachtKarte({ user }: { user: EigentuemerFelder }) {
         {vollmachtAktiv ? (
           <>
             <p className="text-sm text-gray-700">
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                Vollmacht erteilt
-              </span>
+              <Badge tone="success">Vollmacht erteilt</Badge>
               {user.certMandateGrantedAt ? (
                 <span className="ml-2 text-xs text-gray-500">
                   am {formatDate(user.certMandateGrantedAt)}

@@ -65,8 +65,28 @@ Dateien berührt.
 - **Stufe 3 — fertig.** Drei harte ESLint-Regeln in `portal/eslint.oberflaeche.mjs`,
   Konventions-Abschnitt in `portal/AGENTS.md`, Ausnahmeliste mit **49 Bestandsdateien**
   (94 Verstöße), bewacht von `src/lib/oberflaeche-regeln.test.ts`.
-- **Stufe 4 — läuft.** Erste Welle (Alltag) fertig: Vorgänge, Aushänge, Dokumente,
-  Nachrichten. Nächste Welle: Stammdaten.
+- **Stufe 4 — läuft.** Drei von fünf Wellen fertig:
+  1. *Alltag* — Vorgänge, Aushänge, Dokumente, Nachrichten
+  2. *Stammdaten* — Objekte, Kontakte, Zugänge, Eigentümer & MEA, Notizen, Einstellungen
+  3. *Portal* — Dashboard, Versammlungen, Zähler, Gemeinschaft, Konto, Ladeansichten
+     sowie die drei Bausteine mit eigener Optik
+  4. *WEG-Finanzen* — Stammdaten, Hausgeld, Buchhaltung, CO₂, Erhaltungsplanung,
+     Lastschrift, Prüfpflichten, Sonderumlagen, Wirtschaftsplan-Detail
+  5. *Wohnungsübergabe* — alle zehn Dateien des Assistenten
+  6. *Plattform* — Betreiber-Übersicht, Organisationen, Rechnungen
+
+  **Damit ist Stufe 4 abgeschlossen.** Die Ausnahmeliste ging von 49 über 37, 25, 16
+  und 6 auf **einen** Eintrag zurück — und der ist eine Entscheidung, keine Restarbeit:
+
+  `src/app/auftraege/[token]/page.tsx` — die Magic-Link-Seite des Handwerkers. Sie
+  wird ohne Konto per Link aus einer E-Mail geöffnet, meist auf dem Telefon und oft
+  auf der Baustelle. Große Flächen und wenige Elemente sind dort richtig, nicht die
+  Dichte des Portals am Schreibtisch. Bleibt bewusst ausgenommen.
+
+  **Der Rahmen der Wohnungsübergabe bleibt bewusst anders:** Vollbild-Assistent mit
+  Schrittkette statt Navigationsleiste. Sie läuft auf dem Telefon beim Gang durch die
+  Wohnung — das ist ein echter Unterschied im Zweck, keine gewachsene Abweichung.
+  Vereinheitlicht wurde nur, was *innen* steht.
 
 **Zur Reichweite der Regeln:** Ursprünglich war „keine handgebauten Karten" als breites
 Verbot gedacht. Gemessen traf ein solches Muster 113 Stellen — darunter Aufklapp-Menüs,

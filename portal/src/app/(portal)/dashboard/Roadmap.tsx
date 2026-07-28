@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DateField } from "@/components/fields";
 import { ArrowRight, CalendarPlus, Download } from "lucide-react";
 import { PendingButton } from "@/components/pending-button";
 import { Card, EmptyState, Field, buttonSecondaryClass, inputClass } from "@/components/ui";
@@ -100,9 +101,7 @@ function EigenerTermin({ propertyId }: { propertyId: string }) {
                 className={`${inputClass} w-56`}
               />
             </Field>
-            <Field label="Fällig am">
-              <input type="date" name="dueDate" required className={`${inputClass} w-auto`} />
-            </Field>
+            <DateField label="Fällig am" name="dueDate" required className="w-auto" />
             <Field label="Wiederholung">
               <select name="interval" defaultValue="EINMALIG" className={`${inputClass} w-auto`}>
                 {(

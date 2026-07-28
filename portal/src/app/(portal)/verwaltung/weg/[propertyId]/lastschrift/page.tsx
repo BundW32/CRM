@@ -7,6 +7,7 @@ import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { deleteMandate, saveCreditorId, saveMandate } from "./actions";
+import { DateField, toDateInputValue } from "@/components/fields";
 
 export const dynamic = "force-dynamic";
 
@@ -66,8 +67,8 @@ export default async function LastschriftPage({
 
   const p = property as typeof property & { sepaCreditorId: string | null };
   const canExport = Boolean(p.sepaCreditorId && giro?.iban);
-  const collectionDefault = new Date(now.getTime() + 6 * 86400000).toISOString().slice(0, 10);
-  const today = now.toISOString().slice(0, 10);
+  const collectionDefault = toDateInputValue(new Date(now.getTime() + 6 * 86400000))!;
+  const today = toDateInputValue(now)!;
 
   return (
     <>
@@ -137,9 +138,12 @@ export default async function LastschriftPage({
                       <Field label="Mandatsreferenz (optional)">
                         <input type="text" name="mandateRef" defaultValue={m?.mandateRef ?? ""} className={inputClass} placeholder="automatisch" />
                       </Field>
-                      <Field label="Unterschrieben am">
-                        <input type="date" name="signedDate" defaultValue={m ? m.signedDate.toISOString().slice(0, 10) : today} required className={inputClass} />
-                      </Field>
+                      <DateField
+                        label="Unterschrieben am"
+                        name="signedDate"
+                        defaultValue={m ? toDateInputValue(m.signedDate) : today}
+                        required
+                                    />
                       <Field label="Sequenz">
                         <select name="sequence" defaultValue={m?.sequence ?? "FRST"} className={inputClass}>
                           <option value="FRST">Erstmalig (FRST)</option>
@@ -187,9 +191,11 @@ export default async function LastschriftPage({
               </Alert>
             ) : (
               <form action={`/verwaltung/weg/${property.id}/lastschrift/export`} method="get" className="space-y-3">
-                <Field label="Einzugstermin">
-                  <input type="date" name="date" defaultValue={collectionDefault} className={inputClass} />
-                </Field>
+                <DateField
+                  label="Einzugstermin"
+                  name="date"
+                  defaultValue={collectionDefault}
+                        />
                 <PendingButton className={buttonClass}>XML herunterladen</PendingButton>
                 <p className="text-xs text-gray-500">
                   Eingezogen wird der zum Termin offene Hausgeld-Betrag je Einheit mit aktivem Mandat.

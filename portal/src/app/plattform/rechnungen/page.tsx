@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Alert, Card, PageTitle, Pagination, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { KeyFigure } from "@/components/data-display";
+import { Alert, Card, PageTitle, Pagination, buttonClass, buttonSecondaryClass, cardSurfaceClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
@@ -172,14 +173,16 @@ export default async function RechnungenPage({
       ) : null}
 
       <div className="mb-4 grid grid-cols-2 gap-4 sm:max-w-md">
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-2xl font-bold text-brand-green">{formatCents(openSum)}</p>
-          <p className="text-xs text-gray-500">Offen gesamt</p>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className={`text-2xl font-bold ${overdue > 0 ? "text-red-600" : "text-brand-green"}`}>{overdue}</p>
-          <p className="text-xs text-gray-500">Überfällig</p>
-        </div>
+        <Card>
+          <KeyFigure label="Offen gesamt" value={formatCents(openSum)} />
+        </Card>
+        <Card>
+          <KeyFigure
+            label="Überfällig"
+            value={overdue}
+            tone={overdue > 0 ? "critical" : "neutral"}
+          />
+        </Card>
       </div>
 
       {overdueInvoices.length > 0 ? (
@@ -250,7 +253,7 @@ export default async function RechnungenPage({
         <SortControl sortOptions={sortOptions} defaultSort="nummer" total={invoiceTotal} />
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className={`overflow-x-auto ${cardSurfaceClass}`}>
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">

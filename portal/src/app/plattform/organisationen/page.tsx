@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PageTitle, Pagination } from "@/components/ui";
+import { PageTitle, Pagination, cardSurfaceClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { db } from "@/lib/db";
@@ -132,7 +132,7 @@ export default async function OrganisationenPage({
         <SortControl sortOptions={sortOptions} defaultSort="registriert" total={total} />
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className={`overflow-x-auto ${cardSurfaceClass}`}>
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">

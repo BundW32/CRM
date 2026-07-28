@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CountUp } from "@/components/count-up";
+import { Badge } from "@/components/data-display";
 
 // Einheitliche Kennzahl-Kachel – ersetzt die zuvor doppelten KPI-Styles im
 // Dashboard und in den Objekt-Statistiken. Numerische Werte zählen animiert hoch.
@@ -28,9 +29,9 @@ export function StatTile({
         </span>
       ) : null}
       {delta ? (
-        <span className="absolute right-3 top-3 rounded-full bg-good-light px-2 py-0.5 text-xs font-semibold text-good">
+        <Badge tone="success" className="absolute top-3 right-3">
           {delta}
-        </span>
+        </Badge>
       ) : null}
       <p className="text-3xl font-bold tracking-tight text-brand-green tabular-nums">{display}</p>
       <p className="mt-1 text-xs font-medium text-gray-500">{label}</p>

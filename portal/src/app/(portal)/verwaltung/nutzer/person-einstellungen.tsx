@@ -1,5 +1,5 @@
 import { ConfirmActionButton } from "@/components/confirm-action-button";
-import { DateField } from "@/components/fields";
+import { DateField, toDateInputValue } from "@/components/fields";
 import { PendingButton } from "@/components/pending-button";
 import { inputClass } from "@/components/ui";
 import {
@@ -404,7 +404,7 @@ function VollmachtVermerk({ u, zurueck }: { u: PersonMitBezug; zurueck: string }
   if (!u) return null;
   const aktiv = hasCertMandate(u);
   const schriftlich = u.certMandateSource === "SCHRIFTLICH";
-  const heute = new Date().toISOString().slice(0, 10);
+  const heute = toDateInputValue(new Date())!;
 
   if (aktiv) {
     return (

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, Info, X, XCircle } from "lucide-react";
 import { FLASH_PARAM, resolveFlash, type FlashTone } from "@/lib/flash";
+import { Badge } from "@/components/data-display";
 
 // Zeigt die Rückmeldung einer Server-Action als kurz eingeblendete Karte oben
 // rechts. Hängt einmal in der Portal-Shell und gilt damit für jede Seite: Eine
@@ -164,9 +165,9 @@ function ToastKarte({ toast, onClose }: { toast: Toast; onClose: () => void }) {
         <p className="min-w-0 flex-1 text-sm text-gray-800">
           {toast.text}
           {toast.anzahl > 1 ? (
-            <span className="ml-1.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-600">
+            <Badge tone="neutral" className="ml-1.5">
               ×{toast.anzahl}
-            </span>
+            </Badge>
           ) : null}
         </p>
         <button

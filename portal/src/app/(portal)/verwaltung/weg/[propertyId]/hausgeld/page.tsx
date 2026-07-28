@@ -1,14 +1,15 @@
 import Link from "next/link";
+import { Badge } from "@/components/data-display";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import type { Prisma } from "@/generated/prisma/client";
-import { Alert, Card, EmptyState, Field, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { reminderLevelLabel } from "@/lib/dunning";
 import { formatDateOnly } from "@/lib/labels";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list-query";
-import { SelectField } from "@/components/fields";
+import { DateField, SelectField, toDateInputValue } from "@/components/fields";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
@@ -492,17 +493,15 @@ export default async function HausgeldPage({
             </p>
             <form action={saveUebernahme} className="mt-4">
               <input type="hidden" name="propertyId" value={property.id} />
-              <Field label="Stichtag der Übernahme">
-                <input
-                  type="date"
-                  name="stichtag"
-                  required
-                  defaultValue={
-                    uebernahmeStichtag ? uebernahmeStichtag.toISOString().slice(0, 10) : undefined
+              <DateField
+                label="Stichtag der Übernahme"
+                name="stichtag"
+                required
+                defaultValue={
+                    uebernahmeStichtag ? toDateInputValue(uebernahmeStichtag) : undefined
                   }
-                  className={`${inputClass} w-auto`}
-                />
-              </Field>
+                className="w-auto"
+              />
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {units.map((u) => (
                   <label key={u.id} className="flex items-center gap-2 text-sm">
@@ -736,9 +735,7 @@ export default async function HausgeldPage({
                         </form>
                       </>
                     ) : (
-                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                        versendet
-                      </span>
+                      <Badge tone="success">versendet</Badge>
                     )}
                   </div>
                 </div>

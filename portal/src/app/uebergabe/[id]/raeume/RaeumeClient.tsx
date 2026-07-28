@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { Badge } from "@/components/data-display";
 import { PendingButton } from "@/components/pending-button";
 import { useRouter } from "next/navigation";
-import { inputClass, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { buttonClass, buttonSecondaryClass, cardSurfaceClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { checksForRoomType, countRoomMaengel, type CheckPoint } from "@/lib/handover-checks";
 import { addRoom, updateRoomMeta, updateRoomChecks, deleteRoom, uploadRoomPhoto, deletePhoto } from "./actions";
@@ -183,7 +184,7 @@ function RoomCard({
   const maengel = countRoomMaengel(room.checks);
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <div className={`overflow-hidden ${cardSurfaceClass}`}>
       {/* Header: Inline-Bearbeitung von Bezeichnung & Art */}
       <div className="flex items-center gap-2 px-3 py-2.5 sm:px-4">
         <form ref={metaRef} action={updateRoomMeta} className="flex flex-1 items-center gap-2 min-w-0">
@@ -211,9 +212,9 @@ function RoomCard({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {maengel > 0 && (
-            <span className="hidden sm:inline-flex items-center rounded-full bg-yellow-50 border border-yellow-200 px-2 py-0.5 text-xs font-medium text-yellow-700">
+            <Badge tone="warning" className="hidden sm:inline-flex">
               {maengel} {maengel === 1 ? "Mangel" : "Mängel"}
-            </span>
+            </Badge>
           )}
           {room.photos.length > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">

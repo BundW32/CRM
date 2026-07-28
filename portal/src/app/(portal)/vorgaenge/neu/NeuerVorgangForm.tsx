@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
+import { Combobox } from "@/components/combobox";
 import { FileInput } from "@/components/file-input";
 import { loadUnitsForProperty, type UnitOption } from "@/app/(portal)/unit-options";
 import { SubmitButton } from "@/components/submit-button";
@@ -264,17 +265,13 @@ function VerwalterTargetFields({ properties }: { properties: VerwalterProperty[]
   const [propertyId, setPropertyId] = useState("");
   const [target, setTarget] = useState("");
   const [units, setUnits] = useState<UnitOption[]>([]);
-  const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
   const reqRef = useRef(0);
 
-  const q = query.toLowerCase().trim();
-  const visibleProps = q
-    ? properties.filter((p) => p.name.toLowerCase().includes(q))
-    : properties;
-
   function handlePropertyChange(value: string) {
     setPropertyId(value);
+    // Ohne gewählte Einheit meint der Vorgang das gesamte Objekt – der Normalfall
+    // bei Treppenhaus, Dach oder Heizungsanlage.
     setTarget(value ? `${value}|` : "");
     setUnits([]);
     const req = ++reqRef.current;
@@ -288,51 +285,36 @@ function VerwalterTargetFields({ properties }: { properties: VerwalterProperty[]
   return (
     <>
       <Field label="Objekt">
-        {properties.length > 8 ? (
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Objekt suchen …"
-            className={`${inputClass} mb-1.5`}
-            autoComplete="off"
-          />
-        ) : null}
-        <select
-          value={propertyId}
-          onChange={(e) => handlePropertyChange(e.target.value)}
-          required
-          className={inputClass}
-        >
-          <option value="" disabled>
-            – bitte wählen –
-          </option>
-          {visibleProps.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        <Combobox
+          label="Objekt"
+          placeholder="Objekt suchen …"
+          options={properties.map((p) => ({ value: p.id, label: p.name }))}
+          value={propertyId || undefined}
+          onSelect={handlePropertyChange}
+          onClear={() => handlePropertyChange("")}
+        />
       </Field>
 
+      {/* Tippbar statt Aufklappliste: Ein Objekt kann hundert Einheiten haben, und
+          durch eine solche Liste zu scrollen ist im Alltag unbrauchbar. Der
+          Mietername steht als Zusatz dabei – gesucht wird öfter nach „Gür" als
+          nach „WE 14". */}
       <Field label="Einheit / Wohnung">
-        <select
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
+        <Combobox
+          label="Einheit / Wohnung"
+          placeholder={pending ? "Einheiten werden geladen …" : "Einheit suchen …"}
+          options={units.map((u) => ({
+            value: `${propertyId}|${u.id}`,
+            label: u.label,
+            sublabel: u.tenantNames.length > 0 ? u.tenantNames.join(", ") : undefined,
+          }))}
+          value={target && target !== `${propertyId}|` ? target : undefined}
+          onSelect={setTarget}
+          onClear={() => setTarget(`${propertyId}|`)}
+          clearOption="— gesamtes Objekt —"
           disabled={!propertyId || pending}
-          className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
-        >
-          {propertyId ? (
-            <option value={`${propertyId}|`}>— gesamtes Objekt —</option>
-          ) : (
-            <option value="">{pending ? "wird geladen …" : "zuerst Objekt wählen"}</option>
-          )}
-          {units.map((u) => (
-            <option key={u.id} value={`${propertyId}|${u.id}`}>
-              {u.tenantNames.length > 0 ? `${u.label}  ·  ${u.tenantNames.join(", ")}` : u.label}
-            </option>
-          ))}
-        </select>
+          disabledHint={propertyId ? "wird geladen …" : "zuerst Objekt wählen"}
+        />
       </Field>
 
       <input type="hidden" name="target" value={target} />

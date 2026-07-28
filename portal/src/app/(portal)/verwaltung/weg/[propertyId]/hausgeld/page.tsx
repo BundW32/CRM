@@ -10,6 +10,8 @@ import { reminderLevelLabel } from "@/lib/dunning";
 import { formatDateOnly } from "@/lib/labels";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list-query";
 import { DateField, SelectField, toDateInputValue } from "@/components/fields";
+import { Begriff } from "@/components/begriff";
+import { Tipp } from "@/components/tipp";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
@@ -403,7 +405,7 @@ export default async function HausgeldPage({
             : sp.fehler === "entwurfoffen"
               ? "Für diese Einheit liegt bereits ein unversendeter Entwurf vor."
               : sp.fehler === "keineigentuemer"
-                ? "Für diese Einheit ist kein Eigentümer erfasst — bitte in den Stammdaten zuordnen."
+                ? "Für diese Einheit ist kein Eigentümer erfasst — ohne ihn gibt es keinen Empfänger für die Mahnung."
                 : sp.fehler === "versendet"
                   ? "Versendete Schreiben bleiben als Nachweis erhalten und können nicht gelöscht werden."
                   : sp.fehler === "stichtag"
@@ -419,6 +421,20 @@ export default async function HausgeldPage({
                             : sp.fehler === "keineforderung"
                               ? "Für diese Einheit ist keine fällige Forderung offen. Eine Vorauszahlung bleibt bewusst als Guthaben stehen."
                               : "Die Eingabe konnte nicht gespeichert werden."}
+          {/* Wer auf fehlende Stammdaten hinweist, führt auch hin. */}
+          {sp.fehler === "stammdaten" || sp.fehler === "keineigentuemer" ? (
+            <>
+              {" "}
+              <Link
+                href={`/verwaltung/weg/${property.id}/stammdaten#${
+                  sp.fehler === "keineigentuemer" ? "eigentuemer" : "einheiten"
+                }`}
+                className="underline"
+              >
+                Zu den Stammdaten
+              </Link>
+            </>
+          ) : null}
         </Alert>
       ) : null}
 
@@ -486,11 +502,11 @@ export default async function HausgeldPage({
               Die Beträge stammen aus der letzten Abrechnung oder der Saldenliste der bisherigen
               Verwaltung.
             </p>
-            <p className="mt-1 text-xs text-gray-500">
+            <Tipp className="mt-1">
               Rückstand als positiver Betrag, Guthaben mit Minus davor. Kontostände ändern sich
               dadurch nicht — das Geld liegt bereits im übernommenen Anfangsbestand. Erneutes
               Speichern ersetzt den Stand, es summiert sich nichts auf.
-            </p>
+            </Tipp>
             <form action={saveUebernahme} className="mt-4">
               <input type="hidden" name="propertyId" value={property.id} />
               <DateField
@@ -552,7 +568,9 @@ export default async function HausgeldPage({
                 <thead>
                   <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
                     <th className="py-2 pr-3">Einheit</th>
-                    <th className="py-2 pr-3 text-right">Soll (fällig)</th>
+                    <th className="py-2 pr-3 text-right">
+                      <Begriff name="sollstellung">Soll</Begriff> (fällig)
+                    </th>
                     <th className="py-2 pr-3 text-right">Gezahlt (zugeordnet)</th>
                     <th className="py-2 pr-3 text-right">Rückstand</th>
                     {/* Altersstruktur: Sind 1.200 € ein Monat bei mehreren

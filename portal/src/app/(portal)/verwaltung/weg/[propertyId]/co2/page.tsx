@@ -3,6 +3,7 @@ import { KeyFigure, KeyFigures } from "@/components/data-display";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
+import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
 import { CO2_STEPS_RESIDENTIAL } from "@/lib/weg/co2";
@@ -142,10 +143,10 @@ export default async function Co2Page({
                     </tfoot>
                   </table>
                 </div>
-                <p className="mt-3 text-xs text-gray-400">
+                <Tipp className="mt-3">
                   Der CO₂-Kostenbetrag wird nach Wohnfläche auf die Einheiten verteilt; je
                   Einheit gilt der gebäudeweite Vermieter-/Mieteranteil.
-                </p>
+                </Tipp>
               </Card>
             </>
           ) : (
@@ -202,10 +203,10 @@ export default async function Co2Page({
                 <textarea name="note" defaultValue={allocation?.note ?? ""} rows={2} className={inputClass} />
               </Field>
               <SubmitButton pendingLabel="Wird gespeichert…">Speichern & berechnen</SubmitButton>
-              <p className="text-xs text-gray-500">
+              <Tipp>
                 CO₂-Kostenanteil und Emissionsmenge stehen auf der Brennstoff-/Wärmerechnung
                 (Ausweispflicht des Lieferanten, § 2 CO₂KostAufG).
-              </p>
+              </Tipp>
             </form>
           </Card>
 

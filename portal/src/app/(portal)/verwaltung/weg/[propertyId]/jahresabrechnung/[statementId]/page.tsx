@@ -1,13 +1,17 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Begriff } from "@/components/begriff";
+import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { MANUAL_KEYS } from "@/lib/weg/annual-statement";
 import { computeStatementView, type StatementView } from "@/lib/weg/statement-service";
+import { einheitenOhneFeld } from "@/lib/weg/economic-plan";
 import { requireWegProperty } from "@/lib/weg/scope";
 import {
   deleteStatement,
@@ -38,7 +42,7 @@ const FEHLER_TEXTE: Record<string, string> = {
   heizanteil:
     "Der Verbrauchsanteil muss zwischen 50 und 70 Prozent liegen (§§ 7, 8 HeizkostenV). Der Rest wird als Grundkosten nach Wohnfläche verteilt.",
   flaeche:
-    "Für die Grundkosten fehlt bei mindestens einer Einheit die Wohnfläche. Bitte in den Stammdaten nachtragen.",
+    "Für die Grundkosten (HeizkostenV) wird die Wohnfläche gebraucht — sie fehlt noch.",
   keinekosten: "Für diese Kostenart sind im Wirtschaftsjahr keine Ausgaben gebucht.",
   keinverbrauch:
     "Keine Zählerstände für diese Art gefunden — bitte Einzelzähler und Ablesungen erfassen.",
@@ -98,7 +102,9 @@ export default async function JahresabrechnungDetailPage({
     db.unit.findMany({
       where: { propertyId: property.id },
       orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
-      select: { id: true, label: true },
+      // `livingArea` für die Fehlermeldung: Fehlt sie, nennt die Meldung die
+      // betroffene Einheit beim Namen statt „mindestens einer Einheit".
+      select: { id: true, label: true, livingArea: true },
     }),
     db.statementUnitAmount.findMany({ where: { statementId: statement.id } }),
     db.statementAccountCheck.findMany({ where: { statementId: statement.id } }),
@@ -110,6 +116,12 @@ export default async function JahresabrechnungDetailPage({
     manualByCostType.set(row.costTypeId, inner);
   }
   const reportedByAccount = new Map(checks.map((c) => [c.accountId, c.reportedEndCents]));
+
+  // Einheiten ohne Wohnfläche — Grundlage der Fehlermeldung oben.
+  const ohneFlaeche = einheitenOhneFeld(
+    units.map((u) => ({ ...u, mea: null, personCount: null })),
+    "flaeche",
+  );
 
   const manualPending = view.rows.filter(
     (r) => MANUAL_KEYS.includes(r.distributionKey) && r.totalCents > 0,
@@ -156,6 +168,23 @@ Muster — ersetzt keine Rechtsberatung.`;
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">
           {FEHLER_TEXTE[sp.fehler] ?? "Die Eingabe konnte nicht gespeichert werden."}
+          {/* Eine Meldung, die auf fehlende Stammdaten zeigt, führt auch hin —
+              und zwar auf die Zeile, nicht nur auf die Seite. */}
+          {sp.fehler === "flaeche" ? (
+            <>
+              {ohneFlaeche.length > 0
+                ? ` Betroffen: ${ohneFlaeche.map((u) => u.label).join(", ")}.`
+                : ""}{" "}
+              <Link
+                href={`/verwaltung/weg/${property.id}/stammdaten#${
+                  ohneFlaeche[0] ? `zeile-${ohneFlaeche[0].id}` : "einheiten"
+                }`}
+                className="underline"
+              >
+                Jetzt nachtragen
+              </Link>
+            </>
+          ) : null}
         </Alert>
       ) : null}
       {sp.importiert !== undefined ? (
@@ -465,10 +494,10 @@ Muster — ersetzt keine Rechtsberatung.`;
                     />
                   </label>
                   <PendingButton className={buttonSecondaryClass}>Importieren</PendingButton>
-                  <p className="w-full text-xs text-gray-400">
+                  <Tipp className="w-full">
                     Beträge je Einheit aus der Abrechnung von ista/Techem/Minol/Brunata. Einheiten
                     werden über Bezeichnung oder Nummer zugeordnet; nicht Zuordenbares wird gemeldet.
-                  </p>
+                  </Tipp>
                 </form>
               ) : null}
             </Card>
@@ -541,7 +570,9 @@ Muster — ersetzt keine Rechtsberatung.`;
                   <th className="py-2 pr-3">Einheit</th>
                   <th className="py-2 pr-3 text-right">Kostenanteil (Ist)</th>
                   <th className="py-2 pr-3 text-right">Soll-Vorschüsse</th>
-                  <th className="py-2 pr-3 text-right">Abrechnungsspitze</th>
+                  <th className="py-2 pr-3 text-right">
+                    <Begriff name="abrechnungsspitze">Abrechnungsspitze</Begriff>
+                  </th>
                   <th className="py-2 pr-3 text-right">§35a haushaltsnah</th>
                   <th className="py-2 pr-3 text-right">§35a Handwerker</th>
                   <th className="py-2 pr-3 text-right">PDF</th>
@@ -606,14 +637,14 @@ Muster — ersetzt keine Rechtsberatung.`;
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-xs text-gray-400">
+          <Tipp className="mt-3">
             §35a: ausgewiesen ist der Lohn-, Fahrt- und Maschinenkostenanteil — nur er ist
             begünstigt, Material nicht. Quelle ist der Lohnanteil an der Buchung; fehlt er, greift
             der Erfahrungswert der Kostenart. Ist beides nicht hinterlegt, erscheint der Betrag als
             „ohne Lohnanteil&ldquo;: Er ist bewusst nicht ausgewiesen, weil eine geschätzte Zahl der
             Rückfrage des Finanzamts nicht standhielte. Nachtragen lässt er sich in der
             Buchhaltung. Muster — ersetzt keine Steuerberatung.
-          </p>
+          </Tipp>
         </Card>
 
         {/* Vermögensbericht */}
@@ -650,10 +681,10 @@ Muster — ersetzt keine Rechtsberatung.`;
               <dd className="text-lg font-semibold text-gray-900">{euro(view.receivablesCents)}</dd>
             </div>
           </dl>
-          <p className="mt-3 text-xs text-gray-400">
+          <Tipp className="mt-3">
             Verbindlichkeiten und weitere Vermögensgegenstände werden derzeit nicht erfasst und
             sind bei Bedarf manuell zu ergänzen.
-          </p>
+          </Tipp>
         </Card>
 
         {/* Beschlussvorlage + Fertigstellen */}

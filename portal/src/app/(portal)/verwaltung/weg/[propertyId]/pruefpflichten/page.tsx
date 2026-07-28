@@ -11,6 +11,7 @@ import { classifyDue, dueLabel } from "@/lib/weg/compliance";
 import { WEG_COMPLIANCE_CATALOG } from "@/lib/weg/compliance-catalog";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { DateField, toDateInputValue } from "@/components/fields";
+import { Tipp } from "@/components/tipp";
 import {
   adoptComplianceCatalog,
   completeCompliance,
@@ -113,11 +114,11 @@ export default async function PruefpflichtenPage({
               <h2 className="mb-2 text-sm font-semibold text-gray-200">
                 Eigene Termine der Gemeinschaft
               </h2>
-              <p className="mb-3 max-w-3xl text-xs text-gray-400">
+              <Tipp className="mb-3 max-w-3xl">
                 Angelegt über den Jahresfahrplan auf der Übersicht. Sie stehen im selben
                 Fahrplan wie die Prüfpflichten und lassen sich hier verschieben, abhaken
                 und löschen.
-              </p>
+              </Tipp>
               <div className="space-y-3">
                 {eigene.map((t) => (
                   <TerminKarte key={t.id} t={t} propertyId={property.id} now={now} />

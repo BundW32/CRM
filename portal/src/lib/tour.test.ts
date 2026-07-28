@@ -85,6 +85,21 @@ describe("Geführte Einrichtung", () => {
     expect(treffer).toEqual([]);
   });
 
+  it("nennt keine Menüpunkte beim Namen", () => {
+    // Derselbe Menüpunkt heißt je nach Rolle und Kontotyp anders — `/verwaltung/weg`
+    // ist mal „WEG-Finanzen", mal „Finanzen & Buchhaltung". Ein Text, der einen
+    // davon zitiert, zeigt der Hälfte der Nutzer einen Namen, den sie nirgends
+    // finden. Der Lichtkegel sagt ohnehin, wo es steht. Genau so stand es im
+    // Screenshot-Durchgang auf dem Schirm: Text und beleuchteter Punkt trugen
+    // verschiedene Namen.
+    const nav = readFileSync(join(wurzel, "src/lib/app-nav.ts"), "utf8");
+    const titel = [...nav.matchAll(/title: "([^"]+)"/g)].map((m) => m[1]);
+    const treffer = TOUR_SCHRITTE.flatMap((s) =>
+      titel.filter((t) => s.text.includes(`„${t}`)).map((t) => `${s.titel}: „${t}“`),
+    );
+    expect(treffer).toEqual([]);
+  });
+
   it("verspricht den Wiederanlauf genau einmal — in der Mechanik", () => {
     // Der Schlusssatz „unter Konto neu starten" steht in `tour.tsx`, weil der
     // letzte Schritt je nach Kontotyp ein anderer ist. Stünde er zusätzlich in

@@ -230,13 +230,31 @@ export function Tour({
   // ist kein Schönheitsfehler, sondern der wichtigste: Eine Blase, deren
   // „Weiter" unter dem Bildrand liegt, macht die Führung unbedienbar.
   const LUFT = RAND + 12;
+  const breite = kasten ? Math.min(BLASE_BREITE, window.innerWidth - 24) : BLASE_BREITE;
   let blasenTop: number | null = null;
+  let blasenLeft = 12;
   if (kasten) {
     const unten = kasten.top + kasten.height + LUFT;
     const oben = kasten.top - LUFT - blaseHoehe;
-    if (unten + blaseHoehe <= window.innerHeight - 8) blasenTop = unten;
-    else if (oben >= 8) blasenTop = oben;
-    else blasenTop = Math.max(8, window.innerHeight - blaseHoehe - 8);
+    const daneben = kasten.left + kasten.width + LUFT;
+    if (unten + blaseHoehe <= window.innerHeight - 8) {
+      blasenTop = unten;
+    } else if (oben >= 8) {
+      blasenTop = oben;
+    } else if (daneben + breite <= window.innerWidth - 8) {
+      // Hohes Ziel — die Bereichsleiste geht über den ganzen Bildschirm. Über
+      // und unter ihr ist kein Platz; die Blase gehört dann *neben* sie. Sonst
+      // liegt sie auf dem Element, das sie gerade erklärt, und verdeckt die
+      // untere Hälfte davon. Genau so sah es im Screenshot-Durchgang aus.
+      blasenTop = Math.max(8, Math.min(kasten.top, window.innerHeight - blaseHoehe - 8));
+      blasenLeft = daneben;
+    } else {
+      // Weder darüber, darunter noch daneben: dann wenigstens ganz sichtbar.
+      blasenTop = Math.max(8, window.innerHeight - blaseHoehe - 8);
+    }
+    if (blasenLeft === 12) {
+      blasenLeft = Math.max(12, Math.min(kasten.left, window.innerWidth - breite - 12));
+    }
   }
 
   return (
@@ -291,8 +309,8 @@ export function Tour({
         style={
           kasten && blasenTop !== null
             ? {
-                width: Math.min(BLASE_BREITE, window.innerWidth - 24),
-                left: Math.max(12, Math.min(kasten.left, window.innerWidth - BLASE_BREITE - 12)),
+                width: breite,
+                left: blasenLeft,
                 top: blasenTop,
               }
             : {

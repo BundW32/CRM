@@ -90,8 +90,12 @@ export const TOUR_SCHRITTE: TourSchritt[] = [
   {
     ziel: "nav-verwaltung-weg",
     titel: "Hier lebt das Geld der Gemeinschaft",
+    // Ohne Namensnennung. Derselbe Menüpunkt heißt je nach Rolle und Kontotyp
+    // „WEG-Finanzen" oder „Finanzen & Buchhaltung" — der Screenshot-Durchgang
+    // zeigte den einen Namen im Text und den anderen im ausgeleuchteten
+    // Menüpunkt darüber. Der Lichtkegel sagt ohnehin, wo es steht.
     text:
-      "Unter „WEG-Finanzen“ liegen Kontostände, Hausgeld, Wirtschaftsplan und Jahresabrechnung. Das Programm rechnet die Verteilung auf die Einheiten selbst aus und erzeugt die Abrechnung, die Sie in der Versammlung vorlegen.",
+      "Hier liegen Kontostände, Hausgeld, Wirtschaftsplan und Jahresabrechnung. Das Programm rechnet die Verteilung auf die Einheiten selbst aus und erzeugt die Abrechnung, die Sie in der Versammlung vorlegen.",
     nurSelbstverwaltung: true,
   },
   {

@@ -1762,6 +1762,11 @@ model HausgeldMahnung {
   paymentDeadline DateTime // Zahlungsziel
   recipientName   String // Empfänger-Snapshot (aktuelle Eigentümer der Einheit)
   recipientAddress String? // Snapshot "Straße\nPLZ Ort" (falls hinterlegt)
+  // Anrede-Snapshot für die Briefanrede. Wie Name und Anschrift eingefroren:
+  // Das Schreiben muss auch später zeigen, wie es verschickt wurde. Bei
+  // mehreren Eigentümern bleiben beide leer — dann grüßt der Brief allgemein.
+  recipientSalutation String? // "Herr" oder "Frau"
+  recipientLastName   String?
   sentAt          DateTime? // "als versendet markiert" (Fristen-Nachweis)
   createdById     String
   createdBy       User         @relation("MahnungCreatedBy", fields: [createdById], references: [id])

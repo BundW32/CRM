@@ -11,7 +11,7 @@ import {
   buttonSecondaryClass,
   inputClass,
 } from "@/components/ui";
-import { DateField } from "@/components/fields";
+import { DateField, toDateInputValue } from "@/components/fields";
 import { SubmitButton } from "@/components/submit-button";
 import { AddPersonForm } from "./AddPersonForm";
 import { canVerwalterAccessProperty } from "@/lib/access";
@@ -42,8 +42,10 @@ function centsToInput(cents: number | null): string {
   return (cents / 100).toFixed(2).replace(".", ",");
 }
 
+// Früher ein eigener Helfer mit `toISOString()`. Der rechnet in UTC und machte in
+// deutscher Sommerzeit aus einem abends gesetzten 1. März den 28. Februar.
 function dateInput(d: Date | null): string {
-  return d ? d.toISOString().slice(0, 10) : "";
+  return toDateInputValue(d) ?? "";
 }
 
 // Mietvertrag eines Mietverhältnisses (Mietverwaltung): Kaltmiete, Nebenkosten-

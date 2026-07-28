@@ -10,6 +10,7 @@ import { isMailEnabled } from "@/lib/mailer";
 import { classifyDue, dueLabel } from "@/lib/weg/compliance";
 import { WEG_COMPLIANCE_CATALOG } from "@/lib/weg/compliance-catalog";
 import { requireWegProperty } from "@/lib/weg/scope";
+import { DateField, toDateInputValue } from "@/components/fields";
 import {
   adoptComplianceCatalog,
   completeCompliance,
@@ -59,7 +60,7 @@ export default async function PruefpflichtenPage({
   const adoptedKeys = new Set(tasks.map((t) => t.catalogKey));
   const notYetAdopted = WEG_COMPLIANCE_CATALOG.filter((d) => !adoptedKeys.has(d.key));
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
+  const today = toDateInputValue(now)!;
 
   return (
     <>
@@ -240,10 +241,9 @@ function TerminKarte({
           <form action={updateComplianceDue} className="flex items-center gap-1">
             <input type="hidden" name="propertyId" value={propertyId} />
             <input type="hidden" name="id" value={t.id} />
-            <input
-              type="date"
+            <DateField
               name="dueDate"
-              defaultValue={t.dueDate.toISOString().slice(0, 10)}
+              defaultValue={toDateInputValue(t.dueDate)}
               className="rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-700"
             />
             <PendingButton className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">Fälligkeit setzen</PendingButton>

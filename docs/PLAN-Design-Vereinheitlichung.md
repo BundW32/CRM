@@ -70,9 +70,11 @@ Dateien berührt.
   2. *Stammdaten* — Objekte, Kontakte, Zugänge, Eigentümer & MEA, Notizen, Einstellungen
   3. *Portal* — Dashboard, Versammlungen, Zähler, Gemeinschaft, Konto, Ladeansichten
      sowie die drei Bausteine mit eigener Optik
+  4. *WEG-Finanzen* — Stammdaten, Hausgeld, Buchhaltung, CO₂, Erhaltungsplanung,
+     Lastschrift, Prüfpflichten, Sonderumlagen, Wirtschaftsplan-Detail
 
-  Ausnahmeliste dadurch von 49 über 37 auf **25** Dateien. Offen: Wohnungsübergabe (10),
-  WEG-Finanzen (9), Plattform (5), Handwerker-Magic-Link (1).
+  Ausnahmeliste dadurch von 49 über 37 und 25 auf **16** Dateien. Offen:
+  Wohnungsübergabe (10), Plattform (5), Handwerker-Magic-Link (1).
 
 **Zur Reichweite der Regeln:** Ursprünglich war „keine handgebauten Karten" als breites
 Verbot gedacht. Gemessen traf ein solches Muster 113 Stellen — darunter Aufklapp-Menüs,

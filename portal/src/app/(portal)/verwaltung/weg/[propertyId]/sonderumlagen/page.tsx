@@ -7,6 +7,7 @@ import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { createSonderumlage, deleteSonderumlage } from "./actions";
+import { DateField } from "@/components/fields";
 
 export const dynamic = "force-dynamic";
 
@@ -103,9 +104,11 @@ export default async function SonderumlagenPage({
                 ))}
               </select>
             </Field>
-            <Field label="Fällig am">
-              <input name="dueDate" type="date" required className={inputClass} />
-            </Field>
+            <DateField
+              label="Fällig am"
+              name="dueDate"
+              required
+                />
             <Field label="Beschluss-Verweis (optional)">
               <input name="resolutionNote" maxLength={300} className={inputClass} placeholder="z. B. ETV 12.03.2026, TOP 5" />
             </Field>

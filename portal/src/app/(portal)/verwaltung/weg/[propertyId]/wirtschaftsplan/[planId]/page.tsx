@@ -389,9 +389,12 @@ Muster — ersetzt keine Rechtsberatung.`;
               <form action={resolvePlan} className="mt-4 flex flex-wrap items-end gap-2">
                 <input type="hidden" name="propertyId" value={property.id} />
                 <input type="hidden" name="planId" value={plan.id} />
-                <Field label="Beschlossen am">
-                  <input name="resolvedAt" type="date" className={`${inputClass} w-auto`} required />
-                </Field>
+                <DateField
+                  label="Beschlossen am"
+                  name="resolvedAt"
+                  required
+                  className="w-auto"
+                />
                 <Field label="Verweis (optional, z. B. „ETV 12.03.2026, TOP 4“)">
                   <input name="resolutionNote" className={`${inputClass} w-72`} maxLength={300} />
                 </Field>

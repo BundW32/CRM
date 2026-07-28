@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { KeyFigure, KeyFigures } from "@/components/data-display";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
@@ -89,25 +90,26 @@ export default async function Co2Page({
         <div className="space-y-5 lg:col-span-2">
           {allocation && split ? (
             <>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Spezifischer Ausstoß</p>
-                  <p className="mt-1 text-2xl font-bold text-brand-green">
-                    {split.perSqm.toLocaleString("de-DE", { maximumFractionDigits: 1 })}
-                  </p>
-                  <p className="text-xs text-gray-400">kg CO₂/m²·a · Stufe {split.step.label}</p>
-                </div>
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Vermieteranteil</p>
-                  <p className="mt-1 text-2xl font-bold text-red-700">{formatCents(split.landlordCents)}</p>
-                  <p className="text-xs text-gray-400">{split.step.landlordPct} % der CO₂-Kosten</p>
-                </div>
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Mieteranteil</p>
-                  <p className="mt-1 text-2xl font-bold text-gray-900">{formatCents(split.tenantCents)}</p>
-                  <p className="text-xs text-gray-400">{split.step.tenantPct} % der CO₂-Kosten</p>
-                </div>
-              </div>
+              <Card>
+                <KeyFigures>
+                  <KeyFigure
+                    label="Spezifischer Ausstoß"
+                    value={split.perSqm.toLocaleString("de-DE", { maximumFractionDigits: 1 })}
+                    hint={`kg CO₂/m²·a · Stufe ${split.step.label}`}
+                  />
+                  <KeyFigure
+                    label="Vermieteranteil"
+                    value={formatCents(split.landlordCents)}
+                    hint={`${split.step.landlordPct} % der CO₂-Kosten`}
+                    tone="critical"
+                  />
+                  <KeyFigure
+                    label="Mieteranteil"
+                    value={formatCents(split.tenantCents)}
+                    hint={`${split.step.tenantPct} % der CO₂-Kosten`}
+                  />
+                </KeyFigures>
+              </Card>
 
               <Card title={`Aufteilung je Einheit (${allocation.year})`}>
                 <div className="overflow-x-auto">

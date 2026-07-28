@@ -96,15 +96,6 @@ export const oberflaecheBaustein = {
 
 export const oberflaecheBestand = {
   files: [
-    "src/app/(portal)/verwaltung/weg/\\[propertyId\\]/buchhaltung/page.tsx",
-    "src/app/(portal)/verwaltung/weg/\\[propertyId\\]/co2/page.tsx",
-    "src/app/(portal)/verwaltung/weg/\\[propertyId\\]/erhaltungsplanung/page.tsx",
-    "src/app/(portal)/verwaltung/weg/\\[propertyId\\]/hausgeld/page.tsx",
-    "src/app/(portal)/verwaltung/weg/\\[propertyId\\]/lastschrift/page.tsx",
-    "src/app/(portal)/verwaltung/weg/\\[propertyId\\]/pruefpflichten/page.tsx",
-    "src/app/(portal)/verwaltung/weg/\\[propertyId\\]/sonderumlagen/page.tsx",
-    "src/app/(portal)/verwaltung/weg/\\[propertyId\\]/stammdaten/page.tsx",
-    "src/app/(portal)/verwaltung/weg/\\[propertyId\\]/wirtschaftsplan/\\[planId\\]/page.tsx",
     "src/app/auftraege/\\[token\\]/page.tsx",
     "src/app/plattform/organisationen/\\[id\\]/page.tsx",
     "src/app/plattform/organisationen/page.tsx",

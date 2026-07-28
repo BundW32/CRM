@@ -1,7 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { FileInput } from "@/components/file-input";
 import { Card, Field, inputClass } from "@/components/ui";
+import { DateField } from "@/components/fields";
 import { SubmitButton } from "@/components/submit-button";
 import { createObjekt } from "./actions";
 import { extractObjektFields } from "./import-actions";
@@ -165,12 +167,11 @@ export function ObjektForm({
             Objektdatenblatt, Exposé oder ERP-Export hochladen – die KI füllt die Felder
             als Vorschlag aus. Bitte anschließend prüfen und ergänzen.
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <input
-              ref={pdfRef}
-              type="file"
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <FileInput
+              inputRef={pdfRef}
               accept="application/pdf"
-              className="block max-w-full text-xs text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-green hover:file:bg-gray-50"
+              label="PDF wählen"
             />
             <button
               type="button"
@@ -220,7 +221,7 @@ export function ObjektForm({
       {/* 1. Objektdaten */}
       <Card title="1. Objektdaten">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Bezeichnung *">
+          <Field label="Bezeichnung">
             <input
               type="text"
               name="name"
@@ -236,7 +237,7 @@ export function ObjektForm({
             // Selbstverwalter: fest WEG, keine Auswahl (Mietshaus nicht erlaubt).
             <input type="hidden" name="managementType" value="WEG" />
           ) : (
-            <Field label="Verwaltungsart *">
+            <Field label="Verwaltungsart">
               <select
                 name="managementType"
                 required
@@ -258,7 +259,7 @@ export function ObjektForm({
               </select>
             </Field>
           ) : null}
-          <Field label="Straße und Hausnummer *">
+          <Field label="Straße und Hausnummer">
             <input
               type="text"
               name="street"
@@ -269,7 +270,7 @@ export function ObjektForm({
               className={inputClass}
             />
           </Field>
-          <Field label="PLZ *">
+          <Field label="PLZ">
             <input
               type="text"
               name="zip"
@@ -281,7 +282,7 @@ export function ObjektForm({
               className={inputClass}
             />
           </Field>
-          <Field label="Ort *">
+          <Field label="Ort">
             <input
               type="text"
               name="city"
@@ -321,11 +322,9 @@ export function ObjektForm({
         </div>
         <div className="mt-3">
           <Field label="Titelbild (optional)">
-            <input
-              type="file"
+            <FileInput
               name="titleImage"
               accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-              className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
             />
           </Field>
         </div>
@@ -563,19 +562,16 @@ export function ObjektForm({
                         gesetzt — bei einer Gemeinschaft, die schon Jahre besteht,
                         ist das schlicht falsch. Leer = heute; nachtragen geht in
                         den WEG-Stammdaten. */}
-                    <Field label="Eigentümer seit (optional)">
-                      <input
-                        type="date"
-                        name="wegOwnerSince"
-                        value={o.since}
-                        onChange={(e) =>
-                          setOwners((rows) =>
-                            rows.map((r) => (r.key === o.key ? { ...r, since: e.target.value } : r))
-                          )
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
+                    <DateField
+                      label="Eigentümer seit (optional)"
+                      name="wegOwnerSince"
+                      value={o.since}
+                      onChange={(e) =>
+                        setOwners((rows) =>
+                          rows.map((r) => (r.key === o.key ? { ...r, since: e.target.value } : r))
+                        )
+                      }
+                    />
                   </div>
                   <PersonVorschlag
                     fieldName="wegOwnerUserId"

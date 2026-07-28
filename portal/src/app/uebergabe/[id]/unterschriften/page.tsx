@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { Card, cardSurfaceClass } from "@/components/ui";
+import { Badge } from "@/components/data-display";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessHandover } from "@/lib/access";
@@ -73,13 +75,14 @@ export default async function UnterschriftenPage({
 
         {/* Room summary */}
         {handover.rooms.length > 0 && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
-            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-              Räume
-              <span className="inline-flex items-center justify-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                {handover.rooms.length}
+          <Card
+            title={
+              <span className="flex items-center gap-2">
+                Räume
+                <Badge tone="neutral">{handover.rooms.length}</Badge>
               </span>
-            </h2>
+            }
+          >
             <div className="divide-y divide-gray-100">
               {handover.rooms.map((room) => {
                 const checks = (room.checks ?? {}) as Record<string, string>;
@@ -139,7 +142,7 @@ export default async function UnterschriftenPage({
                 );
               })}
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Checklist Mängel summary */}
@@ -150,12 +153,9 @@ export default async function UnterschriftenPage({
             </p>
             <div className="flex flex-wrap gap-1.5">
               {maengelItems.map((label) => (
-                <span
-                  key={label}
-                  className="inline-flex items-center rounded-full bg-yellow-100 border border-yellow-200 px-2.5 py-0.5 text-xs font-medium text-yellow-700"
-                >
+                <Badge key={label} tone="warning">
                   {label}
-                </span>
+                </Badge>
               ))}
             </div>
           </div>
@@ -163,7 +163,7 @@ export default async function UnterschriftenPage({
 
         {/* Meters summary */}
         {handover.meters.length > 0 && (
-          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <div className={`px-4 py-3 ${cardSurfaceClass}`}>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
               Zähler ({handover.meters.length})
             </p>

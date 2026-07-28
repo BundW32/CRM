@@ -10,6 +10,8 @@ import { isMailEnabled } from "@/lib/mailer";
 import { classifyDue, dueLabel } from "@/lib/weg/compliance";
 import { WEG_COMPLIANCE_CATALOG } from "@/lib/weg/compliance-catalog";
 import { requireWegProperty } from "@/lib/weg/scope";
+import { DateField, toDateInputValue } from "@/components/fields";
+import { Tipp } from "@/components/tipp";
 import {
   adoptComplianceCatalog,
   completeCompliance,
@@ -59,12 +61,12 @@ export default async function PruefpflichtenPage({
   const adoptedKeys = new Set(tasks.map((t) => t.catalogKey));
   const notYetAdopted = WEG_COMPLIANCE_CATALOG.filter((d) => !adoptedKeys.has(d.key));
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
+  const today = toDateInputValue(now)!;
 
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
       >
         Prüfpflichten – {property.name}
       </PageTitle>
@@ -112,11 +114,11 @@ export default async function PruefpflichtenPage({
               <h2 className="mb-2 text-sm font-semibold text-gray-200">
                 Eigene Termine der Gemeinschaft
               </h2>
-              <p className="mb-3 max-w-3xl text-xs text-gray-400">
+              <Tipp className="mb-3 max-w-3xl">
                 Angelegt über den Jahresfahrplan auf der Übersicht. Sie stehen im selben
                 Fahrplan wie die Prüfpflichten und lassen sich hier verschieben, abhaken
                 und löschen.
-              </p>
+              </Tipp>
               <div className="space-y-3">
                 {eigene.map((t) => (
                   <TerminKarte key={t.id} t={t} propertyId={property.id} now={now} />
@@ -240,10 +242,9 @@ function TerminKarte({
           <form action={updateComplianceDue} className="flex items-center gap-1">
             <input type="hidden" name="propertyId" value={propertyId} />
             <input type="hidden" name="id" value={t.id} />
-            <input
-              type="date"
+            <DateField
               name="dueDate"
-              defaultValue={t.dueDate.toISOString().slice(0, 10)}
+              defaultValue={toDateInputValue(t.dueDate)}
               className="rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-700"
             />
             <PendingButton className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">Fälligkeit setzen</PendingButton>

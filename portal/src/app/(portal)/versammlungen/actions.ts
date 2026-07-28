@@ -41,17 +41,17 @@ export async function createMeeting(formData: FormData) {
   const saveVideoDefault = formData.get("saveVideoDefault") === "on";
   // Ort ist Pflicht (§24 WEG: die Einladung muss den Versammlungsort nennen). Bei
   // reiner Video-Versammlung hier z. B. „Online / Videokonferenz" eintragen.
-  if (!propertyId || !title || !scheduledStr || !location) redirect("/versammlungen?fehler=eingabe");
+  if (!propertyId || !title || !scheduledStr || !location) redirect("/versammlungen/neu?fehler=eingabe");
 
   if (!(await canVerwalterAccessProperty(verwalter, propertyId))) redirect("/versammlungen");
   const property = await db.property.findUnique({
     where: { id: propertyId },
     select: { managementType: true, defaultVideoLink: true },
   });
-  if (!property || property.managementType !== "WEG") redirect("/versammlungen?fehler=keinweg");
+  if (!property || property.managementType !== "WEG") redirect("/versammlungen/neu?fehler=keinweg");
 
   const scheduledAt = new Date(scheduledStr);
-  if (Number.isNaN(scheduledAt.getTime())) redirect("/versammlungen?fehler=eingabe");
+  if (Number.isNaN(scheduledAt.getTime())) redirect("/versammlungen/neu?fehler=eingabe");
 
   // Leer gelassen → Standard-Videolink des Objekts (falls hinterlegt). Auf Wunsch
   // wird der eingegebene Link als neuer Standard des Objekts gespeichert.

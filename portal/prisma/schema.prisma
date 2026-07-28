@@ -183,6 +183,10 @@ enum CostCategory {
   VERWALTUNG
   RUECKLAGENZUFUEHRUNG
   SONSTIGES
+  // Einnahmen der Gemeinschaft (§ 28 Abs. 1 WEG verlangt Einnahmen UND Ausgaben):
+  // Zinsen, Miete aus Gemeinschaftseigentum, PV-Einspeisung. Der Betrag bleibt
+  // wie überall positiv; die Richtung steckt in der Kategorie.
+  ERTRAG
 }
 
 // §35a EStG — Lohnanteil-Klassifizierung einer Kostenart
@@ -203,6 +207,15 @@ enum BookingKind {
   EINNAHME
   AUSGABE
   UMBUCHUNG
+}
+
+// Fälligkeit der monatlichen Vorschüsse (§ 28 Abs. 1 WEG). Ein freier Tag ist
+// auf den 28. begrenzt, damit es den Termin in jedem Monat gibt — ein „31."
+// fiele im Februar aus.
+enum DueDayRule {
+  MONATSERSTER
+  DRITTER_WERKTAG
+  FREIER_TAG
 }
 
 // Status eines Wirtschaftsplans (§ 28 Abs. 1 WEG)
@@ -310,6 +323,7 @@ model Organization {
   bankImportBatches     BankImportBatch[]
   economicPlans         EconomicPlan[]
   duePostings           DuePosting[]
+  paymentAllocations    PaymentAllocation[]
   unitOwnerships        UnitOwnership[]
   annualStatements      AnnualStatement[]
   hausgeldMahnungen     HausgeldMahnung[]
@@ -337,6 +351,12 @@ model User {
   role                 Role
   active               Boolean                   @default(true)
   mustChangePassword   Boolean                   @default(false)
+  // Erklärende Hinweise in der Oberfläche anzeigen. Standardmäßig AN: Wer sie
+  // nicht braucht, schaltet sie ab — die umgekehrte Voreinstellung erreicht
+  // genau die nicht, für die sie da sind. Eine Vorliebe der **Person**, nicht
+  // der Organisation: Zwei Eigentümer derselben WEG dürfen es verschieden
+  // wollen. Warnungen und Fehlermeldungen hängen NICHT daran.
+  showHints            Boolean                   @default(true)
   preferredContact     ContactMethod? // bevorzugter Kontaktweg (Mieter/Eigentümer)
   // Optionale Anschrift (z. B. Eigentümer als Wohnungsgeber) und Unterschriftsbild
   street               String?
@@ -414,6 +434,7 @@ model User {
   statementsCreated         AnnualStatement[]         @relation("StatementCreatedBy")
   unitOwnerships            UnitOwnership[]
   mahnungenCreated          HausgeldMahnung[]         @relation("MahnungCreatedBy")
+  paymentAllocations        PaymentAllocation[]       @relation("PaymentAllocationCreatedBy")
   sonderumlagenCreated      Sonderumlage[]            @relation("SonderumlageCreatedBy")
   maintenanceMeasuresCreated MaintenanceMeasure[]     @relation("MaintenanceMeasureCreatedBy")
   sepaMandatesCreated        SepaMandate[]            @relation("SepaMandateCreatedBy")
@@ -464,6 +485,11 @@ model Property {
   // WEG-Finanzstammdaten
   meaTotal            Int? // MEA-Nenner (Summe aller Anteile, z. B. 1000)
   fiscalYearStartMonth Int                 @default(1) // Wirtschaftsjahr-Beginn (1 = Januar)
+  // Wann das monatliche Hausgeld fällig wird. Steuert die Sollstellungen und
+  // zugleich den Wortlaut der Beschlussvorlage — beides muss dasselbe sagen,
+  // sonst mahnt die Verwaltung zu einem Termin, den der Beschluss nicht nennt.
+  dueDayRule          DueDayRule           @default(MONATSERSTER)
+  dueDayOfMonth       Int? // nur bei FREIER_TAG (1–28)
   // SEPA-Lastschrift: Gläubiger-Identifikationsnummer der Gemeinschaft (Bundesbank)
   sepaCreditorId      String?
   // Standard-Link zur Video-Zuschaltung (externer Dienst, z. B. Jitsi/Zoom) —
@@ -1366,6 +1392,16 @@ model CostType {
   category          CostCategory    @default(BETRIEBSKOSTEN)
   distributionKey   DistributionKey @default(MEA)
   laborShareType    LaborShareType  @default(KEINE) // §35a EStG
+  // Erfahrungswert für den Lohn-/Fahrt-/Maschinenkostenanteil dieser Kostenart
+  // in Prozent (§ 35a EStG). Greift nur, wenn an der einzelnen Buchung nichts
+  // erfasst ist — die Rechnung geht immer vor. null = keine Vorbelegung, dann
+  // wird der Betrag als „Lohnanteil nicht erfasst" ausgewiesen statt geschätzt.
+  laborSharePercent Int?
+  // Heiz-/Warmwasserkosten im Sinne der HeizkostenV. Für sie gilt die
+  // Zwangsaufteilung 50–70 % Verbrauch / Rest Fläche (§§ 7, 8 HeizkostenV);
+  // eine Verteilung zu 100 % nach Verbrauch wäre formell fehlerhaft und gäbe
+  // jedem Eigentümer ein Kürzungsrecht von 15 % (§ 12 Abs. 1 HeizkostenV).
+  heatingCost       Boolean         @default(false)
   recoverableBetrKV Boolean         @default(false) // umlagefähig nach BetrKV (Mieter)
   active            Boolean         @default(true)
   orderIndex        Int             @default(0)
@@ -1420,6 +1456,11 @@ model Booking {
   bookingDate     DateTime
   valueDate       DateTime? // Wertstellung (aus Bankimport)
   amountCents     Int // immer positiv; Richtung über kind
+  // §35a EStG: der in der Rechnung ausgewiesene Lohn-, Fahrt- und
+  // Maschinenkostenanteil. NUR dieser Teil ist begünstigt — Material nicht.
+  // null = nicht erfasst (nicht: null Euro); dann greift der Erfahrungswert der
+  // Kostenart, und fehlt auch der, wird der Betrag als Lücke ausgewiesen.
+  laborShareCents Int?
   text            String
   counterparty    String? // Zahlungspartner
   reference       String? // Verwendungszweck
@@ -1431,6 +1472,14 @@ model Booking {
   // gemeinsamer transferGroupId; beide kind=UMBUCHUNG, Richtung über transferOut.
   transferGroupId String?
   transferOut     Boolean? // nur bei UMBUCHUNG: true = Geld verlässt dieses Konto
+  // Storno: Buchungen werden nie geändert oder gelöscht, sondern durch eine
+  // Gegenbuchung neutralisiert. Diese zeigt über reversalOfId auf das Original;
+  // @unique stellt sicher, dass jede Buchung höchstens einmal storniert wird.
+  reversalOfId    String?          @unique
+  reversalOf      Booking?         @relation("BookingReversal", fields: [reversalOfId], references: [id], onDelete: Cascade)
+  reversedBy      Booking?         @relation("BookingReversal")
+  // Auf welche Forderungen diese Zahlung angerechnet wurde (§§ 366, 367 BGB).
+  allocations     PaymentAllocation[]
   // Beleg (gleiche Storage-Konvention wie Handover: storedName/fileName/mimeType)
   belegStoredName String?
   belegFileName   String?
@@ -1484,6 +1533,17 @@ model EconomicPlan {
   year           Int // Wirtschaftsjahr, das in diesem Kalenderjahr beginnt
   status         PlanStatus         @default(ENTWURF)
   resolvedAt     DateTime? // Datum des Beschlusses (Versammlung/Umlauf)
+  // Geltungszeitraum. Der Plan ist NICHT starr an sein Wirtschaftsjahr
+  // gebunden: Nach § 28 Abs. 1 Satz 2 WEG gilt ein beschlossener Plan fort,
+  // bis ein neuer beschlossen ist — sonst schuldete im Januar niemand Hausgeld,
+  // nur weil die Versammlung erst im April tagt. Umgekehrt kann ein geänderter
+  // Plan unterjährig beginnen.
+  //
+  // `validFrom` wird mit dem Beschluss gesetzt (null = noch nicht beschlossen),
+  // `validUntil` erst, wenn ein Nachfolgeplan beschlossen wird (null = gilt fort).
+  // Beide Grenzen sind Tagesdaten; `validUntil` ist exklusiv.
+  validFrom      DateTime?
+  validUntil     DateTime?
   resolutionNote String? // Verweis, z. B. "ETV 12.03.2026, TOP 4"
   createdById    String
   createdBy      User               @relation("EconomicPlanCreatedBy", fields: [createdById], references: [id])
@@ -1497,7 +1557,10 @@ model EconomicPlan {
   beiratReviewBy     User?              @relation("EconomicPlanBeiratReview", fields: [beiratReviewById], references: [id], onDelete: SetNull)
   beiratReviewedAt   DateTime?
 
-  @@unique([propertyId, year])
+  // Kein @@unique([propertyId, year]) mehr: Ein unterjährig geänderter
+  // Wirtschaftsplan ist ein zweiter Plan desselben Jahres. Die Abgrenzung
+  // leistet der Geltungszeitraum, nicht die Eindeutigkeit des Jahres.
+  @@index([propertyId, year])
   @@index([propertyId])
 }
 
@@ -1537,11 +1600,43 @@ model DuePosting {
   amountCents    Int
   source         String        @default("WIRTSCHAFTSPLAN") // WIRTSCHAFTSPLAN | SONDERUMLAGE
   createdAt      DateTime      @default(now())
+  // Zahlungen, die auf diese Forderung angerechnet wurden.
+  allocations    PaymentAllocation[]
 
   @@unique([planId, unitId, periodYear, periodMonth])
   @@index([propertyId])
   @@index([sonderumlageId])
   @@index([unitId])
+}
+
+// Anrechnung einer Zahlung auf eine bestimmte Forderung (§§ 366, 367 BGB).
+//
+// Vorher ordnete `Booking.unitId` eine Zahlung pauschal einer Einheit zu, und
+// der Rückstand war „alle Sollstellungen minus alle Einnahmen dieser Einheit".
+// Das rechnet vieles falsch: Die Zahlung einer Sonderumlage tilgte
+// Hausgeldrückstände, eine Vorauszahlung verschleierte einen Rückstand, und
+// eine Sammelüberweisung für zwei Einheiten ließ sich gar nicht aufteilen.
+// Nach außen stand am Ende ein falscher Betrag in der Mahnung.
+//
+// `Booking.unitId` bleibt als Vorfilter bestehen — es beantwortet „von wem kam
+// das Geld", diese Tabelle „worauf wurde es angerechnet".
+model PaymentAllocation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookingId      String
+  booking        Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  duePostingId   String
+  duePosting     DuePosting   @relation(fields: [duePostingId], references: [id], onDelete: Cascade)
+  amountCents    Int // Teilbetrag; Σ je Buchung ≤ Buchungsbetrag
+  createdById    String
+  createdBy      User         @relation("PaymentAllocationCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+
+  // Eine Zahlung wird je Forderung genau einmal angerechnet; Teilbeträge
+  // stehen im Betrag, nicht in mehreren Zeilen.
+  @@unique([bookingId, duePostingId])
+  @@index([duePostingId])
 }
 
 // ── WEG-Finanzen Stufe 3: Eigentümerschaft je Einheit & Jahresabrechnung ─────

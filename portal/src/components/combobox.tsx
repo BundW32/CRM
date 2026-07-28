@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, X } from "lucide-react";
-import { fieldFillClass, fieldOnDarkClass } from "@/components/ui";
+import { fieldFillClass, fieldOnDarkClass, inputClass } from "@/components/ui";
 
 export type ComboOption = { value: string; label: string; sublabel?: string };
 
@@ -51,8 +51,14 @@ export function Combobox({
   onClear: () => void;
   disabled?: boolean;
   disabledHint?: string;
-  /** Feld-Optik: auf heller Fläche oder auf dem dunklen Shell-Hintergrund. */
-  tone?: "onLight" | "onDark";
+  /**
+   * Feld-Optik. `onLight`/`onDark` sind die **Filter**-Anmutung (weiche graue
+   * Füllung) für die Filterleiste. `inForm` ist die **Formular**-Anmutung: weiß
+   * mit Rahmen, wie `inputClass`. Ein Auswahlfeld in der grauen Filteroptik
+   * zwischen weiß gerahmten Eingabefeldern sieht aus wie ein Fremdkörper – genau
+   * das stand nach der ersten Umstellung in neun Formularen.
+   */
+  tone?: "onLight" | "onDark" | "inForm";
   /** Bei kurzen Listen (z. B. Status) das Suchfeld weglassen – reines Menü. */
   searchable?: boolean;
   /** Label der „kein Filter"-Zeile ganz oben (z. B. „Alle"). */
@@ -83,14 +89,17 @@ export function Combobox({
   // Optik je Untergrund. Das Menü selbst bleibt in beiden Fällen hell – es liegt
   // über dem Inhalt (wie Systemmenüs über einer dunklen Werkzeugleiste).
   const dark = tone === "onDark";
-  const fieldClass = dark ? fieldOnDarkClass : fieldFillClass;
+  const fieldClass =
+    tone === "inForm" ? inputClass : dark ? fieldOnDarkClass : fieldFillClass;
   const iconClass = dark ? "text-gray-400" : "text-gray-400";
   const iconDisabledClass = dark ? "text-gray-600" : "text-gray-300";
   const valueTextClass = dark ? "text-gray-100" : "text-gray-900";
   const placeholderTextClass = dark ? "text-gray-400" : "text-gray-400";
   const disabledFieldClass = dark
     ? "disabled:cursor-not-allowed disabled:bg-white/[0.03] disabled:text-gray-500 disabled:ring-white/5 disabled:hover:bg-white/[0.03]"
-    : "disabled:cursor-not-allowed disabled:bg-gray-100/60 disabled:text-gray-400 disabled:hover:bg-gray-100/60";
+    : tone === "inForm"
+      ? "disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400"
+      : "disabled:cursor-not-allowed disabled:bg-gray-100/60 disabled:text-gray-400 disabled:hover:bg-gray-100/60";
 
   // Sichtbare Optionen: gefiltert (Teilstring) + sortiert (frühester Treffer zuerst).
   const filtered = useMemo(() => {

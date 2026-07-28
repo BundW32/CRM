@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import {
   costCategoryLabels,
@@ -10,6 +11,7 @@ import {
   ledgerAccountKindLabels,
   unitTypeLabels,
 } from "@/lib/labels";
+import { DateField, SelectField, toDateInputValue } from "@/components/fields";
 import { formatCents } from "@/lib/money";
 import { WEG_COST_CATALOG } from "@/lib/weg/cost-catalog";
 import { requireWegProperty } from "@/lib/weg/scope";
@@ -91,7 +93,7 @@ export default async function WegStammdatenPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
         action={
           <div className="flex gap-2">
             <Link href={`/verwaltung/weg/${property.id}/buchhaltung`} className={buttonSecondaryClass}>
@@ -160,10 +162,41 @@ export default async function WegStammdatenPage({
                 ))}
               </select>
             </Field>
+            {/* Fälligkeit der Vorschüsse. Steuert die Sollstellungen UND den
+                Wortlaut der Beschlussvorlage — beides muss dasselbe sagen,
+                sonst mahnt die Verwaltung zu einem Termin, den der Beschluss
+                nicht nennt. */}
+            <SelectField
+              label="Hausgeld fällig"
+              name="dueDayRule"
+              defaultValue={property.dueDayRule}
+              options={[
+                { value: "MONATSERSTER", label: "zum Ersten des Monats" },
+                { value: "DRITTER_WERKTAG", label: "zum dritten Werktag" },
+                { value: "FREIER_TAG", label: "zu einem festen Tag im Monat" },
+              ]}
+            />
+            <Field label="Fester Tag (1–28, nur bei fester Wahl)">
+              <input
+                name="dueDayOfMonth"
+                type="number"
+                min={1}
+                max={28}
+                defaultValue={property.dueDayOfMonth ?? ""}
+                className={inputClass}
+                placeholder="z. B. 15"
+              />
+            </Field>
             <div className="flex items-end">
               <PendingButton className={buttonClass}>Speichern</PendingButton>
             </div>
           </form>
+          <Tipp className="mt-3">
+            Die Fälligkeit bestimmt, ab wann ein Hausgeld als Rückstand gilt und wann Verzug
+            eintritt (§ 286 BGB). Sie erscheint zugleich im Text der Beschlussvorlage zum
+            Wirtschaftsplan — damit die Gemeinschaft genau das beschließt, wonach später
+            gemahnt wird.
+          </Tipp>
         </Card>
 
         {/* MEA-Summenprüfung */}
@@ -191,11 +224,11 @@ export default async function WegStammdatenPage({
 
         {/* Einheiten */}
         <Card id="einheiten" title="Einheiten (MEA, Fläche, Personen)">
-          <p className="mb-3 text-xs text-gray-500">
+          <Tipp className="mb-3">
             Der MEA-Zähler je Einheit ist die zentrale Angabe: Er steuert die Kostenverteilung in
             Abrechnung und Wirtschaftsplan und bestimmt zugleich das Stimmgewicht der Eigentümer
             (Wertprinzip). Er muss also nur hier gepflegt werden.
-          </p>
+          </Tipp>
           {units.length === 0 ? (
             <EmptyState>Dieses Objekt hat noch keine Einheiten.</EmptyState>
           ) : (
@@ -224,7 +257,15 @@ export default async function WegStammdatenPage({
                   {units.map((u) => {
                     const formId = `einheit-${u.id}`;
                     return (
-                      <tr key={u.id} className="border-b border-gray-100 align-middle">
+                      <tr
+                        key={u.id}
+                        // Sprungziel für Fehlermeldungen („bei WE 03 fehlt die
+                        // Wohnfläche"). Eigener Name, weil `einheit-…` schon
+                        // die Formular-ID dieser Zeile ist — zwei gleiche IDs
+                        // machen den `form`-Verweis mehrdeutig.
+                        id={`zeile-${u.id}`}
+                        className="scroll-mt-24 border-b border-gray-100 align-middle"
+                      >
                         <td className="py-2 pr-3 font-medium text-gray-900">{u.label}</td>
                         <td className="py-2 pr-3">
                           <select
@@ -298,7 +339,11 @@ export default async function WegStammdatenPage({
               {units.map((u) => {
                 const list = ownershipsByUnit.get(u.id) ?? [];
                 return (
-                  <div key={u.id} className="rounded-xl border border-gray-200 p-3">
+                  <div
+                    key={u.id}
+                    id={`eigentuemer-${u.id}`}
+                    className="scroll-mt-24 rounded-xl border border-gray-200 p-3"
+                  >
                     <h3 className="text-sm font-semibold text-gray-900">{u.label}</h3>
                     {list.length === 0 ? (
                       <p className="mt-1 text-sm text-amber-700">
@@ -326,13 +371,12 @@ export default async function WegStammdatenPage({
                                 {o.sharePercent !== 100 ? ` (${o.sharePercent} %)` : ""}
                               </span>
                               <span className="text-xs text-gray-500">seit</span>
-                              <input
-                                type="date"
+                              <DateField
                                 name="validFrom"
                                 required
-                                defaultValue={o.validFrom.toISOString().slice(0, 10)}
-                                className={`${inputClass} w-auto py-1 text-xs`}
+                                defaultValue={toDateInputValue(o.validFrom)}
                                 aria-label={`Beginn der Eigentümerschaft von ${o.user.name}`}
+                                className="w-auto py-1 text-xs"
                               />
                               <PendingButton className="text-xs text-brand-green underline">
                                 übernehmen
@@ -350,12 +394,11 @@ export default async function WegStammdatenPage({
                                     Eigentümerschaft, eines beginnt eine neue.
                                     Ohne Beschriftung sagt keines, welches was tut. */}
                                 <span className="text-xs text-gray-500">beenden zum</span>
-                                <input
-                                  type="date"
+                                <DateField
                                   name="validTo"
-                                  className={`${inputClass} w-auto py-1 text-xs`}
                                   aria-label={`Eigentümerschaft von ${o.user.name} beenden zum`}
                                   title={`Eigentümerschaft von ${o.user.name} zu diesem Tag beenden`}
+                                  className="w-auto py-1 text-xs"
                                 />
                                 <ConfirmActionButton
                                   className="text-xs text-red-600 underline"
@@ -395,9 +438,12 @@ export default async function WegStammdatenPage({
                           ))}
                         </select>
                       </Field>
-                      <Field label="Eigentümer seit">
-                        <input type="date" name="validFrom" className={`${inputClass} w-auto`} required />
-                      </Field>
+                      <DateField
+                        label="Eigentümer seit"
+                        name="validFrom"
+                        required
+                        className="w-auto"
+                      />
                       <Field label="Anteil (%)">
                         <input
                           name="sharePercent"
@@ -452,9 +498,9 @@ export default async function WegStammdatenPage({
                       {fehlendeStandardarten === 1 ? "" : "en"} ergänzen
                     </PendingButton>
                   </form>
-                  <p className="mt-1.5 text-xs text-gray-500">
+                  <Tipp className="mt-1.5">
                     Vorhandene Einträge bleiben unverändert – auch umbenannte.
-                  </p>
+                  </Tipp>
                 </div>
               ) : null}
               <div className="grid gap-3">
@@ -465,7 +511,8 @@ export default async function WegStammdatenPage({
                   // Bearbeitens nicht mitschicken.
                   <div
                     key={c.id}
-                    className={`rounded-xl border p-3 ${
+                    id={`kostenart-${c.id}`}
+                    className={`scroll-mt-24 rounded-xl border p-3 ${
                       c.active ? "border-gray-200" : "border-gray-100 bg-gray-50 opacity-70"
                     }`}
                   >
@@ -515,6 +562,29 @@ export default async function WegStammdatenPage({
                         </option>
                       ))}
                     </select>
+                    {/* Erfahrungswert für den Lohnanteil. Leer lassen ist die
+                        ehrlichere Wahl: Ohne Angabe weist die Abrechnung die
+                        Lücke aus, statt eine Zahl zu erfinden. */}
+                    <input
+                      name="laborSharePercent"
+                      type="number"
+                      min={0}
+                      max={100}
+                      defaultValue={c.laborSharePercent ?? ""}
+                      placeholder="Lohn %"
+                      className={`${inputClass} w-24`}
+                      aria-label="Lohnanteil in Prozent (Schätzwert)"
+                      title="Erfahrungswert für den Lohn-/Fahrt-/Maschinenkostenanteil. Greift nur, wenn an der Buchung nichts erfasst ist."
+                    />
+                    {/* Erzwingt bei der Zählerverteilung den Grundkostenanteil
+                        (§§ 7, 8 HeizkostenV). */}
+                    <label
+                      className="flex items-center gap-1.5 text-sm text-gray-700"
+                      title="Heiz- und Warmwasserkosten: 50–70 % nach Verbrauch, der Rest nach Wohnfläche."
+                    >
+                      <input type="checkbox" name="heatingCost" defaultChecked={c.heatingCost} />
+                      HeizkostenV
+                    </label>
                     <label className="flex items-center gap-1.5 text-sm text-gray-700">
                       <input
                         type="checkbox"
@@ -589,6 +659,20 @@ export default async function WegStammdatenPage({
                   ))}
                 </select>
               </Field>
+              <Field label="Lohnanteil %">
+                <input
+                  name="laborSharePercent"
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="leer"
+                  className={`${inputClass} w-24`}
+                />
+              </Field>
+              <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700">
+                <input type="checkbox" name="heatingCost" />
+                HeizkostenV
+              </label>
               <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700">
                 <input type="checkbox" name="recoverableBetrKV" />
                 umlagefähig (BetrKV)
@@ -612,8 +696,9 @@ export default async function WegStammdatenPage({
               {accounts.map((a) => (
                 <form
                   key={a.id}
+                  id={`konto-${a.id}`}
                   action={saveAccount}
-                  className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 p-3"
+                  className="scroll-mt-24 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 p-3"
                 >
                   <input type="hidden" name="propertyId" value={property.id} />
                   <input type="hidden" name="accountId" value={a.id} />
@@ -651,13 +736,12 @@ export default async function WegStammdatenPage({
                     className={`${inputClass} w-28`}
                     aria-label="Anfangsbestand in Euro"
                   />
-                  <input
+                  <DateField
                     name="openingBalanceDate"
-                    type="date"
-                    defaultValue={a.openingBalanceDate?.toISOString().slice(0, 10) ?? ""}
+                    defaultValue={toDateInputValue(a.openingBalanceDate)}
                     required
-                    className={`${inputClass} w-auto`}
                     aria-label="Stichtag des Anfangsbestands"
+                    className="w-auto"
                   />
                   <span className="text-sm text-gray-500">
                     Anfangsbestand: {formatCents(a.openingBalanceCents)}
@@ -704,14 +788,12 @@ export default async function WegStammdatenPage({
                   placeholder="0,00"
                 />
               </Field>
-              <Field label="Stichtag">
-                <input
-                  name="openingBalanceDate"
-                  type="date"
-                  required
-                  className={`${inputClass} w-auto`}
-                />
-              </Field>
+              <DateField
+                label="Stichtag"
+                name="openingBalanceDate"
+                required
+                className="w-auto"
+              />
               <PendingButton className={buttonClass}>Anlegen</PendingButton>
             </form>
           </details>

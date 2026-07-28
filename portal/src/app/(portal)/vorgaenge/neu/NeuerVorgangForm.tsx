@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
+import { Combobox } from "@/components/combobox";
+import { FileInput } from "@/components/file-input";
 import { loadUnitsForProperty, type UnitOption } from "@/app/(portal)/unit-options";
 import { SubmitButton } from "@/components/submit-button";
 import { Field, inputClass } from "@/components/ui";
@@ -9,6 +11,29 @@ import type { TicketTarget } from "@/lib/access";
 import { createTicket } from "../actions";
 
 type VerwalterProperty = { id: string; name: string };
+
+// Was die vier Arten unterscheidet – in der Sprache des Melders, nicht der Verwaltung.
+const TYP_ERKLAERUNG: Record<string, string> = {
+  SCHADEN: "Etwas ist kaputt oder funktioniert nicht — es soll repariert werden.",
+  ANFRAGE: "Eine Frage oder Bitte um Erlaubnis, ohne dass etwas defekt ist.",
+  DOKUMENT_ANFRAGE: "Sie brauchen eine Bescheinigung oder ein Schreiben von der Verwaltung.",
+  SONSTIGES: "Alles, was in keine der anderen Arten passt.",
+};
+
+const TYP_BETREFF_BEISPIEL: Record<string, string> = {
+  SCHADEN: "z. B. Wasserfleck an der Badezimmerdecke",
+  ANFRAGE: "z. B. Darf ich eine Wallbox in der Tiefgarage anbringen?",
+  SONSTIGES: "Worum geht es?",
+};
+
+// Nach dem Schadensumfang zu fragen, wenn jemand um Erlaubnis bittet, ist nicht
+// nur unpassend – es liest sich, als sei die Frage im falschen Formular gelandet.
+const TYP_BESCHREIBUNG_BEISPIEL: Record<string, string> = {
+  SCHADEN:
+    "Beschreiben Sie das Problem so genau wie möglich: Seit wann besteht es? Wie groß ist der Schaden? …",
+  ANFRAGE: "Beschreiben Sie Ihr Anliegen — je genauer, desto schneller die Antwort.",
+  SONSTIGES: "Worum geht es?",
+};
 
 export function NeuerVorgangForm({
   targets,
@@ -19,6 +44,10 @@ export function NeuerVorgangForm({
 }) {
   const [type, setType] = useState("SCHADEN");
   const isDoc = type === "DOKUMENT_ANFRAGE";
+  // Gewerk und Ort im Objekt gehören zur Reparatur, nicht zum Vorgang an sich.
+  // Bei einer Anfrage („Darf ich eine Wallbox anbringen?") sind beide Felder
+  // sinnlos und stiften den Eindruck, man müsse etwas eintragen, das man nicht hat.
+  const istSchaden = type === "SCHADEN";
 
   return (
     <form action={createTicket} className="max-w-2xl space-y-4">
@@ -37,6 +66,10 @@ export function NeuerVorgangForm({
           ))}
         </select>
       </Field>
+
+      {/* Eine Zeile je Art – die Begriffe sind nicht selbsterklärend, und wer sich
+          vergreift, landet in der falschen Bearbeitung. */}
+      <p className="-mt-2 text-xs text-gray-500">{TYP_ERKLAERUNG[type]}</p>
 
       {verwalterProperties ? (
         <VerwalterTargetFields properties={verwalterProperties} />
@@ -67,16 +100,18 @@ export function NeuerVorgangForm({
         </>
       ) : (
         <>
-          <Field label="Kategorie / Gewerk (hilft bei der Handwerker-Zuordnung)">
-            <select name="trade" className={inputClass} defaultValue="">
-              <option value="">– Keine Angabe / weiß ich nicht –</option>
-              {Object.entries(tradeLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {istSchaden ? (
+            <Field label="Kategorie / Gewerk (hilft bei der Handwerker-Zuordnung)">
+              <select name="trade" className={inputClass} defaultValue="">
+                <option value="">– Keine Angabe / weiß ich nicht –</option>
+                {Object.entries(tradeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
 
           <Field label="Betreff">
             <input
@@ -85,20 +120,22 @@ export function NeuerVorgangForm({
               required
               minLength={3}
               maxLength={200}
-              placeholder="z. B. Wasserfleck an der Badezimmerdecke"
+              placeholder={TYP_BETREFF_BEISPIEL[type]}
               className={inputClass}
             />
           </Field>
 
-          <Field label="Ort im Objekt (optional)">
-            <input
-              type="text"
-              name="location"
-              maxLength={200}
-              placeholder="z. B. Bad, Decke über der Dusche"
-              className={inputClass}
-            />
-          </Field>
+          {istSchaden ? (
+            <Field label="Ort im Objekt (optional)">
+              <input
+                type="text"
+                name="location"
+                maxLength={200}
+                placeholder="z. B. Bad, Decke über der Dusche"
+                className={inputClass}
+              />
+            </Field>
+          ) : null}
 
           <Field label="Beschreibung">
             <textarea
@@ -107,18 +144,16 @@ export function NeuerVorgangForm({
               minLength={3}
               maxLength={5000}
               rows={6}
-              placeholder="Beschreiben Sie das Problem so genau wie möglich: Seit wann besteht es? Wie groß ist der Schaden? …"
+              placeholder={TYP_BESCHREIBUNG_BEISPIEL[type]}
               className={inputClass}
             />
           </Field>
 
           <Field label="Fotos / Videos (optional, max. 10 Dateien à 100 MB)">
-            <input
-              type="file"
+            <FileInput
               name="photos"
               multiple
               accept="image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm"
-              className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
             />
           </Field>
         </>
@@ -230,17 +265,13 @@ function VerwalterTargetFields({ properties }: { properties: VerwalterProperty[]
   const [propertyId, setPropertyId] = useState("");
   const [target, setTarget] = useState("");
   const [units, setUnits] = useState<UnitOption[]>([]);
-  const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
   const reqRef = useRef(0);
 
-  const q = query.toLowerCase().trim();
-  const visibleProps = q
-    ? properties.filter((p) => p.name.toLowerCase().includes(q))
-    : properties;
-
   function handlePropertyChange(value: string) {
     setPropertyId(value);
+    // Ohne gewählte Einheit meint der Vorgang das gesamte Objekt – der Normalfall
+    // bei Treppenhaus, Dach oder Heizungsanlage.
     setTarget(value ? `${value}|` : "");
     setUnits([]);
     const req = ++reqRef.current;
@@ -254,51 +285,38 @@ function VerwalterTargetFields({ properties }: { properties: VerwalterProperty[]
   return (
     <>
       <Field label="Objekt">
-        {properties.length > 8 ? (
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Objekt suchen …"
-            className={`${inputClass} mb-1.5`}
-            autoComplete="off"
-          />
-        ) : null}
-        <select
-          value={propertyId}
-          onChange={(e) => handlePropertyChange(e.target.value)}
-          required
-          className={inputClass}
-        >
-          <option value="" disabled>
-            – bitte wählen –
-          </option>
-          {visibleProps.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        <Combobox
+          label="Objekt"
+          placeholder="Objekt suchen …"
+          options={properties.map((p) => ({ value: p.id, label: p.name }))}
+          value={propertyId || undefined}
+          onSelect={handlePropertyChange}
+          onClear={() => handlePropertyChange("")}
+          tone="inForm"
+        />
       </Field>
 
+      {/* Tippbar statt Aufklappliste: Ein Objekt kann hundert Einheiten haben, und
+          durch eine solche Liste zu scrollen ist im Alltag unbrauchbar. Der
+          Mietername steht als Zusatz dabei – gesucht wird öfter nach „Gür" als
+          nach „WE 14". */}
       <Field label="Einheit / Wohnung">
-        <select
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
+        <Combobox
+          label="Einheit / Wohnung"
+          placeholder={pending ? "Einheiten werden geladen …" : "Einheit suchen …"}
+          options={units.map((u) => ({
+            value: `${propertyId}|${u.id}`,
+            label: u.label,
+            sublabel: u.tenantNames.length > 0 ? u.tenantNames.join(", ") : undefined,
+          }))}
+          value={target && target !== `${propertyId}|` ? target : undefined}
+          onSelect={setTarget}
+          onClear={() => setTarget(`${propertyId}|`)}
+          clearOption="— gesamtes Objekt —"
           disabled={!propertyId || pending}
-          className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
-        >
-          {propertyId ? (
-            <option value={`${propertyId}|`}>— gesamtes Objekt —</option>
-          ) : (
-            <option value="">{pending ? "wird geladen …" : "zuerst Objekt wählen"}</option>
-          )}
-          {units.map((u) => (
-            <option key={u.id} value={`${propertyId}|${u.id}`}>
-              {u.tenantNames.length > 0 ? `${u.label}  ·  ${u.tenantNames.join(", ")}` : u.label}
-            </option>
-          ))}
-        </select>
+          disabledHint={propertyId ? "wird geladen …" : "zuerst Objekt wählen"}
+          tone="inForm"
+        />
       </Field>
 
       <input type="hidden" name="target" value={target} />

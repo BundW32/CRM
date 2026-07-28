@@ -234,6 +234,7 @@ export const costCategoryLabels: Record<CostCategory, string> = {
   VERWALTUNG: "Verwaltung",
   RUECKLAGENZUFUEHRUNG: "Rücklagenzuführung",
   SONSTIGES: "Sonstiges",
+  ERTRAG: "Einnahme (mindert das Hausgeld)",
 };
 
 export const laborShareTypeLabels: Record<LaborShareType, string> = {

@@ -1,9 +1,11 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { Check } from "lucide-react";
+import { Badge } from "@/components/data-display";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
-import { Pagination, buttonClass } from "@/components/ui";
+import { Pagination, buttonClass, cardSurfaceClass } from "@/components/ui";
 import { FilterBar, SortControl } from "@/components/filter-bar";
 
 export const dynamic = "force-dynamic";
@@ -176,7 +178,7 @@ export default async function UebergabeOverviewPage({
                 return (
                   <div
                     key={h.id}
-                    className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden"
+                    className={`overflow-hidden ${cardSurfaceClass}`}
                   >
                     <div className="px-4 pt-4 pb-3 flex items-start gap-3">
                       <div className="flex-1 min-w-0">
@@ -260,7 +262,7 @@ export default async function UebergabeOverviewPage({
                 return (
                   <div
                     key={h.id}
-                    className="rounded-2xl border border-gray-200 bg-white shadow-sm px-4 py-3 flex items-center gap-3"
+                    className={`px-4 py-3 flex items-center gap-3 ${cardSurfaceClass}`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-0.5">
@@ -270,12 +272,10 @@ export default async function UebergabeOverviewPage({
                           {typeLabels[h.type] ?? h.type}
                         </span>
                         <span className="text-xs text-gray-400">{date}</span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                          <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
+                        <Badge tone="success">
+                          <Check className="h-3 w-3" strokeWidth={2.5} />
                           Fertig
-                        </span>
+                        </Badge>
                       </div>
                       <p className="text-sm font-semibold text-gray-900 truncate">
                         {h.unit.property.name} · {h.unit.label}

@@ -24,12 +24,12 @@ export async function createAnnouncement(formData: FormData) {
     body: formData.get("body"),
   });
   if (!parsed.success) {
-    redirect("/aushaenge?fehler=eingabe");
+    redirect("/aushaenge/neu?fehler=eingabe");
   }
 
   // Scope-Prüfung: nur Objekte im Zuständigkeitsbereich
   if (!(await canVerwalterAccessProperty(user, parsed.data.propertyId))) {
-    redirect("/aushaenge?fehler=eingabe");
+    redirect("/aushaenge/neu?fehler=eingabe");
   }
 
   await db.announcement.create({

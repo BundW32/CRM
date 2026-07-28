@@ -440,3 +440,631 @@ indem sie in Fehlermeldungen lief.
     Teilungserklärung … ableiten aus der Wohnfläche lassen sie sich nicht").
     Fachlich richtige Begriffe ohne Erklärung waren der zweite Grund, warum der
     Bereich als undurchdringlich empfunden wurde.
+## Schritt 17 — Block 1 der Finanzkorrekturen: Zuordnung, Storno, Objekt-Startseite (26.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde A1, B1) und
+`docs/PLAN-WEG-Finanzkorrekturen.md` (KP1, KP2).
+
+85. **Kostenart wird nachträglich zuordenbar** (Befund A1): Bisher setzte nur die
+    manuelle Buchung eine `costTypeId`. CSV-importierte Umsätze blieben dauerhaft
+    ohne Kostenart, landeten in `otherExpenseCents` und lösten dort einen
+    Prüffehler aus — womit `finalizeStatement` dauerhaft abbrach. **Eine WEG, die
+    den vorgesehenen Zero-Key-Weg ging, konnte ihre Jahresabrechnung nie
+    fertigstellen.** Neu: `assignCostType` mit Massenauswahl über die
+    Buchungsliste. Umbuchungen bleiben ausgenommen — sie sind kein Aufwand,
+    sondern verschieben Geld zwischen Konten der Gemeinschaft.
+86. **Korrektur nur per Storno, nie per Änderung oder Löschung** (Befund B1): Eine
+    Fehlbuchung erzeugt eine Gegenbuchung (`Booking.reversalOfId`, `@unique`) mit
+    umgekehrter Richtung, gleichem Betrag, Konto und Buchungstag. Beide bleiben im
+    Journal sichtbar, der Saldo ist wieder korrekt. Eine Umbuchung wird immer
+    beidseitig storniert (gemeinsame `transferGroupId`), sonst stünde ein halber
+    Übertrag im Buch. Alternative „Buchung bearbeiten" bewusst verworfen: sie
+    zerstört die Nachvollziehbarkeit, auf der die Abrechnung beruht.
+87. **Stornopaare fallen aus allen fachlichen Auswertungen** (`NOT_REVERSED` in
+    `lib/weg/booking-scope.ts`): Im Kontostand heben sie sich von selbst auf, in
+    der Kostenverteilung nicht — das Storno einer Ausgabe ist eine Einnahme und
+    hätte die Ausgabensumme der Kostenart nicht gemindert. Die Kosten wären trotz
+    Storno umgelegt worden. Der Filter greift deshalb in Jahresabrechnung,
+    Vorjahres-Istwerten, Verbrauchsverteilung, Rückständen, SEPA-Lastschrift und
+    Eigentümersicht.
+88. **Import-Rücknahme als eng begrenzte Ausnahme vom Storno-Prinzip**: Ein falsch
+    zugeordneter Import (vertauschte Spalten) würde als Storno hunderte Zeilen
+    erzeugen und das Journal unlesbar machen. `undoImportBatch` löscht den Batch
+    deshalb im Ganzen — aber nur, solange kein Buchungstag in ein abgeschlossenes
+    Wirtschaftsjahr fällt und keine Buchung daraus storniert wurde. Vollständig im
+    Audit-Log.
+89. **Abgeschlossene Wirtschaftsjahre sind schreibgeschützt**
+    (`lib/weg/statement-lock.ts`): Liegt für ein Jahr eine Jahresabrechnung im
+    Status `FERTIG` vor, sind dessen Buchungen unantastbar — weder Kostenart noch
+    Storno. Sonst wiche der beschlossene Snapshot von der Buchhaltung ab, und
+    genau diese Abweichung macht eine Abrechnung angreifbar. `fiscalYearOf`
+    rechnet dabei in UTC, passend zu `fiscalYearRange` und `parseGermanDate`.
+90. **Objekt-Startseite statt Linkmenü** (`weg/[propertyId]/page.tsx`): Die
+    Einstiegsseite listete je Objekt elf gleichrangige Verweise. Buchhaltungs-
+    software wird aber danach beurteilt, ob sie beim Öffnen zwei Fragen
+    beantwortet: „wie viel Geld haben wir?" und „was muss ich als Nächstes tun?".
+    Neu daher: Kontostände (Giro und Rücklage getrennt), eine Bereitschaftsprüfung
+    für blockierende Lücken (fehlender MEA-Nenner, kein Rücklagenkonto, keine
+    Kostenarten) und ein Arbeitsvorrat mit Zahlen und Absprung. Die Navigation
+    folgt darunter der **Zeitachse** (einrichten · laufendes Jahr · Jahreslauf ·
+    Dauerthemen) statt Themengruppen — der Wirtschaftsplan entsteht vor dem Jahr,
+    die Abrechnung danach.
+91. **Objektauswahl nur noch bei mehreren Objekten**: Bei genau einer WEG — dem
+    Normalfall der Selbstverwaltung — leitet `/verwaltung/weg` direkt in den
+    Arbeitsbereich durch. Die Auswahlseite zeigt sonst je Objekt die Salden, statt
+    nur Namen und Verweise.
+
+## Schritt 18 — Block 2, KP3: Erhaltungsrücklage richtig rechnen (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde A2, A3).
+
+92. **Ausgaben aus der Rücklage werden nicht erneut umgelegt** (Befund A2): Die
+    Ist-Ausgaben wurden bisher über alle Konten gesammelt — auch über das
+    Rücklagenkonto. Eine aus der Rücklage bezahlte Maßnahme erhöhte damit die
+    Abrechnungsspitze, obwohl sie aus Geld bezahlt wurde, das die Eigentümer über
+    die Zuführungen früherer Jahre bereits aufgebracht hatten. **Sie zahlten
+    dieselbe Maßnahme zweimal.** Neu: `expenseGroups` gruppiert zusätzlich nach
+    Konto; was von einem RUECKLAGE-Konto kam, erscheint als Ausgabe in der
+    Gesamtabrechnung (§ 28 Abs. 2 verlangt die Einnahmen-/Ausgabenrechnung),
+    wird aber über die Gegenposition „Entnahme aus der Erhaltungsrücklage" aus
+    der Umlage genommen. An echten Daten geprüft: 80.000 € aus der Rücklage
+    lassen den Kostenanteil je Einheit unverändert.
+93. **Zuführung folgt dem Schlüssel des Wirtschaftsplans** (Befund A3): Vorher
+    fest MEA. Hatte die Gemeinschaft nach § 16 Abs. 2 Satz 2 WEG einen anderen
+    Schlüssel beschlossen, verteilte der Plan anders als die Abrechnung — die
+    Spitze war dann bei jedem Eigentümer falsch, in jedem Jahr. Der Schlüssel
+    kommt jetzt aus dem beschlossenen Plan des Jahres, MEA bleibt Rückfall ohne Plan.
+94. **Die Zuführung nutzt `advanceWeightsForKey`, nicht `weightsForKey`.** Beim
+    Testen aufgefallen: Die strikte Verteilung der Abrechnung wirft bei einer
+    Einheit ohne Wohnfläche, der Wirtschaftsplan zählt sie als 0. Mit der
+    strikten Variante wäre genau die Abweichung zurückgekehrt, die diese
+    Änderung behebt. Beide Seiten rechnen jetzt mit derselben Gewichtung.
+95. **Kostenarten der Kategorie RUECKLAGENZUFUEHRUNG werden übersprungen.** Die
+    Zuführung entsteht aus den Ist-Umbuchungen. Wurde sie zusätzlich als
+    Aufwandsposition gebucht, war sie doppelt enthalten.
+96. **Soll-Ist-Abgleich als Hinweis, nicht als Sperre** (neues Feld `warnings`,
+    getrennt von `errors`): Eine bewusst abweichende Zuführung ist zulässig und
+    darf das Fertigstellen nicht blockieren. Eine **vergessene** Umbuchung wäre
+    dagegen ein stiller Fehler, der jedem Eigentümer ein Guthaben ausweist, das
+    ihm nicht zusteht. Die Seed-Daten zeigen den Fall sofort: 6.000 € geplant,
+    500 € umgebucht.
+97. **Prüfmeldungen in Euro statt in Cent.** Sie stehen in der Oberfläche vor
+    Eigentümern; „600000 Cent" ist keine Sprache für die Zielgruppe.
+
+## Schritt 19 — Zusammenführung mit Erststart und Jahresfahrplan (27.07.2026)
+
+Nach dem Merge von PR #36 traf der Finanz-Einstieg auf den dort gebauten
+Jahresfahrplan. Beide beantworteten „was ist als Nächstes zu tun".
+
+90. **Der Fahrplan gewinnt, es gibt keine zweite Liste.** `loadRoadmap` ist die
+    bessere Ableitung — mit Fristen, Status und Klartext, und ausdrücklich als
+    Richtwert gekennzeichnet. Die vier Einträge, die ich dafür gebaut hatte
+    (Wirtschaftsplan, Jahresabrechnung, Prüfpflichten, Rückstände), sind
+    entfallen. Ebenso die Bereitschaftsprüfung: Das macht der `SetupGuide`
+    gründlicher und an der richtigen Stelle.
+91. **Der Fahrplan erscheint jetzt auch für professionelle Verwaltungen.** Er
+    lief nur im `SelfManagedDashboard` — B&W mit mehreren Objekten sah ihn
+    nirgends. Der Objekt-Arbeitsbereich rendert ihn deshalb über dasselbe
+    `loadRoadmap`; selbstverwaltete Gemeinschaften bekommen dort nur den
+    Verweis auf ihre Übersicht, damit er nicht doppelt steht.
+92. **Ein Baustein, zwei Routen** (`verwaltung/weg/Arbeitsbereich.tsx`): Die
+    Objektauswahl rendert ihn bei selbstverwalteter Org mit genau einem Objekt
+    direkt, `weg/[propertyId]` sonst. Meine ursprüngliche Weiterleitung ist
+    entfallen — die Begründung aus #36 (Unterseiten springen über ihren
+    Rückweg zurück und liefen im Kreis) trägt. Zwei Seiten mit gleichem Inhalt
+    wären auseinandergelaufen.
+93. **Was der Arbeitsbereich allein behält:** die Kontostände und die zwei
+    buchhalterischen Aufgaben ohne Frist — Buchungen ohne Kostenart und
+    Zahlungseingänge ohne Einheit. Beide kann kein Fahrplan kennen, weil sie
+    keinen Stichtag haben; beide blockieren den Jahresabschluss.
+
+## Schritt 20 — Block 2, KP4: Einnahmenseite im Wirtschaftsplan (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund B7a).
+
+94. **Neue Kategorie `CostCategory.ERTRAG` statt negativer Beträge.** § 28 Abs. 1
+    WEG verlangt einen Plan über voraussichtliche **Einnahmen und Ausgaben**.
+    Bisher gab es nur Ausgabenarten — Zinsen, Miete aus Gemeinschaftseigentum
+    und PV-Einspeisung waren nicht abbildbar, und das Hausgeld damit bei jeder
+    Gemeinschaft mit Einnahmen zu hoch. Die Invariante „`amountCents` immer
+    positiv" bleibt erhalten; die Richtung steckt in der Kategorie. Ein
+    signiertes Betragsfeld hätte jede Summenbildung im ganzen Modul
+    umgeschrieben.
+95. **Erträge folgen ihrem eigenen Schlüssel.** Ein PV-Erlös lässt sich nach
+    Fläche verteilen, eine Zinsgutschrift nach MEA. Sie mindern den
+    Vorschussbedarf über `computeUnitAdvances`, centgenau, und erscheinen im
+    Einzelwirtschaftsplan als eigene Position mit umgekehrtem Vorzeichen.
+96. **Kein `-0`.** `0 * -1` ergibt in JavaScript negative Null. Sie reist durch
+    JSON und Snapshots und liest sich in der Oberfläche als „−0,00 €". Beim
+    Vorzeichenwechsel deshalb explizit auf 0 geprüft — ein Test hält es fest.
+97. **Plan mit Überschuss wird abgewiesen.** Übersteigen die geplanten Einnahmen
+    die Ausgaben, lässt sich daraus kein Hausgeld ableiten; die Verteilung
+    bricht mit einer verständlichen Meldung ab statt mit negativen Vorschüssen.
+98. **In der Abrechnung laufen Ist-Einnahmen mit Ertrags-Kostenart gegen die
+    Umlage.** Hausgeld-Eingänge tragen keine Kostenart und bleiben außen vor —
+    die Abgrenzung ist genau diese Zuordnung.
+99. **Die Kategorienliste der Server-Action wird aus `costCategoryLabels`
+    abgeleitet.** Sie war handgepflegt, während sich das Auswahlfeld der Seite
+    aus dem Label-Verzeichnis baut. Beim Ergänzen von ERTRAG hätte die
+    Oberfläche eine Kategorie angeboten, die die Action stillschweigend ablehnt.
+
+An echten Daten geprüft: 3.600 € PV-Einspeisung senken den Vorschussbedarf von
+15.000 € auf 11.400 €; das monatliche Hausgeld sinkt bei jeder Einheit
+entsprechend, Σ Einzelpläne == Vorschussbedarf.
+
+## Schritt 21 — Block 2, KP5: Einzelwirtschaftsplan je Eigentümer (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund B7c).
+
+100. **Der Einzelwirtschaftsplan wird erstmals erzeugt.** § 28 Abs. 1 WEG
+     verlangt Gesamtplan **und** Einzelwirtschaftspläne. Vorhanden war nur ein
+     Dokument: der Gesamtplan mit einer Tabelle aller Einheiten. Jeder
+     Eigentümer sah dort eine Summe statt ihrer Zusammensetzung — und nebenbei
+     das Hausgeld aller Nachbarn.
+101. **Die Rechenarbeit lag bereits fertig da.** `computeUnitAdvances()` liefert
+     mit `perItem` die Aufschlüsselung je Position und Einheit; sie wurde
+     nirgends verwendet. Der neue Generator (`documents/einzelwirtschaftsplan.ts`)
+     rendert sie nur noch — kein neuer Rechenweg, keine zweite Wahrheit.
+102. **Ein Bauer, zwei Routen, unterschiedliche Grenzen.** Der Verwalter wählt
+     über `?dokument=einzelplan&einheit=…` frei; die Eigentümer-Route auf
+     `/finanzen` ignoriert einen solchen Parameter und filtert hart auf
+     `ownedUnitIdsInProperty`. Gerechnet wird in beiden Fällen über **alle**
+     Einheiten — sonst stimmten die Verteilungsgewichte nicht —, gefiltert erst
+     bei der Ausgabe.
+103. **Positionen ohne Planwert fallen raus, Positionen ohne eigenen Anteil
+     nicht.** Eine Nullzeile für eine Kostenart, die es im Plan nicht gibt, wäre
+     Lärm. Eine Position, an der die eigene Einheit mit 0 € beteiligt ist
+     (Stellplatz bei Verteilung nach Fläche), bleibt stehen: Sie beantwortet die
+     Frage, warum dort nichts steht.
+104. **Für Eigentümer heißt der Verweis „Mein Hausgeld im Detail"** und steht
+     vor dem Gesamtplan. Das ist die Frage, die sie tatsächlich haben.
+
+An echten Daten geprüft: WE 01 zeigt sechs Positionen mit Schlüssel und Anteil,
+Jahresvorschuss 2.699,84 €, Monatsrate 224,98–224,99 € — deckungsgleich mit der
+Hausgeld-Tabelle des Gesamtplans.
+
+## Schritt 22 — Block 2, KP5b: Dokumente automatisch je Eigentümer ablegen (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund C), Nachfrage „wer bekommt
+wann was?".
+
+105. **Einzelwirtschaftsplan und Einzelabrechnung waren reine Abrufdokumente.**
+     Wer nicht von selbst unter „Finanzen" nachsah, bekam nichts. Beide werden
+     jetzt beim Erzeugen automatisch in die Dokumente der jeweiligen Eigentümer
+     gelegt (`lib/weg/owner-documents.ts`).
+106. **Die Auslöser folgen dem Gesetz, nicht der Bequemlichkeit.** Der
+     Einzelwirtschaftsplan wird mit dem **Beschluss** abgelegt (`resolvePlan`) —
+     erst der Beschluss macht die Vorschüsse fällig (§ 28 Abs. 1 WEG), vorher
+     gibt es keine aufbewahrenswerte Fassung. Die Einzelabrechnung wird mit dem
+     **Fertigstellen** abgelegt (`finalizeStatement`), also **vor** der
+     Versammlung: Dort wird über die Abrechnungsspitze beschlossen (§ 28 Abs. 2
+     Satz 1 WEG), und dafür müssen die Eigentümer sie vorher prüfen können.
+     Nach dem Beschluss zu verteilen wäre zu spät.
+107. **Adressiert wird gezielt über `DocumentRecipient`.** Sind Empfänger
+     gesetzt, sieht nur diese Person das Dokument (`documentWhereForUser`).
+     Niemand bekommt die Abrechnung des Nachbarn samt dessen Zahlungsdaten.
+108. **Einheiten ohne erfassten Eigentümer werden übersprungen — und gemeldet.**
+     Ein Dokument ohne Empfänger fiele auf die `audience`-Logik zurück und wäre
+     damit für **alle** Eigentümer des Objekts sichtbar. Das ist der Grund für
+     das Überspringen; die Rückmeldung nennt die Einheiten, damit der Verwalter
+     den Eigentümer nachträgt.
+109. **`externalRef` macht den Vorgang wiederholbar.** Ein zweiter Lauf ersetzt
+     die vorhandene Fassung, statt die Ablage zu verdoppeln. Ohne diesen
+     Schlüssel lägen nach drei Korrekturläufen drei Abrechnungen nebeneinander,
+     ohne Angabe welche gilt.
+110. **Reihenfolge: erst alle Dateien hochladen, dann die Datenbank in *einer*
+     Transaktion, und die ersetzten Dateien zuletzt löschen.** Der erste Entwurf
+     löschte die alte Datei sofort beim Ersetzen — ein Fehler danach hätte die
+     Datei gelöscht, auf die der zurückgerollte Datensatz noch zeigt.
+111. **Das Abrechnungs-PDF behauptete „Beschlossene Abrechnung".** Falsch:
+     `StatementStatus` kennt nur ENTWURF und FERTIG, keinen Beschlusszustand.
+     Der Fuß sagt jetzt, dass über die Abrechnungsspitze noch die Versammlung
+     beschließt — sonst hielte der Eigentümer eine Nachzahlung für fällig, die
+     es noch nicht ist.
+112. **Bekannte Lücke: keine Wiederholaktion.** Schlägt die Ablage fehl, wird
+     das protokolliert, aber die Abrechnung bleibt fertiggestellt; ein erneuter
+     Anlauf ist über `finalizeStatement` nicht möglich, weil das nur für
+     ENTWURF läuft. Der Helfer ist idempotent, ein Wiederholknopf wäre also
+     gefahrlos nachzurüsten.
+
+An echten Daten geprüft: erster Lauf 6 erstellt, zweiter Lauf 6 ersetzt (keine
+Dubletten); eine Einheit ohne `UnitOwnership` wurde übersprungen und gemeldet;
+Erika Eigentümerin sieht 4, Klaus Käufer 1 Dokument — niemand das des anderen.
+
+## Schritt 23 — Block 2, KP6: § 35a weist den Lohnanteil aus (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund B4).
+
+113. **Die Zeile hieß „Steuerlich begünstigte Aufwendungen" und enthielt den
+     Bruttobetrag.** Begünstigt sind nach § 35a EStG aber nur Lohn-, Fahrt- und
+     Maschinenkosten; Material ist es nicht. Genau diese Zahl trägt der
+     Eigentümer in seine Steuererklärung ein — bei einer Handwerkerrechnung mit
+     hohem Materialanteil war sie um ein Vielfaches zu hoch.
+114. **Zwei Quellen, klare Rangfolge.** `Booking.laborShareCents` ist der in der
+     Rechnung ausgewiesene Anteil und geht immer vor. Fehlt er, greift
+     `CostType.laborSharePercent` als Erfahrungswert der Kostenart. Der Wert an
+     der Buchung wird auf den Rechnungsbetrag gedeckelt: Ein Vertipper darf
+     keinen Ausweis erzeugen, der über der Ausgabe liegt.
+115. **Ohne beides wird nichts ausgewiesen, sondern die Lücke benannt.** Der
+     Betrag erscheint als „Lohnanteil nicht erfasst" — in der Verwalter-Tabelle,
+     im PDF und in der Eigentümer-Ansicht. Eine geschätzte Zahl wäre schlimmer
+     als keine: Sie sieht amtlich aus, hält aber der Rückfrage des Finanzamts
+     nicht stand (§ 35a Abs. 5 Satz 3 EStG verlangt die Rechnung).
+116. **Fehlt der Eintrag ganz, gilt der volle umgelegte Betrag als Lücke.**
+     `computeStatement` fällt dafür auf `verteilbarCents` zurück. Ohne diesen
+     Rückfall verschwände die Lücke stillschweigend und die Abrechnung sähe aus,
+     als gäbe es bei dieser Position nichts Begünstigtes.
+117. **Der Lohnanteil wird entlang derselben Verteilung umgelegt wie die
+     Position selbst.** Wer 3,7 % der Kosten trägt, trägt 3,7 % des Lohnanteils —
+     centgenau über `distributeByWeight`, damit Σ Einheiten == Lohnanteil.
+118. **Aus der Rücklage bezahlte Ausgaben bleiben außen vor.** Sie werden im Jahr
+     nicht umgelegt, also trägt sie kein Eigentümer und niemand kann sie
+     absetzen. Ist eine Position vollständig aus der Rücklage bezahlt, gibt es
+     zudem kein Gewicht, an dem sich der Anteil ausrichten könnte.
+119. **Nachtragen muss möglich sein.** Der Bankimport kennt nur den
+     Gesamtbetrag; die Rechnung liegt oft später vor. `setLaborShare` trägt den
+     Anteil an einer vorhandenen Buchung nach — mit derselben Sperre wie die
+     Kostenart-Zuordnung (abgeschlossene Jahre und Stornopaare bleiben
+     unverändert). Leeren setzt zurück auf „nicht erfasst"; das ist etwas
+     anderes als „null Euro Lohnanteil".
+120. **Die Spalte erscheint nur, wo sie eine Frage ist** — bei Ausgaben einer
+     §35a-eingestuften Kostenart. Sonst lüde sie zu einer Angabe ein, die nichts
+     bewirkt. Aus demselben Grund wird `laborSharePercent` geleert, sobald die
+     Kostenart auf KEINE gestellt wird.
+
+An echten Daten geprüft (Rechnung 1.000,00 €, Kostenart Hausmeister/MEA):
+nichts erfasst → 0,00 € ausgewiesen und 1.000,00 € als Lücke; 40 % an der
+Kostenart → 400,00 €, keine Lücke; Rechnung mit 620,00 € → 620,00 € (schlägt die
+Schätzung); Tippfehler 5.000,00 € → auf 1.000,00 € gedeckelt; 333,33 € →
+centgenau auf die Einheiten verteilt.
+
+## Schritt 24 — Block 2, KP7: HeizkostenV-Schutz (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befund B3).
+
+121. **Die Zählerverteilung legte Heizkosten zu 100 % nach Verbrauch um.** Das
+     sieht gerecht aus und ist trotzdem formell fehlerhaft: §§ 7 Abs. 1, 8
+     Abs. 1 HeizkostenV verlangen 50–70 % nach Verbrauch, den Rest als
+     Grundkosten nach Wohnfläche. Wer anders abrechnet, gibt jedem Eigentümer
+     nach § 12 Abs. 1 HeizkostenV ein Kürzungsrecht von 15 % — und die Differenz
+     trägt die Gemeinschaft.
+122. **Gekennzeichnet wird die Kostenart, nicht der Umlageschlüssel.**
+     `CostType.heatingCost` ist im Standardkatalog für „Heizung/Warmwasser"
+     gesetzt und in den Stammdaten umschaltbar. Am Schlüssel VERBRAUCH ließe
+     sich das nicht festmachen: Kaltwasser und Allgemeinstrom werden zu Recht
+     vollständig nach Verbrauch verteilt.
+123. **Werte außerhalb 50–70 % werden abgelehnt, nicht gerundet.** Die
+     Verordnung lässt keinen Spielraum, und eine stillschweigend korrigierte
+     Eingabe wäre nicht das, was der Verwalter entschieden hat. Vorbelegung ist
+     70 % — der in der Praxis üblichste Wert.
+124. **Die Restcents sitzen bei den Grundkosten.** Sie werden als
+     `totalCents − Verbrauchskosten` gebildet statt selbst gerundet. Dadurch ist
+     Σ Grundkosten + Σ Verbrauchskosten == Gesamtbetrag ohne Sonderfall.
+125. **Für die Grundkosten gilt die nachsichtige Flächengewichtung**
+     (`advanceWeightsForKey`). Ein Stellplatz hat keine Wohnfläche und wird
+     nicht beheizt — er trägt zu Recht null Grundkosten. Die strenge Variante
+     bräche ab und machte die Funktion für jede WEG mit Garagen unbrauchbar.
+     Fehlt die Fläche bei *allen* Einheiten, schlägt die Verteilung fehl und
+     meldet das.
+126. **Der Hinweis nennt den besseren Weg.** Der Messdienst-Import rechnet die
+     Rohrwärme (§ 9 HeizkostenV) und die Trennung von Heizung und Warmwasser
+     bereits ein; beides kann diese Funktion nicht leisten. Sie bleibt der
+     Notbehelf für Gemeinschaften, die selbst ablesen — mit dem Unterschied,
+     dass sie jetzt wenigstens nicht mehr rechtswidrig verteilt.
+
+An echten Daten geprüft (12.000,00 € Heizkosten, sechs Einheiten): bei 70/30
+entfallen 3.600,00 € auf Grundkosten; die Einheit ohne Verbrauch trägt jetzt
+683,60 € statt 0,00 €. Σ Einheiten == Gesamtbetrag bei 70 % wie bei 50 %.
+
+## Schritt 25 — Durchsicht des gesamten Zweigs (27.07.2026)
+
+Vor dem Zusammenführen einmal über alles geschaut. Zwei Fehler gefunden, beide
+Folgen derselben Ursache: eine Änderung, die an zwei Stellen hätte landen müssen.
+
+127. **Der Seed trug `heatingCost` nicht mit.** Die Zuordnung Katalog → Kostenart
+     stand zweimal fast wortgleich da (Server-Action und Seed); ergänzt wurde
+     nur eine. Eine frisch aufgesetzte Demo-WEG hätte ihre Heizkosten weiter zu
+     100 % nach Verbrauch verteilt — genau der Fehler, den KP7 behebt. Behoben
+     über `costTypeFieldsFrom()` in `cost-catalog.ts`: Ein neues Feld gehört ab
+     jetzt nur noch dorthin.
+128. **Die Zählerverteilung rechnete mit dem Gesamtbetrag statt dem umlegbaren
+     Teil.** Seit KP3 wird eine aus der Erhaltungsrücklage bezahlte Ausgabe nicht
+     mehr umgelegt; `distributeByMeters` zählte sie weiter mit. Bei einer
+     Heizungsposition, die teilweise aus der Rücklage bezahlt wurde, hätte die
+     automatische Verteilung eine Summe geschrieben, die die Abrechnung
+     anschließend als „Manuelle Verteilung unvollständig" zurückweist — ohne
+     erkennbaren Grund für den Verwalter. Jetzt filtert die Abfrage auf
+     Nicht-Rücklagenkonten, wie die Abrechnung selbst.
+
+Geprüft und in Ordnung:
+
+- **Abwärtsverträglichkeit der Snapshots.** Eine vor dieser Änderung
+  fertiggestellte Abrechnung hat weder `labor.unerfasst` noch `heatingCost` im
+  Snapshot. An echten Daten gegengeprüft: Das PDF entsteht unverändert, die
+  Lücken-Zeile bleibt aus. Das ist richtig so — ein fertiges Jahr zeigt weiter
+  das, was die Eigentümer bekommen haben. Die §35a-Zahlen abgeschlossener Jahre
+  bleiben damit die alten (Brutto-)Werte; korrigierbar nur über eine neue
+  Abrechnung.
+- **Wanderung der Migrationen.** Fünf neue, alle additiv: zwei Spalten, ein
+  Enum-Wert, eine Selbstrelation, ein Flag mit Bestandsaktualisierung. Keine
+  löscht oder ändert Bestandsdaten.
+
+## Schritt 27 — Block 3, KP8: Fortgeltung und geänderter Wirtschaftsplan (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde A4, B7b, B6).
+
+133. **Der Plan war starr an sein Wirtschaftsjahr gebunden** und erzeugte mit
+     dem Beschluss genau zwölf Sollstellungen. Zwei Löcher folgten daraus: Ohne
+     Nachfolgeplan endeten die Forderungen mit dem Jahr — ab Januar schuldete
+     niemand mehr Hausgeld, es gab keine Rückstände, nichts zu mahnen und nichts
+     einzuziehen, obwohl das Geld der Gemeinschaft fehlt. Und ein unterjährig
+     geänderter Plan war nicht speicherbar, weil `@@unique([propertyId, year])`
+     nur einen Plan je Jahr zuließ.
+134. **Nicht das Jahr bestimmt, was gilt, sondern der Geltungszeitraum.**
+     `EconomicPlan.validFrom` / `validUntil` lösen beides mit demselben
+     Gedanken. § 28 Abs. 1 Satz 2 WEG: Der beschlossene Plan gilt fort, bis ein
+     neuer beschlossen ist — `validUntil = null` heißt genau das.
+135. **Die Monatsrate beginnt im Folgejahr wieder bei Index 0.** Über die
+     Jahresgrenze hinweg durchzuzählen wäre naheliegend und falsch: Die
+     Restcent-Verteilung von `monthlyInstallments` muss sich in jedem Jahr
+     gleich verhalten, sonst summierten sich die Raten nicht zum Jahresbetrag.
+136. **Abgleichen statt löschen und neu anlegen.** Das alte `deleteMany` +
+     `createMany` ist mit Zahlungen im Bestand nicht tragbar — jede Zuordnung
+     einer Zahlung hinge danach in der Luft, die Historie einer Mahnung wäre
+     weg. `synchronisiereSollstellungen` legt Fehlendes an, passt Beträge an
+     und entfernt nicht mehr Getragenes.
+137. **Bereits Fälliges bleibt unverändert — solange der Plan den Monat
+     weiterhin trägt.** Was ein Eigentümer im März schuldete, schuldete er; ein
+     Beschluss wirkt nach vorn. Angelegt wird dagegen auch rückwirkend: Tagt die
+     Versammlung im April, entstehen die Forderungen für Januar bis März
+     nachträglich, weil sie die ganze Zeit bestanden.
+138. **Trägt der Plan einen Monat nicht mehr, wird auch Fälliges entfernt.**
+     Der erste Entwurf schonte hier alles Fällige — der Prüflauf an echten Daten
+     brachte prompt 48 Monate mit **doppelter** Forderung ans Licht: Alter und
+     neuer Plan trugen dieselben Monate nebeneinander. Gefahrlos ist das
+     Entfernen erst durch Punkt 139.
+139. **Ein Nachfolgeplan darf nicht rückwirkend beginnen.** Verdrängt er einen
+     bereits beschlossenen Plan, ist frühestens der laufende Monat zulässig.
+     Sonst würde rückwirkend geändert, was jemand schuldete — und dafür müssten
+     Sollstellungen weichen, die längst bezahlt oder gemahnt sein können. Der
+     Normalfall bleibt erlaubt: Für Januar gibt es keinen Vorgänger, wenn im
+     April erstmals über das laufende Jahr beschlossen wird.
+140. **Ein Knopf, kein stiller Automatismus.** Die Fortschreibung läuft über
+     „Forderungen nachziehen" im Hausgeld, nicht beim Seitenaufruf. Neue
+     Forderungen sollen entstehen, weil jemand sie auslöst — nicht als
+     Nebenwirkung des Hinsehens. Der Fahrplan weist mit Vorrang darauf hin,
+     sobald Monate fehlen: Es ist der stillste aller Fehler, denn es fehlt
+     nichts Sichtbares, es passiert nur nichts mehr.
+141. **Fälligkeitsregel je Objekt** (Monatserster / dritter Werktag / fester
+     Tag). Sie steuert die Sollstellungen **und** den Wortlaut der
+     Beschlussvorlage aus derselben Quelle — sonst mahnt die Verwaltung zu einem
+     Termin, den der Beschluss nicht nennt. Samstag zählt beim dritten Werktag
+     nicht: Im Zahlungsverkehr wird an ihm nicht gebucht. Ein freier Tag ist auf
+     den 28. begrenzt, damit es den Termin in jedem Monat gibt.
+142. **Ein zweiter Plan desselben Jahres ist jetzt erlaubt** — das ist der
+     geänderte Wirtschaftsplan. Nur ein offener *Entwurf* wird weitergeführt
+     statt verdoppelt; zwei halb ausgefüllte Entwürfe nebeneinander sind bloß
+     verwirrend.
+
+An echten Daten geprüft (Plan 2026, sechs Einheiten): Beschluss im Juli erzeugt
+rückwirkend die Monate ab Januar; im Februar 2027 laufen die Forderungen ohne
+Nachfolger weiter bis April 2027; eine verbogene Sollstellung aus März 2026
+bleibt beim Abgleich unangetastet, eine künftige wird korrigiert; ein geänderter
+Plan ab Juli grenzt den Vorgänger auf Januar–Juni ab — **0 Monate mit doppelter
+Forderung**.
+
+## Schritt 28 — Block 3, KP9: echte Zahlungszuordnung (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde B2, D3).
+
+143. **Der Rückstand war eine Differenz zweier Summen** — „alle fälligen
+     Sollstellungen minus alle Einnahmen dieser Einheit". Diese eine Subtraktion
+     rechnet vier Dinge falsch: Die Zahlung einer Sonderumlage tilgte
+     Hausgeldrückstände, eine Vorauszahlung verdeckte einen offenen Monat, eine
+     Sammelüberweisung ließ sich nicht aufteilen — und die Mahnung nannte damit
+     einen Betrag nach außen, den niemand prüfen konnte.
+144. **`PaymentAllocation` beantwortet die andere Frage.** `Booking.unitId` sagt,
+     *von wem* das Geld kam, und bleibt als Vorfilter. Worauf es angerechnet
+     wurde, steht jetzt in eigenen Zeilen mit Teilbeträgen.
+145. **§ 366 Abs. 2 BGB bestimmt die Reihenfolge:** fällige vor nicht fälligen;
+     unter den fälligen die gemahnte (die „lästigere"); bei gleicher Lästigkeit
+     die ältere. Bei gleichem Datum entscheidet die ID — ohne diesen Anker hinge
+     die Reihenfolge an der Ladereihenfolge und der Vorschlag wäre nicht
+     reproduzierbar.
+146. **§ 366 Abs. 1 geht Abs. 2 vor — und das war zunächst nicht drin.** Der
+     Prüflauf an echten Daten zeigte es: Eine Zahlung mit dem Verwendungszweck
+     „Sonderumlage Dachsanierung" tilgte das ältere Hausgeld, weil die
+     gesetzliche Reihenfolge allein angewandt wurde. Der Zahlende darf aber
+     bestimmen, worauf er zahlt. Nachgetragen als Auswahl am Anrechnen-Knopf:
+     **Der Verwalter liest den Verwendungszweck, nicht das Programm.** Eine
+     Fehldeutung von Fließtext verschöbe echtes Geld.
+147. **§ 367 Abs. 1 (Kosten → Zinsen → Hauptforderung) ist eingebaut, obwohl
+     Kosten und Zinsen heute immer 0 sind.** Mahnkosten und Verzugszinsen werden
+     noch nicht je Forderung erfasst. Die Aufteilung jetzt vorzusehen ist
+     billiger, als sie später in eine bestehende Reihenfolge einzuziehen.
+148. **Eine Vorauszahlung bleibt Guthaben.** Sie tilgt nichts Künftiges und wird
+     getrennt ausgewiesen, statt den Rückstand zu mindern — genau das Verdecken
+     war der Befund. Auch die Mahnung rechnet ein nicht zugeordnetes Guthaben
+     **nicht** gegen: Ein Betrag, der eine noch nicht zugeordnete Überweisung
+     stillschweigend verrechnet, ist von außen nicht nachvollziehbar.
+149. **Angerechnet wird auf Knopfdruck, nicht still.** Der Vorschlag ist ein
+     Vorschlag; lösen lässt er sich wieder, ohne die Zahlung selbst anzutasten.
+150. **Offene Posten mit Altersstruktur** (0–30 / 31–60 / 61–90 / über 90 Tage)
+     samt ältester offener Fälligkeit. Eine bloße Summe lässt die entscheidende
+     Frage offen: Sind 1.200 € ein Monat bei mehreren Eigentümern oder ein Jahr
+     bei einem? Nur das Zweite trägt die nächste Mahnstufe.
+151. **Die Zuordnungshilfe kennt jetzt drei Wege**, nach Verlässlichkeit
+     geordnet: IBAN aus dem SEPA-Mandat, Einheiten-Kurzlabel im Verwendungszweck,
+     Nachname des Eigentümers. Der Name zählt **nur, wenn er im Objekt eindeutig
+     ist** — zwei Eigentümer namens Müller machen den Hinweis wertlos.
+
+An echten Daten geprüft (Hausgeld 5/2026 + 6/2026 je 200 €, Sonderumlage
+1.000 €): Mit Zweckangabe tilgt die 1.000-€-Zahlung ausschließlich die Umlage,
+ohne Zweckangabe zuerst das ältere Hausgeld; nach Ausgleich aller fälligen
+Forderungen bleibt eine Vorauszahlung von 200 € vollständig als Guthaben stehen
+und mindert den Rückstand nicht; der Mahnbetrag entspricht exakt dem
+ausgewiesenen Rückstand; nie wird mehr angerechnet als gezahlt wurde.
+
+## Schritt 29 — Eigene Felder auf die Oberflächen-Bausteine ziehen (28.07.2026)
+
+Anlass: PR #43 macht rohes `<input type="date">` und den Nachbau von `Card` und
+`Badge` zu Build-Fehlern (`eslint.oberflaeche.mjs`).
+
+152. **Die vier angefassten Dateien stehen noch auf der Ausnahmeliste** — der
+     Zweig baut also auch ohne Änderung. Umgestellt wurden trotzdem die Felder,
+     die **dieser Zweig neu hinzugefügt** hat: das Datumsfeld „Gilt ab" im
+     Wirtschaftsplan (`DateField`), die Fälligkeitsregel in den Stammdaten und
+     die Tilgungsbestimmung im Hausgeld (`SelectField`).
+153. **Grund: Die Ausnahmeliste soll kürzer werden, nicht länger bleiben.** Wer
+     in einer noch ausgenommenen Datei neue Verstöße nachlegt, verlängert die
+     Umstellungswelle für den, der sie später anfasst — und die Regel wäre
+     genau dort wirkungslos, wo neu gearbeitet wird.
+154. **Der Bestand bleibt liegen.** Die übrigen rohen Datumsfelder dieser vier
+     Dateien gehören zur geplanten Welle und werden dort mitgezogen; sie hier
+     nebenbei anzufassen, hieße zwei Zweige über dieselben Zeilen zu führen.
+
+## Schritt 30 — Durchsicht der eigenen Arbeit: drei Nachlässigkeiten (28.07.2026)
+
+Nach Abschluss von KP1–KP9 einmal über alles Eigene geschaut. Drei Funde, alle
+selbst verursacht.
+
+155. **Sechs Warteschlangen statt einer auf der Hausgeld-Seite.** Mit jedem
+     Schritt (Fortgeltungs-Prüfung, offene Posten, SEPA-Mandate, Eigentümer,
+     Übernahme, Mahnungen) war ein weiteres `await` dazugekommen, ohne dass
+     eines auf das vorige wartet. Sechs Stufen heißen sechs Wartezeiten zur
+     Datenbank **nacheinander** — sie addieren sich zur Ladezeit, obwohl sie
+     gleichzeitig laufen könnten. Jetzt ein einziger `Promise.all`.
+     Der Fehler entsteht schleichend: Jede Änderung für sich sah harmlos aus.
+156. **Ein Kommentar behauptete etwas Falsches.**
+     `sortiereNachTilgungsreihenfolge` trug „exportiert, weil die Reihenfolge in
+     der Oberfläche erklärt wird" — das tut sie nirgends. Exportiert ist sie,
+     damit die Vorschrift für sich geprüft werden kann; genau das sagt der
+     Kommentar jetzt. Ein Kommentar, der nicht stimmt, ist schlimmer als keiner:
+     Der nächste Leser richtet sich danach.
+157. **Doppelte Logik statt des vorhandenen Helfers.** `resolvePlan` rechnete
+     den Monatsersten mit einer eigenen kleinen Funktion aus, obwohl
+     `monatsBeginn` aus `plan-validity.ts` genau das tut. Zwei Stellen, die
+     dasselbe rechnen, laufen irgendwann auseinander.
+
+Nicht geändert, obwohl es auffiel: Die Hausgeld-Seite lädt die Sollstellungen
+zweimal — einmal als Summe je Einheit (`dueSums`, „Soll fällig") und einmal
+vollständig für die offenen Posten. Zusammenlegen ginge nicht ohne Verlust: Die
+Spalte zeigt **alle fälligen** Forderungen, die offenen Posten nur die **noch
+offenen**. Aus dem einen lässt sich das andere nicht ableiten.
+
+## Schritt 31 — LP1: Erklärungen ein- und ausschaltbar (28.07.2026)
+
+Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP1).
+
+158. **Es gab bisher keinerlei Nutzereinstellung.** `User` trug nur Kontoflags.
+     `showHints` ist das erste Feld, das eine *Vorliebe* speichert — und
+     deshalb ein neues Muster, kein Anbau an ein vorhandenes.
+159. **Standardmäßig an.** Die umgekehrte Voreinstellung erreichte genau die
+     nicht, für die die Hinweise gedacht sind: Wer nicht weiß, was eine
+     Sollstellung ist, sucht keinen Schalter für ihre Erklärung.
+160. **Am Nutzer, nicht an der Organisation.** Zwei Eigentümer derselben WEG
+     dürfen es verschieden wollen. Deshalb steht der Schalter unter „Konto" und
+     nicht in den Verwalter-Einstellungen.
+161. **Serverseitig entschieden.** `<Tipp>` rendert gar nicht erst, wenn die
+     Hinweise aus sind. Rendern und per CSS verstecken hätte den Text trotzdem
+     über die Leitung geschickt und ihn beim Laden aufblitzen lassen.
+     `getUser()` ist pro Request gecacht — beliebig viele Hinweise auf einer
+     Seite kosten zusammen eine Abfrage.
+162. **Warnungen und Fehlermeldungen hängen NICHT daran.** Ein abgeschalteter
+     Tipp darf niemanden in einen Fehler laufen lassen, den er hätte vermeiden
+     können. `src/lib/tipp-regeln.test.ts` hält das fest: kein `<Alert>` in
+     einem `<Tipp>`, und keine Seite liest `showHints` selbst aus — sonst stünde
+     die Regel bald in dreißig Dateien und gälte in achtundzwanzig davon.
+163. **Der Wächter hätte sich fast selbst ausgehebelt.** Erster Wurf:
+     `join(__dirname, "..")` statt `".." , ".."` — der Glob fand **null**
+     Dateien und der Test meldete Erfolg, ohne eine einzige gesehen zu haben.
+     Aufgefallen nur, weil ein absichtlicher Verstoß eingebaut und geprüft
+     wurde, ob der Test ihn fängt. Seitdem sichert eine eigene Zusicherung
+     (`dateien.length > 50`) genau das ab.
+164. **Der WEG-Bereich wurde vollständig umgestellt, der Rest zieht nach.**
+     Ein Schalter, der drei Texte betrifft, ist kein Schalter — deshalb sind
+     alle 15 Erklärabsätze der WEG-Finanzseiten mit umgezogen. Das ist der
+     Bereich, in dem Laien tatsächlich arbeiten. Außerhalb (rund 190 Texte)
+     gilt weiter: Wer die Seite ohnehin anfasst, zieht sie mit.
+165. **Nicht jeder graue Kleintext ist ein Hinweis.** Von 25 Absätzen im
+     WEG-Bereich enthalten 10 **Daten** — Beträge, Zähler, abgeleitete Aussagen
+     („Bedarf übersteigt den Rücklagenstand"). Die blieben stehen: Sie
+     abzuschalten hieße, dem Nutzer Zahlen vorzuenthalten, nicht Erklärungen.
+     Die Trennung lief über eine Prüfung auf eingebettete Ausdrücke, nicht über
+     Augenmaß.
+
+An echten Daten geprüft: Schalter vorbelegt an; ausgeschaltet verschwinden die
+Erklärungen auf Stammdaten und Wirtschaftsplan-Detail, Warnungen und
+Rückstandshinweise bleiben; wieder eingeschaltet sind sie zurück.
+
+## Schritt 32 — LP2: Fehlermeldungen führen ans Ziel (28.07.2026)
+
+Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP2).
+
+166. **„Die Verteilung ist nicht möglich" ließ den Nutzer suchen.** Die Meldung
+     nennt jetzt die betroffene Einheit beim Namen: „Der Miteigentumsanteil
+     (MEA) fehlt bei WE 03." Die Daten dafür lagen bereits vor —
+     `PositionNichtVerteilbar` kennt das Feld, `einheitenOhneFeld` liefert die
+     Einheiten dazu.
+167. **Zeilenanker statt Abschnittsanker.** Bisher gab es fünf Sprungziele, alle
+     auf Kartenebene. Bei zwanzig Einheiten landet man damit richtig und sucht
+     trotzdem weiter. Jede Einheit, Kostenart und jedes Konto hat jetzt ein
+     eigenes Ziel. **Eigener Namensraum (`zeile-…`), weil `einheit-…` bereits
+     die Formular-ID dieser Zeile ist** — zwei gleiche IDs hätten den
+     `form`-Verweis mehrdeutig gemacht.
+168. **Die angesprungene Zeile hebt sich kurz hervor** (`:target` in
+     `globals.css`). Ohne Markierung landet man richtig und sieht es nicht,
+     besonders bei zwanzig gleich aussehenden Zeilen. Bei `prefers-reduced-motion`
+     bleibt die Markierung stehen statt zu verblassen — die Information darf
+     nicht verlorengehen, nur weil jemand Bewegung abstellt.
+169. **Der Ankersprung funktionierte überhaupt nicht zuverlässig — und zwar
+     schon vorher.** Gemessen: In zwei von drei Aufrufen blieb die Seite oben
+     stehen. Die naheliegende Erklärung („das Ziel gibt es noch nicht") war
+     falsch; das Ziel war da. **Die Seite war noch nicht hoch genug:** Next
+     liefert gestreamt aus, und solange der Teil unterhalb fehlt, gibt es
+     nichts zu scrollen. `scrollIntoView` läuft dann folgenlos durch.
+170. **`HashScroll` wiederholt den Sprung, bis er sitzt** — Bild für Bild,
+     längstens anderthalb Sekunden, Abbruch sobald der Nutzer selbst scrollt.
+     Ein erster Entwurf versuchte es nur zwanzig Bilder lang und machte es
+     dadurch **schlechter** als vorher (0 von 5 statt 1 von 3). Nach dem Umbau:
+     5 von 5. Das betrifft alle Anker, auch die vorhandenen
+     `?flash=gespeichert#einheiten`-Rücksprünge.
+171. **`fehlermeldungen.test.ts` hält es fest:** Kein Text darf auf die
+     Stammdaten verweisen, ohne dorthin zu verlinken. Der Wächter fand sofort
+     eine Fundstelle (Sonderumlagen) — genau dafür ist er da.
+
+An echten Daten geprüft (MEA bei WE 03 entfernt): Die Meldung nennt WE 03, der
+Link zeigt auf `#zeile-<id>`, das Ziel steht nach dem Sprung 96 px unter dem
+Rand (die `scroll-mt-24`-Marge), die Hervorhebung greift — fünf von fünf Läufen.
+
+## Schritt 33 — LP3: Glossar an Ort und Stelle (28.07.2026)
+
+Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP3).
+
+172. **Die Begriffe werden nicht ersetzt.** Das war die naheliegende Idee und
+     wäre falsch: „Abrechnungsspitze" und „Sollstellung" benutzen der Beirat,
+     der Steuerberater und im Streitfall das Gericht. Wer sie umbenennt, macht
+     das Programm für Laien verständlich und für alle anderen unbenutzbar — und
+     der Eigentümer lernt nie, wovon in seiner Versammlung die Rede ist. Die
+     Erklärung tritt **daneben**, nicht an die Stelle.
+173. **Ein Satz je Begriff, hart begrenzt.** Zwei liest niemand, der gerade
+     etwas anderes vorhat. `glossar.test.ts` erzwingt die Grenze, sonst wächst
+     aus der Erklärung ein Absatz und aus dem Absatz ein zweites Handbuch.
+174. **Kein Popup-Framework, kein Client-JS.** Die Erklärung steht im Dokument
+     und wird per CSS bei Mauszeiger oder Tastaturfokus eingeblendet. Sie
+     funktioniert damit ohne JavaScript, kostet nichts, und Screenreader lesen
+     sie ohnehin vor — unabhängig davon, ob sie gerade sichtbar ist.
+175. **Tastaturfokus ist Absicht, obwohl er Tab-Stopps kostet.** Ein Begriff,
+     den nur die Maus erreicht, ist für Tastaturnutzer nicht vorhanden. Der
+     Preis sind auf der längsten Seite etwa ein Dutzend zusätzliche Stopps.
+176. **Ein Paragraph ohne Gesetz ist keine Fundstelle.** „§ 28 Abs. 1" allein
+     sagt nicht, woraus — und bei diesen Begriffen liegt die Antwort zwischen
+     WEG, BGB, EStG und HeizkostenV. Der Test verlangt die Angabe.
+177. **Ein Tippfehler im Begriffsnamen fiele sonst erst zur Laufzeit auf** — und
+     dort als leere Erklärung, nicht als Fehler. Der Test gleicht alle
+     verwendeten Namen gegen das Glossar ab; die Gegenprobe mit einem
+     absichtlichen Tippfehler schlug fehl, wie sie soll.
+
+An echten Daten geprüft: Begriff gepunktet unterstrichen, Erklärung erscheint
+bei Mauszeiger **und** bei Tastaturfokus, ist vorher unsichtbar; bei
+abgeschalteten Hinweisen bleibt das Wort als gewöhnlicher Text stehen.

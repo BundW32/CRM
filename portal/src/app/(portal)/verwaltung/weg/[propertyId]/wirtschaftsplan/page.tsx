@@ -25,7 +25,10 @@ export default async function WirtschaftsplanListPage({
   const plans = await db.economicPlan.findMany({
     where: { propertyId: property.id, ...(jahr ? { year: jahr } : {}) },
     orderBy: { year: "desc" },
-    include: { items: true, _count: { select: { duePostings: true } } },
+    include: {
+      items: { include: { costType: { select: { category: true } } } },
+      _count: { select: { duePostings: true } },
+    },
   });
 
   // Alle vorhandenen Jahrgänge für die Auswahl – unabhängig vom aktiven Filter.
@@ -53,7 +56,7 @@ export default async function WirtschaftsplanListPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
         action={
           <div className="flex gap-2">
             <Link href={`/verwaltung/weg/${property.id}/hausgeld`} className={buttonSecondaryClass}>
@@ -126,7 +129,11 @@ export default async function WirtschaftsplanListPage({
           ) : (
             <div className="grid gap-3">
               {plans.map((p) => {
-                const total = p.items.reduce((sum, i) => sum + i.amountCents, 0);
+                // Vorschussbedarf: Ausgaben minus Einnahmen (§ 28 Abs. 1 WEG).
+                const total = p.items.reduce(
+                  (sum, i) => sum + (i.costType.category === "ERTRAG" ? -i.amountCents : i.amountCents),
+                  0,
+                );
                 return (
                   <Link
                     key={p.id}

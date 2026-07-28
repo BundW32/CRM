@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Badge } from "@/components/data-display";
 
 const STEPS = [
   { label: "Stammdaten", slug: "stammdaten" },
@@ -130,9 +131,9 @@ export function StepHeader({
                 </div>
               </details>
             ) : (
-              <span className="rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-semibold text-brand-orange-dark">
+              <Badge tone="accent">
                 {currentStep}/{STEPS.length}
-              </span>
+              </Badge>
             )}
           </div>
         </div>

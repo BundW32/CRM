@@ -3,7 +3,7 @@ import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessHandover } from "@/lib/access";
-import { Alert, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { Alert, Card, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
 import { generateHandoverPdf, sendHandoverEmail } from "./actions";
 
@@ -72,8 +72,7 @@ ${handover.managerName ?? ""}`.trim();
         </div>
 
         {/* PDF section */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-          <h2 className="font-semibold text-gray-900">PDF-Protokoll</h2>
+        <Card title="PDF-Protokoll">
 
           {pdfUrl ? (
             <div className="flex flex-wrap gap-3 items-center">
@@ -101,12 +100,11 @@ ${handover.managerName ?? ""}`.trim();
               </button>
             </form>
           )}
-        </div>
+        </Card>
 
         {/* Email section */}
         {emails.length > 0 && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-            <h2 className="font-semibold text-gray-900">Protokoll per E-Mail versenden</h2>
+          <Card title="Protokoll per E-Mail versenden">
 
             {sent && (
               <Alert variant="success">
@@ -153,7 +151,7 @@ ${handover.managerName ?? ""}`.trim();
                 E-Mail senden
               </button>
             </form>
-          </div>
+          </Card>
         )}
 
         {/* Back to overview */}

@@ -1,3 +1,4 @@
+import { cardSurfaceClass } from "@/components/ui";
 // Skeleton-Ladezustand für das (dynamische) Dashboard – vermeidet den leeren
 // Sprung beim Datenabruf und signalisiert die Struktur bereits vorab.
 export default function DashboardLoading() {
@@ -20,7 +21,7 @@ export default function DashboardLoading() {
       {/* Karten */}
       <div className="mt-5 grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className={`p-5 ${cardSurfaceClass}`}>
             <div className="mb-4 h-4 w-40 rounded bg-gray-100" />
             <div className="space-y-3">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -35,7 +36,7 @@ export default function DashboardLoading() {
             </div>
           </div>
         </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className={`p-5 ${cardSurfaceClass}`}>
           <div className="mb-4 h-4 w-32 rounded bg-gray-100" />
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (

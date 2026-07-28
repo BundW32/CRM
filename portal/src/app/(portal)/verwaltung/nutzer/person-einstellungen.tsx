@@ -1,4 +1,6 @@
+import { ComboField } from "@/components/combo-field";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { DateField, toDateInputValue } from "@/components/fields";
 import { PendingButton } from "@/components/pending-button";
 import { inputClass } from "@/components/ui";
 import {
@@ -197,13 +199,15 @@ export function PersonEinstellungen({
             <form action={addOwnership} className="mt-2 flex flex-wrap items-center gap-2">
               <input type="hidden" name="zurueck" value={zurueck} />
               <input type="hidden" name="userId" value={u.id} />
-              <select name="propertyId" required className={`${inputClass} flex-1 text-xs`}>
-                {availableOwnProps.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              <ComboField
+                label="Objekt"
+                name="propertyId"
+                required
+                hideLabel
+                placeholder="Objekt suchen …"
+                className="flex-1"
+                options={availableOwnProps.map((p) => ({ value: p.id, label: p.name }))}
+              />
               <PendingButton
                 pendingLabel="…"
                 className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
@@ -403,7 +407,7 @@ function VollmachtVermerk({ u, zurueck }: { u: PersonMitBezug; zurueck: string }
   if (!u) return null;
   const aktiv = hasCertMandate(u);
   const schriftlich = u.certMandateSource === "SCHRIFTLICH";
-  const heute = new Date().toISOString().slice(0, 10);
+  const heute = toDateInputValue(new Date())!;
 
   if (aktiv) {
     return (
@@ -451,16 +455,7 @@ function VollmachtVermerk({ u, zurueck }: { u: PersonMitBezug; zurueck: string }
         <input type="hidden" name="zurueck" value={zurueck} />
         <input type="hidden" name="id" value={u.id} />
         <div className="flex flex-wrap items-end gap-2">
-          <label className="text-[11px] text-gray-500">
-            Vollmacht vom
-            <input
-              type="date"
-              name="datum"
-              required
-              max={heute}
-              className={`${inputClass} mt-0.5 w-40`}
-            />
-          </label>
+          <DateField label="Vollmacht vom" name="datum" required max={heute} className="w-40" />
           <label className="flex-1 text-[11px] text-gray-500">
             Fundstelle (wo liegt das Original?)
             <input

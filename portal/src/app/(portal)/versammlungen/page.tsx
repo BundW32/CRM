@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { PendingButton } from "@/components/pending-button";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@/generated/prisma/client";
-import { Alert, Card, EmptyState, Field, PageTitle, Pagination, buttonClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, PageTitle, Pagination, buttonClass, cardSurfaceClass } from "@/components/ui";
 import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -10,7 +9,6 @@ import { formatDate } from "@/lib/labels";
 import { propertyScopeFilters } from "@/lib/list-filters";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
-import { createMeeting } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -100,7 +98,17 @@ export default async function VersammlungenPage({
 
   return (
     <>
-      <PageTitle>Eigentümerversammlungen</PageTitle>
+      <PageTitle
+        action={
+          isVerwalter ? (
+            <Link href="/versammlungen/neu" className={buttonClass}>
+              Versammlung anlegen
+            </Link>
+          ) : null
+        }
+      >
+        Eigentümerversammlungen
+      </PageTitle>
 
       {fehler ? (
         <Alert variant="error" className="mb-4">
@@ -110,8 +118,8 @@ export default async function VersammlungenPage({
         </Alert>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+      <div className="space-y-4">
+        <div className="space-y-4">
           <FilterBar
             className="mb-3"
             searchPlaceholder="Suchen"
@@ -138,7 +146,7 @@ export default async function VersammlungenPage({
               <Link
                 key={m.id}
                 href={`/versammlungen/${m.id}`}
-                className="block rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+                className={`block p-5 transition hover:shadow-md ${cardSurfaceClass}`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
@@ -164,72 +172,14 @@ export default async function VersammlungenPage({
           />
         </div>
 
-        {isVerwalter ? (
-          <Card title="Versammlung anlegen">
-            {properties.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Keine WEG-Objekte vorhanden. Legen Sie ein Objekt mit Verwaltungsart WEG an.
-              </p>
-            ) : (
-              <form action={createMeeting} className="space-y-3">
-                <Field label="Objekt (WEG)">
-                  <select name="propertyId" required className={inputClass}>
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Titel">
-                  <input
-                    type="text"
-                    name="title"
-                    required
-                    minLength={3}
-                    placeholder="z. B. Ordentliche Eigentümerversammlung 2026"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Termin">
-                  <input type="datetime-local" name="scheduledAt" required className={inputClass} />
-                </Field>
-                <Field label="Ort">
-                  <input
-                    type="text"
-                    name="location"
-                    required
-                    placeholder="z. B. Gemeindesaal, Musterstr. 1 – oder Online / Videokonferenz"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Link zur Video-Zuschaltung (optional)">
-                  <input
-                    type="text"
-                    name="videoLink"
-                    placeholder="leer = Standard-Link des Objekts (falls hinterlegt)"
-                    className={inputClass}
-                  />
-                </Field>
-                <label className="flex items-start gap-2 text-xs text-gray-600">
-                  <input type="checkbox" name="saveVideoDefault" className="mt-0.5" />
-                  <span>
-                    Eingegebenen Link als Standard für dieses Objekt speichern (wird bei
-                    künftigen Versammlungen vorbelegt).
-                  </span>
-                </label>
-                <PendingButton className={buttonClass}>Versammlung anlegen</PendingButton>
-              </form>
-            )}
-          </Card>
-        ) : (
+        {!isVerwalter ? (
           <Card title="Hinweis">
             <p className="text-sm text-gray-600">
               Hier sehen Sie die Einladungen, Tagesordnungen und Protokolle der Versammlungen
               Ihrer Eigentümergemeinschaft.
             </p>
           </Card>
-        )}
+        ) : null}
       </div>
     </>
   );

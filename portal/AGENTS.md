@@ -174,6 +174,110 @@ Die vorhandenen Abweichungen werden **nicht** in einem Rutsch umgebaut: Das
 wären viele Dateien ohne jede sichtbare Verbesserung. Wer ohnehin in einer
 solchen Datei arbeitet, zieht sie mit.
 
+## Oberfläche: Bausteine benutzen, nicht nachbauen
+
+Der Stil der Navigationsleiste soll sich im Inhalt fortsetzen. Damit das nicht wieder
+auseinanderläuft, gibt es Bausteine — und drei **harte** ESLint-Regeln, die ihren
+Nachbau verbieten (`eslint.oberflaeche.mjs`, Fehler, keine Warnung):
+
+| Statt | Baustein |
+|---|---|
+| rohes `<input type="date">` | `DateField` (`@/components/fields`), Werte über `toDateInputValue` |
+| natives `<select>` ohne Rahmen | `SelectField` — bleibt nativ, nur einheitlich gerahmt |
+| handgebaute Karte | `Card` / `CollapsibleCard` (`@/components/ui`) |
+| selbstgeschriebenes Etikett | `Badge` mit semantischem Ton (`@/components/data-display`) |
+| Tabelle von Hand | `DataTable` — die entscheidende Spalte gehört nach vorn |
+| Kennzahl als `text-3xl` | `KeyFigure` / `KeyFigures`, in Kopfzeilen `InlineFigures` |
+| Abstände nach Gefühl | `stackTight` / `stack` / `stackLoose` — drei Stufen, keine acht |
+| Auswahlliste, die mit dem Bestand wächst | `ComboField` (`@/components/combo-field`) — tippbar |
+
+Die Regeln sind **eng** geschnitten: Sie treffen die Signatur des jeweiligen Bausteins,
+nicht jede entfernt ähnliche Klassenkette. Eine Regel, die auch Aufklapp-Menüs und
+Dialoge anmeckert, wird reihenweise abgeschaltet und ist dann weniger wert als keine.
+Was sie nicht erwischt, fängt die Durchsicht ab. Ihre Grenze: Nur Klassen, die als
+Zeichenkette dastehen — `className={`… ${x}`}` entzieht sich der Prüfung.
+
+**Die Ausnahmeliste in `eslint.oberflaeche.mjs` wird nur kürzer.** Sie enthält den
+Bestand, der in Wellen umgestellt wird (`docs/PLAN-Design-Vereinheitlichung.md`). Wer
+eine Datei umstellt, streicht sie dort. Wer eine neue einträgt, umgeht die Regel —
+`src/lib/oberflaeche-regeln.test.ts` schlägt dann fehl, und ein Eintrag für eine
+gelöschte Datei ebenso (sonst wäre die Regel dort still abgeschaltet).
+
+### Auswahllisten: ab wann tippbar
+
+Ein `<select>` ist richtig, solange die Liste **fachlich begrenzt** ist — Status, Kategorie,
+Gewerk, Sichtbarkeit. Sobald sie mit dem Bestand wächst (Objekte, Einheiten, Personen,
+Handwerker), gehört `ComboField` hin: Ein Verwalter mit achtzig Objekten scrollt sonst durch
+achtzig Zeilen, ohne „Kiefer" tippen zu können. Bei Objekt **und** Einheit zusammen nimmt man
+`PropertyUnitFields` — dort kommt die Kaskade und das Nachladen dazu.
+
+**Drei Fallen, alle drei schon zugeschlagen:**
+
+- **`tone="inForm"` nicht vergessen.** `Combobox` sieht ohne diese Angabe wie ein *Filter*feld
+  aus (weiche graue Füllung). Zwischen weiß gerahmten Eingabefeldern ist das ein Fremdkörper.
+  `ComboField` setzt es selbst; wer `Combobox` direkt in ein Formular baut, muss es angeben.
+- **`<input type="hidden" required>` prüft nichts.** Versteckte Felder sind von der
+  HTML-Prüfung ausgenommen — das `required` dort ist wirkungslos, und das Formular geht leer
+  ab. Ein Textfeld ohne Ausdehnung an derselben Stelle (`absolute h-0 w-0 opacity-0`) wird
+  dagegen geprüft und ist anspringbar, wie in `FileInput`.
+- **Das Prüffeld gehört ans Ende.** `Field` rendert ein `<label>`, und ein Klick darauf
+  fokussiert das **erste** Formularfeld darin. Stand das unsichtbare Prüffeld vorn, landete
+  der Fokus dort: Man klickte auf „Objekt", tippte — und nichts geschah.
+
+## Pflichtfelder markieren sich selbst
+
+Ein Feld mit `required` bekommt sein Sternchen **automatisch** — `globals.css` liest das
+Attribut aus und hängt es an die Beschriftung. Wer daneben selbst ein `*` ins Label
+schreibt, erzeugt „Bezeichnung * *". Genau das stand nach Einführung der Regel auf drei
+Seiten und musste nachgezogen werden.
+
+**Ausnahme:** Ist ein Feld nur fachlich Pflicht, ohne `required` im HTML — etwa ein
+`<select>`, das ohnehin nie leer sein kann, oder ein verknüpftes `readOnly`-Feld —, darf
+der Stern von Hand im Label stehen. Für den Lesenden bedeutet er dasselbe. Nur beides
+zusammen geht nicht.
+
+Grund für den Weg über CSS statt über eine Prop: Es gibt weit über hundert Felder. Jedes
+einzeln zu markieren hieße, jedes einzeln anzufassen — und ein vergessenes Feld sähe
+danach freiwillig aus, obwohl es Pflicht ist. Genau diese halbe Markierung gab es
+schon einmal und musste zurückgenommen werden.
+
+## Anlegen gehört nicht neben die Liste
+
+Viele Seiten trugen das Anlegen-Formular als feste dritte Spalte rechts (`lg:col-span-2`
+für die Liste, Karte daneben). Das kostet dauerhaft ein Drittel der Breite für etwas,
+das man selten braucht — und die Liste, die man täglich liest, wird dafür gequetscht.
+Auf „Wartung" rutschte dadurch sogar die Aktionsspalte aus dem Bild.
+
+**Die Form ist stattdessen:**
+
+- **Eigene Route** `…/neu` mit dem Formular, erreichbar über einen Knopf im
+  `action`-Slot des `PageTitle` (oben rechts). Vorbild: `beschluesse/neu`.
+- Fehler des Formulars führen auf die **Formularseite** zurück (`…/neu?fehler=…`),
+  nicht in die Liste — sonst steht die Meldung ohne die Eingabefelder da.
+- Kurze Formulare mit zwei, drei Feldern dürfen stattdessen in einer
+  `CollapsibleCard` **unter** der Liste sitzen. Eine eigene Seite lohnt dort nicht.
+
+Der Bestand wird **nicht** in einem Rutsch umgestellt — das sind 18 Seiten. Wer eine
+davon ohnehin anfasst, zieht sie mit.
+
+## WEG: zwei Beschlussverfahren, die nie zusammenfallen
+
+Ein Beschluss-Tagesordnungspunkt einer Versammlung legt **sofort** einen `Resolution`
+mit Status `OFFEN` an (`versammlungen/actions.ts`) — technisch nicht unterscheidbar von
+einem Umlaufbeschluss. Fachlich sind es zwei Verfahren: Beschlussfassung **in der
+Versammlung** (§ 23 Abs. 1 WEG) gegenüber **Umlaufbeschluss** mit eigenen Anforderungen
+(§ 23 Abs. 3 WEG). Genau diese Vermischung hat schon dazu geführt, dass Eigentümer über
+einen Versammlungspunkt vorab im Portal abstimmen konnten.
+
+**Wer offene Beschlüsse anzeigt oder Stimmen entgegennimmt, prüft die Verknüpfung.**
+Maßgeblich ist ein `MeetingAgendaItem` mit einer Versammlung im Status `GEPLANT` oder
+`EINBERUFEN`: Dann keine Stimmabgabe und keine Ergebnis-Prognose. Nach der Versammlung
+fällt die Sperre weg — dort trägt die Verwaltung das gefasste Ergebnis ein.
+
+Die Sperre steht **serverseitig** in `beschluesse/actions.ts` (`istVersammlungsBeschluss`,
+in `castVote` **und** `castVoteForOwner`); das Ausblenden des Formulars allein genügt
+nicht. `src/lib/versammlungsbeschluss.test.ts` hält beide Aufrufe fest.
+
 ## Rollen
 
 `VERWALTER`, `EIGENTUEMER`, `MIETER`. Zusätzlich `isSuperAdmin` (Admin innerhalb einer

@@ -7,13 +7,19 @@ import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
-import { WEG_COST_CATALOG } from "@/lib/weg/cost-catalog";
+import type { CostCategory } from "@/generated/prisma/client";
+import { costCategoryLabels } from "@/lib/labels";
+import { WEG_COST_CATALOG, costTypeFieldsFrom } from "@/lib/weg/cost-catalog";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 import { loadWegProperty } from "@/lib/weg/scope";
 
 const UNIT_TYPES = ["WOHNUNG", "TEILEIGENTUM", "STELLPLATZ", "SONSTIGES"] as const;
 const DISTRIBUTION_KEYS = ["MEA", "FLAECHE", "EINHEITEN", "PERSONEN", "VERBRAUCH", "FESTBETRAG", "INDIVIDUELL"] as const;
-const COST_CATEGORIES = ["BETRIEBSKOSTEN", "INSTANDHALTUNG", "VERWALTUNG", "RUECKLAGENZUFUEHRUNG", "SONSTIGES"] as const;
+// Aus dem Label-Verzeichnis abgeleitet, nicht abgeschrieben: Das Auswahlfeld der
+// Seite baut sich aus derselben Quelle. Eine handgepflegte zweite Liste hätte
+// beim Ergänzen von ERTRAG dazu geführt, dass die Oberfläche eine Kategorie
+// anbietet, die diese Action stillschweigend ablehnt.
+const COST_CATEGORIES = Object.keys(costCategoryLabels) as [CostCategory, ...CostCategory[]];
 const LABOR_SHARE_TYPES = ["KEINE", "HAUSHALTSNAHE_DIENSTLEISTUNG", "HANDWERKERLEISTUNG"] as const;
 const ACCOUNT_KINDS = ["GIRO", "RUECKLAGE"] as const;
 
@@ -67,6 +73,12 @@ const settingsSchema = z.object({
   propertyId: z.string().min(1),
   meaTotal: optionalInt,
   fiscalYearStartMonth: z.coerce.number().int().min(1).max(12),
+  dueDayRule: z.enum(["MONATSERSTER", "DRITTER_WERKTAG", "FREIER_TAG"]),
+  // Auf den 28. begrenzt, damit es den Termin in jedem Monat gibt.
+  dueDayOfMonth: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() !== "" ? Number(v.trim()) : null),
+    z.number().int().min(1).max(28).nullable(),
+  ),
 });
 
 export async function saveFinanceSettings(formData: FormData) {
@@ -75,6 +87,8 @@ export async function saveFinanceSettings(formData: FormData) {
     propertyId: formData.get("propertyId"),
     meaTotal: formData.get("meaTotal"),
     fiscalYearStartMonth: formData.get("fiscalYearStartMonth"),
+    dueDayRule: formData.get("dueDayRule"),
+    dueDayOfMonth: formData.get("dueDayOfMonth"),
   });
   if (!parsed.success) redirect("/verwaltung/weg");
   const property = await loadWegProperty(verwalter, parsed.data.propertyId);
@@ -85,6 +99,10 @@ export async function saveFinanceSettings(formData: FormData) {
     data: {
       meaTotal: parsed.data.meaTotal,
       fiscalYearStartMonth: parsed.data.fiscalYearStartMonth,
+      dueDayRule: parsed.data.dueDayRule,
+      // Ein fester Tag ohne die passende Regel wäre ein stiller Blindgänger:
+      // Er stünde im Feld, wirkte aber nirgends.
+      dueDayOfMonth: parsed.data.dueDayRule === "FREIER_TAG" ? parsed.data.dueDayOfMonth : null,
     },
   });
   await logAudit({
@@ -174,11 +192,7 @@ export async function adoptCostCatalog(formData: FormData) {
       data: toCreate.map((e, i) => ({
         organizationId: verwalter.organizationId,
         propertyId: property.id,
-        name: e.name,
-        category: e.category,
-        distributionKey: e.distributionKey,
-        laborShareType: e.laborShareType,
-        recoverableBetrKV: e.recoverableBetrKV,
+        ...costTypeFieldsFrom(e),
         orderIndex: existing.length + i,
       })),
     });
@@ -201,6 +215,18 @@ const costTypeSchema = z.object({
   category: z.enum(COST_CATEGORIES),
   distributionKey: z.enum(DISTRIBUTION_KEYS),
   laborShareType: z.enum(LABOR_SHARE_TYPES),
+  // Erfahrungswert für den §35a-Lohnanteil. Leer bleibt leer: Ohne Angabe wird
+  // die Position als „Lohnanteil nicht erfasst" ausgewiesen statt geschätzt.
+  laborSharePercent: z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? null : Number(v)))
+    .refine((v) => v === null || (Number.isInteger(v) && v >= 0 && v <= 100), {
+      message: "Der Lohnanteil muss zwischen 0 und 100 Prozent liegen.",
+    }),
+  // HeizkostenV-Kennzeichnung: erzwingt bei der Zählerverteilung den
+  // Grundkostenanteil (§§ 7, 8 HeizkostenV).
+  heatingCost: z.coerce.boolean(),
   recoverableBetrKV: z.coerce.boolean(),
   active: z.coerce.boolean(),
 });
@@ -214,6 +240,8 @@ export async function saveCostType(formData: FormData) {
     category: formData.get("category"),
     distributionKey: formData.get("distributionKey"),
     laborShareType: formData.get("laborShareType"),
+    laborSharePercent: String(formData.get("laborSharePercent") ?? ""),
+    heatingCost: formData.get("heatingCost") === "on",
     recoverableBetrKV: formData.get("recoverableBetrKV") === "on",
     active: formData.get("active") === "on",
   });
@@ -226,6 +254,11 @@ export async function saveCostType(formData: FormData) {
     category: parsed.data.category,
     distributionKey: parsed.data.distributionKey,
     laborShareType: parsed.data.laborShareType,
+    // Ohne §35a-Einstufung ist ein Prozentsatz gegenstandslos — er würde sonst
+    // stumm weiterleben, wenn die Kostenart später wieder eingestuft wird.
+    laborSharePercent:
+      parsed.data.laborShareType === "KEINE" ? null : parsed.data.laborSharePercent,
+    heatingCost: parsed.data.heatingCost,
     recoverableBetrKV: parsed.data.recoverableBetrKV,
     active: parsed.data.active,
   };

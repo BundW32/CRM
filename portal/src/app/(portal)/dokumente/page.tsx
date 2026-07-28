@@ -1,43 +1,33 @@
+import Link from "next/link";
 import { Download, Eye } from "lucide-react";
 import { PendingButton } from "@/components/pending-button";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   Pagination,
   Alert,
-  Card,
   EmptyState,
-  Field,
   PageTitle,
   buttonClass,
+  buttonCompact,
   buttonGhostClass,
-  inputClass,
+  buttonSecondaryClass,
 } from "@/components/ui";
+import { Badge } from "@/components/data-display";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { PropertyUnitFields } from "@/components/property-unit-fields";
-import { RecipientPicker } from "@/components/recipient-picker";
-import { SubmitButton } from "@/components/submit-button";
-import { documentWhereForUser, ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
+import { documentWhereForUser, ownedProperties } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
   audienceLabels,
   documentCategoryLabels,
   formatBytes,
-  formatDate,
-  requestableDocuments,
+  formatDateOnly,
 } from "@/lib/labels";
 import { FilePreviewLink } from "@/components/file-preview-link";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
-import {
-  acknowledgeDocument,
-  deleteDocument,
-  requestDocument,
-  searchDocumentRecipients,
-  uploadDocument,
-  uploadOwnerDocument,
-} from "./actions";
+import { acknowledgeDocument, deleteDocument } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -106,20 +96,32 @@ export default async function DokumentePage({
     },
   ];
 
-  const properties = isVerwalter
-    ? await db.property.findMany({
-        where: await propertyWhereForVerwalter(user),
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-      })
-    : [];
 
   // Objekte des Eigentümers (für den Eigentümer-Upload).
   const ownedProps = user.role === "EIGENTUEMER" ? await ownedProperties(user.id) : [];
 
   return (
     <>
-      <PageTitle>Dokumente</PageTitle>
+      <PageTitle
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Hochladen dürfen Verwaltung und Eigentümer (für ihre eigenen
+                Objekte); anfordern alle außer der Verwaltung. */}
+            {isVerwalter || (user.role === "EIGENTUEMER" && ownedProps.length > 0) ? (
+              <Link href="/dokumente/neu" className={buttonClass}>
+                Dokument hochladen
+              </Link>
+            ) : null}
+            {!isVerwalter ? (
+              <Link href="/dokumente/anfordern" className={buttonSecondaryClass}>
+                Dokument anfordern
+              </Link>
+            ) : null}
+          </div>
+        }
+      >
+        Dokumente
+      </PageTitle>
 
       {hochgeladen ? (
         <Alert variant="success" className="mb-4">
@@ -141,8 +143,8 @@ export default async function DokumentePage({
         </Alert>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div className="space-y-4">
+        <div>
           <div className="mb-3">
             <FilterBar
               searchPlaceholder="Suchen"
@@ -181,14 +183,14 @@ export default async function DokumentePage({
                           {doc.title}
                         </FilePreviewLink>
                         <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500">
-                          <span className="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600">
-                            {documentCategoryLabels[doc.category]}
-                          </span>
+                          <Badge tone="neutral">{documentCategoryLabels[doc.category]}</Badge>
+                          {isVerwalter ? (
+                            <Badge tone="info">{audienceLabels[doc.audience]}</Badge>
+                          ) : null}
                           <span>
                             {doc.property ? doc.property.name : "Allgemein"}
                             {doc.unit ? ` · ${doc.unit.label}` : ""}
-                            {isVerwalter ? ` · sichtbar für: ${audienceLabels[doc.audience]}` : ""}
-                            {` · ${formatDate(doc.createdAt)} · ${formatBytes(doc.size)}`}
+                            {` · ${formatDateOnly(doc.createdAt)} · ${formatBytes(doc.size)}`}
                           </span>
                         </span>
                       </div>
@@ -227,11 +229,13 @@ export default async function DokumentePage({
                             : "noch niemand"}
                         </p>
                       ) : doc.acknowledgements.some((ack) => ack.userId === user.id) ? (
-                        <p className="text-xs font-medium text-green-700">✓ Zur Kenntnis genommen</p>
+                        <Badge tone="success">Zur Kenntnis genommen</Badge>
                       ) : (
                         <form action={acknowledgeDocument}>
                           <input type="hidden" name="id" value={doc.id} />
-                          <PendingButton className="rounded-lg border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">Zur Kenntnis nehmen</PendingButton>
+                          <PendingButton className={`${buttonSecondaryClass} ${buttonCompact}`}>
+                            Zur Kenntnis nehmen
+                          </PendingButton>
                         </form>
                       )}
                     </div>
@@ -244,131 +248,6 @@ export default async function DokumentePage({
           <Pagination currentPage={currentPage} totalPages={totalPages} total={total} hrefFor={pageHref} />
         </div>
 
-        <div className="space-y-5">
-          {isVerwalter ? (
-            <Card title="Dokument hochladen">
-              <form action={uploadDocument} className="space-y-3">
-                <Field label="Titel">
-                  <input type="text" name="title" required minLength={2} maxLength={200} className={inputClass} />
-                </Field>
-                <Field label="Kategorie">
-                  <select name="category" required className={inputClass}>
-                    {Object.entries(documentCategoryLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Sichtbar für">
-                  <select name="audience" required className={inputClass}>
-                    {Object.entries(audienceLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <PropertyUnitFields
-                  properties={properties.map((p) => ({ id: p.id, name: p.name }))}
-                  unitLabel="Einheit (optional, überschreibt Objekt)"
-                />
-                <Field label="Nur für bestimmte Empfänger (optional)">
-                  <RecipientPicker search={searchDocumentRecipients} />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Leer lassen = wie „Sichtbar für“ (alle im Objekt). Bei Auswahl sehen NUR die
-                    gewählten Personen (und die Verwaltung) das Dokument.
-                  </p>
-                </Field>
-                <Field label="Datei (PDF oder Bild, max. 10 MB)">
-                  <input
-                    type="file"
-                    name="file"
-                    required
-                    accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
-                    className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
-                  />
-                </Field>
-                <SubmitButton pendingLabel="Wird hochgeladen…">Hochladen</SubmitButton>
-              </form>
-            </Card>
-          ) : (
-            <>
-              {user.role === "EIGENTUEMER" && ownedProps.length > 0 ? (
-                <Card title="Dokument hochladen">
-                  <p className="mb-3 text-sm text-gray-600">
-                    Für Ihre Verwaltung – optional auch für Ihre Mieter sichtbar. Andere Eigentümer
-                    sehen es nicht.
-                  </p>
-                  <form action={uploadOwnerDocument} className="space-y-3">
-                    <Field label="Titel">
-                      <input type="text" name="title" required minLength={2} maxLength={200} className={inputClass} />
-                    </Field>
-                    <Field label="Kategorie">
-                      <select name="category" required className={inputClass}>
-                        {Object.entries(documentCategoryLabels).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="Objekt">
-                      <select name="propertyId" required className={inputClass}>
-                        {ownedProps.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <label className="flex items-center gap-2 text-sm text-gray-600">
-                      <input type="checkbox" name="shareTenants" value="1" className="h-4 w-4" />
-                      Auch für meine Mieter sichtbar
-                    </label>
-                    <Field label="Datei (PDF oder Bild, max. 10 MB)">
-                      <input
-                        type="file"
-                        name="file"
-                        required
-                        accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
-                        className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
-                      />
-                    </Field>
-                    <SubmitButton pendingLabel="Wird hochgeladen…">Hochladen</SubmitButton>
-                  </form>
-                </Card>
-              ) : null}
-              <Card title="Dokument anfordern">
-                <p className="mb-3 text-sm text-gray-600">
-                  Benötigen Sie ein Dokument (z. B. eine Wohnungsgeberbescheinigung)? Wählen Sie es aus
-                  — die Verwaltung kümmert sich darum und meldet sich über das Portal.
-                </p>
-                <form action={requestDocument} className="space-y-3">
-                  <Field label="Dokument">
-                    <select name="art" className={inputClass} defaultValue={requestableDocuments[0]}>
-                      {requestableDocuments.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label="Anmerkung (optional)">
-                    <textarea
-                      name="description"
-                      maxLength={2000}
-                      rows={3}
-                      placeholder="z. B. wofür Sie das Dokument benötigen oder bis wann"
-                      className={inputClass}
-                    />
-                  </Field>
-                  <PendingButton className={buttonClass}>Anfordern</PendingButton>
-                </form>
-              </Card>
-            </>
-          )}
-        </div>
       </div>
     </>
   );

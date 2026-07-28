@@ -356,7 +356,11 @@ export async function createUser(formData: FormData) {
     );
 
     revalidatePath("/verwaltung/nutzer");
-    redirect(zurueckZu(formData, "?eingeladen=1"));
+    // Erfolg führt auf die **Liste**, nicht zurück ins Formular: Das Anlegen
+    // liegt auf einer eigenen Seite, und dort noch einmal ein leeres Formular
+    // zu sehen liest sich, als sei nichts passiert. Fehler bleiben dagegen am
+    // Formular stehen (`zurueckZu`), sonst wären die Eingaben umsonst.
+    redirect(zurueckZurListe(formData, "?eingeladen=1"));
   }
 
   // ── Variante B: Zugangsschreiben zum Ausdrucken ───────────────────

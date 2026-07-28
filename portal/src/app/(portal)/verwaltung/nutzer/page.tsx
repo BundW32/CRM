@@ -1,12 +1,18 @@
+import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
-import { Alert, Card, PageTitle, Pagination } from "@/components/ui";
+import {
+  Alert,
+  PageTitle,
+  Pagination,
+  buttonClass,
+} from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
+import { Badge } from "@/components/data-display";
 import { parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
-import { isSelfManaged, propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
+import { propertyWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, roleLabels, tradeLabels } from "@/lib/labels";
-import { getOrganization, requireVerwalter } from "@/lib/session";
-import { NewUserForm } from "./new-user-form";
+import { requireVerwalter } from "@/lib/session";
 import { UserRow } from "./user-row";
 import { PersonEinstellungen } from "./person-einstellungen";
 
@@ -27,7 +33,7 @@ const errorMessages: Record<string, string> = {
   eingabe: "Bitte alle Pflichtfelder ausfüllen.",
   email: "Diese E-Mail-Adresse ist bereits vergeben.",
   email_fehlt: "Für eine E-Mail-Einladung muss eine E-Mail-Adresse angegeben werden.",
-  signatur: "Die Unterschrift muss ein Bild (PNG/JPG) unter 5 MB sein (oder Vercel Blob konfigurieren).",
+  signatur: "Die Unterschrift muss ein Bild (PNG/JPG) unter 5 MB sein.",
   stammdaten: "Fehler beim Speichern – bitte erneut versuchen.",
   vollmacht: "Bitte Datum und Fundstelle der schriftlichen Vollmacht angeben.",
   vollmacht_datum: "Das Datum der Vollmacht kann nicht in der Zukunft liegen.",
@@ -49,7 +55,6 @@ export default async function UsersPage({
   }>;
 }) {
   const verwalter = await requireVerwalter();
-  const selfManaged = isSelfManaged(await getOrganization());
   const {
     fehler, msg, eingeladen, q, rolle, objekt, page,
     sort: sortRaw, dir: dirRaw,
@@ -141,8 +146,6 @@ export default async function UsersPage({
     return qs ? `/verwaltung/nutzer?${qs}` : "/verwaltung/nutzer";
   }
 
-  const propsForNewUser = properties.map((p) => ({ id: p.id, name: p.name }));
-
   // Rolle als Auswahl-Filter. Verwalter/Handwerker sieht nur der SuperAdmin –
   // eingeschränkte Verwalter haben ohnehin nur Mieter/Eigentümer im Scope.
   const userFilters: FilterConfig[] = [
@@ -168,13 +171,20 @@ export default async function UsersPage({
     <>
       {/* Nicht mehr im Menü – Personen und Firmen stehen gemeinsam unter
           „Kontakte". Die Seite bleibt als Zugangs-Übersicht erreichbar. */}
-      <PageTitle back={{ href: "/verwaltung/kontakte", label: "Kontakte" }}>
+      <PageTitle
+        back={{ href: "/verwaltung/kontakte", label: "Kontakte" }}
+        action={
+          <Link href="/verwaltung/nutzer/neu" className={buttonClass}>
+            Neuen Nutzer anlegen
+          </Link>
+        }
+      >
         Zugänge
       </PageTitle>
 
       {eingeladen ? (
         <Alert variant="success" className="mb-4">
-          Einladungs-E-Mail wurde versandt (sofern SMTP konfiguriert ist).
+          Einladungs-E-Mail wurde versandt.
         </Alert>
       ) : null}
       {/* Erfolgsmeldungen von DSGVO-Löschung und Stammdaten laufen jetzt über
@@ -188,8 +198,8 @@ export default async function UsersPage({
         </Alert>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div>
+        <div>
           <FilterBar
             className="mb-3"
             searchPlaceholder="Suchen"
@@ -240,31 +250,21 @@ export default async function UsersPage({
                     name={u.name}
                     salutation={u.salutation}
                     roleBadge={
-                      <span className="rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-medium text-brand-orange-dark">
-                        {roleLabels[u.role]}
-                      </span>
+                      <Badge tone="accent">{roleLabels[u.role]}</Badge>
                     }
                     statusBadges={
                       <>
                         {u.role === "VERWALTER" && u.isSuperAdmin ? (
-                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
-                            Super-Admin · sieht alles
-                          </span>
+                          <Badge tone="info">Super-Admin · sieht alles</Badge>
                         ) : null}
                         {!u.active ? (
-                          <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
-                            deaktiviert
-                          </span>
+                          <Badge tone="danger">deaktiviert</Badge>
                         ) : null}
                         {hasInvitePending ? (
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-                            Einladung ausstehend
-                          </span>
+                          <Badge tone="warning">Einladung ausstehend</Badge>
                         ) : null}
                         {u.mustChangePassword ? (
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-                            Erst-Passwort aktiv
-                          </span>
+                          <Badge tone="warning">Erst-Passwort aktiv</Badge>
                         ) : null}
                       </>
                     }
@@ -297,13 +297,6 @@ export default async function UsersPage({
           />
         </div>
 
-        <Card title="Neuen Nutzer anlegen">
-          <NewUserForm
-            properties={propsForNewUser}
-            isSuperAdmin={verwalter.isSuperAdmin}
-            selfManaged={selfManaged}
-          />
-        </Card>
       </div>
     </>
   );

@@ -1,8 +1,18 @@
 import Link from "next/link";
+import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { redirect } from "next/navigation";
-import { Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import {
+  Alert,
+  Card,
+  EmptyState,
+  Field,
+  PageTitle,
+  buttonSecondaryClass,
+  inputClass,
+} from "@/components/ui";
+import { DateField, toDateInputValue } from "@/components/fields";
 import { SubmitButton } from "@/components/submit-button";
 import { AddPersonForm } from "./AddPersonForm";
 import { canVerwalterAccessProperty } from "@/lib/access";
@@ -34,8 +44,10 @@ function centsToInput(cents: number | null): string {
   return (cents / 100).toFixed(2).replace(".", ",");
 }
 
+// Früher ein eigener Helfer mit `toISOString()`. Der rechnet in UTC und machte in
+// deutscher Sommerzeit aus einem abends gesetzten 1. März den 28. Februar.
 function dateInput(d: Date | null): string {
-  return d ? d.toISOString().slice(0, 10) : "";
+  return toDateInputValue(d) ?? "";
 }
 
 // Mietvertrag eines Mietverhältnisses (Mietverwaltung): Kaltmiete, Nebenkosten-
@@ -54,8 +66,6 @@ function TenancyContract({
     contractStoredName: string | null;
   };
 }) {
-  const fileInputClass =
-    "block w-full text-xs text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100";
   return (
     <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-3">
       <div className="mb-2 flex items-center justify-between">
@@ -83,12 +93,12 @@ function TenancyContract({
           <Field label="Kaution (€)">
             <input name="deposit" inputMode="decimal" defaultValue={centsToInput(t.depositCents)} className={inputClass} placeholder="z. B. 1.440,00" />
           </Field>
-          <Field label="Mietbeginn">
-            <input type="date" name="startDate" defaultValue={dateInput(t.startDate)} className={inputClass} />
-          </Field>
-          <Field label="Mietende (optional)">
-            <input type="date" name="endDate" defaultValue={dateInput(t.endDate)} className={inputClass} />
-          </Field>
+          <DateField label="Mietbeginn" name="startDate" defaultValue={dateInput(t.startDate)} />
+          <DateField
+            label="Mietende (optional)"
+            name="endDate"
+            defaultValue={dateInput(t.endDate)}
+          />
         </div>
         <div>
           {t.contractStoredName ? (
@@ -106,11 +116,9 @@ function TenancyContract({
             </div>
           ) : null}
           <Field label={t.contractStoredName ? "Vertrag ersetzen (PDF/Bild)" : "Mietvertrag hochladen (PDF/Bild)"}>
-            <input
-              type="file"
+            <FileInput
               name="contract"
               accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
-              className={fileInputClass}
             />
           </Field>
         </div>
@@ -260,7 +268,7 @@ export default async function ObjektBearbeitenPage({
 
         <Card title="Objektdaten">
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Bezeichnung *">
+            <Field label="Bezeichnung">
               <input
                 type="text"
                 name="name"
@@ -278,14 +286,14 @@ export default async function ObjektBearbeitenPage({
                 className={`${inputClass} cursor-not-allowed bg-gray-100 text-gray-500`}
               />
             </Field>
-            <Field label="Straße und Hausnummer *">
+            <Field label="Straße und Hausnummer">
               <input type="text" name="street" required minLength={2} defaultValue={p.street} className={inputClass} />
             </Field>
             <div className="grid grid-cols-[1fr_2fr] gap-3">
-              <Field label="PLZ *">
+              <Field label="PLZ">
                 <input type="text" name="zip" required minLength={4} defaultValue={p.zip} className={inputClass} />
               </Field>
-              <Field label="Ort *">
+              <Field label="Ort">
                 <input type="text" name="city" required minLength={2} defaultValue={p.city} className={inputClass} />
               </Field>
             </div>
@@ -354,11 +362,9 @@ export default async function ObjektBearbeitenPage({
             </div>
           ) : null}
           <Field label={p.titleImageStoredName ? "Titelbild ersetzen" : "Titelbild hochladen"}>
-            <input
-              type="file"
+            <FileInput
               name="titleImage"
               accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-              className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
             />
           </Field>
         </Card>
@@ -392,11 +398,11 @@ export default async function ObjektBearbeitenPage({
                 u._count.documents + u._count.meters;
               const deletable = dependents === 0;
               return (
-                <div key={u.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <Card key={u.id}>
                   <form action={updateUnit} className="space-y-3">
                     <input type="hidden" name="unitId" value={u.id} />
                     <div className={`grid gap-3 sm:grid-cols-2 ${isWeg ? "lg:grid-cols-3" : ""}`}>
-                      <Field label="Bezeichnung (intern) *">
+                      <Field label="Bezeichnung (intern)">
                         <input type="text" name="label" required defaultValue={u.label} className={inputClass} placeholder="z. B. WE 01" />
                       </Field>
                       <Field label="Externe Bezeichnung / Lage">
@@ -479,7 +485,7 @@ export default async function ObjektBearbeitenPage({
                       </p>
                     )}
                   </div>
-                </div>
+                </Card>
               );
             })
           )}
@@ -490,7 +496,7 @@ export default async function ObjektBearbeitenPage({
           <form action={addUnit} className="space-y-3">
             <input type="hidden" name="propertyId" value={p.id} />
             <div className={`grid gap-3 sm:grid-cols-2 ${isWeg ? "lg:grid-cols-3" : ""}`}>
-              <Field label="Bezeichnung (intern) *">
+              <Field label="Bezeichnung (intern)">
                 <input type="text" name="label" required className={inputClass} placeholder="z. B. WE 02" />
               </Field>
               <Field label="Externe Bezeichnung / Lage">
@@ -555,7 +561,7 @@ export default async function ObjektBearbeitenPage({
             jederzeit reaktivierbar. Endgültiges Löschen ist nur bei komplett leeren Objekten
             möglich (z. B. Testeinträge).
           </p>
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <Card>
             <div className="flex flex-wrap items-center gap-3">
               {p.active ? (
                 <form action={archiveProperty}>
@@ -589,7 +595,7 @@ export default async function ObjektBearbeitenPage({
               Löschen funktioniert nur, wenn dem Objekt keine Einheiten, Vorgänge, Dokumente,
               Eigentümer oder Finanzdaten mehr zugeordnet sind.
             </p>
-          </div>
+          </Card>
         </div>
       ) : null}
     </>

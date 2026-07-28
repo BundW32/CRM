@@ -1,17 +1,36 @@
 import Link from "next/link";
+import { Badge } from "@/components/data-display";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import type { Prisma } from "@/generated/prisma/client";
-import { Alert, Card, EmptyState, Field, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { reminderLevelLabel } from "@/lib/dunning";
 import { formatDateOnly } from "@/lib/labels";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list-query";
+import { DateField, SelectField, toDateInputValue } from "@/components/fields";
+import { Begriff } from "@/components/begriff";
+import { Tipp } from "@/components/tipp";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
-import { assignPayment, createMahnung, deleteMahnung, markMahnungSent, saveUebernahme } from "./actions";
 import { FilePreviewLink } from "@/components/file-preview-link";
+import { NOT_REVERSED } from "@/lib/weg/booking-scope";
+import { ersterFehlenderSollmonat } from "@/lib/weg/due-postings";
+import { oposJeEinheit } from "@/lib/weg/opos-service";
+import { OPOS_BUCKETS, OPOS_BUCKET_LABELS, leereOposZeile } from "@/lib/weg/payment-allocation";
+import {
+  assignPayment,
+  createMahnung,
+  deleteMahnung,
+  markMahnungSent,
+  saveUebernahme,
+  schreibeSollstellungenFort,
+  ordneZahlungZu,
+  loeseZuordnung,
+} from "./actions";
+
+const MONAT = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 
 export const dynamic = "force-dynamic";
 
@@ -59,19 +78,42 @@ const MAHN_FILTER: FilterConfig = {
   ],
 };
 
-// Einfache Zuordnungs-Hilfe: schlägt die Einheit vor, deren Kurz-Label
-// (z. B. "WE 01") im Verwendungszweck/Text der Zahlung vorkommt.
+// Zuordnungs-Hilfe: Welche Einheit steckt hinter dieser Zahlung?
+//
+// Drei Wege, in dieser Reihenfolge — je sicherer, desto früher:
+//
+// 1. **IBAN** aus dem SEPA-Mandat. Die Kontonummer des Zahlenden ist der
+//    verlässlichste Hinweis überhaupt; sie steht in jedem Bankumsatz.
+// 2. **Einheiten-Kurzlabel** im Verwendungszweck („WE 01").
+// 3. **Nachname des Eigentümers** im Zahlungspartner. Zuletzt, weil Namen sich
+//    wiederholen: Zwei Eigentümer namens Müller machen den Hinweis wertlos —
+//    deshalb zählt er nur, wenn der Name im Objekt eindeutig ist.
+//
+// Es bleibt ein *Vorschlag*: Zugeordnet wird erst, wenn der Verwalter bestätigt.
 function suggestUnit(
   booking: { text: string; reference: string | null; counterparty: string | null },
   units: { id: string; label: string }[],
+  unitByIban: Map<string, string>,
+  unitByNachname: Map<string, string>,
 ): string | null {
-  const haystack = `${booking.text} ${booking.reference ?? ""} ${booking.counterparty ?? ""}`
-    .toLowerCase()
-    .replace(/\s+/g, " ");
+  const roh = `${booking.text} ${booking.reference ?? ""} ${booking.counterparty ?? ""}`;
+  const haystack = roh.toLowerCase().replace(/\s+/g, " ");
+
+  // 1) IBAN — im Umsatztext meist mit Leerzeichen, deshalb entfernen.
+  const kompakt = roh.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  for (const [iban, unitId] of unitByIban) {
+    if (iban.length >= 15 && kompakt.includes(iban)) return unitId;
+  }
+
+  // 2) Kurzform: erster Label-Teil vor dem Komma ("WE 01, EG links" → "we 01")
   for (const u of units) {
-    // Kurzform: erster Label-Teil vor dem Komma ("WE 01, EG links" → "we 01")
     const short = u.label.split(",")[0].trim().toLowerCase();
     if (short.length >= 3 && haystack.includes(short)) return u.id;
+  }
+
+  // 3) Nachname, nur wenn im Objekt eindeutig.
+  for (const [nachname, unitId] of unitByNachname) {
+    if (nachname.length >= 4 && haystack.includes(nachname)) return unitId;
   }
   return null;
 }
@@ -117,8 +159,34 @@ export default async function HausgeldPage({
     unitId: { not: null },
   };
 
-  const [units, dueSums, paidSums, unassignedTotal, unassigned, assigned, assignedTotal] =
-    await Promise.all([
+  const mahnstatus = sp.mahnstatus === "entwurf" || sp.mahnstatus === "versendet" ? sp.mahnstatus : undefined;
+  const mahnungWhere: Prisma.HausgeldMahnungWhereInput = {
+    propertyId: property.id,
+    ...(mahnstatus === "entwurf" ? { sentAt: null } : {}),
+    ...(mahnstatus === "versendet" ? { sentAt: { not: null } } : {}),
+  };
+
+  // Alles, was voneinander unabhängig ist, in EINEM Zug. Vorher standen hier
+  // sechs `await`-Stufen hintereinander, obwohl keine auf die vorige wartet —
+  // jede Stufe kostet eine eigene Wartezeit zur Datenbank, und sie addieren
+  // sich zur Ladezeit der Seite.
+  const [
+    units,
+    dueSums,
+    paidSums,
+    unassignedTotal,
+    unassigned,
+    assigned,
+    assignedTotal,
+    mahnungen,
+    mahnungTotal,
+    mahnStufen,
+    uebernahme,
+    opos,
+    mandate,
+    aktuelleEigentuemer,
+    fehlenderSollmonat,
+  ] = await Promise.all([
     db.unit.findMany({
       where: { propertyId: property.id },
       orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
@@ -134,7 +202,7 @@ export default async function HausgeldPage({
     // Ist: zugeordnete Zahlungseingänge je Einheit
     db.booking.groupBy({
       by: ["unitId"],
-      where: { propertyId: property.id, kind: "EINNAHME", unitId: { not: null } },
+      where: { propertyId: property.id, kind: "EINNAHME", unitId: { not: null }, ...NOT_REVERSED },
       _sum: { amountCents: true },
     }),
     // Noch nicht zugeordnete Zahlungseingänge
@@ -148,20 +216,21 @@ export default async function HausgeldPage({
     // Bereits zugeordnete (zur Kontrolle, mit Lösen-Option)
     db.booking.findMany({
       where: zugeordnetWhere,
-      include: { unit: { select: { label: true } } },
+      include: {
+        unit: { select: { label: true } },
+        // Worauf die Zahlung angerechnet wurde (§§ 366, 367 BGB).
+        allocations: {
+          select: {
+            amountCents: true,
+            duePosting: { select: { periodYear: true, periodMonth: true, source: true } },
+          },
+        },
+      },
       orderBy: { bookingDate: "desc" },
       skip: (aPage - 1) * ASSIGNED_PAGE_SIZE,
       take: ASSIGNED_PAGE_SIZE,
     }),
     db.booking.count({ where: zugeordnetWhere }),
-  ]);
-  const mahnstatus = sp.mahnstatus === "entwurf" || sp.mahnstatus === "versendet" ? sp.mahnstatus : undefined;
-  const mahnungWhere: Prisma.HausgeldMahnungWhereInput = {
-    propertyId: property.id,
-    ...(mahnstatus === "entwurf" ? { sentAt: null } : {}),
-    ...(mahnstatus === "versendet" ? { sentAt: { not: null } } : {}),
-  };
-  const [mahnungen, mahnungTotal, mahnStufen] = await Promise.all([
     // Angezeigte Schreiben – filterbar und geblättert.
     db.hausgeldMahnung.findMany({
       where: mahnungWhere,
@@ -178,6 +247,33 @@ export default async function HausgeldPage({
       where: { propertyId: property.id },
       select: { unitId: true, level: true, sentAt: true },
     }),
+    // Übernommener Stand aus der bisherigen Verwaltung (source = UEBERNAHME).
+    // Getrennt geladen, damit die Karte zeigen kann, was bereits erfasst ist –
+    // die Rückstandsliste selbst rechnet ihn ohne Sonderfall mit.
+    db.duePosting.findMany({
+      where: { propertyId: property.id, source: "UEBERNAHME" },
+      select: { unitId: true, amountCents: true, dueDate: true },
+    }),
+    // Offene Posten je Einheit — je Forderung gerechnet statt als Differenz
+    // zweier Summen. Erst dadurch stimmt der Rückstand, wenn eine Sonderumlage
+    // bezahlt oder im Voraus überwiesen wurde (siehe payment-allocation.ts).
+    oposJeEinheit(property.id, now),
+    // Bausteine der Zuordnungs-Hilfe (siehe `suggestUnit`).
+    db.sepaMandate.findMany({
+      where: { propertyId: property.id, active: true },
+      select: { unitId: true, iban: true },
+    }),
+    db.unitOwnership.findMany({
+      where: {
+        unit: { propertyId: property.id },
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gt: now } }],
+      },
+      select: { unitId: true, user: { select: { name: true } } },
+    }),
+    // Fortgeltung (§ 28 Abs. 1 Satz 2 WEG): Fehlen Monate, für die schon
+    // Forderungen bestehen müssten?
+    ersterFehlenderSollmonat(property.id, now),
   ]);
   // Nächste Mahnstufe je Einheit (nur versendete eskalieren) + offene Entwürfe
   const maxSentByUnit = new Map<string, number>();
@@ -190,16 +286,28 @@ export default async function HausgeldPage({
     }
   }
 
-  // Übernommener Stand aus der bisherigen Verwaltung (source = UEBERNAHME).
-  // Getrennt geladen, damit die Karte zeigen kann, was bereits erfasst ist –
-  // die Rückstandsliste selbst rechnet ihn ohne Sonderfall mit.
-  const uebernahme = await db.duePosting.findMany({
-    where: { propertyId: property.id, source: "UEBERNAHME" },
-    select: { unitId: true, amountCents: true, dueDate: true },
-  });
   const uebernahmeByUnit = new Map(uebernahme.map((u) => [u.unitId, u.amountCents]));
   const uebernahmeSumme = uebernahme.reduce((s, u) => s + u.amountCents, 0);
   const uebernahmeStichtag = uebernahme[0]?.dueDate ?? null;
+
+  const unitByIban = new Map(
+    mandate.map((m) => [m.iban.toUpperCase().replace(/[^A-Z0-9]/g, ""), m.unitId]),
+  );
+  // Mehrdeutige Nachnamen fliegen raus: Ein Hinweis, der auf zwei Einheiten
+  // passt, ist kein Hinweis, sondern eine Fehlerquelle.
+  const nachnameZaehler = new Map<string, Set<string>>();
+  for (const o of aktuelleEigentuemer) {
+    const nachname = o.user.name.trim().split(/\s+/).at(-1)?.toLowerCase();
+    if (!nachname) continue;
+    const menge = nachnameZaehler.get(nachname) ?? new Set<string>();
+    menge.add(o.unitId);
+    nachnameZaehler.set(nachname, menge);
+  }
+  const unitByNachname = new Map(
+    [...nachnameZaehler.entries()]
+      .filter(([, einheiten]) => einheiten.size === 1)
+      .map(([nachname, einheiten]) => [nachname, [...einheiten][0]]),
+  );
 
   const dueByUnit = new Map(dueSums.map((d) => [d.unitId, d._sum.amountCents ?? 0]));
   const paidByUnit = new Map(paidSums.map((p) => [p.unitId as string, p._sum.amountCents ?? 0]));
@@ -210,7 +318,8 @@ export default async function HausgeldPage({
   const totalPaid = [...paidByUnit.values()].reduce((a, b) => a + b, 0);
 
   // Rückstandsliste filtern (im Speicher – die Einheiten liegen ohnehin alle vor).
-  const saldoFor = (unitId: string) => (paidByUnit.get(unitId) ?? 0) - (dueByUnit.get(unitId) ?? 0);
+  // Negativ = Rückstand, damit die bisherige Sortier- und Filterlogik gilt.
+  const saldoFor = (unitId: string) => -(opos.get(unitId)?.gesamtCents ?? 0);
   const gefilterteUnits =
     sp.stand === "rueckstand"
       ? units.filter((u) => saldoFor(u.id) < 0)
@@ -250,7 +359,7 @@ export default async function HausgeldPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
         action={
           <div className="flex gap-2">
             <Link
@@ -297,12 +406,79 @@ export default async function HausgeldPage({
             : sp.fehler === "entwurfoffen"
               ? "Für diese Einheit liegt bereits ein unversendeter Entwurf vor."
               : sp.fehler === "keineigentuemer"
-                ? "Für diese Einheit ist kein Eigentümer erfasst — bitte in den Stammdaten zuordnen."
+                ? "Für diese Einheit ist kein Eigentümer erfasst — ohne ihn gibt es keinen Empfänger für die Mahnung."
                 : sp.fehler === "versendet"
                   ? "Versendete Schreiben bleiben als Nachweis erhalten und können nicht gelöscht werden."
                   : sp.fehler === "stichtag"
                     ? "Bitte einen gültigen Stichtag für die Übernahme angeben."
-                    : "Die Eingabe konnte nicht gespeichert werden."}
+                    : sp.fehler === "keinplan"
+                      ? "Es gibt keinen beschlossenen Wirtschaftsplan, der fortgelten könnte. Bitte zuerst einen Plan beschließen."
+                      : sp.fehler === "stammdaten"
+                        ? "Die Verteilung lässt sich nicht rechnen — bei mindestens einer Einheit fehlen Stammdaten (MEA, Wohnfläche oder Personenzahl)."
+                        : sp.fehler === "ohneeinheit"
+                          ? "Diese Zahlung ist keiner Einheit zugeordnet — ohne Einheit ist nicht bekannt, auf wessen Forderungen sie anzurechnen wäre."
+                          : sp.fehler === "schonzugeordnet"
+                            ? "Diese Zahlung ist bereits vollständig angerechnet."
+                            : sp.fehler === "keineforderung"
+                              ? "Für diese Einheit ist keine fällige Forderung offen. Eine Vorauszahlung bleibt bewusst als Guthaben stehen."
+                              : "Die Eingabe konnte nicht gespeichert werden."}
+          {/* Wer auf fehlende Stammdaten hinweist, führt auch hin. */}
+          {sp.fehler === "stammdaten" || sp.fehler === "keineigentuemer" ? (
+            <>
+              {" "}
+              <Link
+                href={`/verwaltung/weg/${property.id}/stammdaten#${
+                  sp.fehler === "keineigentuemer" ? "eigentuemer" : "einheiten"
+                }`}
+                className="underline"
+              >
+                Zu den Stammdaten
+              </Link>
+            </>
+          ) : null}
+        </Alert>
+      ) : null}
+
+      {sp.angerechnet ? (
+        <Alert variant={sp.guthaben && sp.guthaben !== "0" ? "warning" : "success"} className="mb-4">
+          {formatCents(Number(sp.angerechnet))} auf offene Forderungen angerechnet — älteste zuerst,
+          gemahnte vorrangig (§ 366 Abs. 2 BGB).
+          {sp.guthaben && sp.guthaben !== "0"
+            ? ` ${formatCents(Number(sp.guthaben))} bleiben als Guthaben stehen: Vorauszahlungen tilgen keine künftigen Forderungen.`
+            : ""}
+        </Alert>
+      ) : null}
+      {sp.anrechnunggeloest ? (
+        <Alert variant="success" className="mb-4">
+          Anrechnung aufgehoben — die Zahlung bleibt der Einheit zugeordnet.
+        </Alert>
+      ) : null}
+
+      {sp.fortgeschrieben ? (
+        <Alert variant="success" className="mb-4">
+          {sp.fortgeschrieben === "0"
+            ? "Es fehlten keine Forderungen — alles war bereits erfasst."
+            : `${sp.fortgeschrieben} ${sp.fortgeschrieben === "1" ? "Forderung wurde" : "Forderungen wurden"} nachgezogen.`}
+        </Alert>
+      ) : null}
+
+      {/* Fortgeltung (§ 28 Abs. 1 Satz 2 WEG). Der Hinweis erscheint nur, wenn
+          tatsächlich Monate fehlen — sonst wäre er ein Knopf ohne Anlass. */}
+      {fehlenderSollmonat ? (
+        <Alert variant="warning" title="Hausgeld-Forderungen fehlen" className="mb-4">
+          <p>
+            Seit {MONAT[fehlenderSollmonat.month - 1]} {fehlenderSollmonat.year} sind keine
+            monatlichen Forderungen mehr entstanden. Der zuletzt beschlossene Wirtschaftsplan
+            gilt fort, bis ein neuer beschlossen ist (§ 28 Abs. 1 Satz 2 WEG) — die Eigentümer
+            schulden das Hausgeld also weiterhin, es war hier nur nicht erfasst. Ohne die
+            Forderungen gibt es keine Rückstände, nichts zu mahnen und nichts einzuziehen.
+          </p>
+          <form action={schreibeSollstellungenFort} className="mt-2">
+            <input type="hidden" name="propertyId" value={property.id} />
+            <PendingButton className={buttonSecondaryClass}>
+              Forderungen nachziehen
+            </PendingButton>
+          </form>
         </Alert>
       ) : null}
 
@@ -327,24 +503,22 @@ export default async function HausgeldPage({
               Die Beträge stammen aus der letzten Abrechnung oder der Saldenliste der bisherigen
               Verwaltung.
             </p>
-            <p className="mt-1 text-xs text-gray-500">
+            <Tipp className="mt-1">
               Rückstand als positiver Betrag, Guthaben mit Minus davor. Kontostände ändern sich
               dadurch nicht — das Geld liegt bereits im übernommenen Anfangsbestand. Erneutes
               Speichern ersetzt den Stand, es summiert sich nichts auf.
-            </p>
+            </Tipp>
             <form action={saveUebernahme} className="mt-4">
               <input type="hidden" name="propertyId" value={property.id} />
-              <Field label="Stichtag der Übernahme">
-                <input
-                  type="date"
-                  name="stichtag"
-                  required
-                  defaultValue={
-                    uebernahmeStichtag ? uebernahmeStichtag.toISOString().slice(0, 10) : undefined
+              <DateField
+                label="Stichtag der Übernahme"
+                name="stichtag"
+                required
+                defaultValue={
+                    uebernahmeStichtag ? toDateInputValue(uebernahmeStichtag) : undefined
                   }
-                  className={`${inputClass} w-auto`}
-                />
-              </Field>
+                className="w-auto"
+              />
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {units.map((u) => (
                   <label key={u.id} className="flex items-center gap-2 text-sm">
@@ -395,9 +569,19 @@ export default async function HausgeldPage({
                 <thead>
                   <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
                     <th className="py-2 pr-3">Einheit</th>
-                    <th className="py-2 pr-3 text-right">Soll (fällig)</th>
+                    <th className="py-2 pr-3 text-right">
+                      <Begriff name="sollstellung">Soll</Begriff> (fällig)
+                    </th>
                     <th className="py-2 pr-3 text-right">Gezahlt (zugeordnet)</th>
-                    <th className="py-2 pr-3 text-right">Saldo</th>
+                    <th className="py-2 pr-3 text-right">Rückstand</th>
+                    {/* Altersstruktur: Sind 1.200 € ein Monat bei mehreren
+                        Eigentümern oder ein Jahr bei einem? Nur das Zweite
+                        rechtfertigt die nächste Mahnstufe. */}
+                    {OPOS_BUCKETS.map((b) => (
+                      <th key={b} className="py-2 pr-3 text-right whitespace-nowrap">
+                        {OPOS_BUCKET_LABELS[b]}
+                      </th>
+                    ))}
                     <th className="py-2 pr-3 text-right">Mahnwesen</th>
                   </tr>
                 </thead>
@@ -405,25 +589,49 @@ export default async function HausgeldPage({
                   {sichtbareUnits.map((u) => {
                     const due = dueByUnit.get(u.id) ?? 0;
                     const paid = paidByUnit.get(u.id) ?? 0;
-                    const saldo = paid - due;
+                    const zeile = opos.get(u.id) ?? { ...leereOposZeile(), unitId: u.id, nichtZugeordnetCents: 0 };
+                    const rueckstand = zeile.gesamtCents;
                     return (
                       <tr key={u.id} className="border-b border-gray-100">
                         <td className="py-2 pr-3 font-medium text-gray-900">{u.label}</td>
                         <td className="py-2 pr-3 text-right text-gray-700">{formatCents(due)}</td>
-                        <td className="py-2 pr-3 text-right text-gray-700">{formatCents(paid)}</td>
-                        <td
-                          className={`py-2 pr-3 text-right font-semibold ${
-                            saldo < 0 ? "text-red-700" : "text-green-700"
-                          }`}
-                        >
-                          {saldo < 0 ? "−" : saldo > 0 ? "+" : ""}
-                          {formatCents(Math.abs(saldo))}
-                          {saldo < 0 ? (
-                            <span className="block text-xs font-normal text-red-500">Rückstand</span>
+                        <td className="py-2 pr-3 text-right text-gray-700">
+                          {formatCents(paid)}
+                          {/* Ein nicht angerechnetes Guthaben wird getrennt
+                              ausgewiesen, statt den Rückstand zu mindern: Sonst
+                              verdeckte eine Vorauszahlung einen offenen Monat. */}
+                          {zeile.nichtZugeordnetCents > 0 ? (
+                            <span className="block text-xs font-normal text-amber-600">
+                              {formatCents(zeile.nichtZugeordnetCents)} nicht angerechnet
+                            </span>
                           ) : null}
                         </td>
+                        <td
+                          className={`py-2 pr-3 text-right font-semibold ${
+                            rueckstand > 0 ? "text-red-700" : "text-green-700"
+                          }`}
+                        >
+                          {rueckstand > 0 ? formatCents(rueckstand) : "ausgeglichen"}
+                          {zeile.aeltesteFaelligkeit ? (
+                            <span className="block text-xs font-normal text-red-500">
+                              älteste offen seit {formatDateOnly(zeile.aeltesteFaelligkeit)}
+                            </span>
+                          ) : null}
+                        </td>
+                        {OPOS_BUCKETS.map((b) => (
+                          <td
+                            key={b}
+                            className={`py-2 pr-3 text-right ${
+                              b === "b90plus" && zeile.buckets[b] > 0
+                                ? "font-semibold text-red-700"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            {zeile.buckets[b] > 0 ? formatCents(zeile.buckets[b]) : "—"}
+                          </td>
+                        ))}
                         <td className="py-2 pr-3 text-right">
-                          {saldo < 0 ? (
+                          {rueckstand > 0 ? (
                             draftUnits.has(u.id) ? (
                               <span className="text-xs text-gray-400">Entwurf offen (unten)</span>
                             ) : (
@@ -447,7 +655,7 @@ export default async function HausgeldPage({
                   })}
                   {sichtbareUnits.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-sm text-gray-500">
+                      <td colSpan={5 + OPOS_BUCKETS.length} className="py-6 text-center text-sm text-gray-500">
                         {sp.stand === "rueckstand"
                           ? "Keine Einheit im Rückstand."
                           : "Keine Einheit mit ausgeglichenem Saldo."}
@@ -545,9 +753,7 @@ export default async function HausgeldPage({
                         </form>
                       </>
                     ) : (
-                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                        versendet
-                      </span>
+                      <Badge tone="success">versendet</Badge>
                     )}
                   </div>
                 </div>
@@ -588,7 +794,7 @@ export default async function HausgeldPage({
           ) : (
             <div className="grid gap-3">
               {unassigned.map((b) => {
-                const suggestion = suggestUnit(b, units);
+                const suggestion = suggestUnit(b, units, unitByIban, unitByNachname);
                 return (
                   <form
                     key={b.id}
@@ -642,22 +848,83 @@ export default async function HausgeldPage({
           <Card title={`Zugeordnete Zahlungen (${assignedTotal})`}>
             <div className="grid gap-2">
               {assigned.map((b) => (
-                <form
-                  key={b.id}
-                  action={assignPayment}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2 text-sm"
-                >
-                  <input type="hidden" name="propertyId" value={property.id} />
-                  <input type="hidden" name="bookingId" value={b.id} />
-                  <input type="hidden" name="unitId" value="" />
-                  <span className="text-gray-700">
-                    {formatCents(b.amountCents)} · {formatDateOnly(b.bookingDate)} · {b.text} →{" "}
-                    <span className="font-medium text-gray-900">{b.unit?.label}</span>
-                  </span>
-                  <button type="submit" className="text-xs text-red-600 underline">
-                    Zuordnung lösen
-                  </button>
-                </form>
+                (() => {
+                  const angerechnet = b.allocations.reduce((s, a) => s + a.amountCents, 0);
+                  const offen = b.amountCents - angerechnet;
+                  return (
+                    <div
+                      key={b.id}
+                      className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2 text-sm"
+                    >
+                      <span className="text-gray-700">
+                        {formatCents(b.amountCents)} · {formatDateOnly(b.bookingDate)} · {b.text} →{" "}
+                        <span className="font-medium text-gray-900">{b.unit?.label}</span>
+                        {/* Worauf angerechnet — die Frage, die „zugeordnet zu
+                            Einheit X" offenlässt und die in der Mahnung zählt. */}
+                        {angerechnet > 0 ? (
+                          <span className="block text-xs text-gray-500">
+                            angerechnet auf{" "}
+                            {b.allocations
+                              .map((a) =>
+                                a.duePosting.source === "SONDERUMLAGE"
+                                  ? `Sonderumlage (${formatCents(a.amountCents)})`
+                                  : `${a.duePosting.periodMonth}/${a.duePosting.periodYear} (${formatCents(a.amountCents)})`,
+                              )
+                              .join(" · ")}
+                          </span>
+                        ) : null}
+                        {offen > 0 ? (
+                          <span className="block text-xs text-amber-600">
+                            {formatCents(offen)} noch nicht angerechnet
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="flex items-center gap-3">
+                        {offen > 0 ? (
+                          <form action={ordneZahlungZu} className="flex items-center gap-1">
+                            <input type="hidden" name="propertyId" value={property.id} />
+                            <input type="hidden" name="bookingId" value={b.id} />
+                            {/* § 366 Abs. 1 BGB: Steht im Verwendungszweck, worauf
+                                gezahlt wird, geht das der gesetzlichen Reihenfolge
+                                vor. Den Fließtext liest der Verwalter, nicht das
+                                Programm — eine Fehldeutung verschöbe echtes Geld. */}
+                            <SelectField
+                              name="zweck"
+                              defaultValue="ALLE"
+                              className="w-auto text-xs"
+                              aria-label="Tilgungsbestimmung laut Verwendungszweck"
+                              options={[
+                                { value: "ALLE", label: "ohne Angabe (älteste zuerst)" },
+                                { value: "WIRTSCHAFTSPLAN", label: "laut Zweck: Hausgeld" },
+                                { value: "SONDERUMLAGE", label: "laut Zweck: Sonderumlage" },
+                              ]}
+                            />
+                            <PendingButton className="text-xs text-gray-700 underline">
+                              anrechnen
+                            </PendingButton>
+                          </form>
+                        ) : null}
+                        {angerechnet > 0 ? (
+                          <form action={loeseZuordnung}>
+                            <input type="hidden" name="propertyId" value={property.id} />
+                            <input type="hidden" name="bookingId" value={b.id} />
+                            <PendingButton className="text-xs text-gray-500 underline">
+                              Anrechnung lösen
+                            </PendingButton>
+                          </form>
+                        ) : null}
+                        <form action={assignPayment}>
+                          <input type="hidden" name="propertyId" value={property.id} />
+                          <input type="hidden" name="bookingId" value={b.id} />
+                          <input type="hidden" name="unitId" value="" />
+                          <PendingButton className="text-xs text-red-600 underline">
+                            Zuordnung lösen
+                          </PendingButton>
+                        </form>
+                      </span>
+                    </div>
+                  );
+                })()
               ))}
             </div>
 

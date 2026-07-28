@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/platform";
 import { createInvoice } from "../actions";
 import { InvoiceItemsField } from "./InvoiceItemsField";
+import { DateField } from "@/components/fields";
 
 export const dynamic = "force-dynamic";
 
@@ -57,9 +58,10 @@ export default async function NeueRechnungPage({
             <Field label="USt-Satz (%)">
               <input type="number" name="vatRate" min={0} max={100} defaultValue={19} className={inputClass} />
             </Field>
-            <Field label="Fällig bis (optional)">
-              <input type="date" name="dueAt" className={inputClass} />
-            </Field>
+            <DateField
+              label="Fällig bis (optional)"
+              name="dueAt"
+            />
           </div>
           <div>
             <span className="mb-1 block text-sm font-medium text-gray-700">Positionen</span>

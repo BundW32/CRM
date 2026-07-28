@@ -62,7 +62,7 @@ export default async function BetriebskostenPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
       >
         Betriebskostenabrechnung · {property.name}
       </PageTitle>

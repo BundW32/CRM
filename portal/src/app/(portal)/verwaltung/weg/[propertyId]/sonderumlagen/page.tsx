@@ -7,6 +7,7 @@ import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { createSonderumlage, deleteSonderumlage } from "./actions";
+import { DateField } from "@/components/fields";
 
 export const dynamic = "force-dynamic";
 
@@ -39,14 +40,14 @@ export default async function SonderumlagenPage({
     datum: "Das Fälligkeitsdatum konnte nicht gelesen werden.",
     einheiten: "Dieses Objekt hat keine Einheiten.",
     stammdaten:
-      "Die Verteilung ist nicht möglich — bitte in den Stammdaten die nötigen Angaben (z. B. MEA/Fläche/Personen) vervollständigen.",
+      "Die Verteilung ist nicht möglich — bei mindestens einer Einheit fehlen MEA, Wohnfläche oder Personenzahl.",
     nichtgefunden: "Sonderumlage nicht gefunden.",
   };
 
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
         action={
           <div className="flex gap-2">
             <Link href={`/verwaltung/weg/${property.id}/hausgeld`} className={buttonSecondaryClass}>
@@ -72,6 +73,15 @@ export default async function SonderumlagenPage({
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">
           {FEHLER[sp.fehler] ?? "Die Eingabe konnte nicht gespeichert werden."}
+          {/* Wer auf fehlende Stammdaten hinweist, führt auch hin. */}
+          {sp.fehler === "stammdaten" ? (
+            <>
+              {" "}
+              <Link href={`/verwaltung/weg/${property.id}/stammdaten#einheiten`} className="underline">
+                Zu den Einheiten
+              </Link>
+            </>
+          ) : null}
         </Alert>
       ) : null}
 
@@ -85,13 +95,13 @@ export default async function SonderumlagenPage({
           </p>
           <form action={createSonderumlage} className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="propertyId" value={property.id} />
-            <Field label="Titel *">
+            <Field label="Titel">
               <input name="title" required minLength={2} maxLength={160} className={inputClass} placeholder="z. B. Sonderumlage Dachsanierung" />
             </Field>
             <Field label="Zweck (optional)">
               <input name="purpose" maxLength={500} className={inputClass} placeholder="z. B. Erneuerung Dacheindeckung" />
             </Field>
-            <Field label="Gesamtbetrag (€) *">
+            <Field label="Gesamtbetrag (€)">
               <input name="amount" inputMode="decimal" required className={inputClass} placeholder="0,00" />
             </Field>
             <Field label="Umlageschlüssel *">
@@ -103,9 +113,11 @@ export default async function SonderumlagenPage({
                 ))}
               </select>
             </Field>
-            <Field label="Fällig am *">
-              <input name="dueDate" type="date" required className={inputClass} />
-            </Field>
+            <DateField
+              label="Fällig am"
+              name="dueDate"
+              required
+                />
             <Field label="Beschluss-Verweis (optional)">
               <input name="resolutionNote" maxLength={300} className={inputClass} placeholder="z. B. ETV 12.03.2026, TOP 5" />
             </Field>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { KeyFigure } from "@/components/data-display";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
@@ -86,7 +87,7 @@ export default async function ErhaltungsplanungPage({
   return (
     <>
       <PageTitle
-        back={{ href: "/verwaltung/weg", label: "WEG-Finanzen" }}
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
         action={
           <div className="flex gap-2">
             <Link href={`/verwaltung/weg/${property.id}/buchhaltung`} className={buttonSecondaryClass}>
@@ -118,20 +119,24 @@ export default async function ErhaltungsplanungPage({
 
       {/* ── Gegenüberstellung ─────────────────────────────────────────────── */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Rücklagenstand aktuell</p>
-          <p className="mt-1 text-2xl font-bold text-brand-green">{formatCents(currentReserveCents)}</p>
-          <p className="mt-1 text-xs text-gray-400">
-            {annualContributionCents > 0
-              ? `+ ${formatCents(annualContributionCents)}/Jahr Zuführung (Wirtschaftsplan)`
-              : "keine beschlossene Zuführung hinterlegt"}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Geplanter Bedarf gesamt</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{formatCents(projection.totalPlannedCents)}</p>
-          <p className="mt-1 text-xs text-gray-400">{openMeasures.length} offene Maßnahme(n)</p>
-        </div>
+        <Card>
+          <KeyFigure
+            label="Rücklagenstand aktuell"
+            value={formatCents(currentReserveCents)}
+            hint={
+              annualContributionCents > 0
+                ? `+ ${formatCents(annualContributionCents)}/Jahr Zuführung (Wirtschaftsplan)`
+                : "keine beschlossene Zuführung hinterlegt"
+            }
+          />
+        </Card>
+        <Card>
+          <KeyFigure
+            label="Geplanter Bedarf gesamt"
+            value={formatCents(projection.totalPlannedCents)}
+            hint={`${openMeasures.length} offene Maßnahme(n)`}
+          />
+        </Card>
         <div
           className={`rounded-2xl border p-4 shadow-sm ${
             gap > 0 ? "border-red-300 bg-red-50" : "border-green-300 bg-green-50"

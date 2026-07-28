@@ -3,8 +3,9 @@
 import { useRef } from "react";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
-import { inputClass, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { Card, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { addMeter, updateMeter, deleteMeter, uploadMeterPhoto } from "./actions";
+import { DateField } from "@/components/fields";
 
 type Meter = {
   id: string;
@@ -42,7 +43,7 @@ export function ZaehlerClient({ handoverId, initialMeters }: { handoverId: strin
       {initialMeters.map((meter) => {
         const dateStr = new Date(meter.readingDate).toISOString().split("T")[0];
         return (
-          <div key={meter.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <Card key={meter.id}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <span className="text-lg">{METER_ICONS[meter.meterType] ?? "📊"}</span>
@@ -89,11 +90,9 @@ export function ZaehlerClient({ handoverId, initialMeters }: { handoverId: strin
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Ablesedatum</label>
-                  <input
-                    type="date"
+                  <DateField
                     name="readingDate"
                     defaultValue={dateStr}
-                    className={inputClass}
                   />
                 </div>
               </div>
@@ -150,7 +149,7 @@ export function ZaehlerClient({ handoverId, initialMeters }: { handoverId: strin
                 </button>
               </form>
             </div>
-          </div>
+          </Card>
         );
       })}
 

@@ -9,6 +9,7 @@ import { formatCents } from "@/lib/money";
 import { computeUnitAdvances, monthlyInstallments, PositionNichtVerteilbar } from "@/lib/weg/economic-plan";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { deletePlan, planZurAbstimmung, resolvePlan, updatePlanItems } from "../actions";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
 
@@ -116,14 +117,13 @@ Muster — ersetzt keine Rechtsberatung.`;
         action={
           <div className="flex gap-2">
             {!advanceError ? (
-              <a
-                href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf`}
-                target="_blank"
-                rel="noreferrer"
+              <FilePreviewLink
+                src={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf`}
+                title={`Wirtschaftsplan ${plan.year} — ${property.name}`}
                 className={buttonSecondaryClass}
               >
                 Als PDF
-              </a>
+              </FilePreviewLink>
             ) : null}
           </div>
         }

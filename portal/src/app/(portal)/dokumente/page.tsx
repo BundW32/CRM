@@ -26,7 +26,7 @@ import {
   formatDate,
   requestableDocuments,
 } from "@/lib/labels";
-import { PdfPreviewLink } from "@/components/pdf-preview-link";
+import { FilePreviewLink } from "@/components/file-preview-link";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
@@ -173,14 +173,13 @@ export default async function DokumentePage({
                   <li key={doc.id} className="px-4 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <PdfPreviewLink
+                        <FilePreviewLink
                           src={`/api/files/dokument/${doc.id}`}
                           title={doc.title}
-                          mimeType={doc.mimeType}
                           className="block w-full truncate text-left text-sm font-medium text-gray-900 hover:underline"
                         >
                           {doc.title}
-                        </PdfPreviewLink>
+                        </FilePreviewLink>
                         <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500">
                           <span className="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600">
                             {documentCategoryLabels[doc.category]}
@@ -194,15 +193,14 @@ export default async function DokumentePage({
                         </span>
                       </div>
                       <span className="flex shrink-0 items-center gap-1">
-                        <PdfPreviewLink
+                        <FilePreviewLink
                           src={`/api/files/dokument/${doc.id}`}
                           title={doc.title}
-                          mimeType={doc.mimeType}
                           className={`${buttonGhostClass} px-2.5 py-1.5 text-xs`}
                         >
                           <Eye className="h-4 w-4" />
                           Öffnen
-                        </PdfPreviewLink>
+                        </FilePreviewLink>
                         {/* Direkter Download – funktioniert zuverlässig auch auf dem Handy */}
                         <a
                           href={`/api/files/dokument/${doc.id}?download=1`}

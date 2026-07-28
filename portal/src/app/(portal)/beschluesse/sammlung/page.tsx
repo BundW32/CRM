@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels } from "@/lib/labels";
 import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
 
@@ -113,12 +114,13 @@ export default async function BeschlussSammlungPage({
               </Link>
             ))}
             {selected ? (
-              <a
-                href={`/beschluesse/sammlung/export?objekt=${selected.id}`}
+              <FilePreviewLink
+                src={`/beschluesse/sammlung/export?objekt=${selected.id}`}
+                title={`Beschluss-Sammlung — ${selected.name}`}
                 className={`${buttonSecondaryClass} ml-auto`}
               >
                 Als PDF exportieren
-              </a>
+              </FilePreviewLink>
             ) : null}
           </div>
 

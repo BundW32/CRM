@@ -12,6 +12,7 @@ import { formatCents } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import type { StatementView } from "@/lib/weg/statement-service";
 import { setBeiratReview } from "../beirat/review-actions";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 const REVIEW_LABEL = { GEPRUEFT: "geprüft", ANMERKUNGEN: "mit Anmerkungen" } as const;
 
@@ -324,14 +325,13 @@ export default async function FinanzenPage({
                         })
                       : null}
                     <div className="mt-3">
-                      <a
-                        href={`/finanzen/abrechnung/${s.id}/pdf`}
-                        target="_blank"
-                        rel="noreferrer"
+                      <FilePreviewLink
+                        src={`/finanzen/abrechnung/${s.id}/pdf`}
+                        title={`Meine Einzelabrechnung ${s.year}`}
                         className={buttonSecondaryClass}
                       >
                         Meine Einzelabrechnung als PDF
-                      </a>
+                      </FilePreviewLink>
                     </div>
                     <ReviewBlock
                       kind="statement"
@@ -364,14 +364,13 @@ export default async function FinanzenPage({
                         {p.resolutionNote ? ` · ${p.resolutionNote}` : ""}
                       </span>
                     </div>
-                    <a
-                      href={`/finanzen/wirtschaftsplan/${p.id}/pdf`}
-                      target="_blank"
-                      rel="noreferrer"
+                    <FilePreviewLink
+                      src={`/finanzen/wirtschaftsplan/${p.id}/pdf`}
+                      title={`Wirtschaftsplan ${p.year}`}
                       className={buttonSecondaryClass}
                     >
                       Wirtschaftsplan als PDF
-                    </a>
+                    </FilePreviewLink>
                   </div>
                   <ReviewBlock
                     kind="plan"
@@ -523,14 +522,13 @@ export default async function FinanzenPage({
                         </td>
                         <td className="py-2">
                           {b.belegStoredName ? (
-                            <a
-                              href={`/api/files/beleg/${b.id}`}
-                              target="_blank"
-                              rel="noreferrer"
+                            <FilePreviewLink
+                              src={`/api/files/beleg/${b.id}`}
+                              title={`Beleg — ${b.text}`}
                               className="text-sm underline"
                             >
                               ansehen
-                            </a>
+                            </FilePreviewLink>
                           ) : (
                             <span className="text-gray-300">—</span>
                           )}

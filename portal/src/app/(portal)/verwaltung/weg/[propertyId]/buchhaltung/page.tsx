@@ -10,6 +10,7 @@ import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { createBooking, createTransfer } from "./actions";
 import { ImportClient } from "./ImportClient";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
 
@@ -469,14 +470,13 @@ export default async function WegBuchhaltungPage({
                         </td>
                         <td className="py-2">
                           {b.belegStoredName ? (
-                            <a
-                              href={`/api/files/beleg/${b.id}`}
-                              target="_blank"
-                              rel="noreferrer"
+                            <FilePreviewLink
+                              src={`/api/files/beleg/${b.id}`}
+                              title={`Beleg — ${b.text}`}
                               className="text-sm underline"
                             >
                               Beleg
-                            </a>
+                            </FilePreviewLink>
                           ) : (
                             <span className="text-gray-300">—</span>
                           )}

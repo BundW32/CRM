@@ -1,6 +1,14 @@
 "use client";
 
-// PDF-Vorschau im Portal — bewusst mit pdf.js auf Canvas, nicht per <iframe>.
+// Dateivorschau im Portal. PDFs werden mit pdf.js auf Canvas gerendert, Bilder
+// direkt angezeigt.
+//
+// Der Inhaltstyp wird NICHT vom Aufrufer erfragt, sondern beim Laden aus der
+// Antwort gelesen: die Aufrufseiten (Belege, Anhänge, Nachweise, Mietverträge)
+// wissen ihn oft selbst nicht, ohne dass ihre Datenbankabfrage erweitert wird.
+// Die Datei wird dabei genau einmal geladen und an pdf.js weitergereicht.
+//
+// PDF bewusst mit pdf.js auf Canvas, nicht per <iframe>.
 //
 // Zwei Gründe, warum der naheliegende iframe-Weg hier nicht trägt:
 //  - Auf dem Handy überlässt ein iframe das Rendern dem Betriebssystem. iOS
@@ -36,9 +44,10 @@ type PdfPage = {
 
 const ZOOM_STEPS = [0.75, 1, 1.5, 2, 3];
 
-export function PdfPreview({ src, title, onClose }: Props) {
+export function FilePreview({ src, title, onClose }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [doc, setDoc] = useState<PdfDoc | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [zoomIndex, setZoomIndex] = useState(1); // 1 = Breite füllen
   const [visiblePage, setVisiblePage] = useState(1);
@@ -61,9 +70,26 @@ export function PdfPreview({ src, title, onClose }: Props) {
   useEffect(() => {
     let cancelled = false;
     let loaded: PdfDoc | null = null;
+    let objectUrl: string | null = null;
 
     (async () => {
       try {
+        const response = await fetch(src, { credentials: "same-origin" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        if (cancelled) return;
+
+        if (contentType.startsWith("image/")) {
+          objectUrl = URL.createObjectURL(new Blob([bytes], { type: contentType }));
+          setImageUrl(objectUrl);
+          return;
+        }
+        if (!contentType.includes("pdf")) {
+          setError("Für diesen Dateityp gibt es keine Vorschau.");
+          return;
+        }
+
         // Bewusst der LEGACY-Build: der Standard-Build von pdf.js 5 setzt sehr
         // junge JS-Methoden voraus (u. a. Map.prototype.getOrInsertComputed) und
         // scheitert auf älteren Browsern beim Rendern — genau auf den Geräten,
@@ -77,8 +103,7 @@ export function PdfPreview({ src, title, onClose }: Props) {
           "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
           import.meta.url,
         ).toString();
-        const task = pdfjs.getDocument({ url: src, withCredentials: true });
-        const result = (await task.promise) as unknown as PdfDoc;
+        const result = (await pdfjs.getDocument({ data: bytes }).promise) as unknown as PdfDoc;
         if (cancelled) {
           result.destroy();
           return;
@@ -86,7 +111,7 @@ export function PdfPreview({ src, title, onClose }: Props) {
         loaded = result;
         setDoc(result);
       } catch (err) {
-        console.error("PDF-Vorschau fehlgeschlagen", err);
+        console.error("Vorschau fehlgeschlagen", err);
         if (!cancelled) setError("Die Vorschau konnte nicht geladen werden.");
       }
     })();
@@ -94,6 +119,7 @@ export function PdfPreview({ src, title, onClose }: Props) {
     return () => {
       cancelled = true;
       loaded?.destroy();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [src]);
 
@@ -115,24 +141,29 @@ export function PdfPreview({ src, title, onClose }: Props) {
             Seite {visiblePage} von {doc.numPages}
           </span>
         ) : null}
-        <button
-          type="button"
-          onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}
-          disabled={zoomIndex === 0}
-          aria-label="Verkleinern"
-          className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-40"
-        >
-          <Minus className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}
-          disabled={zoomIndex === ZOOM_STEPS.length - 1}
-          aria-label="Vergrößern"
-          className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-40"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+        {/* Zoom betrifft nur die gerenderten PDF-Seiten; bei Bildern ohne Wirkung. */}
+        {imageUrl ? null : (
+          <>
+          <button
+            type="button"
+            onClick={() => setZoomIndex((i) => Math.max(0, i - 1))}
+            disabled={zoomIndex === 0}
+            aria-label="Verkleinern"
+            className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+          >
+            <Minus className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1))}
+            disabled={zoomIndex === ZOOM_STEPS.length - 1}
+            aria-label="Vergrößern"
+            className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          </>
+        )}
         <a
           href={`${src}${src.includes("?") ? "&" : "?"}download=1`}
           aria-label="Herunterladen"
@@ -165,6 +196,9 @@ export function PdfPreview({ src, title, onClose }: Props) {
               Stattdessen herunterladen
             </a>
           </div>
+        ) : imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- Blob-URL, keine Optimierung möglich
+          <img src={imageUrl} alt={title} className="mx-auto block max-w-full bg-white shadow-sm" />
         ) : !doc ? (
           <p className="flex items-center justify-center gap-2 py-16 text-sm text-gray-500">
             <Loader2 className="h-4 w-4 animate-spin" />

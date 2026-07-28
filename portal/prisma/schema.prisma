@@ -745,12 +745,24 @@ model Craftsman {
   isInternal           Boolean               @default(false)
   // Magic-Link-Token für das schlanke Handwerker-Portal (ohne Passwort)
   accessToken          String?               @unique
+  // ── Bauabzugsteuer (§ 48 EStG) ────────────────────────────────────────────
+  // Wer eine Bauleistung bezieht, muss 15 % des Rechnungsbetrags einbehalten
+  // und ans Finanzamt abführen — es sei denn, der Leistende legt eine gültige
+  // Freistellungsbescheinigung nach § 48b EStG vor. Ohne sie und ohne Einbehalt
+  // haftet der Leistungsempfänger, also die Gemeinschaft (§ 48a Abs. 3 EStG).
+  //
+  // Das ist der Normalfall, nicht die Ausnahme: Die meisten Betriebe haben eine
+  // solche Bescheinigung. Deshalb wird sie hier festgehalten — sonst warnte das
+  // Programm bei jedem Handwerker und würde nach dem dritten Mal weggeklickt.
+  exemptionNumber      String? // Sicherheitsnummer der Bescheinigung
+  exemptionValidUntil  DateTime? // Gültig bis; danach greift der Einbehalt wieder
   createdAt            DateTime              @default(now())
   tickets              Ticket[]
   comments             TicketComment[]       @relation("CraftsmanComments")
   maintenanceTasks     MaintenanceTask[]
   verwalterAssignments CraftsmanAssignment[]
   invoices             CraftsmanInvoice[]
+  bookings             Booking[]
 
   @@index([active, trade])
   @@index([email])
@@ -1405,6 +1417,13 @@ model CostType {
   // eine Verteilung zu 100 % nach Verbrauch wäre formell fehlerhaft und gäbe
   // jedem Eigentümer ein Kürzungsrecht von 15 % (§ 12 Abs. 1 HeizkostenV).
   heatingCost       Boolean         @default(false)
+  // Bauleistung im Sinne des § 48 Abs. 1 Satz 3 EStG: Herstellung,
+  // Instandsetzung, Instandhaltung, Änderung oder Beseitigung von Bauwerken.
+  //
+  // Die Unterscheidung ist nicht kosmetisch. Ohne sie warnte das Programm auch
+  // bei der Treppenhausreinigung und beim Gartendienst — beides ist **keine**
+  // Bauleistung — und die Warnung wäre nach dem dritten Fehlalarm wertlos.
+  constructionWork  Boolean         @default(false)
   recoverableBetrKV Boolean         @default(false) // umlagefähig nach BetrKV (Mieter)
   active            Boolean         @default(true)
   orderIndex        Int             @default(0)
@@ -1455,6 +1474,17 @@ model Booking {
   // Zahlungszuordnung: Hausgeld-Eingang einer Einheit zugeordnet (offene Posten)
   unitId          String?
   unit            Unit?            @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  // Wer bezahlt wurde — als Verknüpfung, nicht als getippter Name.
+  //
+  // `counterparty` bleibt daneben bestehen und ist weiterhin der Normalfall:
+  // Beim Bankimport liefert die Bank Text, und die meisten Zahlungen gehen an
+  // niemanden aus dem Adressbuch. Die Verknüpfung ist deshalb optional.
+  //
+  // Nötig wurde sie für § 48 EStG: Die 5.000-€-Grenze gilt **je Leistendem und
+  // Kalenderjahr**. Über einen Freitext lässt sich das nicht summieren — „Meier
+  // GmbH", „Meier Gmbh" und „Fa. Meier" wären drei Handwerker.
+  craftsmanId     String?
+  craftsman       Craftsman?       @relation(fields: [craftsmanId], references: [id], onDelete: SetNull)
   kind            BookingKind
   bookingDate     DateTime
   valueDate       DateTime? // Wertstellung (aus Bankimport)
@@ -1497,6 +1527,7 @@ model Booking {
   @@index([costTypeId])
   @@index([importBatchId])
   @@index([unitId])
+  @@index([craftsmanId])
 }
 
 // Ein CSV-Import-Vorgang (für Anzeige + Rückgängig)

@@ -1,15 +1,20 @@
+import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { PendingButton } from "@/components/pending-button";
-import { Pagination, Card, EmptyState, PageTitle } from "@/components/ui";
+import {
+  EmptyState,
+  PageTitle,
+  Pagination,
+  buttonClass,
+} from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
-import { noteWhereForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
+import { noteWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { formatDate } from "@/lib/labels";
 import { propertyScopeFilters } from "@/lib/list-filters";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { deleteNote, togglePinNote } from "./actions";
-import { NoteForm } from "./note-form";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +43,6 @@ export default async function NotizenPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const verwalter = await requireVerwalter();
-  const propWhere = await propertyWhereForVerwalter(verwalter);
 
   const params = await searchParams;
   const type = (params.type ?? "alle") as FilterType;
@@ -63,7 +67,7 @@ export default async function NotizenPage({
   const noteWhere: Prisma.NoteWhereInput = { AND: noteAnd };
   const hasFilter = Boolean(q || type !== "alle" || scope.active);
 
-  const [total, notes, properties] = await Promise.all([
+  const [total, notes] = await Promise.all([
     db.note.count({ where: noteWhere }),
     db.note.findMany({
       where: noteWhere,
@@ -77,13 +81,6 @@ export default async function NotizenPage({
         targetUser: true,
         author: true,
       },
-    }),
-    // Nur die Objektliste ausliefern; Einheiten und Personen lädt das Formular
-    // bei Objektauswahl on demand nach (skaliert auch bei sehr großen Beständen).
-    db.property.findMany({
-      where: propWhere,
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
     }),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -107,13 +104,17 @@ export default async function NotizenPage({
   return (
     <>
       <PageTitle
+        action={
+          <Link href="/verwaltung/notizen/neu" className={buttonClass}>
+            Neue Notiz
+          </Link>
+        }
       >
         Notizen
       </PageTitle>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Note list – takes up 2 columns on large screens */}
-        <div className="space-y-4 lg:col-span-2">
+      <div className="space-y-4">
+        <div>
           <div>
             <FilterBar
               searchPlaceholder="Suchen"
@@ -202,10 +203,6 @@ export default async function NotizenPage({
           <Pagination currentPage={currentPage} totalPages={totalPages} total={total} itemLabel="Notizen" hrefFor={pageHref} />
         </div>
 
-        {/* Create form */}
-        <Card title="Neue Notiz">
-          <NoteForm properties={properties} />
-        </Card>
       </div>
     </>
   );

@@ -27,7 +27,8 @@ export type BadgeTone =
   | "warning"
   | "danger"
   | "info"
-  | "accent";
+  | "accent"
+  | "onAccent";
 
 const badgeTones: Record<BadgeTone, string> = {
   neutral: "bg-gray-100 text-gray-700",
@@ -36,6 +37,10 @@ const badgeTones: Record<BadgeTone, string> = {
   danger: "bg-critical-light text-critical",
   info: "bg-blue-50 text-blue-700",
   accent: "bg-brand-orange-light text-brand-orange-ink",
+  // Für Etiketten AUF einer farbigen Fläche (z. B. die hervorgehobene Tarifkarte).
+  // Dort verschwände `accent` im Hintergrund – hier trägt das Etikett die helle
+  // Fläche und die Karte die Farbe, nicht umgekehrt.
+  onAccent: "bg-white text-brand-orange-ink",
 };
 
 /**

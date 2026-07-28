@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { Badge } from "@/components/data-display";
 import { PLANS, isBillingEnabled, planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { formatDate } from "@/lib/labels";
 import { getOrganization, requireVerwalter } from "@/lib/session";
@@ -102,9 +103,7 @@ export default async function BillingPage({
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900">{plan.name}</h2>
               {org.plan === plan.id ? (
-                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-brand-orange-dark">
-                  aktuell
-                </span>
+                <Badge tone="onAccent">aktuell</Badge>
               ) : null}
             </div>
             <p className="mt-1 text-sm text-gray-600">{plan.description}</p>

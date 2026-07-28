@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { Pagination, Alert, EmptyState, PageTitle, buttonClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
+import { Badge } from "@/components/data-display";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
@@ -194,9 +195,7 @@ export default async function PropertiesPage({
                       name={p.name}
                       address={`${p.street}, ${p.zip} ${p.city}`}
                       managementTypeBadge={
-                        <span className="rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-medium text-brand-orange-dark">
-                          {managementTypeLabels[p.managementType]}
-                        </span>
+                        <Badge tone="accent">{managementTypeLabels[p.managementType]}</Badge>
                       }
                       unitCount={p.units.length}
                       imageUrl={

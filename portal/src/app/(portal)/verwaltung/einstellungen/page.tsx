@@ -8,7 +8,10 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
-import { PageTitle } from "@/components/ui";
+import {
+  PageTitle,
+  cardSurfaceClass,
+} from "@/components/ui";
 import { isSelfManaged } from "@/lib/access";
 import { settingsItems, type NavIcon } from "@/lib/app-nav";
 import { getOrganization, requireVerwalter } from "@/lib/session";
@@ -45,7 +48,7 @@ export default async function EinstellungenPage() {
             <Link
               key={item.href}
               href={item.href}
-              className="group rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+              className={`group ${cardSurfaceClass} p-5 transition hover:shadow-md`}
             >
               <div className="flex items-center gap-3">
                 {Icon ? (

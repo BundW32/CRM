@@ -134,6 +134,16 @@ export function PageTitle({
   );
 }
 
+// Die Kartenfläche als Klassen-String – ohne Innenabstand.
+//
+// `Card` setzt sie selbst; darüber hinaus braucht man sie an zwei Stellen, an denen
+// eine <div>-Karte nicht passt: bei einer anklickbaren Karte (dort steht ein <Link>)
+// und bei einem Listenrahmen, der seine Zeilen selbst abteilt und deshalb keinen
+// Innenabstand verträgt. Ohne diesen Export schrieben beide die vier Klassen ab –
+// und wichen beim nächsten Feinschliff voneinander ab.
+export const cardSurfaceClass =
+  "rounded-2xl border border-gray-200 bg-white shadow-sm";
+
 export function Card({
   title,
   id,
@@ -153,7 +163,7 @@ export function Card({
   return (
     <div
       id={id}
-      className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm${id ? " scroll-mt-6" : ""}`}
+      className={`${cardSurfaceClass} p-5${id ? " scroll-mt-6" : ""}`}
     >
       {title ? (
         <h2 className="mb-4 text-base font-semibold text-gray-900">{title}</h2>
@@ -186,7 +196,7 @@ export function CollapsibleCard({
       // Sie läuft rein über CSS; wo der Browser sie nicht kennt, klappt die Karte
       // wie bisher sofort auf – ohne Ausfall, nur ohne Animation.
       data-collapsible
-      className={`group rounded-2xl border border-gray-200 bg-white shadow-sm${id ? " scroll-mt-6" : ""}`}
+      className={`group ${cardSurfaceClass}${id ? " scroll-mt-6" : ""}`}
     >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-5 py-4 text-base font-semibold text-gray-900 marker:hidden [&::-webkit-details-marker]:hidden">
         <div className="min-w-0 flex-1">{title}</div>

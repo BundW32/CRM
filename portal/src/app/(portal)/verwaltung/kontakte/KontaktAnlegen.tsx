@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Field, inputClass } from "@/components/ui";
+import {
+  Card,
+  Field,
+  inputClass,
+} from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { NewUserForm } from "../nutzer/new-user-form";
 import { createCraftsman } from "./actions";
@@ -62,8 +66,7 @@ export function KontaktAnlegen({
   );
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <h2 className="mb-1 text-base font-semibold text-gray-900">Kontakt anlegen</h2>
+    <Card title="Kontakt anlegen">
       <p className="mb-4 text-xs text-gray-500">
         Die Art entscheidet über alles Weitere – auch darüber, ob ein Portalzugang
         entsteht.
@@ -112,7 +115,7 @@ export function KontaktAnlegen({
       {zugang ? (
         <NewUserForm
           key={art}
-          zurueck="/verwaltung/kontakte"
+          zurueck="/verwaltung/kontakte/neu"
           properties={properties}
           isSuperAdmin={isSuperAdmin}
           selfManaged={selfManaged}
@@ -121,7 +124,7 @@ export function KontaktAnlegen({
       ) : (
         <KarteiFormular key={art} kind={art as ContactKind} />
       )}
-    </div>
+    </Card>
   );
 }
 

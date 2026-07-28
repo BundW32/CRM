@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Badge } from "@/components/data-display";
 import { maskSecret } from "@/lib/crypto";
 import { decryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
@@ -129,9 +130,7 @@ export default async function IntegrationenPage({
         {/* SEPA-Lastschrift: Zero-Key, kein Schlüssel nötig. */}
         <Card title="SEPA-Lastschrift (Hausgeldeinzug)">
           <div className="mb-3">
-            <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-              Ohne Schlüssel nutzbar
-            </span>
+            <Badge tone="success">Ohne Schlüssel nutzbar</Badge>
           </div>
           <p className="mb-3 text-sm text-gray-600">
             Der SEPA-Lastschrifteinzug erzeugt eine pain.008-XML-Datei zum Selbst-Upload ins

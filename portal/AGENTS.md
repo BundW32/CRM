@@ -205,9 +205,14 @@ gelöschte Datei ebenso (sonst wäre die Regel dort still abgeschaltet).
 ## Pflichtfelder markieren sich selbst
 
 Ein Feld mit `required` bekommt sein Sternchen **automatisch** — `globals.css` liest das
-Attribut aus und hängt es an die Beschriftung. Wer selbst ein `*` in ein Label schreibt,
-erzeugt einen doppelten Stern und eine Markierung, die beim nächsten Entfernen des
-`required` stehen bleibt.
+Attribut aus und hängt es an die Beschriftung. Wer daneben selbst ein `*` ins Label
+schreibt, erzeugt „Bezeichnung * *". Genau das stand nach Einführung der Regel auf drei
+Seiten und musste nachgezogen werden.
+
+**Ausnahme:** Ist ein Feld nur fachlich Pflicht, ohne `required` im HTML — etwa ein
+`<select>`, das ohnehin nie leer sein kann, oder ein verknüpftes `readOnly`-Feld —, darf
+der Stern von Hand im Label stehen. Für den Lesenden bedeutet er dasselbe. Nur beides
+zusammen geht nicht.
 
 Grund für den Weg über CSS statt über eine Prop: Es gibt weit über hundert Felder. Jedes
 einzeln zu markieren hieße, jedes einzeln anzufassen — und ein vergessenes Feld sähe

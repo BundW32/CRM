@@ -1,4 +1,5 @@
 import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { DateField } from "@/components/fields";
 import { PendingButton } from "@/components/pending-button";
 import { inputClass } from "@/components/ui";
 import {
@@ -451,16 +452,7 @@ function VollmachtVermerk({ u, zurueck }: { u: PersonMitBezug; zurueck: string }
         <input type="hidden" name="zurueck" value={zurueck} />
         <input type="hidden" name="id" value={u.id} />
         <div className="flex flex-wrap items-end gap-2">
-          <label className="text-[11px] text-gray-500">
-            Vollmacht vom
-            <input
-              type="date"
-              name="datum"
-              required
-              max={heute}
-              className={`${inputClass} mt-0.5 w-40`}
-            />
-          </label>
+          <DateField label="Vollmacht vom" name="datum" required max={heute} className="w-40" />
           <label className="flex-1 text-[11px] text-gray-500">
             Fundstelle (wo liegt das Original?)
             <input

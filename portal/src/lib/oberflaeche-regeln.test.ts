@@ -22,10 +22,10 @@ describe("Ausnahmeliste der Oberflächen-Regeln", () => {
   const eintraege: string[] = oberflaecheBestand.files;
 
   it("wird nur kürzer, nie länger", () => {
-    // Stand beim Einführen der Regeln. Diese Zahl darf beim Abbau des Bestands
-    // gesenkt werden – erhöht wird sie nicht. Wer eine neue Datei einträgt,
+    // Stand: 49 beim Einführen der Regeln, 37 nach der Welle „Stammdaten".
+    // Die Zahl wird mit jeder Welle gesenkt – erhöht wird sie nicht. Wer eine neue Datei einträgt,
     // umgeht die Regel; dann gehört stattdessen der Baustein benutzt.
-    expect(eintraege.length).toBeLessThanOrEqual(49);
+    expect(eintraege.length).toBeLessThanOrEqual(37);
   });
 
   it("enthält keine Einträge für Dateien, die es nicht mehr gibt", () => {

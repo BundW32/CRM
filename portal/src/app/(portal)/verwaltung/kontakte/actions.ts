@@ -60,7 +60,7 @@ export async function createCraftsman(formData: FormData) {
     notes: formData.get("notes") || undefined,
   });
   if (!parsed.success) {
-    redirect("/verwaltung/kontakte?fehler=eingabe");
+    redirect("/verwaltung/kontakte/neu?fehler=eingabe");
   }
 
   await db.craftsman.create({

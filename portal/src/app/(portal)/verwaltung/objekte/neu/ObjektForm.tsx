@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Card, Field, inputClass } from "@/components/ui";
+import { DateField } from "@/components/fields";
 import { SubmitButton } from "@/components/submit-button";
 import { createObjekt } from "./actions";
 import { extractObjektFields } from "./import-actions";
@@ -220,7 +221,7 @@ export function ObjektForm({
       {/* 1. Objektdaten */}
       <Card title="1. Objektdaten">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Bezeichnung *">
+          <Field label="Bezeichnung">
             <input
               type="text"
               name="name"
@@ -236,7 +237,7 @@ export function ObjektForm({
             // Selbstverwalter: fest WEG, keine Auswahl (Mietshaus nicht erlaubt).
             <input type="hidden" name="managementType" value="WEG" />
           ) : (
-            <Field label="Verwaltungsart *">
+            <Field label="Verwaltungsart">
               <select
                 name="managementType"
                 required
@@ -258,7 +259,7 @@ export function ObjektForm({
               </select>
             </Field>
           ) : null}
-          <Field label="Straße und Hausnummer *">
+          <Field label="Straße und Hausnummer">
             <input
               type="text"
               name="street"
@@ -269,7 +270,7 @@ export function ObjektForm({
               className={inputClass}
             />
           </Field>
-          <Field label="PLZ *">
+          <Field label="PLZ">
             <input
               type="text"
               name="zip"
@@ -281,7 +282,7 @@ export function ObjektForm({
               className={inputClass}
             />
           </Field>
-          <Field label="Ort *">
+          <Field label="Ort">
             <input
               type="text"
               name="city"
@@ -563,19 +564,16 @@ export function ObjektForm({
                         gesetzt — bei einer Gemeinschaft, die schon Jahre besteht,
                         ist das schlicht falsch. Leer = heute; nachtragen geht in
                         den WEG-Stammdaten. */}
-                    <Field label="Eigentümer seit (optional)">
-                      <input
-                        type="date"
-                        name="wegOwnerSince"
-                        value={o.since}
-                        onChange={(e) =>
-                          setOwners((rows) =>
-                            rows.map((r) => (r.key === o.key ? { ...r, since: e.target.value } : r))
-                          )
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
+                    <DateField
+                      label="Eigentümer seit (optional)"
+                      name="wegOwnerSince"
+                      value={o.since}
+                      onChange={(e) =>
+                        setOwners((rows) =>
+                          rows.map((r) => (r.key === o.key ? { ...r, since: e.target.value } : r))
+                        )
+                      }
+                    />
                   </div>
                   <PersonVorschlag
                     fieldName="wegOwnerUserId"

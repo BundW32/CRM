@@ -85,13 +85,13 @@ export default async function SonderumlagenPage({
           </p>
           <form action={createSonderumlage} className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="propertyId" value={property.id} />
-            <Field label="Titel *">
+            <Field label="Titel">
               <input name="title" required minLength={2} maxLength={160} className={inputClass} placeholder="z. B. Sonderumlage Dachsanierung" />
             </Field>
             <Field label="Zweck (optional)">
               <input name="purpose" maxLength={500} className={inputClass} placeholder="z. B. Erneuerung Dacheindeckung" />
             </Field>
-            <Field label="Gesamtbetrag (€) *">
+            <Field label="Gesamtbetrag (€)">
               <input name="amount" inputMode="decimal" required className={inputClass} placeholder="0,00" />
             </Field>
             <Field label="Umlageschlüssel *">
@@ -103,7 +103,7 @@ export default async function SonderumlagenPage({
                 ))}
               </select>
             </Field>
-            <Field label="Fällig am *">
+            <Field label="Fällig am">
               <input name="dueDate" type="date" required className={inputClass} />
             </Field>
             <Field label="Beschluss-Verweis (optional)">

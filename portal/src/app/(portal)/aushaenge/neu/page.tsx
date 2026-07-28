@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { stackTight } from "@/components/data-display";
+import { ComboField } from "@/components/combo-field";
 import { SelectField } from "@/components/fields";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -42,10 +43,11 @@ export default async function NeuerAushangPage({
       <div className="max-w-2xl">
         <Card>
           <form action={createAnnouncement} className={stackTight}>
-            <SelectField
+            <ComboField
               label="Objekt"
               name="propertyId"
               required
+              placeholder="Objekt suchen …"
               options={properties.map((p) => ({ value: p.id, label: p.name }))}
             />
             <SelectField

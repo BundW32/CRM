@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { stackTight } from "@/components/data-display";
-import { SelectField } from "@/components/fields";
+import { ComboField } from "@/components/combo-field";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
@@ -46,10 +46,11 @@ export default async function VersammlungAnlegenSeite({
       <div className="max-w-2xl">
         <Card>
           <form action={createMeeting} className={stackTight}>
-            <SelectField
+            <ComboField
               label="Objekt (WEG)"
               name="propertyId"
               required
+              placeholder="Objekt suchen …"
               options={properties.map((p) => ({ value: p.id, label: p.name }))}
             />
             <Field label="Titel">

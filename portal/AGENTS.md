@@ -189,6 +189,7 @@ Nachbau verbieten (`eslint.oberflaeche.mjs`, Fehler, keine Warnung):
 | Tabelle von Hand | `DataTable` — die entscheidende Spalte gehört nach vorn |
 | Kennzahl als `text-3xl` | `KeyFigure` / `KeyFigures`, in Kopfzeilen `InlineFigures` |
 | Abstände nach Gefühl | `stackTight` / `stack` / `stackLoose` — drei Stufen, keine acht |
+| Auswahlliste, die mit dem Bestand wächst | `ComboField` (`@/components/combo-field`) — tippbar |
 
 Die Regeln sind **eng** geschnitten: Sie treffen die Signatur des jeweiligen Bausteins,
 nicht jede entfernt ähnliche Klassenkette. Eine Regel, die auch Aufklapp-Menüs und
@@ -201,6 +202,27 @@ Bestand, der in Wellen umgestellt wird (`docs/PLAN-Design-Vereinheitlichung.md`)
 eine Datei umstellt, streicht sie dort. Wer eine neue einträgt, umgeht die Regel —
 `src/lib/oberflaeche-regeln.test.ts` schlägt dann fehl, und ein Eintrag für eine
 gelöschte Datei ebenso (sonst wäre die Regel dort still abgeschaltet).
+
+### Auswahllisten: ab wann tippbar
+
+Ein `<select>` ist richtig, solange die Liste **fachlich begrenzt** ist — Status, Kategorie,
+Gewerk, Sichtbarkeit. Sobald sie mit dem Bestand wächst (Objekte, Einheiten, Personen,
+Handwerker), gehört `ComboField` hin: Ein Verwalter mit achtzig Objekten scrollt sonst durch
+achtzig Zeilen, ohne „Kiefer" tippen zu können. Bei Objekt **und** Einheit zusammen nimmt man
+`PropertyUnitFields` — dort kommt die Kaskade und das Nachladen dazu.
+
+**Drei Fallen, alle drei schon zugeschlagen:**
+
+- **`tone="inForm"` nicht vergessen.** `Combobox` sieht ohne diese Angabe wie ein *Filter*feld
+  aus (weiche graue Füllung). Zwischen weiß gerahmten Eingabefeldern ist das ein Fremdkörper.
+  `ComboField` setzt es selbst; wer `Combobox` direkt in ein Formular baut, muss es angeben.
+- **`<input type="hidden" required>` prüft nichts.** Versteckte Felder sind von der
+  HTML-Prüfung ausgenommen — das `required` dort ist wirkungslos, und das Formular geht leer
+  ab. Ein Textfeld ohne Ausdehnung an derselben Stelle (`absolute h-0 w-0 opacity-0`) wird
+  dagegen geprüft und ist anspringbar, wie in `FileInput`.
+- **Das Prüffeld gehört ans Ende.** `Field` rendert ein `<label>`, und ein Klick darauf
+  fokussiert das **erste** Formularfeld darin. Stand das unsichtbare Prüffeld vorn, landete
+  der Fokus dort: Man klickte auf „Objekt", tippte — und nichts geschah.
 
 ## Pflichtfelder markieren sich selbst
 

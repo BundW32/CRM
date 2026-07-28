@@ -13,7 +13,7 @@
 // wird aber unsichtbar gemacht und von einem eigenen Knopf ausgelöst. Darunter
 // stehen die gewählten Dateien mit Name und Größe.
 
-import { useRef, useState } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { Paperclip, X } from "lucide-react";
 import { buttonSecondaryClass } from "@/components/ui";
 
@@ -33,8 +33,11 @@ export function FileInput({
   label = "Datei wählen",
   hint,
   id,
+  inputRef,
+  onFilesChange,
+  disabled = false,
 }: {
-  name: string;
+  name?: string;
   accept?: string;
   required?: boolean;
   multiple?: boolean;
@@ -44,13 +47,23 @@ export function FileInput({
   label?: string;
   hint?: string;
   id?: string;
+  /**
+   * Für Felder, deren Datei nicht per Formular, sondern im Code weiterverarbeitet
+   * wird (PDF-Import, Unterschrift-Zuschnitt). Ohne das mussten solche Stellen das
+   * native Feld selbst bauen – und zeigten dann wieder „No file chosen".
+   */
+  inputRef?: RefObject<HTMLInputElement | null>;
+  onFilesChange?: (files: FileList | null) => void;
+  disabled?: boolean;
 }) {
-  const ref = useRef<HTMLInputElement>(null);
+  const eigenerRef = useRef<HTMLInputElement>(null);
+  const ref = inputRef ?? eigenerRef;
   const [dateien, setDateien] = useState<{ name: string; size: number }[]>([]);
 
   function leeren() {
     if (ref.current) ref.current.value = "";
     setDateien([]);
+    onFilesChange?.(null);
   }
 
   return (
@@ -64,9 +77,10 @@ export function FileInput({
         required={required}
         multiple={multiple}
         capture={capture}
-        onChange={(e) =>
-          setDateien(Array.from(e.target.files ?? []).map((f) => ({ name: f.name, size: f.size })))
-        }
+        onChange={(e) => {
+          setDateien(Array.from(e.target.files ?? []).map((f) => ({ name: f.name, size: f.size })));
+          onFilesChange?.(e.target.files);
+        }}
         // Nicht `hidden` und nicht `display:none`: Ein so verstecktes Pflichtfeld
         // kann der Browser bei „Bitte Datei auswählen" nicht anspringen und meldet
         // in der Konsole einen nicht fokussierbaren Fehler. Ein Feld ohne Größe an
@@ -76,7 +90,12 @@ export function FileInput({
       />
 
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => ref.current?.click()} className={buttonSecondaryClass}>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => ref.current?.click()}
+          className={buttonSecondaryClass}
+        >
           <Paperclip className="h-4 w-4 shrink-0" />
           {label}
         </button>

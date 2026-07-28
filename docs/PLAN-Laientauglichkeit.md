@@ -108,11 +108,34 @@ Der billigste echte Gewinn, unabhängig von allem anderen.
 - Durchgang durch die `FEHLER_TEXTE`-Verzeichnisse der WEG-Seiten: Jede Meldung
   sagt **was fehlt, wo es steht und wie man hinkommt** — mit Link.
 - Vorher/nachher: „Die Verteilung ist nicht möglich." → „Bei WE 03 fehlt die
-  Wohnfläche. In den Stammdaten nachtragen." + Link auf den Anker.
+  Wohnfläche. In den Stammdaten nachtragen." + Link.
 - `PositionNichtVerteilbar` und `benoetigtesFeld` liefern die Daten dafür
   bereits — sie werden heute nur nicht bis in den Text durchgereicht.
 - Test wie `flash.test.ts`: Jede Meldung, die auf ein Feld verweist, muss einen
   Link tragen.
+
+#### Der Link muss die Zeile treffen, nicht die Seite
+
+Heute gibt es **nur Abschnittsanker**: `#einheiten`, `#eigentuemer`, `#konten`,
+`#kostenarten`, `#objekt-einstellungen`. Ein Link führt also zur richtigen
+Karte — und dann sucht man in einer Tabelle mit zwanzig Einheiten weiter. Auf
+der Stammdatenseite ist genau das der Normalfall.
+
+Drei Stufen, alle drei gehören zu LP2:
+
+1. **Zeilenanker.** Jede Einheiten-, Konten- und Kostenartenzeile bekommt ein
+   `id={`einheit-${u.id}`}`. Der Link zeigt dann auf die Zeile, nicht auf die
+   Karte.
+2. **Sichtbare Markierung.** `:target` in `globals.css` hebt die angesprungene
+   Zeile kurz hervor. Ohne das landet man zwar richtig, sieht es aber nicht —
+   besonders, wenn die Zeile am oberen Rand klebt.
+3. **Fokus auf das fehlende Feld.** Wo die Meldung ein bestimmtes Feld nennt
+   („Wohnfläche fehlt"), zeigt der Anker auf das Feld selbst und setzt den
+   Fokus dorthin. Dann steht der Cursor da, wo getippt werden muss.
+
+Grenze, die dazugehört: Ein Anker trägt eine ID aus der Datenbank. Wird die
+Einheit gelöscht, führt der Link ins Leere — der Browser bleibt dann oben auf
+der Seite stehen. Das ist der harmlose Ausgang und braucht keine Sonderbehandlung.
 
 ### LP3 — Glossar an Ort und Stelle
 
@@ -209,19 +232,24 @@ Drei Wissensquellen, in dieser Reihenfolge des Aufwands:
 | LP3 Glossar | klein | LP1 | nein |
 | LP5 Verankerung | klein | — | nein, aber mit ihm absprechen |
 | LP4 Tour-Mechanik | mittel | LP5 | nein |
-| LP6 Tour-Inhalte | mittel | LP4, LP5 | **ja** |
-| LP7 Assistent | groß | LP3 | ja |
+| LP6 Tour-Inhalte | mittel | LP4, LP5 | ~~ja~~ **nein, siehe unten** |
+| LP7 Assistent | groß | LP3 | nein |
 
-**Der Schnitt liegt bei LP6.** Alles davor ist unabhängig von den
-Design-Wellen 3 und 4 und kann sofort laufen. Die Tour-Inhalte zeigen auf
-Seiten, die der andere Account gerade umbaut — sie werden zweimal gebaut, wenn
-sie zu früh kommen.
+**Der Schnitt ist entfallen (Stand 28.07.2026).** Die Design-Vereinheitlichung
+ist mit PR #45 abgeschlossen: Stufe 4 ist durch, die WEG-Finanzseiten sind
+umgestellt, und die Ausnahmeliste in `eslint.oberflaeche.mjs` steht auf **null**
+Einträgen. Damit steht die Oberfläche still genug für eine Führung, die auf sie
+zeigt — alle sieben Pakete können hintereinander weg laufen.
 
 ---
 
-## Zu LP5: was mit dem anderen Account abzusprechen ist
+## Zu LP5: Abstimmung nicht mehr nötig
 
-Die `data-tour`-Marker sind zusätzliche Attribute, keine Umbauten — sie stören
-seine Wellen nicht. Aber sie stehen in `app-nav.ts` und `app-shell.tsx`, also
-in *seinen* Dateien. Sinnvoll wäre: Er nimmt sie in Welle 3 gleich mit, wenn er
-diese Dateien ohnehin anfasst. Kostet ihn Minuten und uns einen Rebase weniger.
+Ursprünglich stand hier die Bitte, die `data-tour`-Marker in seiner Welle 3
+mitzunehmen. Erledigt sich: Seine Stufe 4 ist abgeschlossen, `app-nav.ts` und
+`app-shell.tsx` sind fertig umgestellt. Die Marker kommen jetzt hier dazu —
+zusätzliche Attribute, die niemandem im Weg stehen.
+
+Was bleibt: **Die Marker sind ab sofort Vertragsfläche.** Wer eine Seite umbaut
+und einen `data-tour`-Marker entfernt, bricht die Führung. Der Test aus LP5
+fängt das ab, damit es nicht erst dem Nutzer auffällt.

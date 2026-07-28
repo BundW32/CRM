@@ -88,6 +88,23 @@ export class PositionNichtVerteilbar extends Error {
   }
 }
 
+/**
+ * Welche Einheiten das genannte Feld nicht haben.
+ *
+ * `PositionNichtVerteilbar` sagt bisher nur, *welches* Feld fehlt — nicht, bei
+ * wem. Für die Fehlermeldung ist genau das der Unterschied zwischen „Die
+ * Verteilung ist nicht möglich" und „Bei WE 03 fehlt die Wohnfläche": Das eine
+ * lässt den Nutzer suchen, das andere schickt ihn hin.
+ */
+export function einheitenOhneFeld<T extends UnitForDistribution>(
+  units: T[],
+  feld: "flaeche" | "personen" | "mea",
+): T[] {
+  const wert = (u: UnitForDistribution) =>
+    feld === "flaeche" ? u.livingArea : feld === "personen" ? u.personCount : u.mea;
+  return units.filter((u) => wert(u) == null);
+}
+
 /** Welches Feld ein Schlüssel braucht – für die Fehlermeldung und die Vorprüfung. */
 export function benoetigtesFeld(key: DistributionKey): "flaeche" | "personen" | "mea" | null {
   if (key === "FLAECHE") return "flaeche";

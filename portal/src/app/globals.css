@@ -347,6 +347,40 @@ summary:focus-visible,
   }
 }
 
+/* Angesprungene Stelle kurz hervorheben.
+ *
+ * Eine Fehlermeldung verlinkt auf die Zeile, in der etwas fehlt („bei WE 03
+ * fehlt die Wohnfläche"). Ohne Markierung landet man zwar an der richtigen
+ * Stelle, sieht das aber nicht – besonders, wenn die Zeile oben am Rand klebt
+ * oder die Tabelle zwanzig gleich aussehende Zeilen hat.
+ *
+ * Bewusst kurz und ohne Farbwechsel des Textes: Der Hinweis soll den Blick
+ * führen, nicht dauerhaft etwas markieren, das gleich korrigiert wird. */
+:target {
+  animation: ziel-hervorheben 2.4s ease-out 1;
+}
+
+@keyframes ziel-hervorheben {
+  0%, 55% {
+    background-color: rgb(254 243 199); /* amber-100 */
+    box-shadow: inset 3px 0 0 rgb(245 158 11); /* amber-500 */
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 3px 0 0 transparent;
+  }
+}
+
+/* Reduzierte Bewegung: statt der Animation eine ruhige, bleibende Markierung –
+ * die Information darf nicht verlorengehen, nur weil jemand Bewegung abstellt. */
+@media (prefers-reduced-motion: reduce) {
+  :target {
+    animation: none;
+    background-color: rgb(254 243 199);
+    box-shadow: inset 3px 0 0 rgb(245 158 11);
+  }
+}
+
 /* Reduzierte Bewegung – Animationen respektvoll deaktivieren */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

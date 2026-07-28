@@ -996,3 +996,43 @@ Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP1).
 An echten Daten geprüft: Schalter vorbelegt an; ausgeschaltet verschwinden die
 Erklärungen auf Stammdaten und Wirtschaftsplan-Detail, Warnungen und
 Rückstandshinweise bleiben; wieder eingeschaltet sind sie zurück.
+
+## Schritt 32 — LP2: Fehlermeldungen führen ans Ziel (28.07.2026)
+
+Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP2).
+
+166. **„Die Verteilung ist nicht möglich" ließ den Nutzer suchen.** Die Meldung
+     nennt jetzt die betroffene Einheit beim Namen: „Der Miteigentumsanteil
+     (MEA) fehlt bei WE 03." Die Daten dafür lagen bereits vor —
+     `PositionNichtVerteilbar` kennt das Feld, `einheitenOhneFeld` liefert die
+     Einheiten dazu.
+167. **Zeilenanker statt Abschnittsanker.** Bisher gab es fünf Sprungziele, alle
+     auf Kartenebene. Bei zwanzig Einheiten landet man damit richtig und sucht
+     trotzdem weiter. Jede Einheit, Kostenart und jedes Konto hat jetzt ein
+     eigenes Ziel. **Eigener Namensraum (`zeile-…`), weil `einheit-…` bereits
+     die Formular-ID dieser Zeile ist** — zwei gleiche IDs hätten den
+     `form`-Verweis mehrdeutig gemacht.
+168. **Die angesprungene Zeile hebt sich kurz hervor** (`:target` in
+     `globals.css`). Ohne Markierung landet man richtig und sieht es nicht,
+     besonders bei zwanzig gleich aussehenden Zeilen. Bei `prefers-reduced-motion`
+     bleibt die Markierung stehen statt zu verblassen — die Information darf
+     nicht verlorengehen, nur weil jemand Bewegung abstellt.
+169. **Der Ankersprung funktionierte überhaupt nicht zuverlässig — und zwar
+     schon vorher.** Gemessen: In zwei von drei Aufrufen blieb die Seite oben
+     stehen. Die naheliegende Erklärung („das Ziel gibt es noch nicht") war
+     falsch; das Ziel war da. **Die Seite war noch nicht hoch genug:** Next
+     liefert gestreamt aus, und solange der Teil unterhalb fehlt, gibt es
+     nichts zu scrollen. `scrollIntoView` läuft dann folgenlos durch.
+170. **`HashScroll` wiederholt den Sprung, bis er sitzt** — Bild für Bild,
+     längstens anderthalb Sekunden, Abbruch sobald der Nutzer selbst scrollt.
+     Ein erster Entwurf versuchte es nur zwanzig Bilder lang und machte es
+     dadurch **schlechter** als vorher (0 von 5 statt 1 von 3). Nach dem Umbau:
+     5 von 5. Das betrifft alle Anker, auch die vorhandenen
+     `?flash=gespeichert#einheiten`-Rücksprünge.
+171. **`fehlermeldungen.test.ts` hält es fest:** Kein Text darf auf die
+     Stammdaten verweisen, ohne dorthin zu verlinken. Der Wächter fand sofort
+     eine Fundstelle (Sonderumlagen) — genau dafür ist er da.
+
+An echten Daten geprüft (MEA bei WE 03 entfernt): Die Meldung nennt WE 03, der
+Link zeigt auf `#zeile-<id>`, das Ziel steht nach dem Sprung 96 px unter dem
+Rand (die `scroll-mt-24`-Marge), die Hervorhebung greift — fünf von fünf Läufen.

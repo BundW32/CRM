@@ -404,7 +404,7 @@ export default async function HausgeldPage({
             : sp.fehler === "entwurfoffen"
               ? "Für diese Einheit liegt bereits ein unversendeter Entwurf vor."
               : sp.fehler === "keineigentuemer"
-                ? "Für diese Einheit ist kein Eigentümer erfasst — bitte in den Stammdaten zuordnen."
+                ? "Für diese Einheit ist kein Eigentümer erfasst — ohne ihn gibt es keinen Empfänger für die Mahnung."
                 : sp.fehler === "versendet"
                   ? "Versendete Schreiben bleiben als Nachweis erhalten und können nicht gelöscht werden."
                   : sp.fehler === "stichtag"
@@ -420,6 +420,20 @@ export default async function HausgeldPage({
                             : sp.fehler === "keineforderung"
                               ? "Für diese Einheit ist keine fällige Forderung offen. Eine Vorauszahlung bleibt bewusst als Guthaben stehen."
                               : "Die Eingabe konnte nicht gespeichert werden."}
+          {/* Wer auf fehlende Stammdaten hinweist, führt auch hin. */}
+          {sp.fehler === "stammdaten" || sp.fehler === "keineigentuemer" ? (
+            <>
+              {" "}
+              <Link
+                href={`/verwaltung/weg/${property.id}/stammdaten#${
+                  sp.fehler === "keineigentuemer" ? "eigentuemer" : "einheiten"
+                }`}
+                className="underline"
+              >
+                Zu den Stammdaten
+              </Link>
+            </>
+          ) : null}
         </Alert>
       ) : null}
 

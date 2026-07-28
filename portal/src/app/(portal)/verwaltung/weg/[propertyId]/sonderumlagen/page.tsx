@@ -40,7 +40,7 @@ export default async function SonderumlagenPage({
     datum: "Das Fälligkeitsdatum konnte nicht gelesen werden.",
     einheiten: "Dieses Objekt hat keine Einheiten.",
     stammdaten:
-      "Die Verteilung ist nicht möglich — bitte in den Stammdaten die nötigen Angaben (z. B. MEA/Fläche/Personen) vervollständigen.",
+      "Die Verteilung ist nicht möglich — bei mindestens einer Einheit fehlen MEA, Wohnfläche oder Personenzahl.",
     nichtgefunden: "Sonderumlage nicht gefunden.",
   };
 
@@ -73,6 +73,15 @@ export default async function SonderumlagenPage({
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">
           {FEHLER[sp.fehler] ?? "Die Eingabe konnte nicht gespeichert werden."}
+          {/* Wer auf fehlende Stammdaten hinweist, führt auch hin. */}
+          {sp.fehler === "stammdaten" ? (
+            <>
+              {" "}
+              <Link href={`/verwaltung/weg/${property.id}/stammdaten#einheiten`} className="underline">
+                Zu den Einheiten
+              </Link>
+            </>
+          ) : null}
         </Alert>
       ) : null}
 

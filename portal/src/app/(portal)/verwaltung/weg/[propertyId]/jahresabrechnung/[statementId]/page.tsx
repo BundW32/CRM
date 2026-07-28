@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
@@ -9,6 +10,7 @@ import { distributionKeyLabels, formatDateOnly, ledgerAccountKindLabels } from "
 import { formatCents } from "@/lib/money";
 import { MANUAL_KEYS } from "@/lib/weg/annual-statement";
 import { computeStatementView, type StatementView } from "@/lib/weg/statement-service";
+import { einheitenOhneFeld } from "@/lib/weg/economic-plan";
 import { requireWegProperty } from "@/lib/weg/scope";
 import {
   deleteStatement,
@@ -39,7 +41,7 @@ const FEHLER_TEXTE: Record<string, string> = {
   heizanteil:
     "Der Verbrauchsanteil muss zwischen 50 und 70 Prozent liegen (§§ 7, 8 HeizkostenV). Der Rest wird als Grundkosten nach Wohnfläche verteilt.",
   flaeche:
-    "Für die Grundkosten fehlt bei mindestens einer Einheit die Wohnfläche. Bitte in den Stammdaten nachtragen.",
+    "Für die Grundkosten (HeizkostenV) wird die Wohnfläche gebraucht — sie fehlt noch.",
   keinekosten: "Für diese Kostenart sind im Wirtschaftsjahr keine Ausgaben gebucht.",
   keinverbrauch:
     "Keine Zählerstände für diese Art gefunden — bitte Einzelzähler und Ablesungen erfassen.",
@@ -99,7 +101,9 @@ export default async function JahresabrechnungDetailPage({
     db.unit.findMany({
       where: { propertyId: property.id },
       orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
-      select: { id: true, label: true },
+      // `livingArea` für die Fehlermeldung: Fehlt sie, nennt die Meldung die
+      // betroffene Einheit beim Namen statt „mindestens einer Einheit".
+      select: { id: true, label: true, livingArea: true },
     }),
     db.statementUnitAmount.findMany({ where: { statementId: statement.id } }),
     db.statementAccountCheck.findMany({ where: { statementId: statement.id } }),
@@ -111,6 +115,12 @@ export default async function JahresabrechnungDetailPage({
     manualByCostType.set(row.costTypeId, inner);
   }
   const reportedByAccount = new Map(checks.map((c) => [c.accountId, c.reportedEndCents]));
+
+  // Einheiten ohne Wohnfläche — Grundlage der Fehlermeldung oben.
+  const ohneFlaeche = einheitenOhneFeld(
+    units.map((u) => ({ ...u, mea: null, personCount: null })),
+    "flaeche",
+  );
 
   const manualPending = view.rows.filter(
     (r) => MANUAL_KEYS.includes(r.distributionKey) && r.totalCents > 0,
@@ -157,6 +167,23 @@ Muster — ersetzt keine Rechtsberatung.`;
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">
           {FEHLER_TEXTE[sp.fehler] ?? "Die Eingabe konnte nicht gespeichert werden."}
+          {/* Eine Meldung, die auf fehlende Stammdaten zeigt, führt auch hin —
+              und zwar auf die Zeile, nicht nur auf die Seite. */}
+          {sp.fehler === "flaeche" ? (
+            <>
+              {ohneFlaeche.length > 0
+                ? ` Betroffen: ${ohneFlaeche.map((u) => u.label).join(", ")}.`
+                : ""}{" "}
+              <Link
+                href={`/verwaltung/weg/${property.id}/stammdaten#${
+                  ohneFlaeche[0] ? `zeile-${ohneFlaeche[0].id}` : "einheiten"
+                }`}
+                className="underline"
+              >
+                Jetzt nachtragen
+              </Link>
+            </>
+          ) : null}
         </Alert>
       ) : null}
       {sp.importiert !== undefined ? (

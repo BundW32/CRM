@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { InstallHint } from "@/components/install-hint";
 import { NavProgress } from "@/components/nav-progress";
 import { NumericAutoselect } from "@/components/numeric-autoselect";
+import { HashScroll } from "@/components/hash-scroll";
 import { PageTransition } from "@/components/page-transition";
 import { ToastHost } from "@/components/toast-host";
 import { AppShell } from "@/components/app-shell";
@@ -143,6 +144,10 @@ export default async function PortalLayout({
               titel={setup.naechster?.title ?? null}
             />
           ) : null}
+          {/* Holt den Ankersprung nach, den der Browser beim gestreamten
+              Erstaufruf verpasst — sonst führen Fehlermeldungen zwar auf die
+              richtige Seite, aber nicht an die Stelle. */}
+          <HashScroll />
           <PageTransition>{children}</PageTransition>
         </AppShell>
       </main>

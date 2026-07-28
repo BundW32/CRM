@@ -1,6 +1,6 @@
 # Plan: Werbevideo für die Startseite (Selbstverwalter-WEG)
 
-Stand: 27.07.2026 · Fassung 2 · **Noch nichts gebaut.**
+Stand: 27.07.2026 · Fassung 3 · Vorschau gebaut (`video/`), Endfassung offen.
 
 Zielbild: ein stummes Hero-Video für die öffentliche Startseite der
 WEG-SaaS-Variante (`APP_MODE=weg`). Echte Aufnahmen aus der laufenden App,
@@ -34,6 +34,43 @@ entstehen — ihr Zweck ist der Beweis der Technik, nicht das Bild. Was sie zeig
 ist Wegwerfware; was sie baut, bleibt.
 
 ---
+
+## 0.5 · Die Landingpage — Korrektur
+
+Die richtige Landingpage liegt auf **`claude/eigentumsverwaltung-overview-page-bvd4fj`**
+(nicht auf `claude/marketing-landing-page-animation-hz2tin`, den eine frühere
+Fassung dieses Plans fälschlich beurteilt hat).
+
+Diese Seite spricht **genau die richtige Zielgruppe** an, sogar schärfer als die
+Analyse in Abschnitt 1:
+
+- Titel: „Keine Hausverwaltung gefunden? Verwalten Sie Ihre WEG selbst."
+- Problemaufriss: Verwalter nehmen WEGs mit 2–10 Einheiten nicht mehr an, die
+  Pflichten aus dem WEG-Gesetz bleiben trotzdem, Excel und Aktenordner reichen nicht.
+- Funktionen mit Paragraphenbezug (§ 28 WEG, § 35a), Unterseiten unter
+  `/funktionen/*`, dazu `/so-funktionierts`.
+- Fotostrecken, Ken-Burns-Heros, eine Zahlenleiste — und `ScrollyBuild`, ein
+  scrollgesteuerter Aufbau der WEG in fünf Stufen.
+
+**Folge für das Video — wichtig:** Die Seite erzählt den Aufbau *bereits*
+Schritt für Schritt. Ein Video, das dieselbe Reihenfolge noch einmal abspielt,
+wäre eine Dopplung mit anderen Mitteln. Das Video muss deshalb genau das tun,
+was die Scrolly-Szene nicht kann:
+
+1. **Die echte Software in Bewegung zeigen.** Die Scrolly-Szene ist bewusst
+   illustriert („kein Video", steht so im Quelltext) — sie zeigt ein gezeichnetes
+   Haus, kein Produkt. Der Beweis, dass es die Software wirklich gibt und dass
+   sie gut aussieht, fehlt der Seite komplett.
+2. **Den KI-Moment mit Quellenangabe.** Statisch nicht darstellbar.
+
+Damit ändert sich der Schnittplan in Abschnitt 3 nicht grundlegend, aber seine
+Begründung: Die Szenen 3–7 sind nicht der Erklärbogen der Seite, sondern ihr
+Beleg. Kürzer und dichter als geplant ist deshalb besser.
+
+**Ein Hinweis zum Seitentext, keine Forderung:** Der Hero verspricht,
+die WEG „rechtssicher selbst zu verwalten". Das ist eine Zusage, für die der
+Betreiber haftet — im Video wird sie bewusst nicht wiederholt (Abschnitt 1).
+Ob sie auf der Seite bleibt, ist eine Entscheidung des Betreibers.
 
 ## 1 · Zielgruppe und Botschaft
 
@@ -301,7 +338,7 @@ einfach neu ausgeführt.
 | Offene Branches mergen, Design einfrieren | **blockiert die Endfassung**, nicht die Vorschau |
 | Schnittplan (Abschnitt 3) freigeben | offen |
 | `GEMINI_API_KEY` für Szene 8 | angeboten, noch nicht da |
-| Landingpage-Integration (`page.tsx:19` ist Platzhalter) | ausdrücklich **nicht** Teil dieses Plans |
+| Landingpage-Branch `claude/eigentumsverwaltung-overview-page-bvd4fj` mergen | Sache des Betreibers, **nicht** Teil dieses Plans |
 
 ## 9 · Grenzen
 

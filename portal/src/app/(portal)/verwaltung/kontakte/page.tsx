@@ -1,4 +1,12 @@
-import { Alert, EmptyState, PageTitle, Pagination } from "@/components/ui";
+import {
+  Alert,
+  EmptyState,
+  PageTitle,
+  Pagination,
+  buttonClass,
+  cardSurfaceClass,
+} from "@/components/ui";
+import Link from "next/link";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import {
   ADDRESS_BOOK_KINDS,
@@ -8,10 +16,7 @@ import {
 } from "@/lib/address-book";
 import { contactKindLabels, roleLabels } from "@/lib/labels";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list-query";
-import { getOrganization, requireVerwalter } from "@/lib/session";
-import { isSelfManaged, propertyWhereForVerwalter } from "@/lib/access";
-import { db } from "@/lib/db";
-import { KontaktAnlegen } from "./KontaktAnlegen";
+import { requireVerwalter } from "@/lib/session";
 import { KontaktZeile } from "./KontaktZeile";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +46,6 @@ export default async function KontaktePage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const verwalter = await requireVerwalter();
-  const selfManaged = isSelfManaged(await getOrganization());
   const params = await searchParams;
   const { fehler } = params;
 
@@ -60,14 +64,6 @@ export default async function KontaktePage({
     sort: sort.key,
     dir: sort.dir,
   });
-  // Objektliste für das Anlegen einer Person mit Zugang (Mieter/Eigentümer-Zuordnung).
-  const propsForNewUser = (
-    await db.property.findMany({
-      where: await propertyWhereForVerwalter(verwalter),
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    })
-  ).map((p) => ({ id: p.id, name: p.name }));
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasFilter = Boolean(q || kind || mandate);
@@ -98,7 +94,15 @@ export default async function KontaktePage({
 
   return (
     <>
-      <PageTitle>Kontakte</PageTitle>
+      <PageTitle
+        action={
+          <Link href="/verwaltung/kontakte/neu" className={buttonClass}>
+            Kontakt anlegen
+          </Link>
+        }
+      >
+        Kontakte
+      </PageTitle>
 
       {/* Erfolg meldet der ToastHost (`?flash=…`) – er erscheint auch dann,
           wenn die Aktion von einer anderen Seite zurückspringt. Fehler bleiben
@@ -111,8 +115,8 @@ export default async function KontaktePage({
         </Alert>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div>
+        <div>
           <FilterBar
             searchPlaceholder="Suchen"
             searchHint="Nach Name, Firma, E-Mail oder Telefon suchen"
@@ -134,7 +138,7 @@ export default async function KontaktePage({
                 : "Noch keine Kontakte – rechts können Sie den ersten anlegen."}
             </EmptyState>
           ) : (
-            <div className="mt-2 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className={`mt-2 overflow-hidden ${cardSurfaceClass}`}>
               <ul className="divide-y divide-gray-100">
                 {entries.map((e) => (
                   <KontaktZeile key={`${e.source}-${e.id}`} entry={e} />
@@ -151,15 +155,6 @@ export default async function KontaktePage({
           />
         </div>
 
-        {/* Ein Formular, eine Weiche: Ganz oben steht die Art, alles Weitere
-            folgt daraus – auch, ob ein Portalzugang entsteht. */}
-        <div className="space-y-5">
-          <KontaktAnlegen
-            properties={propsForNewUser}
-            isSuperAdmin={verwalter.isSuperAdmin}
-            selfManaged={selfManaged}
-          />
-        </div>
       </div>
     </>
   );

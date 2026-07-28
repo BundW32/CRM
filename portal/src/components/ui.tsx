@@ -62,6 +62,12 @@ export const buttonDangerClass =
 export const buttonGhostClass =
   `${buttonBase} bg-transparent font-medium text-gray-600 hover:bg-gray-100 hover:text-brand-green active:shadow-none`;
 
+// Kompakte Größe für Buttons in dichten Listen und Tabellenzeilen. Wird an eine der
+// Button-Klassen ANGEHÄNGT, ersetzt sie nicht – damit Farbe und Verhalten gleich
+// bleiben und sich nur die Größe ändert. Die `!`-Modifier sind hier nötig, weil sonst
+// nicht die Reihenfolge im Klassen-Attribut entscheidet, sondern die im Stylesheet.
+export const buttonCompact = "!px-3 !py-1.5 !text-xs";
+
 // Icon-Button (quadratisch, flächenlos) – für Aktions-Icons in dichten Listen.
 // Als Klassen-String, damit er auf <button> UND <a>/<Link> passt. Wird mit einem
 // Lucide-Icon befüllt; bei Icon-only immer aria-label/title setzen.
@@ -128,6 +134,16 @@ export function PageTitle({
   );
 }
 
+// Die Kartenfläche als Klassen-String – ohne Innenabstand.
+//
+// `Card` setzt sie selbst; darüber hinaus braucht man sie an zwei Stellen, an denen
+// eine <div>-Karte nicht passt: bei einer anklickbaren Karte (dort steht ein <Link>)
+// und bei einem Listenrahmen, der seine Zeilen selbst abteilt und deshalb keinen
+// Innenabstand verträgt. Ohne diesen Export schrieben beide die vier Klassen ab –
+// und wichen beim nächsten Feinschliff voneinander ab.
+export const cardSurfaceClass =
+  "rounded-2xl border border-gray-200 bg-white shadow-sm";
+
 export function Card({
   title,
   id,
@@ -147,7 +163,7 @@ export function Card({
   return (
     <div
       id={id}
-      className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm${id ? " scroll-mt-6" : ""}`}
+      className={`${cardSurfaceClass} p-5${id ? " scroll-mt-6" : ""}`}
     >
       {title ? (
         <h2 className="mb-4 text-base font-semibold text-gray-900">{title}</h2>
@@ -163,19 +179,27 @@ export function Card({
 export function CollapsibleCard({
   title,
   defaultOpen = false,
+  id,
   children,
 }: {
   title: ReactNode;
   defaultOpen?: boolean;
+  /** Sprungziel für Rücksprünge nach einer Server-Action – wie bei `Card`. */
+  id?: string;
   children: ReactNode;
 }) {
   return (
     <details
+      id={id}
       open={defaultOpen}
-      className="group rounded-2xl border border-gray-200 bg-white shadow-sm"
+      // `data-collapsible` hängt die weiche Auf-/Zuklapp-Bewegung an (globals.css).
+      // Sie läuft rein über CSS; wo der Browser sie nicht kennt, klappt die Karte
+      // wie bisher sofort auf – ohne Ausfall, nur ohne Animation.
+      data-collapsible
+      className={`group ${cardSurfaceClass}${id ? " scroll-mt-6" : ""}`}
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-5 py-4 text-base font-semibold text-gray-900 marker:hidden [&::-webkit-details-marker]:hidden">
-        {title}
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-5 py-4 text-base font-semibold text-gray-900 marker:hidden [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0 flex-1">{title}</div>
         <ChevronDown className="h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180" />
       </summary>
       <div className="px-5 pb-5">{children}</div>

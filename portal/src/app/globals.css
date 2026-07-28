@@ -134,6 +134,61 @@
   }
 }
 
+/* Pflichtfelder markieren – automatisch, überall, ohne Zutun der Formulare.
+
+   Der Weg über eine Prop wäre hier der falsche: Es gibt weit über hundert
+   Formularfelder, jedes einzeln zu markieren hieße, jedes einzelne anzufassen –
+   und ein vergessenes Feld sähe danach freiwillig aus, obwohl es Pflicht ist.
+   Genau diese halbe Markierung war schon einmal da und musste zurückgenommen
+   werden.
+
+   Stattdessen liest das Stylesheet die Wahrheit direkt aus dem Formular: Trägt
+   ein `label` ein Feld mit `required`, bekommt seine Beschriftung ein Sternchen.
+   Neue Formulare sind damit von sich aus richtig markiert, und die Markierung
+   kann nicht mehr von der tatsächlichen Pflicht abweichen.
+
+   Bewusst rein visuell: Dass ein Feld Pflicht ist, sagt `required` dem
+   Screenreader ohnehin – ein zusätzlich vorgelesenes „Stern" wäre Lärm.
+
+   Absichtlich Nachfahre statt direktes Kind: Manche Felder stecken zur
+   Ausrichtung noch in einem `div`. Getroffen wird immer nur die erste
+   Beschriftungszeile des `label`. */
+label:has(input[required], select[required], textarea[required])
+  > span:first-child::after {
+  content: " *";
+  color: var(--color-brand-orange-ink);
+}
+
+/* Ausklappbare Karten (`CollapsibleCard`): weiches Auf- und Zuklappen.
+   Natives <details> springt sonst hart auf – bei einer Liste laufender
+   Abstimmungen verliert man dabei die Stelle, an der man gerade war.
+
+   `interpolate-size` erlaubt den Übergang von 0 auf `auto`; ohne die Zeile
+   ließe sich eine unbekannte Höhe nicht animieren. `content-visibility` muss
+   mitlaufen (`allow-discrete`), sonst verschwindet der Inhalt beim Zuklappen
+   sofort und nur der leere Rahmen fährt zusammen.
+
+   Kennt ein Browser `::details-content` nicht, greift schlicht nichts davon:
+   Die Karte klappt wie bisher unmittelbar auf. Kein Ausfall, nur ohne Bewegung. */
+:root {
+  interpolate-size: allow-keywords;
+}
+
+[data-collapsible]::details-content {
+  block-size: 0;
+  overflow: hidden;
+  /* Gleichmäßige Kurve, bewusst nicht die stark vorgezogene der Leiste: Gemessen
+     war die Karte nach einem Sechstel der Zeit schon zu drei Vierteln offen – das
+     liest sich als Sprung mit Nachlauf, nicht als Bewegung. */
+  transition:
+    block-size 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    content-visibility 260ms allow-discrete;
+}
+
+[data-collapsible][open]::details-content {
+  block-size: auto;
+}
+
 /* Off-Canvas-Bereichsliste (Verwaltung, mobil): von links einschieben. */
 @keyframes drawerIn {
   from { transform: translateX(-100%); }

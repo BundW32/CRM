@@ -2,7 +2,16 @@ import Link from "next/link";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { redirect } from "next/navigation";
-import { Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import {
+  Alert,
+  Card,
+  EmptyState,
+  Field,
+  PageTitle,
+  buttonSecondaryClass,
+  inputClass,
+} from "@/components/ui";
+import { DateField } from "@/components/fields";
 import { SubmitButton } from "@/components/submit-button";
 import { AddPersonForm } from "./AddPersonForm";
 import { canVerwalterAccessProperty } from "@/lib/access";
@@ -82,12 +91,12 @@ function TenancyContract({
           <Field label="Kaution (€)">
             <input name="deposit" inputMode="decimal" defaultValue={centsToInput(t.depositCents)} className={inputClass} placeholder="z. B. 1.440,00" />
           </Field>
-          <Field label="Mietbeginn">
-            <input type="date" name="startDate" defaultValue={dateInput(t.startDate)} className={inputClass} />
-          </Field>
-          <Field label="Mietende (optional)">
-            <input type="date" name="endDate" defaultValue={dateInput(t.endDate)} className={inputClass} />
-          </Field>
+          <DateField label="Mietbeginn" name="startDate" defaultValue={dateInput(t.startDate)} />
+          <DateField
+            label="Mietende (optional)"
+            name="endDate"
+            defaultValue={dateInput(t.endDate)}
+          />
         </div>
         <div>
           {t.contractStoredName ? (
@@ -255,7 +264,7 @@ export default async function ObjektBearbeitenPage({
 
         <Card title="Objektdaten">
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Bezeichnung *">
+            <Field label="Bezeichnung">
               <input
                 type="text"
                 name="name"
@@ -273,14 +282,14 @@ export default async function ObjektBearbeitenPage({
                 className={`${inputClass} cursor-not-allowed bg-gray-100 text-gray-500`}
               />
             </Field>
-            <Field label="Straße und Hausnummer *">
+            <Field label="Straße und Hausnummer">
               <input type="text" name="street" required minLength={2} defaultValue={p.street} className={inputClass} />
             </Field>
             <div className="grid grid-cols-[1fr_2fr] gap-3">
-              <Field label="PLZ *">
+              <Field label="PLZ">
                 <input type="text" name="zip" required minLength={4} defaultValue={p.zip} className={inputClass} />
               </Field>
-              <Field label="Ort *">
+              <Field label="Ort">
                 <input type="text" name="city" required minLength={2} defaultValue={p.city} className={inputClass} />
               </Field>
             </div>
@@ -387,11 +396,11 @@ export default async function ObjektBearbeitenPage({
                 u._count.documents + u._count.meters;
               const deletable = dependents === 0;
               return (
-                <div key={u.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <Card key={u.id}>
                   <form action={updateUnit} className="space-y-3">
                     <input type="hidden" name="unitId" value={u.id} />
                     <div className={`grid gap-3 sm:grid-cols-2 ${isWeg ? "lg:grid-cols-3" : ""}`}>
-                      <Field label="Bezeichnung (intern) *">
+                      <Field label="Bezeichnung (intern)">
                         <input type="text" name="label" required defaultValue={u.label} className={inputClass} placeholder="z. B. WE 01" />
                       </Field>
                       <Field label="Externe Bezeichnung / Lage">
@@ -474,7 +483,7 @@ export default async function ObjektBearbeitenPage({
                       </p>
                     )}
                   </div>
-                </div>
+                </Card>
               );
             })
           )}
@@ -485,7 +494,7 @@ export default async function ObjektBearbeitenPage({
           <form action={addUnit} className="space-y-3">
             <input type="hidden" name="propertyId" value={p.id} />
             <div className={`grid gap-3 sm:grid-cols-2 ${isWeg ? "lg:grid-cols-3" : ""}`}>
-              <Field label="Bezeichnung (intern) *">
+              <Field label="Bezeichnung (intern)">
                 <input type="text" name="label" required className={inputClass} placeholder="z. B. WE 02" />
               </Field>
               <Field label="Externe Bezeichnung / Lage">
@@ -550,7 +559,7 @@ export default async function ObjektBearbeitenPage({
             jederzeit reaktivierbar. Endgültiges Löschen ist nur bei komplett leeren Objekten
             möglich (z. B. Testeinträge).
           </p>
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <Card>
             <div className="flex flex-wrap items-center gap-3">
               {p.active ? (
                 <form action={archiveProperty}>
@@ -584,7 +593,7 @@ export default async function ObjektBearbeitenPage({
               Löschen funktioniert nur, wenn dem Objekt keine Einheiten, Vorgänge, Dokumente,
               Eigentümer oder Finanzdaten mehr zugeordnet sind.
             </p>
-          </div>
+          </Card>
         </div>
       ) : null}
     </>

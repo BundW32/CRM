@@ -1,24 +1,26 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { PendingButton } from "@/components/pending-button";
+import Link from "next/link";
 import {
   Pagination,
   Alert,
   Card,
   EmptyState,
-  Field,
   PageTitle,
   buttonClass,
-  inputClass,
+  buttonCompact,
+  buttonSecondaryClass,
 } from "@/components/ui";
+import { Badge } from "@/components/data-display";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
-import { announcementWhereForUser, propertyWhereForVerwalter } from "@/lib/access";
+import { announcementWhereForUser } from "@/lib/access";
 import { db } from "@/lib/db";
-import { audienceLabels, formatDate } from "@/lib/labels";
+import { audienceLabels, formatDateOnly } from "@/lib/labels";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
-import { acknowledgeAnnouncement, createAnnouncement, deleteAnnouncement } from "./actions";
+import { acknowledgeAnnouncement, deleteAnnouncement } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -73,13 +75,6 @@ export default async function AushaengePage({
     take: PAGE_SIZE,
     include: { property: true, acknowledgements: { include: { user: true } } },
   });
-  const properties = isVerwalter
-    ? await db.property.findMany({
-        where: await propertyWhereForVerwalter(user),
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-      })
-    : [];
 
   const pageHref = pageHrefFor(`/aushaenge`, sp);
 
@@ -97,7 +92,17 @@ export default async function AushaengePage({
 
   return (
     <>
-      <PageTitle>Aushänge</PageTitle>
+      <PageTitle
+        action={
+          isVerwalter ? (
+            <Link href="/aushaenge/neu" className={buttonClass}>
+              Neuer Aushang
+            </Link>
+          ) : null
+        }
+      >
+        Aushänge
+      </PageTitle>
 
       {fehler ? (
         <Alert variant="error" className="mb-4">
@@ -105,9 +110,8 @@ export default async function AushaengePage({
         </Alert>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          <div>
+      <div className="space-y-4">
+        <div>
             <FilterBar
               searchPlaceholder="Suchen"
               searchHint="Nach Titel oder Text suchen"
@@ -138,16 +142,20 @@ export default async function AushaengePage({
                   <div>
                     <h2 className="text-base font-semibold text-gray-900">{a.title}</h2>
                     <p className="text-xs text-gray-500">
-                      {a.property.name} · {formatDate(a.createdAt)}
-                      {isVerwalter ? ` · sichtbar für: ${audienceLabels[a.audience]}` : ""}
+                      {a.property.name} · {formatDateOnly(a.createdAt)}
                     </p>
                   </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {isVerwalter ? (
+                      <Badge tone="neutral">{audienceLabels[a.audience]}</Badge>
+                    ) : null}
                   {isVerwalter ? (
                     <form action={deleteAnnouncement} className="shrink-0">
                       <input type="hidden" name="id" value={a.id} />
                       <ConfirmDeleteButton title="Aushang löschen" />
                     </form>
                   ) : null}
+                  </div>
                 </div>
                 <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">{a.body}</p>
                 <div className="mt-3 border-t border-gray-100 pt-3">
@@ -159,11 +167,13 @@ export default async function AushaengePage({
                         : "noch niemand"}
                     </p>
                   ) : a.acknowledgements.some((ack) => ack.userId === user.id) ? (
-                    <p className="text-xs font-medium text-green-700">✓ Zur Kenntnis genommen</p>
+                    <Badge tone="success">Zur Kenntnis genommen</Badge>
                   ) : (
                     <form action={acknowledgeAnnouncement}>
                       <input type="hidden" name="id" value={a.id} />
-                      <PendingButton className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">Zur Kenntnis nehmen</PendingButton>
+                      <PendingButton className={`${buttonSecondaryClass} ${buttonCompact}`}>
+                        Zur Kenntnis nehmen
+                      </PendingButton>
                     </form>
                   )}
                 </div>
@@ -173,39 +183,6 @@ export default async function AushaengePage({
 
           <Pagination currentPage={currentPage} totalPages={totalPages} total={total} hrefFor={pageHref} />
         </div>
-
-        {isVerwalter ? (
-          <Card title="Neuer Aushang">
-            <form action={createAnnouncement} className="space-y-3">
-              <Field label="Objekt">
-                <select name="propertyId" required className={inputClass}>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Sichtbar für">
-                <select name="audience" required className={inputClass} defaultValue="ALLE">
-                  {Object.entries(audienceLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Titel">
-                <input type="text" name="title" required minLength={3} maxLength={200} className={inputClass} />
-              </Field>
-              <Field label="Text">
-                <textarea name="body" required minLength={3} maxLength={5000} rows={6} className={inputClass} />
-              </Field>
-              <PendingButton className={buttonClass}>Veröffentlichen</PendingButton>
-            </form>
-          </Card>
-        ) : null}
-      </div>
     </>
   );
 }

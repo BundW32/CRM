@@ -1,4 +1,9 @@
-import { Alert, EmptyState, PageTitle } from "@/components/ui";
+import {
+  Alert,
+  Card,
+  EmptyState,
+  PageTitle,
+} from "@/components/ui";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
@@ -105,10 +110,7 @@ export default async function DokumentQuellenPage({
           {configs.map((cfg) => {
             const folderConfig = cfg.config as { folderId?: string };
             return (
-              <div
-                key={cfg.id}
-                className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
-              >
+              <Card key={cfg.id}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <p className="font-semibold text-gray-900">{cfg.label}</p>
@@ -152,7 +154,7 @@ export default async function DokumentQuellenPage({
                     </form>
                   </div>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
@@ -165,8 +167,7 @@ export default async function DokumentQuellenPage({
       )}
 
       {/* Neue Quelle anlegen */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-base font-semibold text-gray-900">Neue Google Drive Quelle</h2>
+      <Card title="Neue Google Drive Quelle">
         <form action={createDocumentSourceConfig} className="space-y-4">
           <input type="hidden" name="source" value="GDRIVE" />
 
@@ -243,7 +244,7 @@ export default async function DokumentQuellenPage({
 
           <PendingButton className="rounded-xl bg-brand-orange px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90">Quelle anlegen</PendingButton>
         </form>
-      </div>
+      </Card>
     </>
   );
 }

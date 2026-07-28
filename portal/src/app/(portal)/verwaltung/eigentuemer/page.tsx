@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert, Card, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { FilterBar, SortControl } from "@/components/filter-bar";
+import { Badge } from "@/components/data-display";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
@@ -207,9 +208,7 @@ export default async function EigentuemerPage({
                               <span className="flex flex-wrap items-center gap-2">
                                 {o.user.name}
                                 {o.isBoardMember ? (
-                                  <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-xs font-medium text-brand-green">
-                                    Beirat
-                                  </span>
+                                  <Badge tone="success">Beirat</Badge>
                                 ) : null}
                               </span>
                               {o.user.email ? (

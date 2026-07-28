@@ -40,6 +40,8 @@ export type TourSchritt = {
    * gar nicht.
    */
   nurSelbstverwaltung?: boolean;
+  /** Gegenstück: nur für die professionelle Verwaltung. */
+  nurVerwaltung?: boolean;
   /**
    * Nur zeigen, wenn der Assistent überhaupt eingeschaltet ist.
    *
@@ -52,10 +54,22 @@ export type TourSchritt = {
 };
 
 export const TOUR_SCHRITTE: TourSchritt[] = [
+  // Zwei Begrüßungen statt einer. „Sie verwalten Ihre Gemeinschaft ab jetzt
+  // selbst" ist für einen professionellen Verwalter schlicht falsch — und ein
+  // Programm, das im ersten Satz danebenliegt, verspielt genau dort das
+  // Zutrauen, wo es am meisten zählt. Aufgefallen ist es erst im Prüflauf mit
+  // Kontotyp „verwaltung".
   {
     titel: "Willkommen — kurz erklärt",
     text:
       "Sie verwalten Ihre Gemeinschaft ab jetzt selbst. Dieses Programm nimmt Ihnen dabei das ab, wofür man sonst eine Hausverwaltung bezahlt: Hausgeld einziehen, abrechnen, Beschlüsse festhalten. In einer Minute zeigen wir Ihnen, wo was liegt.",
+    nurSelbstverwaltung: true,
+  },
+  {
+    titel: "Willkommen — kurz erklärt",
+    text:
+      "Dieses Programm bündelt Ihre Verwaltung an einem Ort: Objekte und Personen, Vorgänge und Wartung, für WEG-Objekte zusätzlich Hausgeld, Wirtschaftsplan und Jahresabrechnung. In einer Minute zeigen wir Ihnen, wo was liegt.",
+    nurVerwaltung: true,
   },
   {
     ziel: "hinweise-schalter",
@@ -94,14 +108,18 @@ export const TOUR_SCHRITTE: TourSchritt[] = [
     nurSelbstverwaltung: true,
     titel: "Was ansteht — ohne Kalender im Kopf",
     text:
-      "Eine Gemeinschaft hat Fristen: einmal im Jahr eine Versammlung, danach die Abrechnung, vorher der Plan fürs nächste Jahr. Das Programm sagt Ihnen, was jetzt dran ist, und warnt, bevor etwas überfällig wird.",
+      // Bewusst im Futur. Der „Fahrplan" erscheint erst, wenn die Einrichtung
+      // fertig ist — genau der Zustand, in dem diese Führung *nicht* läuft.
+      // Ein Text, der behauptet, die Liste stehe schon da, schickt einen
+      // Anfänger auf die Suche nach etwas, das es noch gar nicht geben kann.
+      "Eine Gemeinschaft hat feste Fristen: einmal im Jahr eine Versammlung, danach die Abrechnung, vorher der Plan fürs nächste Jahr. Sobald die Einrichtung steht, führt das Programm hier den Fahrplan — es sagt Ihnen, was jetzt dran ist, und warnt, bevor etwas überfällig wird.",
   },
   {
     ziel: "assistent",
     nurMitAssistent: true,
     titel: "Wenn Sie nicht weiterwissen",
     text:
-      "Der Assistent kennt Ihre Gemeinschaft und die Regeln des Wohnungseigentumsgesetzes. Fragen Sie ihn in normalen Worten — „Wann muss ich zur Versammlung einladen?“ genügt. Die Führung starten Sie jederzeit neu unter „Konto“.",
+      "Der Assistent kennt Ihre Gemeinschaft und die Regeln des Wohnungseigentumsgesetzes. Fragen Sie ihn in normalen Worten — „Wann muss ich zur Versammlung einladen?“ genügt. Er gibt Auskunft, keine Rechtsberatung.",
   },
 ];
 
@@ -113,6 +131,7 @@ export function tourSchritteFuer(opt: {
   return TOUR_SCHRITTE.filter(
     (s) =>
       (!s.nurSelbstverwaltung || opt.selbstverwaltung) &&
+      (!s.nurVerwaltung || !opt.selbstverwaltung) &&
       (!s.nurMitAssistent || opt.mitAssistent),
   );
 }

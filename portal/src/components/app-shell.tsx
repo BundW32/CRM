@@ -471,6 +471,11 @@ export function AppShell({
           onClick={() => setDrawerOpen(true)}
           className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/95 px-3 py-2 text-sm font-semibold text-gray-800 shadow-sm"
           aria-label="Menü öffnen"
+          // Die geführte Einrichtung zieht das Schubfach selbst auf, wenn ein
+          // Ziel darin liegt (siehe `components/tour.tsx`). Über `aria-label`
+          // zu suchen wäre möglich, aber eine Beschriftung ist Text für
+          // Menschen — wer sie umformuliert, darf nicht die Führung brechen.
+          data-tour-menu="oeffnen"
         >
           <Menu className="h-[18px] w-[18px]" />
           Menü
@@ -519,6 +524,7 @@ export function AppShell({
           <button
             type="button"
             aria-label="Menü schließen"
+            data-tour-menu="schliessen"
             onClick={() => setDrawerOpen(false)}
             className="fixed inset-0 z-40 cursor-default bg-black/40 md:hidden"
           />

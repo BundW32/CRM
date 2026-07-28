@@ -1115,3 +1115,61 @@ Selbstverwaltung und professionelle Verwaltung: Jeder Lichtkegel sitzt auf
 seinem Ziel oder fällt bewusst auf die zentrierte Karte zurück; Escape beendet;
 die Führung erscheint genau einmal von selbst und lässt sich unter „Konto"
 neu starten.
+
+## Schritt 35 — LP6: die Tour selbst (28.07.2026)
+
+Der Inhaltsdurchgang. LP4/LP5 hatten die Mechanik und die Marker; hier ging es
+darum, ob die Führung für einen Laien **stimmt** — und der Prüflauf hat dabei
+drei Dinge zutage gefördert, die auf dem Papier in Ordnung aussahen.
+
+186. **Die Sprechblase lag unter dem Bildrand.** Ihre Position hing an einer
+     geratenen Zahl („mehr als 220 px unter dem Ziel, dann passt sie schon").
+     Unter der Bereichsleiste reichte der Platz rechnerisch — der Text dieses
+     Schritts macht die Blase aber höher, und ihr „Weiter"-Knopf lag außerhalb
+     des Bildes. Die Führung war an dieser Stelle **nicht mehr bedienbar**, und
+     zwar am Rechner, nicht in irgendeinem Sonderfall. Jetzt wird die Höhe
+     gemessen (`useLayoutEffect`) und die Blase notfalls dorthin gesetzt, wo sie
+     ganz sichtbar ist. Eine Zahl, die von der Textlänge abhängt, gehört nicht
+     in den Quelltext.
+187. **Der erste Satz war für den professionellen Verwalter falsch.** „Sie
+     verwalten Ihre Gemeinschaft ab jetzt selbst" — gilt für die
+     Selbstverwaltung, für niemanden sonst. Ein Programm, das im ersten Satz
+     danebenliegt, verspielt das Zutrauen genau dort, wo es am meisten zählt.
+     Jetzt gibt es zwei Begrüßungen (`nurVerwaltung` als Gegenstück zu
+     `nurSelbstverwaltung`); ein Test hält fest, dass jeder Nutzer **genau
+     eine** davon sieht.
+188. **`querySelector` traf die falsche Bereichsleiste.** Sie steht zweimal im
+     Seitenbaum: einmal für den Rechner (`hidden md:block`), einmal im Schubfach
+     fürs Handy. Auf dem Handy fand die Führung zuerst die ausgeblendete Fassung
+     mit Breite 0, hielt das für „vorhanden, aber unsichtbar" und zeigte die
+     zentrierte Karte. Jetzt wird das erste Ziel genommen, das wirklich Fläche
+     hat — und damit **zieht die Führung das Schubfach mobil selbst auf** (und
+     danach wieder zu, aber erst, wenn der nächste Schritt es nicht auch
+     braucht — sonst flackert es).
+189. **„Was ansteht" steht im Futur.** Der Fahrplan erscheint erst, wenn die
+     Einrichtung fertig ist — also genau dann *nicht*, wenn diese Führung läuft.
+     Der alte Text behauptete, die Liste stünde schon da, und schickte einen
+     Anfänger auf die Suche nach etwas, das es noch gar nicht geben kann.
+190. **Der Schlusshinweis gehört in die Mechanik, nicht in einen Schritt.** Der
+     letzte Schritt ist je nach Kontotyp und Assistent ein anderer; ein achter
+     Schritt nur für „Sie finden das wieder" hätte die Grenze aus dem Plan
+     gesprengt. Jetzt steht der Satz unter der Blase des jeweils letzten
+     Schritts — immer und genau einmal. Ein Test hält beide Hälften zusammen.
+191. **Kein gemerkter Fortschritt — und das mit Absicht.** Der Plan sah
+     `User.tourState` vor. Die Führung wechselt die Seiten aber selbst
+     (Soft-Navigation), ein Neuladen mitten in der einen Minute kommt praktisch
+     nicht vor. Ein Ablegen im Browser scheiterte zudem an der Hydration: Der
+     Server kennt den Stand nicht und zeigte „Schritt 1", der Browser gleich
+     darauf „Schritt 4". Was zählt, steht ohnehin serverseitig — `tourDoneAt`.
+192. **Fachsprache ist jetzt testbar verboten.** Kein „Sollstellung", kein
+     „Abrechnungsspitze", kein „§" in einem Tour-Text. Prinzip 1 des Plans sagt,
+     dass Fachbegriffe nicht umbenannt werden — aber die Führung ist das eine,
+     was jemand *vor* allem anderen liest. Erklärt wird an der Stelle, an der es
+     gebraucht wird (Glossar, LP3).
+
+Geprüft an echten Daten in vier Kombinationen (Desktop 1280 px / Handy 390 px
+× Selbstverwaltung / professionelle Verwaltung): Alle Schritte sind
+durchklickbar — was der Prüflauf mitbeweist, denn Playwright klickt nichts an,
+was außerhalb des Bildes liegt —, jeder Lichtkegel sitzt auf seinem Ziel oder
+fällt bewusst auf die zentrierte Karte zurück, und am Ende bleibt kein
+Schubfach offen stehen.

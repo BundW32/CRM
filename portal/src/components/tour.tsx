@@ -18,19 +18,29 @@
 // - **Tastatur.** Der Fokus bleibt in der Sprechblase, Escape beendet,
 //   Pfeiltasten blättern. Eine Führung, die einen Tastaturnutzer einsperrt,
 //   ist schlimmer als keine.
-// - **Mobil.** Die Navigation liegt dort hinter einem Schubfach. Ist das Ziel
-//   nicht sichtbar, gibt es keinen Lichtkegel auf die falsche Stelle, sondern
-//   eine zentrierte Karte ohne Ausschnitt.
-// - **Nichts blockiert.** Überspringen ist immer sichtbar, der Fortschritt wird
-//   gemerkt, und ungefragt erscheint die Führung genau einmal.
+// - **Mobil.** Die Navigation liegt dort hinter einem Schubfach; zeigt ein
+//   Schritt dorthin, zieht die Führung es selbst auf und danach wieder zu.
+//   Bleibt ein Ziel trotzdem unerreichbar, gibt es keinen Lichtkegel auf die
+//   falsche Stelle, sondern eine zentrierte Karte ohne Ausschnitt.
+// - **Nichts blockiert.** Überspringen ist immer sichtbar, und ungefragt
+//   erscheint die Führung genau einmal.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { buttonClass, buttonSecondaryClass, cardSurfaceClass } from "@/components/ui";
 import type { TourSchritt } from "@/lib/tour";
 
 const RAND = 8; // Luft um das ausgeleuchtete Element
 const BLASE_BREITE = 340;
+
+// **Kein gemerkter Fortschritt.** Der Plan sah `User.tourState` vor, damit ein
+// Abbrecher später weitermacht. Gebaut ist es nicht, und das mit Absicht: Die
+// Führung wechselt die Seiten selbst (Soft-Navigation), ein Neuladen kommt
+// mitten in einer Minute also praktisch nicht vor. Ein Ablegen im Browser
+// scheiterte zudem an der Hydration — der Server kennt den Stand nicht und
+// zeigte „Schritt 1", der Browser gleich darauf „Schritt 4". Was zählt, ist
+// ohnehin serverseitig festgehalten: `User.tourDoneAt` sorgt dafür, dass die
+// Führung ungefragt genau einmal erscheint, auch nach einem Gerätewechsel.
 
 type Kasten = { top: number; left: number; width: number; height: number };
 
@@ -43,7 +53,9 @@ export function Tour({
   beenden: (abgeschlossen: boolean) => void;
 }) {
   const [index, setIndex] = useState(0);
+  const schubfachRef = useRef(false);
   const [kasten, setKasten] = useState<Kasten | null>(null);
+  const [blaseHoehe, setBlaseHoehe] = useState(240);
   const blaseRef = useRef<HTMLDivElement>(null);
   const schritt = schritte[index];
   const router = useRouter();
@@ -58,6 +70,12 @@ export function Tour({
 
   const schliessen = useCallback(
     (abgeschlossen: boolean) => {
+      // Am Ende bleibt kein Schubfach offen stehen, das der Nutzer nie selbst
+      // geöffnet hat.
+      if (schubfachRef.current) {
+        document.querySelector<HTMLElement>('[data-tour-menu="schliessen"]')?.click();
+        schubfachRef.current = false;
+      }
       beenden(abgeschlossen);
     },
     [beenden],
@@ -68,12 +86,54 @@ export function Tour({
   // als er hilft.
   useEffect(() => {
     if (!schritt) return;
+    // **Nicht `querySelector`.** Die Bereichsleiste steht zweimal im Seitenbaum:
+    // einmal für den Rechner (`hidden md:block`) und einmal im Schubfach fürs
+    // Handy. Auf dem Handy findet `querySelector` also zuerst die
+    // ausgeblendete Fassung — mit Breite 0. Die Führung hielt das für „Ziel
+    // vorhanden, aber unsichtbar" und zeigte eine zentrierte Karte, statt das
+    // Schubfach aufzuziehen. Deshalb: das erste Ziel nehmen, das wirklich
+    // Fläche hat.
+    const zielFinden = (): HTMLElement | null => {
+      if (!schritt.ziel) return null;
+      const alle = document.querySelectorAll<HTMLElement>(`[data-tour="${schritt.ziel}"]`);
+      for (const el of alle) {
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) return el;
+      }
+      return null;
+    };
+
+    // Auf dem Handy liegt die Bereichsleiste in einem geschlossenen Schubfach —
+    // dort ist sie nicht bloß unsichtbar, sondern gar nicht sichtbar zu machen,
+    // solange es zu ist. Statt die Erklärung wegzulassen, zieht die Führung das
+    // Schubfach selbst auf: So sieht der Nutzer zugleich, wo das Menü sitzt.
+    const imSchubfach = schritt.ziel?.startsWith("nav") || schritt.ziel === "navigation";
+
+    // Was die Führung aufgezogen hat, macht sie auch wieder zu — aber erst,
+    // wenn der nächste Schritt es nicht ebenfalls braucht. Beim Schließen und
+    // sofortigen Wiederaufziehen zwischen zwei Menü-Schritten flackerte es.
+    if (!imSchubfach && schubfachRef.current) {
+      document.querySelector<HTMLElement>('[data-tour-menu="schliessen"]')?.click();
+      schubfachRef.current = false;
+    }
+
+    const schubfachOeffnen = () => {
+      if (!imSchubfach) return;
+      if (zielFinden()) return;
+      const knopf = document.querySelector<HTMLElement>('[data-tour-menu="oeffnen"]');
+      // Der Knopf gibt es nur mobil (`md:hidden`); am Rechner ist er unsichtbar
+      // und hat dann keine Ausmaße. Nur dann wirklich klicken.
+      if (!knopf || knopf.getBoundingClientRect().width === 0) return;
+      knopf.click();
+      schubfachRef.current = true;
+    };
+
     const messen = () => {
       if (!schritt.ziel) return setKasten(null);
-      const el = document.querySelector<HTMLElement>(`[data-tour="${schritt.ziel}"]`);
+      schubfachOeffnen();
+      const el = zielFinden();
       if (!el) return setKasten(null);
       let r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) return setKasten(null);
 
       // Zwei Arten von „nicht zu sehen", die verschieden behandelt werden
       // müssen — beim ersten Anlauf hatte ich sie vermischt, und der Prüflauf
@@ -101,7 +161,8 @@ export function Tour({
     let timer: ReturnType<typeof setTimeout>;
     const nachfassen = () => {
       if (performance.now() > bis) return;
-      if (!document.querySelector(`[data-tour="${schritt.ziel}"]`)) {
+      if (!zielFinden()) {
+        schubfachOeffnen();
         timer = setTimeout(nachfassen, 100);
         return;
       }
@@ -121,6 +182,19 @@ export function Tour({
   useEffect(() => {
     blaseRef.current?.focus();
   }, [index]);
+
+  // Echte Höhe der Sprechblase nachmessen.
+  //
+  // Vorher stand hier eine geratene Schwelle („mehr als 220 px unter dem Ziel,
+  // dann passt sie schon"). Beim Prüflauf reichte der Platz unter der
+  // Bereichsleiste rechnerisch — die Blase mit diesem Text ist aber höher, und
+  // ihr „Weiter"-Knopf lag unter dem Bildrand. Die Führung war an dieser Stelle
+  // nicht mehr bedienbar. Eine Zahl, die von der Textlänge abhängt, gehört
+  // nicht in den Quelltext, sondern gemessen.
+  useLayoutEffect(() => {
+    const h = blaseRef.current?.getBoundingClientRect().height ?? 0;
+    if (h > 0) setBlaseHoehe(h);
+  }, [index, kasten]);
 
   useEffect(() => {
     const taste = (e: KeyboardEvent) => {
@@ -150,9 +224,20 @@ export function Tour({
   if (!schritt) return null;
 
   const letzter = index === schritte.length - 1;
-  // Blase unter dem Ziel, außer es steht so weit unten, dass sie hinausliefe.
-  const platzUnten = kasten ? window.innerHeight - (kasten.top + kasten.height) : 0;
-  const untenAnsetzen = kasten !== null && platzUnten > 220;
+
+  // Wohin mit der Sprechblase: unter das Ziel, darüber — oder, wenn beides
+  // nicht reicht, einfach dorthin, wo sie ganz sichtbar ist. Der letzte Fall
+  // ist kein Schönheitsfehler, sondern der wichtigste: Eine Blase, deren
+  // „Weiter" unter dem Bildrand liegt, macht die Führung unbedienbar.
+  const LUFT = RAND + 12;
+  let blasenTop: number | null = null;
+  if (kasten) {
+    const unten = kasten.top + kasten.height + LUFT;
+    const oben = kasten.top - LUFT - blaseHoehe;
+    if (unten + blaseHoehe <= window.innerHeight - 8) blasenTop = unten;
+    else if (oben >= 8) blasenTop = oben;
+    else blasenTop = Math.max(8, window.innerHeight - blaseHoehe - 8);
+  }
 
   return (
     <div
@@ -204,13 +289,11 @@ export function Tour({
         tabIndex={-1}
         className={`${cardSurfaceClass} fixed p-4 shadow-e3 outline-none`}
         style={
-          kasten
+          kasten && blasenTop !== null
             ? {
                 width: Math.min(BLASE_BREITE, window.innerWidth - 24),
                 left: Math.max(12, Math.min(kasten.left, window.innerWidth - BLASE_BREITE - 12)),
-                ...(untenAnsetzen
-                  ? { top: kasten.top + kasten.height + RAND + 12 }
-                  : { bottom: window.innerHeight - kasten.top + RAND + 12 }),
+                top: blasenTop,
               }
             : {
                 width: Math.min(BLASE_BREITE + 40, window.innerWidth - 24),
@@ -220,11 +303,27 @@ export function Tour({
               }
         }
       >
-        <p className="text-xs font-medium text-gray-400">
-          Schritt {index + 1} von {schritte.length}
-        </p>
-        <h2 className="mt-1 text-base font-semibold text-gray-900">{schritt.titel}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-700">{schritt.text}</p>
+        {/* `aria-live` am gemeinsamen Behälter, nicht an jedem Absatz: Beim
+            Blättern ändern sich Zähler, Überschrift und Text zusammen — drei
+            Meldungen hintereinander wären für einen Screenreader-Nutzer
+            Geplapper, eine zusammenhängende ist eine Erklärung. */}
+        <div aria-live="polite" aria-atomic="true">
+          <p className="text-xs font-medium text-gray-400">
+            Schritt {index + 1} von {schritte.length}
+          </p>
+          <h2 className="mt-1 text-base font-semibold text-gray-900">{schritt.titel}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-gray-700">{schritt.text}</p>
+        </div>
+
+        {/* Der Schlusssatz gehört hierher, nicht in einen eigenen Schritt: Der
+            letzte Schritt ist je nach Kontotyp und Assistent ein anderer, und
+            ein achter Schritt nur für „Sie finden das wieder" sprengte die
+            Grenze aus dem Plan. So steht der Hinweis immer und genau einmal. */}
+        {letzter ? (
+          <p className="mt-3 text-xs text-gray-500">
+            Diese Führung starten Sie jederzeit neu — unter „Konto“.
+          </p>
+        ) : null}
 
         <div className="mt-4 flex items-center justify-between gap-2">
           <button

@@ -81,9 +81,9 @@ export type Vorschlag = {
 /**
  * Reihenfolge nach § 366 Abs. 2 BGB.
  *
- * Exportiert, weil die Reihenfolge in der Oberfläche erklärt wird — und weil
- * eine Regel, die man nicht einzeln prüfen kann, früher oder später still
- * falsch wird.
+ * Einzeln exportiert, damit die Reihenfolge für sich geprüft werden kann: Sie
+ * ist der Kern der Vorschrift, und eine Regel, die nur mittelbar über das
+ * Gesamtergebnis getestet wird, wird früher oder später still falsch.
  */
 export function sortiereNachTilgungsreihenfolge(
   posten: OffenerPosten[],

@@ -10,7 +10,7 @@ import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
 import { computeUnitAdvances, fiscalYearRange } from "@/lib/weg/economic-plan";
 import { synchronisiereSollstellungen } from "@/lib/weg/due-postings";
-import { faelligkeitsText } from "@/lib/weg/plan-validity";
+import { faelligkeitsText, monatsBeginn } from "@/lib/weg/plan-validity";
 import { legeEigentuemerDokumenteAb } from "@/lib/weg/owner-documents";
 import { loadWegProperty } from "@/lib/weg/scope";
 import { buildEinzelwirtschaftsplanPdf, ownerNamesByUnit } from "@/lib/weg/wirtschaftsplan-pdf";
@@ -279,10 +279,11 @@ export async function resolvePlan(formData: FormData) {
   // Der Normalfall bleibt erlaubt: Tagt die Versammlung im April über den Plan
   // des laufenden Jahres, gibt es keinen Vorgänger für Januar — die Forderungen
   // entstehen nachträglich, wie § 28 Abs. 1 Satz 2 WEG es vorsieht.
-  const monatsBeginnJetzt = (() => {
-    const n = new Date();
-    return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), 1));
-  })();
+  const jetzt = new Date();
+  const monatsBeginnJetzt = monatsBeginn({
+    year: jetzt.getUTCFullYear(),
+    month: jetzt.getUTCMonth() + 1,
+  });
   if (validFrom < monatsBeginnJetzt) {
     const vorgaengerDeckt = await db.economicPlan.findFirst({
       where: {

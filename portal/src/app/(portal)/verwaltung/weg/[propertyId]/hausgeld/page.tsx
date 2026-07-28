@@ -124,7 +124,6 @@ export default async function HausgeldPage({
   const { propertyId } = await params;
   const { property } = await requireWegProperty(propertyId);
   const sp = await searchParams;
-  const fehlenderSollmonat = await ersterFehlenderSollmonat(property.id);
   const now = new Date();
 
   // ── Filter ────────────────────────────────────────────────────────────────
@@ -156,8 +155,34 @@ export default async function HausgeldPage({
     unitId: { not: null },
   };
 
-  const [units, dueSums, paidSums, unassignedTotal, unassigned, assigned, assignedTotal] =
-    await Promise.all([
+  const mahnstatus = sp.mahnstatus === "entwurf" || sp.mahnstatus === "versendet" ? sp.mahnstatus : undefined;
+  const mahnungWhere: Prisma.HausgeldMahnungWhereInput = {
+    propertyId: property.id,
+    ...(mahnstatus === "entwurf" ? { sentAt: null } : {}),
+    ...(mahnstatus === "versendet" ? { sentAt: { not: null } } : {}),
+  };
+
+  // Alles, was voneinander unabhängig ist, in EINEM Zug. Vorher standen hier
+  // sechs `await`-Stufen hintereinander, obwohl keine auf die vorige wartet —
+  // jede Stufe kostet eine eigene Wartezeit zur Datenbank, und sie addieren
+  // sich zur Ladezeit der Seite.
+  const [
+    units,
+    dueSums,
+    paidSums,
+    unassignedTotal,
+    unassigned,
+    assigned,
+    assignedTotal,
+    mahnungen,
+    mahnungTotal,
+    mahnStufen,
+    uebernahme,
+    opos,
+    mandate,
+    aktuelleEigentuemer,
+    fehlenderSollmonat,
+  ] = await Promise.all([
     db.unit.findMany({
       where: { propertyId: property.id },
       orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
@@ -202,14 +227,6 @@ export default async function HausgeldPage({
       take: ASSIGNED_PAGE_SIZE,
     }),
     db.booking.count({ where: zugeordnetWhere }),
-  ]);
-  const mahnstatus = sp.mahnstatus === "entwurf" || sp.mahnstatus === "versendet" ? sp.mahnstatus : undefined;
-  const mahnungWhere: Prisma.HausgeldMahnungWhereInput = {
-    propertyId: property.id,
-    ...(mahnstatus === "entwurf" ? { sentAt: null } : {}),
-    ...(mahnstatus === "versendet" ? { sentAt: { not: null } } : {}),
-  };
-  const [mahnungen, mahnungTotal, mahnStufen] = await Promise.all([
     // Angezeigte Schreiben – filterbar und geblättert.
     db.hausgeldMahnung.findMany({
       where: mahnungWhere,
@@ -226,36 +243,18 @@ export default async function HausgeldPage({
       where: { propertyId: property.id },
       select: { unitId: true, level: true, sentAt: true },
     }),
-  ]);
-  // Nächste Mahnstufe je Einheit (nur versendete eskalieren) + offene Entwürfe
-  const maxSentByUnit = new Map<string, number>();
-  const draftUnits = new Set<string>();
-  for (const m of mahnStufen) {
-    if (m.sentAt) {
-      maxSentByUnit.set(m.unitId, Math.max(maxSentByUnit.get(m.unitId) ?? 0, m.level));
-    } else {
-      draftUnits.add(m.unitId);
-    }
-  }
-
-  // Übernommener Stand aus der bisherigen Verwaltung (source = UEBERNAHME).
-  // Getrennt geladen, damit die Karte zeigen kann, was bereits erfasst ist –
-  // die Rückstandsliste selbst rechnet ihn ohne Sonderfall mit.
-  const uebernahme = await db.duePosting.findMany({
-    where: { propertyId: property.id, source: "UEBERNAHME" },
-    select: { unitId: true, amountCents: true, dueDate: true },
-  });
-  const uebernahmeByUnit = new Map(uebernahme.map((u) => [u.unitId, u.amountCents]));
-  const uebernahmeSumme = uebernahme.reduce((s, u) => s + u.amountCents, 0);
-  const uebernahmeStichtag = uebernahme[0]?.dueDate ?? null;
-
-  // Offene Posten je Einheit — je Forderung gerechnet statt als Differenz
-  // zweier Summen. Erst dadurch stimmt der Rückstand, wenn eine Sonderumlage
-  // bezahlt oder im Voraus überwiesen wurde (siehe payment-allocation.ts).
-  const opos = await oposJeEinheit(property.id, now);
-
-  // Bausteine der Zuordnungs-Hilfe (siehe `suggestUnit`).
-  const [mandate, aktuelleEigentuemer] = await Promise.all([
+    // Übernommener Stand aus der bisherigen Verwaltung (source = UEBERNAHME).
+    // Getrennt geladen, damit die Karte zeigen kann, was bereits erfasst ist –
+    // die Rückstandsliste selbst rechnet ihn ohne Sonderfall mit.
+    db.duePosting.findMany({
+      where: { propertyId: property.id, source: "UEBERNAHME" },
+      select: { unitId: true, amountCents: true, dueDate: true },
+    }),
+    // Offene Posten je Einheit — je Forderung gerechnet statt als Differenz
+    // zweier Summen. Erst dadurch stimmt der Rückstand, wenn eine Sonderumlage
+    // bezahlt oder im Voraus überwiesen wurde (siehe payment-allocation.ts).
+    oposJeEinheit(property.id, now),
+    // Bausteine der Zuordnungs-Hilfe (siehe `suggestUnit`).
     db.sepaMandate.findMany({
       where: { propertyId: property.id, active: true },
       select: { unitId: true, iban: true },
@@ -268,7 +267,25 @@ export default async function HausgeldPage({
       },
       select: { unitId: true, user: { select: { name: true } } },
     }),
+    // Fortgeltung (§ 28 Abs. 1 Satz 2 WEG): Fehlen Monate, für die schon
+    // Forderungen bestehen müssten?
+    ersterFehlenderSollmonat(property.id, now),
   ]);
+  // Nächste Mahnstufe je Einheit (nur versendete eskalieren) + offene Entwürfe
+  const maxSentByUnit = new Map<string, number>();
+  const draftUnits = new Set<string>();
+  for (const m of mahnStufen) {
+    if (m.sentAt) {
+      maxSentByUnit.set(m.unitId, Math.max(maxSentByUnit.get(m.unitId) ?? 0, m.level));
+    } else {
+      draftUnits.add(m.unitId);
+    }
+  }
+
+  const uebernahmeByUnit = new Map(uebernahme.map((u) => [u.unitId, u.amountCents]));
+  const uebernahmeSumme = uebernahme.reduce((s, u) => s + u.amountCents, 0);
+  const uebernahmeStichtag = uebernahme[0]?.dueDate ?? null;
+
   const unitByIban = new Map(
     mandate.map((m) => [m.iban.toUpperCase().replace(/[^A-Z0-9]/g, ""), m.unitId]),
   );

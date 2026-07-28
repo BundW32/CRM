@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import Link from "next/link";
@@ -159,7 +160,7 @@ export default async function TicketDetailPage({
 
       {beauftragt ? (
         <Alert variant="success" className="mb-4">
-          Der Handwerker wurde per E-Mail beauftragt (sofern SMTP konfiguriert ist).
+          Der Handwerker wurde per E-Mail beauftragt.
         </Alert>
       ) : null}
       {bereitgestellt ? (
@@ -181,7 +182,7 @@ export default async function TicketDetailPage({
       ) : null}
       {termin === "bestaetigt" ? (
         <Alert variant="success" className="mb-4">
-          Termin bestätigt. Der Handwerker wurde informiert (sofern SMTP konfiguriert ist).
+          Termin bestätigt. Der Handwerker wurde informiert.
         </Alert>
       ) : null}
       {termin === "abgelehnt" ? (
@@ -201,8 +202,7 @@ export default async function TicketDetailPage({
       ) : null}
       {abschluss === "geoeffnet" ? (
         <Alert variant="warning" className="mb-4">
-          Vorgang wieder geöffnet. Der Handwerker wurde über die Nacharbeit informiert
-          (sofern SMTP konfiguriert ist).
+          Vorgang wieder geöffnet. Der Handwerker wurde über die Nacharbeit informiert.
         </Alert>
       ) : null}
       {fehler === "freigabe" ? (
@@ -356,12 +356,10 @@ export default async function TicketDetailPage({
                 />
               </Field>
               <Field label="Fotos / Videos anhängen (optional)">
-                <input
-                  type="file"
+                <FileInput
                   name="photos"
                   multiple
                   accept="image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm"
-                  className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
                 />
               </Field>
               {isVerwalter ? (
@@ -731,12 +729,10 @@ export default async function TicketDetailPage({
                   </select>
                 </Field>
                 <Field label="Datei (PDF oder Bild, max. 10 MB)">
-                  <input
-                    type="file"
+                  <FileInput
                     name="file"
                     required
                     accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
-                    className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
                   />
                 </Field>
                 <PendingButton className={buttonClass}>Hochladen &amp; bereitstellen</PendingButton>

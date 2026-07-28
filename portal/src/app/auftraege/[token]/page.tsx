@@ -1,4 +1,5 @@
 import { BwLogo } from "@/components/logo";
+import { FileInput } from "@/components/file-input";
 import { Alert } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate, ticketStatusLabels, tradeLabels } from "@/lib/labels";
@@ -251,12 +252,10 @@ export default async function AuftraegePage({
                   placeholder="Nachricht an die Verwaltung …"
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 />
-                <input
-                  type="file"
+                <FileInput
                   name="photos"
                   multiple
                   accept="image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm"
-                  className="block w-full text-xs text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-orange-dark"
                 />
                 <button className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
                   Nachricht / Foto senden
@@ -300,11 +299,9 @@ export default async function AuftraegePage({
                     <input type="text" name="invoiceNumber" placeholder="Rechnungsnummer (optional)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                     <input type="date" name="invoiceDate" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                     <input type="text" name="note" placeholder="Notiz (optional)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                    <input
-                      type="file"
+                    <FileInput
                       name="file"
                       accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
-                      className="block w-full text-xs text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-orange-dark sm:col-span-2"
                     />
                     <button className="rounded-lg bg-brand-orange px-3 py-2 text-xs font-semibold text-brand-green-dark hover:bg-brand-orange-dark sm:col-span-2">
                       {t.invoice ? "Rechnung erneut einreichen" : "Rechnung einreichen"}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { redirect } from "next/navigation";
@@ -64,8 +65,6 @@ function TenancyContract({
     contractStoredName: string | null;
   };
 }) {
-  const fileInputClass =
-    "block w-full text-xs text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100";
   return (
     <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-3">
       <div className="mb-2 flex items-center justify-between">
@@ -112,11 +111,9 @@ function TenancyContract({
             </div>
           ) : null}
           <Field label={t.contractStoredName ? "Vertrag ersetzen (PDF/Bild)" : "Mietvertrag hochladen (PDF/Bild)"}>
-            <input
-              type="file"
+            <FileInput
               name="contract"
               accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
-              className={fileInputClass}
             />
           </Field>
         </div>
@@ -360,11 +357,9 @@ export default async function ObjektBearbeitenPage({
             </div>
           ) : null}
           <Field label={p.titleImageStoredName ? "Titelbild ersetzen" : "Titelbild hochladen"}>
-            <input
-              type="file"
+            <FileInput
               name="titleImage"
               accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-              className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
             />
           </Field>
         </Card>

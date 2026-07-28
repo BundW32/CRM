@@ -9,6 +9,7 @@ import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
 import { propertyIdsForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { requireVerwalter } from "@/lib/session";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { createDocumentSourceConfig, deleteDocumentSourceConfig, triggerSync } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,10 @@ export default async function DokumentQuellenPage({
   ]);
 
   const gdriveReady = Boolean(process.env.GDRIVE_SERVICE_ACCOUNT_JSON);
+  // Wer die Funktion freischalten kann, bekommt den technischen Grund; alle
+  // anderen die Folge. Ein Kunde kann an einer Umgebungsvariablen nichts ändern –
+  // ihm ihren Namen zu nennen erzeugt nur das Gefühl, etwas falsch gemacht zu haben.
+  const istBetreiber = isPlatformAdminUser(verwalter);
 
   return (
     <>
@@ -72,13 +77,20 @@ export default async function DokumentQuellenPage({
         übersprungen.
       </p>
 
-      {!gdriveReady && (
-        <Alert variant="warning" className="mb-6">
-          <strong>Hinweis:</strong> Die Umgebungsvariable{" "}
-          <code className="rounded bg-amber-100 px-1">GDRIVE_SERVICE_ACCOUNT_JSON</code> ist nicht
-          gesetzt — Google Drive Sync ist deaktiviert. Bitte ein Service-Account-JSON hinterlegen.
-        </Alert>
-      )}
+      {!gdriveReady &&
+        (istBetreiber ? (
+          <Alert variant="warning" title="Betreiber-Hinweis:" className="mb-6">
+            Die Umgebungsvariable{" "}
+            <code className="rounded bg-amber-100 px-1">GDRIVE_SERVICE_ACCOUNT_JSON</code> ist
+            nicht gesetzt — Google Drive Sync ist deaktiviert. Bitte ein Service-Account-JSON
+            hinterlegen.
+          </Alert>
+        ) : (
+          <Alert variant="info" className="mb-6">
+            Der automatische Dokumenten-Sync ist für Ihr Portal derzeit nicht freigeschaltet.
+            Melden Sie sich bei uns, wenn Sie ihn nutzen möchten.
+          </Alert>
+        ))}
 
       {params.fehler === "eingabe" && (
         <Alert variant="error" className="mb-4">

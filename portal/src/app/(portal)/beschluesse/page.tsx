@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FileInput } from "@/components/file-input";
 import { redirect } from "next/navigation";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
@@ -593,11 +594,9 @@ export default async function BeschluessePage({
                               className={inputClass}
                             />
                             <div className="flex flex-wrap items-center gap-2">
-                              <input
-                                type="file"
+                              <FileInput
                                 name="proof"
                                 accept="image/*,application/pdf"
-                                className="block max-w-full text-xs text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-green hover:file:bg-gray-50"
                               />
                               <PendingButton className={buttonSecondaryClass}>Stimme eintragen</PendingButton>
                             </div>

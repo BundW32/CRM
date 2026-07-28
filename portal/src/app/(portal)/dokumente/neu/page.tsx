@@ -7,6 +7,7 @@
 // darf, entscheidet ohnehin die Server-Action.
 
 import { redirect } from "next/navigation";
+import { FileInput } from "@/components/file-input";
 import { Alert, Card, Field, PageTitle, inputClass } from "@/components/ui";
 import { stackTight } from "@/components/data-display";
 import { SelectField } from "@/components/fields";
@@ -21,8 +22,6 @@ import { searchDocumentRecipients, uploadDocument, uploadOwnerDocument } from ".
 
 export const dynamic = "force-dynamic";
 
-const fileInputClass =
-  "block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100";
 
 const kategorien = Object.entries(documentCategoryLabels).map(([value, label]) => ({
   value,
@@ -98,12 +97,10 @@ export default async function DokumentHochladenPage({
                 </p>
               </Field>
               <Field label="Datei (PDF oder Bild, max. 10 MB)">
-                <input
-                  type="file"
+                <FileInput
                   name="file"
                   required
                   accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
-                  className={fileInputClass}
                 />
               </Field>
               <SubmitButton pendingLabel="Wird hochgeladen…">Hochladen</SubmitButton>
@@ -136,12 +133,10 @@ export default async function DokumentHochladenPage({
                 Auch für meine Mieter sichtbar
               </label>
               <Field label="Datei (PDF oder Bild, max. 10 MB)">
-                <input
-                  type="file"
+                <FileInput
                   name="file"
                   required
                   accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
-                  className={fileInputClass}
                 />
               </Field>
               <SubmitButton pendingLabel="Wird hochgeladen…">Hochladen</SubmitButton>

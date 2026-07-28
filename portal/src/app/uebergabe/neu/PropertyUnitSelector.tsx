@@ -1,62 +1,90 @@
 "use client";
 
-import { useState } from "react";
-import { inputClass } from "@/components/ui";
+import { useRef, useState, useTransition } from "react";
+import { loadUnitsForProperty, type UnitOption } from "@/app/(portal)/unit-options";
+import { Combobox } from "@/components/combobox";
+import { Field } from "@/components/ui";
 
-type Unit = { id: string; label: string; floor: string | null };
 type Property = {
   id: string;
   name: string;
   street: string | null;
   zip: string | null;
   city: string | null;
-  units: Unit[];
 };
 
+/**
+ * Objekt und Einheit für eine neue Übergabe.
+ *
+ * Zwei Dinge waren hier anders als im übrigen Programm, beide zum Nachteil
+ * großer Bestände:
+ *
+ * 1. Die Seite lieferte **alle** Objekte samt **allen** Einheiten im HTML mit.
+ *    Bei 40 Objekten à 30 Einheiten sind das 1200 Einträge, von denen genau
+ *    einer gebraucht wird. Die Einheiten werden jetzt erst nach der Objektwahl
+ *    nachgeladen – wie überall sonst.
+ * 2. Die Einheitenliste war ein Aufklappmenü ohne Suche. Jetzt tippbar.
+ *
+ * Die Einheit ist Pflicht – eine Übergabe ohne Einheit gibt es nicht. Deshalb
+ * kein „keine Einheit"-Eintrag und ein verstecktes Feld mit `required`.
+ */
 export function PropertyUnitSelector({ properties }: { properties: Property[] }) {
   const [propertyId, setPropertyId] = useState("");
-  const selected = properties.find((p) => p.id === propertyId);
+  const [unitId, setUnitId] = useState("");
+  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [pending, startTransition] = useTransition();
+  const reqRef = useRef(0);
+
+  function handlePropertyChange(value: string) {
+    setPropertyId(value);
+    setUnitId("");
+    setUnits([]);
+    const req = ++reqRef.current;
+    if (!value) return;
+    startTransition(async () => {
+      const loaded = await loadUnitsForProperty(value);
+      if (reqRef.current === req) setUnits(loaded);
+    });
+  }
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Objekt</label>
-        <select
-          value={propertyId}
-          onChange={(e) => setPropertyId(e.target.value)}
-          className={inputClass}
-          required
-        >
-          <option value="">Objekt wählen …</option>
-          {properties.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-              {p.street ? ` – ${p.street}, ${p.zip} ${p.city}` : ""}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Das versteckte Feld trägt die Pflichtprüfung: ohne Einheit kein Absenden. */}
+      <input type="hidden" name="unitId" value={unitId} required />
 
-      <div className={propertyId ? "animate-page-in" : undefined}>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Einheit
-          {!propertyId && <span className="ml-1 text-gray-400 font-normal">(zuerst Objekt wählen)</span>}
-        </label>
-        <select
-          name="unitId"
-          required
-          disabled={!propertyId}
-          className={`${inputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-          <option value="">Einheit wählen …</option>
-          {selected?.units.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.label}
-              {u.floor ? ` (${u.floor}. OG)` : ""}
-            </option>
-          ))}
-        </select>
-      </div>
+      <Field label="Objekt">
+        <Combobox
+          label="Objekt"
+          placeholder="Objekt suchen …"
+          options={properties.map((p) => ({
+            value: p.id,
+            label: p.name,
+            sublabel: p.street
+              ? `${p.street}, ${p.zip ?? ""} ${p.city ?? ""}`.trim()
+              : undefined,
+          }))}
+          value={propertyId || undefined}
+          onSelect={handlePropertyChange}
+          onClear={() => handlePropertyChange("")}
+        />
+      </Field>
+
+      <Field label="Einheit">
+        <Combobox
+          label="Einheit"
+          placeholder={pending ? "Einheiten werden geladen …" : "Einheit suchen …"}
+          options={units.map((u) => ({
+            value: u.id,
+            label: u.label,
+            sublabel: u.tenantNames.length > 0 ? u.tenantNames.join(", ") : undefined,
+          }))}
+          value={unitId || undefined}
+          onSelect={setUnitId}
+          onClear={() => setUnitId("")}
+          disabled={!propertyId || pending}
+          disabledHint={propertyId ? "wird geladen …" : "zuerst Objekt wählen"}
+        />
+      </Field>
     </div>
   );
 }

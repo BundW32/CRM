@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
@@ -458,11 +459,9 @@ Muster — ersetzt keine Rechtsberatung.`;
                     <span className="mb-1 block text-xs font-medium text-gray-700">
                       Messdienst-Datei importieren (CSV: Einheit + Betrag)
                     </span>
-                    <input
-                      type="file"
+                    <FileInput
                       name="file"
                       accept=".csv,text/csv,text/plain"
-                      className="block text-xs text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-orange-dark"
                     />
                   </label>
                   <PendingButton className={buttonSecondaryClass}>Importieren</PendingButton>

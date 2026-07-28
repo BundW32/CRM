@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import type { Prisma } from "@/generated/prisma/client";
@@ -416,11 +417,9 @@ export default async function WegBuchhaltungPage({
                 <input name="counterparty" className={`${inputClass} w-48`} />
               </Field>
               <Field label="Beleg (Foto/PDF, optional)">
-                <input
-                  type="file"
+                <FileInput
                   name="beleg"
                   accept="image/*,application/pdf"
-                  className={inputClass}
                 />
               </Field>
               <PendingButton className={buttonClass}>Buchen</PendingButton>

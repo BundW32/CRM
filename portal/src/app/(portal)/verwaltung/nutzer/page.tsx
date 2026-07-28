@@ -33,7 +33,7 @@ const errorMessages: Record<string, string> = {
   eingabe: "Bitte alle Pflichtfelder ausfüllen.",
   email: "Diese E-Mail-Adresse ist bereits vergeben.",
   email_fehlt: "Für eine E-Mail-Einladung muss eine E-Mail-Adresse angegeben werden.",
-  signatur: "Die Unterschrift muss ein Bild (PNG/JPG) unter 5 MB sein (oder Vercel Blob konfigurieren).",
+  signatur: "Die Unterschrift muss ein Bild (PNG/JPG) unter 5 MB sein.",
   stammdaten: "Fehler beim Speichern – bitte erneut versuchen.",
   vollmacht: "Bitte Datum und Fundstelle der schriftlichen Vollmacht angeben.",
   vollmacht_datum: "Das Datum der Vollmacht kann nicht in der Zukunft liegen.",
@@ -184,7 +184,7 @@ export default async function UsersPage({
 
       {eingeladen ? (
         <Alert variant="success" className="mb-4">
-          Einladungs-E-Mail wurde versandt (sofern SMTP konfiguriert ist).
+          Einladungs-E-Mail wurde versandt.
         </Alert>
       ) : null}
       {/* Erfolgsmeldungen von DSGVO-Löschung und Stammdaten laufen jetzt über

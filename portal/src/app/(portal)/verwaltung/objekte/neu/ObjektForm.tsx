@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { FileInput } from "@/components/file-input";
 import { Card, Field, inputClass } from "@/components/ui";
 import { DateField } from "@/components/fields";
 import { SubmitButton } from "@/components/submit-button";
@@ -171,7 +172,7 @@ export function ObjektForm({
               ref={pdfRef}
               type="file"
               accept="application/pdf"
-              className="block max-w-full text-xs text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-green hover:file:bg-gray-50"
+              className="block text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
             />
             <button
               type="button"
@@ -322,11 +323,9 @@ export function ObjektForm({
         </div>
         <div className="mt-3">
           <Field label="Titelbild (optional)">
-            <input
-              type="file"
+            <FileInput
               name="titleImage"
               accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-              className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
             />
           </Field>
         </div>

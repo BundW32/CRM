@@ -922,3 +922,32 @@ Anlass: PR #43 macht rohes `<input type="date">` und den Nachbau von `Card` und
 154. **Der Bestand bleibt liegen.** Die übrigen rohen Datumsfelder dieser vier
      Dateien gehören zur geplanten Welle und werden dort mitgezogen; sie hier
      nebenbei anzufassen, hieße zwei Zweige über dieselben Zeilen zu führen.
+
+## Schritt 30 — Durchsicht der eigenen Arbeit: drei Nachlässigkeiten (28.07.2026)
+
+Nach Abschluss von KP1–KP9 einmal über alles Eigene geschaut. Drei Funde, alle
+selbst verursacht.
+
+155. **Sechs Warteschlangen statt einer auf der Hausgeld-Seite.** Mit jedem
+     Schritt (Fortgeltungs-Prüfung, offene Posten, SEPA-Mandate, Eigentümer,
+     Übernahme, Mahnungen) war ein weiteres `await` dazugekommen, ohne dass
+     eines auf das vorige wartet. Sechs Stufen heißen sechs Wartezeiten zur
+     Datenbank **nacheinander** — sie addieren sich zur Ladezeit, obwohl sie
+     gleichzeitig laufen könnten. Jetzt ein einziger `Promise.all`.
+     Der Fehler entsteht schleichend: Jede Änderung für sich sah harmlos aus.
+156. **Ein Kommentar behauptete etwas Falsches.**
+     `sortiereNachTilgungsreihenfolge` trug „exportiert, weil die Reihenfolge in
+     der Oberfläche erklärt wird" — das tut sie nirgends. Exportiert ist sie,
+     damit die Vorschrift für sich geprüft werden kann; genau das sagt der
+     Kommentar jetzt. Ein Kommentar, der nicht stimmt, ist schlimmer als keiner:
+     Der nächste Leser richtet sich danach.
+157. **Doppelte Logik statt des vorhandenen Helfers.** `resolvePlan` rechnete
+     den Monatsersten mit einer eigenen kleinen Funktion aus, obwohl
+     `monatsBeginn` aus `plan-validity.ts` genau das tut. Zwei Stellen, die
+     dasselbe rechnen, laufen irgendwann auseinander.
+
+Nicht geändert, obwohl es auffiel: Die Hausgeld-Seite lädt die Sollstellungen
+zweimal — einmal als Summe je Einheit (`dueSums`, „Soll fällig") und einmal
+vollständig für die offenen Posten. Zusammenlegen ginge nicht ohne Verlust: Die
+Spalte zeigt **alle fälligen** Forderungen, die offenen Posten nur die **noch
+offenen**. Aus dem einen lässt sich das andere nicht ableiten.

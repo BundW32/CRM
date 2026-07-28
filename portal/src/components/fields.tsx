@@ -28,10 +28,8 @@ function FieldShell({
   if (!label) return <>{children}</>;
   return (
     <label className="block" htmlFor={htmlFor}>
-      {/* Kein Pflicht-Sternchen: Das übrige Portal markiert Pflichtfelder nirgends,
-          und nur die neuen Felder zu markieren sieht aus, als wären die anderen
-          freiwillig. Entweder überall oder nirgends – das ist eine eigene
-          Entscheidung, keine Nebenwirkung dieses Umbaus. */}
+      {/* Kein Sternchen von Hand: Pflichtfelder markiert `globals.css` selbst,
+          indem es `required` ausliest. Hier eines zu setzen ergäbe zwei. */}
       <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>
       {children}
       {hint ? <span className="mt-1 block text-xs text-gray-500">{hint}</span> : null}

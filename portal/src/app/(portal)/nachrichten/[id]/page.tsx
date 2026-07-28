@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { SubmitButton } from "@/components/submit-button";
-import { Card, Field, PageTitle, inputClass } from "@/components/ui";
+import { Card, PageTitle, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
@@ -66,11 +66,26 @@ export default async function ConversationPage({
           })}
         </ul>
 
-        <form action={sendMessage} className="mt-5 space-y-3 border-t border-gray-100 pt-4">
+        {/* Eingabefeld wie beim Beginn eines Verlaufs: Feld und Knopf nebeneinander,
+            beschriftet nur über den Platzhalter. Ein Label „Antworten" mit
+            Pflicht-Sternchen sähe in einem Gesprächsverlauf nach Formular aus. */}
+        <form
+          action={sendMessage}
+          className="mt-5 flex items-end gap-2 border-t border-gray-100 pt-4"
+        >
           <input type="hidden" name="conversationId" value={conversation.id} />
-          <Field label="Antworten">
-            <textarea name="body" required minLength={1} maxLength={5000} rows={3} className={inputClass} />
-          </Field>
+          <label className="block flex-1">
+            <span className="sr-only">Antworten</span>
+            <textarea
+              name="body"
+              required
+              minLength={1}
+              maxLength={5000}
+              rows={3}
+              placeholder="Nachricht schreiben …"
+              className={inputClass}
+            />
+          </label>
           <SubmitButton pendingLabel="Wird gesendet…">Senden</SubmitButton>
         </form>
       </Card>

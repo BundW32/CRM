@@ -1,5 +1,9 @@
 node_modules/
-.claude/
+.claude/*
+# Skills sind Projektwissen und gehören ins Repo — nur sie, nicht die
+# persönlichen Einstellungen daneben.
+!.claude/skills/
+!.claude/skills/**
 
 # Next.js build output (falls versehentlich im Root gebaut)
 .next/

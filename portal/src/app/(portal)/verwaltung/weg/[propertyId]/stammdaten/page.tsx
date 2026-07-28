@@ -10,6 +10,7 @@ import {
   ledgerAccountKindLabels,
   unitTypeLabels,
 } from "@/lib/labels";
+import { SelectField } from "@/components/fields";
 import { formatCents } from "@/lib/money";
 import { WEG_COST_CATALOG } from "@/lib/weg/cost-catalog";
 import { requireWegProperty } from "@/lib/weg/scope";
@@ -160,10 +161,41 @@ export default async function WegStammdatenPage({
                 ))}
               </select>
             </Field>
+            {/* Fälligkeit der Vorschüsse. Steuert die Sollstellungen UND den
+                Wortlaut der Beschlussvorlage — beides muss dasselbe sagen,
+                sonst mahnt die Verwaltung zu einem Termin, den der Beschluss
+                nicht nennt. */}
+            <SelectField
+              label="Hausgeld fällig"
+              name="dueDayRule"
+              defaultValue={property.dueDayRule}
+              options={[
+                { value: "MONATSERSTER", label: "zum Ersten des Monats" },
+                { value: "DRITTER_WERKTAG", label: "zum dritten Werktag" },
+                { value: "FREIER_TAG", label: "zu einem festen Tag im Monat" },
+              ]}
+            />
+            <Field label="Fester Tag (1–28, nur bei fester Wahl)">
+              <input
+                name="dueDayOfMonth"
+                type="number"
+                min={1}
+                max={28}
+                defaultValue={property.dueDayOfMonth ?? ""}
+                className={inputClass}
+                placeholder="z. B. 15"
+              />
+            </Field>
             <div className="flex items-end">
               <PendingButton className={buttonClass}>Speichern</PendingButton>
             </div>
           </form>
+          <p className="mt-3 text-xs text-gray-500">
+            Die Fälligkeit bestimmt, ab wann ein Hausgeld als Rückstand gilt und wann Verzug
+            eintritt (§ 286 BGB). Sie erscheint zugleich im Text der Beschlussvorlage zum
+            Wirtschaftsplan — damit die Gemeinschaft genau das beschließt, wonach später
+            gemahnt wird.
+          </p>
         </Card>
 
         {/* MEA-Summenprüfung */}

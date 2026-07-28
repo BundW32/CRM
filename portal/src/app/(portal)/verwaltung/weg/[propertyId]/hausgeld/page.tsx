@@ -12,6 +12,8 @@ import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { ersterFehlenderSollmonat } from "@/lib/weg/due-postings";
+import { oposJeEinheit } from "@/lib/weg/opos-service";
+import { OPOS_BUCKETS, OPOS_BUCKET_LABELS, leereOposZeile } from "@/lib/weg/payment-allocation";
 import {
   assignPayment,
   createMahnung,
@@ -19,6 +21,8 @@ import {
   markMahnungSent,
   saveUebernahme,
   schreibeSollstellungenFort,
+  ordneZahlungZu,
+  loeseZuordnung,
 } from "./actions";
 
 const MONAT = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
@@ -69,19 +73,42 @@ const MAHN_FILTER: FilterConfig = {
   ],
 };
 
-// Einfache Zuordnungs-Hilfe: schlägt die Einheit vor, deren Kurz-Label
-// (z. B. "WE 01") im Verwendungszweck/Text der Zahlung vorkommt.
+// Zuordnungs-Hilfe: Welche Einheit steckt hinter dieser Zahlung?
+//
+// Drei Wege, in dieser Reihenfolge — je sicherer, desto früher:
+//
+// 1. **IBAN** aus dem SEPA-Mandat. Die Kontonummer des Zahlenden ist der
+//    verlässlichste Hinweis überhaupt; sie steht in jedem Bankumsatz.
+// 2. **Einheiten-Kurzlabel** im Verwendungszweck („WE 01").
+// 3. **Nachname des Eigentümers** im Zahlungspartner. Zuletzt, weil Namen sich
+//    wiederholen: Zwei Eigentümer namens Müller machen den Hinweis wertlos —
+//    deshalb zählt er nur, wenn der Name im Objekt eindeutig ist.
+//
+// Es bleibt ein *Vorschlag*: Zugeordnet wird erst, wenn der Verwalter bestätigt.
 function suggestUnit(
   booking: { text: string; reference: string | null; counterparty: string | null },
   units: { id: string; label: string }[],
+  unitByIban: Map<string, string>,
+  unitByNachname: Map<string, string>,
 ): string | null {
-  const haystack = `${booking.text} ${booking.reference ?? ""} ${booking.counterparty ?? ""}`
-    .toLowerCase()
-    .replace(/\s+/g, " ");
+  const roh = `${booking.text} ${booking.reference ?? ""} ${booking.counterparty ?? ""}`;
+  const haystack = roh.toLowerCase().replace(/\s+/g, " ");
+
+  // 1) IBAN — im Umsatztext meist mit Leerzeichen, deshalb entfernen.
+  const kompakt = roh.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  for (const [iban, unitId] of unitByIban) {
+    if (iban.length >= 15 && kompakt.includes(iban)) return unitId;
+  }
+
+  // 2) Kurzform: erster Label-Teil vor dem Komma ("WE 01, EG links" → "we 01")
   for (const u of units) {
-    // Kurzform: erster Label-Teil vor dem Komma ("WE 01, EG links" → "we 01")
     const short = u.label.split(",")[0].trim().toLowerCase();
     if (short.length >= 3 && haystack.includes(short)) return u.id;
+  }
+
+  // 3) Nachname, nur wenn im Objekt eindeutig.
+  for (const [nachname, unitId] of unitByNachname) {
+    if (nachname.length >= 4 && haystack.includes(nachname)) return unitId;
   }
   return null;
 }
@@ -159,7 +186,16 @@ export default async function HausgeldPage({
     // Bereits zugeordnete (zur Kontrolle, mit Lösen-Option)
     db.booking.findMany({
       where: zugeordnetWhere,
-      include: { unit: { select: { label: true } } },
+      include: {
+        unit: { select: { label: true } },
+        // Worauf die Zahlung angerechnet wurde (§§ 366, 367 BGB).
+        allocations: {
+          select: {
+            amountCents: true,
+            duePosting: { select: { periodYear: true, periodMonth: true, source: true } },
+          },
+        },
+      },
       orderBy: { bookingDate: "desc" },
       skip: (aPage - 1) * ASSIGNED_PAGE_SIZE,
       take: ASSIGNED_PAGE_SIZE,
@@ -212,6 +248,45 @@ export default async function HausgeldPage({
   const uebernahmeSumme = uebernahme.reduce((s, u) => s + u.amountCents, 0);
   const uebernahmeStichtag = uebernahme[0]?.dueDate ?? null;
 
+  // Offene Posten je Einheit — je Forderung gerechnet statt als Differenz
+  // zweier Summen. Erst dadurch stimmt der Rückstand, wenn eine Sonderumlage
+  // bezahlt oder im Voraus überwiesen wurde (siehe payment-allocation.ts).
+  const opos = await oposJeEinheit(property.id, now);
+
+  // Bausteine der Zuordnungs-Hilfe (siehe `suggestUnit`).
+  const [mandate, aktuelleEigentuemer] = await Promise.all([
+    db.sepaMandate.findMany({
+      where: { propertyId: property.id, active: true },
+      select: { unitId: true, iban: true },
+    }),
+    db.unitOwnership.findMany({
+      where: {
+        unit: { propertyId: property.id },
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gt: now } }],
+      },
+      select: { unitId: true, user: { select: { name: true } } },
+    }),
+  ]);
+  const unitByIban = new Map(
+    mandate.map((m) => [m.iban.toUpperCase().replace(/[^A-Z0-9]/g, ""), m.unitId]),
+  );
+  // Mehrdeutige Nachnamen fliegen raus: Ein Hinweis, der auf zwei Einheiten
+  // passt, ist kein Hinweis, sondern eine Fehlerquelle.
+  const nachnameZaehler = new Map<string, Set<string>>();
+  for (const o of aktuelleEigentuemer) {
+    const nachname = o.user.name.trim().split(/\s+/).at(-1)?.toLowerCase();
+    if (!nachname) continue;
+    const menge = nachnameZaehler.get(nachname) ?? new Set<string>();
+    menge.add(o.unitId);
+    nachnameZaehler.set(nachname, menge);
+  }
+  const unitByNachname = new Map(
+    [...nachnameZaehler.entries()]
+      .filter(([, einheiten]) => einheiten.size === 1)
+      .map(([nachname, einheiten]) => [nachname, [...einheiten][0]]),
+  );
+
   const dueByUnit = new Map(dueSums.map((d) => [d.unitId, d._sum.amountCents ?? 0]));
   const paidByUnit = new Map(paidSums.map((p) => [p.unitId as string, p._sum.amountCents ?? 0]));
   const hasPostings = dueSums.length > 0;
@@ -221,7 +296,8 @@ export default async function HausgeldPage({
   const totalPaid = [...paidByUnit.values()].reduce((a, b) => a + b, 0);
 
   // Rückstandsliste filtern (im Speicher – die Einheiten liegen ohnehin alle vor).
-  const saldoFor = (unitId: string) => (paidByUnit.get(unitId) ?? 0) - (dueByUnit.get(unitId) ?? 0);
+  // Negativ = Rückstand, damit die bisherige Sortier- und Filterlogik gilt.
+  const saldoFor = (unitId: string) => -(opos.get(unitId)?.gesamtCents ?? 0);
   const gefilterteUnits =
     sp.stand === "rueckstand"
       ? units.filter((u) => saldoFor(u.id) < 0)
@@ -317,7 +393,28 @@ export default async function HausgeldPage({
                       ? "Es gibt keinen beschlossenen Wirtschaftsplan, der fortgelten könnte. Bitte zuerst einen Plan beschließen."
                       : sp.fehler === "stammdaten"
                         ? "Die Verteilung lässt sich nicht rechnen — bei mindestens einer Einheit fehlen Stammdaten (MEA, Wohnfläche oder Personenzahl)."
-                        : "Die Eingabe konnte nicht gespeichert werden."}
+                        : sp.fehler === "ohneeinheit"
+                          ? "Diese Zahlung ist keiner Einheit zugeordnet — ohne Einheit ist nicht bekannt, auf wessen Forderungen sie anzurechnen wäre."
+                          : sp.fehler === "schonzugeordnet"
+                            ? "Diese Zahlung ist bereits vollständig angerechnet."
+                            : sp.fehler === "keineforderung"
+                              ? "Für diese Einheit ist keine fällige Forderung offen. Eine Vorauszahlung bleibt bewusst als Guthaben stehen."
+                              : "Die Eingabe konnte nicht gespeichert werden."}
+        </Alert>
+      ) : null}
+
+      {sp.angerechnet ? (
+        <Alert variant={sp.guthaben && sp.guthaben !== "0" ? "warning" : "success"} className="mb-4">
+          {formatCents(Number(sp.angerechnet))} auf offene Forderungen angerechnet — älteste zuerst,
+          gemahnte vorrangig (§ 366 Abs. 2 BGB).
+          {sp.guthaben && sp.guthaben !== "0"
+            ? ` ${formatCents(Number(sp.guthaben))} bleiben als Guthaben stehen: Vorauszahlungen tilgen keine künftigen Forderungen.`
+            : ""}
+        </Alert>
+      ) : null}
+      {sp.anrechnunggeloest ? (
+        <Alert variant="success" className="mb-4">
+          Anrechnung aufgehoben — die Zahlung bleibt der Einheit zugeordnet.
         </Alert>
       ) : null}
 
@@ -440,7 +537,15 @@ export default async function HausgeldPage({
                     <th className="py-2 pr-3">Einheit</th>
                     <th className="py-2 pr-3 text-right">Soll (fällig)</th>
                     <th className="py-2 pr-3 text-right">Gezahlt (zugeordnet)</th>
-                    <th className="py-2 pr-3 text-right">Saldo</th>
+                    <th className="py-2 pr-3 text-right">Rückstand</th>
+                    {/* Altersstruktur: Sind 1.200 € ein Monat bei mehreren
+                        Eigentümern oder ein Jahr bei einem? Nur das Zweite
+                        rechtfertigt die nächste Mahnstufe. */}
+                    {OPOS_BUCKETS.map((b) => (
+                      <th key={b} className="py-2 pr-3 text-right whitespace-nowrap">
+                        {OPOS_BUCKET_LABELS[b]}
+                      </th>
+                    ))}
                     <th className="py-2 pr-3 text-right">Mahnwesen</th>
                   </tr>
                 </thead>
@@ -448,25 +553,49 @@ export default async function HausgeldPage({
                   {sichtbareUnits.map((u) => {
                     const due = dueByUnit.get(u.id) ?? 0;
                     const paid = paidByUnit.get(u.id) ?? 0;
-                    const saldo = paid - due;
+                    const zeile = opos.get(u.id) ?? { ...leereOposZeile(), unitId: u.id, nichtZugeordnetCents: 0 };
+                    const rueckstand = zeile.gesamtCents;
                     return (
                       <tr key={u.id} className="border-b border-gray-100">
                         <td className="py-2 pr-3 font-medium text-gray-900">{u.label}</td>
                         <td className="py-2 pr-3 text-right text-gray-700">{formatCents(due)}</td>
-                        <td className="py-2 pr-3 text-right text-gray-700">{formatCents(paid)}</td>
-                        <td
-                          className={`py-2 pr-3 text-right font-semibold ${
-                            saldo < 0 ? "text-red-700" : "text-green-700"
-                          }`}
-                        >
-                          {saldo < 0 ? "−" : saldo > 0 ? "+" : ""}
-                          {formatCents(Math.abs(saldo))}
-                          {saldo < 0 ? (
-                            <span className="block text-xs font-normal text-red-500">Rückstand</span>
+                        <td className="py-2 pr-3 text-right text-gray-700">
+                          {formatCents(paid)}
+                          {/* Ein nicht angerechnetes Guthaben wird getrennt
+                              ausgewiesen, statt den Rückstand zu mindern: Sonst
+                              verdeckte eine Vorauszahlung einen offenen Monat. */}
+                          {zeile.nichtZugeordnetCents > 0 ? (
+                            <span className="block text-xs font-normal text-amber-600">
+                              {formatCents(zeile.nichtZugeordnetCents)} nicht angerechnet
+                            </span>
                           ) : null}
                         </td>
+                        <td
+                          className={`py-2 pr-3 text-right font-semibold ${
+                            rueckstand > 0 ? "text-red-700" : "text-green-700"
+                          }`}
+                        >
+                          {rueckstand > 0 ? formatCents(rueckstand) : "ausgeglichen"}
+                          {zeile.aeltesteFaelligkeit ? (
+                            <span className="block text-xs font-normal text-red-500">
+                              älteste offen seit {formatDateOnly(zeile.aeltesteFaelligkeit)}
+                            </span>
+                          ) : null}
+                        </td>
+                        {OPOS_BUCKETS.map((b) => (
+                          <td
+                            key={b}
+                            className={`py-2 pr-3 text-right ${
+                              b === "b90plus" && zeile.buckets[b] > 0
+                                ? "font-semibold text-red-700"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            {zeile.buckets[b] > 0 ? formatCents(zeile.buckets[b]) : "—"}
+                          </td>
+                        ))}
                         <td className="py-2 pr-3 text-right">
-                          {saldo < 0 ? (
+                          {rueckstand > 0 ? (
                             draftUnits.has(u.id) ? (
                               <span className="text-xs text-gray-400">Entwurf offen (unten)</span>
                             ) : (
@@ -490,7 +619,7 @@ export default async function HausgeldPage({
                   })}
                   {sichtbareUnits.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-sm text-gray-500">
+                      <td colSpan={5 + OPOS_BUCKETS.length} className="py-6 text-center text-sm text-gray-500">
                         {sp.stand === "rueckstand"
                           ? "Keine Einheit im Rückstand."
                           : "Keine Einheit mit ausgeglichenem Saldo."}
@@ -632,7 +761,7 @@ export default async function HausgeldPage({
           ) : (
             <div className="grid gap-3">
               {unassigned.map((b) => {
-                const suggestion = suggestUnit(b, units);
+                const suggestion = suggestUnit(b, units, unitByIban, unitByNachname);
                 return (
                   <form
                     key={b.id}
@@ -686,22 +815,82 @@ export default async function HausgeldPage({
           <Card title={`Zugeordnete Zahlungen (${assignedTotal})`}>
             <div className="grid gap-2">
               {assigned.map((b) => (
-                <form
-                  key={b.id}
-                  action={assignPayment}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2 text-sm"
-                >
-                  <input type="hidden" name="propertyId" value={property.id} />
-                  <input type="hidden" name="bookingId" value={b.id} />
-                  <input type="hidden" name="unitId" value="" />
-                  <span className="text-gray-700">
-                    {formatCents(b.amountCents)} · {formatDateOnly(b.bookingDate)} · {b.text} →{" "}
-                    <span className="font-medium text-gray-900">{b.unit?.label}</span>
-                  </span>
-                  <button type="submit" className="text-xs text-red-600 underline">
-                    Zuordnung lösen
-                  </button>
-                </form>
+                (() => {
+                  const angerechnet = b.allocations.reduce((s, a) => s + a.amountCents, 0);
+                  const offen = b.amountCents - angerechnet;
+                  return (
+                    <div
+                      key={b.id}
+                      className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2 text-sm"
+                    >
+                      <span className="text-gray-700">
+                        {formatCents(b.amountCents)} · {formatDateOnly(b.bookingDate)} · {b.text} →{" "}
+                        <span className="font-medium text-gray-900">{b.unit?.label}</span>
+                        {/* Worauf angerechnet — die Frage, die „zugeordnet zu
+                            Einheit X" offenlässt und die in der Mahnung zählt. */}
+                        {angerechnet > 0 ? (
+                          <span className="block text-xs text-gray-500">
+                            angerechnet auf{" "}
+                            {b.allocations
+                              .map((a) =>
+                                a.duePosting.source === "SONDERUMLAGE"
+                                  ? `Sonderumlage (${formatCents(a.amountCents)})`
+                                  : `${a.duePosting.periodMonth}/${a.duePosting.periodYear} (${formatCents(a.amountCents)})`,
+                              )
+                              .join(" · ")}
+                          </span>
+                        ) : null}
+                        {offen > 0 ? (
+                          <span className="block text-xs text-amber-600">
+                            {formatCents(offen)} noch nicht angerechnet
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="flex items-center gap-3">
+                        {offen > 0 ? (
+                          <form action={ordneZahlungZu} className="flex items-center gap-1">
+                            <input type="hidden" name="propertyId" value={property.id} />
+                            <input type="hidden" name="bookingId" value={b.id} />
+                            {/* § 366 Abs. 1 BGB: Steht im Verwendungszweck, worauf
+                                gezahlt wird, geht das der gesetzlichen Reihenfolge
+                                vor. Den Fließtext liest der Verwalter, nicht das
+                                Programm — eine Fehldeutung verschöbe echtes Geld. */}
+                            <select
+                              name="zweck"
+                              defaultValue="ALLE"
+                              className="rounded border border-gray-200 px-1 py-0.5 text-xs text-gray-700"
+                              aria-label="Tilgungsbestimmung laut Verwendungszweck"
+                            >
+                              <option value="ALLE">ohne Angabe (älteste zuerst)</option>
+                              <option value="WIRTSCHAFTSPLAN">laut Zweck: Hausgeld</option>
+                              <option value="SONDERUMLAGE">laut Zweck: Sonderumlage</option>
+                            </select>
+                            <PendingButton className="text-xs text-gray-700 underline">
+                              anrechnen
+                            </PendingButton>
+                          </form>
+                        ) : null}
+                        {angerechnet > 0 ? (
+                          <form action={loeseZuordnung}>
+                            <input type="hidden" name="propertyId" value={property.id} />
+                            <input type="hidden" name="bookingId" value={b.id} />
+                            <PendingButton className="text-xs text-gray-500 underline">
+                              Anrechnung lösen
+                            </PendingButton>
+                          </form>
+                        ) : null}
+                        <form action={assignPayment}>
+                          <input type="hidden" name="propertyId" value={property.id} />
+                          <input type="hidden" name="bookingId" value={b.id} />
+                          <input type="hidden" name="unitId" value="" />
+                          <PendingButton className="text-xs text-red-600 underline">
+                            Zuordnung lösen
+                          </PendingButton>
+                        </form>
+                      </span>
+                    </div>
+                  );
+                })()
               ))}
             </div>
 

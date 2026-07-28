@@ -7,6 +7,12 @@ import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
+import {
+  offenePostenDerEinheit,
+  offenerZahlungsbetrag,
+  rueckstandDerEinheit,
+} from "@/lib/weg/opos-service";
+import { schlageZuordnungVor, type Tilgungszweck } from "@/lib/weg/payment-allocation";
 import { loadWegProperty } from "@/lib/weg/scope";
 import { fortgeltenderPlan, synchronisiereSollstellungen } from "@/lib/weg/due-postings";
 
@@ -57,21 +63,11 @@ export async function assignPayment(formData: FormData) {
 
 const PAYMENT_DEADLINE_DAYS = 14;
 
-// Aktueller Hausgeld-Rückstand einer Einheit (Σ fällige Sollstellungen −
-// Σ zugeordnete Zahlungseingänge). Positiv = Rückstand.
-async function currentArrears(unitId: string): Promise<number> {
-  const [due, paid] = await Promise.all([
-    db.duePosting.aggregate({
-      where: { unitId, dueDate: { lte: new Date() } },
-      _sum: { amountCents: true },
-    }),
-    db.booking.aggregate({
-      where: { unitId, kind: "EINNAHME", ...NOT_REVERSED },
-      _sum: { amountCents: true },
-    }),
-  ]);
-  return (due._sum.amountCents ?? 0) - (paid._sum.amountCents ?? 0);
-}
+// Aktueller Hausgeld-Rückstand einer Einheit — je Forderung gerechnet, nicht
+// als Differenz zweier Summen. Die alte Rechnung ließ die Zahlung einer
+// Sonderumlage Hausgeldrückstände tilgen und eine Vorauszahlung einen offenen
+// Monat verdecken; siehe `payment-allocation.ts`.
+const currentArrears = rueckstandDerEinheit;
 
 // Erstellt die nächste Mahnstufe für eine Einheit. Stufenlogik wie im
 // Plattform-Mahnwesen: Es eskaliert nur, was auch versendet wurde — unversendete
@@ -335,4 +331,115 @@ export async function schreibeSollstellungenFort(formData: FormData) {
   });
   revalidatePath(`/verwaltung/weg/${property.id}/hausgeld`);
   back(property.id, `fortgeschrieben=${ergebnis.angelegt}`);
+}
+
+// ── Zahlungen auf Forderungen anrechnen (§§ 366, 367 BGB) ───────────────────
+// `Booking.unitId` sagt, von wem das Geld kam. Worauf es angerechnet wurde,
+// stand nirgends — der Rückstand war eine Differenz zweier Summen und damit in
+// vier Fällen falsch (siehe `payment-allocation.ts`). Diese Aktionen schreiben
+// die Anrechnung als eigene Zeilen fest.
+
+/**
+ * Übernimmt den gesetzlichen Tilgungsvorschlag für eine Zahlung.
+ *
+ * Bewusst zweistufig: Die Oberfläche zeigt den Vorschlag, der Verwalter löst
+ * ihn aus. § 366 Abs. 1 BGB lässt dem Schuldner das Recht, im Verwendungszweck
+ * selbst zu bestimmen, worauf gezahlt wird — das kann nur ein Mensch lesen.
+ */
+export async function ordneZahlungZu(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const bookingId = String(formData.get("bookingId") ?? "");
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const booking = await db.booking.findFirst({
+    where: { id: bookingId, propertyId: property.id, kind: "EINNAHME", ...NOT_REVERSED },
+    select: { id: true, unitId: true },
+  });
+  if (!booking) back(property.id, "fehler=buchung");
+  if (!booking.unitId) back(property.id, "fehler=ohneeinheit");
+
+  const rest = await offenerZahlungsbetrag(booking.id);
+  if (rest <= 0) back(property.id, "fehler=schonzugeordnet");
+
+  // § 366 Abs. 1 BGB: Hat der Zahlende im Verwendungszweck bestimmt, worauf er
+  // zahlt, geht das der gesetzlichen Reihenfolge vor. Lesen kann das nur ein
+  // Mensch — deshalb gibt der Verwalter den Zweck an, statt dass das Programm
+  // im Fließtext rät.
+  const zweckRoh = String(formData.get("zweck") ?? "ALLE");
+  const zweck: Tilgungszweck =
+    zweckRoh === "WIRTSCHAFTSPLAN" || zweckRoh === "SONDERUMLAGE" ? zweckRoh : "ALLE";
+
+  const posten = await offenePostenDerEinheit(booking.unitId);
+  const vorschlag = schlageZuordnungVor(rest, posten, new Date(), zweck);
+  if (vorschlag.zuordnungen.length === 0) back(property.id, "fehler=keineforderung");
+
+  await db.$transaction(
+    vorschlag.zuordnungen.map((z) =>
+      db.paymentAllocation.upsert({
+        where: { bookingId_duePostingId: { bookingId: booking.id, duePostingId: z.duePostingId } },
+        // Addieren ist hier richtig: Der Vorschlag rechnet ausschließlich mit
+        // dem, was an Zahlung UND an Forderung noch offen ist — eine bereits
+        // vorhandene Zeile ist darin schon abgezogen. Ein zweiter Lauf ohne
+        // neue Bewegung schlägt deshalb gar nichts mehr vor.
+        update: { amountCents: { increment: z.betragCents } },
+        create: {
+          organizationId: verwalter.organizationId,
+          bookingId: booking.id,
+          duePostingId: z.duePostingId,
+          amountCents: z.betragCents,
+          createdById: verwalter.id,
+        },
+      }),
+    ),
+  );
+
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_PAYMENT_ALLOCATED,
+    targetType: "Booking",
+    targetId: booking.id,
+    meta: {
+      zuordnungen: vorschlag.zuordnungen.length,
+      angerechnetCents: rest - vorschlag.restCents,
+      guthabenCents: vorschlag.restCents,
+      zweck,
+    },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/hausgeld`);
+  back(property.id, `angerechnet=${rest - vorschlag.restCents}&guthaben=${vorschlag.restCents}`);
+}
+
+/**
+ * Hebt alle Anrechnungen einer Zahlung wieder auf.
+ *
+ * Nötig, weil eine Zuordnung eine Entscheidung ist und Entscheidungen falsch
+ * sein können — etwa wenn die Tilgungsbestimmung im Verwendungszweck erst
+ * später auffällt. Die Zahlung selbst bleibt unberührt; gelöst wird nur, worauf
+ * sie angerechnet war.
+ */
+export async function loeseZuordnung(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const bookingId = String(formData.get("bookingId") ?? "");
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const booking = await db.booking.findFirst({
+    where: { id: bookingId, propertyId: property.id },
+    select: { id: true },
+  });
+  if (!booking) back(property.id, "fehler=buchung");
+
+  const { count } = await db.paymentAllocation.deleteMany({ where: { bookingId: booking.id } });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_PAYMENT_ALLOCATION_CLEARED,
+    targetType: "Booking",
+    targetId: booking.id,
+    meta: { entfernt: count },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/hausgeld`);
+  back(property.id, "anrechnunggeloest=1");
 }

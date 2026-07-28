@@ -10,6 +10,7 @@
 import { db } from "@/lib/db";
 import { classifyDue, type DueStatus } from "./compliance";
 import { ersterFehlenderSollmonat } from "./due-postings";
+import { oposJeEinheit } from "./opos-service";
 
 export type RoadmapItem = {
   key: string;
@@ -79,21 +80,16 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
         orderBy: { dueDate: "asc" },
         select: { id: true, title: true, dueDate: true, catalogKey: true, interval: true },
       }),
-      // Rückstand = fällige Sollstellungen minus zugeordnete Zahlungseingänge.
-      db.duePosting.aggregate({
-        where: { propertyId, dueDate: { lte: now } },
-        _sum: { amountCents: true },
-      }),
+      // Rückstand je Forderung, nicht als Differenz zweier Summen: Sonst tilgte
+      // die Zahlung einer Sonderumlage Hausgeldrückstände und eine
+      // Vorauszahlung verdeckte einen offenen Monat (siehe payment-allocation.ts).
+      oposJeEinheit(propertyId, now),
       // Fortgeltung (§ 28 Abs. 1 Satz 2 WEG): Gibt es Monate, für die schon
       // Forderungen bestehen müssten, aber keine da sind?
       ersterFehlenderSollmonat(propertyId, now),
     ]);
 
-  const gezahlt = await db.booking.aggregate({
-    where: { propertyId, kind: "EINNAHME", unitId: { not: null } },
-    _sum: { amountCents: true },
-  });
-  const offenCents = (rueckstaende._sum.amountCents ?? 0) - (gezahlt._sum.amountCents ?? 0);
+  const offenCents = [...rueckstaende.values()].reduce((s, z) => s + z.gesamtCents, 0);
 
   const items: RoadmapItem[] = [];
 

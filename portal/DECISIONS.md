@@ -852,3 +852,55 @@ Nachfolger weiter bis April 2027; eine verbogene Sollstellung aus März 2026
 bleibt beim Abgleich unangetastet, eine künftige wird korrigiert; ein geänderter
 Plan ab Juli grenzt den Vorgänger auf Januar–Juni ab — **0 Monate mit doppelter
 Forderung**.
+
+## Schritt 28 — Block 3, KP9: echte Zahlungszuordnung (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde B2, D3).
+
+143. **Der Rückstand war eine Differenz zweier Summen** — „alle fälligen
+     Sollstellungen minus alle Einnahmen dieser Einheit". Diese eine Subtraktion
+     rechnet vier Dinge falsch: Die Zahlung einer Sonderumlage tilgte
+     Hausgeldrückstände, eine Vorauszahlung verdeckte einen offenen Monat, eine
+     Sammelüberweisung ließ sich nicht aufteilen — und die Mahnung nannte damit
+     einen Betrag nach außen, den niemand prüfen konnte.
+144. **`PaymentAllocation` beantwortet die andere Frage.** `Booking.unitId` sagt,
+     *von wem* das Geld kam, und bleibt als Vorfilter. Worauf es angerechnet
+     wurde, steht jetzt in eigenen Zeilen mit Teilbeträgen.
+145. **§ 366 Abs. 2 BGB bestimmt die Reihenfolge:** fällige vor nicht fälligen;
+     unter den fälligen die gemahnte (die „lästigere"); bei gleicher Lästigkeit
+     die ältere. Bei gleichem Datum entscheidet die ID — ohne diesen Anker hinge
+     die Reihenfolge an der Ladereihenfolge und der Vorschlag wäre nicht
+     reproduzierbar.
+146. **§ 366 Abs. 1 geht Abs. 2 vor — und das war zunächst nicht drin.** Der
+     Prüflauf an echten Daten zeigte es: Eine Zahlung mit dem Verwendungszweck
+     „Sonderumlage Dachsanierung" tilgte das ältere Hausgeld, weil die
+     gesetzliche Reihenfolge allein angewandt wurde. Der Zahlende darf aber
+     bestimmen, worauf er zahlt. Nachgetragen als Auswahl am Anrechnen-Knopf:
+     **Der Verwalter liest den Verwendungszweck, nicht das Programm.** Eine
+     Fehldeutung von Fließtext verschöbe echtes Geld.
+147. **§ 367 Abs. 1 (Kosten → Zinsen → Hauptforderung) ist eingebaut, obwohl
+     Kosten und Zinsen heute immer 0 sind.** Mahnkosten und Verzugszinsen werden
+     noch nicht je Forderung erfasst. Die Aufteilung jetzt vorzusehen ist
+     billiger, als sie später in eine bestehende Reihenfolge einzuziehen.
+148. **Eine Vorauszahlung bleibt Guthaben.** Sie tilgt nichts Künftiges und wird
+     getrennt ausgewiesen, statt den Rückstand zu mindern — genau das Verdecken
+     war der Befund. Auch die Mahnung rechnet ein nicht zugeordnetes Guthaben
+     **nicht** gegen: Ein Betrag, der eine noch nicht zugeordnete Überweisung
+     stillschweigend verrechnet, ist von außen nicht nachvollziehbar.
+149. **Angerechnet wird auf Knopfdruck, nicht still.** Der Vorschlag ist ein
+     Vorschlag; lösen lässt er sich wieder, ohne die Zahlung selbst anzutasten.
+150. **Offene Posten mit Altersstruktur** (0–30 / 31–60 / 61–90 / über 90 Tage)
+     samt ältester offener Fälligkeit. Eine bloße Summe lässt die entscheidende
+     Frage offen: Sind 1.200 € ein Monat bei mehreren Eigentümern oder ein Jahr
+     bei einem? Nur das Zweite trägt die nächste Mahnstufe.
+151. **Die Zuordnungshilfe kennt jetzt drei Wege**, nach Verlässlichkeit
+     geordnet: IBAN aus dem SEPA-Mandat, Einheiten-Kurzlabel im Verwendungszweck,
+     Nachname des Eigentümers. Der Name zählt **nur, wenn er im Objekt eindeutig
+     ist** — zwei Eigentümer namens Müller machen den Hinweis wertlos.
+
+An echten Daten geprüft (Hausgeld 5/2026 + 6/2026 je 200 €, Sonderumlage
+1.000 €): Mit Zweckangabe tilgt die 1.000-€-Zahlung ausschließlich die Umlage,
+ohne Zweckangabe zuerst das ältere Hausgeld; nach Ausgleich aller fälligen
+Forderungen bleibt eine Vorauszahlung von 200 € vollständig als Guthaben stehen
+und mindert den Rückstand nicht; der Mahnbetrag entspricht exakt dem
+ausgewiesenen Rückstand; nie wird mehr angerechnet als gezahlt wurde.

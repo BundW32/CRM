@@ -323,6 +323,7 @@ model Organization {
   bankImportBatches     BankImportBatch[]
   economicPlans         EconomicPlan[]
   duePostings           DuePosting[]
+  paymentAllocations    PaymentAllocation[]
   unitOwnerships        UnitOwnership[]
   annualStatements      AnnualStatement[]
   hausgeldMahnungen     HausgeldMahnung[]
@@ -427,6 +428,7 @@ model User {
   statementsCreated         AnnualStatement[]         @relation("StatementCreatedBy")
   unitOwnerships            UnitOwnership[]
   mahnungenCreated          HausgeldMahnung[]         @relation("MahnungCreatedBy")
+  paymentAllocations        PaymentAllocation[]       @relation("PaymentAllocationCreatedBy")
   sonderumlagenCreated      Sonderumlage[]            @relation("SonderumlageCreatedBy")
   maintenanceMeasuresCreated MaintenanceMeasure[]     @relation("MaintenanceMeasureCreatedBy")
   sepaMandatesCreated        SepaMandate[]            @relation("SepaMandateCreatedBy")
@@ -1470,6 +1472,8 @@ model Booking {
   reversalOfId    String?          @unique
   reversalOf      Booking?         @relation("BookingReversal", fields: [reversalOfId], references: [id], onDelete: Cascade)
   reversedBy      Booking?         @relation("BookingReversal")
+  // Auf welche Forderungen diese Zahlung angerechnet wurde (§§ 366, 367 BGB).
+  allocations     PaymentAllocation[]
   // Beleg (gleiche Storage-Konvention wie Handover: storedName/fileName/mimeType)
   belegStoredName String?
   belegFileName   String?
@@ -1590,11 +1594,43 @@ model DuePosting {
   amountCents    Int
   source         String        @default("WIRTSCHAFTSPLAN") // WIRTSCHAFTSPLAN | SONDERUMLAGE
   createdAt      DateTime      @default(now())
+  // Zahlungen, die auf diese Forderung angerechnet wurden.
+  allocations    PaymentAllocation[]
 
   @@unique([planId, unitId, periodYear, periodMonth])
   @@index([propertyId])
   @@index([sonderumlageId])
   @@index([unitId])
+}
+
+// Anrechnung einer Zahlung auf eine bestimmte Forderung (§§ 366, 367 BGB).
+//
+// Vorher ordnete `Booking.unitId` eine Zahlung pauschal einer Einheit zu, und
+// der Rückstand war „alle Sollstellungen minus alle Einnahmen dieser Einheit".
+// Das rechnet vieles falsch: Die Zahlung einer Sonderumlage tilgte
+// Hausgeldrückstände, eine Vorauszahlung verschleierte einen Rückstand, und
+// eine Sammelüberweisung für zwei Einheiten ließ sich gar nicht aufteilen.
+// Nach außen stand am Ende ein falscher Betrag in der Mahnung.
+//
+// `Booking.unitId` bleibt als Vorfilter bestehen — es beantwortet „von wem kam
+// das Geld", diese Tabelle „worauf wurde es angerechnet".
+model PaymentAllocation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookingId      String
+  booking        Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  duePostingId   String
+  duePosting     DuePosting   @relation(fields: [duePostingId], references: [id], onDelete: Cascade)
+  amountCents    Int // Teilbetrag; Σ je Buchung ≤ Buchungsbetrag
+  createdById    String
+  createdBy      User         @relation("PaymentAllocationCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+
+  // Eine Zahlung wird je Forderung genau einmal angerechnet; Teilbeträge
+  // stehen im Betrag, nicht in mehreren Zeilen.
+  @@unique([bookingId, duePostingId])
+  @@index([duePostingId])
 }
 
 // ── WEG-Finanzen Stufe 3: Eigentümerschaft je Einheit & Jahresabrechnung ─────

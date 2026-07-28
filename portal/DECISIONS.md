@@ -1173,3 +1173,39 @@ durchklickbar — was der Prüflauf mitbeweist, denn Playwright klickt nichts an
 was außerhalb des Bildes liegt —, jeder Lichtkegel sitzt auf seinem Ziel oder
 fällt bewusst auf die zentrierte Karte zurück, und am Ende bleibt kein
 Schubfach offen stehen.
+
+## Schritt 36 — Die Führung kennt jetzt die Rolle (28.07.2026)
+
+Aus einer Rückfrage entstanden: „Bekommen die anderen Eigentümer beim ersten
+Login auch eine Ersteinführung?" Sie bekamen sie — nur die falsche.
+
+193. **Max Mieter las „Sie verwalten Ihre Gemeinschaft ab jetzt selbst."** Die
+     Führung filterte nach Kontotyp der Organisation, nicht nach der Rolle des
+     Angemeldeten. In einer selbstverwalteten WEG gibt es aber **einen**
+     verwaltenden Eigentümer und daneben alle übrigen Eigentümer und Mieter.
+     Die drei bekamen dieselben sechs Schritte — davon drei als leere Karten,
+     weil `/verwaltung/weg` nur in den Verwalter-Menüs steht und die
+     Einrichtungs-Karte nur für den verwaltenden Eigentümer rendert. Falscher
+     erster Satz plus drei Fehlanzeigen: der schlechtestmögliche erste Eindruck,
+     und ausgerechnet für die Gruppe, die das Programm am wenigsten kennt.
+194. **Schritte tragen jetzt `rollen`.** Eigentümer bekommen eine eigene
+     Begrüßung und Schritte zu Stimme, Geld und Unterlagen; Mieter eine zu
+     Schadensmeldung und Unterlagen. Handwerker bekommen gar keine — sie haben
+     kein Portalkonto.
+195. **Der Bereichsleisten-Text stimmte für drei von vier Zielgruppen nicht.**
+     Er zählte die Gruppen auf („Alltag, Stammdaten, WEG, Betrieb"). So heißen
+     sie nur beim professionellen Verwalter; die Selbstverwaltung hat andere,
+     und Eigentümer und Mieter haben überhaupt keine Gruppen, sondern eine
+     flache Liste. Jetzt ohne Aufzählung.
+196. **Zwei Tests, die genau das künftig fangen.** Der eine prüft jeden Schritt
+     gegen die Navigation **seiner Rolle** in `app-nav.ts` — zeigt er auf einen
+     Menüpunkt, muss dieser dort stehen. Der andere verbietet, einen Menü- oder
+     Gruppennamen im Text zu zitieren: Dieselbe Stelle heißt je nach Rolle und
+     Kontotyp anders. Beide laufen über **alle zwölf** Kombinationen aus Rolle,
+     Kontotyp und Assistent; der erste wurde mit einer absichtlich falschen
+     Zuordnung gegengeprüft und schlug fehl.
+
+Schrittzahlen danach: verwaltender Eigentümer 6 (7 mit Assistent),
+professioneller Verwalter 3 (4), Eigentümer 6, Mieter 5. An echten Daten mit
+allen vier Konten durchgeklickt — jeder Schritt trifft ein Ziel, das es in
+diesem Menü wirklich gibt.

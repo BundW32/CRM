@@ -174,6 +174,34 @@ Die vorhandenen Abweichungen werden **nicht** in einem Rutsch umgebaut: Das
 wären viele Dateien ohne jede sichtbare Verbesserung. Wer ohnehin in einer
 solchen Datei arbeitet, zieht sie mit.
 
+## Oberfläche: Bausteine benutzen, nicht nachbauen
+
+Der Stil der Navigationsleiste soll sich im Inhalt fortsetzen. Damit das nicht wieder
+auseinanderläuft, gibt es Bausteine — und drei **harte** ESLint-Regeln, die ihren
+Nachbau verbieten (`eslint.oberflaeche.mjs`, Fehler, keine Warnung):
+
+| Statt | Baustein |
+|---|---|
+| rohes `<input type="date">` | `DateField` (`@/components/fields`), Werte über `toDateInputValue` |
+| natives `<select>` ohne Rahmen | `SelectField` — bleibt nativ, nur einheitlich gerahmt |
+| handgebaute Karte | `Card` / `CollapsibleCard` (`@/components/ui`) |
+| selbstgeschriebenes Etikett | `Badge` mit semantischem Ton (`@/components/data-display`) |
+| Tabelle von Hand | `DataTable` — die entscheidende Spalte gehört nach vorn |
+| Kennzahl als `text-3xl` | `KeyFigure` / `KeyFigures`, in Kopfzeilen `InlineFigures` |
+| Abstände nach Gefühl | `stackTight` / `stack` / `stackLoose` — drei Stufen, keine acht |
+
+Die Regeln sind **eng** geschnitten: Sie treffen die Signatur des jeweiligen Bausteins,
+nicht jede entfernt ähnliche Klassenkette. Eine Regel, die auch Aufklapp-Menüs und
+Dialoge anmeckert, wird reihenweise abgeschaltet und ist dann weniger wert als keine.
+Was sie nicht erwischt, fängt die Durchsicht ab. Ihre Grenze: Nur Klassen, die als
+Zeichenkette dastehen — `className={`… ${x}`}` entzieht sich der Prüfung.
+
+**Die Ausnahmeliste in `eslint.oberflaeche.mjs` wird nur kürzer.** Sie enthält den
+Bestand, der in Wellen umgestellt wird (`docs/PLAN-Design-Vereinheitlichung.md`). Wer
+eine Datei umstellt, streicht sie dort. Wer eine neue einträgt, umgeht die Regel —
+`src/lib/oberflaeche-regeln.test.ts` schlägt dann fehl, und ein Eintrag für eine
+gelöschte Datei ebenso (sonst wäre die Regel dort still abgeschaltet).
+
 ## Pflichtfelder markieren sich selbst
 
 Ein Feld mit `required` bekommt sein Sternchen **automatisch** — `globals.css` liest das

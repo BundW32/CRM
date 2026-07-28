@@ -62,8 +62,18 @@ Dateien berührt.
   `DataTable`, `KeyFigure`/`KeyFigures`, `buttonCompact`, drei Abstands-Stufen.
 - **Stufe 2 — fertig.** Musterseiten **Wartung** (Tabellen-Archetyp) und **Beschlüsse**
   (Detail-/Formular-Archetyp), beide lokal mit Datenbank und Seed-Daten angesehen.
-- **Stufe 3 — wartet** auf den Merge des Fachlogik-Zweiges (siehe Bedingung unten).
-- **Stufe 4 — offen.**
+- **Stufe 3 — fertig.** Drei harte ESLint-Regeln in `portal/eslint.oberflaeche.mjs`,
+  Konventions-Abschnitt in `portal/AGENTS.md`, Ausnahmeliste mit **49 Bestandsdateien**
+  (94 Verstöße), bewacht von `src/lib/oberflaeche-regeln.test.ts`.
+- **Stufe 4 — läuft.** Erste Welle (Alltag) fertig: Vorgänge, Aushänge, Dokumente,
+  Nachrichten. Nächste Welle: Stammdaten.
+
+**Zur Reichweite der Regeln:** Ursprünglich war „keine handgebauten Karten" als breites
+Verbot gedacht. Gemessen traf ein solches Muster 113 Stellen — darunter Aufklapp-Menüs,
+Dialoge und Popover, die zu Recht anders aussehen. Eine Regel, die das anmeckert, wird
+reihenweise abgeschaltet und ist dann weniger wert als keine. Die Regeln treffen deshalb
+die **Signatur des jeweiligen Bausteins** (die abgeschriebene `Card`, das abgeschriebene
+`Badge`) statt jede ähnliche Klassenkette.
 
 **Was das Ansehen gebracht hat:** Auf Wartung lag die Aktionsspalte außerhalb des Bildes
 („Erledigt"/„Löschen" nicht erreichbar) und auf dem Telefon war die Fälligkeit hinter dem

@@ -951,3 +951,120 @@ zweimal — einmal als Summe je Einheit (`dueSums`, „Soll fällig") und einmal
 vollständig für die offenen Posten. Zusammenlegen ginge nicht ohne Verlust: Die
 Spalte zeigt **alle fälligen** Forderungen, die offenen Posten nur die **noch
 offenen**. Aus dem einen lässt sich das andere nicht ableiten.
+
+## Schritt 31 — LP1: Erklärungen ein- und ausschaltbar (28.07.2026)
+
+Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP1).
+
+158. **Es gab bisher keinerlei Nutzereinstellung.** `User` trug nur Kontoflags.
+     `showHints` ist das erste Feld, das eine *Vorliebe* speichert — und
+     deshalb ein neues Muster, kein Anbau an ein vorhandenes.
+159. **Standardmäßig an.** Die umgekehrte Voreinstellung erreichte genau die
+     nicht, für die die Hinweise gedacht sind: Wer nicht weiß, was eine
+     Sollstellung ist, sucht keinen Schalter für ihre Erklärung.
+160. **Am Nutzer, nicht an der Organisation.** Zwei Eigentümer derselben WEG
+     dürfen es verschieden wollen. Deshalb steht der Schalter unter „Konto" und
+     nicht in den Verwalter-Einstellungen.
+161. **Serverseitig entschieden.** `<Tipp>` rendert gar nicht erst, wenn die
+     Hinweise aus sind. Rendern und per CSS verstecken hätte den Text trotzdem
+     über die Leitung geschickt und ihn beim Laden aufblitzen lassen.
+     `getUser()` ist pro Request gecacht — beliebig viele Hinweise auf einer
+     Seite kosten zusammen eine Abfrage.
+162. **Warnungen und Fehlermeldungen hängen NICHT daran.** Ein abgeschalteter
+     Tipp darf niemanden in einen Fehler laufen lassen, den er hätte vermeiden
+     können. `src/lib/tipp-regeln.test.ts` hält das fest: kein `<Alert>` in
+     einem `<Tipp>`, und keine Seite liest `showHints` selbst aus — sonst stünde
+     die Regel bald in dreißig Dateien und gälte in achtundzwanzig davon.
+163. **Der Wächter hätte sich fast selbst ausgehebelt.** Erster Wurf:
+     `join(__dirname, "..")` statt `".." , ".."` — der Glob fand **null**
+     Dateien und der Test meldete Erfolg, ohne eine einzige gesehen zu haben.
+     Aufgefallen nur, weil ein absichtlicher Verstoß eingebaut und geprüft
+     wurde, ob der Test ihn fängt. Seitdem sichert eine eigene Zusicherung
+     (`dateien.length > 50`) genau das ab.
+164. **Der WEG-Bereich wurde vollständig umgestellt, der Rest zieht nach.**
+     Ein Schalter, der drei Texte betrifft, ist kein Schalter — deshalb sind
+     alle 15 Erklärabsätze der WEG-Finanzseiten mit umgezogen. Das ist der
+     Bereich, in dem Laien tatsächlich arbeiten. Außerhalb (rund 190 Texte)
+     gilt weiter: Wer die Seite ohnehin anfasst, zieht sie mit.
+165. **Nicht jeder graue Kleintext ist ein Hinweis.** Von 25 Absätzen im
+     WEG-Bereich enthalten 10 **Daten** — Beträge, Zähler, abgeleitete Aussagen
+     („Bedarf übersteigt den Rücklagenstand"). Die blieben stehen: Sie
+     abzuschalten hieße, dem Nutzer Zahlen vorzuenthalten, nicht Erklärungen.
+     Die Trennung lief über eine Prüfung auf eingebettete Ausdrücke, nicht über
+     Augenmaß.
+
+An echten Daten geprüft: Schalter vorbelegt an; ausgeschaltet verschwinden die
+Erklärungen auf Stammdaten und Wirtschaftsplan-Detail, Warnungen und
+Rückstandshinweise bleiben; wieder eingeschaltet sind sie zurück.
+
+## Schritt 32 — LP2: Fehlermeldungen führen ans Ziel (28.07.2026)
+
+Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP2).
+
+166. **„Die Verteilung ist nicht möglich" ließ den Nutzer suchen.** Die Meldung
+     nennt jetzt die betroffene Einheit beim Namen: „Der Miteigentumsanteil
+     (MEA) fehlt bei WE 03." Die Daten dafür lagen bereits vor —
+     `PositionNichtVerteilbar` kennt das Feld, `einheitenOhneFeld` liefert die
+     Einheiten dazu.
+167. **Zeilenanker statt Abschnittsanker.** Bisher gab es fünf Sprungziele, alle
+     auf Kartenebene. Bei zwanzig Einheiten landet man damit richtig und sucht
+     trotzdem weiter. Jede Einheit, Kostenart und jedes Konto hat jetzt ein
+     eigenes Ziel. **Eigener Namensraum (`zeile-…`), weil `einheit-…` bereits
+     die Formular-ID dieser Zeile ist** — zwei gleiche IDs hätten den
+     `form`-Verweis mehrdeutig gemacht.
+168. **Die angesprungene Zeile hebt sich kurz hervor** (`:target` in
+     `globals.css`). Ohne Markierung landet man richtig und sieht es nicht,
+     besonders bei zwanzig gleich aussehenden Zeilen. Bei `prefers-reduced-motion`
+     bleibt die Markierung stehen statt zu verblassen — die Information darf
+     nicht verlorengehen, nur weil jemand Bewegung abstellt.
+169. **Der Ankersprung funktionierte überhaupt nicht zuverlässig — und zwar
+     schon vorher.** Gemessen: In zwei von drei Aufrufen blieb die Seite oben
+     stehen. Die naheliegende Erklärung („das Ziel gibt es noch nicht") war
+     falsch; das Ziel war da. **Die Seite war noch nicht hoch genug:** Next
+     liefert gestreamt aus, und solange der Teil unterhalb fehlt, gibt es
+     nichts zu scrollen. `scrollIntoView` läuft dann folgenlos durch.
+170. **`HashScroll` wiederholt den Sprung, bis er sitzt** — Bild für Bild,
+     längstens anderthalb Sekunden, Abbruch sobald der Nutzer selbst scrollt.
+     Ein erster Entwurf versuchte es nur zwanzig Bilder lang und machte es
+     dadurch **schlechter** als vorher (0 von 5 statt 1 von 3). Nach dem Umbau:
+     5 von 5. Das betrifft alle Anker, auch die vorhandenen
+     `?flash=gespeichert#einheiten`-Rücksprünge.
+171. **`fehlermeldungen.test.ts` hält es fest:** Kein Text darf auf die
+     Stammdaten verweisen, ohne dorthin zu verlinken. Der Wächter fand sofort
+     eine Fundstelle (Sonderumlagen) — genau dafür ist er da.
+
+An echten Daten geprüft (MEA bei WE 03 entfernt): Die Meldung nennt WE 03, der
+Link zeigt auf `#zeile-<id>`, das Ziel steht nach dem Sprung 96 px unter dem
+Rand (die `scroll-mt-24`-Marge), die Hervorhebung greift — fünf von fünf Läufen.
+
+## Schritt 33 — LP3: Glossar an Ort und Stelle (28.07.2026)
+
+Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP3).
+
+172. **Die Begriffe werden nicht ersetzt.** Das war die naheliegende Idee und
+     wäre falsch: „Abrechnungsspitze" und „Sollstellung" benutzen der Beirat,
+     der Steuerberater und im Streitfall das Gericht. Wer sie umbenennt, macht
+     das Programm für Laien verständlich und für alle anderen unbenutzbar — und
+     der Eigentümer lernt nie, wovon in seiner Versammlung die Rede ist. Die
+     Erklärung tritt **daneben**, nicht an die Stelle.
+173. **Ein Satz je Begriff, hart begrenzt.** Zwei liest niemand, der gerade
+     etwas anderes vorhat. `glossar.test.ts` erzwingt die Grenze, sonst wächst
+     aus der Erklärung ein Absatz und aus dem Absatz ein zweites Handbuch.
+174. **Kein Popup-Framework, kein Client-JS.** Die Erklärung steht im Dokument
+     und wird per CSS bei Mauszeiger oder Tastaturfokus eingeblendet. Sie
+     funktioniert damit ohne JavaScript, kostet nichts, und Screenreader lesen
+     sie ohnehin vor — unabhängig davon, ob sie gerade sichtbar ist.
+175. **Tastaturfokus ist Absicht, obwohl er Tab-Stopps kostet.** Ein Begriff,
+     den nur die Maus erreicht, ist für Tastaturnutzer nicht vorhanden. Der
+     Preis sind auf der längsten Seite etwa ein Dutzend zusätzliche Stopps.
+176. **Ein Paragraph ohne Gesetz ist keine Fundstelle.** „§ 28 Abs. 1" allein
+     sagt nicht, woraus — und bei diesen Begriffen liegt die Antwort zwischen
+     WEG, BGB, EStG und HeizkostenV. Der Test verlangt die Angabe.
+177. **Ein Tippfehler im Begriffsnamen fiele sonst erst zur Laufzeit auf** — und
+     dort als leere Erklärung, nicht als Fehler. Der Test gleicht alle
+     verwendeten Namen gegen das Glossar ab; die Gegenprobe mit einem
+     absichtlichen Tippfehler schlug fehl, wie sie soll.
+
+An echten Daten geprüft: Begriff gepunktet unterstrichen, Erklärung erscheint
+bei Mauszeiger **und** bei Tastaturfokus, ist vorher unsichtbar; bei
+abgeschalteten Hinweisen bleibt das Wort als gewöhnlicher Text stehen.

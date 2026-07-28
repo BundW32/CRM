@@ -347,6 +347,86 @@ summary:focus-visible,
   }
 }
 
+/* Fachbegriff mit Erklärung (siehe components/begriff.tsx).
+ *
+ * Die Erklärung steht im Dokument und wird nur ein-/ausgeblendet — kein
+ * JavaScript, keine Bibliothek. Screenreader lesen sie unabhängig davon vor.
+ *
+ * `focus-within` statt `focus`: Der Fokus kann auch auf einem Kindelement
+ * landen, etwa wenn im Erklärtext später einmal ein Link steht. */
+.begriff {
+  position: relative;
+  border-bottom: 1px dotted currentColor;
+  cursor: help;
+}
+
+.begriff-erklaerung {
+  position: absolute;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 40;
+  display: none;
+  width: max-content;
+  max-width: min(22rem, 80vw);
+  border-radius: 0.5rem;
+  background-color: rgb(31 41 55); /* gray-800 */
+  padding: 0.5rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: rgb(243 244 246); /* gray-100 */
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  /* Der Erklärtext ist Beiwerk: Ein Klick soll das treffen, was darunter liegt. */
+  pointer-events: none;
+}
+
+.begriff:hover > .begriff-erklaerung,
+.begriff:focus-within > .begriff-erklaerung {
+  display: block;
+}
+
+/* Nahe am rechten Rand würde die Blase hinauslaufen — dort rechts ausrichten. */
+@media (max-width: 640px) {
+  .begriff-erklaerung {
+    left: auto;
+    right: 0;
+  }
+}
+
+/* Angesprungene Stelle kurz hervorheben.
+ *
+ * Eine Fehlermeldung verlinkt auf die Zeile, in der etwas fehlt („bei WE 03
+ * fehlt die Wohnfläche"). Ohne Markierung landet man zwar an der richtigen
+ * Stelle, sieht das aber nicht – besonders, wenn die Zeile oben am Rand klebt
+ * oder die Tabelle zwanzig gleich aussehende Zeilen hat.
+ *
+ * Bewusst kurz und ohne Farbwechsel des Textes: Der Hinweis soll den Blick
+ * führen, nicht dauerhaft etwas markieren, das gleich korrigiert wird. */
+:target {
+  animation: ziel-hervorheben 2.4s ease-out 1;
+}
+
+@keyframes ziel-hervorheben {
+  0%, 55% {
+    background-color: rgb(254 243 199); /* amber-100 */
+    box-shadow: inset 3px 0 0 rgb(245 158 11); /* amber-500 */
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 3px 0 0 transparent;
+  }
+}
+
+/* Reduzierte Bewegung: statt der Animation eine ruhige, bleibende Markierung –
+ * die Information darf nicht verlorengehen, nur weil jemand Bewegung abstellt. */
+@media (prefers-reduced-motion: reduce) {
+  :target {
+    animation: none;
+    background-color: rgb(254 243 199);
+    box-shadow: inset 3px 0 0 rgb(245 158 11);
+  }
+}
+
 /* Reduzierte Bewegung – Animationen respektvoll deaktivieren */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

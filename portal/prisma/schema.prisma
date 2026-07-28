@@ -351,6 +351,12 @@ model User {
   role                 Role
   active               Boolean                   @default(true)
   mustChangePassword   Boolean                   @default(false)
+  // Erklärende Hinweise in der Oberfläche anzeigen. Standardmäßig AN: Wer sie
+  // nicht braucht, schaltet sie ab — die umgekehrte Voreinstellung erreicht
+  // genau die nicht, für die sie da sind. Eine Vorliebe der **Person**, nicht
+  // der Organisation: Zwei Eigentümer derselben WEG dürfen es verschieden
+  // wollen. Warnungen und Fehlermeldungen hängen NICHT daran.
+  showHints            Boolean                   @default(true)
   preferredContact     ContactMethod? // bevorzugter Kontaktweg (Mieter/Eigentümer)
   // Optionale Anschrift (z. B. Eigentümer als Wohnungsgeber) und Unterschriftsbild
   street               String?

@@ -22,6 +22,7 @@ import {
 } from "./actions";
 import { ImportClient } from "./ImportClient";
 import { DateField } from "@/components/fields";
+import { Tipp } from "@/components/tipp";
 
 export const dynamic = "force-dynamic";
 
@@ -525,10 +526,10 @@ export default async function WegBuchhaltungPage({
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-2 text-xs text-gray-400">
+                  <Tipp className="mt-2">
                     Ein falsch zugeordneter Import lässt sich im Ganzen zurücknehmen, solange
                     keine Buchung daraus storniert wurde und das Wirtschaftsjahr noch offen ist.
-                  </p>
+                  </Tipp>
                 </div>
               ) : null}
             </>
@@ -573,11 +574,11 @@ export default async function WegBuchhaltungPage({
                   </select>
                 </Field>
                 <PendingButton className={buttonSecondaryClass}>Kostenart setzen</PendingButton>
-                <p className="w-full text-xs text-gray-400">
+                <Tipp className="w-full">
                   Erst in der Liste auswählen, dann Kostenart wählen und setzen. Umbuchungen
                   tragen keine Kostenart — sie sind kein Aufwand, sondern verschieben Geld
                   zwischen den Konten der Gemeinschaft.
-                </p>
+                </Tipp>
               </form>
             ) : null}
             <div className="overflow-x-auto">

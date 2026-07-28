@@ -3,10 +3,24 @@ import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { notFound } from "next/navigation";
 import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
-import { computeUnitAdvances, monthlyInstallments, PositionNichtVerteilbar } from "@/lib/weg/economic-plan";
+import {
+  computeUnitAdvances,
+  einheitenOhneFeld,
+  monthlyInstallments,
+  PositionNichtVerteilbar,
+} from "@/lib/weg/economic-plan";
+
+// Wie das fehlende Feld in der Oberfläche heißt — dieselben Worte wie im
+// Stammdaten-Formular, damit man beim Hinspringen wiedererkennt, was gemeint ist.
+const FELD_TEXT: Record<"flaeche" | "personen" | "mea", string> = {
+  flaeche: "Die Wohn-/Nutzfläche",
+  personen: "Die Personenzahl",
+  mea: "Der Miteigentumsanteil (MEA)",
+};
 import { requireWegProperty } from "@/lib/weg/scope";
 import { DateField } from "@/components/fields";
 import { faelligkeitsText } from "@/lib/weg/plan-validity";
@@ -103,11 +117,18 @@ export default async function WirtschaftsplanDetailPage({
   } catch (e) {
     if (e instanceof PositionNichtVerteilbar) {
       const kostenart = plan.items.find((i) => i.costTypeId === e.costTypeId)?.costType.name;
+      // Nicht nur *was* fehlt, sondern *bei wem*: Das ist der Unterschied
+      // zwischen Suchen und Hingehen. Der Anker führt auf die erste betroffene
+      // Zeile, nicht bloß auf die Tabelle.
+      const betroffen = e.fehlendesFeld ? einheitenOhneFeld(units, e.fehlendesFeld) : [];
+      const namen = betroffen.map((b) => b.label);
       advanceError = {
         titel: `„${kostenart ?? "Eine Position"}“ lässt sich noch nicht verteilen`,
-        grund: `${e.message} Diese Kostenart wird nach ${distributionKeyLabels[e.distributionKey]} verteilt.`,
-        // Alle drei fehlenden Felder stehen in derselben Tabelle.
-        anker: "einheiten",
+        grund:
+          namen.length > 0
+            ? `${FELD_TEXT[e.fehlendesFeld!]} fehlt bei ${namen.length === 1 ? "" : `${namen.length} Einheiten: `}${namen.join(", ")}. Diese Kostenart wird nach ${distributionKeyLabels[e.distributionKey]} verteilt.`
+            : `${e.message} Diese Kostenart wird nach ${distributionKeyLabels[e.distributionKey]} verteilt.`,
+        anker: betroffen[0] ? `zeile-${betroffen[0].id}` : "einheiten",
       };
     } else {
       advanceError = {
@@ -413,14 +434,14 @@ Muster — ersetzt keine Rechtsberatung.`;
               </form>
             </>
           ) : null}
-          <p className="mt-3 text-xs text-gray-400">
+          <Tipp className="mt-3">
             „Als beschlossen markieren“ trägt einen Beschluss nach, der bereits gefasst wurde, und
             erzeugt für jede Einheit die monatlichen Sollstellungen — fällig{" "}
             {faelligkeitsText(property.dueDayRule, property.dueDayOfMonth)} (änderbar in den
             Stammdaten). Tagt die Versammlung erst im Laufe des Jahres, entstehen die Forderungen
             der zurückliegenden Monate mit: Der Plan gilt ab Beginn des Wirtschaftsjahres. Soll
             erst noch abgestimmt werden, nutzen Sie die Wege darunter.
-          </p>
+          </Tipp>
         </Card>
 
         {/* Weg nach vorn: abstimmen lassen, statt nur nachzutragen. Bisher gab es
@@ -454,13 +475,13 @@ Muster — ersetzt keine Rechtsberatung.`;
                   Tagesordnung.
                 </p>
                 {offeneVersammlungen.length === 0 ? (
-                  <p className="mt-3 text-xs text-gray-500">
+                  <Tipp className="mt-3">
                     Keine geplante Versammlung vorhanden —{" "}
                     <Link href="/versammlungen" className="underline">
                       zuerst eine Versammlung anlegen
                     </Link>
                     .
-                  </p>
+                  </Tipp>
                 ) : (
                   <form action={planZurAbstimmung} className="mt-3 flex flex-wrap items-end gap-2">
                     <input type="hidden" name="propertyId" value={property.id} />

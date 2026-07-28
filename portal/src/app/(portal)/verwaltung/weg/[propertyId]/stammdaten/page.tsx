@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import {
   costCategoryLabels,
@@ -190,12 +191,12 @@ export default async function WegStammdatenPage({
               <PendingButton className={buttonClass}>Speichern</PendingButton>
             </div>
           </form>
-          <p className="mt-3 text-xs text-gray-500">
+          <Tipp className="mt-3">
             Die Fälligkeit bestimmt, ab wann ein Hausgeld als Rückstand gilt und wann Verzug
             eintritt (§ 286 BGB). Sie erscheint zugleich im Text der Beschlussvorlage zum
             Wirtschaftsplan — damit die Gemeinschaft genau das beschließt, wonach später
             gemahnt wird.
-          </p>
+          </Tipp>
         </Card>
 
         {/* MEA-Summenprüfung */}
@@ -223,11 +224,11 @@ export default async function WegStammdatenPage({
 
         {/* Einheiten */}
         <Card id="einheiten" title="Einheiten (MEA, Fläche, Personen)">
-          <p className="mb-3 text-xs text-gray-500">
+          <Tipp className="mb-3">
             Der MEA-Zähler je Einheit ist die zentrale Angabe: Er steuert die Kostenverteilung in
             Abrechnung und Wirtschaftsplan und bestimmt zugleich das Stimmgewicht der Eigentümer
             (Wertprinzip). Er muss also nur hier gepflegt werden.
-          </p>
+          </Tipp>
           {units.length === 0 ? (
             <EmptyState>Dieses Objekt hat noch keine Einheiten.</EmptyState>
           ) : (
@@ -256,7 +257,15 @@ export default async function WegStammdatenPage({
                   {units.map((u) => {
                     const formId = `einheit-${u.id}`;
                     return (
-                      <tr key={u.id} className="border-b border-gray-100 align-middle">
+                      <tr
+                        key={u.id}
+                        // Sprungziel für Fehlermeldungen („bei WE 03 fehlt die
+                        // Wohnfläche"). Eigener Name, weil `einheit-…` schon
+                        // die Formular-ID dieser Zeile ist — zwei gleiche IDs
+                        // machen den `form`-Verweis mehrdeutig.
+                        id={`zeile-${u.id}`}
+                        className="scroll-mt-24 border-b border-gray-100 align-middle"
+                      >
                         <td className="py-2 pr-3 font-medium text-gray-900">{u.label}</td>
                         <td className="py-2 pr-3">
                           <select
@@ -330,7 +339,11 @@ export default async function WegStammdatenPage({
               {units.map((u) => {
                 const list = ownershipsByUnit.get(u.id) ?? [];
                 return (
-                  <div key={u.id} className="rounded-xl border border-gray-200 p-3">
+                  <div
+                    key={u.id}
+                    id={`eigentuemer-${u.id}`}
+                    className="scroll-mt-24 rounded-xl border border-gray-200 p-3"
+                  >
                     <h3 className="text-sm font-semibold text-gray-900">{u.label}</h3>
                     {list.length === 0 ? (
                       <p className="mt-1 text-sm text-amber-700">
@@ -485,9 +498,9 @@ export default async function WegStammdatenPage({
                       {fehlendeStandardarten === 1 ? "" : "en"} ergänzen
                     </PendingButton>
                   </form>
-                  <p className="mt-1.5 text-xs text-gray-500">
+                  <Tipp className="mt-1.5">
                     Vorhandene Einträge bleiben unverändert – auch umbenannte.
-                  </p>
+                  </Tipp>
                 </div>
               ) : null}
               <div className="grid gap-3">
@@ -498,7 +511,8 @@ export default async function WegStammdatenPage({
                   // Bearbeitens nicht mitschicken.
                   <div
                     key={c.id}
-                    className={`rounded-xl border p-3 ${
+                    id={`kostenart-${c.id}`}
+                    className={`scroll-mt-24 rounded-xl border p-3 ${
                       c.active ? "border-gray-200" : "border-gray-100 bg-gray-50 opacity-70"
                     }`}
                   >
@@ -682,8 +696,9 @@ export default async function WegStammdatenPage({
               {accounts.map((a) => (
                 <form
                   key={a.id}
+                  id={`konto-${a.id}`}
                   action={saveAccount}
-                  className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 p-3"
+                  className="scroll-mt-24 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 p-3"
                 >
                   <input type="hidden" name="propertyId" value={property.id} />
                   <input type="hidden" name="accountId" value={a.id} />

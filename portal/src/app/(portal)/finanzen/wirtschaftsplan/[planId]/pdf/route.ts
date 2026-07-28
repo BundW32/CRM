@@ -7,18 +7,9 @@ import {
   buildWirtschaftsplanPdf,
   ownerNamesByUnit,
 } from "@/lib/weg/wirtschaftsplan-pdf";
+import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
-
-function pdfAntwort(pdf: Buffer, fileName: string): NextResponse {
-  return new NextResponse(new Uint8Array(pdf), {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${fileName}"`,
-      "Cache-Control": "private, no-store",
-    },
-  });
-}
 
 // Wirtschaftsplan als PDF für einen Eigentümer. Nur BESCHLOSSENe Pläne —
 // Entwürfe sind Verwalter-Arbeitsstände.
@@ -61,9 +52,10 @@ export async function GET(
         plan,
         units,
       });
-      return pdfAntwort(
+      return pdfResponse(
         pdf,
-        `Wirtschaftsplan_${plan.year}_${plan.property.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+        `Wirtschaftsplan_${plan.year}_${fileNamePart(plan.property.name)}.pdf`,
+        request,
       );
     }
 
@@ -81,7 +73,7 @@ export async function GET(
       ownerNamesByUnit: await ownerNamesByUnit([...eigene]),
       onlyUnitIds: [...eigene],
     });
-    return pdfAntwort(pdf, `Einzelwirtschaftsplan_${plan.year}.pdf`);
+    return pdfResponse(pdf, `Einzelwirtschaftsplan_${plan.year}.pdf`, request);
   } catch (err) {
     console.error("Wirtschaftsplan-PDF (Eigentümer) fehlgeschlagen", err);
     const msg = err instanceof Error ? err.message : "Export fehlgeschlagen";

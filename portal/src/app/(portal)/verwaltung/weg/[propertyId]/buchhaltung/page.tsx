@@ -21,6 +21,7 @@ import {
   undoImportBatch,
 } from "./actions";
 import { ImportClient } from "./ImportClient";
+import { FilePreviewLink } from "@/components/file-preview-link";
 import { DateField } from "@/components/fields";
 import { Tipp } from "@/components/tipp";
 
@@ -697,14 +698,13 @@ export default async function WegBuchhaltungPage({
                         </td>
                         <td className="py-2 pr-3">
                           {b.belegStoredName ? (
-                            <a
-                              href={`/api/files/beleg/${b.id}`}
-                              target="_blank"
-                              rel="noreferrer"
+                            <FilePreviewLink
+                              src={`/api/files/beleg/${b.id}`}
+                              title={`Beleg — ${b.text}`}
                               className="text-sm underline"
                             >
                               Beleg
-                            </a>
+                            </FilePreviewLink>
                           ) : (
                             <span className="text-gray-300">—</span>
                           )}

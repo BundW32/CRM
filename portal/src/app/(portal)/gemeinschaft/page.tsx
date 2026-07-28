@@ -14,6 +14,7 @@ import {
 } from "@/lib/labels";
 import { pageHrefFor, parsePage } from "@/lib/list-query";
 import { getOrganization, requireUser } from "@/lib/session";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
 
@@ -223,12 +224,13 @@ export default async function GemeinschaftPage({
                   >
                     Vollständige Sammlung öffnen
                   </Link>
-                  <a
-                    href={`/beschluesse/sammlung/export?objekt=${selected.id}`}
+                  <FilePreviewLink
+                    src={`/beschluesse/sammlung/export?objekt=${selected.id}`}
+                    title={`Beschluss-Sammlung — ${selected.name}`}
                     className={buttonSecondaryClass}
                   >
                     Als PDF exportieren
-                  </a>
+                  </FilePreviewLink>
                 </div>
                 {resolutions.length === 0 ? (
                   <EmptyState>Für dieses Objekt wurden noch keine Beschlüsse gefasst.</EmptyState>
@@ -281,13 +283,13 @@ export default async function GemeinschaftPage({
                             {formatBytes(doc.size)}
                           </span>
                         </span>
-                        <a
-                          href={`/api/files/dokument/${doc.id}`}
-                          target="_blank"
+                        <FilePreviewLink
+                          src={`/api/files/dokument/${doc.id}`}
+                          title={doc.title}
                           className="shrink-0 text-sm text-brand-green hover:underline"
                         >
                           Öffnen →
-                        </a>
+                        </FilePreviewLink>
                       </li>
                     ))}
                   </ul>

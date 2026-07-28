@@ -37,6 +37,7 @@ import {
   type MajorityType,
   type OutcomeResult,
 } from "@/lib/weg-voting";
+import { FilePreviewLink } from "@/components/file-preview-link";
 import {
   castVote,
   castVoteForOwner,
@@ -543,14 +544,13 @@ export default async function BeschluessePage({
                               {v.proofStoredName ? (
                                 <>
                                   {" "}·{" "}
-                                  <a
-                                    href={`/api/files/vote-proof/${v.id}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                  <FilePreviewLink
+                                    src={`/api/files/vote-proof/${v.id}`}
+                                    title="Stimmnachweis"
                                     className="text-brand-green hover:underline"
                                   >
                                     Nachweis
-                                  </a>
+                                  </FilePreviewLink>
                                 </>
                               ) : null}
                             </li>

@@ -1,7 +1,7 @@
 // PDF-Generator für Plattform-Rechnungen (Betreiber → Verwaltung). Eigenständig
 // (pdf-lib, A4, Helvetica), nutzt die zentralen Sicherheits-Helfer aus pdf-text.
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, degrees, rgb } from "pdf-lib";
-import { encodeWinAnsi, wrapText } from "./pdf-text";
+import { encodeWinAnsi, fitText, wrapText } from "./pdf-text";
 import { formatCents, formatInvoiceNumber, type PlatformIssuer } from "@/lib/platform";
 
 const A4: [number, number] = [595.28, 841.89];
@@ -48,8 +48,16 @@ export async function renderPlatformInvoicePdf(input: PlatformInvoiceInput): Pro
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const page: PDFPage = pdf.addPage(A4);
+  // War fest einseitig: eine Rechnung mit vielen Posten schrieb Summen und
+  // Zahlungshinweis unsichtbar unter den Blattrand. Jetzt bricht sie um.
+  let page: PDFPage = pdf.addPage(A4);
   let y = A4[1] - 50;
+  const BOTTOM = 60;
+  const ensure = (needed: number) => {
+    if (y - needed >= BOTTOM) return;
+    page = pdf.addPage(A4);
+    y = A4[1] - 50;
+  };
 
   const iss = input.issuer;
   const enc = encodeWinAnsi;
@@ -73,7 +81,7 @@ export async function renderPlatformInvoicePdf(input: PlatformInvoiceInput): Pro
     [rcpt.zip, rcpt.city].filter(Boolean).join(" "),
   ].filter(Boolean);
   for (const l of rcptLines) {
-    page.drawText(enc(l), { x: ML, y, size: 10, font, color: BLACK });
+    page.drawText(fitText(enc(l), font, 10, CW), { x: ML, y, size: 10, font, color: BLACK });
     y -= 13;
   }
   y -= 12;
@@ -113,6 +121,7 @@ export async function renderPlatformInvoicePdf(input: PlatformInvoiceInput): Pro
     const lineSum = it.quantity * it.unitPriceCents;
     net += lineSum;
     const descLines = wrapText(enc(it.description), font, 9, colQty - colDesc - 8);
+    ensure(descLines.length * 12 + 2);
     for (let i = 0; i < descLines.length; i++) {
       page.drawText(descLines[i], { x: colDesc, y, size: 9, font, color: BLACK });
       if (i === 0) {
@@ -126,6 +135,7 @@ export async function renderPlatformInvoicePdf(input: PlatformInvoiceInput): Pro
   }
 
   y -= 6;
+  ensure(60);
   page.drawLine({ start: { x: colUnit - 10, y }, end: { x: ML + CW, y }, thickness: 0.5, color: LIGHT });
   y -= 14;
   const vat = Math.round(net * (input.vatRate / 100));
@@ -144,6 +154,7 @@ export async function renderPlatformInvoicePdf(input: PlatformInvoiceInput): Pro
   // Zahlungshinweis
   y -= 12;
   if (input.status !== "STORNIERT" && (iss.iban || iss.bank)) {
+    ensure(50);
     page.drawText("Zahlbar ohne Abzug auf folgendes Konto:", { x: ML, y, size: 9, font, color: BLACK });
     y -= 12;
     if (iss.iban) { page.drawText(enc(`IBAN: ${iss.iban}`), { x: ML, y, size: 9, font, color: GRAY }); y -= 12; }
@@ -153,7 +164,8 @@ export async function renderPlatformInvoicePdf(input: PlatformInvoiceInput): Pro
 
   // Wasserzeichen für Entwurf/Storno
   if (input.status === "ENTWURF" || input.status === "STORNIERT") {
-    drawWatermark(page, bold, input.status === "STORNIERT" ? "STORNIERT" : "ENTWURF");
+    const label = input.status === "STORNIERT" ? "STORNIERT" : "ENTWURF";
+    for (const p of pdf.getPages()) drawWatermark(p, bold, label);
   }
 
   return Buffer.from(await pdf.save());

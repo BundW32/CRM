@@ -9,6 +9,7 @@ import {
 } from "@/lib/access";
 import { get } from "@vercel/blob";
 import { db } from "@/lib/db";
+import { contentDisposition, wantsDownload } from "@/lib/documents/pdf-response";
 import { readUpload } from "@/lib/storage";
 import { getUser } from "@/lib/session";
 
@@ -186,15 +187,12 @@ export async function GET(
 
   const rangeHeader = request.headers.get("range");
   // ?download=1 erzwingt das Herunterladen (Content-Disposition: attachment).
-  // Wichtig für mobile Browser, die ein PDF sonst nicht inline öffnen, sondern
-  // nur eine leere Seite/„Link" zeigen – als Download lässt es sich überall
-  // mit dem PDF-Betrachter des Geräts öffnen.
-  const forceDownload = new URL(request.url).searchParams.get("download") === "1";
-  // Content-Disposition mit ASCII-Fallback + RFC-5987-UTF-8-Variante.
-  const asciiName = file.fileName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
-  const utf8Name = encodeURIComponent(file.fileName);
-  const dispositionType = forceDownload ? "attachment" : "inline";
-  const disposition = `${dispositionType}; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`;
+  // Wichtig für mobile Browser und für die installierte PWA (display=standalone),
+  // die ein PDF sonst in einem Vollbild-Betrachter ohne Rückweg öffnen – als
+  // Download übernimmt es der PDF-Betrachter des Geräts.
+  // Aufbau der Kopfzeile (ASCII-Fallback + RFC-5987) liegt in
+  // lib/documents/pdf-response.ts, damit die Generator-Routen exakt dasselbe tun.
+  const disposition = contentDisposition(file.fileName, wantsDownload(request));
   const cacheControl = "private, max-age=300";
 
   try {

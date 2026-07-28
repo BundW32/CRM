@@ -13,6 +13,7 @@ import { requireUser } from "@/lib/session";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import type { StatementView } from "@/lib/weg/statement-service";
 import { setBeiratReview } from "../beirat/review-actions";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 const REVIEW_LABEL = { GEPRUEFT: "geprüft", ANMERKUNGEN: "mit Anmerkungen" } as const;
 
@@ -333,14 +334,13 @@ export default async function FinanzenPage({
                         })
                       : null}
                     <div className="mt-3">
-                      <a
-                        href={`/finanzen/abrechnung/${s.id}/pdf`}
-                        target="_blank"
-                        rel="noreferrer"
+                      <FilePreviewLink
+                        src={`/finanzen/abrechnung/${s.id}/pdf`}
+                        title={`Meine Einzelabrechnung ${s.year}`}
                         className={buttonSecondaryClass}
                       >
                         Meine Einzelabrechnung als PDF
-                      </a>
+                      </FilePreviewLink>
                     </div>
                     <ReviewBlock
                       kind="statement"
@@ -377,22 +377,20 @@ export default async function FinanzenPage({
                       {/* Der eigene Einzelplan zuerst: Er beantwortet die Frage,
                           die der Eigentümer wirklich hat — woraus sich mein
                           Hausgeld zusammensetzt. */}
-                      <a
-                        href={`/finanzen/wirtschaftsplan/${p.id}/pdf?dokument=einzelplan`}
-                        target="_blank"
-                        rel="noreferrer"
+                      <FilePreviewLink
+                        src={`/finanzen/wirtschaftsplan/${p.id}/pdf?dokument=einzelplan`}
+                        title={`Mein Einzelwirtschaftsplan ${p.year}`}
                         className={buttonSecondaryClass}
                       >
                         Mein Hausgeld im Detail
-                      </a>
-                      <a
-                        href={`/finanzen/wirtschaftsplan/${p.id}/pdf`}
-                        target="_blank"
-                        rel="noreferrer"
+                      </FilePreviewLink>
+                      <FilePreviewLink
+                        src={`/finanzen/wirtschaftsplan/${p.id}/pdf`}
+                        title={`Wirtschaftsplan ${p.year}`}
                         className={buttonSecondaryClass}
                       >
                         Gesamtplan als PDF
-                      </a>
+                      </FilePreviewLink>
                     </div>
                   </div>
                   <ReviewBlock
@@ -545,14 +543,13 @@ export default async function FinanzenPage({
                         </td>
                         <td className="py-2">
                           {b.belegStoredName ? (
-                            <a
-                              href={`/api/files/beleg/${b.id}`}
-                              target="_blank"
-                              rel="noreferrer"
+                            <FilePreviewLink
+                              src={`/api/files/beleg/${b.id}`}
+                              title={`Beleg — ${b.text}`}
                               className="text-sm underline"
                             >
                               ansehen
-                            </a>
+                            </FilePreviewLink>
                           ) : (
                             <span className="text-gray-300">—</span>
                           )}

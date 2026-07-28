@@ -4,6 +4,7 @@ import { getBrandingForOrg } from "@/lib/branding-server";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { generateMeetingInvitation } from "@/lib/documents/meeting-invitation";
+import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
 
@@ -69,14 +70,8 @@ export async function GET(
       createdAt: new Date(),
     });
 
-    const suffix = recipientName ? recipientName.replace(/[^a-zA-Z0-9]/g, "_") : "alle";
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="Einladung_${suffix}.pdf"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    const suffix = recipientName ? fileNamePart(recipientName) : "alle";
+    return pdfResponse(pdf, `Einladung_${suffix}.pdf`, request);
   } catch (err) {
     console.error("Einladungs-PDF fehlgeschlagen", err);
     return NextResponse.json({ error: "Export fehlgeschlagen" }, { status: 500 });

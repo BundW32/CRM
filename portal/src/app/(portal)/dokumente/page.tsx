@@ -23,6 +23,7 @@ import {
   formatBytes,
   formatDateOnly,
 } from "@/lib/labels";
+import { FilePreviewLink } from "@/components/file-preview-link";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
@@ -174,13 +175,13 @@ export default async function DokumentePage({
                   <li key={doc.id} className="px-4 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <a
-                          href={`/api/files/dokument/${doc.id}`}
-                          target="_blank"
-                          className="block truncate text-sm font-medium text-gray-900 hover:underline"
+                        <FilePreviewLink
+                          src={`/api/files/dokument/${doc.id}`}
+                          title={doc.title}
+                          className="block w-full truncate text-left text-sm font-medium text-gray-900 hover:underline"
                         >
                           {doc.title}
-                        </a>
+                        </FilePreviewLink>
                         <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500">
                           <Badge tone="neutral">{documentCategoryLabels[doc.category]}</Badge>
                           {isVerwalter ? (
@@ -194,14 +195,14 @@ export default async function DokumentePage({
                         </span>
                       </div>
                       <span className="flex shrink-0 items-center gap-1">
-                        <a
-                          href={`/api/files/dokument/${doc.id}`}
-                          target="_blank"
+                        <FilePreviewLink
+                          src={`/api/files/dokument/${doc.id}`}
+                          title={doc.title}
                           className={`${buttonGhostClass} px-2.5 py-1.5 text-xs`}
                         >
                           <Eye className="h-4 w-4" />
                           Öffnen
-                        </a>
+                        </FilePreviewLink>
                         {/* Direkter Download – funktioniert zuverlässig auch auf dem Handy */}
                         <a
                           href={`/api/files/dokument/${doc.id}?download=1`}

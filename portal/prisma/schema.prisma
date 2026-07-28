@@ -209,6 +209,15 @@ enum BookingKind {
   UMBUCHUNG
 }
 
+// Fälligkeit der monatlichen Vorschüsse (§ 28 Abs. 1 WEG). Ein freier Tag ist
+// auf den 28. begrenzt, damit es den Termin in jedem Monat gibt — ein „31."
+// fiele im Februar aus.
+enum DueDayRule {
+  MONATSERSTER
+  DRITTER_WERKTAG
+  FREIER_TAG
+}
+
 // Status eines Wirtschaftsplans (§ 28 Abs. 1 WEG)
 enum PlanStatus {
   ENTWURF
@@ -314,6 +323,7 @@ model Organization {
   bankImportBatches     BankImportBatch[]
   economicPlans         EconomicPlan[]
   duePostings           DuePosting[]
+  paymentAllocations    PaymentAllocation[]
   unitOwnerships        UnitOwnership[]
   annualStatements      AnnualStatement[]
   hausgeldMahnungen     HausgeldMahnung[]
@@ -418,6 +428,7 @@ model User {
   statementsCreated         AnnualStatement[]         @relation("StatementCreatedBy")
   unitOwnerships            UnitOwnership[]
   mahnungenCreated          HausgeldMahnung[]         @relation("MahnungCreatedBy")
+  paymentAllocations        PaymentAllocation[]       @relation("PaymentAllocationCreatedBy")
   sonderumlagenCreated      Sonderumlage[]            @relation("SonderumlageCreatedBy")
   maintenanceMeasuresCreated MaintenanceMeasure[]     @relation("MaintenanceMeasureCreatedBy")
   sepaMandatesCreated        SepaMandate[]            @relation("SepaMandateCreatedBy")
@@ -468,6 +479,11 @@ model Property {
   // WEG-Finanzstammdaten
   meaTotal            Int? // MEA-Nenner (Summe aller Anteile, z. B. 1000)
   fiscalYearStartMonth Int                 @default(1) // Wirtschaftsjahr-Beginn (1 = Januar)
+  // Wann das monatliche Hausgeld fällig wird. Steuert die Sollstellungen und
+  // zugleich den Wortlaut der Beschlussvorlage — beides muss dasselbe sagen,
+  // sonst mahnt die Verwaltung zu einem Termin, den der Beschluss nicht nennt.
+  dueDayRule          DueDayRule           @default(MONATSERSTER)
+  dueDayOfMonth       Int? // nur bei FREIER_TAG (1–28)
   // SEPA-Lastschrift: Gläubiger-Identifikationsnummer der Gemeinschaft (Bundesbank)
   sepaCreditorId      String?
   // Standard-Link zur Video-Zuschaltung (externer Dienst, z. B. Jitsi/Zoom) —
@@ -1456,6 +1472,8 @@ model Booking {
   reversalOfId    String?          @unique
   reversalOf      Booking?         @relation("BookingReversal", fields: [reversalOfId], references: [id], onDelete: Cascade)
   reversedBy      Booking?         @relation("BookingReversal")
+  // Auf welche Forderungen diese Zahlung angerechnet wurde (§§ 366, 367 BGB).
+  allocations     PaymentAllocation[]
   // Beleg (gleiche Storage-Konvention wie Handover: storedName/fileName/mimeType)
   belegStoredName String?
   belegFileName   String?
@@ -1509,6 +1527,17 @@ model EconomicPlan {
   year           Int // Wirtschaftsjahr, das in diesem Kalenderjahr beginnt
   status         PlanStatus         @default(ENTWURF)
   resolvedAt     DateTime? // Datum des Beschlusses (Versammlung/Umlauf)
+  // Geltungszeitraum. Der Plan ist NICHT starr an sein Wirtschaftsjahr
+  // gebunden: Nach § 28 Abs. 1 Satz 2 WEG gilt ein beschlossener Plan fort,
+  // bis ein neuer beschlossen ist — sonst schuldete im Januar niemand Hausgeld,
+  // nur weil die Versammlung erst im April tagt. Umgekehrt kann ein geänderter
+  // Plan unterjährig beginnen.
+  //
+  // `validFrom` wird mit dem Beschluss gesetzt (null = noch nicht beschlossen),
+  // `validUntil` erst, wenn ein Nachfolgeplan beschlossen wird (null = gilt fort).
+  // Beide Grenzen sind Tagesdaten; `validUntil` ist exklusiv.
+  validFrom      DateTime?
+  validUntil     DateTime?
   resolutionNote String? // Verweis, z. B. "ETV 12.03.2026, TOP 4"
   createdById    String
   createdBy      User               @relation("EconomicPlanCreatedBy", fields: [createdById], references: [id])
@@ -1522,7 +1551,10 @@ model EconomicPlan {
   beiratReviewBy     User?              @relation("EconomicPlanBeiratReview", fields: [beiratReviewById], references: [id], onDelete: SetNull)
   beiratReviewedAt   DateTime?
 
-  @@unique([propertyId, year])
+  // Kein @@unique([propertyId, year]) mehr: Ein unterjährig geänderter
+  // Wirtschaftsplan ist ein zweiter Plan desselben Jahres. Die Abgrenzung
+  // leistet der Geltungszeitraum, nicht die Eindeutigkeit des Jahres.
+  @@index([propertyId, year])
   @@index([propertyId])
 }
 
@@ -1562,11 +1594,43 @@ model DuePosting {
   amountCents    Int
   source         String        @default("WIRTSCHAFTSPLAN") // WIRTSCHAFTSPLAN | SONDERUMLAGE
   createdAt      DateTime      @default(now())
+  // Zahlungen, die auf diese Forderung angerechnet wurden.
+  allocations    PaymentAllocation[]
 
   @@unique([planId, unitId, periodYear, periodMonth])
   @@index([propertyId])
   @@index([sonderumlageId])
   @@index([unitId])
+}
+
+// Anrechnung einer Zahlung auf eine bestimmte Forderung (§§ 366, 367 BGB).
+//
+// Vorher ordnete `Booking.unitId` eine Zahlung pauschal einer Einheit zu, und
+// der Rückstand war „alle Sollstellungen minus alle Einnahmen dieser Einheit".
+// Das rechnet vieles falsch: Die Zahlung einer Sonderumlage tilgte
+// Hausgeldrückstände, eine Vorauszahlung verschleierte einen Rückstand, und
+// eine Sammelüberweisung für zwei Einheiten ließ sich gar nicht aufteilen.
+// Nach außen stand am Ende ein falscher Betrag in der Mahnung.
+//
+// `Booking.unitId` bleibt als Vorfilter bestehen — es beantwortet „von wem kam
+// das Geld", diese Tabelle „worauf wurde es angerechnet".
+model PaymentAllocation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bookingId      String
+  booking        Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  duePostingId   String
+  duePosting     DuePosting   @relation(fields: [duePostingId], references: [id], onDelete: Cascade)
+  amountCents    Int // Teilbetrag; Σ je Buchung ≤ Buchungsbetrag
+  createdById    String
+  createdBy      User         @relation("PaymentAllocationCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+
+  // Eine Zahlung wird je Forderung genau einmal angerechnet; Teilbeträge
+  // stehen im Betrag, nicht in mehreren Zeilen.
+  @@unique([bookingId, duePostingId])
+  @@index([duePostingId])
 }
 
 // ── WEG-Finanzen Stufe 3: Eigentümerschaft je Einheit & Jahresabrechnung ─────

@@ -788,3 +788,137 @@ Geprüft und in Ordnung:
 - **Wanderung der Migrationen.** Fünf neue, alle additiv: zwei Spalten, ein
   Enum-Wert, eine Selbstrelation, ein Flag mit Bestandsaktualisierung. Keine
   löscht oder ändert Bestandsdaten.
+
+## Schritt 27 — Block 3, KP8: Fortgeltung und geänderter Wirtschaftsplan (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde A4, B7b, B6).
+
+133. **Der Plan war starr an sein Wirtschaftsjahr gebunden** und erzeugte mit
+     dem Beschluss genau zwölf Sollstellungen. Zwei Löcher folgten daraus: Ohne
+     Nachfolgeplan endeten die Forderungen mit dem Jahr — ab Januar schuldete
+     niemand mehr Hausgeld, es gab keine Rückstände, nichts zu mahnen und nichts
+     einzuziehen, obwohl das Geld der Gemeinschaft fehlt. Und ein unterjährig
+     geänderter Plan war nicht speicherbar, weil `@@unique([propertyId, year])`
+     nur einen Plan je Jahr zuließ.
+134. **Nicht das Jahr bestimmt, was gilt, sondern der Geltungszeitraum.**
+     `EconomicPlan.validFrom` / `validUntil` lösen beides mit demselben
+     Gedanken. § 28 Abs. 1 Satz 2 WEG: Der beschlossene Plan gilt fort, bis ein
+     neuer beschlossen ist — `validUntil = null` heißt genau das.
+135. **Die Monatsrate beginnt im Folgejahr wieder bei Index 0.** Über die
+     Jahresgrenze hinweg durchzuzählen wäre naheliegend und falsch: Die
+     Restcent-Verteilung von `monthlyInstallments` muss sich in jedem Jahr
+     gleich verhalten, sonst summierten sich die Raten nicht zum Jahresbetrag.
+136. **Abgleichen statt löschen und neu anlegen.** Das alte `deleteMany` +
+     `createMany` ist mit Zahlungen im Bestand nicht tragbar — jede Zuordnung
+     einer Zahlung hinge danach in der Luft, die Historie einer Mahnung wäre
+     weg. `synchronisiereSollstellungen` legt Fehlendes an, passt Beträge an
+     und entfernt nicht mehr Getragenes.
+137. **Bereits Fälliges bleibt unverändert — solange der Plan den Monat
+     weiterhin trägt.** Was ein Eigentümer im März schuldete, schuldete er; ein
+     Beschluss wirkt nach vorn. Angelegt wird dagegen auch rückwirkend: Tagt die
+     Versammlung im April, entstehen die Forderungen für Januar bis März
+     nachträglich, weil sie die ganze Zeit bestanden.
+138. **Trägt der Plan einen Monat nicht mehr, wird auch Fälliges entfernt.**
+     Der erste Entwurf schonte hier alles Fällige — der Prüflauf an echten Daten
+     brachte prompt 48 Monate mit **doppelter** Forderung ans Licht: Alter und
+     neuer Plan trugen dieselben Monate nebeneinander. Gefahrlos ist das
+     Entfernen erst durch Punkt 139.
+139. **Ein Nachfolgeplan darf nicht rückwirkend beginnen.** Verdrängt er einen
+     bereits beschlossenen Plan, ist frühestens der laufende Monat zulässig.
+     Sonst würde rückwirkend geändert, was jemand schuldete — und dafür müssten
+     Sollstellungen weichen, die längst bezahlt oder gemahnt sein können. Der
+     Normalfall bleibt erlaubt: Für Januar gibt es keinen Vorgänger, wenn im
+     April erstmals über das laufende Jahr beschlossen wird.
+140. **Ein Knopf, kein stiller Automatismus.** Die Fortschreibung läuft über
+     „Forderungen nachziehen" im Hausgeld, nicht beim Seitenaufruf. Neue
+     Forderungen sollen entstehen, weil jemand sie auslöst — nicht als
+     Nebenwirkung des Hinsehens. Der Fahrplan weist mit Vorrang darauf hin,
+     sobald Monate fehlen: Es ist der stillste aller Fehler, denn es fehlt
+     nichts Sichtbares, es passiert nur nichts mehr.
+141. **Fälligkeitsregel je Objekt** (Monatserster / dritter Werktag / fester
+     Tag). Sie steuert die Sollstellungen **und** den Wortlaut der
+     Beschlussvorlage aus derselben Quelle — sonst mahnt die Verwaltung zu einem
+     Termin, den der Beschluss nicht nennt. Samstag zählt beim dritten Werktag
+     nicht: Im Zahlungsverkehr wird an ihm nicht gebucht. Ein freier Tag ist auf
+     den 28. begrenzt, damit es den Termin in jedem Monat gibt.
+142. **Ein zweiter Plan desselben Jahres ist jetzt erlaubt** — das ist der
+     geänderte Wirtschaftsplan. Nur ein offener *Entwurf* wird weitergeführt
+     statt verdoppelt; zwei halb ausgefüllte Entwürfe nebeneinander sind bloß
+     verwirrend.
+
+An echten Daten geprüft (Plan 2026, sechs Einheiten): Beschluss im Juli erzeugt
+rückwirkend die Monate ab Januar; im Februar 2027 laufen die Forderungen ohne
+Nachfolger weiter bis April 2027; eine verbogene Sollstellung aus März 2026
+bleibt beim Abgleich unangetastet, eine künftige wird korrigiert; ein geänderter
+Plan ab Juli grenzt den Vorgänger auf Januar–Juni ab — **0 Monate mit doppelter
+Forderung**.
+
+## Schritt 28 — Block 3, KP9: echte Zahlungszuordnung (27.07.2026)
+
+Grundlage: `docs/REVIEW-WEG-Buchhaltung.md` (Befunde B2, D3).
+
+143. **Der Rückstand war eine Differenz zweier Summen** — „alle fälligen
+     Sollstellungen minus alle Einnahmen dieser Einheit". Diese eine Subtraktion
+     rechnet vier Dinge falsch: Die Zahlung einer Sonderumlage tilgte
+     Hausgeldrückstände, eine Vorauszahlung verdeckte einen offenen Monat, eine
+     Sammelüberweisung ließ sich nicht aufteilen — und die Mahnung nannte damit
+     einen Betrag nach außen, den niemand prüfen konnte.
+144. **`PaymentAllocation` beantwortet die andere Frage.** `Booking.unitId` sagt,
+     *von wem* das Geld kam, und bleibt als Vorfilter. Worauf es angerechnet
+     wurde, steht jetzt in eigenen Zeilen mit Teilbeträgen.
+145. **§ 366 Abs. 2 BGB bestimmt die Reihenfolge:** fällige vor nicht fälligen;
+     unter den fälligen die gemahnte (die „lästigere"); bei gleicher Lästigkeit
+     die ältere. Bei gleichem Datum entscheidet die ID — ohne diesen Anker hinge
+     die Reihenfolge an der Ladereihenfolge und der Vorschlag wäre nicht
+     reproduzierbar.
+146. **§ 366 Abs. 1 geht Abs. 2 vor — und das war zunächst nicht drin.** Der
+     Prüflauf an echten Daten zeigte es: Eine Zahlung mit dem Verwendungszweck
+     „Sonderumlage Dachsanierung" tilgte das ältere Hausgeld, weil die
+     gesetzliche Reihenfolge allein angewandt wurde. Der Zahlende darf aber
+     bestimmen, worauf er zahlt. Nachgetragen als Auswahl am Anrechnen-Knopf:
+     **Der Verwalter liest den Verwendungszweck, nicht das Programm.** Eine
+     Fehldeutung von Fließtext verschöbe echtes Geld.
+147. **§ 367 Abs. 1 (Kosten → Zinsen → Hauptforderung) ist eingebaut, obwohl
+     Kosten und Zinsen heute immer 0 sind.** Mahnkosten und Verzugszinsen werden
+     noch nicht je Forderung erfasst. Die Aufteilung jetzt vorzusehen ist
+     billiger, als sie später in eine bestehende Reihenfolge einzuziehen.
+148. **Eine Vorauszahlung bleibt Guthaben.** Sie tilgt nichts Künftiges und wird
+     getrennt ausgewiesen, statt den Rückstand zu mindern — genau das Verdecken
+     war der Befund. Auch die Mahnung rechnet ein nicht zugeordnetes Guthaben
+     **nicht** gegen: Ein Betrag, der eine noch nicht zugeordnete Überweisung
+     stillschweigend verrechnet, ist von außen nicht nachvollziehbar.
+149. **Angerechnet wird auf Knopfdruck, nicht still.** Der Vorschlag ist ein
+     Vorschlag; lösen lässt er sich wieder, ohne die Zahlung selbst anzutasten.
+150. **Offene Posten mit Altersstruktur** (0–30 / 31–60 / 61–90 / über 90 Tage)
+     samt ältester offener Fälligkeit. Eine bloße Summe lässt die entscheidende
+     Frage offen: Sind 1.200 € ein Monat bei mehreren Eigentümern oder ein Jahr
+     bei einem? Nur das Zweite trägt die nächste Mahnstufe.
+151. **Die Zuordnungshilfe kennt jetzt drei Wege**, nach Verlässlichkeit
+     geordnet: IBAN aus dem SEPA-Mandat, Einheiten-Kurzlabel im Verwendungszweck,
+     Nachname des Eigentümers. Der Name zählt **nur, wenn er im Objekt eindeutig
+     ist** — zwei Eigentümer namens Müller machen den Hinweis wertlos.
+
+An echten Daten geprüft (Hausgeld 5/2026 + 6/2026 je 200 €, Sonderumlage
+1.000 €): Mit Zweckangabe tilgt die 1.000-€-Zahlung ausschließlich die Umlage,
+ohne Zweckangabe zuerst das ältere Hausgeld; nach Ausgleich aller fälligen
+Forderungen bleibt eine Vorauszahlung von 200 € vollständig als Guthaben stehen
+und mindert den Rückstand nicht; der Mahnbetrag entspricht exakt dem
+ausgewiesenen Rückstand; nie wird mehr angerechnet als gezahlt wurde.
+
+## Schritt 29 — Eigene Felder auf die Oberflächen-Bausteine ziehen (28.07.2026)
+
+Anlass: PR #43 macht rohes `<input type="date">` und den Nachbau von `Card` und
+`Badge` zu Build-Fehlern (`eslint.oberflaeche.mjs`).
+
+152. **Die vier angefassten Dateien stehen noch auf der Ausnahmeliste** — der
+     Zweig baut also auch ohne Änderung. Umgestellt wurden trotzdem die Felder,
+     die **dieser Zweig neu hinzugefügt** hat: das Datumsfeld „Gilt ab" im
+     Wirtschaftsplan (`DateField`), die Fälligkeitsregel in den Stammdaten und
+     die Tilgungsbestimmung im Hausgeld (`SelectField`).
+153. **Grund: Die Ausnahmeliste soll kürzer werden, nicht länger bleiben.** Wer
+     in einer noch ausgenommenen Datei neue Verstöße nachlegt, verlängert die
+     Umstellungswelle für den, der sie später anfasst — und die Regel wäre
+     genau dort wirkungslos, wo neu gearbeitet wird.
+154. **Der Bestand bleibt liegen.** Die übrigen rohen Datumsfelder dieser vier
+     Dateien gehören zur geplanten Welle und werden dort mitgezogen; sie hier
+     nebenbei anzufassen, hieße zwei Zweige über dieselben Zeilen zu führen.

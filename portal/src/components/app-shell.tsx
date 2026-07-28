@@ -48,6 +48,7 @@ import { logout } from "@/app/login/actions";
 import { openCommandPalette, useIsMac } from "@/components/command-palette";
 import { OrgLogo } from "@/components/logo";
 import { SETTINGS_HREF, type NavGroup, type NavIcon } from "@/lib/app-nav";
+import { cardSurfaceClass } from "@/components/ui";
 
 // Icon-Auflösung: das Menü-Modell (server-seitig) trägt nur den Schlüssel.
 const ICONS: Record<NavIcon, LucideIcon> = {
@@ -486,7 +487,9 @@ export function AppShell({
         {/* Nur die Navigation scrollt – Logo und Konto bleiben fest verankert.
             Läge das Scrollen auf dem ganzen Block, dürften Kopf und Fuß
             mitschrumpfen und würden sich bei knapper Höhe überlappen. */}
-        <div className="sticky top-8 flex max-h-[calc(100vh-4rem)] flex-col rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
+        <div
+          className={`sticky top-8 flex max-h-[calc(100vh-4rem)] flex-col p-2 ${cardSurfaceClass}`}
+        >
           <div className="shrink-0">{renderSidebarHead(collapsed)}</div>
           <div className="shrink-0">{renderSearch(collapsed)}</div>
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">

@@ -1,3 +1,4 @@
+import { cardSurfaceClass } from "@/components/ui";
 export default function PortalLoading() {
   return (
     <div className="animate-fade-in">
@@ -7,7 +8,7 @@ export default function PortalLoading() {
       {/* Simuliert Card-Reihe */}
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+          <div className={`space-y-3 p-5 ${cardSurfaceClass}`}>
             <div className="h-4 w-32 rounded bg-gray-100 animate-pulse" />
             {[...Array(4)].map((_, i) => (
               <div key={i} className="flex items-center justify-between py-2 border-t border-gray-100">
@@ -20,7 +21,7 @@ export default function PortalLoading() {
             ))}
           </div>
         </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+        <div className={`space-y-3 p-5 ${cardSurfaceClass}`}>
           <div className="h-4 w-28 rounded bg-gray-100 animate-pulse" />
           {[...Array(3)].map((_, i) => (
             <div key={i} className="space-y-1.5 pt-2 border-t border-gray-100">

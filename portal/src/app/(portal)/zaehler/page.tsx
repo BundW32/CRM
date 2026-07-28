@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { DateField } from "@/components/fields";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { Pagination, Alert, Card, EmptyState, Field, PageTitle, inputClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
@@ -246,10 +247,7 @@ export default async function ZaehlerPage({
                               className={`${inputClass} w-32`}
                             />
                           </label>
-                          <label>
-                            <span className="mb-1 block text-xs text-gray-500">Datum</span>
-                            <input type="date" name="readingDate" className={`${inputClass} w-40`} />
-                          </label>
+                          <DateField label="Datum" name="readingDate" className="w-40" />
                           <PendingButton
                             className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                             pendingLabel="Wird gespeichert…"

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { User } from "@/generated/prisma/client";
 import { CountUp } from "@/components/count-up";
-import { Card, EmptyState, PageTitle } from "@/components/ui";
+import { Card, EmptyState, PageTitle, cardSurfaceClass } from "@/components/ui";
 import { announcementWhereForUser, ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, formatDateOnly } from "@/lib/labels";
@@ -117,7 +117,7 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
           <Link
             key={s.label}
             href={s.href}
-            className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md"
+            className={`relative overflow-hidden p-4 transition hover:shadow-md ${cardSurfaceClass}`}
           >
             <span className="absolute inset-x-0 top-0 h-1 bg-brand-orange" />
             <p className="text-3xl font-bold tracking-tight text-brand-green"><CountUp value={s.value} /></p>
@@ -126,7 +126,7 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
         ))}
         <Link
           href="/versammlungen"
-          className="col-span-2 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md"
+          className={`col-span-2 p-4 transition hover:shadow-md ${cardSurfaceClass}`}
         >
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Nächste Versammlung</p>
           {nextMeeting ? (

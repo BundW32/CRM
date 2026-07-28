@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
+import { Combobox } from "@/components/combobox";
 import { loadUnitsForProperty, type UnitOption } from "@/app/(portal)/unit-options";
 import { PendingButton } from "@/components/pending-button";
-import { inputClass } from "@/components/ui";
+
 import { addTenancy } from "./actions";
 
 type Prop = { id: string; name: string };
@@ -50,42 +51,35 @@ export function AddTenancyForm({
     <form action={addTenancy} className="mt-2 space-y-2">
       <input type="hidden" name="userId" value={userId} />
       <input type="hidden" name="zurueck" value={zurueck} />
-      <select
-        value={propertyId}
-        onChange={(e) => handlePropertyChange(e.target.value)}
-        className={`${inputClass} text-xs`}
-      >
-        <option value="">– Objekt wählen –</option>
-        {properties.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
+      <input type="hidden" name="unitId" value={unitId} required />
+      <Combobox
+        label="Objekt"
+        placeholder="Objekt suchen …"
+        options={properties.map((p) => ({ value: p.id, label: p.name }))}
+        value={propertyId || undefined}
+        onSelect={handlePropertyChange}
+        onClear={() => handlePropertyChange("")}
+        clearOption="– Objekt wählen –"
+      />
       <div className="flex flex-wrap items-center gap-2">
-        <select
-          name="unitId"
-          required
-          value={unitId}
-          onChange={(e) => setUnitId(e.target.value)}
-          disabled={!propertyId || pending}
-          className={`${inputClass} flex-1 text-xs disabled:cursor-not-allowed disabled:opacity-50`}
-        >
-          <option value="">
-            {!propertyId
-              ? "– zuerst Objekt –"
-              : pending
+        <div className="min-w-0 flex-1">
+          <Combobox
+            label="Einheit"
+            placeholder={
+              pending
                 ? "wird geladen …"
                 : available.length === 0
-                  ? "– keine freie Einheit –"
-                  : "– Einheit wählen –"}
-          </option>
-          {available.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.label}
-            </option>
-          ))}
-        </select>
+                  ? "keine freie Einheit"
+                  : "Einheit suchen …"
+            }
+            options={available.map((u) => ({ value: u.id, label: u.label }))}
+            value={unitId || undefined}
+            onSelect={setUnitId}
+            onClear={() => setUnitId("")}
+            disabled={!propertyId || pending || available.length === 0}
+            disabledHint={!propertyId ? "zuerst Objekt wählen" : "keine freie Einheit"}
+          />
+        </div>
         <PendingButton
           pendingLabel="…"
           className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"

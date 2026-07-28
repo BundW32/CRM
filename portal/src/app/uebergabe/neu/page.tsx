@@ -13,9 +13,11 @@ export default async function NeueUebergabePage() {
   const verwalter = await requireVerwalter();
   const propWhere = await propertyWhereForVerwalter(verwalter);
 
+  // Nur die Objektliste – die Einheiten lädt der Selektor nach der Objektwahl
+  // nach. Vorher stand der halbe Bestand im HTML.
   const properties = await db.property.findMany({
     where: { ...propWhere, units: { some: {} } },
-    include: { units: { orderBy: { label: "asc" }, select: { id: true, label: true, floor: true } } },
+    select: { id: true, name: true, street: true, zip: true, city: true },
     orderBy: { name: "asc" },
   });
 

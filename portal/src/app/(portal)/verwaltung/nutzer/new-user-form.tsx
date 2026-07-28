@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { Combobox } from "@/components/combobox";
 import { loadUnitsForProperty, type UnitOption } from "@/app/(portal)/unit-options";
 import { Field, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
@@ -114,51 +115,50 @@ export function NewUserForm({
       {/* Mieter: Objekt → Wohnung gekoppelt */}
       {effectiveRole === "MIETER" ? (
         <>
+          <input type="hidden" name="unitId" value={unitId} />
           <Field label="Objekt (bei Rolle Mieter)">
-            <select
-              value={propertyId}
-              onChange={(e) => handlePropertyChange(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">– Objekt wählen –</option>
-              {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <Combobox
+              label="Objekt"
+              placeholder="Objekt suchen …"
+              options={properties.map((p) => ({ value: p.id, label: p.name }))}
+              value={propertyId || undefined}
+              onSelect={handlePropertyChange}
+              onClear={() => handlePropertyChange("")}
+              clearOption="– Objekt wählen –"
+            />
           </Field>
           <Field label="Wohnung">
-            <select
-              name="unitId"
-              value={unitId}
-              onChange={(e) => setUnitId(e.target.value)}
+            <Combobox
+              label="Wohnung"
+              placeholder={pending ? "Wohnungen werden geladen …" : "Wohnung suchen …"}
+              options={units.map((u) => ({ value: u.id, label: u.label }))}
+              value={unitId || undefined}
+              onSelect={setUnitId}
+              onClear={() => setUnitId("")}
+              clearOption="– Keine –"
               disabled={!propertyId || pending}
-              className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
-            >
-              <option value="">{pending ? "wird geladen …" : "– Keine –"}</option>
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
+              disabledHint={propertyId ? "wird geladen …" : "zuerst Objekt wählen"}
+            />
           </Field>
         </>
       ) : null}
 
       {/* Eigentümer: nur Objekt */}
       {effectiveRole === "EIGENTUEMER" ? (
-        <Field label="Objekt (bei Rolle Eigentümer)">
-          <select name="propertyId" className={inputClass} defaultValue="">
-            <option value="">– Keins –</option>
-            {properties.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <>
+          <input type="hidden" name="propertyId" value={propertyId} />
+          <Field label="Objekt (bei Rolle Eigentümer)">
+            <Combobox
+              label="Objekt"
+              placeholder="Objekt suchen …"
+              options={properties.map((p) => ({ value: p.id, label: p.name }))}
+              value={propertyId || undefined}
+              onSelect={setPropertyId}
+              onClear={() => setPropertyId("")}
+              clearOption="– Keins –"
+            />
+          </Field>
+        </>
       ) : null}
 
       <SubmitButton pendingLabel="Wird angelegt…">Anlegen</SubmitButton>

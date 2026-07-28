@@ -455,13 +455,13 @@ Muster — ersetzt keine Rechtsberatung.`;
                   Tagesordnung.
                 </p>
                 {offeneVersammlungen.length === 0 ? (
-                  <p className="mt-3 text-xs text-gray-500">
+                  <Tipp className="mt-3">
                     Keine geplante Versammlung vorhanden —{" "}
                     <Link href="/versammlungen" className="underline">
                       zuerst eine Versammlung anlegen
                     </Link>
                     .
-                  </p>
+                  </Tipp>
                 ) : (
                   <form action={planZurAbstimmung} className="mt-3 flex flex-wrap items-end gap-2">
                     <input type="hidden" name="propertyId" value={property.id} />

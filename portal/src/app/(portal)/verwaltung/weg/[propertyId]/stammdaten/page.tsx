@@ -224,11 +224,11 @@ export default async function WegStammdatenPage({
 
         {/* Einheiten */}
         <Card id="einheiten" title="Einheiten (MEA, Fläche, Personen)">
-          <p className="mb-3 text-xs text-gray-500">
+          <Tipp className="mb-3">
             Der MEA-Zähler je Einheit ist die zentrale Angabe: Er steuert die Kostenverteilung in
             Abrechnung und Wirtschaftsplan und bestimmt zugleich das Stimmgewicht der Eigentümer
             (Wertprinzip). Er muss also nur hier gepflegt werden.
-          </p>
+          </Tipp>
           {units.length === 0 ? (
             <EmptyState>Dieses Objekt hat noch keine Einheiten.</EmptyState>
           ) : (
@@ -486,9 +486,9 @@ export default async function WegStammdatenPage({
                       {fehlendeStandardarten === 1 ? "" : "en"} ergänzen
                     </PendingButton>
                   </form>
-                  <p className="mt-1.5 text-xs text-gray-500">
+                  <Tipp className="mt-1.5">
                     Vorhandene Einträge bleiben unverändert – auch umbenannte.
-                  </p>
+                  </Tipp>
                 </div>
               ) : null}
               <div className="grid gap-3">

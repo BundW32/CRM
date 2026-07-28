@@ -10,6 +10,7 @@ import { reminderLevelLabel } from "@/lib/dunning";
 import { formatDateOnly } from "@/lib/labels";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list-query";
 import { DateField, SelectField, toDateInputValue } from "@/components/fields";
+import { Tipp } from "@/components/tipp";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
@@ -486,11 +487,11 @@ export default async function HausgeldPage({
               Die Beträge stammen aus der letzten Abrechnung oder der Saldenliste der bisherigen
               Verwaltung.
             </p>
-            <p className="mt-1 text-xs text-gray-500">
+            <Tipp className="mt-1">
               Rückstand als positiver Betrag, Guthaben mit Minus davor. Kontostände ändern sich
               dadurch nicht — das Geld liegt bereits im übernommenen Anfangsbestand. Erneutes
               Speichern ersetzt den Stand, es summiert sich nichts auf.
-            </p>
+            </Tipp>
             <form action={saveUebernahme} className="mt-4">
               <input type="hidden" name="propertyId" value={property.id} />
               <DateField

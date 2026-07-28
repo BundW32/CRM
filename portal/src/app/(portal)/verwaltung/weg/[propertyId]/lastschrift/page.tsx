@@ -8,6 +8,7 @@ import { requireWegProperty } from "@/lib/weg/scope";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { deleteMandate, saveCreditorId, saveMandate } from "./actions";
 import { DateField, toDateInputValue } from "@/components/fields";
+import { Tipp } from "@/components/tipp";
 
 export const dynamic = "force-dynamic";
 
@@ -197,10 +198,10 @@ export default async function LastschriftPage({
                   defaultValue={collectionDefault}
                         />
                 <PendingButton className={buttonClass}>XML herunterladen</PendingButton>
-                <p className="text-xs text-gray-500">
+                <Tipp>
                   Eingezogen wird der zum Termin offene Hausgeld-Betrag je Einheit mit aktivem Mandat.
                   Anschließend die Datei im Online-Banking hochladen.
-                </p>
+                </Tipp>
               </form>
             )}
           </Card>

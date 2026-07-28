@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card, buttonSecondaryClass } from "@/components/ui";
+import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
@@ -119,15 +120,15 @@ export async function WegArbeitsbereich({
       <div className="grid gap-4 sm:grid-cols-2">
         <Card title="Laufendes Konto">
           <p className="text-3xl font-semibold text-gray-900">{formatCents(summe("GIRO"))}</p>
-          <p className="mt-1 text-xs text-gray-500">
+          <Tipp className="mt-1">
             Geld für die laufenden Kosten der Gemeinschaft
-          </p>
+          </Tipp>
         </Card>
         <Card title="Erhaltungsrücklage">
           <p className="text-3xl font-semibold text-gray-900">{formatCents(summe("RUECKLAGE"))}</p>
-          <p className="mt-1 text-xs text-gray-500">
+          <Tipp className="mt-1">
             Das Gesparte für große Reparaturen — getrennt vom laufenden Konto
-          </p>
+          </Tipp>
         </Card>
       </div>
 
@@ -169,13 +170,13 @@ export async function WegArbeitsbereich({
       {roadmap ? (
         <Roadmap items={roadmap} propertyId={property.id} />
       ) : (
-        <p className="px-1 text-xs text-gray-500">
+        <Tipp className="px-1">
           Was in diesem Jahr ansteht, steht auf Ihrer{" "}
           <Link href="/dashboard" className="underline">
             Übersicht
           </Link>
           .
-        </p>
+        </Tipp>
       )}
 
       <Card title="Bereiche">

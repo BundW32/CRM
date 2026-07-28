@@ -466,10 +466,10 @@ Muster — ersetzt keine Rechtsberatung.`;
                     />
                   </label>
                   <PendingButton className={buttonSecondaryClass}>Importieren</PendingButton>
-                  <p className="w-full text-xs text-gray-400">
+                  <Tipp className="w-full">
                     Beträge je Einheit aus der Abrechnung von ista/Techem/Minol/Brunata. Einheiten
                     werden über Bezeichnung oder Nummer zugeordnet; nicht Zuordenbares wird gemeldet.
-                  </p>
+                  </Tipp>
                 </form>
               ) : null}
             </Card>
@@ -651,10 +651,10 @@ Muster — ersetzt keine Rechtsberatung.`;
               <dd className="text-lg font-semibold text-gray-900">{euro(view.receivablesCents)}</dd>
             </div>
           </dl>
-          <p className="mt-3 text-xs text-gray-400">
+          <Tipp className="mt-3">
             Verbindlichkeiten und weitere Vermögensgegenstände werden derzeit nicht erfasst und
             sind bei Bedarf manuell zu ergänzen.
-          </p>
+          </Tipp>
         </Card>
 
         {/* Beschlussvorlage + Fertigstellen */}

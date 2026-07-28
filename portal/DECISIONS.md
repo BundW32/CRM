@@ -981,10 +981,17 @@ Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP1).
      Aufgefallen nur, weil ein absichtlicher Verstoß eingebaut und geprüft
      wurde, ob der Test ihn fängt. Seitdem sichert eine eigene Zusicherung
      (`dateien.length > 50`) genau das ab.
-164. **Die 229 vorhandenen Hilfetexte bleiben zunächst.** Umgestellt sind die
-     Erklärungen, die diese Arbeitsreihe selbst geschrieben hat (§ 35a,
-     Fälligkeit, Beschluss-Nachtrag). Der Rest zieht nach, wenn jemand die
-     Seite ohnehin anfasst — wie beim Rücksprung-Helfer.
+164. **Der WEG-Bereich wurde vollständig umgestellt, der Rest zieht nach.**
+     Ein Schalter, der drei Texte betrifft, ist kein Schalter — deshalb sind
+     alle 15 Erklärabsätze der WEG-Finanzseiten mit umgezogen. Das ist der
+     Bereich, in dem Laien tatsächlich arbeiten. Außerhalb (rund 190 Texte)
+     gilt weiter: Wer die Seite ohnehin anfasst, zieht sie mit.
+165. **Nicht jeder graue Kleintext ist ein Hinweis.** Von 25 Absätzen im
+     WEG-Bereich enthalten 10 **Daten** — Beträge, Zähler, abgeleitete Aussagen
+     („Bedarf übersteigt den Rücklagenstand"). Die blieben stehen: Sie
+     abzuschalten hieße, dem Nutzer Zahlen vorzuenthalten, nicht Erklärungen.
+     Die Trennung lief über eine Prüfung auf eingebettete Ausdrücke, nicht über
+     Augenmaß.
 
 An echten Daten geprüft: Schalter vorbelegt an; ausgeschaltet verschwinden die
 Erklärungen auf Stammdaten und Wirtschaftsplan-Detail, Warnungen und

@@ -151,6 +151,8 @@ export default async function KontaktDetailPage({
               phone: kontakt.phone,
               preferredContact: kontakt.preferredContact,
               notes: kontakt.notes,
+              exemptionNumber: kontakt.exemptionNumber,
+              exemptionValidUntil: kontakt.exemptionValidUntil?.toISOString() ?? null,
               active: kontakt.active,
               isInternal: kontakt.isInternal,
             }}

@@ -1,5 +1,6 @@
 "use client";
 
+import { DateField, toDateInputValue } from "@/components/fields";
 import { inputClass } from "@/components/ui";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
@@ -25,6 +26,9 @@ export type Karteikarte = {
   phone: string | null;
   preferredContact: string | null;
   notes: string | null;
+  /** Freistellungsbescheinigung § 48b EStG (ISO-Datum). */
+  exemptionNumber: string | null;
+  exemptionValidUntil: string | null;
   active: boolean;
   isInternal: boolean;
 };
@@ -131,6 +135,39 @@ export function KarteikarteFormular({
             className={inputClass}
           />
         </label>
+        {/* Bauabzugsteuer (§ 48 EStG). Nur für Handwerker sichtbar — eine
+            Versicherung oder Behörde erbringt keine Bauleistungen, und ein
+            Feld, das für die meisten Einträge sinnlos ist, macht das Formular
+            länger, ohne irgendwem zu helfen. */}
+        {k.kind === "HANDWERKER" ? (
+          <fieldset className="sm:col-span-2 rounded-lg border border-gray-200 p-3">
+            <legend className="px-1 text-xs font-medium text-gray-600">
+              Freistellungsbescheinigung (§ 48b EStG)
+            </legend>
+            <p className="mb-2 text-xs text-gray-500">
+              Ohne gültige Bescheinigung müssen Sie ab 5.000 € Bauleistungen im Jahr
+              15 % einbehalten und ans Finanzamt abführen — sonst haftet die
+              Gemeinschaft dafür. Die meisten Betriebe haben eine; fragen Sie einmal
+              danach, dann ist das Thema erledigt.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label>
+                <span className="mb-1 block text-xs text-gray-500">Sicherheitsnummer</span>
+                <input
+                  name="exemptionNumber"
+                  defaultValue={k.exemptionNumber ?? ""}
+                  placeholder="z. B. 12/345/67890"
+                  className={inputClass}
+                />
+              </label>
+              <DateField
+                label="Gültig bis"
+                name="exemptionValidUntil"
+                defaultValue={k.exemptionValidUntil ? toDateInputValue(new Date(k.exemptionValidUntil)) : undefined}
+              />
+            </div>
+          </fieldset>
+        ) : null}
         <label className="sm:col-span-2">
           <span className="mb-1 block text-xs text-gray-500">Notizen (optional)</span>
           <textarea

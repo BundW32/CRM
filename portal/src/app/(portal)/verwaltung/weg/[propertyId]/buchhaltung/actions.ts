@@ -15,6 +15,7 @@ import {
   parseCsv,
   type ColumnMapping,
 } from "@/lib/weg/bank-import";
+import { pruefeZahlung } from "@/lib/weg/bauabzugsteuer-service";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { loadWegProperty } from "@/lib/weg/scope";
 import { allDatesEditable } from "@/lib/weg/statement-lock";
@@ -45,6 +46,10 @@ const bookingSchema = z.object({
   text: z.string().trim().min(2).max(500),
   counterparty: z.string().trim().max(200).optional(),
   reference: z.string().trim().max(500).optional(),
+  /** Verknüpfter Handwerker — Grundlage der § 48-Prüfung. */
+  craftsmanId: z.string().optional(),
+  /** Der Nutzer hat die Bauabzugsteuer-Warnung gesehen und trotzdem gebucht. */
+  bauabzugBestaetigt: z.string().optional(),
 });
 
 export async function createBooking(formData: FormData) {
@@ -60,6 +65,8 @@ export async function createBooking(formData: FormData) {
     text: formData.get("text"),
     counterparty: String(formData.get("counterparty") ?? "") || undefined,
     reference: String(formData.get("reference") ?? "") || undefined,
+    craftsmanId: String(formData.get("craftsmanId") ?? "") || undefined,
+    bauabzugBestaetigt: String(formData.get("bauabzugBestaetigt") ?? "") || undefined,
   });
   if (!parsed.success) redirect("/verwaltung/weg");
   const property = await loadWegProperty(verwalter, parsed.data.propertyId);
@@ -95,6 +102,35 @@ export async function createBooking(formData: FormData) {
     }
   }
 
+  // Handwerker muss zur eigenen Organisation gehören (IDOR-Schutz).
+  if (parsed.data.craftsmanId) {
+    const handwerker = await db.craftsman.findFirst({
+      where: { id: parsed.data.craftsmanId, organizationId: verwalter.organizationId },
+      select: { id: true },
+    });
+    if (!handwerker) back(property.id, "fehler=handwerker");
+  }
+
+  // ── Bauabzugsteuer (§ 48 EStG) ─────────────────────────────────────────────
+  //
+  // Die Prüfung läuft **hier**, nicht nur im Browser: Das Häkchen in der
+  // Sprechblase ist eine Bestätigung des Nutzers, keine Zusicherung — wer das
+  // Formular ohne JavaScript abschickt, käme sonst an der Warnung vorbei.
+  //
+  // Gesperrt wird trotzdem nicht. Ob einbehalten wurde, weiß nur der Mensch
+  // davor; vielleicht wurde bereits gekürzt überwiesen. Verlangt wird eine
+  // bewusste Entscheidung, und die wird protokolliert.
+  const bauabzug = await pruefeZahlung({
+    organizationId: verwalter.organizationId,
+    craftsmanId: parsed.data.craftsmanId ?? null,
+    costTypeId: parsed.data.costTypeId ?? null,
+    betragCents: amountCents,
+    stichtag: bookingDate,
+  });
+  if (bauabzug.pflicht && parsed.data.kind === "AUSGABE" && parsed.data.bauabzugBestaetigt !== "ja") {
+    back(property.id, "fehler=bauabzugsteuer");
+  }
+
   // Optionaler Beleg (Foto/PDF)
   let beleg: { storedName: string; fileName: string; mimeType: string } | null = null;
   const file = formData.get("beleg");
@@ -118,6 +154,7 @@ export async function createBooking(formData: FormData) {
       laborShareCents,
       text: parsed.data.text,
       counterparty: parsed.data.counterparty ?? null,
+      craftsmanId: parsed.data.craftsmanId ?? null,
       reference: parsed.data.reference ?? null,
       belegStoredName: beleg?.storedName ?? null,
       belegFileName: beleg?.fileName ?? null,
@@ -130,7 +167,17 @@ export async function createBooking(formData: FormData) {
     action: AUDIT.WEG_BOOKING_CREATED,
     targetType: "Booking",
     targetId: created.id,
-    meta: { kind: parsed.data.kind, amountCents, account: account.name },
+    meta: {
+      kind: parsed.data.kind,
+      amountCents,
+      account: account.name,
+      // Wer trotz Einbehaltungspflicht ungekürzt bucht, hinterlässt eine Spur.
+      // Bei einer späteren Haftungsfrage ist genau das die Frage: Wusste es
+      // jemand, und wann?
+      ...(bauabzug.pflicht
+        ? { bauabzugsteuerBestaetigt: true, einbehaltCents: bauabzug.einbehaltCents }
+        : {}),
+    },
   });
   revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
   back(property.id, "gespeichert=buchung");

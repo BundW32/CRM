@@ -45,7 +45,25 @@ const craftsmanSchema = z.object({
   phone: z.string().trim().max(50).optional(),
   preferredContact: z.enum(CONTACT_METHODS),
   notes: z.string().trim().max(2000).optional(),
+  // Freistellungsbescheinigung nach § 48b EStG. Liegt eine gültige vor,
+  // entfällt der Steuerabzug bei Bauleistungen (§ 48 EStG) — ohne sie haftet
+  // die Gemeinschaft für den nicht einbehaltenen Betrag (§ 48a Abs. 3 EStG).
+  exemptionNumber: z.string().trim().max(50).optional(),
+  exemptionValidUntil: z.string().trim().optional(),
 });
+
+/**
+ * Datum der Freistellungsbescheinigung lesen.
+ *
+ * Ein unlesbares Datum wird zu `null`, nicht zu „heute". Ein stillschweigend
+ * gesetztes Datum würde die Prüfung nach § 48 EStG entweder dauerhaft
+ * stilllegen oder dauerhaft auslösen — beides schlimmer als ein leeres Feld.
+ */
+function freistellungsDatum(wert: string | undefined): Date | null {
+  if (!wert) return null;
+  const d = new Date(wert);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 export async function createCraftsman(formData: FormData) {
   const verwalter = await requireVerwalter();
@@ -58,6 +76,8 @@ export async function createCraftsman(formData: FormData) {
     phone: formData.get("phone") || undefined,
     preferredContact: formData.get("preferredContact") || "TELEFON",
     notes: formData.get("notes") || undefined,
+    exemptionNumber: formData.get("exemptionNumber") || undefined,
+    exemptionValidUntil: formData.get("exemptionValidUntil") || undefined,
   });
   if (!parsed.success) {
     redirect("/verwaltung/kontakte/neu?fehler=eingabe");
@@ -185,6 +205,8 @@ export async function updateCraftsman(formData: FormData) {
     phone: formData.get("phone") || undefined,
     preferredContact: formData.get("preferredContact") || "TELEFON",
     notes: formData.get("notes") || undefined,
+    exemptionNumber: formData.get("exemptionNumber") || undefined,
+    exemptionValidUntil: formData.get("exemptionValidUntil") || undefined,
   });
   if (!parsed.success) {
     redirect(zurueckZu(formData, "?fehler=eingabe"));
@@ -201,6 +223,8 @@ export async function updateCraftsman(formData: FormData) {
       phone: parsed.data.phone || null,
       preferredContact: parsed.data.preferredContact,
       notes: parsed.data.notes || null,
+      exemptionNumber: parsed.data.exemptionNumber || null,
+      exemptionValidUntil: freistellungsDatum(parsed.data.exemptionValidUntil),
     },
   });
   revalidatePath("/verwaltung/kontakte");

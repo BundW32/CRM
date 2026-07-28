@@ -9,6 +9,8 @@ import { db } from "@/lib/db";
 import { bookingKindLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
 import { normalizeSearch, parsePage, resolveSort, toOrderBy, pageHrefFor } from "@/lib/list-query";
 import { formatCents } from "@/lib/money";
+import { BauabzugHinweis } from "@/components/bauabzug-hinweis";
+import { bauleistungenJeHandwerker } from "@/lib/weg/bauabzugsteuer-service";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { isDateLocked } from "@/lib/weg/statement-lock";
@@ -69,6 +71,11 @@ const FEHLER_TEXTE: Record<string, string> = {
   abgeschlossen:
     "Das Wirtschaftsjahr ist abgeschlossen — für dieses Jahr liegt eine fertige Jahresabrechnung vor. Buchungen abgeschlossener Jahre bleiben unverändert.",
   schonstorniert: "Diese Buchung ist bereits storniert (oder ist selbst eine Stornobuchung).",
+  handwerker: "Der gewählte Handwerker gehört nicht zu Ihrer Organisation.",
+  // Nicht „Fehler bei der Eingabe", sondern die Handlungsanweisung: Der Nutzer
+  // hat nichts falsch getippt, er soll etwas tun (LP2).
+  bauabzugsteuer:
+    "Für diese Bauleistung greift die Bauabzugsteuer (§ 48 EStG): Der Handwerker hat keine gültige Freistellungsbescheinigung, und die Gemeinschaft zahlt ihm dieses Jahr mehr als 5.000 €. Fordern Sie die Bescheinigung an und tragen Sie sie beim Handwerker ein — oder behalten Sie 15 % ein und bestätigen Sie das Kästchen im Formular.",
   import: "Der Import wurde nicht gefunden.",
   importstorniert:
     "Zu diesem Import gibt es bereits Stornobuchungen — er kann nicht mehr im Ganzen zurückgenommen werden.",
@@ -121,7 +128,17 @@ export default async function WegBuchhaltungPage({
   const bookingWhere: Prisma.BookingWhereInput = { AND: bookingAnd };
   const hasFilter = Boolean(q || sp.konto || sp.art || sp.kostenart || sp.jahr || sp.zuordnung);
 
-  const [accounts, costTypes, sums, bookingTotal, bookings, aeltesteBuchung, batches, ohneKostenart, fertigeJahre] = await Promise.all([
+  const [handwerkerSummen, alleHandwerker, accounts, costTypes, sums, bookingTotal, bookings, aeltesteBuchung, batches, ohneKostenart, fertigeJahre] = await Promise.all([
+    // Jahressummen je Handwerker für die Bauabzugsteuer-Warnung (§ 48 EStG).
+    // Bewusst hier und nicht im Client nachgeladen: Die Warnung muss stehen,
+    // bevor gebucht wird, und ein Nachladen bei jedem Tastendruck im
+    // Betragsfeld wäre spürbar.
+    bauleistungenJeHandwerker(property.organizationId, new Date()),
+    db.craftsman.findMany({
+      where: { organizationId: property.organizationId, active: true },
+      orderBy: [{ company: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, company: true, exemptionNumber: true, exemptionValidUntil: true },
+    }),
     db.ledgerAccount.findMany({
       where: { propertyId: property.id, active: true },
       orderBy: [{ kind: "asc" }, { createdAt: "asc" }],
@@ -129,7 +146,7 @@ export default async function WegBuchhaltungPage({
     db.costType.findMany({
       where: { propertyId: property.id, active: true },
       orderBy: [{ orderIndex: "asc" }, { name: "asc" }],
-      select: { id: true, name: true, laborShareType: true },
+      select: { id: true, name: true, laborShareType: true, constructionWork: true },
     }),
     // Kontensalden immer über ALLE Buchungen – ein Saldo, der sich mit dem
     // Filter verändert, wäre kein Saldo mehr.
@@ -179,6 +196,19 @@ export default async function WegBuchhaltungPage({
     }),
   ]);
   const lockedYears = new Set(fertigeJahre.map((s) => s.year));
+
+  // Handwerker für die Auswahl, angereichert um die Jahressumme. `…Summen`
+  // enthält nur die, an die dieses Jahr schon Bauleistungen gezahlt wurden —
+  // zur Auswahl stehen muss aber jeder.
+  const summeJeHandwerker = new Map(handwerkerSummen.map((h) => [h.craftsmanId, h.bisherCents]));
+  const handwerkerWahl = alleHandwerker.map((h) => ({
+    id: h.id,
+    name: h.company ? `${h.company} (${h.name})` : h.name,
+    bisherCents: summeJeHandwerker.get(h.id) ?? 0,
+    exemptionNumber: h.exemptionNumber,
+    // Nur Daten, die durch die Server/Client-Grenze müssen — als ISO-Zeichenkette.
+    exemptionValidUntil: h.exemptionValidUntil?.toISOString() ?? null,
+  }));
 
   const giro = accounts.filter((a) => a.kind === "GIRO");
   const ruecklage = accounts.filter((a) => a.kind === "RUECKLAGE");
@@ -417,6 +447,14 @@ export default async function WegBuchhaltungPage({
               <Field label="Zahlungspartner (optional)">
                 <input name="counterparty" className={`${inputClass} w-48`} />
               </Field>
+              {/* Der Handwerker als Verknüpfung — Grundlage der Prüfung nach
+                  § 48 EStG. Über den Freitext daneben ließe sich nicht
+                  summieren, und die 5.000-€-Grenze gilt je Leistendem. */}
+              <BauabzugHinweis
+                handwerker={handwerkerWahl}
+                bauleistungKostenarten={costTypes.filter((c) => c.constructionWork).map((c) => c.id)}
+                inputClass={inputClass}
+              />
               <Field label="Beleg (Foto/PDF, optional)">
                 <FileInput
                   name="beleg"

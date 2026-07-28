@@ -72,9 +72,16 @@ Dateien berührt.
      sowie die drei Bausteine mit eigener Optik
   4. *WEG-Finanzen* — Stammdaten, Hausgeld, Buchhaltung, CO₂, Erhaltungsplanung,
      Lastschrift, Prüfpflichten, Sonderumlagen, Wirtschaftsplan-Detail
+  5. *Wohnungsübergabe* — alle zehn Dateien des Assistenten
 
-  Ausnahmeliste dadurch von 49 über 37 und 25 auf **16** Dateien. Offen:
-  Wohnungsübergabe (10), Plattform (5), Handwerker-Magic-Link (1).
+  Ausnahmeliste dadurch von 49 über 37, 25 und 16 auf **6** Dateien. Offen sind nur
+  noch Plattform (5) und der Handwerker-Magic-Link (1) — beides **kein Kundenportal**
+  und deshalb eine eigene Entscheidung, keine Fleißarbeit.
+
+  **Der Rahmen der Wohnungsübergabe bleibt bewusst anders:** Vollbild-Assistent mit
+  Schrittkette statt Navigationsleiste. Sie läuft auf dem Telefon beim Gang durch die
+  Wohnung — das ist ein echter Unterschied im Zweck, keine gewachsene Abweichung.
+  Vereinheitlicht wurde nur, was *innen* steht.
 
 **Zur Reichweite der Regeln:** Ursprünglich war „keine handgebauten Karten" als breites
 Verbot gedacht. Gemessen traf ein solches Muster 113 Stellen — darunter Aufklapp-Menüs,

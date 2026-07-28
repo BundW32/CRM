@@ -1068,3 +1068,50 @@ Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP3).
 An echten Daten geprüft: Begriff gepunktet unterstrichen, Erklärung erscheint
 bei Mauszeiger **und** bei Tastaturfokus, ist vorher unsichtbar; bei
 abgeschalteten Hinweisen bleibt das Wort als gewöhnlicher Text stehen.
+
+## Schritt 34 — LP4/LP5: geführte Ersteinrichtung (28.07.2026)
+
+Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP4, LP5).
+
+178. **Die Führung erklärt das Programm, nicht die Bedienung.** Eine Tour, die
+     auf Schaltflächen zeigt, lehrt Klicken. Wer seine WEG zum ersten Mal selbst
+     verwaltet, braucht zuerst die Antwort auf „wozu ist das da". Jeder Text
+     sagt deshalb, was der Bereich **einem bringt** — „Hier sehen Sie, ob das
+     Geld der Gemeinschaft reicht" statt „Hier stehen Ihre Konten".
+179. **Eigenbau statt Bibliothek.** driver.js und Shepherd bringen eigenes
+     Aussehen mit und kämpfen gegen das gerade vereinheitlichte Design. Die
+     Sprechblase benutzt stattdessen dieselben Bausteine wie jede Karte —
+     `cardSurfaceClass`, `buttonClass`, dieselbe Erhebung.
+180. **Die Marker leiten sich aus der Navigation ab.** `data-tour="nav-…"`
+     entsteht aus dem `href` des Menüpunkts. Ein neuer Punkt bringt seinen
+     Marker damit selbst mit, ein entfernter nimmt ihn mit. Von Hand gepflegte
+     Marker wären genau die Kopplung, die eine Führung bei jedem Umbau
+     zerbrechen lässt.
+181. **Die Führung wechselt die Seite.** Ohne das zeigte sie ins Leere, sobald
+     ein Ziel nicht zufällig auf der aktuellen Seite lag — im ersten Prüflauf
+     traf **einer von sechs** Schritten. Jetzt trägt jeder Schritt seinen Pfad,
+     und die Mechanik fasst nach, bis das Ziel der neuen Seite da ist.
+182. **Zwei Arten von „nicht zu sehen", die verschieden zu behandeln sind.**
+     Beim ersten Anlauf hatte ich sie vermischt: *Unter dem Falz* ist erreichbar
+     (hinscrollen), *seitlich draußen* nicht (auf dem Handy liegt die Navigation
+     in einem geschlossenen Schubfach). Dorthin führt kein Scrollen — dort gibt
+     es die zentrierte Karte statt eines Lichtkegels auf die falsche Stelle.
+183. **Kein Schritt verspricht etwas, das es nicht gibt.** Ohne API-Schlüssel
+     existiert der Assistent nicht; der Schritt, der ihn anpries, schickte den
+     Nutzer auf eine vergebliche Suche. Er erscheint jetzt nur, wenn das Widget
+     tatsächlich läuft. Dasselbe für die Selbstverwalter-Schritte.
+184. **Texte geräteunabhängig.** „Alles liegt links" stimmte nur am Rechner.
+     Auf dem Handy sitzt die Leiste hinter dem Menü-Knopf — der Prüflauf bei
+     390 px zeigte eine Erklärung, die dort nicht zutrifft.
+185. **Dreimal lag mein Prüfskript falsch, nicht das Programm.** Es suchte nach
+     „irgendeinem orangen Ring" und fand den pulsierenden Hinweis zur
+     Startbildschirm-Installation; es maß vor dem Seitenwechsel; es erwartete
+     mobil einen Lichtkegel, wo der zentrierte Rückfall richtig ist. Der
+     Lichtkegel trägt jetzt `data-tour-ring`, damit eine Prüfung ihn eindeutig
+     findet — ein Test, der das falsche Element misst, ist schlimmer als keiner.
+
+An echten Daten geprüft, Desktop (1280 px) und Handy (390 px), je für
+Selbstverwaltung und professionelle Verwaltung: Jeder Lichtkegel sitzt auf
+seinem Ziel oder fällt bewusst auf die zentrierte Karte zurück; Escape beendet;
+die Führung erscheint genau einmal von selbst und lässt sich unter „Konto"
+neu starten.

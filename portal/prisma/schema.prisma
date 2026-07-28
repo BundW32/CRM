@@ -357,6 +357,9 @@ model User {
   // der Organisation: Zwei Eigentümer derselben WEG dürfen es verschieden
   // wollen. Warnungen und Fehlermeldungen hängen NICHT daran.
   showHints            Boolean                   @default(true)
+  // Wann die geführte Einrichtung durchlaufen wurde. `null` = noch nie —
+  // dann erscheint sie einmal von selbst. Zurücksetzen startet sie neu.
+  tourDoneAt           DateTime?
   preferredContact     ContactMethod? // bevorzugter Kontaktweg (Mieter/Eigentümer)
   // Optionale Anschrift (z. B. Eigentümer als Wohnungsgeber) und Unterschriftsbild
   street               String?

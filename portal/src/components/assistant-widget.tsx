@@ -57,6 +57,7 @@ export function AssistantWidget() {
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Assistent schließen" : "Assistent öffnen"}
         aria-expanded={open}
+        data-tour="assistent"
         className="fixed bottom-4 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand-orange text-brand-green-dark shadow-xl shadow-black/25 transition-all hover:bg-brand-orange-dark hover:shadow-2xl active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-orange"
       >
         {open ? <X className="h-6 w-6" /> : <MessageSquareText className="h-6 w-6" />}

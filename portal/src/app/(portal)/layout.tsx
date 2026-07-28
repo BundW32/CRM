@@ -5,6 +5,7 @@ import { InstallHint } from "@/components/install-hint";
 import { NavProgress } from "@/components/nav-progress";
 import { NumericAutoselect } from "@/components/numeric-autoselect";
 import { HashScroll } from "@/components/hash-scroll";
+import { TourHost } from "@/components/tour-host";
 import { PageTransition } from "@/components/page-transition";
 import { ToastHost } from "@/components/toast-host";
 import { AppShell } from "@/components/app-shell";
@@ -148,6 +149,8 @@ export default async function PortalLayout({
               Erstaufruf verpasst — sonst führen Fehlermeldungen zwar auf die
               richtige Seite, aber nicht an die Stelle. */}
           <HashScroll />
+          {/* Geführte Einrichtung — lädt nur, solange sie noch nicht gelaufen ist. */}
+          <TourHost />
           <PageTransition>{children}</PageTransition>
         </AppShell>
       </main>

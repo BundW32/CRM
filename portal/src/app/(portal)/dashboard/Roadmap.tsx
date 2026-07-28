@@ -17,17 +17,22 @@ import { addOwnTermin } from "./termin-actions";
 export function Roadmap({ items, propertyId }: { items: RoadmapItem[]; propertyId: string }) {
   if (items.length === 0) {
     return (
-      <Card title="Was ansteht">
-        <EmptyState>
-          Nichts Fälliges. Wirtschaftsplan, Jahresabrechnung und Versammlung sind für dieses
-          Jahr erledigt.
-        </EmptyState>
-        <EigenerTermin propertyId={propertyId} />
-      </Card>
+      <div data-tour="was-ansteht">
+        <Card title="Was ansteht">
+          <EmptyState>
+            Nichts Fälliges. Wirtschaftsplan, Jahresabrechnung und Versammlung sind für dieses
+            Jahr erledigt.
+          </EmptyState>
+          <EigenerTermin propertyId={propertyId} />
+        </Card>
+      </div>
     );
   }
 
   return (
+    // Sprungziel der geführten Einrichtung — an beiden Rückgaben, sonst zeigt
+    // die Führung bei einer leeren Liste ins Nichts.
+    <div data-tour="was-ansteht">
     <Card title="Was ansteht">
       <ul className="space-y-1">
         {items.map((item) => {
@@ -69,6 +74,7 @@ export function Roadmap({ items, propertyId }: { items: RoadmapItem[]; propertyI
       </p>
       <EigenerTermin propertyId={propertyId} />
     </Card>
+    </div>
   );
 }
 

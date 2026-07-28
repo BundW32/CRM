@@ -904,3 +904,21 @@ ohne Zweckangabe zuerst das ältere Hausgeld; nach Ausgleich aller fälligen
 Forderungen bleibt eine Vorauszahlung von 200 € vollständig als Guthaben stehen
 und mindert den Rückstand nicht; der Mahnbetrag entspricht exakt dem
 ausgewiesenen Rückstand; nie wird mehr angerechnet als gezahlt wurde.
+
+## Schritt 29 — Eigene Felder auf die Oberflächen-Bausteine ziehen (28.07.2026)
+
+Anlass: PR #43 macht rohes `<input type="date">` und den Nachbau von `Card` und
+`Badge` zu Build-Fehlern (`eslint.oberflaeche.mjs`).
+
+152. **Die vier angefassten Dateien stehen noch auf der Ausnahmeliste** — der
+     Zweig baut also auch ohne Änderung. Umgestellt wurden trotzdem die Felder,
+     die **dieser Zweig neu hinzugefügt** hat: das Datumsfeld „Gilt ab" im
+     Wirtschaftsplan (`DateField`), die Fälligkeitsregel in den Stammdaten und
+     die Tilgungsbestimmung im Hausgeld (`SelectField`).
+153. **Grund: Die Ausnahmeliste soll kürzer werden, nicht länger bleiben.** Wer
+     in einer noch ausgenommenen Datei neue Verstöße nachlegt, verlängert die
+     Umstellungswelle für den, der sie später anfasst — und die Regel wäre
+     genau dort wirkungslos, wo neu gearbeitet wird.
+154. **Der Bestand bleibt liegen.** Die übrigen rohen Datumsfelder dieser vier
+     Dateien gehören zur geplanten Welle und werden dort mitgezogen; sie hier
+     nebenbei anzufassen, hieße zwei Zweige über dieselben Zeilen zu führen.

@@ -10,6 +10,7 @@ import {
   ledgerAccountKindLabels,
   unitTypeLabels,
 } from "@/lib/labels";
+import { SelectField } from "@/components/fields";
 import { formatCents } from "@/lib/money";
 import { WEG_COST_CATALOG } from "@/lib/weg/cost-catalog";
 import { requireWegProperty } from "@/lib/weg/scope";
@@ -164,17 +165,16 @@ export default async function WegStammdatenPage({
                 Wortlaut der Beschlussvorlage — beides muss dasselbe sagen,
                 sonst mahnt die Verwaltung zu einem Termin, den der Beschluss
                 nicht nennt. */}
-            <Field label="Hausgeld fällig">
-              <select
-                name="dueDayRule"
-                defaultValue={property.dueDayRule}
-                className={inputClass}
-              >
-                <option value="MONATSERSTER">zum Ersten des Monats</option>
-                <option value="DRITTER_WERKTAG">zum dritten Werktag</option>
-                <option value="FREIER_TAG">zu einem festen Tag im Monat</option>
-              </select>
-            </Field>
+            <SelectField
+              label="Hausgeld fällig"
+              name="dueDayRule"
+              defaultValue={property.dueDayRule}
+              options={[
+                { value: "MONATSERSTER", label: "zum Ersten des Monats" },
+                { value: "DRITTER_WERKTAG", label: "zum dritten Werktag" },
+                { value: "FREIER_TAG", label: "zu einem festen Tag im Monat" },
+              ]}
+            />
             <Field label="Fester Tag (1–28, nur bei fester Wahl)">
               <input
                 name="dueDayOfMonth"

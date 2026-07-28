@@ -8,6 +8,7 @@ import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { computeUnitAdvances, monthlyInstallments, PositionNichtVerteilbar } from "@/lib/weg/economic-plan";
 import { requireWegProperty } from "@/lib/weg/scope";
+import { DateField } from "@/components/fields";
 import { faelligkeitsText } from "@/lib/weg/plan-validity";
 import { deletePlan, planZurAbstimmung, resolvePlan, updatePlanItems } from "../actions";
 
@@ -397,14 +398,12 @@ Muster — ersetzt keine Rechtsberatung.`;
                 {/* Nur für den unterjährig geänderten Wirtschaftsplan. Leer
                     lassen heißt: ab Beginn des Wirtschaftsjahres — der
                     Normalfall, auch wenn die Versammlung erst im April tagt. */}
-                <Field label="Gilt ab (optional, nur bei geändertem Plan)">
-                  <input
-                    name="validFrom"
-                    type="date"
-                    className={`${inputClass} w-auto`}
-                    title="Muss ein Monatserster sein. Leer = Beginn des Wirtschaftsjahres."
-                  />
-                </Field>
+                <DateField
+                  label="Gilt ab (optional, nur bei geändertem Plan)"
+                  name="validFrom"
+                  className="w-auto"
+                  hint="Muss ein Monatserster sein. Leer = Beginn des Wirtschaftsjahres."
+                />
                 <PendingButton className={buttonClass} disabled={Boolean(advanceError)}>
                   Als beschlossen markieren &amp; Sollstellungen erzeugen
                 </PendingButton>

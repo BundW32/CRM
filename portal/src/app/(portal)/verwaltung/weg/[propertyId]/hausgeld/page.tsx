@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { reminderLevelLabel } from "@/lib/dunning";
 import { formatDateOnly } from "@/lib/labels";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list-query";
+import { SelectField } from "@/components/fields";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
@@ -855,16 +856,17 @@ export default async function HausgeldPage({
                                 gezahlt wird, geht das der gesetzlichen Reihenfolge
                                 vor. Den Fließtext liest der Verwalter, nicht das
                                 Programm — eine Fehldeutung verschöbe echtes Geld. */}
-                            <select
+                            <SelectField
                               name="zweck"
                               defaultValue="ALLE"
-                              className="rounded border border-gray-200 px-1 py-0.5 text-xs text-gray-700"
+                              className="w-auto text-xs"
                               aria-label="Tilgungsbestimmung laut Verwendungszweck"
-                            >
-                              <option value="ALLE">ohne Angabe (älteste zuerst)</option>
-                              <option value="WIRTSCHAFTSPLAN">laut Zweck: Hausgeld</option>
-                              <option value="SONDERUMLAGE">laut Zweck: Sonderumlage</option>
-                            </select>
+                              options={[
+                                { value: "ALLE", label: "ohne Angabe (älteste zuerst)" },
+                                { value: "WIRTSCHAFTSPLAN", label: "laut Zweck: Hausgeld" },
+                                { value: "SONDERUMLAGE", label: "laut Zweck: Sonderumlage" },
+                              ]}
+                            />
                             <PendingButton className="text-xs text-gray-700 underline">
                               anrechnen
                             </PendingButton>

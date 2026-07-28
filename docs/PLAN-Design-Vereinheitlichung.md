@@ -73,10 +73,15 @@ Dateien berührt.
   4. *WEG-Finanzen* — Stammdaten, Hausgeld, Buchhaltung, CO₂, Erhaltungsplanung,
      Lastschrift, Prüfpflichten, Sonderumlagen, Wirtschaftsplan-Detail
   5. *Wohnungsübergabe* — alle zehn Dateien des Assistenten
+  6. *Plattform* — Betreiber-Übersicht, Organisationen, Rechnungen
 
-  Ausnahmeliste dadurch von 49 über 37, 25 und 16 auf **6** Dateien. Offen sind nur
-  noch Plattform (5) und der Handwerker-Magic-Link (1) — beides **kein Kundenportal**
-  und deshalb eine eigene Entscheidung, keine Fleißarbeit.
+  **Damit ist Stufe 4 abgeschlossen.** Die Ausnahmeliste ging von 49 über 37, 25, 16
+  und 6 auf **einen** Eintrag zurück — und der ist eine Entscheidung, keine Restarbeit:
+
+  `src/app/auftraege/[token]/page.tsx` — die Magic-Link-Seite des Handwerkers. Sie
+  wird ohne Konto per Link aus einer E-Mail geöffnet, meist auf dem Telefon und oft
+  auf der Baustelle. Große Flächen und wenige Elemente sind dort richtig, nicht die
+  Dichte des Portals am Schreibtisch. Bleibt bewusst ausgenommen.
 
   **Der Rahmen der Wohnungsübergabe bleibt bewusst anders:** Vollbild-Assistent mit
   Schrittkette statt Navigationsleiste. Sie läuft auf dem Telefon beim Gang durch die

@@ -97,11 +97,6 @@ export const oberflaecheBaustein = {
 export const oberflaecheBestand = {
   files: [
     "src/app/auftraege/\\[token\\]/page.tsx",
-    "src/app/plattform/organisationen/\\[id\\]/page.tsx",
-    "src/app/plattform/organisationen/page.tsx",
-    "src/app/plattform/page.tsx",
-    "src/app/plattform/rechnungen/neu/page.tsx",
-    "src/app/plattform/rechnungen/page.tsx",
   ],
   rules: { "no-restricted-syntax": "off" },
 };

@@ -23,10 +23,10 @@ describe("Ausnahmeliste der Oberflächen-Regeln", () => {
 
   it("wird nur kürzer, nie länger", () => {
     // Stand: 49 beim Einführen der Regeln, dann 37 („Stammdaten"), 25 („Portal"),
-    // 16 („WEG-Finanzen"), 6 („Wohnungsübergabe").
+    // 16 („WEG-Finanzen"), 6 („Wohnungsübergabe"), 1 („Plattform").
     // Die Zahl wird mit jeder Welle gesenkt – erhöht wird sie nicht. Wer eine neue Datei einträgt,
     // umgeht die Regel; dann gehört stattdessen der Baustein benutzt.
-    expect(eintraege.length).toBeLessThanOrEqual(6);
+    expect(eintraege.length).toBeLessThanOrEqual(1);
   });
 
   it("enthält keine Einträge für Dateien, die es nicht mehr gibt", () => {

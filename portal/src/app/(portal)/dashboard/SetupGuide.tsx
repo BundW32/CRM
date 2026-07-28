@@ -27,7 +27,7 @@ export function SetupGuide({
 
   return (
     <>
-      <div className="mb-6">
+      <div data-tour="einrichtung" className="mb-6">
         <Card>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-base font-semibold text-gray-900">

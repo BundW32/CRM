@@ -2,6 +2,16 @@
 
 Stand: 28.07.2026 · Basis: [`PRODUKT-Laientauglichkeit-und-UseCases.md`](./PRODUKT-Laientauglichkeit-und-UseCases.md)
 
+> **Umsetzungsstand.** LP1–LP3 sind gebaut und gemergt (PR #47). LP4–LP6 sind
+> gebaut und geprüft, liegen aber noch unveröffentlicht auf
+> `claude/weg-accounting-review-dch465`. Dazu kam ungeplant die
+> **Rollenunterscheidung der Führung** (Schritt 36 in `portal/DECISIONS.md`):
+> Eigentümer und Mieter bekamen die Verwalter-Führung — falsche Begrüßung und
+> drei Schritte auf Bereiche, die es in ihrem Menü nicht gibt.
+>
+> **Offen:** LP7 (Assistent) sowie die rund 190 fest verdrahteten Hilfetexte
+> außerhalb des WEG-Bereichs — die wandern nach Bedarf, nicht am Stück.
+
 Das Programm ist nach neun Korrekturpunkten fachlich richtig — und dabei
 schwerer geworden. Dieser Plan macht es bedienbar, ohne fachlich falsch zu
 werden. Format wie [`PLAN-WEG-Finanzkorrekturen.md`](./PLAN-WEG-Finanzkorrekturen.md).

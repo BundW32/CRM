@@ -1,9 +1,10 @@
-import { Alert, Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { PushToggle } from "@/components/push-toggle";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { getOrganization, requireUser } from "@/lib/session";
 import { changePassword, saveShowHints } from "./actions";
+import { tourNeuStarten } from "./tour-actions";
 import { VollmachtKarte } from "./vollmacht";
 
 export const dynamic = "force-dynamic";
@@ -145,6 +146,7 @@ export default async function AccountPage({
             Verwalter-Einstellungen: Es ist eine Vorliebe der Person, nicht der
             Organisation — zwei Eigentümer derselben WEG dürfen es verschieden
             wollen. */}
+        <div data-tour="hinweise-schalter">
         <Card title="Erklärungen">
           <form action={saveShowHints} className="space-y-3">
             <label className="flex items-start gap-2 text-sm text-gray-800">
@@ -170,7 +172,21 @@ export default async function AccountPage({
             </label>
             <PendingButton className={buttonClass}>Speichern</PendingButton>
           </form>
+
+          {/* Die Führung erklärt unter anderem genau diesen Schalter — deshalb
+              steht ihr Neustart hier und nicht in einem eigenen Bereich. */}
+          <form action={tourNeuStarten} className="mt-4 border-t border-gray-100 pt-4">
+            <p className="mb-2 text-xs text-gray-500">
+              {user.tourDoneAt
+                ? "Sie haben die kurze Einführung bereits gesehen."
+                : "Die kurze Einführung steht noch aus — sie erscheint beim nächsten Seitenaufruf."}
+            </p>
+            <PendingButton className={buttonSecondaryClass}>
+              Einführung {user.tourDoneAt ? "erneut " : ""}starten
+            </PendingButton>
+          </form>
         </Card>
+        </div>
       </div>
     </>
   );

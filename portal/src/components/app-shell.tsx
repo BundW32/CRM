@@ -222,12 +222,25 @@ export function AppShell({
     );
   }
 
-  /** @param rail Icon-Leiste (eingeklappt) – nur im Desktop-Fall relevant. */
+  /**
+   * @param rail Icon-Leiste (eingeklappt) – nur im Desktop-Fall relevant.
+   *
+   * Die `data-tour`-Marker sind die Sprungziele der geführten Einrichtung. Sie
+   * werden **aus der Navigation abgeleitet**, nicht von Hand gesetzt: Ein neuer
+   * Menüpunkt bringt seinen Marker damit selbst mit, ein entfernter nimmt ihn
+   * mit. Von Hand gepflegte Marker wären genau die Kopplung, die eine Führung
+   * bei jedem Umbau zerbrechen lässt. `src/lib/tour.test.ts` prüft, dass jeder
+   * Schritt sein Ziel findet.
+   */
   function renderNav(rail: boolean) {
     return (
-      <nav aria-label="Hauptnavigation" className="flex flex-col gap-1">
+      <nav aria-label="Hauptnavigation" data-tour="navigation" className="flex flex-col gap-1">
         {groups.map((group, groupIndex) => (
-          <div key={group.label ?? `g${groupIndex}`} className="mb-1">
+          <div
+            key={group.label ?? `g${groupIndex}`}
+            data-tour={group.label ? `gruppe-${group.label.toLowerCase()}` : undefined}
+            className="mb-1"
+          >
             {group.label ? (
               rail ? (
                 groupIndex > 0 ? <div className="mx-2 my-2 border-t border-gray-100" /> : null
@@ -245,6 +258,7 @@ export function AppShell({
                 <Link
                   key={item.href}
                   href={item.href}
+                  data-tour={`nav-${item.href.replace(/^\//, "").replace(/\//g, "-")}`}
                   onClick={closeAll}
                   aria-current={active ? "page" : undefined}
                   title={rail ? item.title : undefined}
@@ -457,6 +471,11 @@ export function AppShell({
           onClick={() => setDrawerOpen(true)}
           className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/95 px-3 py-2 text-sm font-semibold text-gray-800 shadow-sm"
           aria-label="Menü öffnen"
+          // Die geführte Einrichtung zieht das Schubfach selbst auf, wenn ein
+          // Ziel darin liegt (siehe `components/tour.tsx`). Über `aria-label`
+          // zu suchen wäre möglich, aber eine Beschriftung ist Text für
+          // Menschen — wer sie umformuliert, darf nicht die Führung brechen.
+          data-tour-menu="oeffnen"
         >
           <Menu className="h-[18px] w-[18px]" />
           Menü
@@ -505,6 +524,7 @@ export function AppShell({
           <button
             type="button"
             aria-label="Menü schließen"
+            data-tour-menu="schliessen"
             onClick={() => setDrawerOpen(false)}
             className="fixed inset-0 z-40 cursor-default bg-black/40 md:hidden"
           />

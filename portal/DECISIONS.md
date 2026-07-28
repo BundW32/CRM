@@ -1068,3 +1068,144 @@ Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP3).
 An echten Daten geprüft: Begriff gepunktet unterstrichen, Erklärung erscheint
 bei Mauszeiger **und** bei Tastaturfokus, ist vorher unsichtbar; bei
 abgeschalteten Hinweisen bleibt das Wort als gewöhnlicher Text stehen.
+
+## Schritt 34 — LP4/LP5: geführte Ersteinrichtung (28.07.2026)
+
+Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP4, LP5).
+
+178. **Die Führung erklärt das Programm, nicht die Bedienung.** Eine Tour, die
+     auf Schaltflächen zeigt, lehrt Klicken. Wer seine WEG zum ersten Mal selbst
+     verwaltet, braucht zuerst die Antwort auf „wozu ist das da". Jeder Text
+     sagt deshalb, was der Bereich **einem bringt** — „Hier sehen Sie, ob das
+     Geld der Gemeinschaft reicht" statt „Hier stehen Ihre Konten".
+179. **Eigenbau statt Bibliothek.** driver.js und Shepherd bringen eigenes
+     Aussehen mit und kämpfen gegen das gerade vereinheitlichte Design. Die
+     Sprechblase benutzt stattdessen dieselben Bausteine wie jede Karte —
+     `cardSurfaceClass`, `buttonClass`, dieselbe Erhebung.
+180. **Die Marker leiten sich aus der Navigation ab.** `data-tour="nav-…"`
+     entsteht aus dem `href` des Menüpunkts. Ein neuer Punkt bringt seinen
+     Marker damit selbst mit, ein entfernter nimmt ihn mit. Von Hand gepflegte
+     Marker wären genau die Kopplung, die eine Führung bei jedem Umbau
+     zerbrechen lässt.
+181. **Die Führung wechselt die Seite.** Ohne das zeigte sie ins Leere, sobald
+     ein Ziel nicht zufällig auf der aktuellen Seite lag — im ersten Prüflauf
+     traf **einer von sechs** Schritten. Jetzt trägt jeder Schritt seinen Pfad,
+     und die Mechanik fasst nach, bis das Ziel der neuen Seite da ist.
+182. **Zwei Arten von „nicht zu sehen", die verschieden zu behandeln sind.**
+     Beim ersten Anlauf hatte ich sie vermischt: *Unter dem Falz* ist erreichbar
+     (hinscrollen), *seitlich draußen* nicht (auf dem Handy liegt die Navigation
+     in einem geschlossenen Schubfach). Dorthin führt kein Scrollen — dort gibt
+     es die zentrierte Karte statt eines Lichtkegels auf die falsche Stelle.
+183. **Kein Schritt verspricht etwas, das es nicht gibt.** Ohne API-Schlüssel
+     existiert der Assistent nicht; der Schritt, der ihn anpries, schickte den
+     Nutzer auf eine vergebliche Suche. Er erscheint jetzt nur, wenn das Widget
+     tatsächlich läuft. Dasselbe für die Selbstverwalter-Schritte.
+184. **Texte geräteunabhängig.** „Alles liegt links" stimmte nur am Rechner.
+     Auf dem Handy sitzt die Leiste hinter dem Menü-Knopf — der Prüflauf bei
+     390 px zeigte eine Erklärung, die dort nicht zutrifft.
+185. **Dreimal lag mein Prüfskript falsch, nicht das Programm.** Es suchte nach
+     „irgendeinem orangen Ring" und fand den pulsierenden Hinweis zur
+     Startbildschirm-Installation; es maß vor dem Seitenwechsel; es erwartete
+     mobil einen Lichtkegel, wo der zentrierte Rückfall richtig ist. Der
+     Lichtkegel trägt jetzt `data-tour-ring`, damit eine Prüfung ihn eindeutig
+     findet — ein Test, der das falsche Element misst, ist schlimmer als keiner.
+
+An echten Daten geprüft, Desktop (1280 px) und Handy (390 px), je für
+Selbstverwaltung und professionelle Verwaltung: Jeder Lichtkegel sitzt auf
+seinem Ziel oder fällt bewusst auf die zentrierte Karte zurück; Escape beendet;
+die Führung erscheint genau einmal von selbst und lässt sich unter „Konto"
+neu starten.
+
+## Schritt 35 — LP6: die Tour selbst (28.07.2026)
+
+Der Inhaltsdurchgang. LP4/LP5 hatten die Mechanik und die Marker; hier ging es
+darum, ob die Führung für einen Laien **stimmt** — und der Prüflauf hat dabei
+drei Dinge zutage gefördert, die auf dem Papier in Ordnung aussahen.
+
+186. **Die Sprechblase lag unter dem Bildrand.** Ihre Position hing an einer
+     geratenen Zahl („mehr als 220 px unter dem Ziel, dann passt sie schon").
+     Unter der Bereichsleiste reichte der Platz rechnerisch — der Text dieses
+     Schritts macht die Blase aber höher, und ihr „Weiter"-Knopf lag außerhalb
+     des Bildes. Die Führung war an dieser Stelle **nicht mehr bedienbar**, und
+     zwar am Rechner, nicht in irgendeinem Sonderfall. Jetzt wird die Höhe
+     gemessen (`useLayoutEffect`) und die Blase notfalls dorthin gesetzt, wo sie
+     ganz sichtbar ist. Eine Zahl, die von der Textlänge abhängt, gehört nicht
+     in den Quelltext.
+187. **Der erste Satz war für den professionellen Verwalter falsch.** „Sie
+     verwalten Ihre Gemeinschaft ab jetzt selbst" — gilt für die
+     Selbstverwaltung, für niemanden sonst. Ein Programm, das im ersten Satz
+     danebenliegt, verspielt das Zutrauen genau dort, wo es am meisten zählt.
+     Jetzt gibt es zwei Begrüßungen (`nurVerwaltung` als Gegenstück zu
+     `nurSelbstverwaltung`); ein Test hält fest, dass jeder Nutzer **genau
+     eine** davon sieht.
+188. **`querySelector` traf die falsche Bereichsleiste.** Sie steht zweimal im
+     Seitenbaum: einmal für den Rechner (`hidden md:block`), einmal im Schubfach
+     fürs Handy. Auf dem Handy fand die Führung zuerst die ausgeblendete Fassung
+     mit Breite 0, hielt das für „vorhanden, aber unsichtbar" und zeigte die
+     zentrierte Karte. Jetzt wird das erste Ziel genommen, das wirklich Fläche
+     hat — und damit **zieht die Führung das Schubfach mobil selbst auf** (und
+     danach wieder zu, aber erst, wenn der nächste Schritt es nicht auch
+     braucht — sonst flackert es).
+189. **„Was ansteht" steht im Futur.** Der Fahrplan erscheint erst, wenn die
+     Einrichtung fertig ist — also genau dann *nicht*, wenn diese Führung läuft.
+     Der alte Text behauptete, die Liste stünde schon da, und schickte einen
+     Anfänger auf die Suche nach etwas, das es noch gar nicht geben kann.
+190. **Der Schlusshinweis gehört in die Mechanik, nicht in einen Schritt.** Der
+     letzte Schritt ist je nach Kontotyp und Assistent ein anderer; ein achter
+     Schritt nur für „Sie finden das wieder" hätte die Grenze aus dem Plan
+     gesprengt. Jetzt steht der Satz unter der Blase des jeweils letzten
+     Schritts — immer und genau einmal. Ein Test hält beide Hälften zusammen.
+191. **Kein gemerkter Fortschritt — und das mit Absicht.** Der Plan sah
+     `User.tourState` vor. Die Führung wechselt die Seiten aber selbst
+     (Soft-Navigation), ein Neuladen mitten in der einen Minute kommt praktisch
+     nicht vor. Ein Ablegen im Browser scheiterte zudem an der Hydration: Der
+     Server kennt den Stand nicht und zeigte „Schritt 1", der Browser gleich
+     darauf „Schritt 4". Was zählt, steht ohnehin serverseitig — `tourDoneAt`.
+192. **Fachsprache ist jetzt testbar verboten.** Kein „Sollstellung", kein
+     „Abrechnungsspitze", kein „§" in einem Tour-Text. Prinzip 1 des Plans sagt,
+     dass Fachbegriffe nicht umbenannt werden — aber die Führung ist das eine,
+     was jemand *vor* allem anderen liest. Erklärt wird an der Stelle, an der es
+     gebraucht wird (Glossar, LP3).
+
+Geprüft an echten Daten in vier Kombinationen (Desktop 1280 px / Handy 390 px
+× Selbstverwaltung / professionelle Verwaltung): Alle Schritte sind
+durchklickbar — was der Prüflauf mitbeweist, denn Playwright klickt nichts an,
+was außerhalb des Bildes liegt —, jeder Lichtkegel sitzt auf seinem Ziel oder
+fällt bewusst auf die zentrierte Karte zurück, und am Ende bleibt kein
+Schubfach offen stehen.
+
+## Schritt 36 — Die Führung kennt jetzt die Rolle (28.07.2026)
+
+Aus einer Rückfrage entstanden: „Bekommen die anderen Eigentümer beim ersten
+Login auch eine Ersteinführung?" Sie bekamen sie — nur die falsche.
+
+193. **Max Mieter las „Sie verwalten Ihre Gemeinschaft ab jetzt selbst."** Die
+     Führung filterte nach Kontotyp der Organisation, nicht nach der Rolle des
+     Angemeldeten. In einer selbstverwalteten WEG gibt es aber **einen**
+     verwaltenden Eigentümer und daneben alle übrigen Eigentümer und Mieter.
+     Die drei bekamen dieselben sechs Schritte — davon drei als leere Karten,
+     weil `/verwaltung/weg` nur in den Verwalter-Menüs steht und die
+     Einrichtungs-Karte nur für den verwaltenden Eigentümer rendert. Falscher
+     erster Satz plus drei Fehlanzeigen: der schlechtestmögliche erste Eindruck,
+     und ausgerechnet für die Gruppe, die das Programm am wenigsten kennt.
+194. **Schritte tragen jetzt `rollen`.** Eigentümer bekommen eine eigene
+     Begrüßung und Schritte zu Stimme, Geld und Unterlagen; Mieter eine zu
+     Schadensmeldung und Unterlagen. Handwerker bekommen gar keine — sie haben
+     kein Portalkonto.
+195. **Der Bereichsleisten-Text stimmte für drei von vier Zielgruppen nicht.**
+     Er zählte die Gruppen auf („Alltag, Stammdaten, WEG, Betrieb"). So heißen
+     sie nur beim professionellen Verwalter; die Selbstverwaltung hat andere,
+     und Eigentümer und Mieter haben überhaupt keine Gruppen, sondern eine
+     flache Liste. Jetzt ohne Aufzählung.
+196. **Zwei Tests, die genau das künftig fangen.** Der eine prüft jeden Schritt
+     gegen die Navigation **seiner Rolle** in `app-nav.ts` — zeigt er auf einen
+     Menüpunkt, muss dieser dort stehen. Der andere verbietet, einen Menü- oder
+     Gruppennamen im Text zu zitieren: Dieselbe Stelle heißt je nach Rolle und
+     Kontotyp anders. Beide laufen über **alle zwölf** Kombinationen aus Rolle,
+     Kontotyp und Assistent; der erste wurde mit einer absichtlich falschen
+     Zuordnung gegengeprüft und schlug fehl.
+
+Schrittzahlen danach: verwaltender Eigentümer 6 (7 mit Assistent),
+professioneller Verwalter 3 (4), Eigentümer 6, Mieter 5. An echten Daten mit
+allen vier Konten durchgeklickt — jeder Schritt trifft ein Ziel, das es in
+diesem Menü wirklich gibt.

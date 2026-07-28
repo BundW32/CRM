@@ -1,3 +1,4 @@
+import { ComboField } from "@/components/combo-field";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { DateField, toDateInputValue } from "@/components/fields";
 import { PendingButton } from "@/components/pending-button";
@@ -198,13 +199,15 @@ export function PersonEinstellungen({
             <form action={addOwnership} className="mt-2 flex flex-wrap items-center gap-2">
               <input type="hidden" name="zurueck" value={zurueck} />
               <input type="hidden" name="userId" value={u.id} />
-              <select name="propertyId" required className={`${inputClass} flex-1 text-xs`}>
-                {availableOwnProps.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              <ComboField
+                label="Objekt"
+                name="propertyId"
+                required
+                hideLabel
+                placeholder="Objekt suchen …"
+                className="flex-1"
+                options={availableOwnProps.map((p) => ({ value: p.id, label: p.name }))}
+              />
               <PendingButton
                 pendingLabel="…"
                 className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"

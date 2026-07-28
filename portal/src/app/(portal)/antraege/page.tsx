@@ -11,6 +11,7 @@ import { Alert,
   buttonSecondaryClass,
   inputClass,
 } from "@/components/ui";
+import { ComboField } from "@/components/combo-field";
 import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -230,15 +231,13 @@ export default async function AntraegePage({
         <div className={isVerwalter ? "mt-6" : ""}>
           <Card title="Antrag einreichen">
             <form action={submitMotion} className="space-y-4">
-              <Field label="Objekt">
-                <select name="propertyId" className={inputClass} required>
-                  {wegOwned.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              <ComboField
+                label="Objekt"
+                name="propertyId"
+                required
+                placeholder="Objekt suchen …"
+                options={wegOwned.map((p) => ({ value: p.id, label: p.name }))}
+              />
               <Field label="Art des Antrags">
                 <select name="type" className={inputClass} defaultValue="BESCHLUSSANTRAG">
                   <option value="BESCHLUSSANTRAG">Beschlussantrag</option>

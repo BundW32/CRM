@@ -167,12 +167,11 @@ export function ObjektForm({
             Objektdatenblatt, Exposé oder ERP-Export hochladen – die KI füllt die Felder
             als Vorschlag aus. Bitte anschließend prüfen und ergänzen.
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <input
-              ref={pdfRef}
-              type="file"
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <FileInput
+              inputRef={pdfRef}
               accept="application/pdf"
-              className="block text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
+              label="PDF wählen"
             />
             <button
               type="button"

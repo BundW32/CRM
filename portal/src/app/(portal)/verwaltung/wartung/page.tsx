@@ -23,6 +23,7 @@ import {
   type BadgeTone,
   type Column,
 } from "@/components/data-display";
+import { ComboField } from "@/components/combo-field";
 import { DateField, SelectField } from "@/components/fields";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { SubmitButton } from "@/components/submit-button";
@@ -325,26 +326,23 @@ export default async function WartungPage({
               }))}
             />
             <DateField label="Nächste Fälligkeit" name="dueDate" required />
-            <SelectField
+            <ComboField
               label="Objekt (optional)"
               name="propertyId"
-              defaultValue=""
-              options={[
-                { value: "", label: "– Allgemein –" },
-                ...properties.map((p) => ({ value: p.id, label: p.name })),
-              ]}
+              placeholder="Objekt suchen …"
+              clearOption="– Allgemein –"
+              options={properties.map((p) => ({ value: p.id, label: p.name }))}
             />
-            <SelectField
+            <ComboField
               label="Handwerker (optional)"
               name="craftsmanId"
-              defaultValue=""
-              options={[
-                { value: "", label: "– keiner –" },
-                ...craftsmen.map((c) => ({
-                  value: c.id,
-                  label: `${c.company ? `${c.company} / ` : ""}${c.name} (${tradeLabels[c.trade]})`,
-                })),
-              ]}
+              placeholder="Handwerker suchen …"
+              clearOption="– keiner –"
+              options={craftsmen.map((c) => ({
+                value: c.id,
+                label: c.company ? `${c.company} / ${c.name}` : c.name,
+                sublabel: tradeLabels[c.trade],
+              }))}
             />
             <Field label="Notiz (optional)">
               <textarea name="description" rows={2} className={inputClass} />

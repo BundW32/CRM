@@ -4,6 +4,7 @@ import {
   EmptyState,
   PageTitle,
 } from "@/components/ui";
+import { ComboField } from "@/components/combo-field";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
@@ -209,23 +210,13 @@ export default async function DokumentQuellenPage({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Objekt{" "}
-                <span className="font-normal text-gray-400">(optional)</span>
-              </label>
-              <select
-                name="propertyId"
-                className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
-              >
-                <option value="">– kein Objekt –</option>
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <ComboField
+              label="Objekt (optional)"
+              name="propertyId"
+              placeholder="Objekt suchen …"
+              clearOption="– kein Objekt –"
+              options={properties.map((p) => ({ value: p.id, label: p.name }))}
+            />
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Empfänger</label>

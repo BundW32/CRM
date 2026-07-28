@@ -6,6 +6,7 @@ import { distributionKeyLabels } from "@/lib/labels";
 import { getUser } from "@/lib/session";
 import { generateEinzelabrechnungen, type EinzelabrechnungUnit } from "@/lib/documents/einzelabrechnung";
 import type { StatementView } from "@/lib/weg/statement-service";
+import { pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
 
@@ -88,13 +89,7 @@ export async function GET(
     });
 
     const fileName = `Meine_Einzelabrechnung_${view.year}.pdf`;
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    return pdfResponse(pdf, fileName, request);
   } catch (err) {
     console.error("Eigentümer-Einzelabrechnung-PDF fehlgeschlagen", err);
     return NextResponse.json({ error: "Export fehlgeschlagen" }, { status: 500 });

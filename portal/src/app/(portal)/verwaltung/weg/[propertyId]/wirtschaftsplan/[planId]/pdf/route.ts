@@ -3,6 +3,7 @@ import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { buildWirtschaftsplanPdf } from "@/lib/weg/wirtschaftsplan-pdf";
+import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
 
@@ -44,14 +45,8 @@ export async function GET(
       units,
     });
 
-    const fileName = `Wirtschaftsplan_${plan.year}_${property.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    const fileName = `Wirtschaftsplan_${plan.year}_${fileNamePart(property.name)}.pdf`;
+    return pdfResponse(pdf, fileName, request);
   } catch (err) {
     console.error("Wirtschaftsplan-PDF fehlgeschlagen", err);
     // Häufigster Fall: unvollständige Stammdaten (z. B. MEA) → 422 statt 500

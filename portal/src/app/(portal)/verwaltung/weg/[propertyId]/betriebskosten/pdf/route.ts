@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { generateBetriebskosten } from "@/lib/documents/betriebskosten";
 import { deriveOperatingCostStatement } from "@/lib/weg/operating-cost-service";
+import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
 
@@ -70,14 +71,8 @@ export async function GET(
       meta: { year: data.year },
     });
 
-    const fileName = `Betriebskosten_${data.year}_${data.unitLabel.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    const fileName = `Betriebskosten_${data.year}_${fileNamePart(data.unitLabel)}.pdf`;
+    return pdfResponse(pdf, fileName, request);
   } catch (err) {
     console.error("Betriebskosten-PDF fehlgeschlagen", err);
     return NextResponse.json({ error: "Export fehlgeschlagen" }, { status: 500 });

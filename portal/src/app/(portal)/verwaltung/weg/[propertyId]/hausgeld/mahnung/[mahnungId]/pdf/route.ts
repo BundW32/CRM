@@ -5,13 +5,14 @@ import { db } from "@/lib/db";
 import { reminderLevelLabel } from "@/lib/dunning";
 import { requireVerwalter } from "@/lib/session";
 import { generateMahnung } from "@/lib/documents/mahnung";
+import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
 
 // Zahlungserinnerung/Mahnung als druckfertiger DIN-A4-Brief (Fensterumschlag).
 // Verwalter im Objekt-Scope.
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ propertyId: string; mahnungId: string }> },
 ) {
   const verwalter = await requireVerwalter();
@@ -55,14 +56,8 @@ export async function GET(
       city: branding.city ?? mahnung.property.city ?? null,
     });
 
-    const fileName = `${reminderLevelLabel(mahnung.level).replace(/[^a-zA-Z0-9]/g, "_")}_${mahnung.unit.label.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    const fileName = `${fileNamePart(reminderLevelLabel(mahnung.level))}_${fileNamePart(mahnung.unit.label)}.pdf`;
+    return pdfResponse(pdf, fileName, request);
   } catch (err) {
     console.error("Mahnung-PDF fehlgeschlagen", err);
     return NextResponse.json({ error: "Export fehlgeschlagen" }, { status: 500 });

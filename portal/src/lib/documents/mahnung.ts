@@ -2,10 +2,10 @@
 // Adressposition fensterumschlag-tauglich nach DIN 5008 Form B).
 // Stufen/Texte analog zum Plattform-Mahnwesen (lib/dunning.ts) — keine
 // automatischen Gebühren. Aufbau analog zu den anderen documents/-Generatoren.
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, PDFPage, StandardFonts, rgb } from "pdf-lib";
 import { formatCents } from "@/lib/money";
 import { reminderLevelLabel } from "@/lib/dunning";
-import { encodeWinAnsi, wrapText } from "./pdf-text";
+import { encodeWinAnsi, fitText, wrapText } from "./pdf-text";
 
 const A4: [number, number] = [595.28, 841.89];
 const MM = 841.89 / 297; // Punkt je Millimeter
@@ -53,38 +53,67 @@ export async function generateMahnung(rawInput: MahnungInput): Promise<Buffer> {
   const levelLabel = encodeWinAnsi(reminderLevelLabel(input.level));
 
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage(A4);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
+  // Der Brief war bis hierher fest einseitig: ohne Umbruch wurde alles, was
+  // unter den Blattrand rutschte (viele Positionen, lange Texte), stillschweigend
+  // ins Nichts gezeichnet. Jetzt bricht er um.
+  let page: PDFPage = pdf.addPage(A4);
+  let y = 0;
+  const BOTTOM = 25 * MM; // unterer Rand, ab dem umgebrochen wird
+  const ensure = (needed: number) => {
+    if (y - needed >= BOTTOM) return;
+    page = pdf.addPage(A4);
+    y = A4[1] - 40 * MM;
+  };
+
   // ── Kopf ───────────────────────────────────────────────────────────────────
   page.drawRectangle({ x: 0, y: A4[1] - 6, width: A4[0], height: 6, color: GREEN });
-  page.drawText(input.issuer.legalName, { x: ML, y: A4[1] - 40, size: 10, font: bold, color: GREEN });
+  // Firmenname umbrechen (nie kürzen – er ist die Absenderangabe), Kontaktzeile
+  // gegen die Satzbreite begrenzen. Vorher liefen beide über den Blattrand.
+  let hy = A4[1] - 40;
+  for (const line of wrapText(input.issuer.legalName, bold, 10, CW).slice(0, 2)) {
+    page.drawText(line, { x: ML, y: hy, size: 10, font: bold, color: GREEN });
+    hy -= 12;
+  }
   if (input.issuer.contactLine) {
-    page.drawText(input.issuer.contactLine, { x: ML, y: A4[1] - 52, size: 8, font, color: GRAY });
+    page.drawText(fitText(input.issuer.contactLine, font, 8, CW), { x: ML, y: hy, size: 8, font, color: GRAY });
   }
 
   // ── Anschriftfeld (Fensterumschlag, DIN 5008 Form B: ab 45 mm von oben) ────
   let ay = A4[1] - 45 * MM;
   // Rücksendeangabe (einzeilig, klein, unterstrichen wirkt über die Linie)
   const returnLine = [input.issuer.legalName, input.issuer.contactLine].filter(Boolean).join(" · ");
-  page.drawText(returnLine.slice(0, 90), { x: ML, y: ay, size: 6.5, font, color: GRAY });
+  // Muss in die 85 mm des Anschriftfelds passen – gemessen, nicht gezählt.
+  page.drawText(fitText(returnLine, font, 6.5, 85 * MM), { x: ML, y: ay, size: 6.5, font, color: GRAY });
   page.drawLine({ start: { x: ML, y: ay - 2 }, end: { x: ML + 85 * MM, y: ay - 2 }, thickness: 0.4, color: GRAY });
   ay -= 16;
-  for (const line of [input.recipientName, ...(input.recipientAddress?.split("\n") ?? [])]) {
-    if (!line.trim()) continue;
+  // Anschriften werden UMGEBROCHEN, nie gekürzt – eine abgeschnittene Anschrift
+  // ist unzustellbar.
+  const addressLines = [input.recipientName, ...(input.recipientAddress?.split("\n") ?? [])]
+    .filter((l) => l.trim())
+    .flatMap((l) => wrapText(l, font, 11, 85 * MM));
+  for (const line of addressLines) {
     page.drawText(line, { x: ML, y: ay, size: 11, font, color: BLACK });
     ay -= 14;
   }
 
   // ── Datum & Betreff ────────────────────────────────────────────────────────
-  let y = A4[1] - 100 * MM;
+  y = A4[1] - 100 * MM;
   const dateLine = `${input.city ? `${input.city}, ` : ""}${fmtDate(input.createdAt)}`;
   page.drawText(dateLine, { x: ML + CW - font.widthOfTextAtSize(dateLine, 10), y: y + 24, size: 10, font, color: GRAY });
-  page.drawText(`${levelLabel} — Hausgeld ${input.propertyName}, Einheit ${input.unitLabel}`, {
-    x: ML, y, size: 12, font: bold, color: BLACK,
-  });
-  y -= 30;
+  // Betreff umbrechen: mit langem Objektnamen lief er vorher über den Blattrand
+  // hinaus und war im Druck abgeschnitten.
+  for (const line of wrapText(
+    `${levelLabel} — Hausgeld ${input.propertyName}, Einheit ${input.unitLabel}`,
+    bold, 12, CW,
+  )) {
+    ensure(16);
+    page.drawText(line, { x: ML, y, size: 12, font: bold, color: BLACK });
+    y -= 16;
+  }
+  y -= 14;
 
   // ── Text ───────────────────────────────────────────────────────────────────
   const anrede = `Sehr geehrte(r) ${input.recipientName},`;
@@ -110,15 +139,18 @@ export async function generateMahnung(rawInput: MahnungInput): Promise<Buffer> {
       `entstehende Kosten gehen zu Ihren Lasten.`,
   };
 
+  ensure(20);
   page.drawText(anrede, { x: ML, y, size: 10, font, color: BLACK });
   y -= 20;
   for (const line of wrapText(bodyByLevel[input.level] ?? bodyByLevel[2], font, 10, CW)) {
+    ensure(14);
     page.drawText(line, { x: ML, y, size: 10, font, color: BLACK });
     y -= 14;
   }
   y -= 8;
 
   // Betrag hervorgehoben
+  ensure(50);
   page.drawRectangle({ x: ML, y: y - 8, width: CW, height: 26, color: rgb(0.96, 0.96, 0.96) });
   page.drawText("Offener Betrag:", { x: ML + 8, y, size: 11, font: bold, color: BLACK });
   page.drawText(amount, {
@@ -129,27 +161,33 @@ export async function generateMahnung(rawInput: MahnungInput): Promise<Buffer> {
   y -= 24;
 
   if (input.iban) {
+    ensure(76);
     page.drawText("Bankverbindung der Gemeinschaft:", { x: ML, y, size: 10, font: bold, color: BLACK });
     y -= 14;
     if (input.accountHolder) {
-      page.drawText(`Kontoinhaber: ${input.accountHolder}`, { x: ML, y, size: 10, font, color: BLACK });
+      page.drawText(fitText(`Kontoinhaber: ${input.accountHolder}`, font, 10, CW), { x: ML, y, size: 10, font, color: BLACK });
       y -= 14;
     }
-    page.drawText(`IBAN: ${input.iban}`, { x: ML, y, size: 10, font, color: BLACK });
+    page.drawText(fitText(`IBAN: ${input.iban}`, font, 10, CW), { x: ML, y, size: 10, font, color: BLACK });
     y -= 14;
-    page.drawText(`Verwendungszweck: Hausgeld ${input.unitLabel}`, { x: ML, y, size: 10, font, color: BLACK });
+    page.drawText(fitText(`Verwendungszweck: Hausgeld ${input.unitLabel}`, font, 10, CW), { x: ML, y, size: 10, font, color: BLACK });
     y -= 24;
   }
 
+  ensure(56);
   page.drawText("Mit freundlichen Grüßen", { x: ML, y, size: 10, font, color: BLACK });
   y -= 16;
-  page.drawText(input.issuer.legalName, { x: ML, y, size: 10, font, color: BLACK });
-  y -= 40;
+  for (const line of wrapText(input.issuer.legalName, font, 10, CW)) {
+    page.drawText(line, { x: ML, y, size: 10, font, color: BLACK });
+    y -= 13;
+  }
+  y -= 27;
 
   for (const line of wrapText(
     "Bereits geleistete Zahlungen sind ggf. noch nicht berücksichtigt. Muster — ersetzt keine Rechtsberatung.",
     font, 7.5, CW,
   )) {
+    ensure(10);
     page.drawText(line, { x: ML, y, size: 7.5, font, color: GRAY });
     y -= 10;
   }

@@ -288,8 +288,6 @@ export default async function UebergabeOverviewPage({
                       {h.pdfStoredName && (
                         <a
                           href={`/api/files/handover-pdf/${h.id}?download=1`}
-                          target="_blank"
-                          rel="noopener noreferrer"
                           className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.98]"
                         >
                           <svg viewBox="0 0 24 24" className="mr-1 h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">

@@ -36,6 +36,34 @@ export function encodeWinAnsi(input: string | null | undefined): string {
   );
 }
 
+// Kürzt einen EINZEILIGEN Text auf maxWidth – nach gemessener Breite, nicht
+// nach Zeichenzahl. Vorher stand dafür an mehreren Stellen `.slice(0, 90)`, was
+// je nach Text mal mitten im Wort abschnitt und mal über den Rand hinauslief
+// (die Rücksendeangabe im Anschriftfeld ragte so über ihre 85 mm hinaus).
+// Nur für Angaben verwenden, deren Verlust unschädlich ist – Anschriften und
+// Firmennamen gehören umgebrochen (wrapText), nicht gekürzt.
+export function fitText(
+  text: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number,
+): string {
+  const s = text ?? "";
+  if (font.widthOfTextAtSize(s, size) <= maxWidth) return s;
+  const ellipsis = "...";
+  const room = maxWidth - font.widthOfTextAtSize(ellipsis, size);
+  if (room <= 0) return "";
+  // Binäre Suche nach der längsten passenden Zeichenfolge.
+  let lo = 0;
+  let hi = s.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (font.widthOfTextAtSize(s.slice(0, mid), size) <= room) lo = mid;
+    else hi = mid - 1;
+  }
+  return s.slice(0, lo).trimEnd() + ellipsis;
+}
+
 // Bricht Text auf maxWidth (in Punkt) um. Berücksichtigt bereits vorhandene
 // Zeilenumbrüche (\n) und bricht einzelne Wörter, die breiter als maxWidth sind,
 // hart um (zeichenweise), damit nichts über den Seitenrand hinausläuft.

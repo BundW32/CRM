@@ -8,6 +8,10 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
   "script-src 'self' 'unsafe-inline'",
+  // pdf.js rendert die Dokumentvorschau in einem Web Worker. Ohne worker-src
+  // greift die Vorschau auf script-src zurück; der Blob-Fallback von pdf.js
+  // bräuchte dann blob: und würde sonst still scheitern.
+  "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   "connect-src 'self'",

@@ -1036,3 +1036,35 @@ Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP2).
 An echten Daten geprüft (MEA bei WE 03 entfernt): Die Meldung nennt WE 03, der
 Link zeigt auf `#zeile-<id>`, das Ziel steht nach dem Sprung 96 px unter dem
 Rand (die `scroll-mt-24`-Marge), die Hervorhebung greift — fünf von fünf Läufen.
+
+## Schritt 33 — LP3: Glossar an Ort und Stelle (28.07.2026)
+
+Grundlage: `docs/PLAN-Laientauglichkeit.md` (LP3).
+
+172. **Die Begriffe werden nicht ersetzt.** Das war die naheliegende Idee und
+     wäre falsch: „Abrechnungsspitze" und „Sollstellung" benutzen der Beirat,
+     der Steuerberater und im Streitfall das Gericht. Wer sie umbenennt, macht
+     das Programm für Laien verständlich und für alle anderen unbenutzbar — und
+     der Eigentümer lernt nie, wovon in seiner Versammlung die Rede ist. Die
+     Erklärung tritt **daneben**, nicht an die Stelle.
+173. **Ein Satz je Begriff, hart begrenzt.** Zwei liest niemand, der gerade
+     etwas anderes vorhat. `glossar.test.ts` erzwingt die Grenze, sonst wächst
+     aus der Erklärung ein Absatz und aus dem Absatz ein zweites Handbuch.
+174. **Kein Popup-Framework, kein Client-JS.** Die Erklärung steht im Dokument
+     und wird per CSS bei Mauszeiger oder Tastaturfokus eingeblendet. Sie
+     funktioniert damit ohne JavaScript, kostet nichts, und Screenreader lesen
+     sie ohnehin vor — unabhängig davon, ob sie gerade sichtbar ist.
+175. **Tastaturfokus ist Absicht, obwohl er Tab-Stopps kostet.** Ein Begriff,
+     den nur die Maus erreicht, ist für Tastaturnutzer nicht vorhanden. Der
+     Preis sind auf der längsten Seite etwa ein Dutzend zusätzliche Stopps.
+176. **Ein Paragraph ohne Gesetz ist keine Fundstelle.** „§ 28 Abs. 1" allein
+     sagt nicht, woraus — und bei diesen Begriffen liegt die Antwort zwischen
+     WEG, BGB, EStG und HeizkostenV. Der Test verlangt die Angabe.
+177. **Ein Tippfehler im Begriffsnamen fiele sonst erst zur Laufzeit auf** — und
+     dort als leere Erklärung, nicht als Fehler. Der Test gleicht alle
+     verwendeten Namen gegen das Glossar ab; die Gegenprobe mit einem
+     absichtlichen Tippfehler schlug fehl, wie sie soll.
+
+An echten Daten geprüft: Begriff gepunktet unterstrichen, Erklärung erscheint
+bei Mauszeiger **und** bei Tastaturfokus, ist vorher unsichtbar; bei
+abgeschalteten Hinweisen bleibt das Wort als gewöhnlicher Text stehen.

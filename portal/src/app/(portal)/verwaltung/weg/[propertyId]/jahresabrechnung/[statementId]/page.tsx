@@ -4,6 +4,7 @@ import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Begriff } from "@/components/begriff";
 import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
@@ -569,7 +570,9 @@ Muster — ersetzt keine Rechtsberatung.`;
                   <th className="py-2 pr-3">Einheit</th>
                   <th className="py-2 pr-3 text-right">Kostenanteil (Ist)</th>
                   <th className="py-2 pr-3 text-right">Soll-Vorschüsse</th>
-                  <th className="py-2 pr-3 text-right">Abrechnungsspitze</th>
+                  <th className="py-2 pr-3 text-right">
+                    <Begriff name="abrechnungsspitze">Abrechnungsspitze</Begriff>
+                  </th>
                   <th className="py-2 pr-3 text-right">§35a haushaltsnah</th>
                   <th className="py-2 pr-3 text-right">§35a Handwerker</th>
                   <th className="py-2 pr-3 text-right">PDF</th>

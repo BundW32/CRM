@@ -10,6 +10,7 @@ import { reminderLevelLabel } from "@/lib/dunning";
 import { formatDateOnly } from "@/lib/labels";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list-query";
 import { DateField, SelectField, toDateInputValue } from "@/components/fields";
+import { Begriff } from "@/components/begriff";
 import { Tipp } from "@/components/tipp";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
@@ -567,7 +568,9 @@ export default async function HausgeldPage({
                 <thead>
                   <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
                     <th className="py-2 pr-3">Einheit</th>
-                    <th className="py-2 pr-3 text-right">Soll (fällig)</th>
+                    <th className="py-2 pr-3 text-right">
+                      <Begriff name="sollstellung">Soll</Begriff> (fällig)
+                    </th>
                     <th className="py-2 pr-3 text-right">Gezahlt (zugeordnet)</th>
                     <th className="py-2 pr-3 text-right">Rückstand</th>
                     {/* Altersstruktur: Sind 1.200 € ein Monat bei mehreren

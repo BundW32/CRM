@@ -104,6 +104,12 @@ export function settingsItems(selfManaged: boolean): NavItem[] {
           },
         ]),
     {
+      href: "/verwaltung/basiszinssatz",
+      title: "Basiszinssatz",
+      desc: "Grundlage der Verzugszinsen bei säumigem Hausgeld (§ 247 BGB, halbjährlich)",
+      icon: "abrechnung",
+    },
+    {
       href: "/verwaltung/abrechnung",
       title: "Abrechnung",
       desc: selfManaged

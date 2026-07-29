@@ -22,6 +22,14 @@ export type UnitOpos = OposZeile & {
   unitId: string;
   /** Zahlungen dieser Einheit, die noch keiner Forderung zugeordnet sind. */
   nichtZugeordnetCents: number;
+  /**
+   * Aufgelaufene Verzugszinsen (§ 288 Abs. 1 BGB) auf den Rückstand.
+   *
+   * **`null` heißt „nicht berechenbar"**, nicht „null Euro": Für den Zeitraum
+   * fehlt ein Basiszinssatz. Die Unterscheidung ist der ganze Punkt — eine 0,
+   * die in Wahrheit eine Lücke ist, wäre die gefährlichste Zahl auf der Seite.
+   */
+  zinsenCents: number | null;
 };
 
 /** Offene Posten je Einheit, mit Altersstruktur. */
@@ -29,7 +37,7 @@ export async function oposJeEinheit(
   propertyId: string,
   stichtag: Date = new Date(),
 ): Promise<Map<string, UnitOpos>> {
-  const [posten, zahlungen] = await Promise.all([
+  const [posten, zahlungen, objekt] = await Promise.all([
     db.duePosting.findMany({
       where: { propertyId },
       select: {
@@ -45,13 +53,15 @@ export async function oposJeEinheit(
       where: { propertyId, kind: "EINNAHME", unitId: { not: null }, ...NOT_REVERSED },
       select: { unitId: true, amountCents: true, allocations: { select: { amountCents: true } } },
     }),
+    db.property.findUnique({ where: { id: propertyId }, select: { organizationId: true } }),
   ]);
+  const saetze = objekt ? await basiszinssaetze(objekt.organizationId) : [];
 
-  const jeEinheit = new Map<string, { dueDate: Date; offenCents: number }[]>();
+  const jeEinheit = new Map<string, { id: string; dueDate: Date; offenCents: number }[]>();
   for (const p of posten) {
     const angerechnet = p.allocations.reduce((s, a) => s + a.amountCents, 0);
     const liste = jeEinheit.get(p.unitId) ?? [];
-    liste.push({ dueDate: p.dueDate, offenCents: p.amountCents - angerechnet });
+    liste.push({ id: p.id, dueDate: p.dueDate, offenCents: p.amountCents - angerechnet });
     jeEinheit.set(p.unitId, liste);
   }
 
@@ -65,10 +75,27 @@ export async function oposJeEinheit(
 
   const ergebnis = new Map<string, UnitOpos>();
   for (const unitId of new Set([...jeEinheit.keys(), ...guthaben.keys()])) {
+    // Zinsen nur auf **fällige** offene Forderungen. Eine Sollstellung für den
+    // nächsten Monat ist nicht rückständig; wer sie mitverzinste, forderte
+    // Zinsen für eine Zeit, in der noch gar nichts zu zahlen war.
+    const faellige = (jeEinheit.get(unitId) ?? []).filter(
+      (f) => f.offenCents > 0 && f.dueDate <= stichtag,
+    );
+    const zinsen = verzugJeForderung(faellige, saetze, stichtag);
+    let zinsenCents: number | null = 0;
+    for (const z of zinsen.values()) {
+      if (z.zinsenCents === null) {
+        zinsenCents = null;
+        break;
+      }
+      zinsenCents += z.zinsenCents;
+    }
+
     ergebnis.set(unitId, {
       unitId,
       ...(jeEinheit.has(unitId) ? baueOpos(jeEinheit.get(unitId)!, stichtag) : leereOposZeile()),
       nichtZugeordnetCents: guthaben.get(unitId) ?? 0,
+      zinsenCents,
     });
   }
   return ergebnis;

@@ -151,6 +151,16 @@ export default async function BauabzugsteuerPage({
             ein Vermerk, keine Abgabe.
           </Tipp>
           <Tipp className="mt-3">
+            <strong>Zur Grenze von 5.000 €.</strong> Das Gesetz kennt daneben eine höhere von
+            15.000 €. Sie gilt aber nur, wenn der Auftraggeber ausschließlich steuerfreie
+            Vermietungsumsätze nach § 4 Nr. 12 UStG ausführt — die Leistungen einer WEG an
+            ihre Eigentümer sind nach § 4 Nr. <strong>13</strong> UStG steuerfrei, also nach
+            einer anderen Nummer. Ob die höhere Grenze für eine Gemeinschaft greift, lässt
+            sich dem Gesetzeswortlaut nicht entnehmen; das ist eine Frage an den
+            Steuerberater. Bis das geklärt ist, warnt dieses Programm ab 5.000 € — wer zu
+            früh warnt, verursacht eine Rückfrage, wer zu spät warnt, eine Haftung.
+          </Tipp>
+          <Tipp className="mt-3">
             Der einfachste Weg, das ganze Thema loszuwerden: die
             Freistellungsbescheinigung nach § 48b EStG beim Handwerker anfordern und in
             seinem Kontakt hinterlegen. Die meisten Betriebe haben eine. Dann entfällt der

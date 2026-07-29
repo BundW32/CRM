@@ -420,6 +420,7 @@ export default async function FinanzenPage({
                     <th className="py-2 pr-3 text-right">Soll (fällig)</th>
                     <th className="py-2 pr-3 text-right">Gezahlt</th>
                     <th className="py-2 pr-3 text-right">Saldo</th>
+                    <th className="py-2" />
                   </tr>
                 </thead>
                 <tbody>
@@ -440,6 +441,17 @@ export default async function FinanzenPage({
                           {saldo < 0 ? "−" : saldo > 0 ? "+" : ""}
                           {euro(Math.abs(saldo))}
                           {saldo < 0 ? <span className="block text-xs font-normal text-red-500">offen</span> : null}
+                        </td>
+                        {/* Zwei Summen sagen nicht, WORAN es liegt. Der Auszug
+                            führt jede Forderung und jede Zahlung einzeln auf —
+                            was gemahnt wird, muss der Gemahnte prüfen können. */}
+                        <td className="py-2 text-right whitespace-nowrap">
+                          <Link
+                            href={`/finanzen/kontoauszug/${u.id}`}
+                            className="text-sm underline"
+                          >
+                            Kontoauszug
+                          </Link>
                         </td>
                       </tr>
                     );

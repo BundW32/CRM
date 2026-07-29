@@ -600,7 +600,13 @@ export default async function HausgeldPage({
                     const rueckstand = zeile.gesamtCents;
                     return (
                       <tr key={u.id} className="border-b border-gray-100">
-                        <td className="py-2 pr-3 font-medium text-gray-900">{u.label}</td>
+                        {/* Derselbe Auszug, den der Eigentümer sieht. Wer mahnt,
+                            sollte vorher gesehen haben, was der Gemahnte sieht. */}
+                        <td className="py-2 pr-3 font-medium text-gray-900">
+                          <Link href={`/finanzen/kontoauszug/${u.id}`} className="hover:underline">
+                            {u.label}
+                          </Link>
+                        </td>
                         <td className="py-2 pr-3 text-right text-gray-700">{formatCents(due)}</td>
                         <td className="py-2 pr-3 text-right text-gray-700">
                           {formatCents(paid)}

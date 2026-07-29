@@ -1372,3 +1372,55 @@ Datenseitig bestätigt: Stufe 1 mit `feeCents = 0`, Stufen 2 und 3 mit 2,50 €.
 Der zum Prüfen eingetragene Basiszinssatz, die Testmahnungen und die Mahnkosten
 wurden danach wieder entfernt — erfundene Zahlen bleiben nicht in der Datenbank
 stehen.
+
+## Schritt 40 — Eigentümer-Kontoauszug (29.07.2026)
+
+Die Gegenseite der Mahnung. Der Verwalter sieht Rückstände, Zinsen und
+Mahnstufen; der Eigentümer sah bisher zwei Summen — „Soll" und „Gezahlt". Wer
+bei einer Differenz wissen wollte, *woran* es liegt (welcher Monat offen ist, ob
+die Überweisung vom März angekommen ist), konnte das nicht nachvollziehen. Was
+gemahnt wird, muss der Gemahnte prüfen können; sonst bleibt ihm nur, dem
+Programm zu glauben.
+
+220. **Bewegungen statt Salden.** Der Auszug führt jede Sollstellung als
+     Belastung und jede **angerechnete** Zahlung als Gutschrift, in ihrer
+     Entstehungsreihenfolge. Bewusst über die Zuordnungen und nicht als
+     Differenz zweier Summen — genau diese Differenzrechnung war der Fehler, den
+     KP9 beseitigt hat: Eine Vorauszahlung konnte einen offenen Monat verdecken.
+     Ein Test hält den Fall fest.
+221. **Am selben Tag steht die Belastung vor der Gutschrift.** Sonst sähe der
+     Saldo zwischendurch nach einem Guthaben aus, das es nie gab.
+222. **Künftige Monate zählen nicht zum Stand von heute.** Im ersten Prüflauf
+     stand für eine Einheit mit 1.574,93 € Rückstand „3.599,80 € offen": Zwölf
+     noch nicht fällige Monate waren mitgezählt. Ein Programm, das jemandem das
+     Doppelte seiner Schuld nennt, verliert sein Vertrauen an dieser Stelle
+     endgültig. Die kommenden Monate bleiben sichtbar — wer wissen will, was auf
+     ihn zukommt, findet es hier —, aber grau und mit „noch nicht fällig", und
+     `saldoHeute()` nimmt die letzte nicht-künftige Zeile.
+223. **Zinsen stehen getrennt, nicht im Saldo.** Sie sind eine eigene Forderung
+     neben der Hauptforderung (§ 367 Abs. 1 BGB); sie in die Spalte „Saldo" zu
+     mischen machte diese mehrdeutig. Fehlt der Basiszinssatz, sagt die Seite
+     genau das — statt „0,00 €".
+224. **Nicht zugeordnete Zahlungen als eigener Hinweis.** Sie erscheinen nicht
+     in der Tabelle (sie gehören noch zu keiner Forderung), aber der Eigentümer
+     erfährt, dass sein Geld angekommen ist und was als Nächstes passiert.
+225. **Die Zugriffsprüfung ist der wichtigste Teil der Seite.** Die Einheiten-ID
+     steht offen in der URL. Geprüft wird serverseitig gegen die
+     Eigentümerschaft (`ownedUnitIdsInProperty`); ein Verwalter zusätzlich gegen
+     sein Objekt, nie gegen die Rolle allein. Bei fehlender Berechtigung
+     `notFound()` — wer keinen Zugriff hat, soll nicht einmal erfahren, dass es
+     die Einheit gibt.
+
+**Gegenprobe im Browser, mit vier Konten.** Erika (Eigentümerin) sieht ihre
+Einheit, nicht die eines fremden Objekts; Klaus sieht seine, nicht Erikas; der
+Mieter sieht keine; der Verwalter sieht alle seines Objekts. Der ausgelieferte
+HTML-Text der gesperrten Seite enthält **keine** Spur der fremden Daten — weder
+Einheitenbezeichnung noch Beträge noch Objektname; geprüft wurde der Rohtext,
+nicht nur das Bild.
+
+Zur Statuszeile: Next liefert bei gestreamten Seiten HTTP 200 aus, auch wenn
+`notFound()` später greift — die Kopfzeilen sind da schon raus. Die Sperre wirkt
+trotzdem; der Inhalt ist die 404-Seite. Ein Prüfskript, das nur den Statuscode
+liest, hielte das fälschlich für einen Treffer. Deshalb wird der **Inhalt**
+geprüft, und `kontoauszug-zugriff.test.ts` hält die Regel im Quelltext fest,
+damit sie nicht bei einem Umbau still verschwindet.

@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { reminderLevelLabel } from "@/lib/dunning";
 import { requireVerwalter } from "@/lib/session";
 import { generateMahnung } from "@/lib/documents/mahnung";
+import { briefkopfAus } from "@/lib/documents/briefkopf";
 import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
@@ -37,23 +38,41 @@ export async function GET(
       select: { iban: true, name: true },
     });
     const branding = await getBrandingForOrg(mahnung.property.organizationId);
+    const kopf = briefkopfAus(branding);
+
+    // Vorstufe, auf die sich der Text beziehen kann („unsere Zahlungserinnerung
+    // vom …"): die zuletzt versendete Mahnung derselben Einheit.
+    const vorstufe =
+      mahnung.level > 1
+        ? await db.hausgeldMahnung.findFirst({
+            where: { unitId: mahnung.unitId, level: { lt: mahnung.level }, sentAt: { not: null } },
+            orderBy: { sentAt: "desc" },
+            select: { sentAt: true },
+          })
+        : null;
 
     const pdf = await generateMahnung({
-      issuer: {
-        legalName: branding.legalName,
-        contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-      },
+      issuer: kopf.issuer,
+      brand: kopf.brand,
+      logoPath: kopf.logoPath,
       propertyName: mahnung.property.name,
       unitLabel: mahnung.unit.label,
       level: mahnung.level,
-      recipientName: mahnung.recipientName,
+      recipient: {
+        name: mahnung.recipientName,
+        salutation: mahnung.recipientSalutation,
+        lastName: mahnung.recipientLastName,
+      },
       recipientAddress: mahnung.recipientAddress,
+      // Ab der letzten Stufe ist der Zugang nachweisbar zu dokumentieren.
+      versandVermerk: mahnung.level >= 3 ? "Einschreiben mit Rückschein" : null,
       arrearsCents: mahnung.arrearsCents,
       paymentDeadline: mahnung.paymentDeadline,
+      previousReminderAt: vorstufe?.sentAt ?? null,
       iban: giro?.iban ?? null,
       accountHolder: giro?.iban ? mahnung.property.name : null,
       createdAt: mahnung.createdAt,
-      city: branding.city ?? mahnung.property.city ?? null,
+      city: kopf.city ?? mahnung.property.city ?? null,
     });
 
     const fileName = `${fileNamePart(reminderLevelLabel(mahnung.level))}_${fileNamePart(mahnung.unit.label)}.pdf`;

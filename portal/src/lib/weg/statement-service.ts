@@ -28,6 +28,8 @@ export type StatementView = {
     laborUnerfasstCents?: number;
     /** HeizkostenV-Kostenart — die Verteilung braucht einen Grundkostenanteil. */
     heatingCost?: boolean;
+    /** Angewandter Verbrauchsanteil in Prozent (§§ 7, 8 HeizkostenV). */
+    heatingConsumptionPercent?: number | null;
     perUnit: Record<string, number> | null;
     error?: string;
   }[];
@@ -91,7 +93,15 @@ export async function computeStatementView(
       db.costType.findMany({
         where: { propertyId: property.id },
         orderBy: [{ orderIndex: "asc" }, { name: "asc" }],
-        select: { id: true, name: true, category: true, distributionKey: true, laborShareType: true, heatingCost: true },
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          distributionKey: true,
+          laborShareType: true,
+          heatingCost: true,
+          heatingConsumptionPercent: true,
+        },
       }),
       db.unit.findMany({
         where: { propertyId: property.id },
@@ -354,6 +364,7 @@ export async function computeStatementView(
       laborBaseCents: r.laborBaseCents,
       laborUnerfasstCents: r.laborUnerfasstCents,
       heatingCost: costTypes.find((c) => c.id === r.costTypeId)?.heatingCost,
+      heatingConsumptionPercent: costTypes.find((c) => c.id === r.costTypeId)?.heatingConsumptionPercent,
       perUnit: r.perUnit ? Object.fromEntries(r.perUnit) : null,
       error: r.error,
     })),

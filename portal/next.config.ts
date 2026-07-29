@@ -36,6 +36,14 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Die PDF-Erzeugung liest Schriften und Logo zur Laufzeit von der Platte
+  // (lib/documents/kit/fonts.ts, lib/handover-pdf.ts). Die Ablauf-Verfolgung
+  // erkennt das nicht von selbst — ohne diesen Eintrag fehlen die Dateien im
+  // Serverless-Bundle und jede PDF-Erzeugung schlüge in der Produktion fehl,
+  // während sie lokal läuft.
+  outputFileTracingIncludes: {
+    "/**": ["public/fonts/**/*.ttf", "public/bw-logo.png"],
+  },
   experimental: {
     // Standard ist 1 MB – zu klein für Foto-Uploads vom Handy
     serverActions: {

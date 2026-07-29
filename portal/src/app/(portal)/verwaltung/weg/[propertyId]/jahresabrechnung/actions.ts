@@ -232,6 +232,12 @@ export async function distributeByMeters(formData: FormData) {
         // und landet im catch unten.
         areaWeights: advanceWeightsForKey(units, "FLAECHE"),
       }).perUnit;
+      // Den angewandten Anteil festhalten: Nur so kann die Abrechnung später
+      // „70 % Verbrauch, 30 % Wohnfläche" ausweisen statt bloß „Verbrauch".
+      await db.costType.update({
+        where: { id: costType.id },
+        data: { heatingConsumptionPercent: consumptionPercent },
+      });
     } catch {
       back(property.id, `/${statement.id}`, "fehler=flaeche");
     }

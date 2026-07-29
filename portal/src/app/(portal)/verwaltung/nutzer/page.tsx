@@ -45,7 +45,6 @@ export default async function UsersPage({
   searchParams: Promise<{
     fehler?: string;
     msg?: string;
-    eingeladen?: string;
     q?: string;
     rolle?: string;
     objekt?: string;
@@ -56,7 +55,7 @@ export default async function UsersPage({
 }) {
   const verwalter = await requireVerwalter();
   const {
-    fehler, msg, eingeladen, q, rolle, objekt, page,
+    fehler, msg, q, rolle, objekt, page,
     sort: sortRaw, dir: dirRaw,
   } = await searchParams;
 
@@ -182,12 +181,7 @@ export default async function UsersPage({
         Zugänge
       </PageTitle>
 
-      {eingeladen ? (
-        <Alert variant="success" className="mb-4">
-          Einladungs-E-Mail wurde versandt.
-        </Alert>
-      ) : null}
-      {/* Erfolgsmeldungen von DSGVO-Löschung und Stammdaten laufen jetzt über
+      {/* Erfolgsmeldungen von DSGVO-Löschung, Stammdaten und Einladung laufen über
           den ToastHost (`?flash=…`) – sie erreichen so auch den Rücksprung nach
           „Kontakte", wo bisher gar keine Rückmeldung ankam. Fehler bleiben als
           Banner stehen: Sie sollen nicht nach Sekunden verschwinden. */}

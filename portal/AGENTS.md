@@ -278,6 +278,49 @@ Die Sperre steht **serverseitig** in `beschluesse/actions.ts` (`istVersammlungsB
 in `castVote` **und** `castVoteForOwner`); das Ausblenden des Formulars allein genügt
 nicht. `src/lib/versammlungsbeschluss.test.ts` hält beide Aufrufe fest.
 
+## E-Mails: ein Versandweg, ein Textbauplan
+
+Das Portal verschickt an rund zwei Dutzend Stellen Mails — an Verwalter,
+Eigentümer, Mieter und Handwerker. Alle laufen über **`sendMail`**
+(`src/lib/mailer.ts`); der Text kommt aus **`mailText`** (`src/lib/mail-text.ts`).
+Beides ist nicht optional:
+
+- **Das Branding ist Pflichtparameter.** Vorher war es optional mit B&W-Default,
+  und wer ihn vergaß, verschickte still B&W-Logo und -Fußzeile an die Mieter
+  eines fremden Mandanten. Betreiber-Mails (Plattform-Rechnung, Mahnung) nehmen
+  `platformBranding()`, nicht das des Mandanten — Absender ist dort die
+  Plattform, nicht die Verwaltung.
+- **Texte werden nicht von Hand zusammengesetzt.** `mailText` legt die
+  Reihenfolge fest (Anrede → Inhalt → Aufforderung → Gruß). Die Anrede kommt aus
+  `briefAnrede` und ist damit dieselbe wie in den Briefen — Herr/Frau mit
+  Nachnamen, sonst „Guten Tag", bei mehreren Empfängern in einem Namensfeld
+  „Sehr geehrte Damen und Herren". Wer die Anrede übergibt, muss `lastName` und
+  `salutation` im `select` mitladen.
+- **Die Handlungsaufforderung ist genau eine Zeile:** `aktion: { label, url }`.
+  Das Layout macht daraus einen Knopf. Ein Doppelpunkt in der Beschriftung oder
+  Link und Beschriftung auf getrennten Zeilen zerlegen die Erkennung, und der
+  Knopf entfällt **stillschweigend** — genau so waren sieben Mails bei einer
+  nackten URL im Fließtext geblieben.
+
+`src/lib/mail-text.test.ts` hält beides fest: Jede Datei, die `sendMail`
+aufruft, muss den Bauplan benutzen, und keine hängt ihre Grußformel von Hand an.
+
+**`sendMail` liefert ein Ergebnis** (`sent` / `no_recipient` / `disabled` /
+`failed`) und wirft nie. Wer nur benachrichtigt, ignoriert es weiterhin. Wer dem
+Nutzer aber etwas meldet, wertet es aus — sonst steht „an 12 Eigentümer
+versandt" auch dann da, wenn kein SMTP eingerichtet ist und gar nichts rausging.
+`summarizeMail` fasst mehrere Empfänger zusammen; für den No-Op-Fall gibt es den
+Flash-Code `versand-aus`.
+
+**Fristgebundene Mails werden protokolliert.** Einladung und Absage zur
+Eigentümerversammlung, Umlaufbeschluss und Übergabeprotokoll geben `sendMail`
+einen `MailContext` mit `purpose` mit; der Eintrag entsteht im Versand selbst,
+nicht beim Aufrufer. Sichtbar unter `/verwaltung/versandprotokoll`. Statusmails
+gehören **nicht** hinein — zwischen hunderten davon fände niemand die eine
+Einladung wieder. Gespeichert wird kein Inhalt: Der Betreff genügt zum
+Wiederfinden, der Volltext wäre eine zweite Kopie personenbezogener Daten mit
+eigener Löschpflicht.
+
 ## Rollen
 
 `VERWALTER`, `EIGENTUEMER`, `MIETER`. Zusätzlich `isSuperAdmin` (Admin innerhalb einer

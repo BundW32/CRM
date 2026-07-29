@@ -337,7 +337,7 @@ export async function createUser(formData: FormData) {
     const link = await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`);
     const loginLink = await portalUrlFromRequest("/login");
     const branding = await getBrandingForOrg(actor.organizationId);
-    await sendMail(
+    const versand = await sendMail(
       email!,
       "Ihr Zugang zum Kundenportal",
       mailText({
@@ -363,7 +363,12 @@ export async function createUser(formData: FormData) {
     // liegt auf einer eigenen Seite, und dort noch einmal ein leeres Formular
     // zu sehen liest sich, als sei nichts passiert. Fehler bleiben dagegen am
     // Formular stehen (`zurueckZu`), sonst wären die Eingaben umsonst.
-    redirect(zurueckZurListe(formData, "?eingeladen=1"));
+    // `?eingeladen=1` rendert nur die Nutzerliste als Banner – vom Rücksprung
+    // nach „Kontakte" kam gar keine Rückmeldung an. Über den Flash erreicht sie
+    // beide Ziele, und sie behauptet keinen Versand, der nicht stattfand.
+    redirect(
+      zurueckZurListe(formData, versand === "sent" ? "?flash=gesendet" : "?flash=versand-aus"),
+    );
   }
 
   // ── Variante B: Zugangsschreiben zum Ausdrucken ───────────────────
@@ -534,7 +539,7 @@ export async function resendInvite(formData: FormData) {
 
   const link = await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`);
   const branding = await getBrandingForOrg(user.organizationId);
-  await sendMail(
+  const versand = await sendMail(
     user.email,
     "Ihr Zugang zum Kundenportal (Erinnerung)",
     mailText({
@@ -550,7 +555,7 @@ export async function resendInvite(formData: FormData) {
   );
 
   revalidatePath("/verwaltung/nutzer");
-  redirect(zurueckZu(formData, "?eingeladen=1"));
+  redirect(zurueckZu(formData, versand === "sent" ? "?flash=gesendet" : "?flash=versand-aus"));
 }
 
 export async function addOwnership(formData: FormData) {

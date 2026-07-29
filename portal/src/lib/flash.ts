@@ -43,6 +43,15 @@ export const flashMessages = {
   archiviert: { text: "Archiviert.", tone: "info" },
   wiederhergestellt: { text: "Wiederhergestellt.", tone: "success" },
 
+  // Eigener Code, weil die Meldung mehr sagt als „hat geklappt": Die Aktion
+  // selbst ist gelungen (Konto angelegt, Link erzeugt), nur die E-Mail ging
+  // nicht raus. Ohne den Unterschied wartet der Empfänger auf eine Mail, die
+  // nie kommt.
+  "versand-aus": {
+    text: "E-Mail-Versand ist nicht eingerichtet – es wurde nichts verschickt.",
+    tone: "error",
+  },
+
   // ── Spezifische Meldungen ─────────────────────────────────────────────────
   // Hier sagt die Meldung mehr als „hat geklappt": eine Folge, eine
   // Einschränkung oder etwas, das der Nutzer sonst nicht sähe.

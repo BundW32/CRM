@@ -9,8 +9,15 @@ Stand: 28.07.2026 · Basis: [`PRODUKT-Laientauglichkeit-und-UseCases.md`](./PROD
 > Eigentümer und Mieter bekamen die Verwalter-Führung — falsche Begrüßung und
 > drei Schritte auf Bereiche, die es in ihrem Menü nicht gibt.
 >
-> **Offen:** LP7 (Assistent) sowie die rund 190 fest verdrahteten Hilfetexte
-> außerhalb des WEG-Bereichs — die wandern nach Bedarf, nicht am Stück.
+> **LP7 (Assistent)** ist umgesetzt (Schritt 44 in `portal/DECISIONS.md`). Der
+> Grundbau stand bereits — rechtegefilterter Abruf über Beschlüsse, Aushänge,
+> Versammlungen, Anträge, Vorgänge und Dokumenttitel samt Bedienhilfe. Ergänzt
+> wurden die drei Quellen, die dem Plan nach fehlten: **Finanzen** (Kontostände,
+> Rückstände, Stand des Jahreslaufs), das **Glossar** aus LP3 als Erklärung von
+> Fachbegriffen und die **Abgrenzung zur Rechtsberatung** im Prompt.
+>
+> **Offen:** die rund 190 fest verdrahteten Hilfetexte außerhalb des
+> WEG-Bereichs — die wandern nach Bedarf, nicht am Stück.
 
 Das Programm ist nach neun Korrekturpunkten fachlich richtig — und dabei
 schwerer geworden. Dieser Plan macht es bedienbar, ohne fachlich falsch zu
@@ -220,6 +227,26 @@ Drei Wissensquellen, in dieser Reihenfolge des Aufwands:
    ein Datenschutzvorfall.
 3. **Das WEG-Recht** — der vorhandene Skill als Wissensbasis, mit klarer
    Kennzeichnung: Auskunft, keine Rechtsberatung.
+
+**Umgesetzt am 29.07.2026.** Beim Nachsehen stellte sich heraus: Der Assistent
+existierte bereits, samt rechtegefiltertem Abruf und Gemini-Anbindung. Er kannte
+nur kein Geld, keine Fachbegriffe und keine Grenze zur Rechtsberatung — also
+genau die drei Punkte dieser Liste. Nachgetragen wurden:
+
+- **Finanzen** (`lib/assistant-finanzen.ts`): Kontostände, Rückstände, Stand des
+  Jahreslaufs. Die Grenze verläuft nicht entlang der Rolle, sondern entlang
+  dessen, was der Fragende ohnehin sehen darf: Kontostände und die **Summe** der
+  Rückstände stehen im Vermögensbericht, den die Gemeinschaft bekommt — **wer**
+  säumig ist, steht dort nicht und bleibt der Verwaltung vorbehalten.
+- **Glossar** aus LP3 als Quelltyp „Fachbegriff" — dieselbe Erklärung, die im
+  Programm an den Begriffen hängt, nicht eine zweite daneben.
+- **Rechtsabgrenzung** im Prompt: Auskunft, keine Rechtsberatung; bei Fragen mit
+  rechtlicher oder steuerlicher Tragweite Verweis auf Anwalt oder Steuerberater.
+
+Punkt 1 („Speist sich aus `app-nav.ts`") bleibt bewusst offen: Die Bedienhilfe
+in `assistant-help.ts` deckt das inhaltlich ab. Sie automatisch aus `app-nav.ts`
+zu erzeugen brächte Menütitel ohne Erklärung — und die Erklärung ist der Teil,
+der hilft.
 
 ---
 

@@ -1588,3 +1588,147 @@ die JSON-Runde des Snapshots übersteht, dass die Frist für eine Zahlung im
 September 2026 auf Montag, den 12.10., rutscht (der 10. ist ein Samstag) und dass
 eine stornierte Zahlung keine Anmeldepflicht erzeugt. Danach der Durchgang im
 Browser mit Verwalter- und Eigentümerkonto: keine Fehler, kein 500er.
+
+## Schritt 43 — Journal und Kontoblatt als CSV (29.07.2026)
+
+Die beiden Auszüge, nach denen jeder fragt, der die Buchhaltung von außen
+ansieht: der Verwaltungsbeirat bei der Rechnungsprüfung, der Steuerberater, der
+Nachfolger nach einem Verwalterwechsel. Bisher gab es die Zahlen nur in der
+Oberfläche — und aus einer Oberfläche kann niemand nachrechnen.
+
+246. **Zwei Auszüge, zwei Fragen.** Das **Journal** ist die zeitliche Liste
+     aller Buchungen und beantwortet „was ist passiert". Das **Kontoblatt**
+     zeigt ein einzelnes Konto mit fortlaufendem Saldo von Anfangs- bis
+     Endbestand und beantwortet „stimmt der Kontostand". Nur das zweite lässt
+     sich gegen den Bankauszug halten, deshalb sind es zwei Dateien und nicht
+     eine mit Filter.
+247. **Stornos bleiben drin und werden beschriftet.** Sie heben sich im Saldo
+     von selbst auf, weil die Gegenbuchung die umgekehrte Richtung trägt — es
+     muss also nichts herausgerechnet werden, nur gekennzeichnet. Eine
+     Buchhaltung, aus der etwas spurlos verschwindet, ist als Nachweis wertlos.
+     (In der Kostenverteilung ist das umgekehrt; dort greift `NOT_REVERSED`,
+     und der Kommentar dort sagt seit KP2 schon, dass das Journal alles zeigt.)
+248. **Die Vorzeichenregel steht jetzt an genau einer Stelle.** Sie stand
+     gleichlautend in `statement-service.ts` und wäre im Kontoblatt ein zweites
+     Mal entstanden. Zwei Kopien laufen auseinander, sobald eine vierte
+     Buchungsart dazukommt — und dann nennen Kontoblatt und Jahresabrechnung
+     verschiedene Endbestände, ohne dass jemand sagen kann, welcher stimmt.
+     `vorzeichenBetrag` in `journal.ts` ist der einzige Ort; `signedSum` ruft ihn.
+249. **Gegengeprüft, dass beide Wege dasselbe sagen** — das war der eigentliche
+     Prüfpunkt: Kontoblatt „Girokonto WEG" endet auf 4.176,48 €,
+     „Erhaltungsrücklage" auf 19.250,00 €, und exakt diese beiden Zahlen nennt
+     `computeStatementView` als `endCents`. Wären sie verschieden, wäre einer
+     der beiden Auszüge falsch.
+250. **Zwei Spalten statt einer vorzeichenbehafteten.** Einnahme und Ausgabe
+     stehen getrennt, jeweils als positive Zahl. So lässt sich jede Richtung für
+     sich summieren — und genau das ist der Handgriff beim Abgleich mit dem
+     Kontoauszug.
+251. **Beträge ohne Euro-Zeichen und ohne Tausenderpunkt.** Klingt nach einer
+     Verschlechterung gegenüber der Oberfläche, ist aber der Punkt: Excel-DE
+     erkennt „1234,56" als Zahl. „1.234,56 €" landet als **Text** in der Zelle,
+     und dann summiert der Steuerberater eine Spalte, die sich nicht summieren
+     lässt. Das Format ist damit bewusst ein anderes als überall sonst im
+     Programm, und `csvBetrag` sagt im Kommentar warum.
+252. **Stabil sortiert, nicht nach Anlagezeitpunkt.** Bei gleichem Buchungsdatum
+     entscheidet die ID. Zwei Exporte desselben Zeitraums müssen dieselben
+     Zwischensalden zeigen — sonst wirkt die Datei manipuliert, obwohl sich
+     nichts geändert hat. Ein Test hält das fest.
+253. **Anfangsbestand ist der des Zeitraums, nicht der des Kontos.**
+     Eröffnungssaldo plus alles, was vor dem Wirtschaftsjahr gebucht wurde. Ohne
+     diesen Vorlauf begänne jedes Kontoblatt wieder bei null und der Endbestand
+     stimmte nur im ersten Jahr.
+254. **Wirtschaftsjahr, nicht Kalenderjahr — und das steht auf der Seite.** Der
+     Jahresfilter über der Buchungsliste meint das Kalenderjahr, die Abrechnung
+     rechnet über das Wirtschaftsjahr. Bei abweichendem Jahresbeginn liefert der
+     Export also einen **anderen** Zeitraum als die Liste darüber zeigt. Das ist
+     richtig so — dagegen soll sich das Kontoblatt abgleichen lassen —, aber es
+     darf nicht stillschweigend passieren: Die Karte nennt den konkreten
+     Zeitraum, sobald er vom Kalenderjahr abweicht.
+255. **Nur für den Verwalter.** Das Einsichtsrecht des Eigentümers nach § 18
+     Abs. 4 WEG ist über die Belegeinsicht unter „Finanzen" abgedeckt. Ein
+     Massen-Download der gesamten Buchhaltung als Datei ist etwas anderes als
+     Einsicht. Im Browser gegengeprüft: Der Eigentümer bekommt 401, und die
+     Antwort enthält **keine** Spur von Buchungsdaten.
+256. **Der vorhandene CSV-Helfer wurde benutzt, nicht nachgebaut.**
+     `lib/csv.ts` bringt Semikolon, CRLF, UTF-8-BOM und den Schutz gegen
+     Formel-Injection schon mit (Excel führt Zellen aus, die mit `=`, `+`, `-`
+     oder `@` beginnen). Am fertigen Download nachgemessen: erste drei Bytes
+     `EF BB BF`, Umlaute sauber dekodierbar, alle Zeilen gleich breit.
+
+**Zwei Fehlalarme aus dem eigenen Prüfskript**, beide festgehalten, weil sie
+beim nächsten Mal wieder auftreten:
+
+257. „BOM vorhanden: false" — `fetch().text()` **entfernt** das BOM beim
+     Dekodieren. Wer es messen will, muss den `arrayBuffer` ansehen. Die Datei
+     war die ganze Zeit richtig.
+258. „Konten verlinkt: 0" — im HTML steht `&amp;` statt `&`. Die Suche im
+     Quelltext muss beides zulassen.
+
+## Schritt 44 — LP7: Der Assistent bekommt Geld, Begriffe und eine Grenze (29.07.2026)
+
+Der letzte offene Punkt aus `PLAN-Laientauglichkeit.md`. **Zuerst nachgesehen,
+was schon da ist** — und das war das Wichtigste an diesem Schritt: Der Assistent
+existierte bereits, mit rechtegefiltertem Abruf über Beschlüsse, Aushänge,
+Versammlungen, Anträge, Vorgänge und Dokumenttitel, mit Bedienhilfe,
+Quellenangabe und Gemini-Anbindung. Ihn neu zu bauen wäre teuer und falsch
+gewesen. Es fehlten genau die drei Punkte, die der Plan nennt.
+
+259. **Er kannte kein Geld.** Auf „Wie viel haben wir auf dem Konto?" oder „Bin
+     ich im Rückstand?" kam „Dazu finde ich in Ihren Unterlagen nichts" — die
+     häufigsten Fragen eines selbstverwaltenden Eigentümers. Neu ist
+     `assistant-finanzen.ts` mit Kontoständen, Rückständen, dem eigenen Stand
+     und der Lage im Jahreslauf.
+260. **Die Rechte-Grenze verläuft nicht entlang der Rolle, sondern entlang
+     dessen, was der Fragende ohnehin sehen darf.** Kontostände und die
+     **Summe** der Rückstände stehen im Vermögensbericht (§ 28 Abs. 4 WEG), den
+     die Gemeinschaft bekommt — die darf also jeder Eigentümer erfahren.
+     **Wer** säumig ist, steht in keinem Bericht, den alle bekommen, und bleibt
+     der Verwaltung vorbehalten. Den eigenen Stand sieht der Eigentümer über
+     seine Einheiten. Mieter und Handwerker bekommen gar nichts.
+261. **Diese Grenze steht im Code, nicht im Prompt.** Ein Sprachmodell ist keine
+     Zugriffskontrolle. Was `finanzQuellen` nicht herausgibt, kann es auch nicht
+     ausplaudern — deshalb filtert die Funktion, und der Prompt bekommt nur, was
+     ohnehin herausgehen darf.
+262. **Gegengeprüft, dass der Test den Bruch findet.** Mit entferntem
+     `istVerwalter`-Wächter schlägt `assistant-finanzen.test.ts` mit genau der
+     Zeile fehl, um die es geht („expected … not to contain 'WE 02'").
+263. **Und gegengeprüft, dass die Prüfung an echten Daten nicht gegenstandslos
+     ist.** Der erste Lauf gegen die Datenbank meldete „keine fremde Einheit
+     verraten" — er ging aus dem falschen Grund durch: Der Demo-Eigentümer
+     besitzt **alle** sechs Einheiten, es gab schlicht nichts zu verraten. Erst
+     mit `kaeufer@demo.de` (eine Einheit von sechs) war die Probe echt: fünf
+     fremde Einheiten vorhanden, keine davon im Text, die eigene drin, die
+     Gesamtsumme trotzdem sichtbar. Eine Prüfung, die nicht scheitern **kann**,
+     ist keine.
+264. **Das Glossar aus LP3 ist jetzt eine Quelle.** „Was ist eine
+     Abrechnungsspitze?" war bis dahin unbeantwortbar. Bewusst dieselben Texte,
+     die im Programm an den Begriffen hängen — eine zweite Sammlung daneben
+     altert getrennt, und dann erklärt der Assistent etwas anderes als die Seite.
+265. **Abgrenzung zur Rechtsberatung im Prompt.** Der Assistent erklärt Recht,
+     er wendet es nicht an. Ohne diesen Satz klingt eine Auskunft zu einem
+     Paragraphen wie eine Rechtsberatung — und wird dann auch so verstanden.
+266. **Finanzquellen tragen das Datum „heute".** Die Kandidaten werden bei
+     Gleichstand nach Aktualität sortiert. Fragt jemand nach dem Kontostand,
+     ist die heutige Zahl die Antwort — nicht ein Beschluss von 2024, der
+     zufällig dieselben Wörter enthält.
+267. **Die Beispielfragen decken jetzt die drei Quellen ab** statt dreimal
+     dieselbe. Sie sind die einzige Stelle, an der jemand erfährt, was der
+     Assistent überhaupt kann.
+268. **Punkt 1 des Plans bleibt bewusst offen.** „Speist sich aus `app-nav.ts`"
+     — die Bedienhilfe deckt das inhaltlich ab. Aus `app-nav.ts` erzeugte
+     Einträge wären Menütitel ohne Erklärung, und die Erklärung ist der Teil,
+     der hilft.
+
+**Was ich nicht prüfen konnte, und das ist ein echter Unterschied zu allem
+anderen hier:** Die Antwort von Gemini selbst. In dieser Umgebung liegt kein
+Schlüssel, und ausgehende Verbindungen sind ohnehin gesperrt. Geprüft ist die
+gesamte Kette **bis** zum Modell — Abruf, Rechtefilter, Prompt-Aufbau — sowie
+das Verhalten bei ungültigem Schlüssel: Der Assistent antwortet dann „momentan
+nicht erreichbar", ohne Absturz und ohne 500er. Im Browser mit drei Rollen
+gegengeprüft: Verwalter und Eigentümer sehen den Assistenten, der Mieter nicht.
+
+**Zum Betrieb:** Der Assistent braucht **zwei** Umgebungsvariablen, nicht eine —
+`GEMINI_API_KEY` **und** `AI_ASSISTANT_ENABLED="true"`. Fehlt eine davon,
+erscheint er gar nicht erst. Das ist Absicht (Freitext geht an Google, das
+gehört bewusst eingeschaltet), aber es ist auch die Stolperstelle: Ein
+hinterlegter Schlüssel allein genügt nicht.

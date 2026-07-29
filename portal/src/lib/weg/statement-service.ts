@@ -12,6 +12,7 @@ import {
   splitByOwnership,
 } from "./annual-statement";
 import { fiscalYearRange } from "./economic-plan";
+import { vorzeichenBetrag } from "./journal";
 import { baueVermoegensbericht, type Vermoegensbericht } from "./vermoegensbericht";
 
 export type StatementView = {
@@ -79,15 +80,21 @@ type BookingGroup = {
   _sum: { amountCents: number | null };
 };
 
-// Vorzeichenrichtige Summe der Buchungsgruppen eines Kontos
+// Vorzeichenrichtige Summe der Buchungsgruppen eines Kontos.
+//
+// Die Vorzeichenregel selbst steht in `journal.ts` und nur dort: Sie stand
+// vorher hier und im Kontoblatt gleichlautend, und zwei Kopien derselben Regel
+// laufen auseinander, sobald eine vierte Buchungsart dazukommt. Dass Kontoblatt
+// und Jahresabrechnung denselben Endbestand nennen, hängt genau daran.
 function signedSum(groups: BookingGroup[], accountId: string): number {
   let sum = 0;
   for (const g of groups) {
     if (g.accountId !== accountId) continue;
-    const amount = g._sum.amountCents ?? 0;
-    if (g.kind === "EINNAHME") sum += amount;
-    else if (g.kind === "AUSGABE") sum -= amount;
-    else sum += g.transferOut ? -amount : amount;
+    sum += vorzeichenBetrag({
+      kind: g.kind,
+      transferOut: g.transferOut,
+      amountCents: g._sum.amountCents ?? 0,
+    });
   }
   return sum;
 }

@@ -26,7 +26,8 @@ export type MeetingProtocolInput = {
   propertyName: string;
   issuer: LetterIssuer;
   brand?: RGB;
-  logoPath?: string | null;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   meetingTitle: string;
   scheduledAt: Date;
   location: string | null;
@@ -59,7 +60,7 @@ export async function generateMeetingProtocol(input: MeetingProtocolInput): Prom
 
   await drawReportHead(doc, {
     issuer: input.issuer,
-    logoPath: input.logoPath,
+    logo: input.logo,
     title: "Protokoll der Eigentümerversammlung",
     subtitle: `${input.propertyName}\n${input.meetingTitle}`,
     meta: [

@@ -27,7 +27,7 @@ export async function buildInvoicePdf(invoice: LoadedInvoice): Promise<Buffer> {
   return renderPlatformInvoicePdf({
     // Der Betreiber tritt hier als Absender auf, nicht ein Mandant — deshalb
     // das feste Logo aus public/ und nicht das Branding der Organisation.
-    logoPath: path.join(process.cwd(), "public", "bw-logo.png"),
+    logo: path.join(process.cwd(), "public", "bw-logo.png"),
     year: invoice.year,
     number: invoice.number,
     title: invoice.title,

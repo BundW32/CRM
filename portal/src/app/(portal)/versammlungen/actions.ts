@@ -546,12 +546,12 @@ async function buildAndStoreProtocol(
     OFFEN: "offen",
   };
 
-  const kopf = briefkopfAus(branding);
+  const kopf = await briefkopfAus(branding);
   const pdf = await generateMeetingProtocol({
     propertyName: property?.name ?? "",
     issuer: kopf.issuer,
     brand: kopf.brand,
-    logoPath: kopf.logoPath,
+    logo: kopf.logo,
     meetingTitle: meeting.title,
     scheduledAt: meeting.scheduledAt,
     location: meeting.location,

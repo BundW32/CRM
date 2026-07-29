@@ -41,7 +41,8 @@ export type EinzelabrechnungInput = {
   propertyName: string;
   issuer: LetterIssuer;
   brand?: RGB;
-  logoPath?: string | null;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   year: number;
   periodLabel: string; // "01.01.2026 – 31.12.2026"
   finalizedAt: Date | null; // null = Entwurf
@@ -72,7 +73,7 @@ export async function generateEinzelabrechnungen(input: EinzelabrechnungInput): 
 
     await drawReportHead(doc, {
       issuer: input.issuer,
-      logoPath: input.logoPath,
+      logo: input.logo,
       title: `Einzelabrechnung ${input.year}`,
       subtitle: `${input.propertyName} · Einheit ${unit.label}\nEigentümer: ${eigentuemer}`,
       status: input.finalizedAt

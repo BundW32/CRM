@@ -46,12 +46,12 @@ export async function buildWirtschaftsplanPdf(args: {
     };
   });
 
-  const kopf = briefkopfAus(await getBrandingForOrg(organizationId));
+  const kopf = await briefkopfAus(await getBrandingForOrg(organizationId));
   return generateWirtschaftsplan({
     propertyName,
     issuer: kopf.issuer,
     brand: kopf.brand,
-    logoPath: kopf.logoPath,
+    logo: kopf.logo,
     year: plan.year,
     resolved:
       plan.status === "BESCHLOSSEN" && plan.resolvedAt
@@ -99,12 +99,12 @@ export async function buildEinzelwirtschaftsplanPdf(args: {
   const auswahl = onlyUnitIds ? new Set(onlyUnitIds) : null;
   const gewaehlt = auswahl ? units.filter((u) => auswahl.has(u.id)) : units;
 
-  const kopf = briefkopfAus(await getBrandingForOrg(organizationId));
+  const kopf = await briefkopfAus(await getBrandingForOrg(organizationId));
   return generateEinzelwirtschaftsplaene({
     propertyName,
     issuer: kopf.issuer,
     brand: kopf.brand,
-    logoPath: kopf.logoPath,
+    logo: kopf.logo,
     year: plan.year,
     resolved:
       plan.status === "BESCHLOSSEN" && plan.resolvedAt

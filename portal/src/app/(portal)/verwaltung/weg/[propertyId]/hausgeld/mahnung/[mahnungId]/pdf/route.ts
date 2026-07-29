@@ -38,7 +38,7 @@ export async function GET(
       select: { iban: true, name: true },
     });
     const branding = await getBrandingForOrg(mahnung.property.organizationId);
-    const kopf = briefkopfAus(branding);
+    const kopf = await briefkopfAus(branding);
 
     // Vorstufe, auf die sich der Text beziehen kann („unsere Zahlungserinnerung
     // vom …"): die zuletzt versendete Mahnung derselben Einheit.
@@ -54,7 +54,7 @@ export async function GET(
     const pdf = await generateMahnung({
       issuer: kopf.issuer,
       brand: kopf.brand,
-      logoPath: kopf.logoPath,
+      logo: kopf.logo,
       propertyName: mahnung.property.name,
       unitLabel: mahnung.unit.label,
       level: mahnung.level,

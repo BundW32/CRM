@@ -237,7 +237,8 @@ export type MietbescheinigungInput = {
   issuer: DocumentIssuer; // Briefkopf der ausstellenden Verwaltung
   signature: SignatureImage;
   brand?: RGB;
-  logoPath?: string | null;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
 };
 
 export async function generateMietbescheinigung(input: MietbescheinigungInput): Promise<Buffer> {
@@ -251,7 +252,7 @@ export async function generateMietbescheinigung(input: MietbescheinigungInput): 
 
   await drawLetterHead(doc, {
     issuer: { legalName: input.issuer.legalName, lines: [input.issuer.contactLine] },
-    logoPath: input.logoPath,
+    logo: input.logo,
     // Nur der erste Teil der Kontaktzeile: Die vollständige Zeile passt nicht in
     // die 85 mm des Anschriftfelds und endete abgeschnitten mitten im Wort.
     returnLine: [input.issuer.legalName, input.issuer.contactLine.split(" · ")[0]]

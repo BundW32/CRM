@@ -12,7 +12,8 @@ import { fitText } from "../pdf-text";
 
 export type ReportHead = {
   issuer: LetterIssuer;
-  logoPath?: string | null;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   title: string;
   /** Objektname o. Ä. — steht unter dem Titel. */
   subtitle?: string | null;
@@ -27,7 +28,7 @@ export type ReportHead = {
 };
 
 export async function drawReportHead(doc: Doc, head: ReportHead): Promise<void> {
-  const lineY = await drawBrandHead(doc, head.issuer, head.logoPath);
+  const lineY = await drawBrandHead(doc, head.issuer, head.logo);
   doc.y = lineY - mm(12);
 
   // Der Metablock rechts wird zuerst gesetzt: Er bestimmt, wie viel Breite dem

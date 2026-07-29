@@ -162,7 +162,7 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
 
   await drawReportHead(doc, {
     issuer: { legalName: company, lines: objektAnschrift ? [objektAnschrift] : [] },
-    logoPath: path.join(process.cwd(), "public", "bw-logo.png"),
+    logo: path.join(process.cwd(), "public", "bw-logo.png"),
     title: "Wohnungsübergabeprotokoll",
     subtitle: [`${prop.name} · ${data.unit.label}`, objektAnschrift].filter(Boolean).join("\n"),
     status: { text: TYPE_LABELS[data.type] ?? data.type, tone: "final" },

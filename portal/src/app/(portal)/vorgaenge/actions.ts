@@ -1029,7 +1029,7 @@ export async function generateCertificate(formData: FormData) {
     }
   }
 
-  const kopf = briefkopfAus(branding);
+  const kopf = await briefkopfAus(branding);
   const ausstellungsdatum = new Date();
   let pdf: Buffer;
   let title: string;
@@ -1063,7 +1063,7 @@ export async function generateCertificate(formData: FormData) {
       issuer,
       signature,
       brand: kopf.brand,
-      logoPath: kopf.logoPath,
+      logo: kopf.logo,
     });
   }
 

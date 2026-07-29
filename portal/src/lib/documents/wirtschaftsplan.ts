@@ -29,7 +29,8 @@ export type WirtschaftsplanInput = {
   propertyName: string;
   issuer: LetterIssuer;
   brand?: RGB;
-  logoPath?: string | null;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   year: number;
   resolved: { date: Date; note: string | null } | null; // null = Entwurf
   positions: WirtschaftsplanPosition[];
@@ -53,7 +54,7 @@ export async function generateWirtschaftsplan(input: WirtschaftsplanInput): Prom
 
   await drawReportHead(doc, {
     issuer: input.issuer,
-    logoPath: input.logoPath,
+    logo: input.logo,
     title: `Wirtschaftsplan ${input.year}`,
     subtitle: input.propertyName,
     status: input.resolved

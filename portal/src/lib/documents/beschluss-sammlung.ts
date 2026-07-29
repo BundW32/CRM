@@ -30,7 +30,8 @@ export type BeschlussSammlungInput = {
   propertyName: string;
   issuer: LetterIssuer;
   brand?: RGB;
-  logoPath?: string | null;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   entries: BeschlussSammlungEntry[];
   generatedAt: Date;
 };
@@ -58,7 +59,7 @@ export async function generateBeschlussSammlung(input: BeschlussSammlungInput): 
 
   await drawReportHead(doc, {
     issuer: input.issuer,
-    logoPath: input.logoPath,
+    logo: input.logo,
     title: "Beschluss-Sammlung",
     subtitle: `${input.propertyName}\nGeführt nach § 24 Abs. 7 WEG`,
     meta: [

@@ -44,7 +44,8 @@ export type EinzelwirtschaftsplanInput = {
   propertyName: string;
   issuer: LetterIssuer;
   brand?: RGB;
-  logoPath?: string | null;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   year: number;
   resolved: { date: Date; note: string | null } | null; // null = Entwurf
   units: EinzelplanUnit[];
@@ -79,7 +80,7 @@ export async function generateEinzelwirtschaftsplaene(
 
     await drawReportHead(doc, {
       issuer: input.issuer,
-      logoPath: input.logoPath,
+      logo: input.logo,
       title: `Einzelwirtschaftsplan ${input.year}`,
       subtitle: [input.propertyName, unit.label, unit.ownerNames.join(", ")]
         .filter(Boolean)

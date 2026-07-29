@@ -43,7 +43,8 @@ export type PlatformInvoiceInput = {
   items: InvoiceItemInput[];
   issuer: PlatformIssuer;
   /** Pfad zu einem PNG-Logo des Betreibers. */
-  logoPath?: string | null;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
 };
 
 function fmtDate(value: Date | null): string {
@@ -72,7 +73,7 @@ export async function renderPlatformInvoicePdf(input: PlatformInvoiceInput): Pro
 
   await drawLetterHead(doc, {
     issuer: { legalName: input.issuer.legalName, lines: [input.issuer.contactLine] },
-    logoPath: input.logoPath,
+    logo: input.logo,
     returnLine: [input.issuer.legalName, input.issuer.contactLine].filter(Boolean).join(" · "),
     recipient: {
       lines: [

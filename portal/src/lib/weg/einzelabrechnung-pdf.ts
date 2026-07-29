@@ -56,7 +56,7 @@ export async function buildEinzelabrechnungPdf(args: {
     };
   });
 
-  const kopf = briefkopfAus(await getBrandingForOrg(organizationId));
+  const kopf = await briefkopfAus(await getBrandingForOrg(organizationId));
   const endInclusive = new Date(new Date(view.fyEnd).getTime() - 86400000)
     .toISOString()
     .slice(0, 10);
@@ -65,7 +65,7 @@ export async function buildEinzelabrechnungPdf(args: {
     propertyName,
     issuer: kopf.issuer,
     brand: kopf.brand,
-    logoPath: kopf.logoPath,
+    logo: kopf.logo,
     year: view.year,
     periodLabel: `${fmtDate(view.fyStart)} – ${fmtDate(endInclusive)}`,
     finalizedAt,

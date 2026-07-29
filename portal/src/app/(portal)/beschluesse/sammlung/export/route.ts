@@ -48,12 +48,12 @@ export async function GET(request: Request) {
       include: { votes: { select: { choice: true } } },
     });
 
-    const kopf = briefkopfAus(await getBrandingForOrg(property.organizationId));
+    const kopf = await briefkopfAus(await getBrandingForOrg(property.organizationId));
     const pdf = await generateBeschlussSammlung({
       propertyName: property.name,
       issuer: kopf.issuer,
       brand: kopf.brand,
-      logoPath: kopf.logoPath,
+      logo: kopf.logo,
       entries: resolutions.map((r) => ({
         number: r.number,
         title: r.title,

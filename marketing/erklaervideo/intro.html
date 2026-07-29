@@ -1,0 +1,88 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Intro</title>
+<style>
+  @font-face {
+    font-family: "Plus Jakarta Sans";
+    src: url("../../portal/public/fonts/jakarta-800.woff2") format("woff2");
+    font-weight: 800;
+  }
+  @font-face {
+    font-family: "Inter";
+    src: url("../../portal/public/fonts/inter-400.woff2") format("woff2");
+    font-weight: 400;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body {
+    background: #14100e;
+    color: #fff;
+    font-family: "Inter", sans-serif;
+    display: grid;
+    place-items: center;
+  }
+
+  /* Warmer Lichtschein, der langsam aufzieht */
+  .glow {
+    position: absolute; inset: 0;
+    background: radial-gradient(58% 62% at 50% 46%, #35281d 0%, #14100e 68%);
+    opacity: 0;
+    animation: glow 3.2s ease-out forwards;
+  }
+  @keyframes glow { from { opacity: 0; transform: scale(1.15); } to { opacity: 1; transform: scale(1); } }
+
+  /* Ruhiges Atmen des Lichts, damit das Intro nicht einfriert. */
+  .breathe {
+    position: absolute; inset: -8%;
+    background: radial-gradient(42% 40% at 50% 44%, #40301f 0%, transparent 72%);
+    opacity: .5;
+    animation: breathe 8s ease-in-out 1.2s infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: .35; transform: scale(1); }
+    50%      { opacity: .6; transform: scale(1.07); }
+  }
+
+  .stage { position: relative; display: grid; place-items: center; gap: 34px; }
+
+  /* Logo wird von links nach rechts aufgedeckt */
+  .logo-wrap { overflow: hidden; clip-path: inset(0 100% 0 0); animation: reveal 1.05s cubic-bezier(.2,.7,.2,1) .25s forwards; }
+  .logo-wrap img { width: 460px; display: block; transform: scale(1.06); animation: settle 1.6s cubic-bezier(.2,.7,.2,1) .25s forwards; }
+  @keyframes reveal { to { clip-path: inset(0 0 0 0); } }
+  @keyframes settle { to { transform: scale(1); } }
+
+  /* Orangefarbener Strich fährt unter dem Logo auf */
+  .sweep {
+    width: 0; height: 5px; margin: 16px 0 4px;
+    background: linear-gradient(90deg, transparent, #f69018 18%, #f69018 82%, transparent);
+    animation: sweep 1.5s cubic-bezier(.2,.8,.2,1) .55s forwards;
+  }
+  @keyframes sweep { 0% { width: 0; opacity: 0; } 45% { opacity: 1; } 100% { width: 720px; opacity: 1; } }
+
+  .claim {
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-weight: 800;
+    font-size: 58px;
+    letter-spacing: -0.015em;
+    opacity: 0;
+    transform: translateY(26px);
+    animation: rise .9s cubic-bezier(.2,.7,.2,1) 1.25s forwards;
+  }
+  .claim span { color: #f69018; }
+  .sub {
+    font-size: 30px;
+    color: #b9aca2;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: rise .9s cubic-bezier(.2,.7,.2,1) 1.6s forwards;
+  }
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+</style>
+<div class="glow"></div>
+<div class="breathe"></div>
+<div class="stage">
+  <div class="logo-wrap"><img src="../../portal/public/bw-logo.png" alt="" /></div>
+  <div class="sweep"></div>
+  <div class="claim">Ihre Hausverwaltung in <span>Gladbeck</span></div>
+  <div class="sub">B&amp;W Immobilien Management UG</div>
+</div>

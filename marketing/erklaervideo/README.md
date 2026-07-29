@@ -1,27 +1,47 @@
 # Erklärvideo Kundenportal
 
-Ein rund 53 Sekunden langes Erklärvideo (1920×1080, 30 fps, deutscher Sprecher)
+Ein rund 58 Sekunden langes Erklärvideo (1920×1080, 30 fps, deutscher Sprecher)
 für Kundenpräsentationen und die Website. Fertige Datei:
 `kundenportal-erklaervideo.mp4`.
 
-Das Video besteht ausschließlich aus echten Screenshots des laufenden Portals –
-keine Mockups. Grundlage sind die Demodaten aus `portal/prisma/seed.ts` plus
-`portal/prisma/demo-content.ts`.
+Es beginnt mit einem animierten Firmen-Intro, zeigt danach ausschließlich echte
+Screenshots des laufenden Portals – keine Mockups – und endet mit einem
+animierten Abspann. Grundlage sind die Demodaten aus `portal/prisma/seed.ts`
+plus `portal/prisma/demo-content.ts`.
 
 ## Aufbau
 
-| Block | Sprechertext (Kurzform)              | Screens                                  |
-| ----- | ------------------------------------ | ---------------------------------------- |
-| 1     | Problem & Portal                     | `login`, `eig-verbrauch`                 |
-| 2     | Alles auf einen Blick                | `eig-dashboard`                          |
-| 3     | Vorgänge live verfolgen              | `eig-vorgaenge`, `vw-verwaltung`         |
-| 4     | WEG-Finanzen nachvollziehbar         | `vw-weg-wirtschaftsplan`, `vw-weg-detail` |
-| 5     | Digital abstimmen, alles dokumentiert| `eig-beschluesse`, `eig-dokumente`       |
-| 6     | Abspann mit Call-to-Action           | `endcard`                                |
+| Block | Sprechertext (Kurzform)               | Screens                                                              |
+| ----- | ------------------------------------- | -------------------------------------------------------------------- |
+| 0     | Firmen-Intro (animiert)               | `intro.html`                                                          |
+| 1     | Problem & Portal                      | `login`, `eig-verbrauch`                                              |
+| 2     | Alles auf einen Blick                 | `eig-dashboard`, `vw-weg-detail`                                      |
+| 3     | Vorgänge live verfolgen               | `eig-vorgaenge`, `vw-verwaltung`                                      |
+| 4     | WEG-Finanzen nachvollziehbar          | `vw-weg-wirtschaftsplan`, `vw-plan-detail`, `vw-weg-erhaltungsplanung` |
+| 5     | Digital abstimmen, alles dokumentiert | `eig-beschluesse`, `eig-dokumente`                                    |
+| 6     | Abspann mit Call-to-Action (animiert) | `endcard.html`                                                        |
 
 Die Sprechertexte stehen als Liste in `build.py` (`BLOCKS`), die zugehörigen
-Aufnahmen liegen als `vo/01.wav` … `vo/06.wav` bei. Die Länge jedes Blocks
-richtet sich automatisch nach der Länge seiner Sprachaufnahme.
+Aufnahmen liegen als `vo/00.wav` … `vo/06.wav` bei. Die Länge jedes Blocks
+richtet sich automatisch nach der Länge seiner Sprachaufnahme; die Screens
+teilen sich diese Zeit nach dem Gewicht, das in `BLOCKS` hinterlegt ist.
+
+## Schnitt und Bewegung
+
+Kein Bild steht still. Je Screen legt `BLOCKS` eine Kamerafahrt fest:
+
+| Fahrt   | Wirkung                                        |
+| ------- | ---------------------------------------------- |
+| `in`    | langsam heranfahren                            |
+| `out`   | langsam herausfahren                           |
+| `down`  | Schwenk nach unten über die Seite              |
+| `push`  | auf einen Fokuspunkt zufahren                  |
+| `pull`  | vom Fokuspunkt wegfahren                       |
+| `still` | ruhig stehen (für die animierten HTML-Szenen)  |
+
+Der Fokuspunkt ist ein Anteil von Breite und Höhe – `(0.72, 0.34)` zielt also
+auf das rechte obere Drittel. Die Übergänge wechseln bewusst: `slideleft`
+innerhalb eines Themas, `fade` beim Themenwechsel, `fadeblack` vor dem Abspann.
 
 ## Neu bauen
 
@@ -30,9 +50,26 @@ cd marketing/erklaervideo
 python3 build.py          # braucht ffmpeg/ffprobe
 ```
 
-Das Skript rendert je Screen einen Clip mit langsamer Kamerafahrt
-(Ken-Burns), blendet die Bauchbinden ein, verkettet alles mit Kreuzblenden und
-legt die auf −16 LUFS normalisierte Tonspur darunter.
+Das Skript rendert je Screen einen Clip mit Kamerafahrt, blendet die
+Bauchbinden ein, verkettet alles mit den hinterlegten Übergängen und legt die
+auf −16 LUFS normalisierte Tonspur darunter. Die Zwischendateien in `clips/`
+und `frames/` sind Wegwerfware und nicht eingecheckt.
+
+## Intro und Abspann ändern
+
+Beides sind normale HTML-Seiten mit CSS-Animationen (`intro.html`,
+`endcard.html`). `capture.mjs` nimmt sie Bild für Bild auf: die Animationen
+werden angehalten und je Einzelbild exakt positioniert, damit die Aufnahme
+unabhängig von der Rechenleistung immer gleich aussieht.
+
+```bash
+node capture.mjs intro.html   frames/intro   5.6 30
+node capture.mjs endcard.html frames/endcard 9.7 30
+python3 build.py
+```
+
+Die Sekundenzahl muss mindestens so groß sein wie der zugehörige Block, sonst
+friert `build.py` das letzte Bild ein, um die Lücke zu füllen.
 
 ## Screenshots neu aufnehmen
 
@@ -42,11 +79,21 @@ Demodaten (`npx prisma db seed && npx tsx prisma/demo-content.ts`).
 ```bash
 node shots.mjs          # Eigentümer- und Verwaltersichten
 node shots2.mjs         # WEG-Finanzen im Detail
-node shot-endcard.mjs   # Abspann aus endcard.html
 ```
 
 Aufnahme erfolgt mit 2× Pixeldichte (2880×1800), damit die Kamerafahrten im
 Video scharf bleiben.
+
+Alle Node-Skripte brauchen Playwright. Ist es global installiert, genügt ein
+Symlink im Ordner: `ln -s "$(npm root -g)" node_modules`.
+
+## Musik
+
+Ohne Musikbett wirkt jedes Erklärvideo nüchterner, als es müsste. `build.py`
+mischt automatisch eine Datei `music.mp3` unter, sobald sie in diesem Ordner
+liegt: 20 dB unter der Stimme, mit weichem Ein- und Ausblenden und einer
+automatischen Absenkung, sobald gesprochen wird. Es ist bewusst keine Musik
+eingecheckt – dafür braucht es eine Lizenz für die geplante Nutzung.
 
 ## Sprecherstimme
 
@@ -61,7 +108,7 @@ tar xzf voice-de-thorsten-low.tar.gz
 ```
 
 Soll das Video mit einer professionell eingesprochenen Stimme erscheinen,
-reicht es, `vo/01.wav` … `vo/06.wav` durch die neuen Aufnahmen zu ersetzen und
+reicht es, `vo/00.wav` … `vo/06.wav` durch die neuen Aufnahmen zu ersetzen und
 `build.py` erneut laufen zu lassen – die Bildlängen passen sich an.
 
 ## Hinweis zu den Demodaten

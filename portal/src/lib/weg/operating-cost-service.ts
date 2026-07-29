@@ -9,6 +9,18 @@ export type OperatingCostStatement = {
   year: number;
   unitLabel: string;
   tenantName: string | null;
+  /**
+   * Der Mieter mit Anrede und Anschrift — für den Brief. Ohne diese Angaben
+   * stand im Anschriftfeld nur „An den Mieter" und die Einheit; damit war die
+   * Abrechnung in keinem Fensterumschlag versendbar.
+   */
+  tenant: {
+    name: string;
+    salutation: string | null;
+    lastName: string | null;
+    /** „Straße\nPLZ Ort", sofern vollständig hinterlegt. */
+    address: string | null;
+  } | null;
   months: number;
   prepaymentMonthlyCents: number;
   co2Present: boolean;
@@ -38,7 +50,19 @@ export async function deriveOperatingCostStatement(params: {
     }),
     db.tenancy.findFirst({
       where: { unitId: params.unitId, active: true },
-      select: { bkPrepaymentMonthlyCents: true, user: { select: { name: true } } },
+      select: {
+        bkPrepaymentMonthlyCents: true,
+        user: {
+          select: {
+            name: true,
+            salutation: true,
+            lastName: true,
+            street: true,
+            zip: true,
+            city: true,
+          },
+        },
+      },
     }),
     db.co2Allocation.findFirst({ where: { propertyId: params.propertyId, year: statement.year } }),
   ]);
@@ -76,6 +100,17 @@ export async function deriveOperatingCostStatement(params: {
     year: statement.year,
     unitLabel: unit.label,
     tenantName: tenancy?.user.name ?? null,
+    tenant: tenancy
+      ? {
+          name: tenancy.user.name,
+          salutation: tenancy.user.salutation,
+          lastName: tenancy.user.lastName,
+          address:
+            tenancy.user.street && tenancy.user.zip && tenancy.user.city
+              ? `${tenancy.user.street}\n${tenancy.user.zip} ${tenancy.user.city}`
+              : null,
+        }
+      : null,
     months,
     prepaymentMonthlyCents,
     co2Present: Boolean(allocation),

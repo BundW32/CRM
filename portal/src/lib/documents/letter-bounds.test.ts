@@ -17,18 +17,16 @@ import { drawnTexts, type DrawnText } from "./test-helpers/pdf-inspect";
 
 const MM = 841.89 / 297;
 const PAGE_W = 595.28;
-// Auf das Kit umgestellte Briefe setzen links 20 mm (DIN 5008); die noch nicht
-// umgestellten stehen weiterhin auf 25 mm. Rechts sind es überall 20 mm.
-const LEFT_KIT = 20 * MM;
-const LEFT_ALT = 25 * MM;
+// Satzspiegel des Kits: 20 mm links (DIN 5008), 20 mm rechts.
+const LEFT = 20 * MM;
 const RIGHT = PAGE_W - 20 * MM;
 const TOLERANCE = 0.5; // Punkt
 
-function assertInsideMargins(items: DrawnText[], left = LEFT_ALT) {
+function assertInsideMargins(items: DrawnText[]) {
   expect(items.length).toBeGreaterThan(0);
   for (const it of items) {
     const where = `Seite ${it.page}: "${it.text.slice(0, 60)}"`;
-    expect(it.x, where).toBeGreaterThanOrEqual(left - TOLERANCE);
+    expect(it.x, where).toBeGreaterThanOrEqual(LEFT - TOLERANCE);
     expect(it.x + it.width, where).toBeLessThanOrEqual(RIGHT + TOLERANCE);
     // Nichts unterhalb des Blattrands – genau das war der stille Datenverlust.
     expect(it.y, where).toBeGreaterThan(0);
@@ -65,7 +63,7 @@ describe("Mahnung: Satzspiegel", () => {
       createdAt: new Date(2026, 6, 28),
       city: "Gladbeck",
     });
-    assertInsideMargins(await drawnTexts(pdf), LEFT_KIT);
+    assertInsideMargins(await drawnTexts(pdf));
   });
 
   it("hält die Ränder auch bei überlangen Namen", async () => {
@@ -93,16 +91,17 @@ describe("Mahnung: Satzspiegel", () => {
       createdAt: new Date(2026, 6, 28),
       city: "Gladbeck-Zweckel",
     });
-    assertInsideMargins(await drawnTexts(pdf), LEFT_KIT);
+    assertInsideMargins(await drawnTexts(pdf));
   });
 });
 
 describe("Betriebskostenabrechnung: Satzspiegel", () => {
   const basis = {
-    issuer,
+    issuer: kitIssuer,
     propertyName: "WEG Lindenhof",
     unitLabel: "WE 07",
-    tenantName: "Ayşe Şahin-Grünewald",
+    tenant: { name: "Ayşe Şahin-Grünewald", salutation: "Frau", lastName: "Şahin-Grünewald" },
+    tenantAddress: "Lindenstraße 14\n45964 Gladbeck",
     year: 2025,
     recoverableSumCents: 180000,
     co2LandlordDeductionCents: 12000,

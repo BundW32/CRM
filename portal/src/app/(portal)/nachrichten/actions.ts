@@ -11,6 +11,7 @@ import {
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
+import { mailText } from "@/lib/mail-text";
 import { sendPushToUsers } from "@/lib/push";
 import { requireUser } from "@/lib/session";
 
@@ -78,15 +79,21 @@ async function notifyParticipants(
   const link = portalUrl(`/nachrichten/${conversationId}`);
   await Promise.all(
     parts.map(async (p) =>
-      sendMail(
-        p.user.email,
-        `Neue Nachricht: ${subject}`,
-        `Sie haben eine neue Nachricht im Kundenportal erhalten:\n\n` +
-          `„${preview}"\n\n` +
-          `Zur Nachricht: ${link}`,
-        undefined,
-        await getBrandingForOrg(p.user.organizationId)
-      )
+      (async () => {
+        const branding = await getBrandingForOrg(p.user.organizationId);
+        return sendMail(
+          p.user.email,
+          `Neue Nachricht: ${subject}`,
+          mailText({
+            anrede: p.user.name,
+            absaetze: [`Sie haben eine neue Nachricht im Kundenportal erhalten:`, `„${preview}"`],
+            aktion: { label: "Nachricht lesen", url: link },
+            branding,
+          }),
+          undefined,
+          branding
+        );
+      })()
     )
   );
   await sendPushToUsers(

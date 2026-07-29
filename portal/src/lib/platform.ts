@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { DEFAULT_BRANDING, type OrgBranding } from "@/lib/branding";
 import { requireUser } from "@/lib/session";
 import { isPlatformAdminUser } from "@/lib/platform-admin";
 
@@ -9,6 +8,9 @@ import { isPlatformAdminUser } from "@/lib/platform-admin";
 // (Vercel) hat, kann die Liste ändern – das ist die Sicherheitswand.
 // Die puren Prüf-Helfer liegen in platform-admin.ts (kein Zirkular-Import).
 export { isPlatformAdminUser, parseAdminAllowlist } from "@/lib/platform-admin";
+// Betreiber-Branding lebt in branding.ts (reine Env-Auswertung); hier nur
+// weitergereicht, damit vorhandene Aufrufer nichts umstellen müssen.
+export { platformBranding } from "@/lib/branding";
 
 // Guard für alle /plattform-Seiten und -Server-Actions. Bei fehlender Berechtigung
 // kommentarlos zurück ins normale Portal. Loggt NICHT (das übernimmt das Layout
@@ -58,29 +60,6 @@ export function platformIssuer(): PlatformIssuer {
     iban: e.PLATFORM_ISSUER_IBAN || null,
     bank: e.PLATFORM_ISSUER_BANK || null,
     vatId: e.PLATFORM_ISSUER_VAT_ID || null,
-  };
-}
-
-// Branding für Mails, die der **Betreiber** verschickt (Plattform-Rechnungen,
-// Mahnungen). Empfänger ist hier die Hausverwaltung, Absender die Plattform –
-// deshalb darf hier NICHT das Mandanten-Branding stehen.
-//
-// Vorher lief das über den Standard-Fallback von `sendMail`, was zufällig
-// richtig aussah, aber die fest verdrahteten B&W-Daten nahm statt der über
-// PLATFORM_ISSUER_* konfigurierten. Ein Betreiber, der die Env sauber gesetzt
-// hatte, bekam trotzdem B&W in die Fußzeile.
-export function platformBranding(): OrgBranding {
-  const e = process.env;
-  const issuer = platformIssuer();
-  return {
-    ...DEFAULT_BRANDING,
-    displayName: e.PLATFORM_ISSUER_NAME || DEFAULT_BRANDING.displayName,
-    legalName: issuer.legalName,
-    email: e.PLATFORM_ISSUER_EMAIL || DEFAULT_BRANDING.email,
-    street: e.PLATFORM_ISSUER_STREET || DEFAULT_BRANDING.street,
-    zip: e.PLATFORM_ISSUER_ZIP || DEFAULT_BRANDING.zip,
-    city: e.PLATFORM_ISSUER_CITY || DEFAULT_BRANDING.city,
-    addressLine: issuer.contactLine || DEFAULT_BRANDING.addressLine,
   };
 }
 

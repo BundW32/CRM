@@ -8,6 +8,7 @@ import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail, summarizeMail } from "@/lib/mailer";
+import { datenblock, mailText } from "@/lib/mail-text";
 import { deleteBlob, saveBuffer } from "@/lib/storage";
 import { requireVerwalter } from "@/lib/session";
 import { generateMeetingProtocol } from "@/lib/documents/meeting-protocol";
@@ -260,9 +261,14 @@ export async function cancelMeeting(formData: FormData) {
         sendMail(
           o.user.email,
           `Absage der Eigentümerversammlung – ${property?.name ?? ""}`,
-          `Guten Tag ${o.user.name},\n\n` +
-            `die für „${meeting.title}" geplante Eigentümerversammlung wurde abgesagt.\n\n` +
-            `Mit freundlichen Grüßen\n${branding.legalName}`,
+          mailText({
+            anrede: o.user.name,
+            absaetze: [
+              `die für „${meeting.title}" geplante Eigentümerversammlung wurde abgesagt.`,
+              `Einen neuen Termin teilen wir Ihnen rechtzeitig mit.`,
+            ],
+            branding,
+          }),
           undefined,
           branding,
         ).catch(() => {}),
@@ -379,14 +385,20 @@ export async function sendInvitation(formData: FormData) {
       sendMail(
         o.user.email,
         `Einladung zur Eigentümerversammlung – ${property?.name ?? ""}`,
-        `Guten Tag ${o.user.name},\n\n` +
-          `hiermit laden wir Sie zur Eigentümerversammlung ein.\n\n` +
-          `Objekt: ${property?.name ?? ""}\n` +
-          `Termin: ${when}\n` +
-          (meeting.location ? `Ort: ${meeting.location}\n` : "") +
-          `\nTagesordnung:\n${agenda || "(wird noch ergänzt)"}\n\n` +
-          `Details im Portal: ${link}\n\n` +
-          `Mit freundlichen Grüßen\n${branding.legalName}`,
+        mailText({
+          anrede: o.user.name,
+          absaetze: [
+            `hiermit laden wir Sie zur Eigentümerversammlung ein.`,
+            datenblock([
+              ["Objekt", property?.name],
+              ["Termin", when],
+              ["Ort", meeting.location],
+            ]),
+            `Tagesordnung:\n${agenda || "(wird noch ergänzt)"}`,
+          ],
+          aktion: { label: "Details im Portal", url: link },
+          branding,
+        }),
         undefined,
         branding,
       ),

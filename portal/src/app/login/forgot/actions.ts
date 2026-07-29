@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
+import { mailText } from "@/lib/mail-text";
 import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -39,12 +40,17 @@ export async function requestPasswordReset(formData: FormData) {
     await sendMail(
       user.email,
       "Passwort zurücksetzen – Kundenportal",
-      `Guten Tag ${user.name},\n\n` +
-        `Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt.\n\n` +
-        `Klicken Sie auf folgenden Link, um ein neues Passwort zu vergeben (gültig 2 Stunden):\n` +
-        `${link}\n\n` +
-        `Falls Sie keine Anfrage gestellt haben, ignorieren Sie diese E-Mail.\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      mailText({
+        anrede: user.name,
+        absaetze: [
+          `Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt.`,
+          `Über den folgenden Link vergeben Sie ein neues Passwort. Er ist 2 Stunden gültig.`,
+          `Falls Sie keine Anfrage gestellt haben, ignorieren Sie diese E-Mail. ` +
+            `Ihr Passwort bleibt dann unverändert.`,
+        ],
+        aktion: { label: "Neues Passwort vergeben", url: link },
+        branding,
+      }),
       undefined,
       branding
     );

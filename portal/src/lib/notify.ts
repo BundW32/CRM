@@ -4,6 +4,7 @@ import type { Ticket, User } from "@/generated/prisma/client";
 import { db } from "./db";
 import { getBrandingForOrg } from "./branding-server";
 import { portalUrl, sendMail } from "./mailer";
+import { datenblock, mailText } from "./mail-text";
 import { sendPush, sendPushToUsers } from "./push";
 import { ticketStatusLabels, ticketTypeLabels, tradeLabels } from "./labels";
 
@@ -37,7 +38,7 @@ export async function notifyTenantStatusChange(
           sendMail(
             u.email!,
             subject,
-            `Guten Tag ${u.name},\n\n${body}\n\nMit freundlichen Grüßen\n${branding.legalName}`,
+            mailText({ anrede: u.name, absaetze: [body], branding }),
             undefined,
             branding
           ).catch(() => {})
@@ -60,15 +61,19 @@ export async function notifyVerwalterNewTicket(ticket: Ticket, createdBy: User) 
       sendMail(
         v.email,
         `Neuer Vorgang #${ticket.number}: ${ticket.title}`,
-        `${createdBy.name} hat einen neuen Vorgang gemeldet.\n\n` +
-          `Art: ${ticketTypeLabels[ticket.type]}\n` +
-          (ticket.trade
-            ? `Kategorie: ${tradeLabels[ticket.trade]}\n`
-            : ticket.category
-              ? `Kategorie: ${ticket.category}\n`
-              : "") +
-          `Betreff: ${ticket.title}\n\n` +
-          `Zum Vorgang: ${link}`,
+        mailText({
+          anrede: v.name,
+          absaetze: [
+            `${createdBy.name} hat einen neuen Vorgang gemeldet.`,
+            datenblock([
+              ["Art", ticketTypeLabels[ticket.type]],
+              ["Kategorie", ticket.trade ? tradeLabels[ticket.trade] : ticket.category],
+              ["Betreff", ticket.title],
+            ]),
+          ],
+          aktion: { label: "Vorgang öffnen", url: link },
+          branding,
+        }),
         undefined,
         branding
       )
@@ -90,14 +95,21 @@ export async function notifyCreatorStatusChange(ticketId: string, actor: User) {
     include: { createdBy: true },
   });
   if (!ticket || ticket.createdById === actor.id || !ticket.createdBy.active) return;
+  const statusBranding = await getBrandingForOrg(ticket.organizationId);
   await sendMail(
     ticket.createdBy.email,
     `Vorgang #${ticket.number}: Status jetzt „${ticketStatusLabels[ticket.status]}“`,
-    `Der Status Ihres Vorgangs „${ticket.title}“ wurde auf ` +
-      `„${ticketStatusLabels[ticket.status]}“ geändert.\n\n` +
-      `Zum Vorgang: ${portalUrl(`/vorgaenge/${ticket.id}`)}`,
+    mailText({
+      anrede: ticket.createdBy.name,
+      absaetze: [
+        `der Status Ihres Vorgangs „${ticket.title}“ wurde auf ` +
+          `„${ticketStatusLabels[ticket.status]}“ geändert.`,
+      ],
+      aktion: { label: "Vorgang öffnen", url: portalUrl(`/vorgaenge/${ticket.id}`) },
+      branding: statusBranding,
+    }),
     undefined,
-    await getBrandingForOrg(ticket.organizationId)
+    statusBranding
   );
   await sendPush(ticket.createdById, {
     title: `Vorgang #${ticket.number}: ${ticketStatusLabels[ticket.status]}`,
@@ -112,13 +124,18 @@ export async function notifyCreatorNewComment(ticketId: string, actor: User) {
     include: { createdBy: true },
   });
   if (!ticket || ticket.createdById === actor.id || !ticket.createdBy.active) return;
+  const kommentarBranding = await getBrandingForOrg(ticket.organizationId);
   await sendMail(
     ticket.createdBy.email,
     `Neue Antwort zu Vorgang #${ticket.number}`,
-    `${actor.name} hat auf Ihren Vorgang „${ticket.title}“ geantwortet.\n\n` +
-      `Zum Vorgang: ${portalUrl(`/vorgaenge/${ticket.id}`)}`,
+    mailText({
+      anrede: ticket.createdBy.name,
+      absaetze: [`${actor.name} hat auf Ihren Vorgang „${ticket.title}“ geantwortet.`],
+      aktion: { label: "Antwort lesen", url: portalUrl(`/vorgaenge/${ticket.id}`) },
+      branding: kommentarBranding,
+    }),
     undefined,
-    await getBrandingForOrg(ticket.organizationId)
+    kommentarBranding
   );
   await sendPush(ticket.createdById, {
     title: `Neue Antwort zu Vorgang #${ticket.number}`,
@@ -130,13 +147,18 @@ export async function notifyCreatorNewComment(ticketId: string, actor: User) {
 export async function notifyAssignee(ticketId: string, assignee: User) {
   const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
   if (!ticket || !assignee.active) return;
+  const zuweisungBranding = await getBrandingForOrg(ticket.organizationId);
   await sendMail(
     assignee.email,
     `Ihnen wurde Vorgang #${ticket.number} zugewiesen`,
-    `Vorgang „${ticket.title}“ wurde Ihnen zugewiesen.\n\n` +
-      `Zum Vorgang: ${portalUrl(`/vorgaenge/${ticket.id}`)}`,
+    mailText({
+      anrede: assignee.name,
+      absaetze: [`der Vorgang „${ticket.title}“ wurde Ihnen zugewiesen.`],
+      aktion: { label: "Vorgang öffnen", url: portalUrl(`/vorgaenge/${ticket.id}`) },
+      branding: zuweisungBranding,
+    }),
     undefined,
-    await getBrandingForOrg(ticket.organizationId)
+    zuweisungBranding
   );
   await sendPush(assignee.id, {
     title: `Vorgang #${ticket.number} zugewiesen`,
@@ -209,11 +231,15 @@ export async function notifyDocumentPublished(documentId: string): Promise<void>
           sendMail(
             u.email!,
             `Neues Dokument verfügbar: ${doc.title}`,
-            `Guten Tag ${u.name},\n\n` +
-              `Ihre Hausverwaltung hat ein neues Dokument für Sie bereitgestellt:\n` +
-              `„${doc.title}"\n\n` +
-              `Sie finden es im Portal unter Dokumente:\n${link}\n\n` +
-              `Mit freundlichen Grüßen\n${branding.legalName}`,
+            mailText({
+              anrede: u.name,
+              absaetze: [
+                `Ihre Hausverwaltung hat ein neues Dokument für Sie bereitgestellt:`,
+                `„${doc.title}"`,
+              ],
+              aktion: { label: "Dokument ansehen", url: link },
+              branding,
+            }),
             undefined,
             branding
           ).catch(() => {})
@@ -233,13 +259,17 @@ export async function notifyWelcome(user: User) {
   await sendMail(
     user.email,
     "Ihr Zugang zum Kundenportal",
-    `Guten Tag ${user.name},\n\n` +
-      `für Sie wurde ein Zugang zum Kundenportal der ${branding.legalName} angelegt.\n` +
-      `Anmeldung: ${portalUrl("/login")}\n` +
-      `Benutzername: ${user.email}\n\n` +
-      `Ihr Start-Passwort erhalten Sie persönlich von Ihrer Verwaltung. ` +
-      `Bitte ändern Sie es nach der ersten Anmeldung unter „Konto“.\n\n` +
-      `Mit freundlichen Grüßen\n${branding.legalName}`,
+    mailText({
+      anrede: user.name,
+      absaetze: [
+        `für Sie wurde ein Zugang zum Kundenportal der ${branding.legalName} angelegt.`,
+        datenblock([["Benutzername", user.email]]),
+        `Ihr Start-Passwort erhalten Sie persönlich von Ihrer Verwaltung. ` +
+          `Bitte ändern Sie es nach der ersten Anmeldung unter „Konto“.`,
+      ],
+      aktion: { label: "Jetzt anmelden", url: portalUrl("/login") },
+      branding,
+    }),
     undefined,
     branding
   );

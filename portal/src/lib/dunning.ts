@@ -5,6 +5,9 @@
 // Gebühren bewusst nicht automatisch – nur tatsächlich entstandene Kosten dürften
 // berechnet werden; das erledigt der Betreiber ggf. als manuelle Rechnungsposition.
 
+import { datenblock, mailText } from "@/lib/mail-text";
+import { platformBranding } from "@/lib/branding";
+
 export const MAX_REMINDER_LEVEL = 3;
 
 export function nextReminderLevel(current: number): number {
@@ -50,42 +53,50 @@ export function reminderCopy(
 ): { subject: string; text: string } {
   const { invoiceNo, grossFormatted, dueDateFormatted } = info;
   const payWithin = info.payWithinDays ?? 7;
-  const base =
-    `Rechnung ${invoiceNo}\n` +
-    `Offener Betrag: ${grossFormatted}\n` +
-    `Ursprünglich fällig am: ${dueDateFormatted}\n\n`;
+  const base = datenblock([
+    ["Rechnung", invoiceNo],
+    ["Offener Betrag", grossFormatted],
+    ["Ursprünglich fällig am", dueDateFormatted],
+  ]);
+  const branding = platformBranding();
 
   if (level <= 1) {
     return {
       subject: `Zahlungserinnerung zu Rechnung ${invoiceNo}`,
-      text:
-        `Guten Tag,\n\n` +
-        `sicher ist es Ihrer Aufmerksamkeit entgangen: die folgende Rechnung ist noch offen.\n\n` +
-        base +
-        `Bitte gleichen Sie den Betrag in den nächsten Tagen aus. Sollten Sie bereits ` +
-        `gezahlt haben, betrachten Sie diese Erinnerung als gegenstandslos.\n\n` +
-        `Mit freundlichen Grüßen`,
+      text: mailText({
+        absaetze: [
+          `sicher ist es Ihrer Aufmerksamkeit entgangen: die folgende Rechnung ist noch offen.`,
+          base,
+          `Bitte gleichen Sie den Betrag in den nächsten Tagen aus. Sollten Sie bereits ` +
+            `gezahlt haben, betrachten Sie diese Erinnerung als gegenstandslos.`,
+        ],
+        branding,
+      }),
     };
   }
   if (level === 2) {
     return {
       subject: `1. Mahnung zu Rechnung ${invoiceNo}`,
-      text:
-        `Guten Tag,\n\n` +
-        `trotz unserer Erinnerung ist die folgende Rechnung weiterhin offen.\n\n` +
-        base +
-        `Wir bitten Sie, den Betrag innerhalb von ${payWithin} Tagen auszugleichen.\n\n` +
-        `Mit freundlichen Grüßen`,
+      text: mailText({
+        absaetze: [
+          `trotz unserer Erinnerung ist die folgende Rechnung weiterhin offen.`,
+          base,
+          `Wir bitten Sie, den Betrag innerhalb von ${payWithin} Tagen auszugleichen.`,
+        ],
+        branding,
+      }),
     };
   }
   return {
     subject: `2. Mahnung zu Rechnung ${invoiceNo}`,
-    text:
-      `Guten Tag,\n\n` +
-      `die folgende Rechnung ist trotz mehrfacher Aufforderung weiterhin unbeglichen.\n\n` +
-      base +
-      `Wir fordern Sie letztmalig auf, den offenen Betrag innerhalb von ${payWithin} Tagen zu ` +
-      `begleichen. Nach fruchtlosem Ablauf behalten wir uns weitere Schritte vor.\n\n` +
-      `Mit freundlichen Grüßen`,
+    text: mailText({
+      absaetze: [
+        `die folgende Rechnung ist trotz mehrfacher Aufforderung weiterhin unbeglichen.`,
+        base,
+        `Wir fordern Sie letztmalig auf, den offenen Betrag innerhalb von ${payWithin} Tagen zu ` +
+          `begleichen. Nach fruchtlosem Ablauf behalten wir uns weitere Schritte vor.`,
+      ],
+      branding,
+    }),
   };
 }

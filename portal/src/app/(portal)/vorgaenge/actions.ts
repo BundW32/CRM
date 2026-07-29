@@ -17,6 +17,7 @@ import { hasCertMandate } from "@/lib/cert-mandate";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { ticketPriorityLabels, unitPublicLabel } from "@/lib/labels";
 import { portalUrl, sendMail } from "@/lib/mailer";
+import { datenblock, mailText } from "@/lib/mail-text";
 import {
   notifyAssignee,
   notifyCreatorNewComment,
@@ -439,10 +440,15 @@ export async function confirmAppointment(formData: FormData) {
     await sendMail(
       ticket.craftsman.email,
       `Termin bestätigt – Auftrag #${ticket.number}`,
-      `Guten Tag ${ticket.craftsman.name},\n\n` +
-        `Ihr Terminvorschlag für Vorgang #${ticket.number} „${ticket.title}" wurde bestätigt:\n` +
-        `${ticket.appointmentNote}\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      mailText({
+        anrede: ticket.craftsman.name,
+        absaetze: [
+          `Ihr Terminvorschlag für Vorgang #${ticket.number} „${ticket.title}" wurde bestätigt:`,
+          ticket.appointmentNote,
+        ],
+        aktion: { label: "Auftrag öffnen", url: portalUrl(`/auftraege/${ticket.craftsman.accessToken}`) },
+        branding,
+      }),
       undefined,
       branding
     );
@@ -488,10 +494,15 @@ export async function declineAppointment(formData: FormData) {
     await sendMail(
       ticket.craftsman.email,
       `Bitte neuen Termin vorschlagen – Auftrag #${ticket.number}`,
-      `Guten Tag ${ticket.craftsman.name},\n\n` +
-        `Ihr Terminvorschlag für Vorgang #${ticket.number} „${ticket.title}" (${abgelehnt}) ` +
-        `passt leider nicht. Bitte schlagen Sie über das Auftragsportal einen neuen Termin vor.\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      mailText({
+        anrede: ticket.craftsman.name,
+        absaetze: [
+          `Ihr Terminvorschlag für Vorgang #${ticket.number} „${ticket.title}" (${abgelehnt}) ` +
+            `passt leider nicht. Bitte schlagen Sie einen neuen Termin vor.`,
+        ],
+        aktion: { label: "Neuen Termin vorschlagen", url: portalUrl(`/auftraege/${ticket.craftsman.accessToken}`) },
+        branding,
+      }),
       undefined,
       branding
     );
@@ -667,9 +678,16 @@ export async function rejectInvoice(formData: FormData) {
     await sendMail(
       invoice.craftsman.email,
       `Rechnung zu Auftrag #${ticket.number} abgelehnt`,
-      `Guten Tag ${invoice.craftsman.name},\n\n` +
-        `Ihre Rechnung zum Auftrag „${ticket.title}" wurde nicht akzeptiert${reason ? `:\n${reason}` : "."}\n\n` +
-        `Bitte reichen Sie ggf. eine korrigierte Rechnung ein.\n\nMit freundlichen Grüßen\n${branding.legalName}`,
+      mailText({
+        anrede: invoice.craftsman.name,
+        absaetze: [
+          `Ihre Rechnung zum Auftrag „${ticket.title}" wurde nicht akzeptiert${reason ? ":" : "."}`,
+          reason,
+          `Bitte reichen Sie ggf. eine korrigierte Rechnung ein.`,
+        ],
+        aktion: { label: "Rechnung einreichen", url: portalUrl(`/auftraege/${invoice.craftsman.accessToken}`) },
+        branding,
+      }),
       undefined,
       branding,
     ).catch(() => {});
@@ -724,11 +742,16 @@ export async function reopenTicket(formData: FormData) {
     await sendMail(
       ticket.craftsman.email,
       `Nacharbeit erforderlich – Auftrag #${ticket.number}`,
-      `Guten Tag ${ticket.craftsman.name},\n\n` +
-        `der Vorgang #${ticket.number} „${ticket.title}" wurde noch nicht abgenommen` +
-        `${note ? `:\n\n${note}` : "."}\n\n` +
-        `Bitte stimmen Sie sich mit der ${branding.legalName} ab.\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      mailText({
+        anrede: ticket.craftsman.name,
+        absaetze: [
+          `der Vorgang #${ticket.number} „${ticket.title}" wurde noch nicht abgenommen${note ? ":" : "."}`,
+          note,
+          `Bitte stimmen Sie sich mit der ${branding.legalName} ab.`,
+        ],
+        aktion: { label: "Auftrag öffnen", url: portalUrl(`/auftraege/${ticket.craftsman.accessToken}`) },
+        branding,
+      }),
       undefined,
       branding
     );
@@ -804,16 +827,22 @@ export async function notifyCraftsman(formData: FormData) {
   await sendMail(
     ticket.craftsman.email,
     `Auftrag #${ticket.number}: ${ticket.title}`,
-    `Guten Tag ${ticket.craftsman.name},\n\n` +
-      `die ${branding.legalName} möchte Sie mit folgendem Vorgang beauftragen:\n\n` +
-      `Vorgang #${ticket.number} – ${ticket.title}\n` +
-      `Priorität: ${ticketPriorityLabels[ticket.priority]}\n\n` +
-      `Beschreibung:\n${ticket.description}\n\n` +
-      `${ortsangabe}\n\n` +
-      `Auftrag annehmen, Termin vorschlagen oder Rückfragen stellen:\n` +
-      `${portalUrl(`/auftraege/${token}`)}\n\n` +
-      `Mit freundlichen Grüßen\n${branding.legalName}` +
-      (branding.email ? `\n${branding.email}` : ""),
+    mailText({
+      anrede: ticket.craftsman.name,
+      absaetze: [
+        `die ${branding.legalName} möchte Sie mit folgendem Vorgang beauftragen:`,
+        datenblock([
+          ["Vorgang", `#${ticket.number} – ${ticket.title}`],
+          ["Priorität", ticketPriorityLabels[ticket.priority]],
+        ]),
+        `Beschreibung:\n${ticket.description}`,
+        ortsangabe,
+        `Über den folgenden Link können Sie den Auftrag annehmen, einen Termin ` +
+          `vorschlagen oder Rückfragen stellen.`,
+      ],
+      aktion: { label: "Auftrag ansehen", url: portalUrl(`/auftraege/${token}`) },
+      branding,
+    }),
     undefined,
     branding
   );

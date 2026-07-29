@@ -6,6 +6,7 @@ import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
+import { mailText } from "@/lib/mail-text";
 import { parseEuroToCents } from "@/lib/money";
 import { sendPushToUsers } from "@/lib/push";
 import { DOCUMENT_TYPES, MEDIA_TYPES, saveUpload } from "@/lib/storage";
@@ -27,7 +28,8 @@ async function notifyVerwalter(ticket: Ticket, text: string) {
   // Nur Verwalter der Org des Vorgangs benachrichtigen.
   const verwalter = await db.user.findMany({
     where: { role: "VERWALTER", active: true, organizationId: ticket.organizationId },
-    select: { id: true, email: true },
+    // Name wird für die persönliche Anrede der Mail gebraucht.
+    select: { id: true, email: true, name: true },
   });
   const branding = await getBrandingForOrg(ticket.organizationId);
   const link = portalUrl(`/vorgaenge/${ticket.id}`);
@@ -36,7 +38,12 @@ async function notifyVerwalter(ticket: Ticket, text: string) {
       sendMail(
         v.email,
         `Vorgang #${ticket.number}: Update vom Handwerker`,
-        `${text}\n\nZum Vorgang: ${link}`,
+        mailText({
+          anrede: v.name,
+          absaetze: [text],
+          aktion: { label: "Vorgang öffnen", url: link },
+          branding,
+        }),
         undefined,
         branding
       )

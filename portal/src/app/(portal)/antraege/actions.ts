@@ -8,6 +8,7 @@ import { canAdministerProperty, canVoteOnProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
+import { mailText } from "@/lib/mail-text";
 import { getOrganization, requireUser, requireVerwalter } from "@/lib/session";
 
 const MOTION_TYPES = ["BESCHLUSSANTRAG", "VERSAMMLUNG"] as const;
@@ -137,7 +138,8 @@ export async function adoptMotionAsResolution(formData: FormData) {
   // Eigentümer über die neue Abstimmung informieren (wie bei createResolution).
   const owners = await db.ownership.findMany({
     where: { propertyId: motion.propertyId },
-    include: { user: { select: { email: true } } },
+    // Name wird für die persönliche Anrede der Mail gebraucht.
+    include: { user: { select: { email: true, name: true } } },
   });
   const link = portalUrl("/beschluesse");
   const branding = await getBrandingForOrg(verwalter.organizationId);
@@ -146,9 +148,16 @@ export async function adoptMotionAsResolution(formData: FormData) {
       sendMail(
         o.user.email,
         `Neue Abstimmung: ${motion.title}`,
-        `Aus einem Eigentümer-Antrag wurde ein Umlaufbeschluss zur Abstimmung erstellt:\n\n` +
-          `${motion.title}\n\n` +
-          `Bitte stimmen Sie im Portal ab: ${link}`,
+        mailText({
+          anrede: o.user.name,
+          absaetze: [
+            `aus einem Eigentümer-Antrag wurde ein Umlaufbeschluss zur Abstimmung erstellt:`,
+            `„${motion.title}"`,
+            `Bitte geben Sie Ihre Stimme im Portal ab.`,
+          ],
+          aktion: { label: "Jetzt abstimmen", url: link },
+          branding,
+        }),
         undefined,
         branding,
       ).catch(() => {}),

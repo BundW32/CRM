@@ -5,6 +5,7 @@ import { getBrandingForOrg } from "@/lib/branding-server";
 import { db } from "@/lib/db";
 import { formatDateOnly, maintenanceIntervalLabels } from "@/lib/labels";
 import { isMailEnabled, portalUrl, sendMail } from "@/lib/mailer";
+import { mailText } from "@/lib/mail-text";
 import { dueLabel, daysUntilDue } from "@/lib/weg/compliance";
 
 // Erinnere an Pflichten, die innerhalb dieses Fensters fällig werden …
@@ -80,7 +81,12 @@ export async function runComplianceReminders(now: Date = new Date()): Promise<Re
       await sendMail(
         v.email,
         "Fällige Prüfpflichten Ihrer WEG",
-        `Guten Tag ${v.name},\n\n${body}\n\nMit freundlichen Grüßen\n${branding.legalName}`,
+        mailText({
+          anrede: v.name,
+          absaetze: [body],
+          aktion: { label: "Prüfpflichten öffnen", url: portalUrl("/wartung") },
+          branding,
+        }),
         undefined,
         branding,
       ).catch(() => {});

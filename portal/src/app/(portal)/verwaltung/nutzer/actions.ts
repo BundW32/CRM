@@ -11,6 +11,7 @@ import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
+import { mailText } from "@/lib/mail-text";
 import { requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, deleteBlob, saveBuffer } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
@@ -345,12 +346,18 @@ export async function createUser(formData: FormData) {
     await sendMail(
       email!,
       "Ihr Zugang zum Kundenportal",
-      `${greeting}\n\n` +
-        `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.\n\n` +
-        `Klicken Sie auf folgenden Link, um Ihren Zugang einzurichten (gültig 7 Tage):\n` +
-        `${link}\n\n` +
-        `Nach der Einrichtung können Sie sich jederzeit unter ${loginLink} anmelden.\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      // `greeting` bringt die Anrede bereits vollständig mit (Herr/Frau), deshalb
+      // hier als erster Absatz statt über die Standard-Anrede des Bauplans.
+      mailText({
+        absaetze: [
+          greeting,
+          `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.`,
+          `Über den folgenden Link richten Sie Ihren Zugang ein. Er ist 7 Tage gültig.`,
+          `Danach können Sie sich jederzeit unter ${loginLink} anmelden.`,
+        ],
+        aktion: { label: "Zugang einrichten", url: link },
+        branding,
+      }),
       undefined,
       branding
     );
@@ -534,10 +541,14 @@ export async function resendInvite(formData: FormData) {
   await sendMail(
     user.email,
     "Ihr Zugang zum Kundenportal (Erinnerung)",
-    `Guten Tag ${user.name},\n\n` +
-      `Hier ist Ihr Einladungslink zum Kundenportal (gültig 7 Tage):\n` +
-      `${link}\n\n` +
-      `Mit freundlichen Grüßen\n${branding.legalName}`,
+    mailText({
+      anrede: user.name,
+      absaetze: [
+        `hier ist noch einmal Ihr Einladungslink zum Kundenportal. Er ist 7 Tage gültig.`,
+      ],
+      aktion: { label: "Zugang einrichten", url: link },
+      branding,
+    }),
     undefined,
     branding
   );

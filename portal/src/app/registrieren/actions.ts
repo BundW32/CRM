@@ -8,6 +8,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { brandingFromOrg } from "@/lib/branding";
 import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
+import { mailText } from "@/lib/mail-text";
 import { createSession } from "@/lib/session";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { isReservedSlug } from "@/lib/slug";
@@ -164,12 +165,17 @@ export async function registerOrganization(formData: FormData) {
   await sendMail(
     email,
     "Willkommen – bitte bestätigen Sie Ihre E-Mail-Adresse",
-    `Guten Tag ${fullName},\n\n` +
-      introLine +
-      `Bitte bestätigen Sie Ihre E-Mail-Adresse über diesen Link (gültig 3 Tage):\n` +
-      `${verifyLink}\n\n` +
-      nextStepLine +
-      `Mit freundlichen Grüßen\n${branding.legalName}`,
+    mailText({
+      anrede: fullName,
+      absaetze: [
+        introLine.trim(),
+        `Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse über den folgenden Link. ` +
+          `Er ist 3 Tage gültig.`,
+        nextStepLine.trim(),
+      ],
+      aktion: { label: "E-Mail-Adresse bestätigen", url: verifyLink },
+      branding,
+    }),
     undefined,
     branding
   );

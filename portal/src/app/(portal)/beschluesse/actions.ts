@@ -7,6 +7,7 @@ import { canVerwalterAccessProperty, canVoteOnProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
+import { mailText } from "@/lib/mail-text";
 import { requireUser, requireVerwalter } from "@/lib/session";
 import { DOCUMENT_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 
@@ -81,9 +82,16 @@ export async function createResolution(formData: FormData) {
       sendMail(
         o.user.email,
         `Neue Abstimmung: ${parsed.data.title}`,
-        `Es liegt ein neuer Umlaufbeschluss zur Abstimmung vor:\n\n` +
-          `„${parsed.data.title}"\n\n` +
-          `Bitte stimmen Sie im Portal ab: ${link}`,
+        mailText({
+          anrede: o.user.name,
+          absaetze: [
+            `es liegt ein neuer Umlaufbeschluss zur Abstimmung vor:`,
+            `„${parsed.data.title}"`,
+            `Bitte geben Sie Ihre Stimme im Portal ab.`,
+          ],
+          aktion: { label: "Jetzt abstimmen", url: link },
+          branding,
+        }),
         undefined,
         branding
       )

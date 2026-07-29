@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
+import { datenblock, mailText } from "@/lib/mail-text";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { notifyVerwalterNewTicket } from "@/lib/notify";
 import { IMAGE_TYPES, saveBuffer } from "@/lib/storage";
@@ -54,14 +55,31 @@ function normalizeAttachments(body: Record<string, unknown>) {
     .slice(0, 10);
 }
 
-async function notifyVerwalter(organizationId: string, subject: string, body: string) {
+// Nimmt den Textbauplan statt eines fertigen Strings entgegen: Anrede und
+// Grußformel hängen am jeweiligen Empfänger bzw. am Branding und können hier
+// erst je Verwalter aufgelöst werden.
+async function notifyVerwalter(
+  organizationId: string,
+  subject: string,
+  inhalt: { absaetze: (string | null)[]; aktion?: { label: string; url: string } },
+) {
   // Nur Verwalter der betroffenen Org benachrichtigen.
   const verwalter = await db.user.findMany({
     where: { role: "VERWALTER", active: true, organizationId },
-    select: { email: true },
+    select: { email: true, name: true },
   });
   const branding = await getBrandingForOrg(organizationId);
-  await Promise.all(verwalter.map((v) => sendMail(v.email, subject, body, undefined, branding)));
+  await Promise.all(
+    verwalter.map((v) =>
+      sendMail(
+        v.email,
+        subject,
+        mailText({ anrede: v.name, ...inhalt, branding }),
+        undefined,
+        branding,
+      ),
+    ),
+  );
 }
 
 // Vorgangsnummer aus dem Betreff lesen (z. B. "Re: Auftrag #42: …" → 42).
@@ -213,10 +231,14 @@ export async function POST(request: Request) {
       await notifyVerwalter(
         target.organizationId,
         `Vorgang #${target.number}: Antwort per E-Mail`,
-        `Zu Vorgang #${target.number} „${target.title}" ist eine E-Mail-Antwort eingegangen.\n\n` +
-          `Von: ${senderLabel}${craftsman ? " (Handwerker)" : ""}\n\n` +
-          `${text || "(kein Text)"}\n\n` +
-          `Zum Vorgang: ${portalUrl(`/vorgaenge/${target.id}`)}`
+        {
+          absaetze: [
+            `zu Vorgang #${target.number} „${target.title}" ist eine E-Mail-Antwort eingegangen.`,
+            datenblock([["Von", `${senderLabel}${craftsman ? " (Handwerker)" : ""}`]]),
+            text || "(kein Text)",
+          ],
+          aktion: { label: "Vorgang öffnen", url: portalUrl(`/vorgaenge/${target.id}`) },
+        },
       );
 
       return NextResponse.json({ ok: true, comment: true, ticketId: target.id, number: target.number });
@@ -301,11 +323,16 @@ export async function POST(request: Request) {
     await sendMail(
       from,
       `Ihre Meldung #${ticket.number} ist eingegangen`,
-      `Guten Tag ${knownUser.name},\n\n` +
-        `Ihre Meldung „${subject}" ist bei der ${branding.legalName} eingegangen und ` +
-        `wird unter der Vorgangsnummer #${ticket.number} bearbeitet.\n\n` +
-        `Sie können den Stand jederzeit im Kundenportal verfolgen.\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      mailText({
+        anrede: knownUser.name,
+        absaetze: [
+          `Ihre Meldung „${subject}" ist bei der ${branding.legalName} eingegangen und ` +
+            `wird unter der Vorgangsnummer #${ticket.number} bearbeitet.`,
+          `Den Stand können Sie jederzeit im Kundenportal verfolgen.`,
+        ],
+        aktion: { label: "Vorgang ansehen", url: portalUrl(`/vorgaenge/${ticket.id}`) },
+        branding,
+      }),
       undefined,
       branding
     );
@@ -313,10 +340,18 @@ export async function POST(request: Request) {
     await notifyVerwalter(
       ticket.organizationId,
       `Neue Meldung #${ticket.number} (Absender nicht zugeordnet)`,
-      `Es ist eine E-Mail-Meldung von einem nicht hinterlegten Absender eingegangen ` +
-        `und wurde als Vorgang #${ticket.number} angelegt.\n\n` +
-        `Von: ${fromName ? `${fromName} <${from}>` : from}\nBetreff: ${subject}\n\n` +
-        `Bitte im Portal einem Objekt/Mieter zuordnen:\n${portalUrl(`/vorgaenge/${ticket.id}`)}`
+      {
+        absaetze: [
+          `es ist eine E-Mail-Meldung von einem nicht hinterlegten Absender eingegangen ` +
+            `und wurde als Vorgang #${ticket.number} angelegt.`,
+          datenblock([
+            ["Von", fromName ? `${fromName} <${from}>` : from],
+            ["Betreff", subject],
+          ]),
+          `Bitte ordnen Sie den Vorgang im Portal einem Objekt und Mieter zu.`,
+        ],
+        aktion: { label: "Vorgang zuordnen", url: portalUrl(`/vorgaenge/${ticket.id}`) },
+      }
     );
   }
 

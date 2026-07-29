@@ -5,10 +5,18 @@ import { revalidatePath } from "next/cache";
 import type { PlatformInvoiceStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { AUDIT, logAudit } from "@/lib/audit";
-import { INVOICE_TRANSITIONS, formatCents, formatInvoiceNumber, invoiceGrossCents, requirePlatformAdmin } from "@/lib/platform";
+import {
+  INVOICE_TRANSITIONS,
+  formatCents,
+  formatInvoiceNumber,
+  invoiceGrossCents,
+  platformBranding,
+  requirePlatformAdmin,
+} from "@/lib/platform";
 import { type InvoiceMailResult, loadInvoiceForPdf, mailInvoicePdf } from "@/lib/platform-invoice-service";
 import { canRemindAgain, isOverdue, nextReminderLevel, reminderCopy } from "@/lib/dunning";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { datenblock, mailText } from "@/lib/mail-text";
 
 function ddmmyyyy(d: Date | null): string {
   return d
@@ -24,13 +32,17 @@ function invoiceMailBody(invoice: NonNullable<Awaited<ReturnType<typeof loadInvo
     ? `${String(invoice.dueAt.getDate()).padStart(2, "0")}.${String(invoice.dueAt.getMonth() + 1).padStart(2, "0")}.${invoice.dueAt.getFullYear()}`
     : null;
   const subject = `Rechnung ${nr}`;
-  const text =
-    `Guten Tag,\n\n` +
-    `anbei erhalten Sie die Rechnung ${nr}${invoice.title ? ` (${invoice.title})` : ""}.\n\n` +
-    `Rechnungsbetrag: ${formatCents(gross)}\n` +
-    (due ? `Zahlbar bis: ${due}\n` : "") +
-    `\nDie Rechnung finden Sie als PDF im Anhang.\n\n` +
-    `Mit freundlichen Grüßen`;
+  const text = mailText({
+    absaetze: [
+      `anbei erhalten Sie die Rechnung ${nr}${invoice.title ? ` (${invoice.title})` : ""}.`,
+      datenblock([
+        ["Rechnungsbetrag", formatCents(gross)],
+        ["Zahlbar bis", due],
+      ]),
+      `Die Rechnung finden Sie als PDF im Anhang dieser E-Mail.`,
+    ],
+    branding: platformBranding(),
+  });
   return { subject, text };
 }
 

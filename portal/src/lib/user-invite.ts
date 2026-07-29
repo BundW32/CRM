@@ -11,6 +11,7 @@ import { db } from "./db";
 import { getBrandingForOrg } from "./branding-server";
 import { generatePassword, generateUsername } from "./credentials";
 import { portalUrlFromRequest, sendMail } from "./mailer";
+import { mailText } from "./mail-text";
 
 const INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 Tage
 
@@ -53,11 +54,18 @@ export async function inviteOrLetter(opts: {
     await sendMail(
       opts.email,
       "Ihr Zugang zum Kundenportal",
-      `Guten Tag ${opts.name},\n\n` +
-        `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.\n\n` +
-        `Zugang einrichten (gültig 7 Tage):\n` +
-        `${await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`)}\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+      mailText({
+        anrede: opts.name,
+        absaetze: [
+          `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.`,
+          `Über den folgenden Link richten Sie Ihren Zugang ein. Er ist 7 Tage gültig.`,
+        ],
+        aktion: {
+          label: "Zugang einrichten",
+          url: await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`),
+        },
+        branding,
+      }),
       undefined,
       branding
     );

@@ -237,3 +237,33 @@ export function emailLogoUrl(b: OrgBranding, base: string): string | null {
   if (b.isDefault) return `${base}/bw-logo.png`;
   return null;
 }
+
+// Branding für Mails, die der **Betreiber** verschickt (Plattform-Rechnungen,
+// Mahnungen). Empfänger ist hier die Hausverwaltung, Absender die Plattform –
+// deshalb darf hier NICHT das Mandanten-Branding stehen.
+//
+// Vorher lief das über den Standard-Fallback von `sendMail`, was zufällig
+// richtig aussah, aber die fest verdrahteten B&W-Daten nahm statt der über
+// PLATFORM_ISSUER_* konfigurierten. Ein Betreiber, der die Env sauber gesetzt
+// hatte, bekam trotzdem B&W in die Fußzeile.
+//
+// Liest die Env direkt, statt `platformIssuer()` aufzurufen: platform.ts zieht
+// next/navigation und die Session mit — das hätte jedes Modul, das nur einen
+// Mailtext baut, an den Server-Kontext gekettet.
+export function platformBranding(): OrgBranding {
+  const e = process.env;
+  const street = e.PLATFORM_ISSUER_STREET || null;
+  const zip = e.PLATFORM_ISSUER_ZIP || null;
+  const city = e.PLATFORM_ISSUER_CITY || null;
+  const name = e.PLATFORM_ISSUER_NAME;
+  return {
+    ...DEFAULT_BRANDING,
+    displayName: name || DEFAULT_BRANDING.displayName,
+    legalName: name || DEFAULT_BRANDING.legalName,
+    email: e.PLATFORM_ISSUER_EMAIL || DEFAULT_BRANDING.email,
+    street: street ?? DEFAULT_BRANDING.street,
+    zip: zip ?? DEFAULT_BRANDING.zip,
+    city: city ?? DEFAULT_BRANDING.city,
+    addressLine: addressLineFrom(street, zip, city) ?? DEFAULT_BRANDING.addressLine,
+  };
+}

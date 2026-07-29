@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { brandingFromOrg } from "@/lib/branding";
 import { portalUrl, sendMail } from "@/lib/mailer";
+import { mailText } from "@/lib/mail-text";
 import { requireUser } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -32,10 +33,15 @@ export async function resendVerification() {
   await sendMail(
     user.email,
     "Bitte bestätigen Sie Ihre E-Mail-Adresse",
-    `Guten Tag ${user.name},\n\n` +
-      `bitte bestätigen Sie Ihre E-Mail-Adresse über diesen Link (gültig 3 Tage):\n` +
-      `${link}\n\n` +
-      `Mit freundlichen Grüßen\n${branding.legalName}`,
+    mailText({
+      anrede: user.name,
+      absaetze: [
+        `bitte bestätigen Sie Ihre E-Mail-Adresse über den folgenden Link. ` +
+          `Er ist 3 Tage gültig.`,
+      ],
+      aktion: { label: "E-Mail-Adresse bestätigen", url: link },
+      branding,
+    }),
     undefined,
     branding
   );

@@ -1209,3 +1209,166 @@ Schrittzahlen danach: verwaltender Eigentümer 6 (7 mit Assistent),
 professioneller Verwalter 3 (4), Eigentümer 6, Mieter 5. An echten Daten mit
 allen vier Konten durchgeklickt — jeder Schritt trifft ein Ziel, das es in
 diesem Menü wirklich gibt.
+
+## Schritt 37 — Bauabzugsteuer § 48 EStG (28.07.2026)
+
+Vorgezogen aus „Block 4 — später" des Finanzplans. Begründung: Es ist der
+einzige offene Punkt, bei dem Nichtwissen unmittelbar Geld kostet. Bleibt der
+Steuerabzug zu Unrecht aus, haftet der Leistungsempfänger für den nicht
+abgeführten Betrag (§ 48a Abs. 3 EStG) — bei einer selbstverwalteten WEG also
+die Gemeinschaft und damit alle Eigentümer. Ein Eigentümer, der nebenbei
+verwaltet, weiß davon nichts. Die Falle ist unauffällig: Drei Rechnungen à
+1.800 € sind einzeln harmlos und zusammen über der Grenze.
+
+197. **Der Zahlungspartner war Freitext — das war die eigentliche Lücke.** Die
+     Buchhaltung ist strukturiert (Konto, Kostenart, Einheit); nur *wer* bezahlt
+     wurde, stand als getippter Name da. Die 5.000-€-Grenze gilt aber **je
+     Leistendem und Kalenderjahr**, und über Text lässt sich nicht summieren:
+     „Meier GmbH", „Meier Gmbh" und „Fa. Meier" wären drei Handwerker. Deshalb
+     `Booking.craftsmanId` als Verknüpfung. `counterparty` bleibt daneben — der
+     Bankimport liefert nun einmal Text, und die meisten Zahlungen gehen an
+     niemanden aus dem Adressbuch.
+198. **Kalenderjahr, nicht Wirtschaftsjahr.** § 48 Abs. 2 EStG stellt auf das
+     laufende Kalenderjahr ab; eine WEG darf ein abweichendes Wirtschaftsjahr
+     haben (`fiscalYearStartMonth`). Wer hier das Wirtschaftsjahr nähme, käme
+     bei jeder solchen WEG auf eine falsche Summe.
+199. **Die zweite Grenze von 15.000 € ist NICHT eingebaut** — eine bewusste
+     Auslassung, keine Vergesslichkeit. § 48 Abs. 2 Satz 1 Nr. 1 EStG knüpft sie
+     an ausschließlich steuerfreie Vermietungsumsätze nach § 4 Nr. 12 UStG. Die
+     Leistungen einer WEG an ihre Eigentümer sind nach § 4 Nr. **13** UStG
+     steuerfrei — eine andere Nummer. Ob die höhere Grenze greift, ist eine
+     Frage an den Steuerberater, nicht aus dem Wortlaut zu beantworten. Bis das
+     geklärt ist, gilt die niedrigere: Wer zu früh warnt, verursacht eine
+     Rückfrage; wer zu spät warnt, verursacht eine Haftung. Die Zahl steht an
+     genau einer Stelle (`BAGATELLGRENZE_CENTS`).
+200. **„Bauleistung" als Kennzeichen an der Kostenart.** § 48 gilt nur für
+     Herstellung, Instandsetzung, Instandhaltung, Änderung und Beseitigung von
+     Bauwerken. Gartenpflege, Treppenhausreinigung und Winterdienst sind keine
+     Bauleistungen. Ohne diese Unterscheidung warnte das Programm bei jeder
+     Reinigungsrechnung und wäre nach dem dritten Fehlalarm wertlos.
+201. **Die Warnung steht vor der Zahlung, nicht danach** — und rechnet ohne
+     Serveranfrage, weil Jahressummen und Bauleistungs-Kennzeichen ohnehin auf
+     der Seite stehen.
+202. **Sie sperrt nicht, sie verlangt eine Entscheidung.** Ob einbehalten wurde,
+     weiß nur der Mensch davor — vielleicht wurde längst gekürzt überwiesen. Das
+     bewusste Häkchen wandert samt Betrag ins Audit-Log: Bei einer späteren
+     Haftungsfrage ist genau das die Frage — wusste es jemand, und wann?
+     Serverseitig läuft dieselbe Prüfung noch einmal; ein Häkchen im Browser ist
+     keine Zusicherung.
+203. **Drei Orte, drei Tonlagen — weil drei verschiedene Dinge noch möglich
+     sind.** Beim manuellen Buchen: warnen, Einbehalt ist noch möglich. Beim
+     nachträglichen Zuordnen importierter Buchungen: nur informieren, das Geld
+     ist überwiesen. In der Kontaktliste: vorwarnen ab 4.000 €, damit die
+     Bescheinigung **vor** dem nächsten Auftrag angefordert wird.
+204. **Freistellungsbescheinigung: zwei Felder und eine Datei, kein Häkchen.**
+     Ein Kreuz „hat eine" könnte das Programm nie widerrufen — Bescheinigungen
+     laufen ab, und das ist der häufige Fall. Das Datum macht die Prüfung
+     selbsttätig, und „abgelaufen" wird von „gab es noch nie" unterschieden,
+     weil die Abhilfe eine andere ist. Alle drei Angaben sind **freiwillig**.
+205. **Ein Upload darf kein Feld löschen.** Die Dateifelder werden nur
+     überschrieben, wenn wirklich eine neue Datei kam — sonst hätte das Ändern
+     der Telefonnummer die hinterlegte Bescheinigung mitgelöscht.
+
+**Was die Prüfläufe gefunden haben** (alles behoben): ein Codeblock war in die
+**falsche Funktion** gerutscht (`createBooking` statt `assignCostType`); der
+Fehlerfall beim Datei-Upload wäre **stumm** geblieben, weil die Kontakt-
+Detailseite kein Fehlerbanner hatte; der Link auf die hinterlegte Datei wurde
+vom Rahmen **abgeschnitten**; und **„5.400,00 € €"** — `formatCents` bringt das
+Währungszeichen selbst mit.
+
+Geprüft an echten Daten: drei Rechnungen à 1.800 €, mit und ohne Bescheinigung,
+mit abgelaufener, gegen eine Nicht-Bauleistung über 9.000 €, und nach Storno
+einer der drei. Dazu der Import-Weg im Browser.
+
+## Schritt 38 — Verzugszinsen § 288 BGB (29.07.2026)
+
+Vorgezogen, weil die Lücke **im schon gebauten Code** stand: Die Tilgungs-
+reihenfolge nach § 367 BGB (Kosten → Zinsen → Hauptforderung) war seit KP9
+sauber eingebaut und bekam in `opos-service.ts` immer Nullen geliefert
+(`kostenCents: 0, zinsenCents: 0`). Das ist die unangenehmste Sorte Lücke — sie
+sieht im Code vollständig aus. Für eine WEG ist sie existenziell: Ein säumiger
+Eigentümer bedeutet, dass die übrigen seine Lücke vorstrecken.
+
+206. **Der Basiszinssatz ist Daten, keine Tabelle im Quelltext.** Er wechselt
+     halbjährlich zum 1.1. und 1.7. (§ 247 Abs. 2 BGB). Ein einprogrammierter
+     Wert ist ab dem nächsten Halbjahr falsch, niemand merkt es, und die
+     veraltete Zahl steht in einer Mahnung, die nach außen geht. **Bewusst ohne
+     Vorbelegung ausgeliefert:** Werte, die ich nicht belegen kann, wären in
+     einem Schreiben, das der Empfänger nachrechnet, schlimmer als gar keine.
+207. **Fehlt ein Satz, wird nicht gerechnet.** Kein Fortschreiben des letzten
+     bekannten Werts. Die Oberfläche schreibt „nicht berechenbar" statt
+     „0,00 €" und nennt den Weg zur Pflege. Eine Null, die in Wahrheit eine
+     Lücke ist, ist die gefährlichste Zahl auf der Seite. Ein Test hält das fest.
+208. **Fünf Punkte über Basiszinssatz, nicht neun.** § 288 Abs. 2 BGB gilt nur
+     ohne Verbraucherbeteiligung; der Wohnungseigentümer ist regelmäßig
+     Verbraucher. Eine Mahnung mit überhöhter Zinsforderung ist angreifbar.
+209. **Verzug ab dem Tag nach Fälligkeit, ohne Mahnung.** Hausgeld aus einem
+     beschlossenen Wirtschaftsplan ist kalendermäßig bestimmt (§ 286 Abs. 2
+     Nr. 1 BGB). Der Fälligkeitstag selbst zählt nicht mit (§ 187 Abs. 1).
+210. **Taggenau und je Zinsperiode getrennt**, mit 365 bzw. 366 Tagen. Über den
+     ganzen Zeitraum mit einem Durchschnittssatz zu rechnen wäre einfacher und
+     falsch. Gerundet wird erst am Ende.
+211. **Zinsen nur auf fällige Forderungen**, und je Forderung ab ihrer eigenen
+     Fälligkeit. Eine Sollstellung für den nächsten Monat ist nicht rückständig.
+212. **Keine 40-€-Pauschale.** § 288 Abs. 5 BGB gilt nur zwischen Unternehmern.
+213. **Ein Fehler in meiner eigenen Zeile, sofort korrigiert.** Die Mahnkosten
+     hängen an der ältesten offenen Forderung. Ohne die Fälligkeit in der
+     Bedingung wären sie in dem Fall, dass alle vergangenen Forderungen bezahlt
+     sind, lautlos aus der gefilterten Liste gefallen.
+214. **Der Glossar-Test aus LP3 hat mich abgefangen**: Meine erste Erklärung zu
+     „Verzugszinsen" war zu lang. Die Regel gilt auch für den, der sie
+     aufgestellt hat.
+
+Gegengerechnet an echten Daten, Zeile für Zeile:
+
+```
+2026-03-01: 51,99 € x 7,5 % x 150 d = 1,60 €
+2026-04-01: 52,00 € x 7,5 % x 119 d = 1,27 €
+2026-05-01: 52,00 € x 7,5 % x  89 d = 0,95 €
+2026-06-01: 52,00 € x 7,5 % x  58 d = 0,62 €
+2026-07-01: 52,00 € x 7,5 % x  28 d = 0,30 €
+                                SUMME 4,74 €
+```
+
+Dieselben 4,74 € stehen in der Rückstandsliste; ohne hinterlegten Satz stand
+dort in jeder Zeile „nicht berechenbar".
+
+## Schritt 39 — Mahnwesen vollständig (29.07.2026)
+
+Zinsen und Kosten stehen jetzt auch **im Schreiben**, nicht nur in der Liste.
+
+215. **Festgeschrieben beim Erstellen**, nicht bei jeder Anzeige neu gerechnet.
+     Ist das Schreiben raus, muss nachvollziehbar bleiben, was darin stand. Eine
+     Mahnung, deren Beträge sich später von selbst ändern, ist als Nachweis
+     wertlos. `interestCents` bleibt `null`, wenn kein Basiszinssatz vorlag.
+216. **Die erste Stufe bleibt kostenfrei.** Vor der ersten Mahnung wusste der
+     Schuldner nicht, dass Kosten entstehen; erst ab der zweiten sind sie ein
+     ersatzfähiger Verzugsschaden.
+217. **Das PDF schlüsselt auf, statt eine Summe zu nennen.** Eine Mahnung, die
+     nur einen Endbetrag zeigt, gibt dem Empfänger nichts, was er prüfen kann.
+     Bei einer Zahlungserinnerung ohne Zinsen und Kosten bleibt es beim
+     bisherigen einzeiligen „Offener Betrag".
+218. **Das Mahnkosten-Feld zeigte „2,50 €" statt „2,50".** `formatCents` hängt
+     ein geschütztes Leerzeichen und das Währungszeichen an; das Label sagt
+     ohnehin „(€)". Gefunden im Prüflauf, nicht beim Lesen.
+219. **Drei DECISIONS-Einträge waren zwischenzeitlich verloren.** Die Schritte
+     37 bis 39 wurden mit `cat >> portal/DECISIONS.md` in Befehlsketten
+     angehängt, die vorher an einem Verzeichniswechsel abbrachen — der Commit
+     danach enthielt nur den Code. Ich hatte den Eintrag jeweils schon als
+     erledigt gemeldet. Nachgetragen; künftig wird das Anhängen nicht mit
+     anderen Befehlen verkettet.
+
+Am fertigen PDF gegengeprüft (Text aus dem Dokument selbst gezogen, nicht aus
+der Oberfläche):
+
+```
+Hausgeld-Rückstand                259,99 €
+Verzugszinsen (§ 288 Abs. 1 BGB)    4,74 €
+Mahnkosten                          2,50 €
+Gesamtforderung:                  267,23 €
+```
+
+Datenseitig bestätigt: Stufe 1 mit `feeCents = 0`, Stufen 2 und 3 mit 2,50 €.
+Der zum Prüfen eingetragene Basiszinssatz, die Testmahnungen und die Mahnkosten
+wurden danach wieder entfernt — erfundene Zahlen bleiben nicht in der Datenbank
+stehen.

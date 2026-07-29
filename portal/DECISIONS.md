@@ -1473,3 +1473,118 @@ Quelltextes, auf Konto- oder Repository-Ebene (Actions-Kontingent oder
 ausbleiben: GitHub → Settings → Billing (Actions-Minuten / Spending Limit) und
 Settings → Actions → General (ob Actions für das Repository erlaubt sind). Für
 den Betrieb ist das nun nicht mehr dringend — die Prüfung läuft ohnehin.
+
+## Schritt 42 — Die drei gesetzlich geforderten Lücken (29.07.2026)
+
+Drei Punkte, die das Gesetz verlangt und die das Programm bisher offen ließ.
+Klein im Umfang, aber jeder davon der Unterschied zwischen „erfüllt" und
+„nicht erfüllt".
+
+230. **Der Vermögensbericht kannte nur die Haben-Seite** (§ 28 Abs. 4 WEG).
+     Gezeigt wurden Rücklage, Kontostände und Hausgeldrückstände; darunter stand
+     der Satz, Verbindlichkeiten würden „derzeit nicht erfasst". Ein Bericht
+     über das Vermögen, der nur nennt, was hereinkommt, ist keiner — und er ist
+     auf die gefährliche Weise falsch: Er sieht zu gut aus, und genau danach
+     wird über Sonderumlagen entschieden. Neu ist ein Modell `Verbindlichkeit`
+     je Objekt, eine Pflegeseite und die Gegenüberstellung Aktiva/Passiva mit
+     **Reinvermögen**. Ist es negativ, sagt der Bericht das ausdrücklich.
+231. **Verbindlichkeiten werden von Hand geführt, nicht abgeleitet.** Eine noch
+     nicht bezahlte Rechnung ist gerade *keine* Buchung — sie liegt im Ordner.
+     Ableiten ließe sich nur, was schon bezahlt wurde, und das ist keine
+     Verbindlichkeit mehr.
+232. **Drei Daten statt einem, und das ist der ganze Punkt.** `incurredOn`
+     (entstanden), `dueDate` (fällig, freiwillig), `settledAt` (beglichen). Der
+     Bericht blickt auf einen **Stichtag**: Eine Rechnung vom 3. November zählt
+     zum 31.12., auch wenn sie erst im Februar bezahlt wird; eine vom Februar
+     zählt nicht. Beglichene Einträge werden **nicht gelöscht**, sondern
+     datiert — sonst änderte sich ein bereits beschlossener Bericht rückwirkend,
+     sobald jemand eine alte Rechnung bezahlt.
+233. **Der Bericht wird eingefroren, nicht nachgerechnet.** Er entsteht in
+     `computeStatementView` und wandert damit bei FERTIG in den Snapshot. Läde
+     die Seite die Verbindlichkeiten stattdessen live, hätte derselbe Fehler
+     durch die Hintertür wieder Einzug gehalten. Ältere, vor dieser Erweiterung
+     fertiggestellte Abrechnungen tragen den Bericht nicht im Snapshot; sie
+     bekommen einen Hinweis statt einer nachträglich gerechneten Zahl.
+234. **Bauabzugsteuer: die zweite Hälfte der Pflicht** (§ 48a Abs. 1 EStG).
+     Bisher warnte das Programm *vor* der Zahlung — richtig, aber halb. Wer
+     einbehält, muss bis zum **10. Tag des Folgemonats** anmelden und abführen.
+     Diese Frist verstreicht lautlos: Das Geld liegt auf dem Gemeinschaftskonto,
+     sieht nach Guthaben aus und ist keines, und die Haftung besteht fort.
+235. **Aus einem Häkchen wurde eine Frage.** Vorher: „Ich habe das
+     berücksichtigt" — das hielt nur fest, *dass* gewarnt wurde. Jetzt zwei
+     Antworten: einbehalten oder ungekürzt gezahlt. Nur die erste erzeugt eine
+     Frist, und nur weil das Programm den Unterschied kennt, kann es erinnern.
+     Beides landet zusätzlich im Audit-Log — bei einer Haftungsfrage ist genau
+     das die Frage.
+236. **§ 108 Abs. 3 AO ist mitgerechnet**, samt beweglicher Feiertage. Fällt der
+     10. auf Samstag, Sonntag oder Feiertag, endet die Frist am nächsten
+     Werktag. Dafür braucht es den Ostersonntag (Karfreitag, Ostermontag und
+     Christi Himmelfahrt können auf einen Zehnten fallen). **Landesfeiertage
+     bewusst nicht**: § 108 Abs. 3 AO stellt auf den Ort des Finanzamts ab, und
+     Fronleichnam gilt nicht überall. Wer sie einträgt, trifft für die Hälfte
+     der Nutzer eine falsche Aussage; das Weglassen nennt höchstens einen Tag zu
+     früh — nie einen zu spät.
+237. **Abgehakt wird je Monat, nicht je Buchung.** Abgegeben wird eine Anmeldung
+     für den Monat. Ließen sich einzelne Buchungen abhaken, gäbe es irgendwann
+     einen halb angemeldeten Monat — und keine Möglichkeit zu sagen, welche
+     Hälfte. Die Meldung sagt außerdem ausdrücklich, dass der Haken ein Vermerk
+     ist und keine Abgabe.
+238. **Belegeinsicht: das meiste war schon da, die Lücke lag woanders.** Der
+     geplante Punkt „Belegeinsicht für den Beirat" war zu zwei Dritteln bereits
+     gebaut — Eigentümer sehen die Buchhaltung ihrer WEG samt Belegen, und der
+     Prüfvermerk des Beirats ließ sich setzen. Zwei echte Lücken blieben:
+239. **Stornierte Buchungen standen ungekennzeichnet in der Belegeinsicht.**
+     Herausgefiltert werden dürfen sie nicht — § 18 Abs. 4 WEG umfasst den
+     vollständigen Bestand, und eine Buchhaltung, aus der etwas verschwindet,
+     ist keine. Ungekennzeichnet zählt der Eigentümer die Ausgabe aber zweimal:
+     einmal das Original, einmal die Gegenbuchung. Jetzt tragen beide ein
+     Etikett und einen durchgestrichenen Betrag.
+240. **Der Beirat wusste nicht, dass etwas auf ihn wartet.** Der Prüfvermerk
+     ließ sich setzen — aber nur, wenn man ihn auf der Finanzen-Seite zufällig
+     fand. Der Beiratsbereich listet jetzt, was zu prüfen ist, mit dem Stand des
+     Vermerks und einem Link in die Belege **des betreffenden Jahres**: Wer die
+     Abrechnung 2025 prüft, will die Buchungen von 2025 sehen und nicht erst
+     einen Filter suchen.
+
+**Unterwegs gefunden — und das war der wichtigste Fund des Tages.**
+
+241. **Jede Seite antwortete mit HTTP 500, solange die Tour lief.** In der
+     Sprechblase stand `window.innerWidth`, und zwar in dem Zweig, der greift,
+     solange kein Ziel gemessen ist — also genau im Serverfall. Ergebnis:
+     `ReferenceError: window is not defined`, und der Server antwortete mit 500.
+     Im Browser sah man davon **nichts**: React reicht den Client-Teil nach, die
+     Seite baut sich auf, alles wirkt heil. Aufgefallen ist es erst, weil der
+     Prüfdurchgang die Antwortcodes mitliest und nicht nur den sichtbaren Text.
+     Gegengeprüft an vier bestehenden Seiten (`/dashboard`, `/verwaltung/objekte`,
+     `/vorgaenge`, `/verwaltung/weg`) — alle vier betroffen, alle vier jetzt 200.
+     Das stand seit LP6 in Produktion.
+242. **Behoben per CSS, nicht per Messung**: `min(Xpx, calc(100vw - 24px))`. Das
+     rechnet der Browser selbst, bei jeder Größenänderung, ganz ohne erneutes
+     Rendern — und es gibt nichts mehr, was auf dem Server fehlen könnte.
+243. **Ein Test, der ohne `window` rendert.** `tour.ssr.test.tsx` ruft
+     `renderToString` in der Node-Umgebung der Testsuite auf — dieselbe Lage wie
+     im Produktionsserver. Bewusst **kein** jsdom: Ein Test, der `window`
+     bekommt, hätte diesen Fehler nie gefunden. Und bewusst kein Verbot des
+     Wortes `window` im Quelltext — in Effekten ist es völlig richtig. Geprüft
+     wird, ob das Rendern gelingt. Gegengeprüft, dass er greift: mit
+     zurückgedrehter Korrektur schlägt er mit genau diesem `ReferenceError` fehl.
+     Dafür nimmt `vitest.config.ts` jetzt auch `.test.tsx` an.
+
+**Zwei Fehler, die erst der Blick auf die fertige Seite zeigte** — beide wären
+durch Typprüfung, Linter und Tests unbemerkt durchgegangen:
+
+244. **Datumsangaben trugen die Uhrzeit**: „01.06.2025, 00:00". `formatDate`
+     statt `formatDateOnly` — in einer Liste von Rechnungsdaten ist die Uhrzeit
+     Lärm, und „00:00" sieht nach fehlender Angabe aus.
+245. **Die erledigten Verbindlichkeiten standen oben.** `orderBy settledAt asc`
+     sortiert NULL in PostgreSQL ans **Ende** — offene Posten haben aber
+     `settledAt = null`. Also stand ganz oben, was schon erledigt war, und
+     unten, was noch zu tun ist. Behoben mit `nulls: "first"`.
+
+**Geprüft.** 398 Tests (27 neue), ESLint, `tsc`, Produktions-Build. Datenbank von
+null: 94 Migrationen, Seed, dann 16 Gegenproben an echten Daten — unter anderem,
+dass von fünf Verbindlichkeiten genau drei zum Stichtag zählen, dass der Bericht
+die JSON-Runde des Snapshots übersteht, dass die Frist für eine Zahlung im
+September 2026 auf Montag, den 12.10., rutscht (der 10. ist ein Samstag) und dass
+eine stornierte Zahlung keine Anmeldepflicht erzeugt. Danach der Durchgang im
+Browser mit Verwalter- und Eigentümerkonto: keine Fehler, kein 500er.

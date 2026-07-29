@@ -127,7 +127,14 @@ export async function createBooking(formData: FormData) {
     betragCents: amountCents,
     stichtag: bookingDate,
   });
-  if (bauabzug.pflicht && parsed.data.kind === "AUSGABE" && parsed.data.bauabzugBestaetigt !== "ja") {
+  const einbehalten =
+    bauabzug.pflicht &&
+    parsed.data.kind === "AUSGABE" &&
+    parsed.data.bauabzugBestaetigt === "einbehalten";
+  const bauabzugEntschieden =
+    parsed.data.bauabzugBestaetigt === "einbehalten" ||
+    parsed.data.bauabzugBestaetigt === "ungekuerzt";
+  if (bauabzug.pflicht && parsed.data.kind === "AUSGABE" && !bauabzugEntschieden) {
     back(property.id, "fehler=bauabzugsteuer");
   }
 
@@ -159,6 +166,9 @@ export async function createBooking(formData: FormData) {
       belegStoredName: beleg?.storedName ?? null,
       belegFileName: beleg?.fileName ?? null,
       belegMimeType: beleg?.mimeType ?? null,
+      // `null` heißt „nicht einbehalten" — der Normalfall, und etwas anderes
+      // als 0 Cent. Nur ein gesetzter Wert erzeugt eine Anmeldepflicht.
+      bauabzugCents: einbehalten && bauabzug.pflicht ? bauabzug.einbehaltCents : null,
       createdById: verwalter.id,
     },
   });
@@ -175,7 +185,12 @@ export async function createBooking(formData: FormData) {
       // Bei einer späteren Haftungsfrage ist genau das die Frage: Wusste es
       // jemand, und wann?
       ...(bauabzug.pflicht
-        ? { bauabzugsteuerBestaetigt: true, einbehaltCents: bauabzug.einbehaltCents }
+        ? {
+            bauabzugsteuerBestaetigt: true,
+            einbehaltCents: bauabzug.einbehaltCents,
+            // Der Unterschied, auf den es bei einer Haftungsfrage ankommt.
+            bauabzugsteuerEinbehalten: einbehalten,
+          }
         : {}),
     },
   });

@@ -647,43 +647,108 @@ Muster — ersetzt keine Rechtsberatung.`;
           </Tipp>
         </Card>
 
-        {/* Vermögensbericht */}
-        <Card title={`Vermögensbericht zum ${new Date(new Date(view.fyEnd).getTime() - 86400000).toISOString().slice(0, 10).split("-").reverse().join(".")} (§ 28 Abs. 4 WEG)`}>
-          <dl className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-gray-400">
-                Stand Erhaltungsrücklage
-              </dt>
-              <dd className="text-lg font-semibold text-gray-900">
-                {euro(
-                  view.accounts
-                    .filter((a) => a.kind === "RUECKLAGE")
-                    .reduce((sum, a) => sum + a.endCents, 0),
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-gray-400">
-                Kontostände (laufend)
-              </dt>
-              <dd className="text-lg font-semibold text-gray-900">
-                {euro(
-                  view.accounts
-                    .filter((a) => a.kind === "GIRO")
-                    .reduce((sum, a) => sum + a.endCents, 0),
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-gray-400">
-                Forderungen (Hausgeldrückstände)
-              </dt>
-              <dd className="text-lg font-semibold text-gray-900">{euro(view.receivablesCents)}</dd>
-            </div>
-          </dl>
+        {/* Vermögensbericht (§ 28 Abs. 4 WEG) */}
+        <Card
+          title={`Vermögensbericht zum ${formatDateOnly(
+            new Date(new Date(view.fyEnd).getTime() - 86400000),
+          )} (§ 28 Abs. 4 WEG)`}
+        >
+          {(() => {
+            // Ältere, vor dieser Erweiterung fertiggestellte Abrechnungen haben
+            // den Bericht nicht im Snapshot. Sie nachträglich live zu rechnen
+            // wäre falsch: Der Bericht gehört zu dem, was beschlossen wurde.
+            const bericht = view.vermoegensbericht;
+            if (!bericht) {
+              return (
+                <Alert variant="info">
+                  Diese Abrechnung wurde vor Einführung der Verbindlichkeiten fertiggestellt
+                  und trägt deshalb nur die Kontostände von damals. Sie bleibt unverändert —
+                  neue Abrechnungen weisen Verbindlichkeiten aus.
+                </Alert>
+              );
+            }
+            const zeile = (p: { bezeichnung: string; cents: number; hinweis?: string }) => (
+              <div
+                key={p.bezeichnung}
+                className="flex items-baseline justify-between gap-4 border-b border-gray-100 py-2 last:border-0"
+              >
+                <div>
+                  <div className="text-sm text-gray-800">{p.bezeichnung}</div>
+                  {p.hinweis ? (
+                    <div className="text-xs text-gray-500">{p.hinweis}</div>
+                  ) : null}
+                </div>
+                <div className="shrink-0 text-sm font-medium text-gray-900">
+                  {euro(p.cents)}
+                </div>
+              </div>
+            );
+            return (
+              <>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div>
+                    <h3 className="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+                      Vermögen
+                    </h3>
+                    {bericht.aktiva.map(zeile)}
+                    <div className="flex items-baseline justify-between gap-4 pt-2 text-sm font-semibold text-gray-900">
+                      <span>Summe</span>
+                      <span>{euro(bericht.aktivaCents)}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+                      Verbindlichkeiten
+                    </h3>
+                    {bericht.passiva.length === 0 ? (
+                      <p className="py-2 text-sm text-gray-500">
+                        Keine erfasst. Wenn die Gemeinschaft zum Stichtag nichts schuldete,
+                        ist das die richtige Angabe.
+                      </p>
+                    ) : (
+                      bericht.passiva.map(zeile)
+                    )}
+                    <div className="flex items-baseline justify-between gap-4 pt-2 text-sm font-semibold text-gray-900">
+                      <span>Summe</span>
+                      <span>{euro(bericht.passivaCents)}</span>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className={`mt-5 flex items-baseline justify-between gap-4 rounded-xl px-4 py-3 ${
+                    bericht.reinvermoegenCents < 0
+                      ? "bg-critical-light text-critical"
+                      : "bg-gray-50 text-gray-900"
+                  }`}
+                >
+                  <span className="text-sm font-semibold">Reinvermögen der Gemeinschaft</span>
+                  <span className="text-lg font-semibold">
+                    {euro(bericht.reinvermoegenCents)}
+                  </span>
+                </div>
+                {bericht.reinvermoegenCents < 0 ? (
+                  <Alert variant="warning" className="mt-3">
+                    Die Verbindlichkeiten übersteigen das Vermögen der Gemeinschaft. Das ist
+                    keine Fehlermeldung, sondern eine Feststellung — sie gehört in den
+                    Bericht und in die Versammlung.
+                  </Alert>
+                ) : null}
+              </>
+            );
+          })()}
           <Tipp className="mt-3">
-            Verbindlichkeiten und weitere Vermögensgegenstände werden derzeit nicht erfasst und
-            sind bei Bedarf manuell zu ergänzen.
+            Der Vermögensbericht sagt, was der Gemeinschaft gehört und was sie schuldet.
+            Verbindlichkeiten sind das, was am Stichtag noch offen war und nicht schon vom
+            Konto abgegangen ist — die Dezember-Rechnung, die im Januar bezahlt wurde, ein
+            Darlehen. Gepflegt werden sie unter{" "}
+            <Link
+              href={`/verwaltung/weg/${property.id}/verbindlichkeiten`}
+              className="underline"
+            >
+              Verbindlichkeiten
+            </Link>
+            . Bei fertiggestellten Abrechnungen ist der Bericht eingefroren: Was später
+            nachgetragen wird, ändert einen bereits beschlossenen Bericht nicht mehr.
           </Tipp>
         </Card>
 

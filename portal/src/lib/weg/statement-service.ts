@@ -12,6 +12,7 @@ import {
   splitByOwnership,
 } from "./annual-statement";
 import { fiscalYearRange } from "./economic-plan";
+import { baueVermoegensbericht, type Vermoegensbericht } from "./vermoegensbericht";
 
 export type StatementView = {
   year: number;
@@ -58,6 +59,17 @@ export type StatementView = {
   reserveTransferCents: number;
   reserveWithdrawalCents: number; // aus der Rücklage bezahlt, nicht umgelegt
   receivablesCents: number; // Forderungen (Hausgeldrückstände) zum Stichtag
+  /**
+   * Vermögensbericht nach § 28 Abs. 4 WEG — **fertig gerechnet**, nicht als
+   * Rohdaten.
+   *
+   * Absichtlich hier und nicht erst in der Seite: Bei FERTIG wird diese View
+   * als Snapshot eingefroren. Lüde die Seite die Verbindlichkeiten stattdessen
+   * live aus der Datenbank, änderte sich ein bereits **beschlossener** Bericht,
+   * sobald jemand später eine Rechnung nachträgt oder als beglichen markiert.
+   * Nur Zahlen und Zeichenketten, damit der Snapshot JSON-fähig bleibt.
+   */
+  vermoegensbericht: Vermoegensbericht;
 };
 
 type BookingGroup = {
@@ -350,6 +362,32 @@ export async function computeStatementView(
     if (open > 0) receivablesCents += open;
   }
 
+  // Verbindlichkeiten zum Stichtag = letzter Tag des Wirtschaftsjahres.
+  // `end` ist exklusiv, der Stichtag also der Tag davor.
+  const stichtag = new Date(end.getTime() - 86_400_000);
+  const verbindlichkeiten = await db.verbindlichkeit.findMany({
+    where: { propertyId: property.id, incurredOn: { lte: stichtag } },
+    select: {
+      title: true,
+      creditor: true,
+      kind: true,
+      amountCents: true,
+      incurredOn: true,
+      settledAt: true,
+    },
+  });
+  const vermoegensbericht = baueVermoegensbericht({
+    ruecklageCents: accountViews
+      .filter((a) => a.kind === "RUECKLAGE")
+      .reduce((sum, a) => sum + a.endCents, 0),
+    girokontenCents: accountViews
+      .filter((a) => a.kind === "GIRO")
+      .reduce((sum, a) => sum + a.endCents, 0),
+    forderungenCents: receivablesCents,
+    verbindlichkeiten,
+    stichtag,
+  });
+
   return {
     year,
     fyStart: start.toISOString().slice(0, 10),
@@ -381,5 +419,6 @@ export async function computeStatementView(
     reserveTransferCents,
     reserveWithdrawalCents: result.reserveWithdrawalCents,
     receivablesCents,
+    vermoegensbericht,
   };
 }

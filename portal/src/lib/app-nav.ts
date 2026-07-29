@@ -104,6 +104,12 @@ export function settingsItems(selfManaged: boolean): NavItem[] {
           },
         ]),
     {
+      href: "/verwaltung/bauabzugsteuer",
+      title: "Bauabzugsteuer",
+      desc: "Einbehalte anmelden — bis zum 10. des Folgemonats (§ 48a EStG)",
+      icon: "abrechnung",
+    },
+    {
       href: "/verwaltung/basiszinssatz",
       title: "Basiszinssatz",
       desc: "Grundlage der Verzugszinsen bei säumigem Hausgeld (§ 247 BGB, halbjährlich)",

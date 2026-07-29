@@ -330,6 +330,7 @@ model Organization {
   baseInterestRates     BaseInterestRate[]
   sonderumlagen         Sonderumlage[]
   maintenanceMeasures   MaintenanceMeasure[]
+  verbindlichkeiten     Verbindlichkeit[]
   integrationSettings   IntegrationSetting[]
   sepaMandates          SepaMandate[]
   co2Allocations        Co2Allocation[]
@@ -441,6 +442,7 @@ model User {
   paymentAllocations        PaymentAllocation[]       @relation("PaymentAllocationCreatedBy")
   sonderumlagenCreated      Sonderumlage[]            @relation("SonderumlageCreatedBy")
   maintenanceMeasuresCreated MaintenanceMeasure[]     @relation("MaintenanceMeasureCreatedBy")
+  verbindlichkeitenCreated   Verbindlichkeit[]         @relation("VerbindlichkeitCreatedBy")
   sepaMandatesCreated        SepaMandate[]            @relation("SepaMandateCreatedBy")
   co2AllocationsCreated      Co2Allocation[]          @relation("Co2AllocationCreatedBy")
   wegSetupStepsDone          WegSetupStep[]           @relation("WegSetupStepDoneBy")
@@ -543,6 +545,7 @@ model Property {
   hausgeldMahnungen     HausgeldMahnung[]
   sonderumlagen         Sonderumlage[]
   maintenanceMeasures   MaintenanceMeasure[]
+  verbindlichkeiten     Verbindlichkeit[]
   sepaMandates          SepaMandate[]
   co2Allocations        Co2Allocation[]
   beiratTasks           BeiratTask[]
@@ -1531,6 +1534,21 @@ model Booking {
   reversedBy      Booking?         @relation("BookingReversal")
   // Auf welche Forderungen diese Zahlung angerechnet wurde (§§ 366, 367 BGB).
   allocations     PaymentAllocation[]
+  // ── Bauabzugsteuer (§§ 48, 48a EStG) ──────────────────────────────────────
+  // Tatsächlich einbehaltener Betrag. `null` heißt „nicht einbehalten" — das
+  // ist der Normalfall (keine Bauleistung oder Freistellungsbescheinigung) und
+  // etwas anderes als 0 Cent.
+  //
+  // Der Einbehalt allein genügt nicht: Er ist bis zum **10. Tag nach Ablauf des
+  // Monats**, in dem die Gegenleistung erbracht wurde, anzumelden und
+  // abzuführen (§ 48a Abs. 1 EStG). Wer einbehält und nicht anmeldet, hat das
+  // Geld der Gemeinschaft weder abgeführt noch dem Handwerker gezahlt — und
+  // haftet weiterhin. Deshalb wird der Einbehalt hier festgehalten und nicht
+  // nur gewarnt.
+  bauabzugCents        Int?
+  // Wann die Anmeldung beim Finanzamt abgegeben wurde. Solange `null`, steht
+  // die Buchung in der Fristenliste.
+  bauabzugAngemeldetAt DateTime?
   // Beleg (gleiche Storage-Konvention wie Handover: storedName/fileName/mimeType)
   belegStoredName String?
   belegFileName   String?
@@ -2015,4 +2033,49 @@ model CraftsmanInvoice {
 
   @@index([organizationId])
   @@index([craftsmanId])
+}
+
+// ── Verbindlichkeiten der Gemeinschaft (§ 28 Abs. 4 WEG) ─────────────────────
+// Der Vermögensbericht muss das **wesentliche Gemeinschaftsvermögen** angeben.
+// Vermögen ist nicht nur, was da ist, sondern auch, was geschuldet wird: Eine
+// Gemeinschaft mit 40.000 € Rücklage und einem Darlehen von 60.000 € steht
+// nicht mit 40.000 € da. Ohne diese Seite ist der Bericht kein Bericht über das
+// Vermögen, sondern nur eine Kontostandsliste — und zwar eine, die zu gut
+// aussieht. Genau das stand bisher als Hinweis unter dem Bericht.
+//
+// Bewusst **manuell** geführt und nicht aus Buchungen abgeleitet: Eine noch
+// nicht bezahlte Rechnung ist gerade keine Buchung. Sie steht im Ordner, nicht
+// im Konto.
+enum VerbindlichkeitKind {
+  RECHNUNG // offene Eingangsrechnung
+  DARLEHEN // Kredit der Gemeinschaft
+  SONSTIGE
+}
+
+model Verbindlichkeit {
+  id             String              @id @default(cuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  title          String
+  kind           VerbindlichkeitKind @default(RECHNUNG)
+  creditor       String? // Gläubiger (Handwerker, Bank, Versorger)
+  amountCents    Int // offener Betrag, immer positiv
+  // Wann die Verbindlichkeit entstanden ist. Pflicht, weil der Vermögensbericht
+  // auf einen **Stichtag** blickt: Eine Rechnung vom Februar gehört nicht in den
+  // Bericht zum 31.12. des Vorjahres, auch wenn sie heute offen ist.
+  incurredOn     DateTime
+  dueDate        DateTime? // Fällig am (für die Übersicht, nicht für den Bericht)
+  note           String?
+  // Beglichen am. Danach zählt die Verbindlichkeit nur noch für Stichtage
+  // **vor** diesem Datum — gelöscht wird nichts, sonst änderte sich ein bereits
+  // beschlossener Vermögensbericht rückwirkend.
+  settledAt      DateTime?
+  createdById    String
+  createdBy      User                @relation("VerbindlichkeitCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime            @default(now())
+
+  @@index([propertyId])
+  @@index([propertyId, settledAt])
 }

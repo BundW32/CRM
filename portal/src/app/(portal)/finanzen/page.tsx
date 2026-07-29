@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert, Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Badge } from "@/components/data-display";
 import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { SubmitButton } from "@/components/submit-button";
 import { isBoardMemberOf, ownedUnitIdsInProperty, wegPropertiesForOwner } from "@/lib/access";
@@ -176,7 +177,18 @@ export default async function FinanzenPage({
     // Paginiert statt gedeckelt – das Leserecht umfasst den ganzen Bestand.
     db.booking.findMany({
       where: bookingWhere,
-      include: { account: { select: { name: true } }, costType: { select: { name: true } } },
+      include: {
+        account: { select: { name: true } },
+        costType: { select: { name: true } },
+        // Storno wird **nicht** herausgefiltert: Das Einsichtsrecht nach § 18
+        // Abs. 4 WEG umfasst den vollständigen Bestand, und eine Buchhaltung,
+        // aus der etwas verschwindet, ist keine. Gezeigt werden muss aber, dass
+        // sie neutralisiert ist — sonst zählt der Eigentümer eine Ausgabe mit,
+        // die es nicht gab, und zwar zweimal: einmal das Original, einmal die
+        // Gegenbuchung.
+        reversedBy: { select: { id: true } },
+        reversalOf: { select: { id: true, text: true } },
+      },
       orderBy: [{ bookingDate: "desc" }, { createdAt: "desc" }],
       skip: (bPage - 1) * BOOKINGS_PAGE_SIZE,
       take: BOOKINGS_PAGE_SIZE,
@@ -543,11 +555,27 @@ export default async function FinanzenPage({
                           {formatDateOnly(b.bookingDate)}
                         </td>
                         <td className="py-2 pr-3 text-gray-600">{b.account.name}</td>
-                        <td className="py-2 pr-3 text-gray-900">{b.text}</td>
+                        <td className="py-2 pr-3 text-gray-900">
+                          {b.text}
+                          {b.reversedBy ? (
+                            <Badge tone="neutral" className="ml-2">
+                              storniert
+                            </Badge>
+                          ) : null}
+                          {b.reversalOf ? (
+                            <Badge tone="neutral" className="ml-2">
+                              Storno
+                            </Badge>
+                          ) : null}
+                        </td>
                         <td className="py-2 pr-3 text-gray-600">{b.costType?.name ?? "—"}</td>
                         <td
                           className={`py-2 pr-3 text-right font-medium whitespace-nowrap ${
-                            sign < 0 ? "text-red-700" : "text-green-700"
+                            b.reversedBy || b.reversalOf
+                              ? "text-gray-400 line-through"
+                              : sign < 0
+                                ? "text-red-700"
+                                : "text-green-700"
                           }`}
                         >
                           {sign < 0 ? "−" : "+"}

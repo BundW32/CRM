@@ -13,6 +13,7 @@ export {
   type LetterRecipient,
 } from "./letter";
 export { embedFonts, type DocumentFonts } from "./fonts";
+export { checkbox, checkboxLine, formGrid, formSection, type FormRow } from "./form";
 export {
   CONTENT_WIDTH,
   DIN,

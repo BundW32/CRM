@@ -12,6 +12,10 @@ import { generateMahnung } from "./mahnung";
 import { generateBetriebskosten } from "./betriebskosten";
 import { generateMeetingInvitation } from "./meeting-invitation";
 import { renderPlatformInvoicePdf } from "./platform-invoice";
+import {
+  generateMietbescheinigung,
+  generateWohnungsgeberbescheinigung,
+} from "./bescheinigungen";
 // Gemeinsamer Prüfhelfer: liest über pdf.js zurück und kommt damit sowohl mit
 // den eingebetteten Schriften des Kits als auch mit den noch nicht umgestellten
 // Standard-Schriften zurecht.
@@ -258,5 +262,62 @@ describe("Plattform-Rechnung: Satzspiegel", () => {
     expect(items.some((it) => it.text.startsWith("Gesamtbetrag"))).toBe(true);
     // Der Storno-Hinweis darf nicht untergehen.
     expect(items.some((it) => it.text.includes("storniert"))).toBe(true);
+  });
+});
+
+describe("Bescheinigungen: Satzspiegel", () => {
+  const basis = {
+    ort: "Gladbeck",
+    ausstellungsdatum: new Date(2026, 6, 29),
+    unterzeichner: "i. A. B&W Immobilien Management UG für Ayşe Şahin-Grünewald",
+    signature: null,
+  };
+
+  it("Mietbescheinigung hält die Ränder", async () => {
+    const pdf = await generateMietbescheinigung({
+      ...basis,
+      mieterNamen: ["Ayşe Şahin-Grünewald", "Krzysztof Wiśniewski-Öztürk"],
+      wohnungAnschrift: "Lindenstraße 14, 3. Obergeschoss rechts\n45964 Gladbeck",
+      mietbeginn: new Date(2021, 3, 1),
+      vermieterName: "Wohnungseigentümergemeinschaft Lindenhof-Gladbeck Verwaltungs- und Betreuungsgesellschaft mbH & Co. KG",
+      issuer: langerIssuer,
+    });
+    assertInsideMargins(await drawnTexts(pdf));
+  });
+
+  it("Wohnungsgeberbestätigung hält die Ränder", async () => {
+    const pdf = await generateWohnungsgeberbescheinigung({
+      ...basis,
+      wohnungsgeberName: "Wohnungseigentümergemeinschaft Lindenhof-Gladbeck Verwaltungs- und Betreuungsgesellschaft mbH & Co. KG",
+      wohnungsgeberStrasse: "Goethestraße 42, Hinterhaus, Aufgang C",
+      wohnungsgeberPlzOrt: "45964 Gladbeck-Zweckel",
+      wohnungStrasse: "Lindenstraße 14",
+      wohnungPlzOrt: "45964 Gladbeck",
+      wohnungZusatz: "WE 07, 3. OG rechts",
+      mieterNamen: ["Ayşe Şahin-Grünewald", "Krzysztof Wiśniewski-Öztürk"],
+      einzugsdatum: new Date(2021, 3, 1),
+    });
+    assertInsideMargins(await drawnTexts(pdf));
+  });
+
+  it("legt überzählige Personen auf eine Anlage, statt sie wegzulassen", async () => {
+    const namen = Array.from({ length: 11 }, (_, i) => `Vorname${i + 1} Nachname${i + 1}`);
+    const pdf = await generateWohnungsgeberbescheinigung({
+      ...basis,
+      wohnungsgeberName: "B&W Immobilien Management UG (haftungsbeschränkt)",
+      wohnungsgeberStrasse: "Goethestraße 42",
+      wohnungsgeberPlzOrt: "45964 Gladbeck",
+      wohnungStrasse: "Lindenstraße 14",
+      wohnungPlzOrt: "45964 Gladbeck",
+      wohnungZusatz: "WE 07",
+      mieterNamen: namen,
+      einzugsdatum: new Date(2026, 0, 15),
+    });
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    const alle = items.map((it) => it.text).join(" ");
+    for (const name of namen) {
+      expect(alle, `Person fehlt: ${name}`).toContain(name.split(" ")[1]);
+    }
   });
 });

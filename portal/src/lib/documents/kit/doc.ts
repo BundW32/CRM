@@ -390,6 +390,57 @@ export class Doc {
     }
   }
 
+  /**
+   * Unterschriftsblock: freigestelltes Bild (sofern vorhanden), Linie, Name.
+   *
+   * Ohne Bild bleibt die Linie mit Platz darüber stehen — dann wird von Hand
+   * unterschrieben. Eine Bescheinigung ohne Unterschriftsfeld wäre wertlos.
+   */
+  async signature(
+    png: Uint8Array | null,
+    label: string,
+    options: { ort?: string | null; datum?: string | null } = {},
+  ): Promise<void> {
+    this.ensure(mm(40));
+    if (options.ort || options.datum) {
+      this.text([options.ort, options.datum].filter(Boolean).join(", den "), {
+        color: color.muted,
+        lead: mm(6),
+      });
+    }
+    let drawn = false;
+    if (png) {
+      try {
+        const image = await this.pdf.embedPng(png);
+        const maxWidth = mm(60);
+        const maxHeight = mm(22);
+        const scale = Math.min(maxWidth / image.width, maxHeight / image.height);
+        const width = image.width * scale;
+        const height = image.height * scale;
+        this.page.drawImage(image, {
+          x: DIN.marginLeft,
+          y: this.y - height + mm(2),
+          width,
+          height,
+        });
+        this.y -= height;
+        drawn = true;
+      } catch {
+        /* Ein unlesbares Bild darf die Bescheinigung nicht verhindern. */
+      }
+    }
+    if (!drawn) this.y -= mm(18);
+
+    this.page.drawLine({
+      start: { x: DIN.marginLeft, y: this.y },
+      end: { x: DIN.marginLeft + mm(70), y: this.y },
+      thickness: 0.7,
+      color: color.muted,
+    });
+    this.y -= mm(5);
+    this.text(label, { size: size.small, color: color.muted });
+  }
+
   // ── Abschluss ──────────────────────────────────────────────────────────────
 
   /** Zeichnet die Fußzeile auf JEDE Seite und gibt das fertige PDF zurück. */

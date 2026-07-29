@@ -6,7 +6,9 @@
 // Zoo aus drei Rändern, elf Schriftgrößen und drei vergessenen
 // Umbruchprüfungen entstanden.
 export { Doc, type DocMeta, type TableCell, type TableColumn, type TextOptions } from "./doc";
+export { drawReportHead, type ReportHead } from "./report";
 export {
+  drawBrandHead,
   drawLetterHead,
   type LetterHead,
   type LetterIssuer,

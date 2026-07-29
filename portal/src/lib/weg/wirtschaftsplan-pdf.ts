@@ -4,6 +4,7 @@
 // Dokument erzeugen.
 import type { EconomicPlan, EconomicPlanItem, CostType, Unit } from "@/generated/prisma/client";
 import { getBrandingForOrg } from "@/lib/branding-server";
+import { briefkopfAus } from "@/lib/documents/briefkopf";
 import { db } from "@/lib/db";
 import { distributionKeyLabels } from "@/lib/labels";
 import { generateEinzelwirtschaftsplaene } from "@/lib/documents/einzelwirtschaftsplan";
@@ -45,13 +46,12 @@ export async function buildWirtschaftsplanPdf(args: {
     };
   });
 
-  const branding = await getBrandingForOrg(organizationId);
+  const kopf = briefkopfAus(await getBrandingForOrg(organizationId));
   return generateWirtschaftsplan({
     propertyName,
-    issuer: {
-      legalName: branding.legalName,
-      contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-    },
+    issuer: kopf.issuer,
+    brand: kopf.brand,
+    logoPath: kopf.logoPath,
     year: plan.year,
     resolved:
       plan.status === "BESCHLOSSEN" && plan.resolvedAt
@@ -99,13 +99,12 @@ export async function buildEinzelwirtschaftsplanPdf(args: {
   const auswahl = onlyUnitIds ? new Set(onlyUnitIds) : null;
   const gewaehlt = auswahl ? units.filter((u) => auswahl.has(u.id)) : units;
 
-  const branding = await getBrandingForOrg(organizationId);
+  const kopf = briefkopfAus(await getBrandingForOrg(organizationId));
   return generateEinzelwirtschaftsplaene({
     propertyName,
-    issuer: {
-      legalName: branding.legalName,
-      contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-    },
+    issuer: kopf.issuer,
+    brand: kopf.brand,
+    logoPath: kopf.logoPath,
     year: plan.year,
     resolved:
       plan.status === "BESCHLOSSEN" && plan.resolvedAt

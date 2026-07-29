@@ -12,6 +12,8 @@ import { generateMahnung } from "./mahnung";
 import { generateBetriebskosten } from "./betriebskosten";
 import { generateMeetingInvitation } from "./meeting-invitation";
 import { renderPlatformInvoicePdf } from "./platform-invoice";
+import { generateWirtschaftsplan } from "./wirtschaftsplan";
+import { generateEinzelwirtschaftsplaene } from "./einzelwirtschaftsplan";
 import {
   generateMietbescheinigung,
   generateWohnungsgeberbescheinigung,
@@ -319,5 +321,62 @@ describe("Bescheinigungen: Satzspiegel", () => {
     for (const name of namen) {
       expect(alle, `Person fehlt: ${name}`).toContain(name.split(" ")[1]);
     }
+  });
+});
+
+describe("Wirtschaftsplan: Satzspiegel", () => {
+  const positionen = Array.from({ length: 24 }, (_, i) => ({
+    name: `Kostenart ${i + 1}: Bewirtschaftung, Wartung und Instandhaltung der Gemeinschaftsanlagen`,
+    keyLabel: "70 % Verbrauch, 30 % Wohnfläche (HeizkostenV)",
+    amountCents: 123456 + i * 1000,
+  }));
+
+  it("hält die Ränder und behält alle Positionen", async () => {
+    const pdf = await generateWirtschaftsplan({
+      propertyName: "Wohnungseigentümergemeinschaft Lindenhof, Lindenstraße 12–16, 45964 Gladbeck-Zweckel",
+      issuer: langerKitIssuer,
+      year: 2027,
+      resolved: null,
+      positions: positionen,
+      totalCents: positionen.reduce((sum, p) => sum + p.amountCents, 0),
+      units: Array.from({ length: 30 }, (_, i) => ({
+        label: `WE ${String(i + 1).padStart(2, "0")} · Dachgeschoss links, Stellplatz 3`,
+        annualCents: 445000,
+        monthlyMinCents: 37083,
+        monthlyMaxCents: 37090,
+      })),
+      generatedAt: new Date(2026, 6, 29),
+    });
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    const alle = items.map((it) => it.text).join(" ");
+    expect(alle).toContain("Beschlussvorlage");
+    expect(alle).toContain("Kostenart 24");
+    expect(alle).toContain("WE 30");
+  });
+
+  it("Einzelwirtschaftsplan hält die Ränder", async () => {
+    const pdf = await generateEinzelwirtschaftsplaene({
+      propertyName: "Wohnungseigentümergemeinschaft Lindenhof, Lindenstraße 12–16, 45964 Gladbeck-Zweckel",
+      issuer: langerKitIssuer,
+      year: 2027,
+      resolved: { date: new Date(2026, 10, 14), note: "TOP 5 der Versammlung vom 14.11.2026" },
+      units: [
+        {
+          label: "WE 07 · 3. OG rechts",
+          ownerNames: ["Ayşe Şahin-Grünewald", "Krzysztof Wiśniewski-Öztürk"],
+          positions: positionen.map((p) => ({
+            name: p.name,
+            keyLabel: p.keyLabel,
+            totalCents: p.amountCents,
+            shareCents: Math.round(p.amountCents / 12),
+          })),
+          annualCents: 445750,
+          monthlyCents: Array.from({ length: 12 }, () => 37146),
+        },
+      ],
+      generatedAt: new Date(2026, 6, 29),
+    });
+    assertInsideMargins(await drawnTexts(pdf));
   });
 });

@@ -279,22 +279,34 @@ export class Doc {
     header();
 
     for (const row of rows) {
-      if (this.y - leading.body < PAGE.height - DIN.footerTop + mm(6)) {
+      // Linksbündige Zellen brechen um, statt zu kürzen: Ein Kostenname, der
+      // als „Mieteinnahmen Gemeinschaftsfläche (Einnah…" endet, ist in einer
+      // Abrechnung nicht prüfbar. Rechtsbündige Beträge bleiben einzeilig.
+      const cellLines = row.map((cell, i) => {
+        const font = cell.strong ? this.bold : this.font;
+        return columns[i].align === "right"
+          ? [fitText(cell.text, font, size.body, inner[i])]
+          : wrapText(cell.text, font, size.body, inner[i]);
+      });
+      const height = Math.max(1, ...cellLines.map((lines) => lines.length)) * leading.body;
+
+      if (this.y - height < PAGE.height - DIN.footerTop + mm(6)) {
         this.newPage();
         header();
       }
       row.forEach((cell, i) => {
         const font = cell.strong ? this.bold : this.font;
-        const text = fitText(cell.text, font, size.body, inner[i]);
-        this.page.drawText(text, {
-          x: place(text, i, font, size.body),
-          y: this.y,
-          size: size.body,
-          font,
-          color: cell.color ?? color.ink,
+        cellLines[i].forEach((text, line) => {
+          this.page.drawText(text, {
+            x: place(text, i, font, size.body),
+            y: this.y - line * leading.body,
+            size: size.body,
+            font,
+            color: cell.color ?? color.ink,
+          });
         });
       });
-      this.y -= leading.body;
+      this.y -= height;
     }
   }
 

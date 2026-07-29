@@ -24,6 +24,16 @@ export type MahnungInput = {
   recipientName: string;
   recipientAddress: string | null; // "Straße\nPLZ Ort"
   arrearsCents: number;
+  /**
+   * Verzugszinsen (§ 288 Abs. 1 BGB) zum Erstellzeitpunkt.
+   *
+   * `null` = für den Zeitraum ist kein Basiszinssatz hinterlegt. Dann nennt das
+   * Schreiben **keine** Zinsen — statt einer Null, die wie „keine Zinsen
+   * entstanden" aussieht.
+   */
+  interestCents: number | null;
+  /** Mahnkosten (tatsächlicher Aufwand). Ab der zweiten Stufe. */
+  feeCents: number;
   paymentDeadline: Date;
   iban: string | null; // Girokonto der Gemeinschaft
   accountHolder: string | null;
@@ -118,11 +128,38 @@ export async function generateMahnung(rawInput: MahnungInput): Promise<Buffer> {
   }
   y -= 8;
 
+  // Aufschlüsselung statt eines nackten Endbetrags.
+  //
+  // Eine Mahnung, die nur eine Summe nennt, gibt dem Empfänger nichts, was er
+  // prüfen kann — und genau daran scheitert sie, wenn er widerspricht. Zinsen
+  // und Kosten stehen deshalb als eigene Zeilen darüber.
+  const zeilen: [string, number][] = [["Hausgeld-Rückstand", input.arrearsCents]];
+  if (input.interestCents && input.interestCents > 0) {
+    zeilen.push(["Verzugszinsen (§ 288 Abs. 1 BGB)", input.interestCents]);
+  }
+  if (input.feeCents > 0) zeilen.push(["Mahnkosten", input.feeCents]);
+  const gesamtCents = zeilen.reduce((s, [, c]) => s + c, 0);
+
+  if (zeilen.length > 1) {
+    for (const [text, cents] of zeilen) {
+      const betrag = encodeWinAnsi(formatCents(cents));
+      page.drawText(encodeWinAnsi(text), { x: ML + 8, y, size: 10, font, color: BLACK });
+      page.drawText(betrag, {
+        x: ML + CW - 8 - font.widthOfTextAtSize(betrag, 10), y, size: 10, font, color: BLACK,
+      });
+      y -= 15;
+    }
+    y -= 3;
+  }
+
   // Betrag hervorgehoben
+  const gesamt = encodeWinAnsi(formatCents(gesamtCents));
   page.drawRectangle({ x: ML, y: y - 8, width: CW, height: 26, color: rgb(0.96, 0.96, 0.96) });
-  page.drawText("Offener Betrag:", { x: ML + 8, y, size: 11, font: bold, color: BLACK });
-  page.drawText(amount, {
-    x: ML + CW - 8 - bold.widthOfTextAtSize(amount, 12), y, size: 12, font: bold, color: rgb(0.6, 0.09, 0.09),
+  page.drawText(zeilen.length > 1 ? "Gesamtforderung:" : "Offener Betrag:", {
+    x: ML + 8, y, size: 11, font: bold, color: BLACK,
+  });
+  page.drawText(gesamt, {
+    x: ML + CW - 8 - bold.widthOfTextAtSize(gesamt, 12), y, size: 12, font: bold, color: rgb(0.6, 0.09, 0.09),
   });
   y -= 26;
   page.drawText(`Zahlbar bis: ${fmtDate(input.paymentDeadline)}`, { x: ML + 8, y, size: 10, font, color: BLACK });

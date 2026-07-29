@@ -48,6 +48,8 @@ export async function GET(
       recipientName: mahnung.recipientName,
       recipientAddress: mahnung.recipientAddress,
       arrearsCents: mahnung.arrearsCents,
+      interestCents: mahnung.interestCents,
+      feeCents: mahnung.feeCents,
       paymentDeadline: mahnung.paymentDeadline,
       iban: giro?.iban ?? null,
       accountHolder: giro?.iban ? mahnung.property.name : null,

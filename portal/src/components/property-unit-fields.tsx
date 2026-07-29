@@ -72,6 +72,7 @@ export function PropertyUnitFields({
           onSelect={handlePropertyChange}
           onClear={() => handlePropertyChange("")}
           clearOption={propertyPlaceholder}
+          tone="inForm"
         />
       </Field>
 
@@ -92,6 +93,7 @@ export function PropertyUnitFields({
           clearOption={unitPlaceholder}
           disabled={!propertyId || pending}
           disabledHint={propertyId ? "wird geladen …" : "zuerst Objekt wählen"}
+          tone="inForm"
         />
       </Field>
 

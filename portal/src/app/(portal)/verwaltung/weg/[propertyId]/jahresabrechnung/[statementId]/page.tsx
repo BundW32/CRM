@@ -13,6 +13,7 @@ import { MANUAL_KEYS } from "@/lib/weg/annual-statement";
 import { computeStatementView, type StatementView } from "@/lib/weg/statement-service";
 import { einheitenOhneFeld } from "@/lib/weg/economic-plan";
 import { requireWegProperty } from "@/lib/weg/scope";
+import { FilePreviewLink } from "@/components/file-preview-link";
 import {
   deleteStatement,
   finalizeStatement,
@@ -554,14 +555,13 @@ Muster — ersetzt keine Rechtsberatung.`;
               Jede Einzelabrechnung lässt sich als druckfertiges PDF (DIN A4) an den jeweiligen
               Eigentümer geben.
             </p>
-            <a
-              href={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/pdf`}
-              target="_blank"
-              rel="noreferrer"
+            <FilePreviewLink
+              src={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/pdf`}
+              title={`Einzelabrechnungen ${statement.year} — ${property.name}`}
               className={buttonSecondaryClass}
             >
               Alle Einzelabrechnungen als PDF
-            </a>
+            </FilePreviewLink>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">

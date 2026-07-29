@@ -1429,6 +1429,12 @@ model CostType {
   // eine Verteilung zu 100 % nach Verbrauch wäre formell fehlerhaft und gäbe
   // jedem Eigentümer ein Kürzungsrecht von 15 % (§ 12 Abs. 1 HeizkostenV).
   heatingCost       Boolean         @default(false)
+  // Tatsächlich angewandter Verbrauchsanteil (50–70). Wird beim Verteilen
+  // gesetzt und in die Abrechnung übernommen: Ohne ihn steht im Dokument nur
+  // „Verbrauch" — das liest sich wie eine Verteilung zu 100 % nach Verbrauch
+  // und damit wie ein Verstoß gegen §§ 7, 8 HeizkostenV, obwohl korrekt
+  // gerechnet wurde.
+  heatingConsumptionPercent Int?
   // Bauleistung im Sinne des § 48 Abs. 1 Satz 3 EStG: Herstellung,
   // Instandsetzung, Instandhaltung, Änderung oder Beseitigung von Bauwerken.
   //
@@ -1829,6 +1835,11 @@ model HausgeldMahnung {
   paymentDeadline DateTime // Zahlungsziel
   recipientName   String // Empfänger-Snapshot (aktuelle Eigentümer der Einheit)
   recipientAddress String? // Snapshot "Straße\nPLZ Ort" (falls hinterlegt)
+  // Anrede-Snapshot für die Briefanrede. Wie Name und Anschrift eingefroren:
+  // Das Schreiben muss auch später zeigen, wie es verschickt wurde. Bei
+  // mehreren Eigentümern bleiben beide leer — dann grüßt der Brief allgemein.
+  recipientSalutation String? // "Herr" oder "Frau"
+  recipientLastName   String?
   sentAt          DateTime? // "als versendet markiert" (Fristen-Nachweis)
   // Verzugszinsen und Mahnkosten zum Erstellzeitpunkt — als Momentaufnahme.
   // Sie später neu zu berechnen wäre falsch: Das Schreiben ist raus, und was

@@ -2,6 +2,7 @@
 // WEG-Jahresabrechnung ab (M-K). Gemeinsame Grundlage für Seite und PDF-Route.
 import { db } from "@/lib/db";
 import { co2PerUnit } from "@/lib/weg/co2-allocation";
+import { umlageschluesselText } from "@/lib/weg/umlageschluessel-text";
 import { computeOperatingCosts, type OperatingCostResult } from "@/lib/weg/operating-costs";
 import type { StatementView } from "@/lib/weg/statement-service";
 
@@ -9,10 +10,24 @@ export type OperatingCostStatement = {
   year: number;
   unitLabel: string;
   tenantName: string | null;
+  /**
+   * Der Mieter mit Anrede und Anschrift — für den Brief. Ohne diese Angaben
+   * stand im Anschriftfeld nur „An den Mieter" und die Einheit; damit war die
+   * Abrechnung in keinem Fensterumschlag versendbar.
+   */
+  tenant: {
+    name: string;
+    salutation: string | null;
+    lastName: string | null;
+    /** „Straße\nPLZ Ort", sofern vollständig hinterlegt. */
+    address: string | null;
+  } | null;
   months: number;
   prepaymentMonthlyCents: number;
   co2Present: boolean;
   co2LandlordCents: number;
+  /** Enthält die Abrechnung Heiz-/Warmwasserkosten? Dann braucht sie den Hinweis nach HeizkostenV. */
+  heatingPresent: boolean;
   result: OperatingCostResult;
 };
 
@@ -38,7 +53,19 @@ export async function deriveOperatingCostStatement(params: {
     }),
     db.tenancy.findFirst({
       where: { unitId: params.unitId, active: true },
-      select: { bkPrepaymentMonthlyCents: true, user: { select: { name: true } } },
+      select: {
+        bkPrepaymentMonthlyCents: true,
+        user: {
+          select: {
+            name: true,
+            salutation: true,
+            lastName: true,
+            street: true,
+            zip: true,
+            city: true,
+          },
+        },
+      },
     }),
     db.co2Allocation.findFirst({ where: { propertyId: params.propertyId, year: statement.year } }),
   ]);
@@ -51,6 +78,9 @@ export async function deriveOperatingCostStatement(params: {
       name: r.name,
       unitShareCents: r.perUnit![params.unitId] ?? 0,
       recoverable: recoverable.get(r.costTypeId) ?? false,
+      totalCents: r.totalCents,
+      keyLabel: umlageschluesselText(r),
+      heatingCost: Boolean(r.heatingCost),
     }));
 
   // Vermieter-CO2-Anteil dieser Einheit (falls für das Jahr erfasst).
@@ -76,9 +106,21 @@ export async function deriveOperatingCostStatement(params: {
     year: statement.year,
     unitLabel: unit.label,
     tenantName: tenancy?.user.name ?? null,
+    tenant: tenancy
+      ? {
+          name: tenancy.user.name,
+          salutation: tenancy.user.salutation,
+          lastName: tenancy.user.lastName,
+          address:
+            tenancy.user.street && tenancy.user.zip && tenancy.user.city
+              ? `${tenancy.user.street}\n${tenancy.user.zip} ${tenancy.user.city}`
+              : null,
+        }
+      : null,
     months,
     prepaymentMonthlyCents,
     co2Present: Boolean(allocation),
+    heatingPresent: rows.some((r) => r.heatingCost),
     co2LandlordCents,
     result,
   };

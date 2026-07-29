@@ -14,6 +14,7 @@ import { Begriff } from "@/components/begriff";
 import { Tipp } from "@/components/tipp";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
+import { FilePreviewLink } from "@/components/file-preview-link";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { ersterFehlenderSollmonat } from "@/lib/weg/due-postings";
 import { oposJeEinheit } from "@/lib/weg/opos-service";
@@ -756,14 +757,13 @@ export default async function HausgeldPage({
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <a
-                      href={`/verwaltung/weg/${property.id}/hausgeld/mahnung/${m.id}/pdf`}
-                      target="_blank"
-                      rel="noreferrer"
+                    <FilePreviewLink
+                      src={`/verwaltung/weg/${property.id}/hausgeld/mahnung/${m.id}/pdf`}
+                      title={`${reminderLevelLabel(m.level)} — ${m.unit.label}`}
                       className="underline"
                     >
                       PDF
-                    </a>
+                    </FilePreviewLink>
                     {!m.sentAt ? (
                       <>
                         <form action={markMahnungSent}>

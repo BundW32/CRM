@@ -4,6 +4,7 @@ import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { buildEinzelabrechnungPdf } from "@/lib/weg/einzelabrechnung-pdf";
 import { computeStatementView, type StatementView } from "@/lib/weg/statement-service";
+import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
 
@@ -55,15 +56,9 @@ export async function GET(
       finalizedAt: statement.finalizedAt,
     });
 
-    const suffix = onlyUnitId ? `_${allUnits[0].label.replace(/[^a-zA-Z0-9]/g, "_")}` : "";
-    const fileName = `Einzelabrechnung_${view.year}_${property.name.replace(/[^a-zA-Z0-9]/g, "_")}${suffix}.pdf`;
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    const suffix = onlyUnitId ? `_${fileNamePart(allUnits[0].label)}` : "";
+    const fileName = `Einzelabrechnung_${view.year}_${fileNamePart(property.name)}${suffix}.pdf`;
+    return pdfResponse(pdf, fileName, request);
   } catch (err) {
     console.error("Einzelabrechnung-PDF fehlgeschlagen", err);
     return NextResponse.json({ error: "Export fehlgeschlagen" }, { status: 500 });

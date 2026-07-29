@@ -292,6 +292,7 @@ function VerwalterTargetFields({ properties }: { properties: VerwalterProperty[]
           value={propertyId || undefined}
           onSelect={handlePropertyChange}
           onClear={() => handlePropertyChange("")}
+          tone="inForm"
         />
       </Field>
 
@@ -314,6 +315,7 @@ function VerwalterTargetFields({ properties }: { properties: VerwalterProperty[]
           clearOption="— gesamtes Objekt —"
           disabled={!propertyId || pending}
           disabledHint={propertyId ? "wird geladen …" : "zuerst Objekt wählen"}
+          tone="inForm"
         />
       </Field>
 

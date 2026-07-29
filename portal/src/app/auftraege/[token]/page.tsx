@@ -4,6 +4,7 @@ import { Alert } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDate, ticketStatusLabels, tradeLabels } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
+import { FilePreviewLink } from "@/components/file-preview-link";
 import {
   craftsmanAccept,
   craftsmanAppointment,
@@ -127,10 +128,10 @@ export default async function AuftraegePage({
                         />
                       </div>
                     ) : (
-                      <a
+                      <FilePreviewLink
                         key={a.id}
-                        href={`/api/files/anhang/${a.id}?token=${token}`}
-                        target="_blank"
+                        src={`/api/files/anhang/${a.id}?token=${token}`}
+                        title={a.fileName}
                         className="block overflow-hidden rounded-md border border-gray-200"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -139,7 +140,7 @@ export default async function AuftraegePage({
                           alt={a.fileName}
                           className="h-28 w-full object-cover"
                         />
-                      </a>
+                      </FilePreviewLink>
                     )
                   )}
                 </div>
@@ -179,10 +180,10 @@ export default async function AuftraegePage({
                                 />
                               </div>
                             ) : (
-                              <a
+                              <FilePreviewLink
                                 key={a.id}
-                                href={`/api/files/anhang/${a.id}?token=${token}`}
-                                target="_blank"
+                                src={`/api/files/anhang/${a.id}?token=${token}`}
+                                title={a.fileName}
                                 className="block overflow-hidden rounded border border-gray-200"
                               >
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -191,7 +192,7 @@ export default async function AuftraegePage({
                                   alt={a.fileName}
                                   className="h-20 w-full object-cover"
                                 />
-                              </a>
+                              </FilePreviewLink>
                             )
                           )}
                         </div>
@@ -282,13 +283,13 @@ export default async function AuftraegePage({
                         {INVOICE_STATUS[t.invoice.status]}
                       </span>
                     </span>
-                    <a
-                      href={`/api/files/rechnung/${t.invoice.id}?token=${token}`}
-                      target="_blank"
+                    <FilePreviewLink
+                      src={`/api/files/rechnung/${t.invoice.id}?token=${token}`}
+                      title="Eingereichte Rechnung"
                       className="underline"
                     >
                       Datei ansehen
-                    </a>
+                    </FilePreviewLink>
                   </div>
                 ) : null}
                 {t.invoice?.status !== "AKZEPTIERT" ? (

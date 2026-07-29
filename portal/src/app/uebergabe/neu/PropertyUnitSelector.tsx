@@ -49,8 +49,19 @@ export function PropertyUnitSelector({ properties }: { properties: Property[] })
 
   return (
     <div className="space-y-4">
-      {/* Das versteckte Feld trägt die Pflichtprüfung: ohne Einheit kein Absenden. */}
-      <input type="hidden" name="unitId" value={unitId} required />
+      {/* Pflichtprüfung: `<input type="hidden" required>` wäre wirkungslos – versteckte
+          Felder sind von der HTML-Prüfung ausgenommen. Deshalb ein Textfeld ohne
+          Ausdehnung: unsichtbar, aber prüf- und anspringbar (wie in `FileInput`). */}
+      <input
+        type="text"
+        name="unitId"
+        value={unitId}
+        required
+        onChange={() => {}}
+        tabIndex={-1}
+        aria-hidden
+        className="absolute h-0 w-0 opacity-0"
+      />
 
       <Field label="Objekt">
         <Combobox
@@ -66,6 +77,7 @@ export function PropertyUnitSelector({ properties }: { properties: Property[] })
           value={propertyId || undefined}
           onSelect={handlePropertyChange}
           onClear={() => handlePropertyChange("")}
+          tone="inForm"
         />
       </Field>
 
@@ -83,6 +95,7 @@ export function PropertyUnitSelector({ properties }: { properties: Property[] })
           onClear={() => setUnitId("")}
           disabled={!propertyId || pending}
           disabledHint={propertyId ? "wird geladen …" : "zuerst Objekt wählen"}
+          tone="inForm"
         />
       </Field>
     </div>

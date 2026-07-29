@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import { FileInput } from "@/components/file-input";
 import { Alert, Card, Field, PageTitle, inputClass } from "@/components/ui";
 import { stackTight } from "@/components/data-display";
+import { ComboField } from "@/components/combo-field";
 import { SelectField } from "@/components/fields";
 import { PropertyUnitFields } from "@/components/property-unit-fields";
 import { RecipientPicker } from "@/components/recipient-picker";
@@ -122,10 +123,11 @@ export default async function DokumentHochladenPage({
                 />
               </Field>
               <SelectField label="Kategorie" name="category" required options={kategorien} />
-              <SelectField
+              <ComboField
                 label="Objekt"
                 name="propertyId"
                 required
+                placeholder="Objekt suchen …"
                 options={ownedProps.map((p) => ({ value: p.id, label: p.name }))}
               />
               <label className="flex items-center gap-2 text-sm text-gray-600">

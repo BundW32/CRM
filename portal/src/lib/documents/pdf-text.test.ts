@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PDFDocument, StandardFonts } from "pdf-lib";
-import { encodeWinAnsi, wrapText } from "./pdf-text";
+import { encodeWinAnsi, fitText, wrapText } from "./pdf-text";
 
 describe("encodeWinAnsi", () => {
   it("normalisiert CRLF/CR/Tab, damit widthOfTextAtSize nicht crasht", () => {
@@ -70,6 +70,35 @@ describe("wrapText", () => {
     expect(lines.length).toBeGreaterThan(1);
     for (const l of lines) {
       expect(font.widthOfTextAtSize(l, 10)).toBeLessThanOrEqual(40);
+    }
+  });
+});
+
+describe("fitText", () => {
+  it("lässt passenden Text unverändert", async () => {
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    expect(fitText("kurz", font, 10, 500)).toBe("kurz");
+  });
+
+  it("kürzt nach gemessener Breite, nicht nach Zeichenzahl", async () => {
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    const long = "B&W Immobilien Management UG (haftungsbeschränkt) · Goethestraße 42 · 45964 Gladbeck";
+    const max = 85 * (841.89 / 297); // 85 mm – Breite des Anschriftfelds
+    const cut = fitText(long, font, 6.5, max);
+    expect(cut.length).toBeLessThan(long.length);
+    expect(cut.endsWith("...")).toBe(true);
+    // Das Versprechen der Funktion: das Ergebnis passt wirklich.
+    expect(font.widthOfTextAtSize(cut, 6.5)).toBeLessThanOrEqual(max);
+  });
+
+  it("hält die Zusage auch bei sehr schmalen Kästen", async () => {
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    for (const max of [4, 12, 40, 120]) {
+      const cut = fitText("Wohnungseigentümergemeinschaft Lindenhof", font, 10, max);
+      expect(font.widthOfTextAtSize(cut, 10)).toBeLessThanOrEqual(max);
     }
   });
 });

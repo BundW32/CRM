@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { getUser } from "@/lib/session";
 import { generateBeschlussSammlung } from "@/lib/documents/beschluss-sammlung";
+import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
 
@@ -65,14 +66,8 @@ export async function GET(request: Request) {
       generatedAt: new Date(),
     });
 
-    const fileName = `Beschluss-Sammlung_${property.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    const fileName = `Beschluss-Sammlung_${fileNamePart(property.name)}.pdf`;
+    return pdfResponse(pdf, fileName, request);
   } catch (err) {
     console.error("Beschluss-Sammlung-Export fehlgeschlagen", err);
     return NextResponse.json({ error: "Export fehlgeschlagen" }, { status: 500 });

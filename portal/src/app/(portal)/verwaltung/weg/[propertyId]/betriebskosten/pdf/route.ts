@@ -5,7 +5,9 @@ import { getBrandingForOrg } from "@/lib/branding-server";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { generateBetriebskosten } from "@/lib/documents/betriebskosten";
+import { briefkopfAus } from "@/lib/documents/briefkopf";
 import { deriveOperatingCostStatement } from "@/lib/weg/operating-cost-service";
+import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
 
@@ -40,25 +42,27 @@ export async function GET(
 
   try {
     const branding = await getBrandingForOrg(property.organizationId);
+    const kopf = briefkopfAus(branding);
     const pdf = await generateBetriebskosten({
-      issuer: {
-        legalName: branding.legalName,
-        contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-      },
+      issuer: kopf.issuer,
+      brand: kopf.brand,
+      logoPath: kopf.logoPath,
       propertyName: property.name,
       unitLabel: data.unitLabel,
-      tenantName: data.tenantName,
+      tenant: data.tenant,
+      tenantAddress: data.tenant?.address ?? null,
       year: data.year,
       recoverableRows: data.result.recoverableRows,
       nonRecoverableRows: data.result.nonRecoverableRows,
       recoverableSumCents: data.result.recoverableSumCents,
       co2LandlordDeductionCents: data.result.co2LandlordDeductionCents,
       tenantCostsCents: data.result.tenantCostsCents,
+      heatingPresent: data.heatingPresent,
       months: data.months,
       prepaymentMonthlyCents: data.prepaymentMonthlyCents,
       prepaymentCents: data.result.prepaymentCents,
       balanceCents: data.result.balanceCents,
-      city: branding.city ?? property.city ?? null,
+      city: kopf.city ?? property.city ?? null,
       createdAt: new Date(),
     });
 
@@ -70,14 +74,8 @@ export async function GET(
       meta: { year: data.year },
     });
 
-    const fileName = `Betriebskosten_${data.year}_${data.unitLabel.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    const fileName = `Betriebskosten_${data.year}_${fileNamePart(data.unitLabel)}.pdf`;
+    return pdfResponse(pdf, fileName, request);
   } catch (err) {
     console.error("Betriebskosten-PDF fehlgeschlagen", err);
     return NextResponse.json({ error: "Export fehlgeschlagen" }, { status: 500 });

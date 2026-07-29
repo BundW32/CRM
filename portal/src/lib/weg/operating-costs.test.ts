@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { computeOperatingCosts } from "./operating-costs";
 
 const rows = [
-  { name: "Hausmeister", unitShareCents: 30000, recoverable: true },
-  { name: "Wasser/Abwasser", unitShareCents: 12000, recoverable: true },
-  { name: "Heizung/Warmwasser", unitShareCents: 50000, recoverable: true },
-  { name: "Verwaltungskosten", unitShareCents: 8000, recoverable: false },
-  { name: "Laufende Instandhaltung", unitShareCents: 15000, recoverable: false },
+  { name: "Hausmeister", unitShareCents: 30000, recoverable: true, totalCents: 30000 * 10, keyLabel: "MEA" },
+  { name: "Wasser/Abwasser", unitShareCents: 12000, recoverable: true, totalCents: 12000 * 10, keyLabel: "MEA" },
+  { name: "Heizung/Warmwasser", unitShareCents: 50000, recoverable: true, totalCents: 50000 * 10, keyLabel: "MEA" },
+  { name: "Verwaltungskosten", unitShareCents: 8000, recoverable: false, totalCents: 8000 * 10, keyLabel: "MEA" },
+  { name: "Laufende Instandhaltung", unitShareCents: 15000, recoverable: false, totalCents: 15000 * 10, keyLabel: "MEA" },
 ];
 
 describe("computeOperatingCosts", () => {

@@ -78,8 +78,6 @@ ${handover.managerName ?? ""}`.trim();
             <div className="flex flex-wrap gap-3 items-center">
               <a
                 href={`${pdfUrl}?download=1`}
-                target="_blank"
-                rel="noopener noreferrer"
                 className={buttonClass}
               >
                 <svg viewBox="0 0 24 24" className="mr-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">

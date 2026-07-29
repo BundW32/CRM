@@ -108,7 +108,11 @@ export async function createMahnung(formData: FormData) {
   const now = new Date();
   const owners = await db.unitOwnership.findMany({
     where: { unitId: unit.id, validFrom: { lte: now }, OR: [{ validTo: null }, { validTo: { gt: now } }] },
-    include: { user: { select: { name: true, street: true, zip: true, city: true } } },
+    include: {
+      user: {
+        select: { name: true, salutation: true, lastName: true, street: true, zip: true, city: true },
+      },
+    },
     orderBy: { validFrom: "asc" },
   });
   if (owners.length === 0) back(property.id, "fehler=keineigentuemer");
@@ -116,6 +120,9 @@ export async function createMahnung(formData: FormData) {
   const first = owners[0].user;
   const recipientAddress =
     first.street && first.zip && first.city ? `${first.street}\n${first.zip} ${first.city}` : null;
+  // Anrede nur bei genau einem Eigentümer: bei Eheleuten oder einer
+  // Erbengemeinschaft wäre jede Einzelanrede falsch.
+  const alleine = owners.length === 1;
 
   // Zinsen und Kosten werden **jetzt** festgeschrieben, nicht bei jeder Anzeige
   // neu gerechnet. Ist das Schreiben raus, muss nachvollziehbar bleiben, was
@@ -165,6 +172,8 @@ export async function createMahnung(formData: FormData) {
       paymentDeadline: new Date(Date.now() + PAYMENT_DEADLINE_DAYS * 24 * 60 * 60 * 1000),
       recipientName,
       recipientAddress,
+      recipientSalutation: alleine ? first.salutation : null,
+      recipientLastName: alleine ? first.lastName : null,
       createdById: verwalter.id,
     },
   });

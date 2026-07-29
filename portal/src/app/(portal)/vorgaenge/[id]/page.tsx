@@ -60,6 +60,7 @@ import {
   uploadRequestedDocument,
 } from "../actions";
 import { AssignTargetPicker } from "./assign-target-picker";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
 
@@ -267,10 +268,10 @@ export default async function TicketDetailPage({
                       />
                     </div>
                   ) : (
-                    <a
+                    <FilePreviewLink
                       key={a.id}
-                      href={`/api/files/anhang/${a.id}`}
-                      target="_blank"
+                      src={`/api/files/anhang/${a.id}`}
+                      title={a.fileName}
                       className="block overflow-hidden rounded-md border border-gray-200"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -279,7 +280,7 @@ export default async function TicketDetailPage({
                         alt={a.fileName}
                         className="h-32 w-full object-cover"
                       />
-                    </a>
+                    </FilePreviewLink>
                   )
                 )}
               </div>
@@ -321,10 +322,10 @@ export default async function TicketDetailPage({
                               />
                             </div>
                           ) : (
-                            <a
+                            <FilePreviewLink
                               key={a.id}
-                              href={`/api/files/anhang/${a.id}`}
-                              target="_blank"
+                              src={`/api/files/anhang/${a.id}`}
+                              title={a.fileName}
                               className="block overflow-hidden rounded-md border border-gray-200"
                             >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -333,7 +334,7 @@ export default async function TicketDetailPage({
                                 alt={a.fileName}
                                 className="h-24 w-full object-cover"
                               />
-                            </a>
+                            </FilePreviewLink>
                           )
                         )}
                       </div>
@@ -571,14 +572,13 @@ export default async function TicketDetailPage({
                   {ticket.invoice.invoiceDate ? ` · ${formatDate(ticket.invoice.invoiceDate)}` : ""}
                 </p>
                 {ticket.invoice.note ? <p className="text-xs text-gray-500">{ticket.invoice.note}</p> : null}
-                <a
-                  href={`/api/files/rechnung/${ticket.invoice.id}`}
-                  target="_blank"
-                  rel="noreferrer"
+                <FilePreviewLink
+                  src={`/api/files/rechnung/${ticket.invoice.id}`}
+                  title="Handwerker-Rechnung"
                   className="inline-block text-sm text-brand-green underline"
                 >
                   Rechnungsdatei öffnen
-                </a>
+                </FilePreviewLink>
                 {ticket.invoice.status === "EINGEREICHT" ? (
                   <div className="space-y-2 border-t border-gray-100 pt-3">
                     <form action={acceptInvoice}>

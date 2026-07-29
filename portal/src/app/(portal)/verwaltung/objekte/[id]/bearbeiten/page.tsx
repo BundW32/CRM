@@ -19,6 +19,7 @@ import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
+import { FilePreviewLink } from "@/components/file-preview-link";
 import {
   addPropertyOwner,
   addUnit,
@@ -102,9 +103,13 @@ function TenancyContract({
         <div>
           {t.contractStoredName ? (
             <div className="mb-1 flex items-center gap-3 text-xs">
-              <a href={`/api/files/mietvertrag/${t.id}`} target="_blank" rel="noreferrer" className="font-medium text-brand-green hover:underline">
+              <FilePreviewLink
+                src={`/api/files/mietvertrag/${t.id}`}
+                title="Mietvertrag"
+                className="font-medium text-brand-green hover:underline"
+              >
                 Vertrag ansehen
-              </a>
+              </FilePreviewLink>
               <label className="flex items-center gap-1.5 text-gray-600">
                 <input type="checkbox" name="removeContract" value="1" className="h-3.5 w-3.5" /> entfernen
               </label>

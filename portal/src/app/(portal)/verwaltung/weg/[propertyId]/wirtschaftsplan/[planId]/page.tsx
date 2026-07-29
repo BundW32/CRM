@@ -25,6 +25,7 @@ import { requireWegProperty } from "@/lib/weg/scope";
 import { DateField } from "@/components/fields";
 import { faelligkeitsText } from "@/lib/weg/plan-validity";
 import { deletePlan, planZurAbstimmung, resolvePlan, updatePlanItems } from "../actions";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
 
@@ -160,22 +161,20 @@ Muster — ersetzt keine Rechtsberatung.`;
           <div className="flex gap-2">
             {!advanceError ? (
               <>
-                <a
-                  href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf`}
-                  target="_blank"
-                  rel="noreferrer"
+                <FilePreviewLink
+                  src={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf`}
+                  title={`Wirtschaftsplan ${plan.year} — ${property.name}`}
                   className={buttonSecondaryClass}
                 >
                   Gesamtplan als PDF
-                </a>
-                <a
-                  href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf?dokument=einzelplan`}
-                  target="_blank"
-                  rel="noreferrer"
+                </FilePreviewLink>
+                <FilePreviewLink
+                  src={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf?dokument=einzelplan`}
+                  title={`Einzelwirtschaftspläne ${plan.year} — ${property.name}`}
                   className={buttonSecondaryClass}
                 >
                   Einzelpläne (alle)
-                </a>
+                </FilePreviewLink>
               </>
             ) : null}
           </div>

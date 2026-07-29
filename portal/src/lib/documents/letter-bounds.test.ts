@@ -1,0 +1,204 @@
+// Misst die erzeugten Briefe: kein Textstück darf den Satzspiegel verlassen,
+// und nichts darf unter den Blattrand rutschen.
+//
+// Hintergrund: Beides ist im Bestand passiert und fiel monatelang nicht auf,
+// weil ein fehlplatziertes drawText weder Fehler wirft noch im Normalfall
+// sichtbar wird — erst bei langen Objektnamen oder vielen Positionen. Der Test
+// prüft deshalb jeden Brief zweimal: mit normalen und mit absichtlich
+// überlangen Daten.
+import { describe, expect, it } from "vitest";
+import { PDFDocument } from "pdf-lib";
+import { generateMahnung } from "./mahnung";
+import { generateBetriebskosten } from "./betriebskosten";
+import { generateMeetingInvitation } from "./meeting-invitation";
+// Gemeinsamer Prüfhelfer: liest über pdf.js zurück und kommt damit sowohl mit
+// den eingebetteten Schriften des Kits als auch mit den noch nicht umgestellten
+// Standard-Schriften zurecht.
+import { drawnTexts, type DrawnText } from "./test-helpers/pdf-inspect";
+
+const MM = 841.89 / 297;
+const PAGE_W = 595.28;
+// Satzspiegel des Kits: 20 mm links (DIN 5008), 20 mm rechts.
+const LEFT = 20 * MM;
+const RIGHT = PAGE_W - 20 * MM;
+const TOLERANCE = 0.5; // Punkt
+
+function assertInsideMargins(items: DrawnText[]) {
+  expect(items.length).toBeGreaterThan(0);
+  for (const it of items) {
+    const where = `Seite ${it.page}: "${it.text.slice(0, 60)}"`;
+    expect(it.x, where).toBeGreaterThanOrEqual(LEFT - TOLERANCE);
+    expect(it.x + it.width, where).toBeLessThanOrEqual(RIGHT + TOLERANCE);
+    // Nichts unterhalb des Blattrands – genau das war der stille Datenverlust.
+    expect(it.y, where).toBeGreaterThan(0);
+  }
+}
+
+const issuer = {
+  legalName: "B&W Immobilien Management UG (haftungsbeschränkt)",
+  contactLine: "Goethestraße 42 · 45964 Gladbeck · verwaltung@bw-immobilien.de",
+};
+const langerIssuer = {
+  legalName:
+    "Wohnungseigentümergemeinschaft Lindenhof-Gladbeck Verwaltungs- und Betreuungsgesellschaft mbH & Co. KG",
+  contactLine:
+    "Goethestraße 42, Hinterhaus, 45964 Gladbeck-Zweckel · verwaltung@bw-immobilien-management-gladbeck.de",
+};
+// Das Kit nimmt die Absenderangaben zeilenweise statt als eine Kontaktzeile.
+const kitIssuer = { legalName: issuer.legalName, lines: [issuer.contactLine] };
+const langerKitIssuer = { legalName: langerIssuer.legalName, lines: [langerIssuer.contactLine] };
+
+describe("Mahnung: Satzspiegel", () => {
+  it("hält die Ränder bei normalen Daten", async () => {
+    const pdf = await generateMahnung({
+      issuer: kitIssuer,
+      propertyName: "WEG Lindenhof",
+      unitLabel: "WE 07",
+      level: 2,
+      recipient: { name: "Ayşe Şahin-Grünewald", salutation: "Frau", lastName: "Şahin-Grünewald" },
+      recipientAddress: "Lindenstraße 14\n45964 Gladbeck",
+      arrearsCents: 148750,
+      paymentDeadline: new Date(2026, 7, 14),
+      iban: "DE02 4265 0150 0000 1234 56",
+      accountHolder: "WEG Lindenhof",
+      createdAt: new Date(2026, 6, 28),
+      city: "Gladbeck",
+    });
+    assertInsideMargins(await drawnTexts(pdf));
+  });
+
+  it("hält die Ränder auch bei überlangen Namen", async () => {
+    const pdf = await generateMahnung({
+      issuer: langerKitIssuer,
+      propertyName:
+        "WEG Lindenhof-Nord, Lindenstraße 12–16 und Rosenweg 3a–3f, 45964 Gladbeck-Zweckel",
+      unitLabel:
+        "WE 07, 2. Obergeschoss rechts, nebst Kellerraum K7 und Tiefgaragenstellplatz TG-14",
+      level: 3,
+      recipient: {
+        name: "Dr. Ayşe Şahin-Grünewald von Hohenlohe-Langenburg",
+        salutation: "Frau",
+        lastName: "Şahin-Grünewald von Hohenlohe-Langenburg",
+      },
+      recipientAddress: "Lindenstraße 14, Hinterhaus, 3. Obergeschoss\n45964 Gladbeck-Zweckel",
+      positions: Array.from({ length: 26 }, (_, i) => ({
+        label: `Hausgeld ${String((i % 12) + 1).padStart(2, "0")}/${2024 + Math.floor(i / 12)} inkl. Erhaltungsrücklage`,
+        cents: 49583,
+      })),
+      arrearsCents: 1487500,
+      paymentDeadline: new Date(2026, 7, 14),
+      iban: "DE02 4265 0150 0000 1234 56",
+      accountHolder: "Wohnungseigentümergemeinschaft Lindenhof-Nord",
+      createdAt: new Date(2026, 6, 28),
+      city: "Gladbeck-Zweckel",
+    });
+    assertInsideMargins(await drawnTexts(pdf));
+  });
+});
+
+describe("Betriebskostenabrechnung: Satzspiegel", () => {
+  const basis = {
+    issuer: kitIssuer,
+    propertyName: "WEG Lindenhof",
+    unitLabel: "WE 07",
+    tenant: { name: "Ayşe Şahin-Grünewald", salutation: "Frau", lastName: "Şahin-Grünewald" },
+    tenantAddress: "Lindenstraße 14\n45964 Gladbeck",
+    year: 2025,
+    recoverableSumCents: 180000,
+    co2LandlordDeductionCents: 12000,
+    tenantCostsCents: 168000,
+    months: 12,
+    prepaymentMonthlyCents: 12000,
+    prepaymentCents: 144000,
+    balanceCents: 24000,
+    city: "Gladbeck",
+    createdAt: new Date(2026, 6, 28),
+  };
+
+  it("hält die Ränder bei normalen Daten", async () => {
+    const pdf = await generateBetriebskosten({
+      ...basis,
+      recoverableRows: [
+        { name: "Heizung und Warmwasser", cents: 90000, totalCents: 900000, keyLabel: "Verbrauch" },
+        { name: "Grundsteuer", cents: 30000, totalCents: 300000, keyLabel: "Miteigentumsanteile" },
+        { name: "Müllentsorgung", cents: 60000, totalCents: 600000, keyLabel: "Personenzahl" },
+      ],
+      nonRecoverableRows: [
+        { name: "Verwaltervergütung", cents: 30000, totalCents: 300000, keyLabel: "Einheiten" },
+      ],
+    });
+    assertInsideMargins(await drawnTexts(pdf));
+  });
+
+  it("bricht bei vielen Positionen um, statt unter den Blattrand zu schreiben", async () => {
+    const viele = Array.from({ length: 60 }, (_, i) => ({
+      name: `Position ${i + 1}: Betriebskosten nach BetrKV inklusive Nebenleistungen und Zuschlägen`,
+      cents: 3000,
+      totalCents: 30000,
+      keyLabel: "Wohnfläche nach Quadratmetern",
+    }));
+    const pdf = await generateBetriebskosten({
+      ...basis,
+      recoverableRows: viele,
+      nonRecoverableRows: viele.slice(0, 20),
+    });
+    const doc = await PDFDocument.load(pdf);
+    expect(doc.getPageCount()).toBeGreaterThan(1);
+    assertInsideMargins(await drawnTexts(pdf));
+  });
+});
+
+describe("Versammlungseinladung: Satzspiegel", () => {
+  const basis = {
+    issuer: kitIssuer,
+    propertyName: "WEG Lindenhof",
+    meetingTitle: "Ordentliche Eigentümerversammlung 2026",
+    scheduledAt: new Date(2026, 8, 17, 18, 30),
+    location: "Gemeindesaal St. Marien, Kirchplatz 3, 45964 Gladbeck",
+    videoLink: null,
+    city: "Gladbeck",
+    createdAt: new Date(2026, 6, 28),
+  };
+
+  it("hält die Ränder mit Empfänger", async () => {
+    const pdf = await generateMeetingInvitation({
+      ...basis,
+      recipient: { name: "Ayşe Şahin-Grünewald", salutation: "Frau", lastName: "Şahin-Grünewald" },
+      recipientAddress: "Lindenstraße 14\n45964 Gladbeck",
+      agenda: [
+        { index: 1, title: "Begrüßung", description: null, type: "INFO" as const },
+        { index: 2, title: "Jahresabrechnung 2025", description: "Mit Bericht des Beirats.", type: "BESCHLUSS" as const },
+      ],
+    });
+    assertInsideMargins(await drawnTexts(pdf));
+  });
+
+  it("hält die Ränder als Vorlagendruck ohne Empfänger", async () => {
+    const pdf = await generateMeetingInvitation({ ...basis, agenda: [] });
+    assertInsideMargins(await drawnTexts(pdf));
+  });
+
+  it("bricht bei langer Tagesordnung um, ohne einen Punkt zu verlieren", async () => {
+    const pdf = await generateMeetingInvitation({
+      ...basis,
+      issuer: langerKitIssuer,
+      videoLink: "https://meet.bw-immobilien-management-gladbeck.de/lindenhof-eigentuemerversammlung-2026",
+      agenda: Array.from({ length: 40 }, (_, i) => ({
+        index: i + 1,
+        title: `Beschluss über die Vergabe der Arbeiten am Bauteil ${i + 1} nebst Finanzierung`,
+        description:
+          "Drei Angebote liegen vor. Die Finanzierung erfolgt aus der Erhaltungsrücklage " +
+          "sowie einer Sonderumlage, fällig in zwei Raten.",
+        type: "BESCHLUSS" as const,
+      })),
+    });
+    const doc = await PDFDocument.load(pdf);
+    expect(doc.getPageCount()).toBeGreaterThan(1);
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    // Kein Punkt darf beim Umbruch verlorengehen.
+    for (let i = 1; i <= 40; i++) {
+      expect(items.some((it) => it.text.startsWith(`TOP ${i}:`)), `TOP ${i} fehlt`).toBe(true);
+    }
+  });
+});

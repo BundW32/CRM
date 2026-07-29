@@ -1,13 +1,20 @@
 # Typprüfung, Linter und Tests bei jedem Pull Request.
 #
-# Vercel baut zwar jeden Branch, führt aber weder Linter noch Tests aus – ein
-# grüner Deploy sagte deshalb nichts darüber, ob die Tests halten. Genau daran
-# hing die Konventions-Absicherung für Buttons und Rückmeldungen: Die Tests
-# existierten, liefen aber nur, wenn jemand sie von Hand startete.
-#
 # Bewusst ohne `next build`: Der Build-Befehl dieses Projekts führt
 # `prisma migrate deploy` aus und bräuchte eine Datenbank. Das Bauen übernimmt
-# Vercel, hier geht es um das, was Vercel nicht prüft.
+# Vercel.
+#
+# **Dieselbe Prüfung läuft seit dem 29.07.2026 auch im Vercel-Build**
+# (`npm run pruefung`, eingehängt in `portal/vercel.json`). Das ist kein
+# Versehen und keine Dublette, sondern eine Rückfallebene: Am 29.07. liefen auf
+# diesem Repository ab 06:58 Uhr auf **keinem** Branch mehr Workflows — ohne
+# Fehlermeldung, sie wurden schlicht nicht mehr gestartet. Ein Pull Request war
+# damit nicht mehr prüfbar, und ein grüner Vercel-Deploy sagte nichts über die
+# Tests aus.
+#
+# Beide Wege rufen **denselben** Skript-Eintrag auf. Wer die Prüfung ändert,
+# ändert sie damit an einer Stelle; zwei Listen von Befehlen liefen sonst
+# früher oder später auseinander.
 name: Prüfung
 
 on:
@@ -36,11 +43,6 @@ jobs:
       - name: Abhängigkeiten installieren
         run: npm ci
 
-      - name: Typprüfung
-        run: npx tsc --noEmit
-
-      - name: Linter
-        run: npm run lint
-
-      - name: Tests
-        run: npm test
+      # Genau der Befehl, den auch Vercel ausführt.
+      - name: Typprüfung, Linter und Tests
+        run: npm run pruefung

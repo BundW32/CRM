@@ -1,21 +1,24 @@
-// Hero-Schleife (~13 s): die Fassung, die fast jeder Besucher sieht.
+// Hero-Schleife (~10 s): stumm, endlos, auf der Startseite.
 //
 //   PREVIEW_BASE_URL=http://127.0.0.1:3200 node video/hero-loop.js
 //   VIDEO_NAME=hero-loop MANIFEST=manifest-loop.json node video/compose-werbevideo.mjs
 //
-// Läuft im Hero stumm im Autoplay. Niemand schaut 50 Sekunden Autoplay —
-// dreizehn Sekunden Schleife halten den Blick. Deshalb kein Problem-Lösung-
-// Bogen wie in der Vollversion, sondern: Aufhänger, ein einziger Beleg, Marke.
+// Vier Beats ungleicher Länge, harte Schnitte, keine Karte am Anfang und keine
+// am Ende:
 //
-// Der Beleg ist die Jahresabrechnung. Sie ist die Pflicht aus § 28 WEG, vor der
-// diese Zielgruppe am meisten Respekt hat — und sie entsteht hier mit einem
-// Klick, live aus der Buchhaltung gerechnet. (Der Schnittplan sieht an dieser
-// Stelle die KI-Szene vor; die braucht einen GEMINI_API_KEY und fällt ohne ihn
-// aus, siehe Skill Abschnitt 5.)
+//   A · 2,2 s  fertige Abrechnung, ruhig — darüber die Frage des Zuschauers
+//   B · 3,5 s  der Klick, der sie erzeugt hat, mit Zufahrt auf den Knopf
+//   C · 2,5 s  die Prüfzeile und die Summen, herangefahren
+//   D · 1,8 s  zurück auf Vollbild — Auflösung
 //
-// Schleifenschluss: Anfangs- und Endbild sind beide die dunkle Tafel. Ein
-// Umschlag von hellem Produktbild auf dunkle Tafel wäre bei jedem Durchlauf
-// sichtbar.
+// Warum die Schleife dicht ist: A und D stammen aus **derselben ruhigen
+// Aufnahme derselben Seite**. Der erste Frame von A zeigt die Einblendung noch
+// nicht (sie blendet erst ein), der letzte Frame von D zeigt sie nicht mehr —
+// beide Bilder sind identisch, die Naht ist unsichtbar.
+//
+// Kein Handlungsaufruf im Loop: Ein Knopf im Video ist nicht klickbar, und ein
+// Logo-Endbild würde bei jedem Durchlauf sichtbar umschlagen. Der echte
+// Handlungsaufruf steht daneben auf der Seite.
 const fs = require("fs");
 const path = require("path");
 const {
@@ -24,23 +27,23 @@ const {
   installCursor,
   installOverlay,
   caption,
+  focusBox,
+  textBox,
+  highlight,
   moveCursor,
   clickAt,
   BASE,
 } = require("./lib/capture");
 
 const OUT = path.join(__dirname, "out", "raw-loop");
-const CARD = "file://" + path.join(__dirname, "cards", "card.html");
-const card = (t, kind = "hook") => `${CARD}?kind=${kind}&t=${encodeURIComponent(t)}`;
 const WEG = process.env.VIDEO_WEG_ID || "cms4nld9h0009657dlsm04xkb";
 const shots = [];
+const CLIP = "abrechnung";
 
-function shot(clip, t0, name, zoom) {
-  const at = Date.now() - t0;
-  shots.push({ clip, name, atMs: at, zoom });
-  return () => {
-    shots[shots.length - 1].durMs = Date.now() - t0 - at;
-  };
+// Eine Einstellung anmelden. `cutMs` ist die geplante Länge im fertigen Video,
+// `push` die Zufahrt auf den gemessenen Kasten.
+function beat(t0, name, opts) {
+  shots.push({ clip: CLIP, name, atMs: Date.now() - t0, ...opts });
 }
 
 async function main() {
@@ -59,88 +62,74 @@ async function main() {
   const storageState = await boot.storageState();
   await boot.close();
 
-  // ── 1 · Aufhänger: die Lage des Zuschauers, nicht das Produkt ───────────
-  {
-    const { context, page } = await newClip(browser, path.join(OUT, "01-hook"));
-    const t0 = Date.now();
-    await page.goto(card("Keine Verwaltung|für Ihre WEG?"));
-    await page.waitForTimeout(400);
-    // 300 ms Vorlauf: Die Zeilen sind schon im Bild, wenn die Einstellung
-    // beginnt. Sonst startet die Schleife auf einer leeren Tafel.
-    await page.evaluate(() => window.__play());
-    await page.waitForTimeout(300);
-    const end = shot("01-hook", t0, "hook");
-    await page.waitForTimeout(2500);
-    end();
-    await context.close();
-    console.log("1 · Aufhänger");
-  }
+  const { context, page } = await newClip(browser, path.join(OUT, CLIP), { storageState });
+  const t0 = Date.now();
+  await page.goto(`${BASE}/verwaltung/weg/${WEG}/jahresabrechnung`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(700);
+  await installOverlay(page);
+  await installCursor(page);
+  // Gerechnet wird das Jahr mit Buchungen — sonst steht im Bild eine
+  // Abrechnung aus lauter Nullen.
+  await page.fill('input[type="number"]', "2026");
 
-  // ── 2+3 · Der Beleg: ein Klick, und die Abrechnung steht ───────────────
-  {
-    const { context, page } = await newClip(browser, path.join(OUT, "02-abrechnung"), { storageState });
-    const t0 = Date.now();
-    await page.goto(`${BASE}/verwaltung/weg/${WEG}/jahresabrechnung`, { waitUntil: "networkidle" });
-    await page.waitForTimeout(700);
-    await installOverlay(page);
-    await installCursor(page);
-    // Gerechnet wird das Jahr mit Buchungen — sonst steht im Bild eine
-    // Abrechnung aus lauter Nullen.
-    await page.fill('input[type="number"]', "2026");
+  // ── B · Der Klick (wird im Schnitt an zweite Stelle gesetzt) ─────────────
+  const knopf = await focusBox(page, 'button:has-text("Abrechnung anlegen")');
+  const bStart = Date.now();
+  await moveCursor(page, { x: knopf.x + knopf.w / 2, y: knopf.y + knopf.h / 2 }, { from: { x: 760, y: 600 } });
+  const pushAt = Date.now() - bStart; // Zufahrt beginnt, wenn der Zeiger ankommt
+  beat(bStart, "b-klick", { atMs: bStart - t0, cutMs: 3500, leadMs: 700, push: { box: knopf, to: 1.65, atMs: pushAt - 700 } });
+  await highlight(page, knopf, 700);
+  await clickAt(page, 'button:has-text("Abrechnung anlegen")');
+  await page.evaluate(() => window.__curHide?.());
+  await page.mouse.move(1279, 719);
+  await page.waitForTimeout(500);
 
-    const endA = shot("02-abrechnung", t0, "klick");
-    await caption(page, "Jahresabrechnung — auf Knopfdruck.", {
-      keep: true,
-      during: () => moveCursor(page, { x: 359, y: 325 }, { from: { x: 700, y: 560 } }),
-    });
-    await page.evaluate(() => window.__capHide());
-    await page.waitForTimeout(240);
-    await clickAt(page, 'button:has-text("Abrechnung anlegen")');
-    // Zeiger ausblenden: Die App navigiert clientseitig, der synthetische
-    // Zeiger überlebt den Seitenwechsel und stünde sonst ohne Aufgabe über
-    // den Zahlen der fertigen Abrechnung.
-    await page.evaluate(() => window.__curHide?.());
-    await page.mouse.move(1279, 719);
-    endA();
+  await page.waitForURL(/jahresabrechnung\/[a-z0-9]+$/, { timeout: 25000 }).catch(() => {});
+  await page.waitForTimeout(900);
+  await installOverlay(page);
 
-    // Die Rechenpause bleibt im Bild: Sie erzeugt die Erwartung, die das
-    // Ergebnis trägt.
-    await page.waitForURL(/jahresabrechnung\/[a-z0-9]+$/, { timeout: 25000 }).catch(() => {});
-    await page.waitForTimeout(850);
-    await installOverlay(page);
-    const endB = shot("02-abrechnung", t0, "ergebnis", { to: 1.07 });
-    await page.waitForTimeout(250);
-    await caption(page, "Gesamt- und Einzelabrechnung,|*centgenau geprüft.*");
-    endB();
-    await context.close();
-    console.log("2+3 · Abrechnung");
-  }
+  // ── D · Ruhe auf dem Ergebnis (Vollbild, ohne Text) ─────────────────────
+  beat(t0, "d-ruhe", { cutMs: 1800, leadMs: 200 });
+  await page.waitForTimeout(2400);
 
-  // ── 4 · Marke: steht still, ist das Plakat und schließt die Schleife ────
-  {
-    const { context, page } = await newClip(browser, path.join(OUT, "03-cta"));
-    const t0 = Date.now();
-    await page.goto(card("Ihre Gemeinschaft.|*Ihre Zahlen.*", "cta"));
-    await page.waitForTimeout(400);
-    await page.evaluate(() => window.__play());
-    await page.waitForTimeout(300);
-    const end = shot("03-cta", t0, "cta");
-    await page.waitForTimeout(3200);
-    end();
-    await context.close();
-    console.log("4 · Endtafel");
-  }
+  // ── A · Dieselbe ruhige Aufnahme, darüber die Frage ──────────────────────
+  beat(t0, "a-frage", { cutMs: 2600, leadMs: -700 });
+  await caption(page, "Keine Verwaltung|für Ihre WEG?", { ms: 1300 });
+  await page.waitForTimeout(700);
 
+  // ── C · Prüfzeile und Summen, herangefahren ─────────────────────────────
+  // Ein Kasten über beides statt Zufahrt plus Schwenk: zwei Bewegungen in
+  // zweieinhalb Sekunden liest niemand mit.
+  // Der Kasten umfasst die Prüfzeile und die beiden ersten Summen darunter.
+  // Über die volle Breite wäre keine Zufahrt möglich — bei 16:9 schneidet jeder
+  // Zoom jenseits von 1,1 etwas an, wenn der Kasten so breit ist wie das Bild.
+  const pruef = await textBox(page, "Verteilung vollständig und centgenau — Summe der Einzelabrechnungen entspricht der Gesamtabrechnung.", {
+    dx: -30,
+    dy: -20,
+    w: 580,
+    h: 185,
+  });
+  const cStart = Date.now();
+  beat(t0, "c-beleg", { cutMs: 2500, push: { box: pruef, to: 1.7, atMs: 250 } });
+  await highlight(page, pruef, 900);
+  await page.waitForTimeout(1400);
+  void cStart;
+
+  await context.close();
   await browser.close();
 
-  for (const s of shots) {
-    const dir = path.join(OUT, s.clip);
-    s.file = path.join(dir, fs.readdirSync(dir).find((f) => f.endsWith(".webm")));
-  }
-  const total = shots.reduce((sum, s) => sum + s.durMs, 0);
+  // Reihenfolge im fertigen Video: Frage → Klick → Beleg → Auflösung.
+  const order = ["a-frage", "b-klick", "c-beleg", "d-ruhe"];
+  shots.sort((x, y) => order.indexOf(x.name) - order.indexOf(y.name));
+
+  const dir = path.join(OUT, CLIP);
+  const file = path.join(dir, fs.readdirSync(dir).find((f) => f.endsWith(".webm")));
+  for (const s of shots) s.file = file;
+
   fs.writeFileSync(path.join(__dirname, "out", "manifest-loop.json"), JSON.stringify(shots, null, 2));
-  console.log(`\n${shots.length} Einstellungen, roh ${(total / 1000).toFixed(1)} s`);
-  for (const s of shots) console.log(`  ${s.name.padEnd(12)} ${(s.durMs / 1000).toFixed(1)}s`);
+  const total = shots.reduce((sum, s) => sum + s.cutMs, 0);
+  console.log(`\n${shots.length} Beats · ${(total / 1000).toFixed(1)} s geplant`);
+  for (const s of shots) console.log(`  ${s.name.padEnd(10)} ${(s.cutMs / 1000).toFixed(1)}s${s.push ? `  Zufahrt ${s.push.to}×` : ""}`);
 }
 
 main().catch((e) => {

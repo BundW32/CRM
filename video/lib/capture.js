@@ -39,12 +39,18 @@ async function newClip(browser, dir, opts = {}) {
 // Der echte, aufgezeichnete Zeiger springt von Punkt zu Punkt und wirkt
 // roboterhaft. Dieser hier fährt eine gekrümmte Bahn, bremst weich ab und
 // schwingt minimal über — so bewegt sich eine Hand.
+// Der Zeiger steht auf 150 %: Im fertigen Video ist das Bild auf ein Drittel
+// heruntergerechnet, ein normal großer Zeiger verschwindet darin.
 const CURSOR_CSS = `
 #__cur { position: fixed; left: 0; top: 0; z-index: 2147483647; pointer-events: none;
-  width: 22px; height: 22px; margin: -2px 0 0 -2px; opacity: 0; transition: opacity .25s ease; }
-#__cur svg { display:block; filter: drop-shadow(0 2px 5px rgba(0,0,0,.45)); }
+  width: 33px; height: 33px; margin: -3px 0 0 -3px; opacity: 0; transition: opacity .25s ease; }
+#__cur svg { display:block; filter: drop-shadow(0 3px 7px rgba(0,0,0,.5)); }
 #__pulse { position: fixed; z-index: 2147483646; pointer-events: none; border-radius: 999px;
-  border: 2px solid rgba(240,150,50,.95); width: 12px; height: 12px; margin: -6px 0 0 -6px; opacity: 0; }
+  border: 3px solid rgba(246,144,24,.95); width: 14px; height: 14px; margin: -7px 0 0 -7px; opacity: 0; }
+/* Hervorhebung: liegt exakt auf dem Element, das die Aussage beweist. */
+#__hl { position: fixed; z-index: 2147483643; pointer-events: none; border-radius: 10px;
+  border: 3px solid #f69018; box-shadow: 0 0 0 4px rgba(246,144,24,.22), 0 0 26px rgba(246,144,24,.55);
+  opacity: 0; transition: opacity .3s cubic-bezier(.22,.61,.36,1); }
 `;
 
 async function installCursor(page) {
@@ -53,7 +59,7 @@ async function installCursor(page) {
     const c = document.createElement("div");
     c.id = "__cur";
     c.innerHTML =
-      '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 2l14 8.5-6.2 1.2 3.4 6.6-2.9 1.5-3.4-6.6L5 18V2z" fill="#fff" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/></svg>';
+      '<svg viewBox="0 0 24 24" width="33" height="33"><path d="M5 2l14 8.5-6.2 1.2 3.4 6.6-2.9 1.5-3.4-6.6L5 18V2z" fill="#fff" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/></svg>';
     document.body.appendChild(c);
     const p = document.createElement("div");
     p.id = "__pulse";
@@ -84,25 +90,38 @@ async function installCursor(page) {
 // ease-out-cubic: schnell los, weich ankommen. Niemals linear.
 const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
+// Die Bahn wird **in der Seite** gerechnet, nicht Schritt für Schritt vom
+// Skript aus gesetzt. Jeder Aufruf über die Fernsteuerung kostet rund 100 ms;
+// der Zeiger lief damit mit neun Bildern je Sekunde und brauchte für einen Weg
+// dreieinhalb Sekunden — länger als die ganze Einstellung. In der Seite läuft
+// er mit voller Bildrate und exakt so lange, wie er soll.
 async function moveCursor(page, to, opts = {}) {
-  const steps = opts.steps || 34;
   const from = opts.from || { x: 640, y: 640 };
-  // Leichter Bogen quer zur Bewegungsrichtung — eine Hand fährt keine Gerade.
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
+  const ms = opts.ms || 850;
   const bow = opts.bow ?? 0.12;
-  for (let i = 0; i <= steps; i++) {
-    const t = easeOut(i / steps);
-    const arc = Math.sin((i / steps) * Math.PI) * bow;
-    const x = from.x + dx * t - dy * arc;
-    const y = from.y + dy * t + dx * arc;
-    await page.evaluate(([x, y]) => window.__curAt(x, y), [x, y]);
-    await page.waitForTimeout(opts.frameMs || 16);
-  }
+  await page.evaluate(
+    ([from, to, ms, bow]) =>
+      new Promise((done) => {
+        const t0 = performance.now();
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const step = (now) => {
+          const p = Math.min(1, (now - t0) / ms);
+          const t = 1 - Math.pow(1 - p, 3); // ease-out: weich ankommen
+          // Leichter Bogen quer zur Richtung — eine Hand fährt keine Gerade.
+          const arc = Math.sin(p * Math.PI) * bow;
+          window.__curAt(from.x + dx * t - dy * arc, from.y + dy * t + dx * arc);
+          if (p < 1) requestAnimationFrame(step);
+          else done();
+        };
+        requestAnimationFrame(step);
+      }),
+    [from, to, ms, bow],
+  );
   // Minimales Überschwingen und Zurückfedern.
   for (const [ox, oy] of [[3, 2], [-1, -1], [0, 0]]) {
     await page.evaluate(([x, y]) => window.__curAt(x, y), [to.x + ox, to.y + oy]);
-    await page.waitForTimeout(40);
+    await page.waitForTimeout(45);
   }
 }
 
@@ -156,10 +175,11 @@ const holdMs = (text) =>
 async function installOverlay(page) {
   await page.addStyleTag({ content: CURSOR_CSS + CAPTION_CSS });
   await page.evaluate(() => {
-    for (const id of ["__capscrim", "__cap"]) document.getElementById(id)?.remove();
+    for (const id of ["__capscrim", "__cap", "__hl"]) document.getElementById(id)?.remove();
     for (const [id, html] of [
       ["__capscrim", ""],
       ["__cap", ""],
+      ["__hl", ""],
     ]) {
       const el = document.createElement("div");
       el.id = id;
@@ -175,6 +195,18 @@ async function installOverlay(page) {
         cap.style.opacity = "1";
         cap.style.transform = "translateY(0)";
       });
+    };
+    window.__hlAt = (b) => {
+      const el = document.getElementById("__hl");
+      el.style.left = b.x - 6 + "px";
+      el.style.top = b.y - 6 + "px";
+      el.style.width = b.width + 12 + "px";
+      el.style.height = b.height + 12 + "px";
+      requestAnimationFrame(() => (el.style.opacity = "1"));
+    };
+    window.__hlOff = () => {
+      const el = document.getElementById("__hl");
+      if (el) el.style.opacity = "0";
     };
     window.__capHide = () => {
       const cap = document.getElementById("__cap");
@@ -230,8 +262,60 @@ async function smoothScroll(page, to, ms = 900) {
   await page.waitForTimeout(120);
 }
 
+// Der Kasten des Elements, auf das die Kamera fahren soll — in CSS-Pixeln des
+// 1280×720-Fensters. Er wandert in die Schnittliste; der Schnitt rechnet die
+// Zufahrt daraus. So wird kein Ausschnitt mehr geraten.
+async function focusBox(page, sel) {
+  const b = await page.locator(sel).first().boundingBox();
+  if (!b) throw new Error(`kein Kasten für ${sel}`);
+  return { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) };
+}
+
+// Oranger Rahmen auf dem Element, das die Aussage beweist. Ohne ihn sieht der
+// Zuschauer die Veränderung nicht, die das Produkt belegt.
+// Kasten eines Elements, das über seinen Text gefunden wird — und optional
+// aufgeweitet, um die Spalte oder Zeile darunter mitzunehmen. Alles wird auf
+// das Fenster begrenzt: Ein Ausschnitt außerhalb des Bildes verschiebt die
+// Komposition, ohne dass ffmpeg es meldet.
+async function textBox(page, text, grow = {}) {
+  // Groß-/Kleinschreibung ignorieren: Spaltenköpfe stehen im Quelltext klein
+  // und werden erst per CSS in Großbuchstaben gesetzt. Erst exakt suchen, dann
+  // als Teilzeichenkette — sonst hängt die Aufnahme an einer Formatierung.
+  const b = await page.evaluate((t) => {
+    const norm = (v) => v.replace(/\s+/g, " ").trim().toLowerCase();
+    const nodes = [...document.querySelectorAll("*")].filter((e) => e.children.length === 0);
+    const el =
+      nodes.find((e) => norm(e.textContent) === norm(t)) ??
+      nodes.find((e) => norm(e.textContent).includes(norm(t)));
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.x, y: r.y, w: r.width, h: r.height };
+  }, text);
+  if (!b) throw new Error(`kein Element mit Text „${text}"`);
+  const x = Math.max(0, b.x + (grow.dx ?? 0));
+  const y = Math.max(0, b.y + (grow.dy ?? 0));
+  const w = grow.w ?? b.w;
+  const h = grow.h ?? b.h;
+  return {
+    x: Math.round(x),
+    y: Math.round(y),
+    w: Math.round(Math.min(w, 1280 - x)),
+    h: Math.round(Math.min(h, 720 - y)),
+  };
+}
+
+async function highlight(page, box, ms = 900) {
+  await page.evaluate((b) => window.__hlAt(b), { x: box.x, y: box.y, width: box.w, height: box.h });
+  await page.waitForTimeout(ms);
+  await page.evaluate(() => window.__hlOff());
+  await page.waitForTimeout(300);
+}
+
 module.exports = {
   launch,
+  focusBox,
+  textBox,
+  highlight,
   newClip,
   installCursor,
   installOverlay,

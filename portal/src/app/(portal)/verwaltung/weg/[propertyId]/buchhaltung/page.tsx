@@ -3,7 +3,7 @@ import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import type { Prisma } from "@/generated/prisma/client";
-import { Alert, Card, EmptyState, Field, PageTitle, Pagination, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, CollapsibleCard, EmptyState, Field, PageTitle, Pagination, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig, type SortOption } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { bookingKindLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
@@ -12,6 +12,7 @@ import { formatCents } from "@/lib/money";
 import { BauabzugHinweis } from "@/components/bauabzug-hinweis";
 import { bauleistungenJeHandwerker } from "@/lib/weg/bauabzugsteuer-service";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
+import { fiscalYearRange } from "@/lib/weg/economic-plan";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { isDateLocked } from "@/lib/weg/statement-lock";
 import {
@@ -227,6 +228,21 @@ export default async function WegBuchhaltungPage({
   const jetzt = new Date().getFullYear();
   const erstesJahr = aeltesteBuchung?.bookingDate.getFullYear() ?? jetzt;
   const jahre = Array.from({ length: Math.max(1, jetzt - erstesJahr + 1) }, (_, i) => jetzt - i);
+
+  // Der Export folgt dem Jahresfilter der Liste, wenn einer gesetzt ist —
+  // sonst überrascht ein Knopf, der etwas anderes liefert als das Sichtbare.
+  const exportJahr = Number.isFinite(jahr) && jahr > 1900 && jahr < 2200 ? jahr : jetzt;
+  const exportZeitraum = fiscalYearRange(exportJahr, property.fiscalYearStartMonth);
+  // Jahreswahl für den Export: alle übrigen Filter der Seite bleiben erhalten,
+  // damit man nach dem Herunterladen dort weiterarbeitet, wo man war.
+  const pageHrefMitJahr = (j: number) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (v && k !== "jahr" && k !== "page") params.set(k, String(v));
+    }
+    params.set("jahr", String(j));
+    return `/verwaltung/weg/${property.id}/buchhaltung?${params.toString()}`;
+  };
 
   const bookingFilters: FilterConfig[] = [
     {
@@ -799,6 +815,81 @@ export default async function WegBuchhaltungPage({
             hrefFor={pageHref}
           />
         </Card>
+
+        {/* Ausgeklappt wäre das eine lange Karte für etwas, das man zweimal im
+            Jahr braucht — zur Rechnungsprüfung und beim Steuerberater. */}
+        <CollapsibleCard title="Journal und Kontoblätter als CSV">
+          <p className="mb-1 text-sm text-gray-600">
+            Für die Prüfung durch den Verwaltungsbeirat (§ 29 Abs. 2 WEG), für den
+            Steuerberater oder bei einem Verwalterwechsel. Semikolon-getrennt und mit
+            Dezimalkomma — Excel und LibreOffice öffnen die Datei direkt, und die Beträge
+            sind Zahlen, mit denen sich rechnen lässt.
+          </p>
+          <p className="mb-4 text-sm text-gray-600">
+            Ausgegeben wird das{" "}
+            <strong>
+              Wirtschaftsjahr {exportJahr}
+              {property.fiscalYearStartMonth !== 1
+                ? ` (${formatDateOnly(exportZeitraum.start)} bis ${formatDateOnly(new Date(exportZeitraum.end.getTime() - 86400000))})`
+                : ""}
+            </strong>
+            {property.fiscalYearStartMonth !== 1 ? (
+              <>
+                {" "}— nicht das Kalenderjahr. Der Jahresfilter über der Liste meint das
+                Kalenderjahr; die Abrechnung rechnet über das Wirtschaftsjahr, und dagegen
+                soll sich das Kontoblatt abgleichen lassen.
+              </>
+            ) : (
+              "."
+            )}
+          </p>
+
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium tracking-wide text-gray-500 uppercase">
+              Jahr
+            </span>
+            {jahre.map((j) => (
+              <Link
+                key={j}
+                href={pageHrefMitJahr(j)}
+                className={`rounded-full px-3 py-1 text-sm ${
+                  j === exportJahr
+                    ? "bg-brand-green text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {j}
+              </Link>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={`/verwaltung/weg/${property.id}/buchhaltung/export?art=journal&jahr=${exportJahr}`}
+              className={buttonClass}
+            >
+              Journal {exportJahr}
+            </a>
+            {accounts.map((a) => (
+              <a
+                key={a.id}
+                href={`/verwaltung/weg/${property.id}/buchhaltung/export?art=kontoblatt&jahr=${exportJahr}&konto=${a.id}`}
+                className={buttonSecondaryClass}
+              >
+                Kontoblatt {a.name}
+              </a>
+            ))}
+          </div>
+
+          <Tipp className="mt-4">
+            Das <strong>Journal</strong> ist die zeitliche Liste aller Buchungen — es
+            beantwortet &bdquo;was ist passiert&ldquo;. Das <strong>Kontoblatt</strong> zeigt ein
+            einzelnes Konto mit fortlaufendem Saldo, von Anfangs- bis Endbestand — damit
+            gleicht man gegen den Kontoauszug der Bank ab. Stornierte Buchungen stehen in
+            beiden Dateien mit drin und sind in der Spalte &bdquo;Hinweis&ldquo; gekennzeichnet: Sie
+            heben sich im Saldo von selbst auf, aber verschwinden darf nichts.
+          </Tipp>
+        </CollapsibleCard>
       </div>
     </>
   );

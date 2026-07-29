@@ -1588,3 +1588,78 @@ die JSON-Runde des Snapshots übersteht, dass die Frist für eine Zahlung im
 September 2026 auf Montag, den 12.10., rutscht (der 10. ist ein Samstag) und dass
 eine stornierte Zahlung keine Anmeldepflicht erzeugt. Danach der Durchgang im
 Browser mit Verwalter- und Eigentümerkonto: keine Fehler, kein 500er.
+
+## Schritt 43 — Journal und Kontoblatt als CSV (29.07.2026)
+
+Die beiden Auszüge, nach denen jeder fragt, der die Buchhaltung von außen
+ansieht: der Verwaltungsbeirat bei der Rechnungsprüfung, der Steuerberater, der
+Nachfolger nach einem Verwalterwechsel. Bisher gab es die Zahlen nur in der
+Oberfläche — und aus einer Oberfläche kann niemand nachrechnen.
+
+246. **Zwei Auszüge, zwei Fragen.** Das **Journal** ist die zeitliche Liste
+     aller Buchungen und beantwortet „was ist passiert". Das **Kontoblatt**
+     zeigt ein einzelnes Konto mit fortlaufendem Saldo von Anfangs- bis
+     Endbestand und beantwortet „stimmt der Kontostand". Nur das zweite lässt
+     sich gegen den Bankauszug halten, deshalb sind es zwei Dateien und nicht
+     eine mit Filter.
+247. **Stornos bleiben drin und werden beschriftet.** Sie heben sich im Saldo
+     von selbst auf, weil die Gegenbuchung die umgekehrte Richtung trägt — es
+     muss also nichts herausgerechnet werden, nur gekennzeichnet. Eine
+     Buchhaltung, aus der etwas spurlos verschwindet, ist als Nachweis wertlos.
+     (In der Kostenverteilung ist das umgekehrt; dort greift `NOT_REVERSED`,
+     und der Kommentar dort sagt seit KP2 schon, dass das Journal alles zeigt.)
+248. **Die Vorzeichenregel steht jetzt an genau einer Stelle.** Sie stand
+     gleichlautend in `statement-service.ts` und wäre im Kontoblatt ein zweites
+     Mal entstanden. Zwei Kopien laufen auseinander, sobald eine vierte
+     Buchungsart dazukommt — und dann nennen Kontoblatt und Jahresabrechnung
+     verschiedene Endbestände, ohne dass jemand sagen kann, welcher stimmt.
+     `vorzeichenBetrag` in `journal.ts` ist der einzige Ort; `signedSum` ruft ihn.
+249. **Gegengeprüft, dass beide Wege dasselbe sagen** — das war der eigentliche
+     Prüfpunkt: Kontoblatt „Girokonto WEG" endet auf 4.176,48 €,
+     „Erhaltungsrücklage" auf 19.250,00 €, und exakt diese beiden Zahlen nennt
+     `computeStatementView` als `endCents`. Wären sie verschieden, wäre einer
+     der beiden Auszüge falsch.
+250. **Zwei Spalten statt einer vorzeichenbehafteten.** Einnahme und Ausgabe
+     stehen getrennt, jeweils als positive Zahl. So lässt sich jede Richtung für
+     sich summieren — und genau das ist der Handgriff beim Abgleich mit dem
+     Kontoauszug.
+251. **Beträge ohne Euro-Zeichen und ohne Tausenderpunkt.** Klingt nach einer
+     Verschlechterung gegenüber der Oberfläche, ist aber der Punkt: Excel-DE
+     erkennt „1234,56" als Zahl. „1.234,56 €" landet als **Text** in der Zelle,
+     und dann summiert der Steuerberater eine Spalte, die sich nicht summieren
+     lässt. Das Format ist damit bewusst ein anderes als überall sonst im
+     Programm, und `csvBetrag` sagt im Kommentar warum.
+252. **Stabil sortiert, nicht nach Anlagezeitpunkt.** Bei gleichem Buchungsdatum
+     entscheidet die ID. Zwei Exporte desselben Zeitraums müssen dieselben
+     Zwischensalden zeigen — sonst wirkt die Datei manipuliert, obwohl sich
+     nichts geändert hat. Ein Test hält das fest.
+253. **Anfangsbestand ist der des Zeitraums, nicht der des Kontos.**
+     Eröffnungssaldo plus alles, was vor dem Wirtschaftsjahr gebucht wurde. Ohne
+     diesen Vorlauf begänne jedes Kontoblatt wieder bei null und der Endbestand
+     stimmte nur im ersten Jahr.
+254. **Wirtschaftsjahr, nicht Kalenderjahr — und das steht auf der Seite.** Der
+     Jahresfilter über der Buchungsliste meint das Kalenderjahr, die Abrechnung
+     rechnet über das Wirtschaftsjahr. Bei abweichendem Jahresbeginn liefert der
+     Export also einen **anderen** Zeitraum als die Liste darüber zeigt. Das ist
+     richtig so — dagegen soll sich das Kontoblatt abgleichen lassen —, aber es
+     darf nicht stillschweigend passieren: Die Karte nennt den konkreten
+     Zeitraum, sobald er vom Kalenderjahr abweicht.
+255. **Nur für den Verwalter.** Das Einsichtsrecht des Eigentümers nach § 18
+     Abs. 4 WEG ist über die Belegeinsicht unter „Finanzen" abgedeckt. Ein
+     Massen-Download der gesamten Buchhaltung als Datei ist etwas anderes als
+     Einsicht. Im Browser gegengeprüft: Der Eigentümer bekommt 401, und die
+     Antwort enthält **keine** Spur von Buchungsdaten.
+256. **Der vorhandene CSV-Helfer wurde benutzt, nicht nachgebaut.**
+     `lib/csv.ts` bringt Semikolon, CRLF, UTF-8-BOM und den Schutz gegen
+     Formel-Injection schon mit (Excel führt Zellen aus, die mit `=`, `+`, `-`
+     oder `@` beginnen). Am fertigen Download nachgemessen: erste drei Bytes
+     `EF BB BF`, Umlaute sauber dekodierbar, alle Zeilen gleich breit.
+
+**Zwei Fehlalarme aus dem eigenen Prüfskript**, beide festgehalten, weil sie
+beim nächsten Mal wieder auftreten:
+
+257. „BOM vorhanden: false" — `fetch().text()` **entfernt** das BOM beim
+     Dekodieren. Wer es messen will, muss den `arrayBuffer` ansehen. Die Datei
+     war die ganze Zeit richtig.
+258. „Konten verlinkt: 0" — im HTML steht `&amp;` statt `&`. Die Suche im
+     Quelltext muss beides zulassen.

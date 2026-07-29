@@ -1424,3 +1424,52 @@ trotzdem; der Inhalt ist die 404-Seite. Ein Prüfskript, das nur den Statuscode
 liest, hielte das fälschlich für einen Treffer. Deshalb wird der **Inhalt**
 geprüft, und `kontoauszug-zugriff.test.ts` hält die Regel im Quelltext fest,
 damit sie nicht bei einem Umbau still verschwindet.
+
+## Schritt 41 — Die Prüfung hängt nicht mehr an GitHub Actions (29.07.2026)
+
+**Befund.** Ab dem 29.07.2026, 06:58 Uhr, wurde auf diesem Repository auf
+**keinem** Branch mehr ein Workflow gestartet — nicht fehlgeschlagen, sondern
+gar nicht ausgelöst. Der letzte Lauf über alle Branches:
+
+```
+06:58  claude/pdf-generation-analysis-229u0r   success
+06:51  claude/pdf-generation-analysis-229u0r   success
+06:35  claude/weg-accounting-review-dch465     success   ← PR #51
+(danach nichts mehr, auf keinem Branch)
+```
+
+PR #53 bekam deshalb keine `pruefung`. Schließen und Wiederöffnen löste nichts
+aus. Das Workflow selbst steht auf `active`, die Datei ist unverändert, der
+Auslöser (`pull_request`) stimmt — die Ursache liegt also außerhalb des
+Quelltextes, auf Konto- oder Repository-Ebene (Actions-Kontingent oder
+-Berechtigung). Daran kommt aus dieser Umgebung niemand heran.
+
+226. **Rückfallebene statt Warten: dieselbe Prüfung läuft jetzt im
+     Vercel-Build.** Vercel baute unverändert weiter — nur prüfte der Build
+     nichts. Ein grüner Deploy sagte damit nichts über Typen, Linter oder Tests
+     aus. `portal/vercel.json` ruft jetzt `npm run pruefung` **vor** Migration
+     und Build auf. Damit ist jeder Pull Request wieder prüfbar, ganz ohne
+     GitHub-Runner.
+227. **Ein Skript, zwei Aufrufer.** `package.json` bekommt
+     `"pruefung": "tsc --noEmit && eslint && vitest run"`; sowohl das
+     GitHub-Workflow als auch Vercel rufen genau diesen Eintrag auf. Vorher
+     standen die drei Befehle als eigene Schritte im Workflow — zwei Listen von
+     Befehlen laufen früher oder später auseinander, und dann prüft die eine
+     Seite etwas, das die andere nicht prüft.
+228. **Was das kostet, und warum es richtig ist.** Ein Fehlschlag blockiert
+     jetzt den Deploy — auch den in Produktion. Das ist die Absicht: Genau davor
+     soll eine Prüfung schützen. Der Preis sind rund anderthalb Minuten je
+     Deploy. Wer im Notfall daran vorbei muss, nimmt den Aufruf in
+     `vercel.json` heraus; das ist eine Zeile und in der Datei vermerkt.
+229. **Gegengeprüft, dass es wirklich abbricht** — eine Prüfung, die nie „nein"
+     sagt, ist keine. Mit einem absichtlich eingebauten Typfehler bricht die
+     Kette mit Exit 2 ab, mit einem absichtlich falschen Test mit Exit 1, im
+     heilen Zustand mit 0. Danach die vollständige Vercel-Befehlskette
+     (`pruefung && repair || true && migrate deploy && next build`) einmal
+     genau so ausgeführt, wie Vercel sie aufruft: 337 Tests, 90 Migrationen,
+     Build — Exit 0.
+
+**Was Ihr Gegenüber am Konto prüfen müsste**, falls die Workflows dauerhaft
+ausbleiben: GitHub → Settings → Billing (Actions-Minuten / Spending Limit) und
+Settings → Actions → General (ob Actions für das Repository erlaubt sind). Für
+den Betrieb ist das nun nicht mehr dringend — die Prüfung läuft ohnehin.

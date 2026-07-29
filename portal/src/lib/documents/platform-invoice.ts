@@ -1,17 +1,22 @@
-// PDF-Generator für Plattform-Rechnungen (Betreiber → Verwaltung). Eigenständig
-// (pdf-lib, A4, Helvetica), nutzt die zentralen Sicherheits-Helfer aus pdf-text.
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, degrees, rgb } from "pdf-lib";
-import { encodeWinAnsi, fitText, wrapText } from "./pdf-text";
+// Plattform-Rechnung (Betreiber → Verwaltung) als DIN-A4-Brief.
+//
+// Aufgebaut auf lib/documents/kit (DIN 5008 Form B). Eine Rechnung ist das
+// klassische Fensterumschlag-Dokument; vorher stand der Empfänger als
+// gewöhnlicher Textblock mitten im Satz und war nicht versandfertig.
+//
+// Die Pflichtangaben einer Rechnung stehen im Informationsblock
+// (Rechnungsnummer, Rechnungsdatum) und in der Fußzeile (USt-IdNr. des
+// Ausstellers).
+import {
+  CONTENT_WIDTH,
+  Doc,
+  color,
+  drawLetterHead,
+  mm,
+  size,
+  type TableCell,
+} from "./kit";
 import { formatCents, formatInvoiceNumber, type PlatformIssuer } from "@/lib/platform";
-
-const A4: [number, number] = [595.28, 841.89];
-const ML = 50;
-const MR = 50;
-const CW = A4[0] - ML - MR;
-const GREEN = rgb(0, 0.21, 0.19);
-const GRAY = rgb(0.4, 0.4, 0.4);
-const BLACK = rgb(0.1, 0.1, 0.1);
-const LIGHT = rgb(0.85, 0.85, 0.85);
 
 export type InvoiceItemInput = {
   description: string;
@@ -37,148 +42,117 @@ export type PlatformInvoiceInput = {
   };
   items: InvoiceItemInput[];
   issuer: PlatformIssuer;
+  /** Pfad zu einem PNG-Logo des Betreibers. */
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
 };
 
-function fmtDate(d: Date | null): string {
-  if (!d || Number.isNaN(d.getTime())) return "—";
-  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+function fmtDate(value: Date | null): string {
+  if (!value || Number.isNaN(value.getTime())) return "—";
+  return `${String(value.getDate()).padStart(2, "0")}.${String(value.getMonth() + 1).padStart(2, "0")}.${value.getFullYear()}`;
 }
+
+// Der Status gehört in den Text, nicht in ein diagonales Wasserzeichen: Das
+// alte lag quer über der Seite, machte den Ausdruck unruhig und war in
+// Schwarzweiß kaum zu erkennen.
+const STATUS_HINWEIS: Record<PlatformInvoiceInput["status"], string | null> = {
+  ENTWURF: "Entwurf — diese Rechnung ist noch nicht gestellt.",
+  OFFEN: null,
+  BEZAHLT: "Diese Rechnung ist bereits ausgeglichen.",
+  STORNIERT: "Diese Rechnung wurde storniert.",
+};
 
 export async function renderPlatformInvoicePdf(input: PlatformInvoiceInput): Promise<Buffer> {
-  const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  // War fest einseitig: eine Rechnung mit vielen Posten schrieb Summen und
-  // Zahlungshinweis unsichtbar unter den Blattrand. Jetzt bricht sie um.
-  let page: PDFPage = pdf.addPage(A4);
-  let y = A4[1] - 50;
-  const BOTTOM = 60;
-  const ensure = (needed: number) => {
-    if (y - needed >= BOTTOM) return;
-    page = pdf.addPage(A4);
-    y = A4[1] - 50;
-  };
-
-  const iss = input.issuer;
-  const enc = encodeWinAnsi;
-
-  // Kopfbalken + Briefkopf
-  page.drawRectangle({ x: 0, y: A4[1] - 6, width: A4[0], height: 6, color: GREEN });
-  page.drawText(enc(iss.legalName), { x: ML, y, size: 11, font: bold, color: GREEN });
-  y -= 13;
-  if (iss.contactLine) {
-    page.drawText(enc(iss.contactLine), { x: ML, y, size: 8, font, color: GRAY });
-    y -= 20;
-  } else y -= 8;
-
-  // Empfänger
-  page.drawText("Rechnungsempfänger", { x: ML, y, size: 8, font, color: GRAY });
-  y -= 12;
-  const rcpt = input.recipient;
-  const rcptLines = [
-    rcpt.legalName || rcpt.name,
-    rcpt.street ?? "",
-    [rcpt.zip, rcpt.city].filter(Boolean).join(" "),
-  ].filter(Boolean);
-  for (const l of rcptLines) {
-    page.drawText(fitText(enc(l), font, 10, CW), { x: ML, y, size: 10, font, color: BLACK });
-    y -= 13;
-  }
-  y -= 12;
-
-  // Titelzeile + Metadaten
-  page.drawText(`Rechnung ${formatInvoiceNumber(input.year, input.number)}`, {
-    x: ML, y, size: 16, font: bold, color: BLACK,
+  const nummer = formatInvoiceNumber(input.year, input.number);
+  const doc = await Doc.create({
+    title: `Rechnung ${nummer}`,
+    author: input.issuer.legalName,
+    subject: input.title,
   });
-  y -= 16;
-  for (const l of wrapText(enc(input.title), font, 10, CW)) {
-    page.drawText(l, { x: ML, y, size: 10, font, color: GRAY });
-    y -= 13;
-  }
-  y -= 4;
-  const meta = [
-    `Rechnungsdatum: ${fmtDate(input.issuedAt ?? input.createdAt)}`,
-    input.dueAt ? `Fällig bis: ${fmtDate(input.dueAt)}` : "",
-  ].filter(Boolean).join("   ·   ");
-  page.drawText(meta, { x: ML, y, size: 9, font, color: GRAY });
-  y -= 20;
+  doc.newPage();
 
-  // Positionstabelle
-  const colDesc = ML;
-  const colQty = ML + CW - 200;
-  const colUnit = ML + CW - 120;
-  const colSum = ML + CW - 60;
-  page.drawText("Beschreibung", { x: colDesc, y, size: 8, font: bold, color: GRAY });
-  page.drawText("Menge", { x: colQty, y, size: 8, font: bold, color: GRAY });
-  page.drawText("Einzel", { x: colUnit, y, size: 8, font: bold, color: GRAY });
-  page.drawText("Summe", { x: colSum, y, size: 8, font: bold, color: GRAY });
-  y -= 6;
-  page.drawLine({ start: { x: ML, y }, end: { x: ML + CW, y }, thickness: 0.5, color: LIGHT });
-  y -= 14;
+  await drawLetterHead(doc, {
+    issuer: { legalName: input.issuer.legalName, lines: [input.issuer.contactLine] },
+    logo: input.logo,
+    returnLine: [input.issuer.legalName, input.issuer.contactLine].filter(Boolean).join(" · "),
+    recipient: {
+      lines: [
+        input.recipient.legalName || input.recipient.name,
+        input.recipient.street ?? "",
+        [input.recipient.zip, input.recipient.city].filter(Boolean).join(" "),
+      ],
+    },
+    infoBlock: [
+      ["Rechnung", nummer],
+      ["Rechnungsdatum", fmtDate(input.issuedAt ?? input.createdAt)],
+      ...(input.dueAt ? ([["Fällig bis", fmtDate(input.dueAt)]] as [string, string][]) : []),
+    ],
+  });
 
-  let net = 0;
-  for (const it of input.items) {
-    const lineSum = it.quantity * it.unitPriceCents;
-    net += lineSum;
-    const descLines = wrapText(enc(it.description), font, 9, colQty - colDesc - 8);
-    ensure(descLines.length * 12 + 2);
-    for (let i = 0; i < descLines.length; i++) {
-      page.drawText(descLines[i], { x: colDesc, y, size: 9, font, color: BLACK });
-      if (i === 0) {
-        page.drawText(String(it.quantity), { x: colQty, y, size: 9, font, color: BLACK });
-        page.drawText(formatCents(it.unitPriceCents), { x: colUnit, y, size: 9, font, color: BLACK });
-        page.drawText(formatCents(lineSum), { x: colSum, y, size: 9, font, color: BLACK });
-      }
-      y -= 12;
-    }
-    y -= 2;
+  doc.subject(`Rechnung ${nummer}`, input.title);
+
+  const hinweis = STATUS_HINWEIS[input.status];
+  if (hinweis) {
+    doc.text(hinweis, {
+      font: doc.bold,
+      color: input.status === "STORNIERT" ? color.due : color.muted,
+    });
+    doc.space(mm(4));
   }
 
-  y -= 6;
-  ensure(60);
-  page.drawLine({ start: { x: colUnit - 10, y }, end: { x: ML + CW, y }, thickness: 0.5, color: LIGHT });
-  y -= 14;
-  const vat = Math.round(net * (input.vatRate / 100));
-  const gross = net + vat;
-  const totals: [string, string, boolean][] = [
-    ["Nettobetrag", formatCents(net), false],
-    [`zzgl. USt ${input.vatRate}%`, formatCents(vat), false],
-    ["Gesamtbetrag", formatCents(gross), true],
-  ];
-  for (const [label, value, strong] of totals) {
-    page.drawText(label, { x: colUnit - 10, y, size: strong ? 11 : 9, font: strong ? bold : font, color: strong ? BLACK : GRAY });
-    page.drawText(value, { x: colSum, y, size: strong ? 11 : 9, font: strong ? bold : font, color: strong ? BLACK : GRAY });
-    y -= strong ? 18 : 13;
+  // ── Positionen ─────────────────────────────────────────────────────────────
+  const netto = input.items.reduce((sum, item) => sum + item.quantity * item.unitPriceCents, 0);
+  const ust = Math.round(netto * (input.vatRate / 100));
+  const brutto = netto + ust;
+
+  doc.table(
+    [
+      { header: "Beschreibung", width: 52 },
+      { header: "Menge", width: 12, align: "right" },
+      { header: "Einzelpreis", width: 18, align: "right" },
+      { header: "Betrag", width: 18, align: "right" },
+    ],
+    input.items.map((item): TableCell[] => [
+      { text: item.description },
+      { text: String(item.quantity) },
+      { text: formatCents(item.unitPriceCents) },
+      { text: formatCents(item.quantity * item.unitPriceCents) },
+    ]),
+  );
+
+  doc.rule({ gapAbove: mm(2), gapBelow: mm(4) });
+  doc.amountRow("Nettobetrag", formatCents(netto));
+  doc.amountRow(`zuzüglich ${input.vatRate} % Umsatzsteuer`, formatCents(ust));
+  doc.space(mm(1));
+  doc.amountPanel("Gesamtbetrag", formatCents(brutto), {
+    sub: input.dueAt ? `Zahlbar bis ${fmtDate(input.dueAt)}` : null,
+    tone: input.status === "BEZAHLT" ? "credit" : "due",
+  });
+
+  // ── Zahlungshinweis ────────────────────────────────────────────────────────
+  if (input.status !== "STORNIERT" && (input.issuer.iban || input.issuer.bank)) {
+    doc.text("Bankverbindung", { size: size.small, font: doc.bold, color: color.muted, lead: mm(5) });
+    doc.defList([
+      ...(input.issuer.iban ? ([["IBAN", input.issuer.iban]] as [string, string][]) : []),
+      ...(input.issuer.bank ? ([["Bank", input.issuer.bank]] as [string, string][]) : []),
+    ]);
+    doc.space(mm(4));
+    const zahlung =
+      `Bitte überweisen Sie den Betrag ohne Abzug${input.dueAt ? ` bis zum ${fmtDate(input.dueAt)}` : ""} ` +
+      `unter Angabe der Rechnungsnummer ${nummer}.`;
+    // Zahlungshinweis, Grußformel und Absender bleiben zusammen.
+    doc.ensure(doc.measure(zahlung) + mm(4) + mm(10) + doc.measure(input.issuer.legalName));
+    doc.para(zahlung);
   }
 
-  // Zahlungshinweis
-  y -= 12;
-  if (input.status !== "STORNIERT" && (iss.iban || iss.bank)) {
-    ensure(50);
-    page.drawText("Zahlbar ohne Abzug auf folgendes Konto:", { x: ML, y, size: 9, font, color: BLACK });
-    y -= 12;
-    if (iss.iban) { page.drawText(enc(`IBAN: ${iss.iban}`), { x: ML, y, size: 9, font, color: GRAY }); y -= 12; }
-    if (iss.bank) { page.drawText(enc(`Bank: ${iss.bank}`), { x: ML, y, size: 9, font, color: GRAY }); y -= 12; }
-    if (iss.vatId) { page.drawText(enc(`USt-IdNr.: ${iss.vatId}`), { x: ML, y, size: 8, font, color: GRAY }); y -= 12; }
-  }
+  doc.space(mm(4));
+  doc.text("Mit freundlichen Grüßen", { lead: mm(10) });
+  doc.para(input.issuer.legalName, { width: CONTENT_WIDTH });
 
-  // Wasserzeichen für Entwurf/Storno
-  if (input.status === "ENTWURF" || input.status === "STORNIERT") {
-    const label = input.status === "STORNIERT" ? "STORNIERT" : "ENTWURF";
-    for (const p of pdf.getPages()) drawWatermark(p, bold, label);
-  }
-
-  return Buffer.from(await pdf.save());
-}
-
-function drawWatermark(page: PDFPage, font: PDFFont, text: string) {
-  page.drawText(text, {
-    x: 120,
-    y: 380,
-    size: 90,
-    font,
-    color: rgb(0.9, 0.5, 0.3),
-    rotate: degrees(35),
-    opacity: 0.15,
+  return doc.finish({
+    left: [input.issuer.legalName, input.issuer.vatId ? `USt-IdNr. ${input.issuer.vatId}` : null]
+      .filter(Boolean)
+      .join(" · "),
+    right: `Rechnung ${nummer}`,
   });
 }

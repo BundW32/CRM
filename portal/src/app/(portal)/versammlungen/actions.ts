@@ -7,6 +7,7 @@ import { canVerwalterAccessProperty } from "@/lib/access";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
+import { briefkopfAus } from "@/lib/documents/briefkopf";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { deleteBlob, saveBuffer } from "@/lib/storage";
 import { requireVerwalter } from "@/lib/session";
@@ -545,12 +546,12 @@ async function buildAndStoreProtocol(
     OFFEN: "offen",
   };
 
+  const kopf = await briefkopfAus(branding);
   const pdf = await generateMeetingProtocol({
     propertyName: property?.name ?? "",
-    issuer: {
-      legalName: branding.legalName,
-      contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-    },
+    issuer: kopf.issuer,
+    brand: kopf.brand,
+    logo: kopf.logo,
     meetingTitle: meeting.title,
     scheduledAt: meeting.scheduledAt,
     location: meeting.location,

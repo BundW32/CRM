@@ -25,7 +25,8 @@ export type MahnungInput = {
   issuer: LetterIssuer;
   /** Mandantenfarbe und Logo, beides optional. */
   brand?: RGB;
-  logoPath?: string | null;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   propertyName: string;
   unitLabel: string;
   /** 1–3, siehe reminderLevelLabel. */
@@ -107,7 +108,7 @@ export async function generateMahnung(input: MahnungInput): Promise<Buffer> {
 
   await drawLetterHead(doc, {
     issuer: input.issuer,
-    logoPath: input.logoPath,
+    logo: input.logo,
     // Nur Firma und Anschrift: mehr passt nicht in die 85 mm des Felds.
     returnLine: [input.issuer.legalName, input.issuer.lines[0]].filter(Boolean).join(" · "),
     recipient: {

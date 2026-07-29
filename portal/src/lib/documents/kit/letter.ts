@@ -37,23 +37,48 @@ export type LetterHead = {
   /** Absenderzeile über der Anschrift (Fensterumschlag). */
   returnLine: string;
   /** Pfad zu einem PNG-Logo; fehlt es, bleibt die Stelle leer. */
-  logoPath?: string | null;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   /** Rechts neben dem Anschriftfeld: Objekt, Einheit, Vorgang, Datum. */
   infoBlock?: [string, string][];
 };
 
+/**
+ * PNG oder JPEG — ein hochgeladenes Logo ist mal das eine, mal das andere,
+ * und pdf-lib hat für jedes eine eigene Funktion.
+ */
+async function embedImage(doc: Doc, bytes: Uint8Array) {
+  try {
+    return await doc.pdf.embedPng(bytes);
+  } catch {
+    return await doc.pdf.embedJpg(bytes);
+  }
+}
+
 /** Die Anschriftzone fasst fünf Zeilen à 4,23 mm. */
 const MAX_ADDRESS_LINES = 5;
 
-export async function drawLetterHead(doc: Doc, head: LetterHead): Promise<void> {
+/**
+ * Logo links, Absender rechts, Akzentlinie darunter. Gemeinsamer Kopf von
+ * Briefen und Berichten — sonst hätte jeder Berichtstyp seinen eigenen.
+ *
+ * Gibt die Höhe der Akzentlinie zurück.
+ */
+export async function drawBrandHead(
+  doc: Doc,
+  issuer: LetterIssuer,
+  logo?: string | Uint8Array | null,
+): Promise<number> {
   const page = doc.page;
-
-  // ── Kopf: Logo links, Absender rechts ──────────────────────────────────────
   // Kein randabfallender Farbbalken mehr: den schneidet jeder Bürodrucker ab.
   let logoBottom = PAGE.height - mm(30);
-  if (head.logoPath && fs.existsSync(head.logoPath)) {
+  // Ein hochgeladenes Mandantenlogo kommt als Bilddaten aus dem Dateispeicher,
+  // das Standardlogo als Pfad im Dateisystem.
+  const bytes =
+    typeof logo === "string" ? (fs.existsSync(logo) ? fs.readFileSync(logo) : null) : (logo ?? null);
+  if (bytes) {
     try {
-      const image = await doc.pdf.embedPng(fs.readFileSync(head.logoPath));
+      const image = await embedImage(doc, bytes);
       const height = mm(13);
       const width = image.width * (height / image.height);
       page.drawImage(image, {
@@ -70,7 +95,7 @@ export async function drawLetterHead(doc: Doc, head: LetterHead): Promise<void> 
 
   const headRoom = CONTENT_WIDTH - mm(40); // Platz für das Logo freihalten
   let ry = PAGE.height - mm(15);
-  for (const line of wrapText(head.issuer.legalName, doc.bold, size.small, headRoom).slice(0, 2)) {
+  for (const line of wrapText(issuer.legalName, doc.bold, size.small, headRoom).slice(0, 2)) {
     page.drawText(line, {
       x: DIN.marginLeft + CONTENT_WIDTH - doc.bold.widthOfTextAtSize(line, size.small),
       y: ry,
@@ -80,7 +105,7 @@ export async function drawLetterHead(doc: Doc, head: LetterHead): Promise<void> 
     });
     ry -= mm(4.2);
   }
-  for (const raw of head.issuer.lines) {
+  for (const raw of issuer.lines) {
     const line = fitText(raw, doc.font, size.foot, headRoom);
     page.drawText(line, {
       x: DIN.marginLeft + CONTENT_WIDTH - doc.font.widthOfTextAtSize(line, size.foot),
@@ -99,6 +124,14 @@ export async function drawLetterHead(doc: Doc, head: LetterHead): Promise<void> 
     thickness: 1.2,
     color: doc.brand,
   });
+
+  return Math.min(logoBottom, ry) - mm(3);
+}
+
+export async function drawLetterHead(doc: Doc, head: LetterHead): Promise<void> {
+  const page = doc.page;
+
+  await drawBrandHead(doc, head.issuer, head.logo);
 
   // ── Anschriftfeld ──────────────────────────────────────────────────────────
   const returnY = PAGE.height - DIN.addressFieldTop - mm(3);

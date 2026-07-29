@@ -63,11 +63,11 @@ export async function GET(
 
   try {
     const branding = await getBrandingForOrg(meeting.property.organizationId);
-    const kopf = briefkopfAus(branding);
+    const kopf = await briefkopfAus(branding);
     const pdf = await generateMeetingInvitation({
       issuer: kopf.issuer,
       brand: kopf.brand,
-      logoPath: kopf.logoPath,
+      logo: kopf.logo,
       propertyName: meeting.property.name,
       meetingTitle: meeting.title,
       scheduledAt: meeting.scheduledAt,

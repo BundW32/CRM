@@ -279,22 +279,34 @@ export class Doc {
     header();
 
     for (const row of rows) {
-      if (this.y - leading.body < PAGE.height - DIN.footerTop + mm(6)) {
+      // Linksbündige Zellen brechen um, statt zu kürzen: Ein Kostenname, der
+      // als „Mieteinnahmen Gemeinschaftsfläche (Einnah…" endet, ist in einer
+      // Abrechnung nicht prüfbar. Rechtsbündige Beträge bleiben einzeilig.
+      const cellLines = row.map((cell, i) => {
+        const font = cell.strong ? this.bold : this.font;
+        return columns[i].align === "right"
+          ? [fitText(cell.text, font, size.body, inner[i])]
+          : wrapText(cell.text, font, size.body, inner[i]);
+      });
+      const height = Math.max(1, ...cellLines.map((lines) => lines.length)) * leading.body;
+
+      if (this.y - height < PAGE.height - DIN.footerTop + mm(6)) {
         this.newPage();
         header();
       }
       row.forEach((cell, i) => {
         const font = cell.strong ? this.bold : this.font;
-        const text = fitText(cell.text, font, size.body, inner[i]);
-        this.page.drawText(text, {
-          x: place(text, i, font, size.body),
-          y: this.y,
-          size: size.body,
-          font,
-          color: cell.color ?? color.ink,
+        cellLines[i].forEach((text, line) => {
+          this.page.drawText(text, {
+            x: place(text, i, font, size.body),
+            y: this.y - line * leading.body,
+            size: size.body,
+            font,
+            color: cell.color ?? color.ink,
+          });
         });
       });
-      this.y -= leading.body;
+      this.y -= height;
     }
   }
 
@@ -367,27 +379,126 @@ export class Doc {
     this.y = top - height - mm(6);
   }
 
-  /** Bezeichnung/Wert mit fester Wertespalte — Bankverbindungen, Kennzahlen. */
-  defList(rows: [string, string][], options: { labelWidth?: number } = {}): void {
+  /**
+   * Bezeichnung/Wert mit fester Wertespalte — Bankverbindungen, Eckdaten.
+   *
+   * Der Wert bricht um, statt zu kürzen: Anschriften, Notizen und Links sind
+   * genau die Angaben, bei denen ein „…" die Auskunft wertlos macht.
+   */
+  defList(
+    rows: [string, string][],
+    options: { labelWidth?: number; indent?: number } = {},
+  ): void {
     const labelWidth = options.labelWidth ?? mm(38);
+    const x = DIN.marginLeft + (options.indent ?? 0);
+    const valueX = x + labelWidth;
+    const valueWidth = DIN.marginLeft + CONTENT_WIDTH - valueX;
     for (const [key, value] of rows) {
-      this.ensure(leading.body);
+      const lines = wrapText(value, this.font, size.body, valueWidth);
+      this.ensure(leading.body * Math.max(1, lines.length));
       this.page.drawText(fitText(key, this.font, size.body, labelWidth - mm(3)), {
-        x: DIN.marginLeft,
+        x,
         y: this.y,
         size: size.body,
         font: this.font,
         color: color.muted,
       });
-      this.page.drawText(fitText(value, this.font, size.body, CONTENT_WIDTH - labelWidth), {
-        x: DIN.marginLeft + labelWidth,
-        y: this.y,
-        size: size.body,
-        font: this.font,
-        color: color.ink,
+      lines.forEach((line, i) => {
+        this.page.drawText(line, {
+          x: valueX,
+          y: this.y - i * leading.body,
+          size: size.body,
+          font: this.font,
+          color: color.ink,
+        });
       });
-      this.y -= leading.body;
+      this.y -= leading.body * Math.max(1, lines.length);
     }
+  }
+
+  /**
+   * Abschnittsüberschrift mit hinterlegtem Band und Akzent in der
+   * Mandantenfarbe. Ein langes Dokument braucht sichtbare Abschnitte — im
+   * Übergabeprotokoll trennt sie Eckdaten, Räume, Zähler und Unterschriften.
+   */
+  section(title: string): void {
+    const height = mm(7.5);
+    this.ensure(height + mm(6));
+    this.y -= mm(2);
+    const top = this.y + mm(2);
+    this.page.drawRectangle({
+      x: DIN.marginLeft,
+      y: top - height,
+      width: CONTENT_WIDTH,
+      height,
+      color: color.panel,
+    });
+    this.page.drawRectangle({
+      x: DIN.marginLeft,
+      y: top - height,
+      width: mm(1.2),
+      height,
+      color: this.brand,
+    });
+    this.page.drawText(fitText(title, this.bold, size.body, CONTENT_WIDTH - mm(10)), {
+      x: DIN.marginLeft + mm(5),
+      y: top - height + mm(2.3),
+      size: size.body,
+      font: this.bold,
+      color: color.ink,
+    });
+    this.y = top - height - mm(5);
+  }
+
+  /**
+   * Unterschriftsblock: freigestelltes Bild (sofern vorhanden), Linie, Name.
+   *
+   * Ohne Bild bleibt die Linie mit Platz darüber stehen — dann wird von Hand
+   * unterschrieben. Eine Bescheinigung ohne Unterschriftsfeld wäre wertlos.
+   */
+  async signature(
+    png: Uint8Array | null,
+    label: string,
+    options: { ort?: string | null; datum?: string | null } = {},
+  ): Promise<void> {
+    this.ensure(mm(40));
+    if (options.ort || options.datum) {
+      this.text([options.ort, options.datum].filter(Boolean).join(", den "), {
+        color: color.muted,
+        lead: mm(6),
+      });
+    }
+    let drawn = false;
+    if (png) {
+      try {
+        const image = await this.pdf.embedPng(png);
+        const maxWidth = mm(60);
+        const maxHeight = mm(22);
+        const scale = Math.min(maxWidth / image.width, maxHeight / image.height);
+        const width = image.width * scale;
+        const height = image.height * scale;
+        this.page.drawImage(image, {
+          x: DIN.marginLeft,
+          y: this.y - height + mm(2),
+          width,
+          height,
+        });
+        this.y -= height;
+        drawn = true;
+      } catch {
+        /* Ein unlesbares Bild darf die Bescheinigung nicht verhindern. */
+      }
+    }
+    if (!drawn) this.y -= mm(18);
+
+    this.page.drawLine({
+      start: { x: DIN.marginLeft, y: this.y },
+      end: { x: DIN.marginLeft + mm(70), y: this.y },
+      thickness: 0.7,
+      color: color.muted,
+    });
+    this.y -= mm(5);
+    this.text(label, { size: size.small, color: color.muted });
   }
 
   // ── Abschluss ──────────────────────────────────────────────────────────────

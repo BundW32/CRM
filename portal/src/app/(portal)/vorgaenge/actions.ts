@@ -38,6 +38,7 @@ import {
   supportedCertificate,
   type SignatureImage,
 } from "@/lib/documents/bescheinigungen";
+import { briefkopfAus } from "@/lib/documents/briefkopf";
 
 const TRADES = [
   "SANITAER", "HEIZUNG", "ELEKTRO", "DACH", "MALER", "BODENLEGER",
@@ -1028,6 +1029,7 @@ export async function generateCertificate(formData: FormData) {
     }
   }
 
+  const kopf = await briefkopfAus(branding);
   const ausstellungsdatum = new Date();
   let pdf: Buffer;
   let title: string;
@@ -1046,6 +1048,7 @@ export async function generateCertificate(formData: FormData) {
       ort: ausstellungsOrt,
       unterzeichner,
       signature,
+      brand: kopf.brand,
     });
   } else {
     title = "Mietbescheinigung";
@@ -1059,6 +1062,8 @@ export async function generateCertificate(formData: FormData) {
       unterzeichner,
       issuer,
       signature,
+      brand: kopf.brand,
+      logo: kopf.logo,
     });
   }
 

@@ -42,11 +42,11 @@ export async function GET(
 
   try {
     const branding = await getBrandingForOrg(property.organizationId);
-    const kopf = briefkopfAus(branding);
+    const kopf = await briefkopfAus(branding);
     const pdf = await generateBetriebskosten({
       issuer: kopf.issuer,
       brand: kopf.brand,
-      logoPath: kopf.logoPath,
+      logo: kopf.logo,
       propertyName: property.name,
       unitLabel: data.unitLabel,
       tenant: data.tenant,

@@ -7,6 +7,7 @@
 import { wrapText } from "./pdf-text";
 import {
   CONTENT_WIDTH,
+  DIN,
   Doc,
   color,
   drawReportHead,
@@ -76,19 +77,23 @@ export async function generateBeschlussSammlung(input: BeschlussSammlungInput): 
   }
 
   const NUMMER_BREITE = mm(22);
+  // Rechts bleibt Platz für das Ergebniswort („Zurückgezogen" ist das längste).
+  const STATUS_BREITE = mm(24);
+  const TITEL_BREITE = CONTENT_WIDTH - NUMMER_BREITE - STATUS_BREITE;
+  const TITEL_ZEILE = mm(5);
+
   for (const entry of input.entries) {
     const titel = entry.title;
+    const zeilen = wrapText(titel, doc.font, size.body, TITEL_BREITE);
     // Nummer, Titel und Abstimmungsergebnis bleiben zusammen: Ein Beschluss,
     // dessen Ergebnis auf der Folgeseite steht, ist als Nachweis wertlos.
-    doc.ensure(
-      mm(6) +
-        doc.measure(titel, { width: CONTENT_WIDTH - NUMMER_BREITE }) +
-        mm(11),
-    );
+    // Gemessen wird mit DERSELBEN Breite, mit der gezeichnet wird — sonst
+    // reserviert man für weniger Zeilen, als am Ende entstehen.
+    doc.ensure(mm(6) + zeilen.length * TITEL_ZEILE + mm(11));
 
     const kopfY = doc.y;
     doc.page.drawText(entry.number != null ? `Nr. ${entry.number}` : "—", {
-      x: mm(20),
+      x: DIN.marginLeft,
       y: kopfY,
       size: size.body,
       font: doc.bold,
@@ -106,8 +111,11 @@ export async function generateBeschlussSammlung(input: BeschlussSammlungInput): 
     });
 
     // Titel und Fußzeile des Eintrags rücken hinter die Nummernspalte ein.
-    const einzug = mm(20) + NUMMER_BREITE;
-    for (const zeile of wrapText(titel, doc.font, size.body, CONTENT_WIDTH - NUMMER_BREITE - mm(24))) {
+    const einzug = DIN.marginLeft + NUMMER_BREITE;
+    for (const zeile of zeilen) {
+      // Rückfallebene für den Fall, dass ein einzelner Titel länger ist als
+      // eine ganze Seite: dann lieber umbrechen als die Fußzeile überdrucken.
+      doc.ensure(TITEL_ZEILE);
       doc.page.drawText(zeile, {
         x: einzug,
         y: doc.y,
@@ -115,8 +123,9 @@ export async function generateBeschlussSammlung(input: BeschlussSammlungInput): 
         font: doc.font,
         color: color.ink,
       });
-      doc.y -= mm(5);
+      doc.y -= TITEL_ZEILE;
     }
+    doc.ensure(mm(8));
     doc.page.drawText(
       `Beschlossen am ${fmtDate(entry.decidedAt)}  ·  Ja ${entry.ja} · Nein ${entry.nein} · Enthaltung ${entry.enthaltung}`,
       { x: einzug, y: doc.y, size: size.foot, font: doc.font, color: color.muted },

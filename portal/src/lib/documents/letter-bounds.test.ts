@@ -35,6 +35,10 @@ const PAGE_W = 595.28;
 const LEFT = 20 * MM;
 const RIGHT = PAGE_W - 20 * MM;
 const TOLERANCE = 0.5; // Punkt
+// Grundlinie der Fußzeile (DIN.footerTop = 272 mm von oben). Inhalt, der
+// darunter steht, überschreibt die Fußzeile — das sieht man auf dem Blatt erst,
+// wenn Seitenzahl und Firmenname überdruckt sind.
+const FOOTER_Y = 841.89 - 272 * MM;
 
 function assertInsideMargins(items: DrawnText[]) {
   expect(items.length).toBeGreaterThan(0);
@@ -44,6 +48,8 @@ function assertInsideMargins(items: DrawnText[]) {
     expect(it.x + it.width, where).toBeLessThanOrEqual(RIGHT + TOLERANCE);
     // Nichts unterhalb des Blattrands – genau das war der stille Datenverlust.
     expect(it.y, where).toBeGreaterThan(0);
+    // Und nichts unter der Fußzeile: Dort überdruckt Inhalt die Seitenzahl.
+    expect(it.y, where).toBeGreaterThanOrEqual(FOOTER_Y - TOLERANCE);
   }
 }
 

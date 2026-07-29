@@ -327,6 +327,7 @@ model Organization {
   unitOwnerships        UnitOwnership[]
   annualStatements      AnnualStatement[]
   hausgeldMahnungen     HausgeldMahnung[]
+  baseInterestRates     BaseInterestRate[]
   sonderumlagen         Sonderumlage[]
   maintenanceMeasures   MaintenanceMeasure[]
   integrationSettings   IntegrationSetting[]
@@ -491,6 +492,11 @@ model Property {
   // Wann das monatliche Hausgeld fällig wird. Steuert die Sollstellungen und
   // zugleich den Wortlaut der Beschlussvorlage — beides muss dasselbe sagen,
   // sonst mahnt die Verwaltung zu einem Termin, den der Beschluss nicht nennt.
+  // Tatsächliche Mahnkosten je Mahnung (Porto, Material). **Keine Pauschale von
+  // 40 €:** § 288 Abs. 5 BGB gilt nur zwischen Unternehmern; der
+  // Wohnungseigentümer ist regelmäßig Verbraucher. Ersetzt wird nur, was
+  // wirklich angefallen ist.
+  mahnkostenCents     Int                  @default(0)
   dueDayRule          DueDayRule           @default(MONATSERSTER)
   dueDayOfMonth       Int? // nur bei FREIER_TAG (1–28)
   // SEPA-Lastschrift: Gläubiger-Identifikationsnummer der Gemeinschaft (Bundesbank)
@@ -1786,6 +1792,30 @@ model StatementAccountCheck {
 // 2 = 1. Mahnung, 3 = 2. Mahnung. Keine automatischen Gebühren. Rückstand und
 // Empfänger werden beim Erstellen eingefroren (Snapshot) — das PDF bleibt
 // reproduzierbar, auch wenn später Zahlungen eingehen.
+// Basiszinssatz nach § 247 BGB — Grundlage der Verzugszinsen (§ 288 Abs. 1).
+//
+// **Warum als Daten und nicht als Tabelle im Quelltext.** Der Satz ändert sich
+// halbjährlich zum 1. Januar und 1. Juli. Ein einprogrammierter Wert ist ab dem
+// nächsten Halbjahr falsch, und niemand merkt es — das Programm rechnete
+// einfach weiter und schriebe die veraltete Zahl in eine Mahnung, die nach
+// außen geht. Fehlt der Satz, weist das Programm **keine** Zinsen aus und sagt,
+// welcher Zeitraum fehlt.
+//
+// Je Organisation gepflegt, obwohl es dieselbe amtliche Zahl für alle ist: Ein
+// gemeinsamer Bestand hieße, dass die Eingabe eines Mandanten die Mahnungen
+// aller anderen verändert.
+model BaseInterestRate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  validFrom      DateTime // Gilt ab diesem Tag (einschließlich)
+  basisPoints    Int // -0,88 % = -88; ganzzahlig, damit nichts gerundet wird
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, validFrom])
+  @@index([organizationId])
+}
+
 model HausgeldMahnung {
   id              String       @id @default(cuid())
   organizationId  String
@@ -1800,6 +1830,12 @@ model HausgeldMahnung {
   recipientName   String // Empfänger-Snapshot (aktuelle Eigentümer der Einheit)
   recipientAddress String? // Snapshot "Straße\nPLZ Ort" (falls hinterlegt)
   sentAt          DateTime? // "als versendet markiert" (Fristen-Nachweis)
+  // Verzugszinsen und Mahnkosten zum Erstellzeitpunkt — als Momentaufnahme.
+  // Sie später neu zu berechnen wäre falsch: Das Schreiben ist raus, und was
+  // darin stand, muss nachvollziehbar bleiben. `interestCents` ist null, wenn
+  // für den Zeitraum kein Basiszinssatz hinterlegt war.
+  interestCents   Int?
+  feeCents        Int          @default(0)
   createdById     String
   createdBy       User         @relation("MahnungCreatedBy", fields: [createdById], references: [id])
   createdAt       DateTime     @default(now())

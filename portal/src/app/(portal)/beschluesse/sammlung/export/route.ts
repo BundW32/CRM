@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
+import { briefkopfAus } from "@/lib/documents/briefkopf";
 import { getUser } from "@/lib/session";
 import { generateBeschlussSammlung } from "@/lib/documents/beschluss-sammlung";
 import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
@@ -47,13 +48,12 @@ export async function GET(request: Request) {
       include: { votes: { select: { choice: true } } },
     });
 
-    const branding = await getBrandingForOrg(property.organizationId);
+    const kopf = briefkopfAus(await getBrandingForOrg(property.organizationId));
     const pdf = await generateBeschlussSammlung({
       propertyName: property.name,
-      issuer: {
-        legalName: branding.legalName,
-        contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-      },
+      issuer: kopf.issuer,
+      brand: kopf.brand,
+      logoPath: kopf.logoPath,
       entries: resolutions.map((r) => ({
         number: r.number,
         title: r.title,

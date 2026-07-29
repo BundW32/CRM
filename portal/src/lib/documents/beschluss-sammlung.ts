@@ -1,16 +1,20 @@
-// PDF-Generator für die Beschluss-Sammlung einer WEG (§ 24 Abs. 7 WEG).
-// Listet alle gefassten Beschlüsse eines Objekts fortlaufend nummeriert auf.
-// Aufbau analog zu lib/documents/bescheinigungen.ts (pdf-lib, A4, Helvetica).
-import { PDFDocument, PDFPage, StandardFonts, rgb } from "pdf-lib";
-import { encodeWinAnsi, wrapText } from "./pdf-text";
-
-const A4: [number, number] = [595.28, 841.89];
-const ML = 50;
-const MR = 50;
-const CW = A4[0] - ML - MR;
-const GREEN = rgb(0, 0.21, 0.19);
-const GRAY = rgb(0.4, 0.4, 0.4);
-const BLACK = rgb(0.1, 0.1, 0.1);
+// Beschluss-Sammlung einer WEG (§ 24 Abs. 7 WEG): alle gefassten Beschlüsse
+// eines Objekts, fortlaufend nummeriert.
+//
+// Aufgebaut auf lib/documents/kit. Die Sammlung ist ein Nachweisdokument —
+// jeder Käufer einer Einheit sieht hier hinein —, deshalb trägt jede Seite
+// Objekt, Stand und Seitenzählung.
+import { wrapText } from "./pdf-text";
+import {
+  CONTENT_WIDTH,
+  Doc,
+  color,
+  drawReportHead,
+  mm,
+  size,
+  type LetterIssuer,
+} from "./kit";
+import type { RGB } from "pdf-lib";
 
 export type BeschlussSammlungEntry = {
   number: number | null;
@@ -24,12 +28,14 @@ export type BeschlussSammlungEntry = {
 
 export type BeschlussSammlungInput = {
   propertyName: string;
-  issuer: { legalName: string; contactLine: string };
+  issuer: LetterIssuer;
+  brand?: RGB;
+  logoPath?: string | null;
   entries: BeschlussSammlungEntry[];
   generatedAt: Date;
 };
 
-const STATUS_LABELS: Record<string, string> = {
+const STATUS_LABELS: Record<BeschlussSammlungEntry["status"], string> = {
   ANGENOMMEN: "Angenommen",
   ABGELEHNT: "Abgelehnt",
   ZURUECKGEZOGEN: "Zurückgezogen",
@@ -41,84 +47,83 @@ function fmtDate(d: Date | null): string {
   return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
 }
 
-export async function generateBeschlussSammlung(rawInput: BeschlussSammlungInput): Promise<Buffer> {
-  // Nutzergenerierte Texte für die Standard-Schrift (WinAnsi) absichern.
-  const input: BeschlussSammlungInput = {
-    ...rawInput,
-    propertyName: encodeWinAnsi(rawInput.propertyName),
-    issuer: {
-      legalName: encodeWinAnsi(rawInput.issuer.legalName),
-      contactLine: encodeWinAnsi(rawInput.issuer.contactLine),
-    },
-    entries: rawInput.entries.map((e) => ({ ...e, title: encodeWinAnsi(e.title) })),
-  };
-
-  const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-
-  let page: PDFPage = pdf.addPage(A4);
-  let y = A4[1] - 50;
-
-  function ensureSpace(needed: number) {
-    if (y - needed < 60) {
-      page = pdf.addPage(A4);
-      y = A4[1] - 50;
-    }
-  }
-
-  // ── Kopf ──────────────────────────────────────────────────────────────
-  page.drawRectangle({ x: 0, y: A4[1] - 6, width: A4[0], height: 6, color: GREEN });
-  page.drawText(input.issuer.legalName, { x: ML, y, size: 10, font: bold, color: GREEN });
-  y -= 12;
-  if (input.issuer.contactLine) {
-    page.drawText(input.issuer.contactLine, { x: ML, y, size: 8, font, color: GRAY });
-    y -= 16;
-  } else {
-    y -= 6;
-  }
-  page.drawText("Beschluss-Sammlung", { x: ML, y, size: 16, font: bold, color: BLACK });
-  y -= 18;
-  page.drawText(input.propertyName, { x: ML, y, size: 10, font, color: GRAY });
-  y -= 12;
-  page.drawText(`Stand: ${fmtDate(input.generatedAt)} · § 24 Abs. 7 WEG`, {
-    x: ML, y, size: 8, font, color: GRAY,
+export async function generateBeschlussSammlung(input: BeschlussSammlungInput): Promise<Buffer> {
+  const doc = await Doc.create({
+    title: `Beschluss-Sammlung — ${input.propertyName}`,
+    author: input.issuer.legalName,
+    subject: `Beschluss-Sammlung nach § 24 Abs. 7 WEG, ${input.propertyName}`,
+    brand: input.brand,
   });
-  y -= 18;
-  page.drawLine({ start: { x: ML, y }, end: { x: ML + CW, y }, thickness: 0.5, color: GRAY });
-  y -= 16;
+  doc.newPage();
+
+  await drawReportHead(doc, {
+    issuer: input.issuer,
+    logoPath: input.logoPath,
+    title: "Beschluss-Sammlung",
+    subtitle: `${input.propertyName}\nGeführt nach § 24 Abs. 7 WEG`,
+    meta: [
+      ["Stand", fmtDate(input.generatedAt)],
+      ["Beschlüsse", String(input.entries.length)],
+    ],
+  });
 
   if (input.entries.length === 0) {
-    page.drawText("Es wurden noch keine Beschlüsse gefasst.", { x: ML, y, size: 10, font, color: GRAY });
-    return Buffer.from(await pdf.save());
+    doc.para("Es wurden noch keine Beschlüsse gefasst.", { color: color.muted });
+    return doc.finish({ left: input.issuer.legalName, right: input.propertyName });
   }
 
-  // ── Beschlüsse ────────────────────────────────────────────────────────
-  for (const e of input.entries) {
-    const titleLines = wrapText(e.title, bold, 10, CW - 60);
-    ensureSpace(20 + titleLines.length * 13 + 16);
-
-    const nr = e.number != null ? `Nr. ${e.number}` : "—";
-    page.drawText(nr, { x: ML, y, size: 10, font: bold, color: GREEN });
-    page.drawText(fmtDate(e.decidedAt), { x: ML + 60, y, size: 9, font, color: GRAY });
-    page.drawText(STATUS_LABELS[e.status] ?? e.status, {
-      x: ML + CW - 90, y, size: 9, font: bold, color: BLACK,
-    });
-    y -= 14;
-
-    for (const line of titleLines) {
-      page.drawText(line, { x: ML + 60, y, size: 10, font, color: BLACK });
-      y -= 13;
-    }
-
-    page.drawText(
-      `Abstimmung – Ja: ${e.ja} · Nein: ${e.nein} · Enthaltung: ${e.enthaltung}`,
-      { x: ML + 60, y, size: 8, font, color: GRAY },
+  const NUMMER_BREITE = mm(22);
+  for (const entry of input.entries) {
+    const titel = entry.title;
+    // Nummer, Titel und Abstimmungsergebnis bleiben zusammen: Ein Beschluss,
+    // dessen Ergebnis auf der Folgeseite steht, ist als Nachweis wertlos.
+    doc.ensure(
+      mm(6) +
+        doc.measure(titel, { width: CONTENT_WIDTH - NUMMER_BREITE }) +
+        mm(11),
     );
-    y -= 14;
-    page.drawLine({ start: { x: ML, y }, end: { x: ML + CW, y }, thickness: 0.3, color: rgb(0.8, 0.8, 0.8) });
-    y -= 12;
+
+    const kopfY = doc.y;
+    doc.page.drawText(entry.number != null ? `Nr. ${entry.number}` : "—", {
+      x: mm(20),
+      y: kopfY,
+      size: size.body,
+      font: doc.bold,
+      color: doc.brand,
+    });
+    doc.right(STATUS_LABELS[entry.status] ?? entry.status, {
+      size: size.small,
+      font: doc.bold,
+      color:
+        entry.status === "ANGENOMMEN"
+          ? color.credit
+          : entry.status === "ABGELEHNT"
+            ? color.due
+            : color.muted,
+    });
+
+    // Titel und Fußzeile des Eintrags rücken hinter die Nummernspalte ein.
+    const einzug = mm(20) + NUMMER_BREITE;
+    for (const zeile of wrapText(titel, doc.font, size.body, CONTENT_WIDTH - NUMMER_BREITE - mm(24))) {
+      doc.page.drawText(zeile, {
+        x: einzug,
+        y: doc.y,
+        size: size.body,
+        font: doc.font,
+        color: color.ink,
+      });
+      doc.y -= mm(5);
+    }
+    doc.page.drawText(
+      `Beschlossen am ${fmtDate(entry.decidedAt)}  ·  Ja ${entry.ja} · Nein ${entry.nein} · Enthaltung ${entry.enthaltung}`,
+      { x: einzug, y: doc.y, size: size.foot, font: doc.font, color: color.muted },
+    );
+    doc.y -= mm(3);
+    doc.rule({ gapAbove: mm(2), gapBelow: mm(5) });
   }
 
-  return Buffer.from(await pdf.save());
+  return doc.finish({
+    left: `${input.issuer.legalName} · ${input.propertyName}`,
+    right: `Beschluss-Sammlung, Stand ${fmtDate(input.generatedAt)}`,
+  });
 }

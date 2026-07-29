@@ -13,6 +13,9 @@ import { generateBetriebskosten } from "./betriebskosten";
 import { generateMeetingInvitation } from "./meeting-invitation";
 import { renderPlatformInvoicePdf } from "./platform-invoice";
 import { generateWirtschaftsplan } from "./wirtschaftsplan";
+import { generateEinzelabrechnungen } from "./einzelabrechnung";
+import { generateMeetingProtocol } from "./meeting-protocol";
+import { generateBeschlussSammlung } from "./beschluss-sammlung";
 import { generateEinzelwirtschaftsplaene } from "./einzelwirtschaftsplan";
 import {
   generateMietbescheinigung,
@@ -378,5 +381,96 @@ describe("Wirtschaftsplan: Satzspiegel", () => {
       generatedAt: new Date(2026, 6, 29),
     });
     assertInsideMargins(await drawnTexts(pdf));
+  });
+});
+
+describe("Berichte: Satzspiegel", () => {
+  const langerName =
+    "Kostenart mit einer sehr ausführlichen Bezeichnung für Bewirtschaftung, Wartung und Instandhaltung";
+
+  it("Einzelabrechnung hält die Ränder und behält den § 35a-Ausweis", async () => {
+    const pdf = await generateEinzelabrechnungen({
+      propertyName: "Wohnungseigentümergemeinschaft Lindenhof, Lindenstraße 12–16, 45964 Gladbeck-Zweckel",
+      issuer: langerKitIssuer,
+      year: 2026,
+      periodLabel: "01.01.2026 – 31.12.2026",
+      finalizedAt: new Date(2027, 2, 14),
+      units: [
+        {
+          label: "WE 07 · Dachgeschoss links",
+          owners: [
+            { name: "Ayşe Şahin-Grünewald", days: 200, cents: 0 },
+            { name: "Krzysztof Wiśniewski-Öztürk", days: 165, cents: 0 },
+          ],
+          uncoveredCents: 1234,
+          costRows: Array.from({ length: 30 }, (_, i) => ({
+            name: `${langerName} ${i + 1}`,
+            keyLabel: "70 % Verbrauch, 30 % Wohnfläche (HeizkostenV)",
+            totalCents: 123456,
+            shareCents: 10288,
+          })),
+          kostenanteilCents: 308640,
+          sollCents: 280000,
+          peakCents: 28640,
+          laborHaushaltsnahCents: 41200,
+          laborHandwerkerCents: 18700,
+          laborUnerfasstCents: 9800,
+        },
+      ],
+      generatedAt: new Date(2027, 2, 14),
+    });
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    const alle = items.map((it) => it.text).join(" ");
+    expect(alle).toContain("35a");
+    expect(alle).toContain("Nachschuss");
+  });
+
+  it("Protokoll hält die Ränder und behält jedes Ergebnis", async () => {
+    const pdf = await generateMeetingProtocol({
+      propertyName: "Wohnungseigentümergemeinschaft Lindenhof, Lindenstraße 12–16, 45964 Gladbeck-Zweckel",
+      issuer: langerKitIssuer,
+      meetingTitle: "Ordentliche Eigentümerversammlung 2026 mit ausführlicher Tagesordnung",
+      scheduledAt: new Date(2026, 10, 14, 18, 30),
+      location: "Gemeindesaal St. Lamberti, Kirchplatz 3, 45964 Gladbeck-Zweckel",
+      videoLink: "https://meet.bw-immobilien-management-gladbeck.de/weg-lindenhof-2026-hybrid",
+      attendance: "9 von 12 Einheiten anwesend oder vertreten, 812/1000 MEA",
+      boardMembers: ["Petra Kiefer (Vorsitz)", "Ayşe Şahin-Grünewald"],
+      items: Array.from({ length: 25 }, (_, i) => ({
+        index: i + 1,
+        title: `TOP-Titel ${i + 1} mit ausführlicher Bezeichnung des Gegenstands der Beschlussfassung`,
+        description: "Erläuterung des Punktes mit allen Angaben, die für die Beschlussfassung nötig sind.",
+        type: (i % 2 === 0 ? "BESCHLUSS" : "INFO") as "BESCHLUSS" | "INFO",
+        result: i % 2 === 0 ? `Angenommen (Ja ${i} · Nein 1 · Enthaltung 0)` : null,
+      })),
+      generatedAt: new Date(2026, 10, 20),
+    });
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    const alle = items.map((it) => it.text).join(" ");
+    expect(alle).toContain("TOP 25");
+  });
+
+  it("Beschluss-Sammlung hält die Ränder und verliert keinen Beschluss", async () => {
+    const pdf = await generateBeschlussSammlung({
+      propertyName: "Wohnungseigentümergemeinschaft Lindenhof, Lindenstraße 12–16, 45964 Gladbeck-Zweckel",
+      issuer: langerKitIssuer,
+      entries: Array.from({ length: 40 }, (_, i) => ({
+        number: i + 1,
+        title: `Beschluss ${i + 1}: ${langerName}`,
+        decidedAt: new Date(2025, 10, 12),
+        status: "ANGENOMMEN" as const,
+        ja: 10,
+        nein: 0,
+        enthaltung: 1,
+      })),
+      generatedAt: new Date(2026, 6, 29),
+    });
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    const alle = items.map((it) => it.text).join(" ");
+    for (let i = 1; i <= 40; i++) {
+      expect(alle, `Nr. ${i} fehlt`).toContain(`Nr. ${i}`);
+    }
   });
 });

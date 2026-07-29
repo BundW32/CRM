@@ -43,12 +43,16 @@ export async function drawReportHead(doc: Doc, head: ReportHead): Promise<void> 
     lead: mm(8),
   });
   if (head.subtitle) {
-    doc.para(head.subtitle, {
-      size: size.small,
-      color: color.muted,
-      width: titleWidth,
-      lead: mm(5),
-    });
+    // Mehrzeilige Untertitel (Objekt, Einheit, Eigentümer) kommen als ein Wert
+    // mit Zeilenumbrüchen — `para` umbricht nur nach Breite.
+    for (const zeile of head.subtitle.split("\n")) {
+      doc.para(zeile, {
+        size: size.small,
+        color: color.muted,
+        width: titleWidth,
+        lead: mm(5),
+      });
+    }
   }
   if (head.status) {
     doc.text(head.status.text, {

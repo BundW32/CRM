@@ -161,7 +161,23 @@ export function renderHtml(subject: string, text: string, branding: OrgBranding)
         <!-- Kopf -->
         <tr><td style="background:${accent};height:6px;line-height:6px;font-size:6px;">&nbsp;</td></tr>
         <tr><td align="center" style="padding:24px 24px 8px;">
-          ${logo ? `<img src="${logo}" alt="${escapeHtml(branding.displayName)}" width="170" style="display:block;width:170px;max-width:60%;height:auto;">` : `<div class="mail-name" style="font-size:20px;font-weight:bold;color:${heading};">${escapeHtml(branding.displayName)}</div>`}
+          ${
+            logo
+              ? // Das Logo steht auf einer eigenen weißen Fläche, auch im
+                // Dunkelmodus. Hochgeladene Logos sind transparente PNGs für
+                // hellen Grund: Beim B&W-Logo ist das Gebäude orange, der
+                // Schriftzug aber dunkelgrün — auf der dunklen Karte war davon
+                // nur noch das Gebäude zu sehen. Ein Logo umzufärben ist nicht
+                // möglich (es ist ein Bild), also bekommt es den Untergrund,
+                // für den es gemacht wurde. Im hellen Modus fällt die Fläche
+                // nicht auf, weil die Karte ohnehin weiß ist.
+                `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
+            <td align="center" style="background:#ffffff;border-radius:12px;padding:12px 20px;">
+              <img src="${logo}" alt="${escapeHtml(branding.displayName)}" width="170" style="display:block;width:170px;max-width:100%;height:auto;">
+            </td>
+          </tr></table>`
+              : `<div class="mail-name" style="font-size:20px;font-weight:bold;color:${heading};">${escapeHtml(branding.displayName)}</div>`
+          }
         </td></tr>
         <tr><td align="center" class="mail-muted" style="padding:0 24px 8px;color:#9ca3af;font-size:12px;letter-spacing:.04em;text-transform:uppercase;">Kundenportal</td></tr>
 

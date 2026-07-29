@@ -64,6 +64,25 @@ describe("renderHtml", () => {
     expect(html).toContain("#123456");
   });
 
+  /**
+   * Hochgeladene Logos sind transparente PNGs, gezeichnet für hellen Grund.
+   * Beim B&W-Logo ist der Schriftzug dunkelgrün — auf der dunklen Karte war
+   * davon nur noch das orange Gebäude übrig, der Firmenname verschwand.
+   * Umfärben geht nicht, es ist ein Bild; also braucht es seinen Untergrund.
+   */
+  it("stellt das Logo auf eine weiße Fläche, die der Dunkelmodus nicht dreht", () => {
+    // Ohne Basis-URL liefert emailLogoUrl null und es gäbe gar kein Bild.
+    const vorher = process.env.PORTAL_BASE_URL;
+    process.env.PORTAL_BASE_URL = "https://portal.example";
+    const html = renderHtml("Betreff", "Text", { ...branding, logoStoredName: "logo.png" });
+    process.env.PORTAL_BASE_URL = vorher;
+
+    expect(html).toContain("<img");
+    expect(html).toMatch(/background:#ffffff;border-radius:12px;[^"]*"[^>]*>\s*<img/);
+    // Die Fläche trägt keine Dunkelmodus-Klasse – sie muss weiß bleiben.
+    expect(html).not.toMatch(/class="mail-card"[^>]*>\s*<img/);
+  });
+
   it("zeigt die Kontaktdaten des Mandanten in der Fußzeile", () => {
     const html = renderHtml("Betreff", "Text", {
       ...branding,

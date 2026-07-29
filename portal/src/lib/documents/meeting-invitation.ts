@@ -26,7 +26,8 @@ export type InvitationAgendaItem = {
 export type MeetingInvitationInput = {
   issuer: LetterIssuer;
   brand?: RGB;
-  logoPath?: string | null;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   propertyName: string;
   meetingTitle: string;
   scheduledAt: Date;
@@ -62,7 +63,7 @@ export async function generateMeetingInvitation(
 
   await drawLetterHead(doc, {
     issuer: input.issuer,
-    logoPath: input.logoPath,
+    logo: input.logo,
     returnLine: [input.issuer.legalName, input.issuer.lines[0]].filter(Boolean).join(" · "),
     recipient: {
       lines: input.recipient

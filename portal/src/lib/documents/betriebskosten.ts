@@ -31,7 +31,8 @@ export type BetriebskostenZeile = {
 export type BetriebskostenInput = {
   issuer: LetterIssuer;
   brand?: RGB;
-  logoPath?: string | null;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   propertyName: string;
   unitLabel: string;
   /** Mieter mit Anrede; ohne ihn bleibt das Anschriftfeld leer. */
@@ -75,7 +76,7 @@ export async function generateBetriebskosten(input: BetriebskostenInput): Promis
 
   await drawLetterHead(doc, {
     issuer: input.issuer,
-    logoPath: input.logoPath,
+    logo: input.logo,
     // Nur Firma und Anschrift: mehr passt nicht in die 85 mm des Felds.
     returnLine: [input.issuer.legalName, input.issuer.lines[0]].filter(Boolean).join(" · "),
     recipient: {

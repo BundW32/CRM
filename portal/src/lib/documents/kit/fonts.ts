@@ -2,7 +2,7 @@
 //
 // Bisher liefen alle Generatoren auf StandardFonts.Helvetica. Das ist
 // WinAnsi/CP1252 und kann nur einen Bruchteil der lateinischen Schrift
-// darstellen: `encodeWinAnsi` musste alles andere durch „?" ersetzen, sonst
+// darstellen: eine Ersetzungsfunktion musste alles andere durch „?" ersetzen, sonst
 // wirft pdf-lib beim Zeichnen. In Rechtsdokumenten steht damit „Ay?e ?ahin"
 // im Anschriftfeld — unzustellbar und peinlich.
 //

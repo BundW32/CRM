@@ -2,7 +2,8 @@
 #
 # Bewusst ohne `next build`: Der Build-Befehl dieses Projekts führt
 # `prisma migrate deploy` aus und bräuchte eine Datenbank. Das Bauen übernimmt
-# Vercel.
+# Vercel und meldet das Ergebnis als Status an den Pull Request zurück — ein
+# gebrochener Build fällt dort auf.
 #
 # **Dieselbe Prüfung läuft seit dem 29.07.2026 auch im Vercel-Build**
 # (`npm run pruefung`, eingehängt in `portal/vercel.json`). Das ist kein
@@ -10,7 +11,10 @@
 # diesem Repository ab 06:58 Uhr auf **keinem** Branch mehr Workflows — ohne
 # Fehlermeldung, sie wurden schlicht nicht mehr gestartet. Ein Pull Request war
 # damit nicht mehr prüfbar, und ein grüner Vercel-Deploy sagte nichts über die
-# Tests aus.
+# Tests aus. (Die Ursache war später eine andere als zunächst vermutet — ein
+# Merge-Konflikt, wegen dessen GitHub keinen Merge-Commit bauen konnte. Die
+# Rückfallebene bleibt trotzdem richtig: Sie kostet nichts und deckt auch den
+# Fall ab, dass Actions einmal wirklich stillstehen.)
 #
 # Beide Wege rufen **denselben** Skript-Eintrag auf. Wer die Prüfung ändert,
 # ändert sie damit an einer Stelle; zwei Listen von Befehlen liefen sonst
@@ -19,8 +23,11 @@ name: Prüfung
 
 on:
   pull_request:
+  # Der Standard-Branch dieses Repos heißt nicht `main`. Der frühere Filter
+  # `branches: [main]` traf deshalb nichts: Nach einem direkten Push lief keine
+  # Prüfung, nur Pull Requests waren abgedeckt.
   push:
-    branches: [main]
+    branches: [claude/friendly-archimedes-ggmjhp]
 
 jobs:
   pruefung:

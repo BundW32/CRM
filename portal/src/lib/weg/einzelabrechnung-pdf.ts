@@ -5,6 +5,7 @@
 // Mal entstanden. Drei Kopien einer Zuordnung, bei der ein vergessenes Feld
 // dazu führt, dass ein Eigentümer eine andere Zahl sieht als der Verwalter.
 import { getBrandingForOrg } from "@/lib/branding-server";
+import { briefkopfAus } from "@/lib/documents/briefkopf";
 import { distributionKeyLabels } from "@/lib/labels";
 import {
   generateEinzelabrechnungen,
@@ -55,17 +56,16 @@ export async function buildEinzelabrechnungPdf(args: {
     };
   });
 
-  const branding = await getBrandingForOrg(organizationId);
+  const kopf = await briefkopfAus(await getBrandingForOrg(organizationId));
   const endInclusive = new Date(new Date(view.fyEnd).getTime() - 86400000)
     .toISOString()
     .slice(0, 10);
 
   return generateEinzelabrechnungen({
     propertyName,
-    issuer: {
-      legalName: branding.legalName,
-      contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-    },
+    issuer: kopf.issuer,
+    brand: kopf.brand,
+    logo: kopf.logo,
     year: view.year,
     periodLabel: `${fmtDate(view.fyStart)} – ${fmtDate(endInclusive)}`,
     finalizedAt,

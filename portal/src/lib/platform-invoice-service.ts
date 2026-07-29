@@ -3,7 +3,7 @@
 // damit die Assembly nur an einer Stelle lebt.
 import { db } from "@/lib/db";
 import { renderPlatformInvoicePdf } from "@/lib/documents/platform-invoice";
-import { formatInvoiceNumber, platformIssuer } from "@/lib/platform";
+import { formatInvoiceNumber, platformBranding, platformIssuer } from "@/lib/platform";
 import { MailAttachment, isMailEnabled, sendMail } from "@/lib/mailer";
 
 // Lädt eine Rechnung mit allem, was für PDF/Mail nötig ist.
@@ -57,10 +57,11 @@ export async function invoiceRecipientEmail(
   return admin?.email ?? null;
 }
 
-export type InvoiceMailResult = "sent" | "no_recipient" | "mail_disabled";
+export type InvoiceMailResult = "sent" | "no_recipient" | "mail_disabled" | "failed";
 
 // Versendet die Rechnung als PDF-Anhang mit dem angegebenen Betreff/Text an den
-// Kunden. Nutzt bewusst DEFAULT_BRANDING (B&W ist Aussteller, nicht der Mandant).
+// Kunden. Nutzt bewusst das Betreiber-Branding (die Plattform ist Aussteller,
+// nicht der Mandant).
 export async function mailInvoicePdf(
   invoice: LoadedInvoice,
   subject: string,
@@ -76,6 +77,9 @@ export async function mailInvoicePdf(
     content: pdf,
     contentType: "application/pdf",
   };
-  await sendMail(to, subject, text, [attachment]);
-  return "sent";
+  // Ein Fehlschlag beim Versand galt bisher trotzdem als „sent" – die Rechnung
+  // bekam ein Versanddatum und galt als zugestellt, obwohl nichts rausging.
+  const outcome = await sendMail(to, subject, text, [attachment], platformBranding());
+  if (outcome === "sent") return "sent";
+  return outcome === "disabled" ? "mail_disabled" : "failed";
 }

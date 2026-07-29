@@ -6,7 +6,7 @@ import type { PlatformInvoiceStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { INVOICE_TRANSITIONS, formatCents, formatInvoiceNumber, invoiceGrossCents, requirePlatformAdmin } from "@/lib/platform";
-import { loadInvoiceForPdf, mailInvoicePdf } from "@/lib/platform-invoice-service";
+import { type InvoiceMailResult, loadInvoiceForPdf, mailInvoicePdf } from "@/lib/platform-invoice-service";
 import { canRemindAgain, isOverdue, nextReminderLevel, reminderCopy } from "@/lib/dunning";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
@@ -39,7 +39,7 @@ function invoiceMailBody(invoice: NonNullable<Awaited<ReturnType<typeof loadInvo
 async function sendAndMarkSent(
   invoiceId: string,
   actorId: string,
-): Promise<"sent" | "no_recipient" | "mail_disabled" | "not_found"> {
+): Promise<InvoiceMailResult | "not_found"> {
   const invoice = await loadInvoiceForPdf(invoiceId);
   if (!invoice) return "not_found";
   const { subject, text } = invoiceMailBody(invoice);
@@ -58,7 +58,7 @@ async function sendAndMarkSent(
 }
 
 // ── Mahnwesen ─────────────────────────────────────────────────────────────────
-type ReminderResult = "sent" | "not_overdue" | "too_soon" | "no_recipient" | "mail_disabled" | "not_found";
+type ReminderResult = InvoiceMailResult | "not_overdue" | "too_soon" | "not_found";
 
 // Mahnt eine einzelne Rechnung (eine Stufe höher). Prüft Überfälligkeit +
 // Mindestabstand; versendet Rechnungs-PDF mit Mahntext, erhöht die Stufe.

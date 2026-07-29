@@ -61,6 +61,60 @@ export function deriveBrandShades(primary: string | null | undefined): {
   };
 }
 
+// Relative Helligkeit nach WCAG – Grundlage für den Kontrastwert.
+function luminance(hex: string): number {
+  const channel = (v: number) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  const [r, g, b] = toRgb(hex);
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+// Kontrastverhältnis gegen Weiß (Mail-Hintergrund).
+function contrastOnWhite(hex: string): number {
+  return 1.05 / (luminance(hex) + 0.05);
+}
+
+// Linkfarbe für E-Mails: die Akzentfarbe des Mandanten, so weit abgedunkelt,
+// dass sie auf weißem Grund lesbar ist (WCAG AA, 4.5:1).
+//
+// Warum nicht einfach die Akzentfarbe selbst: Ein helles Marken-Orange
+// (#f69018 kommt auf 2.1:1) ist als Fließtext-Link auf Weiß kaum zu entziffern.
+// Vorher stand hier eine fest verdrahtete Farbe – die war zwar lesbar, aber bei
+// jedem Mandanten dieselbe und damit ein White-Label-Bruch.
+export function emailLinkColor(primary: string | null | undefined): string {
+  let color = normalizeHex(primary) ?? DEFAULT_PRIMARY;
+  // In Schritten abdunkeln, bis der Kontrast reicht; nach 20 Schritten ist die
+  // Farbe praktisch schwarz und die Schleife endet in jedem Fall.
+  for (let i = 0; i < 20 && contrastOnWhite(color) < 4.5; i++) {
+    color = mix(color, -0.1);
+  }
+  return color;
+}
+
+// Dasselbe für den Dunkelmodus: Dort ist die abgedunkelte Linkfarbe unlesbar,
+// weil sie gegen eine dunkle Fläche steht. Also in die andere Richtung
+// aufhellen, bis der Kontrast gegen die dunkle Kartenfläche reicht.
+const DARK_CARD = "#27272a";
+
+export function emailLinkColorOnDark(primary: string | null | undefined): string {
+  const gegen = luminance(DARK_CARD) + 0.05;
+  let color = normalizeHex(primary) ?? DEFAULT_PRIMARY;
+  for (let i = 0; i < 20 && (luminance(color) + 0.05) / gegen < 4.5; i++) {
+    color = mix(color, 0.1);
+  }
+  return color;
+}
+
+// Schriftfarbe auf der Akzentfarbe (Knopfbeschriftung). Weiß auf einem hellen
+// Marken-Gelb wäre unlesbar – deshalb entscheidet die Helligkeit, nicht die
+// Gewohnheit.
+export function onBrandTextColor(primary: string | null | undefined): string {
+  const base = normalizeHex(primary) ?? DEFAULT_PRIMARY;
+  return luminance(base) > 0.45 ? "#111827" : "#ffffff";
+}
+
 // URL, unter der das Logo der Organisation ausgeliefert wird. Fällt auf das
 // statische B&W-Logo zurück, wenn der Mandant (noch) kein eigenes hinterlegt hat.
 export function orgLogoUrl(org: {

@@ -16,12 +16,12 @@ export default async function AbschlussPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ sent?: string }>;
+  searchParams: Promise<{ sent?: string; von?: string; versand?: string }>;
 }) {
   const verwalter = await requireVerwalter();
   const { id } = await params;
   if (!(await canVerwalterAccessHandover(verwalter, id))) notFound();
-  const { sent } = await searchParams;
+  const { sent, von, versand } = await searchParams;
 
   const handover = await db.handover.findUnique({
     where: { id },
@@ -108,7 +108,13 @@ ${handover.managerName ?? ""}`.trim();
 
             {sent && (
               <Alert variant="success">
-                ✓ Protokoll an {sent} Empfänger gesendet.
+                ✓ Protokoll an {sent} von {von ?? sent} Empfängern gesendet.
+              </Alert>
+            )}
+            {versand === "aus" && (
+              <Alert variant="error">
+                E-Mail-Versand ist nicht eingerichtet (SMTP fehlt) – es wurde nichts
+                verschickt. Das Protokoll steht oben als PDF zum Download bereit.
               </Alert>
             )}
 

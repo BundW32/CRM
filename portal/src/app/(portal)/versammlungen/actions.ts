@@ -7,7 +7,7 @@ import { canVerwalterAccessProperty } from "@/lib/access";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
-import { portalUrl, sendMail } from "@/lib/mailer";
+import { portalUrl, sendMail, summarizeMail } from "@/lib/mailer";
 import { deleteBlob, saveBuffer } from "@/lib/storage";
 import { requireVerwalter } from "@/lib/session";
 import { generateMeetingProtocol } from "@/lib/documents/meeting-protocol";
@@ -369,7 +369,12 @@ export async function sendInvitation(formData: FormData) {
   const agenda = items.map((it, i) => `${i + 1}. ${it.title}${it.type === "BESCHLUSS" ? " (Beschluss)" : ""}`).join("\n");
   const link = portalUrl("/versammlungen");
 
-  await Promise.all(
+  // Ergebnis je Empfänger einsammeln: Die Rückmeldung nannte bisher die Zahl
+  // der **Eigentümer**, nicht die der versandten Mails. Ein Eigentümer ohne
+  // E-Mail-Adresse (Zugangsschreiben-Weg) wurde damit als eingeladen gemeldet,
+  // obwohl er nie eine Einladung bekam – bei einer Ladung mit Fristwirkung ist
+  // das die falsche Auskunft.
+  const versand = await Promise.all(
     owners.map((o) =>
       sendMail(
         o.user.email,
@@ -384,9 +389,10 @@ export async function sendInvitation(formData: FormData) {
           `Mit freundlichen Grüßen\n${branding.legalName}`,
         undefined,
         branding,
-      ).catch(() => {}),
+      ),
     ),
   );
+  const { sent, disabled } = summarizeMail(versand);
 
   // invitationSentAt wurde bereits beim atomaren Claim gesetzt; hier nur noch
   // der Status-Übergang: nur aus „Geplant" heraus einberufen – eine bereits
@@ -402,10 +408,14 @@ export async function sendInvitation(formData: FormData) {
     action: AUDIT.WEG_MEETING_INVITE_SENT,
     targetType: "OwnersMeeting",
     targetId: meetingId,
-    meta: { recipients: owners.length },
+    meta: { recipients: owners.length, sent },
   });
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}?eingeladen=${owners.length}`);
+  redirect(
+    disabled
+      ? `/versammlungen/${meetingId}?versand=aus`
+      : `/versammlungen/${meetingId}?eingeladen=${sent}&von=${owners.length}`,
+  );
 }
 
 // Zero-Key-Fallback zum E-Mail-Versand: „Als versendet markieren". Der Verwalter

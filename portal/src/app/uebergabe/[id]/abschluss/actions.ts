@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessHandover } from "@/lib/access";
 import { getBrandingForOrg } from "@/lib/branding-server";
-import { sendMail } from "@/lib/mailer";
+import { type MailOutcome, sendMail, summarizeMail } from "@/lib/mailer";
 import { createHandoverPdf, ensureHandoverPdfBuffer } from "@/lib/handover";
 
 export async function generateHandoverPdf(handoverId: string) {
@@ -41,10 +41,18 @@ export async function sendHandoverEmail(formData: FormData) {
   ];
 
   const branding = await getBrandingForOrg(verwalter.organizationId);
+  const versand: MailOutcome[] = [];
   for (const to of recipients) {
-    await sendMail(to, subject, emailBody, attachments, branding);
+    versand.push(await sendMail(to, subject, emailBody, attachments, branding));
   }
+  // Bisher meldete die Seite „an N Empfänger gesendet" mit der Zahl der
+  // angehakten Adressen – auch ohne konfiguriertes SMTP, wo gar nichts rausging.
+  const { sent, disabled } = summarizeMail(versand);
 
   revalidatePath(`/uebergabe/${handoverId}/abschluss`);
-  redirect(`/uebergabe/${handoverId}/abschluss?sent=${recipients.length}`);
+  redirect(
+    disabled
+      ? `/uebergabe/${handoverId}/abschluss?versand=aus`
+      : `/uebergabe/${handoverId}/abschluss?sent=${sent}&von=${recipients.length}`,
+  );
 }

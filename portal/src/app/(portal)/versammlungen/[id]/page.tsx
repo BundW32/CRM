@@ -51,11 +51,19 @@ export default async function MeetingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ eingeladen?: string; protokoll?: string; fehler?: string; hinweis?: string; markiert?: string }>;
+  searchParams: Promise<{
+    eingeladen?: string;
+    von?: string;
+    versand?: string;
+    protokoll?: string;
+    fehler?: string;
+    hinweis?: string;
+    markiert?: string;
+  }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { eingeladen, protokoll, fehler, hinweis, markiert } = await searchParams;
+  const { eingeladen, von, versand, protokoll, fehler, hinweis, markiert } = await searchParams;
 
   // Mandanten-Wand direkt in der Query (Defense-in-Depth): nur Versammlungen der
   // eigenen Organisation werden überhaupt geladen.
@@ -112,7 +120,17 @@ export default async function MeetingDetailPage({
 
       {eingeladen ? (
         <Alert variant="success" className="mb-4">
-          Einladung an {eingeladen} Eigentümer versendet.
+          Einladung an {eingeladen} von {von ?? eingeladen} Eigentümern versendet.
+          {von && Number(von) > Number(eingeladen)
+            ? " Die übrigen haben keine E-Mail-Adresse hinterlegt – sie brauchen die Einladung auf dem Postweg."
+            : null}
+        </Alert>
+      ) : null}
+      {versand === "aus" ? (
+        <Alert variant="error" className="mb-4">
+          E-Mail-Versand ist nicht eingerichtet (SMTP fehlt) – es wurde keine Einladung
+          verschickt. Die Versammlung gilt trotzdem als einberufen; bitte laden Sie die
+          Einladungen als PDF herunter und versenden Sie sie auf dem Postweg.
         </Alert>
       ) : null}
       {markiert ? (

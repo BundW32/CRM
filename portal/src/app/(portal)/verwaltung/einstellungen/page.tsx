@@ -6,6 +6,7 @@ import {
   Plug,
   Receipt,
   ShieldCheck,
+  MailCheck,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -27,6 +28,7 @@ const ICONS: Partial<Record<NavIcon, LucideIcon>> = {
   quellen: HardDriveDownload,
   abrechnung: Receipt,
   audit: ShieldCheck,
+  versandprotokoll: MailCheck,
 };
 
 export default async function EinstellungenPage() {

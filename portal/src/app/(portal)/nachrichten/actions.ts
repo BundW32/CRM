@@ -85,7 +85,7 @@ async function notifyParticipants(
           p.user.email,
           `Neue Nachricht: ${subject}`,
           mailText({
-            anrede: p.user.name,
+            anrede: p.user,
             absaetze: [`Sie haben eine neue Nachricht im Kundenportal erhalten:`, `„${preview}"`],
             aktion: { label: "Nachricht lesen", url: link },
             branding,

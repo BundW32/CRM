@@ -336,21 +336,17 @@ export async function createUser(formData: FormData) {
 
     const link = await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`);
     const loginLink = await portalUrlFromRequest("/login");
-    const greeting =
-      parsed.data.salutation === "Herr"
-        ? `Sehr geehrter Herr ${parsed.data.lastName},`
-        : parsed.data.salutation === "Frau"
-        ? `Sehr geehrte Frau ${parsed.data.lastName},`
-        : `Guten Tag ${name},`;
     const branding = await getBrandingForOrg(actor.organizationId);
     await sendMail(
       email!,
       "Ihr Zugang zum Kundenportal",
-      // `greeting` bringt die Anrede bereits vollständig mit (Herr/Frau), deshalb
-      // hier als erster Absatz statt über die Standard-Anrede des Bauplans.
       mailText({
+        anrede: {
+          name,
+          lastName: parsed.data.lastName,
+          salutation: parsed.data.salutation,
+        },
         absaetze: [
-          greeting,
           `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.`,
           `Über den folgenden Link richten Sie Ihren Zugang ein. Er ist 7 Tage gültig.`,
           `Danach können Sie sich jederzeit unter ${loginLink} anmelden.`,
@@ -542,7 +538,7 @@ export async function resendInvite(formData: FormData) {
     user.email,
     "Ihr Zugang zum Kundenportal (Erinnerung)",
     mailText({
-      anrede: user.name,
+      anrede: user,
       absaetze: [
         `hier ist noch einmal Ihr Einladungslink zum Kundenportal. Er ist 7 Tage gültig.`,
       ],

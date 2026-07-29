@@ -82,7 +82,7 @@ export async function runComplianceReminders(now: Date = new Date()): Promise<Re
         v.email,
         "Fällige Prüfpflichten Ihrer WEG",
         mailText({
-          anrede: v.name,
+          anrede: v,
           absaetze: [body],
           aktion: { label: "Prüfpflichten öffnen", url: portalUrl("/wartung") },
           branding,

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_BRANDING, emailLinkColor, onBrandTextColor } from "./branding";
+import {
+  DEFAULT_BRANDING,
+  emailHeadingColor,
+  emailLinkColor,
+  onBrandTextColor,
+} from "./branding";
 import { extractCallToAction, renderHtml, summarizeMail } from "./mailer";
 
 describe("extractCallToAction", () => {
@@ -69,6 +74,21 @@ describe("renderHtml", () => {
   });
 });
 
+describe("emailHeadingColor", () => {
+  it("hält die Marke als Farbe erkennbar, statt sie zu ersetzen", () => {
+    // B&W-Orange bleibt orange (roter Kanal bleibt dominant) – vorher stand
+    // hier ein fest verdrahtetes Dunkelgrün, das mit keiner Marke zu tun hatte.
+    const c = emailHeadingColor("#f69018");
+    const [r, , b] = [c.slice(1, 3), c.slice(3, 5), c.slice(5, 7)].map((h) => parseInt(h, 16));
+    expect(r).toBeGreaterThan(b);
+  });
+
+  it("dunkelt nur so weit ab, wie große Schrift es braucht (3:1)", () => {
+    // Weniger streng als die Linkfarbe – sonst wäre aus jedem Orange ein Braun.
+    expect(emailHeadingColor("#f69018")).not.toBe(emailLinkColor("#f69018"));
+  });
+});
+
 describe("emailLinkColor", () => {
   it("dunkelt die Marke ab, bis sie auf Weiß lesbar ist (WCAG AA)", () => {
     // Das Marken-Orange selbst kommt nur auf ~2:1 – als Link unbrauchbar.
@@ -83,6 +103,11 @@ describe("emailLinkColor", () => {
 describe("onBrandTextColor", () => {
   it("setzt dunkle Schrift auf helle Marken", () => {
     expect(onBrandTextColor("#ffe066")).toBe("#111827");
+  });
+
+  it("wählt auf dem B&W-Orange die lesbarere Variante, nicht die gewohnte", () => {
+    // Weiß kommt dort nur auf 2.6:1, Dunkelgrau auf 6.7:1.
+    expect(onBrandTextColor("#f69018")).toBe("#111827");
   });
 
   it("setzt weiße Schrift auf dunkle Marken", () => {

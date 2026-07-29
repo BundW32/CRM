@@ -34,7 +34,7 @@ export async function resendVerification() {
     user.email,
     "Bitte bestätigen Sie Ihre E-Mail-Adresse",
     mailText({
-      anrede: user.name,
+      anrede: user,
       absaetze: [
         `bitte bestätigen Sie Ihre E-Mail-Adresse über den folgenden Link. ` +
           `Er ist 3 Tage gültig.`,

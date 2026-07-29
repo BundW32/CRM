@@ -29,7 +29,7 @@ async function notifyVerwalter(ticket: Ticket, text: string) {
   const verwalter = await db.user.findMany({
     where: { role: "VERWALTER", active: true, organizationId: ticket.organizationId },
     // Name wird für die persönliche Anrede der Mail gebraucht.
-    select: { id: true, email: true, name: true },
+    select: { id: true, email: true, name: true, lastName: true, salutation: true },
   });
   const branding = await getBrandingForOrg(ticket.organizationId);
   const link = portalUrl(`/vorgaenge/${ticket.id}`);
@@ -39,7 +39,7 @@ async function notifyVerwalter(ticket: Ticket, text: string) {
         v.email,
         `Vorgang #${ticket.number}: Update vom Handwerker`,
         mailText({
-          anrede: v.name,
+          anrede: v,
           absaetze: [text],
           aktion: { label: "Vorgang öffnen", url: link },
           branding,

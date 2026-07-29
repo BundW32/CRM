@@ -334,6 +334,7 @@ model Organization {
   co2Allocations        Co2Allocation[]
   craftsmanInvoices     CraftsmanInvoice[]
   beiratTasks           BeiratTask[]
+  mailLogs              MailLog[]
 }
 
 model User {
@@ -429,6 +430,7 @@ model User {
   propertyAssignments       PropertyAssignment[]
   craftsmanAssignments      CraftsmanAssignment[]
   auditLogs                 AuditLog[]
+  mailLogs                  MailLog[]
   documentSourceConfigs     DocumentSourceConfig[]
   platformInvoicesCreated   PlatformInvoice[]         @relation("PlatformInvoiceCreatedBy")
   bookingsCreated           Booking[]                 @relation("BookingCreatedBy")
@@ -1397,6 +1399,43 @@ model AuditLog {
   @@index([actorId])
   @@index([createdAt])
   @@index([action])
+}
+
+// Versandprotokoll für ausgehende E-Mails.
+//
+// Das Portal verschickt Einladungen zur Eigentümerversammlung, Umlaufbeschlüsse
+// und Mahnungen — Vorgänge mit Fristwirkung. Ohne Protokoll war die Frage „hat
+// Herr Kiefer die Einladung bekommen?" nur über das Postfach des Mailservers zu
+// beantworten, und ein Fehlschlag beim Versand fiel überhaupt niemandem auf:
+// `sendMail` loggte ihn auf die Konsole und lief weiter.
+//
+// Bewusst KEIN Inhalt: Der Betreff genügt zum Wiederfinden, der Volltext wäre
+// eine zweite Kopie personenbezogener Daten mit eigener Löschpflicht.
+model MailLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // Empfängeradresse zum Zeitpunkt des Versands (Snapshot — die Person kann ihre
+  // Adresse später ändern, das Protokoll muss den Stand von damals zeigen).
+  recipient      String
+  // Verknüpfung zum Nutzerkonto, sofern es eines gibt. Handwerker haben keins.
+  // SetNull statt Cascade: Nach einer DSGVO-Löschung bleibt der Protokolleintrag
+  // bestehen (der Versand hat stattgefunden), verliert aber den Personenbezug.
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  subject        String
+  // Womit die Mail zu tun hatte ("versammlung-einladung", "beschluss-neu", …).
+  // Freitext statt Enum: Ein neuer Anlass soll keine Migration erzwingen.
+  purpose        String
+  // Ergebnis des Versandversuchs — siehe MailOutcome in lib/mailer.ts.
+  outcome        String
+  // Fehlermeldung bei outcome = "failed" (gekürzt).
+  error          String?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([userId])
+  @@index([purpose])
 }
 
 // ── WEG-Finanzfundament: Kostenarten, Konten, Buchungen ─────────────────────

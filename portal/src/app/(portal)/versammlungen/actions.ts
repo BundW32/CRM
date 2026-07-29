@@ -262,7 +262,7 @@ export async function cancelMeeting(formData: FormData) {
           o.user.email,
           `Absage der Eigentümerversammlung – ${property?.name ?? ""}`,
           mailText({
-            anrede: o.user.name,
+            anrede: o.user,
             absaetze: [
               `die für „${meeting.title}" geplante Eigentümerversammlung wurde abgesagt.`,
               `Einen neuen Termin teilen wir Ihnen rechtzeitig mit.`,
@@ -271,6 +271,11 @@ export async function cancelMeeting(formData: FormData) {
           }),
           undefined,
           branding,
+          {
+            organizationId: verwalter.organizationId,
+            purpose: "versammlung-absage",
+            userId: o.user.id,
+          },
         ).catch(() => {}),
       ),
     );
@@ -386,7 +391,7 @@ export async function sendInvitation(formData: FormData) {
         o.user.email,
         `Einladung zur Eigentümerversammlung – ${property?.name ?? ""}`,
         mailText({
-          anrede: o.user.name,
+          anrede: o.user,
           absaetze: [
             `hiermit laden wir Sie zur Eigentümerversammlung ein.`,
             datenblock([
@@ -401,6 +406,11 @@ export async function sendInvitation(formData: FormData) {
         }),
         undefined,
         branding,
+        {
+          organizationId: verwalter.organizationId,
+          purpose: "versammlung-einladung",
+          userId: o.user.id,
+        },
       ),
     ),
   );

@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 import {
   emailLinkColor,
   emailLinkColorOnDark,
+  emailHeadingColor,
   emailLogoUrl,
   onBrandTextColor,
   type OrgBranding,
@@ -96,6 +97,7 @@ export function renderHtml(subject: string, text: string, branding: OrgBranding)
   const accent = branding.primaryColor;
   const link = emailLinkColor(accent);
   const linkOnDark = emailLinkColorOnDark(accent);
+  const heading = emailHeadingColor(accent);
 
   const onAccent = onBrandTextColor(accent);
 
@@ -159,7 +161,7 @@ export function renderHtml(subject: string, text: string, branding: OrgBranding)
         <!-- Kopf -->
         <tr><td style="background:${accent};height:6px;line-height:6px;font-size:6px;">&nbsp;</td></tr>
         <tr><td align="center" style="padding:24px 24px 8px;">
-          ${logo ? `<img src="${logo}" alt="${escapeHtml(branding.displayName)}" width="170" style="display:block;width:170px;max-width:60%;height:auto;">` : `<div class="mail-name" style="font-size:20px;font-weight:bold;color:#003630;">${escapeHtml(branding.displayName)}</div>`}
+          ${logo ? `<img src="${logo}" alt="${escapeHtml(branding.displayName)}" width="170" style="display:block;width:170px;max-width:60%;height:auto;">` : `<div class="mail-name" style="font-size:20px;font-weight:bold;color:${heading};">${escapeHtml(branding.displayName)}</div>`}
         </td></tr>
         <tr><td align="center" class="mail-muted" style="padding:0 24px 8px;color:#9ca3af;font-size:12px;letter-spacing:.04em;text-transform:uppercase;">Kundenportal</td></tr>
 
@@ -172,7 +174,7 @@ ${ctaHtml}${afterHtml}
         <!-- Signatur / Footer -->
         <tr><td style="padding:20px 28px 0;"><hr class="mail-rule" style="border:none;border-top:1px solid #e5e7eb;margin:0;"></td></tr>
         <tr><td class="mail-muted" style="padding:16px 28px 24px;font-size:13px;line-height:1.6;color:#6b7280;">
-          <strong class="mail-name" style="color:#003630;">${escapeHtml(branding.legalName)}</strong>${branding.addressLine ? `<br>${escapeHtml(branding.addressLine)}` : ""}
+          <strong class="mail-name" style="color:${heading};">${escapeHtml(branding.legalName)}</strong>${branding.addressLine ? `<br>${escapeHtml(branding.addressLine)}` : ""}
           ${contactParts.length ? `<br>${contactParts.join(" · ")}` : ""}
           ${websiteHtml ? `<br>${websiteHtml}` : ""}
           ${base ? `${websiteHtml || contactParts.length || branding.addressLine ? " · " : "<br>"}<a href="${base}/impressum" style="color:#9ca3af;text-decoration:none;">Impressum</a> · <a href="${base}/datenschutz" style="color:#9ca3af;text-decoration:none;">Datenschutz</a>` : ""}
@@ -223,20 +225,34 @@ function fromFor(branding: OrgBranding): string {
   return name ? `"${name.replace(/"/g, "")}" <${fallback.address}>` : fallback.address;
 }
 
+// Woraufhin die Mail rausging und für wen — nur fürs Versandprotokoll.
+// Optional, damit ein Aufrufer ohne Org-Kontext (Passwort vergessen: dort ist
+// die Organisation vor dem Login nicht zwingend bekannt) nichts erfinden muss.
+export type MailContext = {
+  organizationId: string;
+  /** Anlass, z. B. "versammlung-einladung". Freitext, siehe MailLog im Schema. */
+  purpose: string;
+  /** Empfänger-Konto, sofern vorhanden. Handwerker haben keins. */
+  userId?: string | null;
+};
+
 export async function sendMail(
   to: string | null | undefined,
   subject: string,
   text: string,
   attachments: MailAttachment[] | undefined,
-  branding: OrgBranding
+  branding: OrgBranding,
+  context?: MailContext
 ): Promise<MailOutcome> {
   if (!to) {
-    // Zugänge ohne E-Mail-Adresse (Zugangsschreiben) erhalten keine Mails
+    // Zugänge ohne E-Mail-Adresse (Zugangsschreiben) erhalten keine Mails.
+    // Nicht protokolliert: Es gab keinen Versandversuch.
     return "no_recipient";
   }
   const t = transport();
   if (!t) {
     console.log(`[mail deaktiviert] an=${to} betreff=${subject}`);
+    await logMail(context, to, subject, "disabled");
     return "disabled";
   }
   try {
@@ -252,11 +268,45 @@ export async function sendMail(
       html: renderHtml(subject, text, branding),
       attachments,
     });
+    await logMail(context, to, subject, "sent");
     return "sent";
   } catch (error) {
     // Versandfehler dürfen nie eine Nutzeraktion blockieren
     console.error("E-Mail-Versand fehlgeschlagen:", error);
+    await logMail(context, to, subject, "failed", error);
     return "failed";
+  }
+}
+
+// Schreibt den Protokolleintrag. Schluckt eigene Fehler: Ein Protokoll, das den
+// Versand verhindert, wäre schlimmer als eine Lücke im Protokoll.
+//
+// Der Import liegt in der Funktion, nicht oben: mailer.ts wird auch von rein
+// darstellenden Tests geladen, und der Prisma-Client zieht eine
+// Datenbankverbindung nach sich.
+async function logMail(
+  context: MailContext | undefined,
+  recipient: string,
+  subject: string,
+  outcome: MailOutcome,
+  error?: unknown
+): Promise<void> {
+  if (!context) return;
+  try {
+    const { db } = await import("./db");
+    await db.mailLog.create({
+      data: {
+        organizationId: context.organizationId,
+        recipient,
+        userId: context.userId ?? null,
+        subject: subject.slice(0, 500),
+        purpose: context.purpose,
+        outcome,
+        error: error instanceof Error ? error.message.slice(0, 500) : null,
+      },
+    });
+  } catch (e) {
+    console.error("Versandprotokoll konnte nicht geschrieben werden:", e);
   }
 }
 

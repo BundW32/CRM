@@ -107,12 +107,36 @@ export function emailLinkColorOnDark(primary: string | null | undefined): string
   return color;
 }
 
-// Schriftfarbe auf der Akzentfarbe (Knopfbeschriftung). Weiß auf einem hellen
-// Marken-Gelb wäre unlesbar – deshalb entscheidet die Helligkeit, nicht die
-// Gewohnheit.
+// Überschriftfarbe für den Mandantennamen im Mailkopf — dort, wo kein Logo
+// hinterlegt ist und der Name als Marke einspringt.
+//
+// Vorher stand hier das strukturelle Dunkelgrün: Bei B&W passte das zufällig,
+// bei jedem anderen Mandanten stand ein fremdes Grün über dessen eigener
+// Akzentfarbe. Große, fette Schrift braucht nach WCAG 3:1 statt 4.5:1 — die
+// Marke bleibt damit als Farbe erkennbar (Orange bleibt Orange) und ist
+// trotzdem lesbar.
+export function emailHeadingColor(primary: string | null | undefined): string {
+  let color = normalizeHex(primary) ?? DEFAULT_PRIMARY;
+  for (let i = 0; i < 20 && contrastOnWhite(color) < 3; i++) {
+    color = mix(color, -0.08);
+  }
+  return color;
+}
+
+// Schriftfarbe auf der Akzentfarbe (Knopfbeschriftung).
+//
+// Nicht die Gewohnheit entscheidet, sondern der Kontrast: Weiß auf dem
+// B&W-Orange kommt nur auf 2.6:1 und ist auf einem Knopf kaum zu lesen —
+// dieselbe Schrift in Dunkelgrau erreicht dort 6.7:1. Deshalb wird von beiden
+// Möglichkeiten die genommen, die sich besser abhebt.
+const DARK_TEXT = "#111827";
+
 export function onBrandTextColor(primary: string | null | undefined): string {
   const base = normalizeHex(primary) ?? DEFAULT_PRIMARY;
-  return luminance(base) > 0.45 ? "#111827" : "#ffffff";
+  const l = luminance(base);
+  const gegenWeiss = 1.05 / (l + 0.05);
+  const gegenDunkel = (l + 0.05) / (luminance(DARK_TEXT) + 0.05);
+  return gegenDunkel > gegenWeiss ? DARK_TEXT : "#ffffff";
 }
 
 // URL, unter der das Logo der Organisation ausgeliefert wird. Fällt auf das

@@ -27,7 +27,7 @@ export async function notifyTenantStatusChange(
 
     const tenancies = await db.tenancy.findMany({
       where: { unitId: ticket.unitId, active: true },
-      select: { user: { select: { id: true, email: true, name: true } } },
+      select: { user: { select: { id: true, email: true, name: true, lastName: true, salutation: true } } },
     });
 
     await Promise.all(
@@ -38,7 +38,7 @@ export async function notifyTenantStatusChange(
           sendMail(
             u.email!,
             subject,
-            mailText({ anrede: u.name, absaetze: [body], branding }),
+            mailText({ anrede: u, absaetze: [body], branding }),
             undefined,
             branding
           ).catch(() => {})
@@ -62,7 +62,7 @@ export async function notifyVerwalterNewTicket(ticket: Ticket, createdBy: User) 
         v.email,
         `Neuer Vorgang #${ticket.number}: ${ticket.title}`,
         mailText({
-          anrede: v.name,
+          anrede: v,
           absaetze: [
             `${createdBy.name} hat einen neuen Vorgang gemeldet.`,
             datenblock([
@@ -100,7 +100,7 @@ export async function notifyCreatorStatusChange(ticketId: string, actor: User) {
     ticket.createdBy.email,
     `Vorgang #${ticket.number}: Status jetzt „${ticketStatusLabels[ticket.status]}“`,
     mailText({
-      anrede: ticket.createdBy.name,
+      anrede: ticket.createdBy,
       absaetze: [
         `der Status Ihres Vorgangs „${ticket.title}“ wurde auf ` +
           `„${ticketStatusLabels[ticket.status]}“ geändert.`,
@@ -129,7 +129,7 @@ export async function notifyCreatorNewComment(ticketId: string, actor: User) {
     ticket.createdBy.email,
     `Neue Antwort zu Vorgang #${ticket.number}`,
     mailText({
-      anrede: ticket.createdBy.name,
+      anrede: ticket.createdBy,
       absaetze: [`${actor.name} hat auf Ihren Vorgang „${ticket.title}“ geantwortet.`],
       aktion: { label: "Antwort lesen", url: portalUrl(`/vorgaenge/${ticket.id}`) },
       branding: kommentarBranding,
@@ -152,7 +152,7 @@ export async function notifyAssignee(ticketId: string, assignee: User) {
     assignee.email,
     `Ihnen wurde Vorgang #${ticket.number} zugewiesen`,
     mailText({
-      anrede: assignee.name,
+      anrede: assignee,
       absaetze: [`der Vorgang „${ticket.title}“ wurde Ihnen zugewiesen.`],
       aktion: { label: "Vorgang öffnen", url: portalUrl(`/vorgaenge/${ticket.id}`) },
       branding: zuweisungBranding,
@@ -175,14 +175,22 @@ export async function notifyDocumentPublished(documentId: string): Promise<void>
     const doc = await db.document.findUnique({ where: { id: documentId } });
     if (!doc) return;
 
-    type Recipient = { id: string; email: string | null; name: string; active: boolean };
+    // lastName/salutation für die Anrede der Mail (wie bei den Briefen).
+    type Recipient = {
+      id: string;
+      email: string | null;
+      name: string;
+      lastName: string | null;
+      salutation: string | null;
+      active: boolean;
+    };
     const recipients = new Map<string, Recipient>();
 
     // Gezielte Freigabe: sind Empfänger gesetzt, NUR diese benachrichtigen –
     // unabhängig von audience/Objekt (auch bei objektlosen Dokumenten).
     const explicit = await db.documentRecipient.findMany({
       where: { documentId },
-      select: { user: { select: { id: true, email: true, name: true, active: true } } },
+      select: { user: { select: { id: true, email: true, name: true, lastName: true, salutation: true, active: true } } },
     });
 
     if (explicit.length > 0) {
@@ -202,7 +210,7 @@ export async function notifyDocumentPublished(documentId: string): Promise<void>
               ? { unitId: doc.unitId }
               : { unit: { propertyId: doc.propertyId! } }),
           },
-          select: { user: { select: { id: true, email: true, name: true, active: true } } },
+          select: { user: { select: { id: true, email: true, name: true, lastName: true, salutation: true, active: true } } },
         });
         for (const t of tenancies) recipients.set(t.user.id, t.user);
       }
@@ -210,7 +218,7 @@ export async function notifyDocumentPublished(documentId: string): Promise<void>
       if (wantEigentuemer && doc.propertyId) {
         const ownerships = await db.ownership.findMany({
           where: { propertyId: doc.propertyId },
-          select: { user: { select: { id: true, email: true, name: true, active: true } } },
+          select: { user: { select: { id: true, email: true, name: true, lastName: true, salutation: true, active: true } } },
         });
         for (const o of ownerships) recipients.set(o.user.id, o.user);
       }
@@ -232,7 +240,7 @@ export async function notifyDocumentPublished(documentId: string): Promise<void>
             u.email!,
             `Neues Dokument verfügbar: ${doc.title}`,
             mailText({
-              anrede: u.name,
+              anrede: u,
               absaetze: [
                 `Ihre Hausverwaltung hat ein neues Dokument für Sie bereitgestellt:`,
                 `„${doc.title}"`,
@@ -260,7 +268,7 @@ export async function notifyWelcome(user: User) {
     user.email,
     "Ihr Zugang zum Kundenportal",
     mailText({
-      anrede: user.name,
+      anrede: user,
       absaetze: [
         `für Sie wurde ein Zugang zum Kundenportal der ${branding.legalName} angelegt.`,
         datenblock([["Benutzername", user.email]]),

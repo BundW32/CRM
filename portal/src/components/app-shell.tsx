@@ -37,6 +37,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  MailCheck,
   StickyNote,
   UserRound,
   Users,
@@ -80,6 +81,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   quellen: HardDriveDownload,
   abrechnung: Receipt,
   audit: ShieldCheck,
+  versandprotokoll: MailCheck,
 };
 
 export type CountBadge = { label: string; tone?: "ok" | "warn" };

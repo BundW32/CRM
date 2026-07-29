@@ -83,7 +83,7 @@ export async function createResolution(formData: FormData) {
         o.user.email,
         `Neue Abstimmung: ${parsed.data.title}`,
         mailText({
-          anrede: o.user.name,
+          anrede: o.user,
           absaetze: [
             `es liegt ein neuer Umlaufbeschluss zur Abstimmung vor:`,
             `„${parsed.data.title}"`,
@@ -93,7 +93,12 @@ export async function createResolution(formData: FormData) {
           branding,
         }),
         undefined,
-        branding
+        branding,
+        {
+          organizationId: user.organizationId,
+          purpose: "beschluss-umlauf",
+          userId: o.user.id,
+        }
       )
     )
   );

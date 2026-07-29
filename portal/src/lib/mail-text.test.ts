@@ -65,6 +65,39 @@ describe("mailText", () => {
   });
 });
 
+describe("Anrede nach Geschlecht", () => {
+  // Dieselbe Regel wie bei den Briefen (documents/anrede.ts) – die Mails waren
+  // vorher durchgehend beim unpersönlichen „Guten Tag <voller Name>," geblieben,
+  // auch wenn Anrede und Nachname in der Datenbank standen.
+  it("spricht Frauen und Männer mit Nachnamen an", () => {
+    expect(
+      mailText({ anrede: { name: "Ayşe Şahin", lastName: "Şahin", salutation: "Frau" }, absaetze: ["X"], branding }),
+    ).toContain("Sehr geehrte Frau Şahin,");
+    expect(
+      mailText({ anrede: { name: "Jan Kiefer", lastName: "Kiefer", salutation: "Herr" }, absaetze: ["X"], branding }),
+    ).toContain("Sehr geehrter Herr Kiefer,");
+  });
+
+  it("unterstellt ohne hinterlegte Anrede kein Geschlecht", () => {
+    expect(
+      mailText({ anrede: { name: "Alex Wachtel", lastName: "Wachtel" }, absaetze: ["X"], branding }),
+    ).toContain("Guten Tag Alex Wachtel,");
+  });
+
+  it("weicht bei mehreren Empfängern in einem Namensfeld aus", () => {
+    // Eheleute/Erbengemeinschaft: jede Einzelanrede wäre falsch.
+    expect(
+      mailText({ anrede: { name: "Jan Kiefer, Ayşe Şahin", salutation: "Herr" }, absaetze: ["X"], branding }),
+    ).toContain("Sehr geehrte Damen und Herren,");
+  });
+
+  it("nimmt eine fertige Zeichenkette weiterhin als Namen (Handwerker ohne Konto)", () => {
+    expect(mailText({ anrede: "Jan Kiefer", absaetze: ["X"], branding })).toContain(
+      "Guten Tag Jan Kiefer,",
+    );
+  });
+});
+
 describe("datenblock", () => {
   it("baut einen Absatz aus Bezeichnung und Wert", () => {
     expect(datenblock([["Objekt", "Goethestraße 42"], ["Termin", "14.09."]])).toBe(

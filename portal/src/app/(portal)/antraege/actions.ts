@@ -139,7 +139,7 @@ export async function adoptMotionAsResolution(formData: FormData) {
   const owners = await db.ownership.findMany({
     where: { propertyId: motion.propertyId },
     // Name wird für die persönliche Anrede der Mail gebraucht.
-    include: { user: { select: { email: true, name: true } } },
+    include: { user: { select: { id: true, email: true, name: true, lastName: true, salutation: true } } },
   });
   const link = portalUrl("/beschluesse");
   const branding = await getBrandingForOrg(verwalter.organizationId);
@@ -149,7 +149,7 @@ export async function adoptMotionAsResolution(formData: FormData) {
         o.user.email,
         `Neue Abstimmung: ${motion.title}`,
         mailText({
-          anrede: o.user.name,
+          anrede: o.user,
           absaetze: [
             `aus einem Eigentümer-Antrag wurde ein Umlaufbeschluss zur Abstimmung erstellt:`,
             `„${motion.title}"`,
@@ -160,6 +160,11 @@ export async function adoptMotionAsResolution(formData: FormData) {
         }),
         undefined,
         branding,
+        {
+          organizationId: verwalter.organizationId,
+          purpose: "beschluss-umlauf",
+          userId: o.user.id,
+        },
       ).catch(() => {}),
     ),
   );

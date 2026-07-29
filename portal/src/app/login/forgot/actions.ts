@@ -41,7 +41,7 @@ export async function requestPasswordReset(formData: FormData) {
       user.email,
       "Passwort zurücksetzen – Kundenportal",
       mailText({
-        anrede: user.name,
+        anrede: user,
         absaetze: [
           `Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt.`,
           `Über den folgenden Link vergeben Sie ein neues Passwort. Er ist 2 Stunden gültig.`,

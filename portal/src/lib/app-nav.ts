@@ -37,7 +37,8 @@ export type NavIcon =
   | "integrationen"
   | "quellen"
   | "abrechnung"
-  | "audit";
+  | "audit"
+  | "versandprotokoll";
 
 export type NavItem = {
   href: string;
@@ -110,6 +111,12 @@ export function settingsItems(selfManaged: boolean): NavItem[] {
         ? "Tarif, Status und Abonnement Ihrer WEG"
         : "Tarif, Status und Abonnement Ihrer Hausverwaltung",
       icon: "abrechnung",
+    },
+    {
+      href: "/verwaltung/versandprotokoll",
+      title: "Versandprotokoll",
+      desc: "Nachweis über den Versand fristgebundener E-Mails",
+      icon: "versandprotokoll",
     },
     {
       href: "/verwaltung/audit",

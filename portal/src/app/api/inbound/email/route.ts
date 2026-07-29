@@ -66,7 +66,7 @@ async function notifyVerwalter(
   // Nur Verwalter der betroffenen Org benachrichtigen.
   const verwalter = await db.user.findMany({
     where: { role: "VERWALTER", active: true, organizationId },
-    select: { email: true, name: true },
+    select: { email: true, name: true, lastName: true, salutation: true },
   });
   const branding = await getBrandingForOrg(organizationId);
   await Promise.all(
@@ -74,7 +74,7 @@ async function notifyVerwalter(
       sendMail(
         v.email,
         subject,
-        mailText({ anrede: v.name, ...inhalt, branding }),
+        mailText({ anrede: v, ...inhalt, branding }),
         undefined,
         branding,
       ),
@@ -324,7 +324,7 @@ export async function POST(request: Request) {
       from,
       `Ihre Meldung #${ticket.number} ist eingegangen`,
       mailText({
-        anrede: knownUser.name,
+        anrede: knownUser,
         absaetze: [
           `Ihre Meldung „${subject}" ist bei der ${branding.legalName} eingegangen und ` +
             `wird unter der Vorgangsnummer #${ticket.number} bearbeitet.`,

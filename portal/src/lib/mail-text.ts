@@ -11,6 +11,7 @@
 // (Anrede → Inhalt → Aufforderung → Gruß) liegt damit an einer Stelle fest und
 // nicht in 22 Zeichenketten-Ketten verstreut.
 import type { OrgBranding } from "./branding";
+import { briefAnrede, type Empfaenger } from "./documents/anrede";
 
 // Länge, ab der eine Knopfbeschriftung im Layout nicht mehr sauber umbricht.
 // Dieselbe Grenze prüft der Erkenner in mailer.ts.
@@ -19,8 +20,21 @@ const MAX_LABEL = 40;
 export type MailAction = { label: string; url: string };
 
 export type MailTextOptions = {
-  /** Name des Empfängers. Fehlt er, entfällt die Anrede — besser als „Guten Tag ,". */
-  anrede?: string | null;
+  /**
+   * Der Empfänger — daraus entsteht die Anrede.
+   *
+   * Es gilt dieselbe Regel wie bei den Briefen (`documents/anrede.ts`):
+   * „Sehr geehrte Frau Şahin," wenn Anrede und Nachname bekannt sind, sonst
+   * „Guten Tag <voller Name>,". Mehrere Empfänger in einem Namensfeld
+   * (Eheleute, Erbengemeinschaft) erkennt der Helfer am Komma und weicht auf
+   * „Sehr geehrte Damen und Herren," aus.
+   *
+   * Fehlt der Empfänger ganz, entfällt die Anrede — besser als „Guten Tag ,".
+   * Eine fertige Zeichenkette gilt als vollständige Anredezeile und wird
+   * unverändert übernommen (Sonderfall Handwerker: dort gibt es kein
+   * Nutzerkonto und damit keine hinterlegte Anrede).
+   */
+  anrede?: Empfaenger | string | null;
   /** Inhaltsabsätze. `null`/`false` fallen raus, damit bedingte Absätze inline bleiben. */
   absaetze: (string | null | undefined | false)[];
   /** Die eine Handlungsaufforderung der Mail; wird zum Knopf. */
@@ -45,7 +59,12 @@ export function datenblock(zeilen: [string, string | null | undefined | false][]
 export function mailText(opts: MailTextOptions): string {
   const bloecke: string[] = [];
 
-  if (opts.anrede?.trim()) bloecke.push(`Guten Tag ${opts.anrede.trim()},`);
+  const anrede = opts.anrede;
+  if (typeof anrede === "string") {
+    if (anrede.trim()) bloecke.push(`Guten Tag ${anrede.trim()},`);
+  } else if (anrede?.name?.trim()) {
+    bloecke.push(briefAnrede(anrede));
+  }
 
   for (const absatz of opts.absaetze) {
     if (typeof absatz === "string" && absatz.trim() !== "") bloecke.push(absatz.trim());

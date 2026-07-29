@@ -43,7 +43,12 @@ export async function sendHandoverEmail(formData: FormData) {
   const branding = await getBrandingForOrg(verwalter.organizationId);
   const versand: MailOutcome[] = [];
   for (const to of recipients) {
-    versand.push(await sendMail(to, subject, emailBody, attachments, branding));
+    versand.push(
+      await sendMail(to, subject, emailBody, attachments, branding, {
+        organizationId: verwalter.organizationId,
+        purpose: "uebergabe-protokoll",
+      }),
+    );
   }
   // Bisher meldete die Seite „an N Empfänger gesendet" mit der Zahl der
   // angehakten Adressen – auch ohne konfiguriertes SMTP, wo gar nichts rausging.

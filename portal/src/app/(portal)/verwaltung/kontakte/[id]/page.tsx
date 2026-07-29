@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { Building2, UserRound } from "lucide-react";
-import { Card, PageTitle } from "@/components/ui";
+import { Alert, Card, PageTitle } from "@/components/ui";
 import {
   canVerwalterManageUser,
   canVerwalterUseCraftsman,
@@ -28,11 +28,14 @@ export const dynamic = "force-dynamic";
  */
 export default async function KontaktDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const verwalter = await requireVerwalter();
   const { id } = await params;
+  const { fehler } = await searchParams;
 
   // ── Person? ───────────────────────────────────────────────────────────────
   // Zuerst die Berechtigung prüfen, dann laden – nie umgekehrt.
@@ -138,6 +141,20 @@ export default async function KontaktDetailPage({
           ) : null}
         </div>
 
+        {/* Fehler bleiben als Banner am Formular stehen (kein Toast) — sonst
+            verschwände die Meldung, bevor jemand sie gelesen hat. Ohne dieses
+            Banner liefe der Rücksprung mit `?fehler=…` ins Leere: Die Aktion
+            kehrt hierher zurück, nicht in die Liste. */}
+        {fehler ? (
+          <Alert variant="error" className="mb-4">
+            {fehler === "bescheinigung"
+              ? "Die Freistellungsbescheinigung konnte nicht gespeichert werden (erlaubt: Foto oder PDF). Nummer und Gültigkeitsdatum wurden ebenfalls nicht übernommen — bitte erneut speichern."
+              : fehler === "email"
+                ? "Diese E-Mail-Adresse wird bereits von einer anderen Person verwendet."
+                : "Bitte Pflichtfelder (Name, Art) korrekt ausfüllen."}
+          </Alert>
+        ) : null}
+
         <Card title="Kontaktdaten">
           <KarteikarteFormular
             zurueck={`/verwaltung/kontakte/${kontakt.id}`}
@@ -151,6 +168,9 @@ export default async function KontaktDetailPage({
               phone: kontakt.phone,
               preferredContact: kontakt.preferredContact,
               notes: kontakt.notes,
+              exemptionNumber: kontakt.exemptionNumber,
+              exemptionValidUntil: kontakt.exemptionValidUntil?.toISOString() ?? null,
+              exemptionFileName: kontakt.exemptionFileName,
               active: kontakt.active,
               isInternal: kontakt.isInternal,
             }}

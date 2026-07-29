@@ -10,7 +10,7 @@ import {
 import { get } from "@vercel/blob";
 import { db } from "@/lib/db";
 import { contentDisposition, wantsDownload } from "@/lib/documents/pdf-response";
-import { readUpload } from "@/lib/storage";
+import { isBlobUrl, readUpload } from "@/lib/storage";
 import { getUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -220,6 +220,12 @@ export async function GET(
       // Teilbereichs-Anfragen (z. B. Video-Streaming) deckt das SDK nicht ab –
       // dafür die private Blob-URL direkt mit Bearer-Token weiterleiten.
       if (rangeHeader) {
+        // Host prüfen, BEVOR das Zugriffs-Token mitgeschickt wird – sonst
+        // erhielte ein fremder Server das Lese- und Schreibrecht auf sämtliche
+        // Kundendateien. Dieselbe Prüfung wie in storage.ts/readUpload.
+        if (!isBlobUrl(file.storedName)) {
+          return NextResponse.json({ error: "Datei nicht abrufbar" }, { status: 404 });
+        }
         const blobHeaders: Record<string, string> = { Range: rangeHeader };
         const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
         if (blobToken) blobHeaders["Authorization"] = `Bearer ${blobToken}`;

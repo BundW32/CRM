@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getClientIp } from "@/lib/rate-limit";
-import { requireUser } from "@/lib/session";
+import { createSession, requireUser, revokeSessions } from "@/lib/session";
 import { IMAGE_TYPES, deleteBlob, saveBuffer } from "@/lib/storage";
 
 export async function changePassword(formData: FormData) {
@@ -29,6 +29,10 @@ export async function changePassword(formData: FormData) {
     where: { id: user.id },
     data: { passwordHash: await bcrypt.hash(next, 12) },
   });
+  // Alle anderen Geraete abmelden – das ist der Zweck eines Passwortwechsels.
+  // Die eigene Sitzung wird gleich darauf neu ausgestellt und bleibt gueltig.
+  await revokeSessions(user.id);
+  await createSession(user.id);
 
   redirect("/konto?flash=passwort-geaendert");
 }

@@ -3,7 +3,7 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { createSession } from "@/lib/session";
+import { createSession, revokeSessions } from "@/lib/session";
 
 export async function resetPassword(formData: FormData) {
   const token = String(formData.get("token") ?? "");
@@ -38,6 +38,10 @@ export async function resetPassword(formData: FormData) {
     },
   });
 
+  // Ein Passwort-Reset ist der Weg zurueck in ein moeglicherweise uebernommenes
+  // Konto. Er muss den Uebernehmer aussperren – sonst hat der Reset genau die
+  // Wirkung nicht, wegen der er angefordert wurde.
+  await revokeSessions(user.id);
   await createSession(user.id);
   redirect("/dashboard");
 }

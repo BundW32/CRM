@@ -141,6 +141,28 @@ export async function saveBuffer(
   return { storedName: fileId, ...meta };
 }
 
+/**
+ * Ist das eine URL unseres Blob-Speichers?
+ *
+ * Muss vor JEDEM Abruf geprüft werden, der ein Zugriffs-Token mitschickt.
+ * `storedName` kommt aus der Datenbank; gelangte dort je eine fremde URL hinein
+ * (Import, Migration, Manipulation), ginge das Token — Lese- UND Schreibrecht
+ * auf sämtliche Kundendateien aller Mandanten — an einen beliebigen fremden
+ * Server. Deshalb liegt die Prüfung hier und nicht als Kopie an jeder
+ * Abrufstelle: Die zweite Abrufstelle (Teilbereichsanfragen in
+ * api/files/[kind]/[id]) hatte sie genau darum lange nicht.
+ */
+export function isBlobUrl(storedName: string): boolean {
+  if (!storedName.startsWith("https://")) return false;
+  let host: string;
+  try {
+    host = new URL(storedName).hostname;
+  } catch {
+    return false;
+  }
+  return host === "blob.vercel-storage.com" || host.endsWith(".blob.vercel-storage.com");
+}
+
 export async function readUpload(storedName: string): Promise<Buffer> {
   // Data-URL (in DB gespeicherter Fallback)
   if (storedName.startsWith("data:")) {
@@ -154,14 +176,7 @@ export async function readUpload(storedName: string): Promise<Buffer> {
     // Zugriff NUR auf Vercel-Blob-Hosts. Sollte je eine fremde URL in storedName
     // gelangen (Import/DB-Manipulation), würde das Zugriffs-Token sonst an einen
     // beliebigen Host geleakt (SSRF + Credential-Exfiltration).
-    let host: string;
-    try {
-      host = new URL(storedName).hostname;
-    } catch {
-      throw new Error("Ungültige Datei-URL.");
-    }
-    const isBlobHost = host === "blob.vercel-storage.com" || host.endsWith(".blob.vercel-storage.com");
-    if (!isBlobHost) throw new Error("Nicht erlaubter Speicher-Host.");
+    if (!isBlobUrl(storedName)) throw new Error("Nicht erlaubter Speicher-Host.");
     const result = await get(storedName, { access: "private" });
     if (!result || result.statusCode !== 200) throw new Error("Datei nicht abrufbar.");
     return Buffer.from(await new Response(result.stream).arrayBuffer());

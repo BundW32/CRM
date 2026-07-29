@@ -3,7 +3,7 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/session";
+import { createSession, requireUser, revokeSessions } from "@/lib/session";
 
 export async function setInitialPassword(formData: FormData) {
   const user = await requireUser();
@@ -21,6 +21,10 @@ export async function setInitialPassword(formData: FormData) {
       mustChangePassword: false,
     },
   });
+  // Das Erstpasswort aus dem Zugangsschreiben ist damit verbraucht: Wer es
+  // unterwegs mitgelesen hat, verliert hier seinen Zugang.
+  await revokeSessions(user.id);
+  await createSession(user.id);
 
   redirect("/dashboard");
 }

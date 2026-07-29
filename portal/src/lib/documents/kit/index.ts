@@ -5,7 +5,7 @@
 // `ensure`-Schleifen gehören nicht mehr in die Generatoren; genau daraus war der
 // Zoo aus drei Rändern, elf Schriftgrößen und drei vergessenen
 // Umbruchprüfungen entstanden.
-export { Doc, type DocMeta, type TextOptions } from "./doc";
+export { Doc, type DocMeta, type TableCell, type TableColumn, type TextOptions } from "./doc";
 export {
   drawLetterHead,
   type LetterHead,

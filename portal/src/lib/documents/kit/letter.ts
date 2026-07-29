@@ -145,7 +145,6 @@ export async function drawLetterHead(doc: Doc, head: LetterHead): Promise<void> 
     const xRight = DIN.marginLeft + CONTENT_WIDTH;
     for (const [rawKey, rawValue] of head.infoBlock) {
       const key = fitText(rawKey, doc.font, size.foot, mm(22));
-      const value = fitText(rawValue, doc.font, size.small, mm(36));
       page.drawText(key, {
         x: xRight - mm(38) - doc.font.widthOfTextAtSize(key, size.foot),
         y: iy,
@@ -153,14 +152,20 @@ export async function drawLetterHead(doc: Doc, head: LetterHead): Promise<void> 
         font: doc.font,
         color: color.muted,
       });
-      page.drawText(value, {
-        x: xRight - doc.font.widthOfTextAtSize(value, size.small),
-        y: iy - 0.5,
-        size: size.small,
-        font: doc.font,
-        color: color.ink,
-      });
-      iy -= mm(5);
+      // Längere Angaben (Objektnamen) brechen auf eine zweite Zeile um, statt
+      // mit „…" zu enden — ein halber Objektname hilft beim Ablegen nicht.
+      const zeilen = wrapText(rawValue, doc.font, size.small, mm(38)).slice(0, 2);
+      for (const zeile of zeilen) {
+        page.drawText(zeile, {
+          x: xRight - doc.font.widthOfTextAtSize(zeile, size.small),
+          y: iy - 0.5,
+          size: size.small,
+          font: doc.font,
+          color: color.ink,
+        });
+        iy -= mm(4);
+      }
+      iy -= mm(1);
     }
   }
 

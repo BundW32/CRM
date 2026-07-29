@@ -30,6 +30,15 @@ export type DocMeta = {
   brand?: RGB;
 };
 
+export type TableColumn = {
+  header: string;
+  /** Anteil an der Satzbreite; die Werte werden ins Verhältnis gesetzt. */
+  width: number;
+  align?: "left" | "right";
+};
+
+export type TableCell = { text: string; strong?: boolean; color?: RGB };
+
 export type TextOptions = {
   size?: number;
   font?: PDFFont;
@@ -180,16 +189,95 @@ export class Doc {
     this.y -= value;
   }
 
-  rule(options: { width?: number; color?: RGB; thickness?: number; gap?: number } = {}): void {
-    const gap = options.gap ?? mm(3);
-    this.y -= gap;
+  /**
+   * Trennlinie über die Satzbreite.
+   *
+   * Oben und unten getrennte Abstände, und der untere ist größer: `y` ist die
+   * GRUNDLINIE der nächsten Zeile, deren Oberlängen rund 0,72 × Schriftgröße
+   * darüber hinausragen. Mit gleichem Abstand schnitt die Linie durch die
+   * Buchstaben der Folgezeile.
+   */
+  rule(
+    options: {
+      width?: number;
+      color?: RGB;
+      thickness?: number;
+      gapAbove?: number;
+      gapBelow?: number;
+    } = {},
+  ): void {
+    this.y -= options.gapAbove ?? mm(3);
     this.page.drawLine({
       start: { x: DIN.marginLeft, y: this.y },
       end: { x: DIN.marginLeft + (options.width ?? CONTENT_WIDTH), y: this.y },
       thickness: options.thickness ?? 0.6,
       color: options.color ?? color.hair,
     });
-    this.y -= gap;
+    this.y -= options.gapBelow ?? mm(4.5);
+  }
+
+  /**
+   * Spaltentabelle mit Kopfzeile. Bricht um und wiederholt die Kopfzeile auf
+   * der Folgeseite — eine Tabelle, deren Spalten man nach dem Umbruch raten
+   * muss, ist keine.
+   */
+  table(columns: TableColumn[], rows: TableCell[][]): void {
+    // Steg zwischen den Spalten. Ohne ihn stößt ein rechtsbündiger Betrag
+    // unmittelbar an den linken Rand der Folgespalte — im ersten Entwurf klebten
+    // „15.410,00 €" und „Verbrauch" ohne Lücke aneinander.
+    const GUTTER = mm(4);
+    const total = columns.reduce((sum, c) => sum + c.width, 0);
+    const scale = CONTENT_WIDTH / total;
+    const widths = columns.map((c) => c.width * scale);
+    const xs: number[] = [];
+    let cursor = DIN.marginLeft;
+    for (const width of widths) {
+      xs.push(cursor);
+      cursor += width;
+    }
+    // Die letzte Spalte endet am Satzspiegel, alle anderen einen Steg davor.
+    const inner = widths.map((width, i) => width - (i === columns.length - 1 ? 0 : GUTTER));
+
+    const place = (text: string, i: number, font: PDFFont, fontSize: number): number =>
+      columns[i].align === "right"
+        ? xs[i] + inner[i] - font.widthOfTextAtSize(text, fontSize)
+        : xs[i];
+
+    const header = () => {
+      columns.forEach((column, i) => {
+        const text = fitText(column.header, this.bold, size.foot, inner[i]);
+        this.page.drawText(text, {
+          x: place(text, i, this.bold, size.foot),
+          y: this.y,
+          size: size.foot,
+          font: this.bold,
+          color: color.muted,
+        });
+      });
+      this.rule({ gapAbove: mm(1.5), gapBelow: mm(4) });
+    };
+
+    this.ensure(mm(18));
+    header();
+
+    for (const row of rows) {
+      if (this.y - leading.body < PAGE.height - DIN.footerTop + mm(6)) {
+        this.newPage();
+        header();
+      }
+      row.forEach((cell, i) => {
+        const font = cell.strong ? this.bold : this.font;
+        const text = fitText(cell.text, font, size.body, inner[i]);
+        this.page.drawText(text, {
+          x: place(text, i, font, size.body),
+          y: this.y,
+          size: size.body,
+          font,
+          color: cell.color ?? color.ink,
+        });
+      });
+      this.y -= leading.body;
+    }
   }
 
   // ── Bausteine ──────────────────────────────────────────────────────────────

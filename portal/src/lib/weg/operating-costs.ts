@@ -7,9 +7,18 @@ export type OperatingCostInput = {
   name: string;
   unitShareCents: number; // Anteil dieser Einheit aus der WEG-Abrechnung
   recoverable: boolean; // nach BetrKV auf den Mieter umlagefähig?
+  totalCents: number; // Gesamtkosten der Liegenschaft für diese Kostenart
+  keyLabel: string; // Umlageschlüssel im Klartext, z. B. "Wohnfläche"
 };
 
-export type OperatingCostLine = { name: string; cents: number };
+// Eine Abrechnung muss die Gesamtkosten, den Verteilerschlüssel und den daraus
+// abgeleiteten Anteil zeigen — sonst kann der Mieter sie nicht nachvollziehen.
+export type OperatingCostLine = {
+  name: string;
+  cents: number;
+  totalCents: number;
+  keyLabel: string;
+};
 
 export type OperatingCostResult = {
   recoverableRows: OperatingCostLine[];
@@ -29,7 +38,12 @@ export function computeOperatingCosts(params: {
   const recoverableRows: OperatingCostLine[] = [];
   const nonRecoverableRows: OperatingCostLine[] = [];
   for (const r of params.rows) {
-    const line = { name: r.name, cents: r.unitShareCents };
+    const line = {
+      name: r.name,
+      cents: r.unitShareCents,
+      totalCents: r.totalCents,
+      keyLabel: r.keyLabel,
+    };
     if (r.recoverable) recoverableRows.push(line);
     else nonRecoverableRows.push(line);
   }

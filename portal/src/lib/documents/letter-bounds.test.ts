@@ -118,11 +118,13 @@ describe("Betriebskostenabrechnung: Satzspiegel", () => {
     const pdf = await generateBetriebskosten({
       ...basis,
       recoverableRows: [
-        { name: "Heizung und Warmwasser", cents: 90000 },
-        { name: "Grundsteuer", cents: 30000 },
-        { name: "Müllentsorgung", cents: 60000 },
+        { name: "Heizung und Warmwasser", cents: 90000, totalCents: 900000, keyLabel: "Verbrauch" },
+        { name: "Grundsteuer", cents: 30000, totalCents: 300000, keyLabel: "Miteigentumsanteile" },
+        { name: "Müllentsorgung", cents: 60000, totalCents: 600000, keyLabel: "Personenzahl" },
       ],
-      nonRecoverableRows: [{ name: "Verwaltervergütung", cents: 30000 }],
+      nonRecoverableRows: [
+        { name: "Verwaltervergütung", cents: 30000, totalCents: 300000, keyLabel: "Einheiten" },
+      ],
     });
     assertInsideMargins(await drawnTexts(pdf));
   });
@@ -131,6 +133,8 @@ describe("Betriebskostenabrechnung: Satzspiegel", () => {
     const viele = Array.from({ length: 60 }, (_, i) => ({
       name: `Position ${i + 1}: Betriebskosten nach BetrKV inklusive Nebenleistungen und Zuschlägen`,
       cents: 3000,
+      totalCents: 30000,
+      keyLabel: "Wohnfläche nach Quadratmetern",
     }));
     const pdf = await generateBetriebskosten({
       ...basis,

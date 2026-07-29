@@ -108,7 +108,8 @@ export async function generateMahnung(input: MahnungInput): Promise<Buffer> {
   await drawLetterHead(doc, {
     issuer: input.issuer,
     logoPath: input.logoPath,
-    returnLine: [input.issuer.legalName, ...input.issuer.lines].join(" · "),
+    // Nur Firma und Anschrift: mehr passt nicht in die 85 mm des Felds.
+    returnLine: [input.issuer.legalName, input.issuer.lines[0]].filter(Boolean).join(" · "),
     recipient: {
       note: input.versandVermerk,
       lines: anschriftZeilen(input.recipient, input.recipientAddress),
@@ -135,11 +136,11 @@ export async function generateMahnung(input: MahnungInput): Promise<Buffer> {
   // ── Offene Posten ──────────────────────────────────────────────────────────
   if (input.positions?.length) {
     doc.text("Offene Posten", { size: size.small, font: doc.bold, color: color.muted, lead: mm(2) });
-    doc.rule({ gap: mm(2.5) });
+    doc.rule({ gapAbove: mm(2), gapBelow: mm(4) });
     for (const position of input.positions) {
       doc.amountRow(position.label, formatCents(position.cents));
     }
-    doc.rule({ gap: mm(2) });
+    doc.rule({ gapAbove: mm(2), gapBelow: mm(3) });
     doc.space(mm(1));
   }
 

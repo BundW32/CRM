@@ -2,6 +2,7 @@
 // WEG-Jahresabrechnung ab (M-K). Gemeinsame Grundlage für Seite und PDF-Route.
 import { db } from "@/lib/db";
 import { co2PerUnit } from "@/lib/weg/co2-allocation";
+import { distributionKeyLabels } from "@/lib/labels";
 import { computeOperatingCosts, type OperatingCostResult } from "@/lib/weg/operating-costs";
 import type { StatementView } from "@/lib/weg/statement-service";
 
@@ -75,6 +76,8 @@ export async function deriveOperatingCostStatement(params: {
       name: r.name,
       unitShareCents: r.perUnit![params.unitId] ?? 0,
       recoverable: recoverable.get(r.costTypeId) ?? false,
+      totalCents: r.totalCents,
+      keyLabel: distributionKeyLabels[r.distributionKey] ?? r.distributionKey,
     }));
 
   // Vermieter-CO2-Anteil dieser Einheit (falls für das Jahr erfasst).

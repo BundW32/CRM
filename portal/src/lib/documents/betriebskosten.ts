@@ -13,8 +13,19 @@ import {
   mm,
   size,
   type LetterIssuer,
+  type TableCell,
 } from "./kit";
 import type { RGB } from "pdf-lib";
+
+export type BetriebskostenZeile = {
+  name: string;
+  /** Anteil dieser Einheit. */
+  cents: number;
+  /** Gesamtkosten der Liegenschaft für diese Kostenart. */
+  totalCents: number;
+  /** Umlageschlüssel im Klartext, z. B. „Wohnfläche". */
+  keyLabel: string;
+};
 
 export type BetriebskostenInput = {
   issuer: LetterIssuer;
@@ -27,8 +38,9 @@ export type BetriebskostenInput = {
   /** „Straße\nPLZ Ort" */
   tenantAddress: string | null;
   year: number;
-  recoverableRows: { name: string; cents: number }[];
-  nonRecoverableRows: { name: string; cents: number }[];
+  /** Je Kostenart: Gesamtkosten der Liegenschaft, Umlageschlüssel, Anteil. */
+  recoverableRows: BetriebskostenZeile[];
+  nonRecoverableRows: BetriebskostenZeile[];
   recoverableSumCents: number;
   co2LandlordDeductionCents: number;
   tenantCostsCents: number;
@@ -58,7 +70,8 @@ export async function generateBetriebskosten(input: BetriebskostenInput): Promis
   await drawLetterHead(doc, {
     issuer: input.issuer,
     logoPath: input.logoPath,
-    returnLine: [input.issuer.legalName, ...input.issuer.lines].join(" · "),
+    // Nur Firma und Anschrift: mehr passt nicht in die 85 mm des Felds.
+    returnLine: [input.issuer.legalName, input.issuer.lines[0]].filter(Boolean).join(" · "),
     recipient: {
       // Ohne hinterlegte Anschrift bleibt es beim Hinweis auf die Einheit — der
       // Brief ist dann nicht versandfertig, aber wenigstens zuordenbar.
@@ -86,20 +99,11 @@ export async function generateBetriebskosten(input: BetriebskostenInput): Promis
   );
   doc.space(mm(2));
 
-  // ── Umlagefähige Kosten ────────────────────────────────────────────────────
-  doc.text("Umlagefähige Kosten nach BetrKV", {
-    size: size.small,
-    font: doc.bold,
-    color: color.muted,
-    lead: mm(2),
-  });
-  doc.rule({ gap: mm(2.5) });
-  for (const row of input.recoverableRows) {
-    doc.amountRow(row.name, formatCents(row.cents));
-  }
-  doc.rule({ gap: mm(2) });
-  doc.amountRow("Summe umlagefähig", formatCents(input.recoverableSumCents), { strong: true });
-
+  // ── Ergebnis (Seite 1) ─────────────────────────────────────────────────────
+  // Nur die Rechenkette, nicht die Einzelposten: Wer den Brief öffnet, will
+  // zuerst wissen, ob er zahlt oder Geld bekommt. Die vollständige Aufstellung
+  // steht als Anlage auf der Folgeseite.
+  doc.amountRow("Umlagefähige Kosten insgesamt", formatCents(input.recoverableSumCents));
   if (input.co2LandlordDeductionCents > 0) {
     doc.amountRow(
       "abzüglich Vermieteranteil CO2-Kosten (CO2KostAufG)",
@@ -125,20 +129,6 @@ export async function generateBetriebskosten(input: BetriebskostenInput): Promis
     },
   );
 
-  // ── Nicht umlagefähig ──────────────────────────────────────────────────────
-  if (input.nonRecoverableRows.length > 0) {
-    doc.text("Nicht umlagefähig — trägt der Eigentümer", {
-      size: size.small,
-      font: doc.bold,
-      color: color.muted,
-      lead: mm(5),
-    });
-    for (const row of input.nonRecoverableRows) {
-      doc.amountRow(row.name, formatCents(row.cents), { color: color.muted });
-    }
-    doc.space(mm(3));
-  }
-
   // Schlusshinweis und Grußformel bilden einen Block: rutscht er auf eine
   // Folgeseite, dann gemeinsam. Eine Seite, auf der allein „Mit freundlichen
   // Grüßen" steht, sieht nach Fehler aus.
@@ -151,6 +141,70 @@ export async function generateBetriebskosten(input: BetriebskostenInput): Promis
   doc.space(mm(3));
   doc.text("Mit freundlichen Grüßen", { lead: mm(10) });
   doc.para(input.issuer.legalName, { width: CONTENT_WIDTH });
+
+  // ── Anlage: Kostenaufstellung (eigene Seite) ───────────────────────────────
+  // Gesamtkosten, Umlageschlüssel und der daraus abgeleitete Anteil gehören in
+  // jede Betriebskostenabrechnung — ohne sie kann der Mieter nicht prüfen, wie
+  // sein Anteil zustande kommt. Auf einer eigenen Seite, weil die Tabelle das
+  // Anschreiben sonst erdrückt.
+  doc.newPage();
+  doc.text(`Anlage — Kostenaufstellung ${input.year}`, {
+    size: size.section,
+    font: doc.bold,
+    lead: mm(6),
+  });
+  doc.text(`${input.propertyName} · Einheit ${input.unitLabel}`, {
+    size: size.small,
+    color: color.muted,
+    lead: mm(8),
+  });
+
+  const spalten = [
+    { header: "Kostenart", width: 40 },
+    { header: "Gesamtkosten", width: 20, align: "right" as const },
+    { header: "Umlageschlüssel", width: 24 },
+    { header: "Ihr Anteil", width: 16, align: "right" as const },
+  ];
+  const zeile = (row: BetriebskostenZeile, muted = false): TableCell[] => [
+    { text: row.name, color: muted ? color.muted : undefined },
+    { text: formatCents(row.totalCents), color: muted ? color.muted : undefined },
+    { text: row.keyLabel, color: color.muted },
+    { text: formatCents(row.cents), color: muted ? color.muted : undefined },
+  ];
+
+  doc.text("Umlagefähig nach BetrKV", {
+    size: size.small,
+    font: doc.bold,
+    color: color.muted,
+    lead: mm(5),
+  });
+  doc.table(spalten, [
+    ...input.recoverableRows.map((row) => zeile(row)),
+    [
+      { text: "Summe umlagefähig", strong: true },
+      { text: "" },
+      { text: "" },
+      { text: formatCents(input.recoverableSumCents), strong: true },
+    ],
+  ]);
+
+  if (input.nonRecoverableRows.length > 0) {
+    doc.space(mm(6));
+    doc.text("Nicht umlagefähig — trägt der Eigentümer", {
+      size: size.small,
+      font: doc.bold,
+      color: color.muted,
+      lead: mm(5),
+    });
+    doc.table(spalten, input.nonRecoverableRows.map((row) => zeile(row, true)));
+  }
+
+  doc.space(mm(6));
+  doc.para(
+    "Die Gesamtkosten stammen aus der Jahresabrechnung der Wohnungseigentümergemeinschaft. " +
+      "Ihr Anteil ergibt sich aus dem jeweils angegebenen Umlageschlüssel.",
+    { size: size.small, color: color.muted },
+  );
 
   return doc.finish({
     left: input.issuer.legalName,

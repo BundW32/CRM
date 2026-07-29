@@ -278,6 +278,27 @@ Die Sperre steht **serverseitig** in `beschluesse/actions.ts` (`istVersammlungsB
 in `castVote` **und** `castVoteForOwner`); das Ausblenden des Formulars allein genügt
 nicht. `src/lib/versammlungsbeschluss.test.ts` hält beide Aufrufe fest.
 
+## Prüfung: ein Skript, zwei Aufrufer
+
+`npm run pruefung` = `tsc --noEmit && eslint && vitest run`. **Genau dieser
+Eintrag** wird zweimal aufgerufen:
+
+- vom GitHub-Workflow (`.github/workflows/pruefung.yml`) bei jedem Pull Request,
+- vom **Vercel-Build** (`portal/vercel.json`), vor Migration und `next build`.
+
+Der zweite Weg ist eine Rückfallebene: Am 29.07.2026 startete GitHub auf diesem
+Repository ab 06:58 Uhr auf keinem Branch mehr Workflows — ohne Fehlermeldung.
+Ein Pull Request war damit nicht mehr prüfbar, und ein grüner Vercel-Deploy
+sagte nichts über die Tests aus.
+
+**Wer die Prüfung ändert, ändert das Skript** — nicht eine der beiden
+Aufrufstellen. Zwei Listen von Befehlen laufen früher oder später auseinander,
+und dann prüft die eine Seite etwas, das die andere nicht prüft.
+
+Ein Fehlschlag blockiert damit auch den Deploy, absichtlich. Wer im Notfall
+daran vorbei muss, streicht `npm run pruefung && ` aus dem `buildCommand` in
+`portal/vercel.json` — eine Zeile, und danach wieder hinein.
+
 ## Rollen
 
 `VERWALTER`, `EIGENTUEMER`, `MIETER`. Zusätzlich `isSuperAdmin` (Admin innerhalb einer

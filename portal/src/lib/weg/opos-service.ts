@@ -9,6 +9,7 @@
 // Grund, warum eine Vorauszahlung einen offenen Monat verdecken konnte.
 import { db } from "@/lib/db";
 import { NOT_REVERSED } from "./booking-scope";
+import { basiszinssaetze, verzugJeForderung } from "./verzug-service";
 import {
   baueOpos,
   leereOposZeile,
@@ -21,6 +22,14 @@ export type UnitOpos = OposZeile & {
   unitId: string;
   /** Zahlungen dieser Einheit, die noch keiner Forderung zugeordnet sind. */
   nichtZugeordnetCents: number;
+  /**
+   * Aufgelaufene Verzugszinsen (§ 288 Abs. 1 BGB) auf den Rückstand.
+   *
+   * **`null` heißt „nicht berechenbar"**, nicht „null Euro": Für den Zeitraum
+   * fehlt ein Basiszinssatz. Die Unterscheidung ist der ganze Punkt — eine 0,
+   * die in Wahrheit eine Lücke ist, wäre die gefährlichste Zahl auf der Seite.
+   */
+  zinsenCents: number | null;
 };
 
 /** Offene Posten je Einheit, mit Altersstruktur. */
@@ -28,7 +37,7 @@ export async function oposJeEinheit(
   propertyId: string,
   stichtag: Date = new Date(),
 ): Promise<Map<string, UnitOpos>> {
-  const [posten, zahlungen] = await Promise.all([
+  const [posten, zahlungen, objekt] = await Promise.all([
     db.duePosting.findMany({
       where: { propertyId },
       select: {
@@ -44,13 +53,15 @@ export async function oposJeEinheit(
       where: { propertyId, kind: "EINNAHME", unitId: { not: null }, ...NOT_REVERSED },
       select: { unitId: true, amountCents: true, allocations: { select: { amountCents: true } } },
     }),
+    db.property.findUnique({ where: { id: propertyId }, select: { organizationId: true } }),
   ]);
+  const saetze = objekt ? await basiszinssaetze(objekt.organizationId) : [];
 
-  const jeEinheit = new Map<string, { dueDate: Date; offenCents: number }[]>();
+  const jeEinheit = new Map<string, { id: string; dueDate: Date; offenCents: number }[]>();
   for (const p of posten) {
     const angerechnet = p.allocations.reduce((s, a) => s + a.amountCents, 0);
     const liste = jeEinheit.get(p.unitId) ?? [];
-    liste.push({ dueDate: p.dueDate, offenCents: p.amountCents - angerechnet });
+    liste.push({ id: p.id, dueDate: p.dueDate, offenCents: p.amountCents - angerechnet });
     jeEinheit.set(p.unitId, liste);
   }
 
@@ -64,10 +75,27 @@ export async function oposJeEinheit(
 
   const ergebnis = new Map<string, UnitOpos>();
   for (const unitId of new Set([...jeEinheit.keys(), ...guthaben.keys()])) {
+    // Zinsen nur auf **fällige** offene Forderungen. Eine Sollstellung für den
+    // nächsten Monat ist nicht rückständig; wer sie mitverzinste, forderte
+    // Zinsen für eine Zeit, in der noch gar nichts zu zahlen war.
+    const faellige = (jeEinheit.get(unitId) ?? []).filter(
+      (f) => f.offenCents > 0 && f.dueDate <= stichtag,
+    );
+    const zinsen = verzugJeForderung(faellige, saetze, stichtag);
+    let zinsenCents: number | null = 0;
+    for (const z of zinsen.values()) {
+      if (z.zinsenCents === null) {
+        zinsenCents = null;
+        break;
+      }
+      zinsenCents += z.zinsenCents;
+    }
+
     ergebnis.set(unitId, {
       unitId,
       ...(jeEinheit.has(unitId) ? baueOpos(jeEinheit.get(unitId)!, stichtag) : leereOposZeile()),
       nichtZugeordnetCents: guthaben.get(unitId) ?? 0,
+      zinsenCents,
     });
   }
   return ergebnis;
@@ -103,15 +131,23 @@ export async function rueckstandDerEinheit(
  * Mahnung für die Einheit vorlag — ein unversendeter Entwurf setzt niemanden in
  * Verzug.
  *
- * Kosten und Zinsen sind heute immer 0: Mahnkosten und Verzugszinsen werden
- * (noch) nicht je Forderung erfasst. Die Aufteilung nach § 367 ist trotzdem
- * eingebaut, damit sie nicht nachträglich in die Reihenfolge eingreifen muss.
+ * **Kosten und Zinsen sind echt.** Verzugszinsen laufen nach § 288 Abs. 1 BGB
+ * auf den offenen Rest jeder Forderung; Mahnkosten fallen je versendeter
+ * Mahnung an und liegen nach § 367 Abs. 1 BGB in der Tilgung vorn. Ist für den
+ * Zeitraum kein Basiszinssatz hinterlegt, bleiben die Zinsen 0 — dann weist die
+ * Oberfläche aus, dass nicht gerechnet werden konnte, statt eine Null zu
+ * zeigen, die wie „keine Zinsen" aussieht.
+ *
+ * Die Mahnkosten hängen an der Einheit, nicht an einer einzelnen Forderung.
+ * Sie werden deshalb der **ältesten** offenen Forderung zugeschlagen: Dort
+ * greift § 367 zuerst, und genau das ist die Reihenfolge, in der eine Zahlung
+ * sie tilgen soll.
  */
 export async function offenePostenDerEinheit(
   unitId: string,
   stichtag: Date = new Date(),
 ): Promise<OffenerPosten[]> {
-  const [posten, mahnungen] = await Promise.all([
+  const [posten, mahnungen, einheit] = await Promise.all([
     db.duePosting.findMany({
       where: { unitId },
       orderBy: { dueDate: "asc" },
@@ -126,18 +162,38 @@ export async function offenePostenDerEinheit(
     db.hausgeldMahnung.findMany({
       where: { unitId, sentAt: { not: null } },
       orderBy: { sentAt: "asc" },
-      select: { sentAt: true },
+      select: { sentAt: true, feeCents: true },
+    }),
+    db.unit.findUnique({
+      where: { id: unitId },
+      select: { property: { select: { organizationId: true } } },
     }),
   ]);
   const ersteMahnung = mahnungen[0]?.sentAt ?? null;
+  const mahnkostenCents = mahnungen.reduce((s, m) => s + m.feeCents, 0);
+
+  const saetze = einheit ? await basiszinssaetze(einheit.property.organizationId) : [];
+  const offen = posten.map((p) => ({
+    id: p.id,
+    dueDate: p.dueDate,
+    offenCents: p.amountCents - p.allocations.reduce((s, a) => s + a.amountCents, 0),
+  }));
+  const zinsen = verzugJeForderung(offen, saetze, stichtag);
+  // Älteste noch offene **und bereits fällige** Forderung — sie trägt die
+  // Mahnkosten (siehe oben). Die Fälligkeit gehört in die Bedingung: Die Liste
+  // wird unten auf fällige Posten gefiltert. Hinge die Kostenzeile an einer
+  // künftigen Forderung — etwa wenn alle vergangenen bezahlt sind —, fiele sie
+  // mit heraus, und die Mahnkosten wären lautlos verschwunden.
+  const aeltesteOffene =
+    offen.find((o) => o.offenCents > 0 && o.dueDate <= stichtag)?.id ?? null;
 
   return posten
     .map((p) => ({
       id: p.id,
       dueDate: p.dueDate,
       hauptCents: p.amountCents - p.allocations.reduce((s, a) => s + a.amountCents, 0),
-      kostenCents: 0,
-      zinsenCents: 0,
+      kostenCents: p.id === aeltesteOffene ? mahnkostenCents : 0,
+      zinsenCents: zinsen.get(p.id)?.zinsenCents ?? 0,
       gemahnt: ersteMahnung !== null && p.dueDate <= ersteMahnung,
       // Alles, was nicht ausdrücklich Sonderumlage ist, zählt als laufende
       // Forderung — auch der übernommene Stand aus der Vorverwaltung.

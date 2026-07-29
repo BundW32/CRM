@@ -130,7 +130,9 @@ export default async function WegStammdatenPage({
                   ? "Der Beginn darf nicht nach dem Ende der Eigentümerschaft liegen."
                   : sp.fehler === "datum"
                     ? "Das Datum konnte nicht gelesen werden."
-                    : "Die Eingabe konnte nicht gespeichert werden."}
+                    : sp.fehler === "mahnkosten"
+                      ? "Die Mahnkosten konnten nicht gelesen werden (Format: 2,50). Leer lassen bedeutet: keine Mahnkosten."
+                      : "Die Eingabe konnte nicht gespeichert werden."}
         </Alert>
       ) : null}
 
@@ -187,10 +189,36 @@ export default async function WegStammdatenPage({
                 placeholder="z. B. 15"
               />
             </Field>
+            {/* Mahnkosten. Bewusst ein freies Feld statt einer Pauschale: Die
+                40 € des § 288 Abs. 5 BGB gelten nur zwischen Unternehmern, der
+                Wohnungseigentümer ist regelmäßig Verbraucher. Ersetzt wird, was
+                wirklich angefallen ist. */}
+            <Field label="Mahnkosten je Mahnung (€)">
+              <input
+                name="mahnkosten"
+                inputMode="decimal"
+                // Ohne Währungszeichen: Das Label sagt bereits „(€)", und
+                // `formatCents` hängt ein geschütztes Leerzeichen davor, das
+                // beim erneuten Speichern niemand sehen will.
+                defaultValue={
+                  property.mahnkostenCents
+                    ? (property.mahnkostenCents / 100).toFixed(2).replace(".", ",")
+                    : ""
+                }
+                className={inputClass}
+                placeholder="z. B. 2,50"
+              />
+            </Field>
             <div className="flex items-end">
               <PendingButton className={buttonClass}>Speichern</PendingButton>
             </div>
           </form>
+          <Tipp className="mt-3">
+            <strong>Mahnkosten</strong> ersetzen nur, was tatsächlich anfällt — Porto und
+            Material. Eine Pauschale von 40 € gilt nur unter Unternehmern, nicht gegenüber
+            einem Eigentümer. Die erste Mahnung bleibt kostenfrei: Vorher wusste der Schuldner
+            nicht, dass Kosten entstehen.
+          </Tipp>
           <Tipp className="mt-3">
             Die Fälligkeit bestimmt, ab wann ein Hausgeld als Rückstand gilt und wann Verzug
             eintritt (§ 286 BGB). Sie erscheint zugleich im Text der Beschlussvorlage zum

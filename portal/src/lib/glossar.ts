@@ -26,6 +26,11 @@ export const GLOSSAR = {
       "Die Forderung der Gemeinschaft gegen eine Einheit für einen Monat — das, was der Eigentümer zahlen muss, bevor er es zahlt.",
     paragraph: "§ 28 Abs. 1 WEG",
   },
+  verzugszinsen: {
+    erklaerung:
+      "Zinsen für zu spät gezahltes Hausgeld. Sie stehen der Gemeinschaft zu — sonst tragen die übrigen Eigentümer die Lücke.",
+    paragraph: "§ 288 Abs. 1 BGB",
+  },
   abrechnungsspitze: {
     erklaerung:
       "Die Differenz zwischen den tatsächlichen Kosten des Jahres und dem, was Sie über das Hausgeld schon vorausgezahlt haben. Nur über sie beschließt die Versammlung.",

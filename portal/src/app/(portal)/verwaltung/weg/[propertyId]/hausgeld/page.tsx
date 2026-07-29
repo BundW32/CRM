@@ -582,6 +582,9 @@ export default async function HausgeldPage({
                         {OPOS_BUCKET_LABELS[b]}
                       </th>
                     ))}
+                    <th className="py-2 pr-3 text-right whitespace-nowrap">
+                      <Begriff name="verzugszinsen">Zinsen</Begriff>
+                    </th>
                     <th className="py-2 pr-3 text-right">Mahnwesen</th>
                   </tr>
                 </thead>
@@ -589,11 +592,22 @@ export default async function HausgeldPage({
                   {sichtbareUnits.map((u) => {
                     const due = dueByUnit.get(u.id) ?? 0;
                     const paid = paidByUnit.get(u.id) ?? 0;
-                    const zeile = opos.get(u.id) ?? { ...leereOposZeile(), unitId: u.id, nichtZugeordnetCents: 0 };
+                    const zeile = opos.get(u.id) ?? {
+                      ...leereOposZeile(),
+                      unitId: u.id,
+                      nichtZugeordnetCents: 0,
+                      zinsenCents: 0,
+                    };
                     const rueckstand = zeile.gesamtCents;
                     return (
                       <tr key={u.id} className="border-b border-gray-100">
-                        <td className="py-2 pr-3 font-medium text-gray-900">{u.label}</td>
+                        {/* Derselbe Auszug, den der Eigentümer sieht. Wer mahnt,
+                            sollte vorher gesehen haben, was der Gemahnte sieht. */}
+                        <td className="py-2 pr-3 font-medium text-gray-900">
+                          <Link href={`/finanzen/kontoauszug/${u.id}`} className="hover:underline">
+                            {u.label}
+                          </Link>
+                        </td>
                         <td className="py-2 pr-3 text-right text-gray-700">{formatCents(due)}</td>
                         <td className="py-2 pr-3 text-right text-gray-700">
                           {formatCents(paid)}
@@ -630,6 +644,23 @@ export default async function HausgeldPage({
                             {zeile.buckets[b] > 0 ? formatCents(zeile.buckets[b]) : "—"}
                           </td>
                         ))}
+                        {/* Zinsen. `null` heißt „nicht berechenbar", nicht
+                            „null Euro" — dann steht hier ein Fragezeichen mit
+                            Erklärung statt einer Zahl, die keine ist. */}
+                        <td className="py-2 pr-3 text-right whitespace-nowrap">
+                          {zeile.zinsenCents === null ? (
+                            <span
+                              className="cursor-help text-amber-700"
+                              title="Für diesen Zeitraum ist kein Basiszinssatz hinterlegt — nachzutragen unter Einstellungen › Basiszinssatz."
+                            >
+                              nicht berechenbar
+                            </span>
+                          ) : zeile.zinsenCents > 0 ? (
+                            <span className="text-gray-700">{formatCents(zeile.zinsenCents)}</span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
                         <td className="py-2 pr-3 text-right">
                           {rueckstand > 0 ? (
                             draftUnits.has(u.id) ? (

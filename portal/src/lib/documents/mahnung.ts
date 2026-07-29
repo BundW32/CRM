@@ -2,8 +2,12 @@
 //
 // Aufgebaut auf lib/documents/kit: Anschriftfeld nach DIN 5008 Form B (20 mm
 // von links, Anschrift ab 62,7 mm, Betreff auf 98,4 mm), Falz- und Lochmarken,
-// Fußzeile mit Seitenzahl. Stufen und Fristen richten sich nach lib/dunning.ts;
-// automatische Gebühren oder Verzugszinsen setzt das Portal bewusst nicht an.
+// Fußzeile mit Seitenzahl. Stufen und Fristen richten sich nach lib/dunning.ts.
+//
+// Verzugszinsen und Mahnkosten setzt das Portal **nicht von selbst** an — sie
+// kommen als fertige Beträge herein (`interestCents`, `feeCents`), festgeschrieben
+// zum Erstellzeitpunkt der Mahnung. Ein Schreiben, dessen Beträge sich später von
+// selbst ändern, ist als Nachweis wertlos.
 import { briefAnrede, anschriftZeilen, type Empfaenger } from "./anrede";
 import { formatCents } from "@/lib/money";
 import { reminderLevelLabel } from "@/lib/dunning";
@@ -39,6 +43,16 @@ export type MahnungInput = {
   arrearsCents: number;
   /** Einzelne offene Posten; ohne Angabe erscheint nur die Summe. */
   positions?: MahnungPosition[];
+  /**
+   * Verzugszinsen (§ 288 Abs. 1 BGB) zum Erstellzeitpunkt.
+   *
+   * `null` = für den Zeitraum ist kein Basiszinssatz hinterlegt. Dann nennt das
+   * Schreiben **keine** Zinsen — statt einer Null, die wie „keine Zinsen
+   * entstanden" aussieht.
+   */
+  interestCents?: number | null;
+  /** Mahnkosten (tatsächlicher Aufwand). Erst ab der zweiten Stufe. */
+  feeCents?: number;
   paymentDeadline: Date;
   /** Girokonto der Gemeinschaft. */
   iban: string | null;
@@ -135,17 +149,38 @@ export async function generateMahnung(input: MahnungInput): Promise<Buffer> {
   doc.space(mm(2));
 
   // ── Offene Posten ──────────────────────────────────────────────────────────
-  if (input.positions?.length) {
+  //
+  // Zinsen und Kosten sind eigene Forderungen neben der Hauptforderung
+  // (§ 367 Abs. 1 BGB) und stehen deshalb als eigene Zeilen. Eine Mahnung, die
+  // nur einen Endbetrag nennt, gibt dem Empfänger nichts, was er prüfen kann —
+  // und genau daran scheitert sie, wenn er widerspricht.
+  const zusatz: MahnungPosition[] = [];
+  if (input.interestCents && input.interestCents > 0) {
+    zusatz.push({ label: "Verzugszinsen (§ 288 Abs. 1 BGB)", cents: input.interestCents });
+  }
+  if (input.feeCents && input.feeCents > 0) {
+    zusatz.push({ label: "Mahnkosten", cents: input.feeCents });
+  }
+  const gesamtCents = input.arrearsCents + zusatz.reduce((s, p) => s + p.cents, 0);
+
+  // Steht nur der Rückstand da, ist eine Aufstellung mit einer einzigen Zeile
+  // Ballast — dann bleibt es beim einzeiligen Betrag.
+  const posten: MahnungPosition[] = [
+    ...(input.positions ?? (zusatz.length ? [{ label: "Hausgeld-Rückstand", cents: input.arrearsCents }] : [])),
+    ...zusatz,
+  ];
+
+  if (posten.length) {
     doc.text("Offene Posten", { size: size.small, font: doc.bold, color: color.muted, lead: mm(2) });
     doc.rule({ gapAbove: mm(2), gapBelow: mm(4) });
-    for (const position of input.positions) {
+    for (const position of posten) {
       doc.amountRow(position.label, formatCents(position.cents));
     }
     doc.rule({ gapAbove: mm(2), gapBelow: mm(3) });
     doc.space(mm(1));
   }
 
-  doc.amountPanel("Offener Betrag", formatCents(input.arrearsCents), {
+  doc.amountPanel(zusatz.length ? "Gesamtforderung" : "Offener Betrag", formatCents(gesamtCents), {
     sub: `Zahlbar bis ${fmtDate(input.paymentDeadline)} · Verwendungszweck: Hausgeld ${input.unitLabel}`,
   });
 

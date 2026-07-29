@@ -133,10 +133,41 @@ export function BauabzugHinweis({
               an (die meisten Betriebe haben eine) und tragen Sie sie beim Handwerker ein.
               Dann entfällt der Einbehalt.
             </p>
-            <label className="mt-2 flex items-center gap-2 font-medium">
-              <input type="checkbox" name="bauabzugBestaetigt" value="ja" className="h-4 w-4" />
-              Ich habe das berücksichtigt und möchte so buchen
-            </label>
+            {/*
+              Zwei Wege, und beide müssen benennbar sein. Ein einzelnes Häkchen
+              („zur Kenntnis genommen") hielt nur fest, dass gewarnt wurde — nicht,
+              was daraufhin geschah. Genau das ist aber die Frage, wenn das
+              Finanzamt später nachfragt: einbehalten oder nicht?
+              Wer einbehält, hat danach eine Frist (§ 48a Abs. 1 EStG); nur wenn
+              das Programm den Einbehalt kennt, kann es daran erinnern.
+            */}
+            <fieldset className="mt-3 space-y-1.5">
+              <legend className="font-medium">Wie wurde gezahlt?</legend>
+              <label className="flex items-start gap-2">
+                <input
+                  type="radio"
+                  name="bauabzugBestaetigt"
+                  value="einbehalten"
+                  className="mt-0.5 h-4 w-4"
+                />
+                <span>
+                  Ich habe <strong>{formatCents(pruefung.einbehaltCents)} einbehalten</strong> und
+                  melde sie beim Finanzamt an
+                </span>
+              </label>
+              <label className="flex items-start gap-2">
+                <input
+                  type="radio"
+                  name="bauabzugBestaetigt"
+                  value="ungekuerzt"
+                  className="mt-0.5 h-4 w-4"
+                />
+                <span>
+                  Ich habe <strong>ungekürzt gezahlt</strong> — die Gemeinschaft haftet dafür
+                  (§ 48a Abs. 3 EStG)
+                </span>
+              </label>
+            </fieldset>
           </Alert>
         </div>
       ) : null}

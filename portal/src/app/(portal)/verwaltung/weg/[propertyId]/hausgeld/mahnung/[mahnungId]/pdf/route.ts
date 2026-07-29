@@ -67,6 +67,8 @@ export async function GET(
       // Ab der letzten Stufe ist der Zugang nachweisbar zu dokumentieren.
       versandVermerk: mahnung.level >= 3 ? "Einschreiben mit Rückschein" : null,
       arrearsCents: mahnung.arrearsCents,
+      interestCents: mahnung.interestCents,
+      feeCents: mahnung.feeCents,
       paymentDeadline: mahnung.paymentDeadline,
       previousReminderAt: vorstufe?.sentAt ?? null,
       iban: giro?.iban ?? null,

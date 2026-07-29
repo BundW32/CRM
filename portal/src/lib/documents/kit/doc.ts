@@ -492,6 +492,64 @@ export class Doc {
   }
 
   /**
+   * Bilder in einem zweispaltigen Raster, mit Bildunterschrift.
+   *
+   * Jedes Bild bleibt mitsamt seiner Unterschrift auf einer Seite; eine Reihe,
+   * die halb über den Blattrand ragt, dokumentiert nichts.
+   */
+  async photos(
+    bilder: { bytes: Uint8Array; breite: number; hoehe: number; titel?: string | null }[],
+    options: { spalten?: number; indent?: number; maxHoehe?: number } = {},
+  ): Promise<void> {
+    if (bilder.length === 0) return;
+    const spalten = options.spalten ?? 2;
+    // Ohne Höhendeckel füllt ein einziges Hochformat-Foto die halbe Seite: Ein
+    // Handy liefert 3:4, das sind bei 80 mm Breite über 100 mm Höhe.
+    const maxHoehe = options.maxHoehe ?? mm(55);
+    const x0 = DIN.marginLeft + (options.indent ?? 0);
+    const gesamt = DIN.marginLeft + CONTENT_WIDTH - x0;
+    const steg = mm(4);
+    const zellBreite = (gesamt - steg * (spalten - 1)) / spalten;
+
+    for (let i = 0; i < bilder.length; i += spalten) {
+      const reihe = bilder.slice(i, i + spalten);
+      // Jedes Bild passt in seine Zelle, ohne sein Seitenverhältnis zu ändern.
+      const masse = reihe.map((b) => {
+        const faktor = Math.min(zellBreite / b.breite, maxHoehe / b.hoehe);
+        return { breite: b.breite * faktor, hoehe: b.hoehe * faktor };
+      });
+      const hoehen = masse.map((m) => m.hoehe);
+      const reihenHoehe = Math.max(...hoehen);
+      const mitTitel = reihe.some((b) => b.titel);
+      this.ensure(reihenHoehe + (mitTitel ? mm(5) : 0) + mm(4));
+
+      const oben = this.y;
+      for (let s = 0; s < reihe.length; s++) {
+        const bild = reihe[s];
+        const x = x0 + s * (zellBreite + steg);
+        const { breite, hoehe } = masse[s];
+        try {
+          const eingebettet = await this.image(bild.bytes, bild.bytes);
+          this.page.drawImage(eingebettet, { x, y: oben - hoehe, width: breite, height: hoehe });
+        } catch {
+          // Ein unlesbares Foto darf das Protokoll nicht verhindern.
+          continue;
+        }
+        if (bild.titel) {
+          this.page.drawText(fitText(bild.titel, this.font, size.foot, zellBreite), {
+            x,
+            y: oben - reihenHoehe - mm(3.5),
+            size: size.foot,
+            font: this.font,
+            color: color.muted,
+          });
+        }
+      }
+      this.y = oben - reihenHoehe - (mitTitel ? mm(5) : 0) - mm(4);
+    }
+  }
+
+  /**
    * Unterschriftsblock: freigestelltes Bild (sofern vorhanden), Linie, Name.
    *
    * Ohne Bild bleibt die Linie mit Platz darüber stehen — dann wird von Hand

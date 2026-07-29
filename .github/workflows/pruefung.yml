@@ -7,13 +7,17 @@
 #
 # Bewusst ohne `next build`: Der Build-Befehl dieses Projekts führt
 # `prisma migrate deploy` aus und bräuchte eine Datenbank. Das Bauen übernimmt
-# Vercel, hier geht es um das, was Vercel nicht prüft.
+# Vercel und meldet das Ergebnis als Status an den Pull Request zurück — ein
+# gebrochener Build fällt dort auf. Hier geht es um das, was Vercel nicht prüft.
 name: Prüfung
 
 on:
   pull_request:
+  # Der Standard-Branch dieses Repos heißt nicht `main`. Der frühere Filter
+  # `branches: [main]` traf deshalb nichts: Nach einem direkten Push lief keine
+  # Prüfung, nur Pull Requests waren abgedeckt.
   push:
-    branches: [main]
+    branches: [claude/friendly-archimedes-ggmjhp]
 
 jobs:
   pruefung:

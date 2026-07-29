@@ -1,164 +1,227 @@
-// PDF-Generator für die Betriebskostenabrechnung einer vermieteten Einheit (M-K).
-// DIN-A4-Brief, fensterumschlag-tauglich; Aufbau analog zu documents/mahnung.ts.
-import { PDFDocument, PDFPage, StandardFonts, rgb } from "pdf-lib";
+// Betriebskostenabrechnung einer vermieteten Einheit als DIN-A4-Brief.
+//
+// Aufgebaut auf lib/documents/kit (DIN 5008 Form B). Die Abrechnung leitet sich
+// aus der fertigen WEG-Jahresabrechnung ab; umlagefähig nach BetrKV, der
+// CO2-Anteil nach CO2KostAufG zwischen Vermieter und Mieter aufgeteilt.
+import { briefAnrede, anschriftZeilen, type Empfaenger } from "./anrede";
 import { formatCents } from "@/lib/money";
-import { encodeWinAnsi, fitText, wrapText } from "./pdf-text";
+import { HEIZKOSTEN_HINWEIS } from "@/lib/weg/umlageschluessel-text";
+import {
+  CONTENT_WIDTH,
+  Doc,
+  color,
+  drawLetterHead,
+  mm,
+  size,
+  type LetterIssuer,
+  type TableCell,
+} from "./kit";
+import type { RGB } from "pdf-lib";
 
-const A4: [number, number] = [595.28, 841.89];
-const MM = 841.89 / 297;
-const ML = 25 * MM;
-const MR = 20 * MM;
-const CW = A4[0] - ML - MR;
-const GREEN = rgb(0, 0.21, 0.19);
-const GRAY = rgb(0.4, 0.4, 0.4);
-const BLACK = rgb(0.1, 0.1, 0.1);
+export type BetriebskostenZeile = {
+  name: string;
+  /** Anteil dieser Einheit. */
+  cents: number;
+  /** Gesamtkosten der Liegenschaft für diese Kostenart. */
+  totalCents: number;
+  /** Umlageschlüssel im Klartext, z. B. „Wohnfläche" oder „70 % Verbrauch, 30 % Wohnfläche". */
+  keyLabel: string;
+};
 
 export type BetriebskostenInput = {
-  issuer: { legalName: string; contactLine: string };
+  issuer: LetterIssuer;
+  brand?: RGB;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   propertyName: string;
   unitLabel: string;
-  tenantName: string | null;
+  /** Mieter mit Anrede; ohne ihn bleibt das Anschriftfeld leer. */
+  tenant: Empfaenger | null;
+  /** „Straße\nPLZ Ort" */
+  tenantAddress: string | null;
   year: number;
-  recoverableRows: { name: string; cents: number }[];
-  nonRecoverableRows: { name: string; cents: number }[];
+  /** Je Kostenart: Gesamtkosten der Liegenschaft, Umlageschlüssel, Anteil. */
+  recoverableRows: BetriebskostenZeile[];
+  nonRecoverableRows: BetriebskostenZeile[];
   recoverableSumCents: number;
   co2LandlordDeductionCents: number;
   tenantCostsCents: number;
   months: number;
   prepaymentMonthlyCents: number;
   prepaymentCents: number;
+  /** + Nachzahlung, − Guthaben */
   balanceCents: number;
+  /**
+   * Enthält die Abrechnung Heiz-/Warmwasserkosten? Dann bekommt die Anlage die
+   * Fußnote zur Aufteilung nach HeizkostenV.
+   */
+  heatingPresent?: boolean;
   city: string | null;
   createdAt: Date;
 };
 
-function euro(cents: number): string {
-  return encodeWinAnsi(formatCents(cents));
-}
-function fmtDate(d: Date): string {
-  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+function fmtDate(value: Date): string {
+  return `${String(value.getDate()).padStart(2, "0")}.${String(value.getMonth() + 1).padStart(2, "0")}.${value.getFullYear()}`;
 }
 
-export async function generateBetriebskosten(raw: BetriebskostenInput): Promise<Buffer> {
-  const input: BetriebskostenInput = {
-    ...raw,
-    issuer: {
-      legalName: encodeWinAnsi(raw.issuer.legalName),
-      contactLine: encodeWinAnsi(raw.issuer.contactLine),
+export async function generateBetriebskosten(input: BetriebskostenInput): Promise<Buffer> {
+  const nachzahlung = input.balanceCents >= 0;
+  const doc = await Doc.create({
+    title: `Betriebskostenabrechnung ${input.year} — ${input.unitLabel}`,
+    author: input.issuer.legalName,
+    subject: `Betriebskostenabrechnung ${input.year}, ${input.propertyName}`,
+    brand: input.brand,
+  });
+  doc.newPage();
+
+  await drawLetterHead(doc, {
+    issuer: input.issuer,
+    logo: input.logo,
+    // Nur Firma und Anschrift: mehr passt nicht in die 85 mm des Felds.
+    returnLine: [input.issuer.legalName, input.issuer.lines[0]].filter(Boolean).join(" · "),
+    recipient: {
+      // Ohne hinterlegte Anschrift bleibt es beim Hinweis auf die Einheit — der
+      // Brief ist dann nicht versandfertig, aber wenigstens zuordenbar.
+      lines: input.tenant
+        ? anschriftZeilen(input.tenant, input.tenantAddress)
+        : ["An den Mieter", `Einheit ${input.unitLabel}`],
     },
-    propertyName: encodeWinAnsi(raw.propertyName),
-    unitLabel: encodeWinAnsi(raw.unitLabel),
-    tenantName: raw.tenantName == null ? null : encodeWinAnsi(raw.tenantName),
-    recoverableRows: raw.recoverableRows.map((r) => ({ ...r, name: encodeWinAnsi(r.name) })),
-    nonRecoverableRows: raw.nonRecoverableRows.map((r) => ({ ...r, name: encodeWinAnsi(r.name) })),
-    city: raw.city == null ? null : encodeWinAnsi(raw.city),
-  };
+    infoBlock: [
+      ["Objekt", input.propertyName],
+      ["Einheit", input.unitLabel],
+      ["Zeitraum", String(input.year)],
+      ["Datum", `${input.city ? `${input.city}, ` : ""}${fmtDate(input.createdAt)}`],
+    ],
+  });
 
-  const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  doc.subject(
+    `Betriebskostenabrechnung ${input.year}`,
+    `${input.propertyName} · Einheit ${input.unitLabel}`,
+  );
+  doc.text(briefAnrede(input.tenant), { lead: mm(7) });
+  doc.para(
+    `anbei erhalten Sie die Abrechnung der Betriebskosten für das Jahr ${input.year}. Sie ` +
+      `weist die umlagefähigen Kosten, Ihre Vorauszahlungen und den sich daraus ergebenden ` +
+      `${nachzahlung ? "Nachzahlungsbetrag" : "Guthabenbetrag"} aus.`,
+  );
+  doc.space(mm(2));
 
-  // War fest einseitig: bei vielen Kostenpositionen rutschte der Rest unter den
-  // Blattrand und war unsichtbar weg. Jetzt bricht die Abrechnung um.
-  let page: PDFPage = pdf.addPage(A4);
-  let y = 0;
-  const BOTTOM = 25 * MM;
-  const ensure = (needed: number) => {
-    if (y - needed >= BOTTOM) return;
-    page = pdf.addPage(A4);
-    y = A4[1] - 40 * MM;
-  };
-
-  page.drawRectangle({ x: 0, y: A4[1] - 6, width: A4[0], height: 6, color: GREEN });
-  // Firmenname umbrechen (nie kürzen – er ist die Absenderangabe), Kontaktzeile
-  // gegen die Satzbreite begrenzen. Vorher liefen beide über den Blattrand.
-  let hy = A4[1] - 40;
-  for (const line of wrapText(input.issuer.legalName, bold, 10, CW).slice(0, 2)) {
-    page.drawText(line, { x: ML, y: hy, size: 10, font: bold, color: GREEN });
-    hy -= 12;
-  }
-  if (input.issuer.contactLine) {
-    page.drawText(fitText(input.issuer.contactLine, font, 8, CW), { x: ML, y: hy, size: 8, font, color: GRAY });
-  }
-
-  // Anschriftfeld
-  let ay = A4[1] - 45 * MM;
-  const returnLine = [input.issuer.legalName, input.issuer.contactLine].filter(Boolean).join(" · ");
-  page.drawText(fitText(returnLine, font, 6.5, 85 * MM), { x: ML, y: ay, size: 6.5, font, color: GRAY });
-  page.drawLine({ start: { x: ML, y: ay - 2 }, end: { x: ML + 85 * MM, y: ay - 2 }, thickness: 0.4, color: GRAY });
-  ay -= 16;
-  for (const line of [input.tenantName ?? "An den Mieter", `Einheit ${input.unitLabel}`]) {
-    page.drawText(line, { x: ML, y: ay, size: 11, font, color: BLACK });
-    ay -= 14;
-  }
-
-  y = A4[1] - 100 * MM;
-  const dateLine = `${input.city ? `${input.city}, ` : ""}${fmtDate(input.createdAt)}`;
-  page.drawText(dateLine, { x: ML + CW - font.widthOfTextAtSize(dateLine, 10), y: y + 24, size: 10, font, color: GRAY });
-  page.drawText(`Betriebskostenabrechnung ${input.year}`, { x: ML, y, size: 13, font: bold, color: BLACK });
-  y -= 18;
-  // Objektzeile umbrechen statt über den Blattrand hinauszuschreiben.
-  for (const line of wrapText(`${input.propertyName} · Einheit ${input.unitLabel}`, font, 9, CW)) {
-    page.drawText(line, { x: ML, y, size: 9, font, color: GRAY });
-    y -= 12;
-  }
-  y -= 12;
-
-  const rowRight = (label: string, value: string, opts: { boldRow?: boolean; color?: typeof BLACK } = {}) => {
-    const f = opts.boldRow ? bold : font;
-    ensure(15);
-    // Bezeichnung gegen die Betragsspalte begrenzen, damit beide nie kollidieren.
-    const room = CW - f.widthOfTextAtSize(value, 10) - 12;
-    page.drawText(fitText(label, f, 10, room), { x: ML, y, size: 10, font: f, color: opts.color ?? BLACK });
-    page.drawText(value, { x: ML + CW - f.widthOfTextAtSize(value, 10), y, size: 10, font: f, color: opts.color ?? BLACK });
-    y -= 15;
-  };
-
-  ensure(30);
-  page.drawText("Umlagefähige Kosten (BetrKV)", { x: ML, y, size: 10, font: bold, color: GREEN });
-  y -= 16;
-  for (const r of input.recoverableRows) rowRight(r.name, euro(r.cents));
-  page.drawLine({ start: { x: ML, y: y + 4 }, end: { x: ML + CW, y: y + 4 }, thickness: 0.4, color: GRAY });
-  y -= 4;
-  rowRight("Summe umlagefähig", euro(input.recoverableSumCents), { boldRow: true });
+  // ── Ergebnis (Seite 1) ─────────────────────────────────────────────────────
+  // Nur die Rechenkette, nicht die Einzelposten: Wer den Brief öffnet, will
+  // zuerst wissen, ob er zahlt oder Geld bekommt. Die vollständige Aufstellung
+  // steht als Anlage auf der Folgeseite.
+  doc.amountRow("Umlagefähige Kosten insgesamt", formatCents(input.recoverableSumCents));
   if (input.co2LandlordDeductionCents > 0) {
-    rowRight("abzgl. Vermieter-CO2-Anteil (CO2KostAufG)", `- ${euro(input.co2LandlordDeductionCents)}`, { color: rgb(0, 0.4, 0.2) });
+    doc.amountRow(
+      "abzüglich Vermieteranteil CO2-Kosten (CO2KostAufG)",
+      `− ${formatCents(input.co2LandlordDeductionCents)}`,
+      { color: color.credit },
+    );
   }
-  rowRight("Auf den Mieter entfallende Kosten", euro(input.tenantCostsCents), { boldRow: true });
-  rowRight(`abzgl. Vorauszahlungen (${input.months} × ${euro(input.prepaymentMonthlyCents)})`, `- ${euro(input.prepaymentCents)}`);
-  y -= 4;
-  ensure(40);
-  page.drawRectangle({ x: ML, y: y - 6, width: CW, height: 24, color: rgb(0.96, 0.96, 0.96) });
-  const balLabel = input.balanceCents >= 0 ? "Nachzahlung" : "Guthaben";
-  const balColor = input.balanceCents > 0 ? rgb(0.6, 0.09, 0.09) : rgb(0, 0.4, 0.2);
-  page.drawText(balLabel, { x: ML + 8, y, size: 12, font: bold, color: BLACK });
-  const balVal = euro(Math.abs(input.balanceCents));
-  page.drawText(balVal, { x: ML + CW - 8 - bold.widthOfTextAtSize(balVal, 12), y, size: 12, font: bold, color: balColor });
-  y -= 30;
+  doc.amountRow("Auf Sie entfallende Kosten", formatCents(input.tenantCostsCents), { strong: true });
+  doc.amountRow(
+    `abzüglich Vorauszahlungen (${input.months} × ${formatCents(input.prepaymentMonthlyCents)})`,
+    `− ${formatCents(input.prepaymentCents)}`,
+  );
+  doc.space(mm(2));
+
+  doc.amountPanel(
+    nachzahlung ? "Nachzahlung" : "Guthaben",
+    formatCents(Math.abs(input.balanceCents)),
+    {
+      tone: nachzahlung ? "due" : "credit",
+      sub: nachzahlung
+        ? "Bitte überweisen Sie den Betrag innerhalb von 30 Tagen."
+        : "Der Betrag wird Ihnen erstattet bzw. mit der nächsten Zahlung verrechnet.",
+    },
+  );
+
+  // Schlusshinweis und Grußformel bilden einen Block: rutscht er auf eine
+  // Folgeseite, dann gemeinsam. Die Reserve wird gemessen statt geschätzt —
+  // eine Seite, auf der allein „Mit freundlichen Grüßen" steht, sieht nach
+  // Fehler aus, und eine zu großzügige Schätzung bricht unnötig um.
+  const schluss =
+    "Die Abrechnung leitet sich aus der Jahresabrechnung der Wohnungseigentümergemeinschaft " +
+    "ab. Die Belege können Sie nach Absprache einsehen; Einwendungen teilen Sie uns bitte " +
+    "innerhalb von zwölf Monaten nach Zugang dieser Abrechnung mit.";
+  doc.ensure(doc.measure(schluss) + mm(3) + mm(10) + doc.measure(input.issuer.legalName));
+  doc.para(schluss);
+  doc.space(mm(3));
+  doc.text("Mit freundlichen Grüßen", { lead: mm(10) });
+  doc.para(input.issuer.legalName, { width: CONTENT_WIDTH });
+
+  // ── Anlage: Kostenaufstellung (eigene Seite) ───────────────────────────────
+  // Gesamtkosten, Umlageschlüssel und der daraus abgeleitete Anteil gehören in
+  // jede Betriebskostenabrechnung — ohne sie kann der Mieter nicht prüfen, wie
+  // sein Anteil zustande kommt. Auf einer eigenen Seite, weil die Tabelle das
+  // Anschreiben sonst erdrückt.
+  doc.newPage();
+  doc.text(`Anlage — Kostenaufstellung ${input.year}`, {
+    size: size.section,
+    font: doc.bold,
+    lead: mm(6),
+  });
+  doc.text(`${input.propertyName} · Einheit ${input.unitLabel}`, {
+    size: size.small,
+    color: color.muted,
+    lead: mm(8),
+  });
+
+  const spalten = [
+    // Beträge brauchen wenig Platz, der Schlüssel viel: „70 % Verbrauch,
+    // 30 % Wohnfläche" ist länger als jede Zahl in der Tabelle.
+    { header: "Kostenart", width: 36 },
+    { header: "Gesamtkosten", width: 16, align: "right" as const },
+    { header: "Umlageschlüssel", width: 32 },
+    { header: "Ihr Anteil", width: 16, align: "right" as const },
+  ];
+  const zeile = (row: BetriebskostenZeile, muted = false): TableCell[] => [
+    { text: row.name, color: muted ? color.muted : undefined },
+    { text: formatCents(row.totalCents), color: muted ? color.muted : undefined },
+    { text: row.keyLabel, color: color.muted },
+    { text: formatCents(row.cents), color: muted ? color.muted : undefined },
+  ];
+
+  doc.text("Umlagefähig nach BetrKV", {
+    size: size.small,
+    font: doc.bold,
+    color: color.muted,
+    lead: mm(5),
+  });
+  doc.table(spalten, [
+    ...input.recoverableRows.map((row) => zeile(row)),
+    [
+      { text: "Summe umlagefähig", strong: true },
+      { text: "" },
+      { text: "" },
+      { text: formatCents(input.recoverableSumCents), strong: true },
+    ],
+  ]);
 
   if (input.nonRecoverableRows.length > 0) {
-    ensure(26);
-    page.drawText("Nicht umlagefähig (trägt der Eigentümer)", { x: ML, y, size: 9, font: bold, color: GRAY });
-    y -= 13;
-    for (const r of input.nonRecoverableRows) {
-      ensure(12);
-      page.drawText(fitText(r.name, font, 8.5, CW - font.widthOfTextAtSize(euro(r.cents), 8.5) - 12), { x: ML, y, size: 8.5, font, color: GRAY });
-      page.drawText(euro(r.cents), { x: ML + CW - font.widthOfTextAtSize(euro(r.cents), 8.5), y, size: 8.5, font, color: GRAY });
-      y -= 12;
-    }
-    y -= 8;
+    doc.space(mm(6));
+    doc.text("Nicht umlagefähig — trägt der Eigentümer", {
+      size: size.small,
+      font: doc.bold,
+      color: color.muted,
+      lead: mm(5),
+    });
+    doc.table(spalten, input.nonRecoverableRows.map((row) => zeile(row, true)));
   }
 
-  for (const line of wrapText(
-    "Die Abrechnung leitet sich aus der WEG-Jahresabrechnung ab. Umlagefähigkeit nach BetrKV; " +
-      "der CO2-Kostenanteil ist nach dem CO2KostAufG zwischen Vermieter und Mieter aufgeteilt. " +
-      "Muster — ersetzt keine Rechtsberatung.",
-    font, 7.5, CW,
-  )) {
-    ensure(10);
-    page.drawText(line, { x: ML, y, size: 7.5, font, color: GRAY });
-    y -= 10;
+  doc.space(mm(6));
+  if (input.heatingPresent) {
+    doc.para(HEIZKOSTEN_HINWEIS, { size: size.small, color: color.muted });
+    doc.space(mm(3));
   }
+  doc.para(
+    "Die Gesamtkosten stammen aus der Jahresabrechnung der Wohnungseigentümergemeinschaft. " +
+      "Ihr Anteil ergibt sich aus dem jeweils angegebenen Umlageschlüssel.",
+    { size: size.small, color: color.muted },
+  );
 
-  return Buffer.from(await pdf.save());
+  return doc.finish({
+    left: input.issuer.legalName,
+    right: `Erstellt am ${fmtDate(input.createdAt)}`,
+  });
 }

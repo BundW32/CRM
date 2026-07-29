@@ -1,20 +1,20 @@
-// PDF-Generator für die Einladung zur Eigentümerversammlung (DIN-A4-Brief,
-// Adressposition fensterumschlag-tauglich nach DIN 5008 Form B). Aufbau analog
-// zu documents/mahnung.ts. Nutzertext wird über encodeWinAnsi/wrapText
-// abgesichert; lange Tagesordnungen brechen auf Folgeseiten um.
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from "pdf-lib";
+// Einladung zur Eigentümerversammlung als DIN-A4-Brief.
+//
+// Aufgebaut auf lib/documents/kit (DIN 5008 Form B). Ohne Empfängerangaben
+// entsteht ein neutraler Vorlagendruck („An alle Eigentümerinnen und
+// Eigentümer") — den nutzt die Verwaltung für den Aushang und den Selbstdruck.
+import { briefAnrede, anschriftZeilen, type Empfaenger } from "./anrede";
 import { INVITATION_MIN_WEEKS } from "@/lib/weg/meeting-invitation";
-import { encodeWinAnsi, wrapText } from "./pdf-text";
-
-const A4: [number, number] = [595.28, 841.89];
-const MM = 841.89 / 297;
-const ML = 25 * MM;
-const MR = 20 * MM;
-const CW = A4[0] - ML - MR;
-const GREEN = rgb(0, 0.21, 0.19);
-const GRAY = rgb(0.4, 0.4, 0.4);
-const BLACK = rgb(0.1, 0.1, 0.1);
-const BOTTOM = 30 * MM; // unterer Rand, ab dem umgebrochen wird
+import {
+  CONTENT_WIDTH,
+  Doc,
+  color,
+  drawLetterHead,
+  mm,
+  size,
+  type LetterIssuer,
+} from "./kit";
+import type { RGB } from "pdf-lib";
 
 export type InvitationAgendaItem = {
   index: number;
@@ -24,180 +24,126 @@ export type InvitationAgendaItem = {
 };
 
 export type MeetingInvitationInput = {
-  issuer: { legalName: string; contactLine: string };
+  issuer: LetterIssuer;
+  brand?: RGB;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   propertyName: string;
   meetingTitle: string;
   scheduledAt: Date;
   location: string | null;
   videoLink: string | null;
   agenda: InvitationAgendaItem[];
-  // Empfänger (optional): ohne Angaben wird ein neutraler „Vorlagen"-Druck erzeugt.
-  recipientName: string | null;
-  recipientAddress: string | null; // "Straße\nPLZ Ort"
-  city: string | null; // Ort der Datumszeile
+  /** Ohne Empfänger entsteht ein neutraler Vorlagendruck. */
+  recipient?: Empfaenger | null;
+  /** „Straße\nPLZ Ort" */
+  recipientAddress?: string | null;
+  /** Ortsangabe der Datumszeile. */
+  city: string | null;
   createdAt: Date;
 };
 
-function fmtDate(d: Date): string {
-  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+function fmtDate(value: Date): string {
+  return `${String(value.getDate()).padStart(2, "0")}.${String(value.getMonth() + 1).padStart(2, "0")}.${value.getFullYear()}`;
 }
-function fmtDateTime(d: Date): string {
-  return `${fmtDate(d)}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")} Uhr`;
+function fmtDateTime(value: Date): string {
+  return `${fmtDate(value)}, ${String(value.getHours()).padStart(2, "0")}:${String(value.getMinutes()).padStart(2, "0")} Uhr`;
 }
 
-export async function generateMeetingInvitation(raw: MeetingInvitationInput): Promise<Buffer> {
-  const input: MeetingInvitationInput = {
-    ...raw,
-    issuer: {
-      legalName: encodeWinAnsi(raw.issuer.legalName),
-      contactLine: encodeWinAnsi(raw.issuer.contactLine),
+export async function generateMeetingInvitation(
+  input: MeetingInvitationInput,
+): Promise<Buffer> {
+  const doc = await Doc.create({
+    title: `Einladung — ${input.meetingTitle}`,
+    author: input.issuer.legalName,
+    subject: `Eigentümerversammlung ${input.propertyName} am ${fmtDate(input.scheduledAt)}`,
+    brand: input.brand,
+  });
+  doc.newPage();
+
+  await drawLetterHead(doc, {
+    issuer: input.issuer,
+    logo: input.logo,
+    returnLine: [input.issuer.legalName, input.issuer.lines[0]].filter(Boolean).join(" · "),
+    recipient: {
+      lines: input.recipient
+        ? anschriftZeilen(input.recipient, input.recipientAddress)
+        : ["An alle Eigentümerinnen und Eigentümer", `der ${input.propertyName}`],
     },
-    propertyName: encodeWinAnsi(raw.propertyName),
-    meetingTitle: encodeWinAnsi(raw.meetingTitle),
-    location: raw.location == null ? null : encodeWinAnsi(raw.location),
-    videoLink: raw.videoLink == null ? null : encodeWinAnsi(raw.videoLink),
-    agenda: raw.agenda.map((it) => ({
-      ...it,
-      title: encodeWinAnsi(it.title),
-      description: it.description == null ? null : encodeWinAnsi(it.description),
-    })),
-    recipientName: raw.recipientName == null ? null : encodeWinAnsi(raw.recipientName),
-    recipientAddress: raw.recipientAddress == null ? null : encodeWinAnsi(raw.recipientAddress),
-    city: raw.city == null ? null : encodeWinAnsi(raw.city),
-  };
+    infoBlock: [
+      ["Objekt", input.propertyName],
+      ["Versammlung", fmtDate(input.scheduledAt)],
+      ["Datum", `${input.city ? `${input.city}, ` : ""}${fmtDate(input.createdAt)}`],
+    ],
+  });
 
-  const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  doc.subject("Einladung zur Eigentümerversammlung", input.meetingTitle);
+  doc.text(
+    input.recipient
+      ? briefAnrede(input.recipient)
+      : "Sehr geehrte Eigentümerinnen und Eigentümer,",
+    { lead: mm(7) },
+  );
+  doc.para(
+    `hiermit laden wir Sie zur Eigentümerversammlung der ${input.propertyName} ein. Die ` +
+      `Ladungsfrist von mindestens ${INVITATION_MIN_WEEKS} Wochen nach § 24 Abs. 4 WEG ist ` +
+      `gewahrt.`,
+  );
+  doc.space(mm(4));
 
-  const page = pdf.addPage(A4);
-  drawHeader(page, bold, font, input);
+  // ── Eckdaten ───────────────────────────────────────────────────────────────
+  doc.defList(
+    [
+      ["Termin", fmtDateTime(input.scheduledAt)],
+      ["Ort", input.location || "wird noch bekannt gegeben"],
+      // Die hybride Teilnahme ist seit § 23 Abs. 1a WEG zulässig, muss aber
+      // beschlossen sein — das Portal streamt nicht selbst.
+      ...(input.videoLink ? ([["Video-Zuschaltung", input.videoLink]] as [string, string][]) : []),
+    ],
+    { labelWidth: mm(42) },
+  );
+  doc.space(mm(5));
 
-  // ── Anschriftfeld (Fensterumschlag) ─────────────────────────────────────────
-  let ay = A4[1] - 45 * MM;
-  const returnLine = [input.issuer.legalName, input.issuer.contactLine].filter(Boolean).join(" · ");
-  page.drawText(returnLine.slice(0, 90), { x: ML, y: ay, size: 6.5, font, color: GRAY });
-  page.drawLine({ start: { x: ML, y: ay - 2 }, end: { x: ML + 85 * MM, y: ay - 2 }, thickness: 0.4, color: GRAY });
-  ay -= 16;
-  const addressLines = input.recipientName
-    ? [input.recipientName, ...(input.recipientAddress?.split("\n") ?? [])]
-    : ["An alle Eigentümer", `der ${input.propertyName}`];
-  for (const line of addressLines) {
-    if (!line.trim()) continue;
-    page.drawText(line, { x: ML, y: ay, size: 11, font, color: BLACK });
-    ay -= 14;
-  }
-
-  // ── Datum & Betreff ─────────────────────────────────────────────────────────
-  let y = A4[1] - 100 * MM;
-  const dateLine = `${input.city ? `${input.city}, ` : ""}${fmtDate(input.createdAt)}`;
-  page.drawText(dateLine, { x: ML + CW - font.widthOfTextAtSize(dateLine, 10), y: y + 24, size: 10, font, color: GRAY });
-  page.drawText("Einladung zur Eigentümerversammlung", { x: ML, y, size: 13, font: bold, color: BLACK });
-  y -= 26;
-
-  // ── Anrede & Einleitung ─────────────────────────────────────────────────────
-  const anrede = input.recipientName ? `Sehr geehrte(r) ${input.recipientName},` : "Sehr geehrte Eigentümerinnen und Eigentümer,";
-  page.drawText(anrede, { x: ML, y, size: 10, font, color: BLACK });
-  y -= 20;
-  const intro =
-    `hiermit laden wir Sie form- und fristgerecht (Ladungsfrist mindestens ${INVITATION_MIN_WEEKS} Wochen, ` +
-    `§ 24 Abs. 4 WEG) zur Eigentümerversammlung der ${input.propertyName} ein.`;
-  for (const line of wrapText(intro, font, 10, CW)) {
-    page.drawText(line, { x: ML, y, size: 10, font, color: BLACK });
-    y -= 14;
-  }
-  y -= 8;
-
-  // ── Eckdaten-Box ────────────────────────────────────────────────────────────
-  const facts: [string, string][] = [
-    ["Termin:", fmtDateTime(input.scheduledAt)],
-    ["Ort:", input.location || "wird noch bekannt gegeben"],
-  ];
-  if (input.videoLink) facts.push(["Video-Zuschaltung:", input.videoLink]);
-  for (const [label, value] of facts) {
-    page.drawText(label, { x: ML, y, size: 10, font: bold, color: BLACK });
-    for (const line of wrapText(value, font, 10, CW - 130)) {
-      page.drawText(line, { x: ML + 130, y, size: 10, font, color: BLACK });
-      y -= 14;
-    }
-  }
-  y -= 10;
-
-  // ── Tagesordnung (mit Seitenumbruch) ────────────────────────────────────────
-  page.drawText("Tagesordnung", { x: ML, y, size: 12, font: bold, color: GREEN });
-  y -= 18;
-
-  const ctx = { page, y };
-  const ensureSpace = (needed: number) => {
-    if (ctx.y - needed < BOTTOM) {
-      ctx.page = pdf.addPage(A4);
-      drawHeader(ctx.page, bold, font, input, true);
-      ctx.y = A4[1] - 40 * MM;
-    }
-  };
+  // ── Tagesordnung ───────────────────────────────────────────────────────────
+  doc.text("Tagesordnung", { size: size.section, font: doc.bold, color: doc.brand, lead: mm(7) });
 
   if (input.agenda.length === 0) {
-    page.drawText("(Die Tagesordnung wird noch ergänzt.)", { x: ML, y: ctx.y, size: 10, font, color: GRAY });
-    ctx.y -= 14;
+    doc.para("Die Tagesordnung wird noch ergänzt.", { color: color.muted });
   } else {
-    for (const it of input.agenda) {
-      const titleLines = wrapText(`TOP ${it.index}: ${it.title}${it.type === "BESCHLUSS" ? "  [Beschluss]" : ""}`, bold, 10, CW);
-      const descLines = it.description ? wrapText(it.description, font, 9, CW - 12) : [];
-      ensureSpace(titleLines.length * 13 + descLines.length * 12 + 8);
-      for (const line of titleLines) {
-        ctx.page.drawText(line, { x: ML, y: ctx.y, size: 10, font: bold, color: BLACK });
-        ctx.y -= 13;
+    for (const item of input.agenda) {
+      // Punkt und Erläuterung gehören zusammen — ein TOP, dessen Erklärung auf
+      // der nächsten Seite steht, ist schwer zu lesen.
+      doc.ensure(mm(16));
+      doc.para(
+        `TOP ${item.index}: ${item.title}${item.type === "BESCHLUSS" ? "  (Beschlussfassung)" : ""}`,
+        { font: doc.bold, width: CONTENT_WIDTH, lead: mm(5) },
+      );
+      if (item.description) {
+        doc.para(item.description, { size: size.small, color: color.muted, lead: mm(4.5) });
       }
-      for (const line of descLines) {
-        ctx.page.drawText(line, { x: ML + 12, y: ctx.y, size: 9, font, color: GRAY });
-        ctx.y -= 12;
-      }
-      ctx.y -= 6;
+      doc.space(mm(2));
     }
   }
-  ctx.y -= 6;
+  doc.space(mm(2));
 
-  // ── Hinweise & Gruß ─────────────────────────────────────────────────────────
-  const notes =
-    "Sollten Sie an der Teilnahme verhindert sein, können Sie sich durch eine schriftlich " +
-    "bevollmächtigte Person vertreten lassen. Über nicht angekündigte Punkte kann kein " +
-    "Beschluss gefasst werden (§ 23 Abs. 2 WEG).";
-  ensureSpace(wrapText(notes, font, 9, CW).length * 12 + 60);
-  for (const line of wrapText(notes, font, 9, CW)) {
-    ctx.page.drawText(line, { x: ML, y: ctx.y, size: 9, font, color: BLACK });
-    ctx.y -= 12;
-  }
-  ctx.y -= 14;
-  ctx.page.drawText("Mit freundlichen Grüßen", { x: ML, y: ctx.y, size: 10, font, color: BLACK });
-  ctx.y -= 16;
-  ctx.page.drawText(input.issuer.legalName, { x: ML, y: ctx.y, size: 10, font, color: BLACK });
-  ctx.y -= 30;
-  for (const line of wrapText(
-    "Muster — ersetzt keine Rechtsberatung. Maßgeblich sind WEG, Gemeinschaftsordnung und Teilungserklärung.",
-    font, 7.5, CW,
-  )) {
-    ctx.page.drawText(line, { x: ML, y: ctx.y, size: 7.5, font, color: GRAY });
-    ctx.y -= 10;
-  }
+  // ── Hinweise und Gruß ──────────────────────────────────────────────────────
+  // Hinweise, Grußformel und Absender bilden EINEN Block — gemessen, nicht
+  // geschätzt: Eine zu knappe Reserve ließ den Gruß auf Seite 1 und den
+  // Firmennamen allein auf Seite 2 zurück, eine zu großzügige brach um, obwohl
+  // alles gepasst hätte.
+  const hinweise =
+    "Sind Sie am Termin verhindert, können Sie sich vertreten lassen; die Vollmacht ist " +
+    "schriftlich zu erteilen und zu Beginn der Versammlung vorzulegen. Über Punkte, die " +
+    "nicht angekündigt sind, kann kein Beschluss gefasst werden (§ 23 Abs. 2 WEG) — " +
+    "Ergänzungen zur Tagesordnung teilen Sie uns daher bitte vor dem Termin mit.";
+  doc.ensure(doc.measure(hinweise) + mm(4) + mm(10) + doc.measure(input.issuer.legalName));
+  doc.para(hinweise);
+  doc.space(mm(4));
+  doc.text("Mit freundlichen Grüßen", { lead: mm(10) });
+  doc.para(input.issuer.legalName, { width: CONTENT_WIDTH });
 
-  return Buffer.from(await pdf.save());
-}
-
-function drawHeader(
-  page: PDFPage,
-  bold: PDFFont,
-  font: PDFFont,
-  input: MeetingInvitationInput,
-  continued = false,
-) {
-  page.drawRectangle({ x: 0, y: A4[1] - 6, width: A4[0], height: 6, color: GREEN });
-  page.drawText(input.issuer.legalName, { x: ML, y: A4[1] - 40, size: 10, font: bold, color: GREEN });
-  if (input.issuer.contactLine) {
-    page.drawText(input.issuer.contactLine, { x: ML, y: A4[1] - 52, size: 8, font, color: GRAY });
-  }
-  if (continued) {
-    page.drawText(`Tagesordnung (Fortsetzung) — ${input.meetingTitle}`, {
-      x: ML, y: A4[1] - 32 * MM, size: 9, font, color: GRAY,
-    });
-  }
+  return doc.finish({
+    left: input.issuer.legalName,
+    right: `Erstellt am ${fmtDate(input.createdAt)}`,
+  });
 }

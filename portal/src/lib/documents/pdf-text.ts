@@ -1,39 +1,25 @@
 import type { PDFFont } from "pdf-lib";
 
-// Macht beliebigen (auch nutzergenerierten) Text für pdf-lib mit Standard-Font
-// (WinAnsi/CP1252) sicher: gängige Typografie wird auf ASCII abgebildet, alles
-// außerhalb des kodierbaren Bereichs (Emoji, Pfeile, nicht-lateinische Schrift)
-// wird durch „?" ersetzt – sonst wirft pdf-lib eine Exception und der Export
-// stürzt ab. WICHTIG: Steuerzeichen werden entfernt bzw. normalisiert (CR/CRLF →
-// LF, Tab → Leerzeichen), weil font.widthOfTextAtSize() sonst auf 0x0D crasht
-// (drawText toleriert es, die Breitenmessung in wrapText nicht).
-export function encodeWinAnsi(input: string | null | undefined): string {
-  const s = input ?? "";
-  return (
-    s
-      // Zeilenenden vereinheitlichen (CRLF/CR → LF), Tabs → Leerzeichen.
-      .replace(/\r\n?/g, "\n")
-      .replace(/\t/g, " ")
-      // Geschützte/schmale Leerzeichen → normales Leerzeichen (NBSP, narrow NBSP,
-      // figure space, thin space).
-      .replace(/[    ]/g, " ")
-      .replace(/[‘’‚‹›´ʼ]/g, "'")
-      .replace(/[“”„«»]/g, '"')
-      .replace(/[–—−]/g, "-")
-      .replace(/…/g, "...")
-      .replace(/[•·●▪]/g, "-")
-      .replace(/[→➡➜➔]/g, "->")
-      .replace(/←/g, "<-")
-      .replace(/[✓✔✅]/g, "x")
-      // Alles, was WinAnsi/CP1252 nicht sicher kodieren kann, ersetzen.
-      // Erlaubt: Zeilenumbruch, druckbares ASCII, Latin-1-Supplement, Euro und
-      // die druckbaren CP1252-Sonderzeichen aus 0x80–0x9F, die Helvetica
-      // kodieren kann (Š š Ž ž Œ œ Ÿ ƒ ˆ ˜ † ‡ ‰).
-      .replace(
-        /[^\n\x20-\x7E¡-ÿ€ŠšŽžŒœŸƒˆ˜†‡‰]/gu,
-        "?",
-      )
-  );
+// Normalisiert beliebigen (auch nutzergenerierten) Text für die Ausgabe.
+//
+// Zwei Gründe, und beide sind keine Kosmetik:
+//  • font.widthOfTextAtSize() stürzt auf einem Wagenrücklauf (0x0D) ab —
+//    drawText toleriert ihn, die Breitenmessung nicht. Textfelder im Browser
+//    liefern aber genau CRLF.
+//  • Steuerzeichen und geschützte Leerzeichen brechen die Umbruchrechnung,
+//    ohne dass man es dem Ergebnis ansieht.
+//
+// Nicht mehr nötig ist das Ersetzen nicht-lateinischer Zeichen durch „?": Die
+// Dokumente betten Source Sans 3 ein statt der WinAnsi-Standardschrift. „Ayşe
+// Şahin" stand damit früher als „Ay?e ?ahin" im Anschriftfeld.
+export function normalizeText(input: string | null | undefined): string {
+  return (input ?? "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\t/g, " ")
+    // Geschützte und schmale Leerzeichen → normales Leerzeichen.
+    .replace(/[\u00a0\u202f\u2007\u2009]/g, " ")
+    // Übrige Steuerzeichen entfernen (Zeilenumbruch bleibt).
+    .replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, "");
 }
 
 // Kürzt einen EINZEILIGEN Text auf maxWidth – nach gemessener Breite, nicht
@@ -48,7 +34,7 @@ export function fitText(
   size: number,
   maxWidth: number,
 ): string {
-  const s = text ?? "";
+  const s = normalizeText(text);
   if (font.widthOfTextAtSize(s, size) <= maxWidth) return s;
   const ellipsis = "...";
   const room = maxWidth - font.widthOfTextAtSize(ellipsis, size);
@@ -67,8 +53,6 @@ export function fitText(
 // Bricht Text auf maxWidth (in Punkt) um. Berücksichtigt bereits vorhandene
 // Zeilenumbrüche (\n) und bricht einzelne Wörter, die breiter als maxWidth sind,
 // hart um (zeichenweise), damit nichts über den Seitenrand hinausläuft.
-// Erwartet WinAnsi-sicheren Text (siehe encodeWinAnsi) – font.widthOfTextAtSize
-// wirft sonst auf nicht kodierbaren Zeichen.
 export function wrapText(
   text: string,
   font: PDFFont,
@@ -76,7 +60,7 @@ export function wrapText(
   maxWidth: number,
 ): string[] {
   const out: string[] = [];
-  for (const segment of text.split("\n")) {
+  for (const segment of normalizeText(text).split("\n")) {
     if (segment === "") {
       out.push("");
       continue;

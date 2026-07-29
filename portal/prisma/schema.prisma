@@ -327,8 +327,10 @@ model Organization {
   unitOwnerships        UnitOwnership[]
   annualStatements      AnnualStatement[]
   hausgeldMahnungen     HausgeldMahnung[]
+  baseInterestRates     BaseInterestRate[]
   sonderumlagen         Sonderumlage[]
   maintenanceMeasures   MaintenanceMeasure[]
+  verbindlichkeiten     Verbindlichkeit[]
   integrationSettings   IntegrationSetting[]
   sepaMandates          SepaMandate[]
   co2Allocations        Co2Allocation[]
@@ -440,6 +442,7 @@ model User {
   paymentAllocations        PaymentAllocation[]       @relation("PaymentAllocationCreatedBy")
   sonderumlagenCreated      Sonderumlage[]            @relation("SonderumlageCreatedBy")
   maintenanceMeasuresCreated MaintenanceMeasure[]     @relation("MaintenanceMeasureCreatedBy")
+  verbindlichkeitenCreated   Verbindlichkeit[]         @relation("VerbindlichkeitCreatedBy")
   sepaMandatesCreated        SepaMandate[]            @relation("SepaMandateCreatedBy")
   co2AllocationsCreated      Co2Allocation[]          @relation("Co2AllocationCreatedBy")
   wegSetupStepsDone          WegSetupStep[]           @relation("WegSetupStepDoneBy")
@@ -491,6 +494,11 @@ model Property {
   // Wann das monatliche Hausgeld fällig wird. Steuert die Sollstellungen und
   // zugleich den Wortlaut der Beschlussvorlage — beides muss dasselbe sagen,
   // sonst mahnt die Verwaltung zu einem Termin, den der Beschluss nicht nennt.
+  // Tatsächliche Mahnkosten je Mahnung (Porto, Material). **Keine Pauschale von
+  // 40 €:** § 288 Abs. 5 BGB gilt nur zwischen Unternehmern; der
+  // Wohnungseigentümer ist regelmäßig Verbraucher. Ersetzt wird nur, was
+  // wirklich angefallen ist.
+  mahnkostenCents     Int                  @default(0)
   dueDayRule          DueDayRule           @default(MONATSERSTER)
   dueDayOfMonth       Int? // nur bei FREIER_TAG (1–28)
   // SEPA-Lastschrift: Gläubiger-Identifikationsnummer der Gemeinschaft (Bundesbank)
@@ -537,6 +545,7 @@ model Property {
   hausgeldMahnungen     HausgeldMahnung[]
   sonderumlagen         Sonderumlage[]
   maintenanceMeasures   MaintenanceMeasure[]
+  verbindlichkeiten     Verbindlichkeit[]
   sepaMandates          SepaMandate[]
   co2Allocations        Co2Allocation[]
   beiratTasks           BeiratTask[]
@@ -1423,6 +1432,12 @@ model CostType {
   // eine Verteilung zu 100 % nach Verbrauch wäre formell fehlerhaft und gäbe
   // jedem Eigentümer ein Kürzungsrecht von 15 % (§ 12 Abs. 1 HeizkostenV).
   heatingCost       Boolean         @default(false)
+  // Tatsächlich angewandter Verbrauchsanteil (50–70). Wird beim Verteilen
+  // gesetzt und in die Abrechnung übernommen: Ohne ihn steht im Dokument nur
+  // „Verbrauch" — das liest sich wie eine Verteilung zu 100 % nach Verbrauch
+  // und damit wie ein Verstoß gegen §§ 7, 8 HeizkostenV, obwohl korrekt
+  // gerechnet wurde.
+  heatingConsumptionPercent Int?
   // Bauleistung im Sinne des § 48 Abs. 1 Satz 3 EStG: Herstellung,
   // Instandsetzung, Instandhaltung, Änderung oder Beseitigung von Bauwerken.
   //
@@ -1519,6 +1534,21 @@ model Booking {
   reversedBy      Booking?         @relation("BookingReversal")
   // Auf welche Forderungen diese Zahlung angerechnet wurde (§§ 366, 367 BGB).
   allocations     PaymentAllocation[]
+  // ── Bauabzugsteuer (§§ 48, 48a EStG) ──────────────────────────────────────
+  // Tatsächlich einbehaltener Betrag. `null` heißt „nicht einbehalten" — das
+  // ist der Normalfall (keine Bauleistung oder Freistellungsbescheinigung) und
+  // etwas anderes als 0 Cent.
+  //
+  // Der Einbehalt allein genügt nicht: Er ist bis zum **10. Tag nach Ablauf des
+  // Monats**, in dem die Gegenleistung erbracht wurde, anzumelden und
+  // abzuführen (§ 48a Abs. 1 EStG). Wer einbehält und nicht anmeldet, hat das
+  // Geld der Gemeinschaft weder abgeführt noch dem Handwerker gezahlt — und
+  // haftet weiterhin. Deshalb wird der Einbehalt hier festgehalten und nicht
+  // nur gewarnt.
+  bauabzugCents        Int?
+  // Wann die Anmeldung beim Finanzamt abgegeben wurde. Solange `null`, steht
+  // die Buchung in der Fristenliste.
+  bauabzugAngemeldetAt DateTime?
   // Beleg (gleiche Storage-Konvention wie Handover: storedName/fileName/mimeType)
   belegStoredName String?
   belegFileName   String?
@@ -1786,6 +1816,30 @@ model StatementAccountCheck {
 // 2 = 1. Mahnung, 3 = 2. Mahnung. Keine automatischen Gebühren. Rückstand und
 // Empfänger werden beim Erstellen eingefroren (Snapshot) — das PDF bleibt
 // reproduzierbar, auch wenn später Zahlungen eingehen.
+// Basiszinssatz nach § 247 BGB — Grundlage der Verzugszinsen (§ 288 Abs. 1).
+//
+// **Warum als Daten und nicht als Tabelle im Quelltext.** Der Satz ändert sich
+// halbjährlich zum 1. Januar und 1. Juli. Ein einprogrammierter Wert ist ab dem
+// nächsten Halbjahr falsch, und niemand merkt es — das Programm rechnete
+// einfach weiter und schriebe die veraltete Zahl in eine Mahnung, die nach
+// außen geht. Fehlt der Satz, weist das Programm **keine** Zinsen aus und sagt,
+// welcher Zeitraum fehlt.
+//
+// Je Organisation gepflegt, obwohl es dieselbe amtliche Zahl für alle ist: Ein
+// gemeinsamer Bestand hieße, dass die Eingabe eines Mandanten die Mahnungen
+// aller anderen verändert.
+model BaseInterestRate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  validFrom      DateTime // Gilt ab diesem Tag (einschließlich)
+  basisPoints    Int // -0,88 % = -88; ganzzahlig, damit nichts gerundet wird
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, validFrom])
+  @@index([organizationId])
+}
+
 model HausgeldMahnung {
   id              String       @id @default(cuid())
   organizationId  String
@@ -1799,7 +1853,18 @@ model HausgeldMahnung {
   paymentDeadline DateTime // Zahlungsziel
   recipientName   String // Empfänger-Snapshot (aktuelle Eigentümer der Einheit)
   recipientAddress String? // Snapshot "Straße\nPLZ Ort" (falls hinterlegt)
+  // Anrede-Snapshot für die Briefanrede. Wie Name und Anschrift eingefroren:
+  // Das Schreiben muss auch später zeigen, wie es verschickt wurde. Bei
+  // mehreren Eigentümern bleiben beide leer — dann grüßt der Brief allgemein.
+  recipientSalutation String? // "Herr" oder "Frau"
+  recipientLastName   String?
   sentAt          DateTime? // "als versendet markiert" (Fristen-Nachweis)
+  // Verzugszinsen und Mahnkosten zum Erstellzeitpunkt — als Momentaufnahme.
+  // Sie später neu zu berechnen wäre falsch: Das Schreiben ist raus, und was
+  // darin stand, muss nachvollziehbar bleiben. `interestCents` ist null, wenn
+  // für den Zeitraum kein Basiszinssatz hinterlegt war.
+  interestCents   Int?
+  feeCents        Int          @default(0)
   createdById     String
   createdBy       User         @relation("MahnungCreatedBy", fields: [createdById], references: [id])
   createdAt       DateTime     @default(now())
@@ -1968,4 +2033,49 @@ model CraftsmanInvoice {
 
   @@index([organizationId])
   @@index([craftsmanId])
+}
+
+// ── Verbindlichkeiten der Gemeinschaft (§ 28 Abs. 4 WEG) ─────────────────────
+// Der Vermögensbericht muss das **wesentliche Gemeinschaftsvermögen** angeben.
+// Vermögen ist nicht nur, was da ist, sondern auch, was geschuldet wird: Eine
+// Gemeinschaft mit 40.000 € Rücklage und einem Darlehen von 60.000 € steht
+// nicht mit 40.000 € da. Ohne diese Seite ist der Bericht kein Bericht über das
+// Vermögen, sondern nur eine Kontostandsliste — und zwar eine, die zu gut
+// aussieht. Genau das stand bisher als Hinweis unter dem Bericht.
+//
+// Bewusst **manuell** geführt und nicht aus Buchungen abgeleitet: Eine noch
+// nicht bezahlte Rechnung ist gerade keine Buchung. Sie steht im Ordner, nicht
+// im Konto.
+enum VerbindlichkeitKind {
+  RECHNUNG // offene Eingangsrechnung
+  DARLEHEN // Kredit der Gemeinschaft
+  SONSTIGE
+}
+
+model Verbindlichkeit {
+  id             String              @id @default(cuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  title          String
+  kind           VerbindlichkeitKind @default(RECHNUNG)
+  creditor       String? // Gläubiger (Handwerker, Bank, Versorger)
+  amountCents    Int // offener Betrag, immer positiv
+  // Wann die Verbindlichkeit entstanden ist. Pflicht, weil der Vermögensbericht
+  // auf einen **Stichtag** blickt: Eine Rechnung vom Februar gehört nicht in den
+  // Bericht zum 31.12. des Vorjahres, auch wenn sie heute offen ist.
+  incurredOn     DateTime
+  dueDate        DateTime? // Fällig am (für die Übersicht, nicht für den Bericht)
+  note           String?
+  // Beglichen am. Danach zählt die Verbindlichkeit nur noch für Stichtage
+  // **vor** diesem Datum — gelöscht wird nichts, sonst änderte sich ein bereits
+  // beschlossener Vermögensbericht rückwirkend.
+  settledAt      DateTime?
+  createdById    String
+  createdBy      User                @relation("VerbindlichkeitCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime            @default(now())
+
+  @@index([propertyId])
+  @@index([propertyId, settledAt])
 }

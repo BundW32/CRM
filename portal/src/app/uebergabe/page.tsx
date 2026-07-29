@@ -40,11 +40,15 @@ function resumeHref(h: {
   rooms: { id: string }[];
   checklist: unknown;
   meters: { reading: string | null }[];
-  tenantSignature: string | null;
-  managerSignature: string | null;
+  /**
+   * Nur ob unterschrieben wurde, nicht die Unterschrift selbst: Die Bilder
+   * liegen als Data-URL in der Zeile und wären allein für dieses `if` ein
+   * Vielfaches der übrigen Listendaten.
+   */
+  hatUnterschrift: boolean;
 }): string {
   const cl = h.checklist as Record<string, string> | null;
-  if (h.tenantSignature || h.managerSignature) return `/uebergabe/${h.id}/unterschriften`;
+  if (h.hatUnterschrift) return `/uebergabe/${h.id}/unterschriften`;
   if (h.meters.some((m) => m.reading !== null)) return `/uebergabe/${h.id}/unterschriften`;
   if (cl && Object.keys(cl).some((k) => !k.startsWith("note_"))) return `/uebergabe/${h.id}/zaehler`;
   if (h.rooms.length > 0) return `/uebergabe/${h.id}/checkliste`;
@@ -82,6 +86,15 @@ export default async function UebergabeOverviewPage({
     meters: { select: { reading: true } },
   } as const;
 
+  // Die drei Unterschriftsspalten tragen PNG-Data-URLs. `include` liefert alle
+  // Skalarfelder mit — die Liste zog damit für JEDE Zeile bis zu drei Bilder
+  // mit, nur damit `resumeHref` weiß, ob überhaupt unterschrieben wurde.
+  const omit = {
+    tenantSignature: true,
+    tenant2Signature: true,
+    managerSignature: true,
+  } as const;
+
   const doneWhere: Prisma.HandoverWhereInput = {
     AND: [
       { unit: { property: propWhere }, status: "ABGESCHLOSSEN" },
@@ -100,22 +113,33 @@ export default async function UebergabeOverviewPage({
     ],
   };
 
-  const [entwurf, abgeschlossen, doneTotal] = await Promise.all([
+  const [entwurf, abgeschlossen, doneTotal, unterschrieben] = await Promise.all([
     db.handover.findMany({
       where: { unit: { property: propWhere }, status: "ENTWURF" },
       include,
+      omit,
       orderBy: { updatedAt: "desc" },
     }),
     db.handover.findMany({
       where: doneWhere,
       include,
+      omit,
       orderBy: toOrderBy(sort.field, sort.dir),
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
     db.handover.count({ where: doneWhere }),
+    // Statt der Bilder nur die IDs: eine Zeile je unterschriebener Übergabe.
+    db.handover.findMany({
+      where: {
+        unit: { property: propWhere },
+        OR: [{ tenantSignature: { not: null } }, { managerSignature: { not: null } }],
+      },
+      select: { id: true },
+    }),
   ]);
 
+  const hatUnterschrift = new Set(unterschrieben.map((h) => h.id));
   const pageHref = pageHrefFor(`/uebergabe`, sp);
 
   return (
@@ -168,7 +192,7 @@ export default async function UebergabeOverviewPage({
           ) : (
             <div className="space-y-3">
               {entwurf.map((h) => {
-                const { step, label } = stepInfo(h);
+                const { step, label } = stepInfo({ ...h, hatUnterschrift: hatUnterschrift.has(h.id) });
                 const date = h.handoverDate.toLocaleDateString("de-DE", {
                   day: "2-digit",
                   month: "2-digit",
@@ -216,7 +240,7 @@ export default async function UebergabeOverviewPage({
                         Bearbeitet: {h.updatedAt.toLocaleDateString("de-DE")}
                       </span>
                       <a
-                        href={resumeHref(h)}
+                        href={resumeHref({ ...h, hatUnterschrift: hatUnterschrift.has(h.id) })}
                         className="inline-flex items-center justify-center rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-green-dark shadow-sm transition-all hover:bg-brand-orange-dark active:scale-[0.98]"
                       >
                         Fortsetzen →

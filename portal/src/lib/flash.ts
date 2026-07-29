@@ -78,6 +78,14 @@ export const flashMessages = {
     text: "Schritt abgehakt – weiter mit dem nächsten.",
     tone: "success",
   },
+  // Eigener Code, weil die Meldung mehr sagt als „hat geklappt": Abgehakt wird
+  // hier nur der Vermerk im Programm. Die Anmeldung selbst und die Überweisung
+  // ans Finanzamt passieren außerhalb — wer das verwechselt, versäumt die Frist
+  // und hält sie für erledigt.
+  "bauabzug-angemeldet": {
+    text: "Monat als angemeldet vermerkt. Anmeldung und Überweisung ans Finanzamt erfolgen außerhalb des Programms.",
+    tone: "success",
+  },
 } as const satisfies Record<string, FlashMessage>;
 
 export type FlashCode = keyof typeof flashMessages;

@@ -91,6 +91,7 @@ export async function WegArbeitsbereich({
         { href: `${basis}/buchhaltung`, label: "Buchhaltung" },
         { href: `${basis}/hausgeld`, label: "Hausgeld & offene Posten" },
         { href: `${basis}/sonderumlagen`, label: "Sonderumlagen" },
+        { href: `${basis}/verbindlichkeiten`, label: "Verbindlichkeiten" },
         { href: `${basis}/lastschrift`, label: "SEPA-Lastschrift" },
       ],
     },

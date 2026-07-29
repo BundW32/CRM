@@ -314,7 +314,17 @@ export function Tour({
                 top: blasenTop,
               }
             : {
-                width: Math.min(BLASE_BREITE + 40, window.innerWidth - 24),
+                // Bewusst CSS statt `window.innerWidth`: Dieser Zweig greift,
+                // solange kein Ziel gemessen ist — und das ist unter anderem
+                // beim **Serverrendern** der Fall. Dort gibt es kein `window`,
+                // und der Zugriff warf `ReferenceError: window is not defined`.
+                // Die Seite kam zwar noch beim Browser an (React reicht den
+                // Client-Teil nach), der Server antwortete aber mit HTTP 500 —
+                // auf jeder Seite, solange die Tour lief. Sichtbar war davon
+                // nichts; aufgefallen ist es erst beim Mitlesen der Antwortcodes.
+                // `min()` rechnet der Browser selbst und zudem bei jeder
+                // Größenänderung neu, ganz ohne erneutes Rendern.
+                width: `min(${BLASE_BREITE + 40}px, calc(100vw - 24px))`,
                 left: "50%",
                 top: "50%",
                 transform: "translate(-50%, -50%)",

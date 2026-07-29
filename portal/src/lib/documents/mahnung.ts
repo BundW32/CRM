@@ -1,196 +1,216 @@
-// PDF-Generator für Hausgeld-Zahlungserinnerung/Mahnung (DIN-A4-Brief,
-// Adressposition fensterumschlag-tauglich nach DIN 5008 Form B).
-// Stufen/Texte analog zum Plattform-Mahnwesen (lib/dunning.ts) — keine
-// automatischen Gebühren. Aufbau analog zu den anderen documents/-Generatoren.
-import { PDFDocument, PDFPage, StandardFonts, rgb } from "pdf-lib";
+// Hausgeld-Zahlungserinnerung und Mahnung als DIN-A4-Brief.
+//
+// Aufgebaut auf lib/documents/kit: Anschriftfeld nach DIN 5008 Form B (20 mm
+// von links, Anschrift ab 62,7 mm, Betreff auf 98,4 mm), Falz- und Lochmarken,
+// Fußzeile mit Seitenzahl. Stufen und Fristen richten sich nach lib/dunning.ts.
+//
+// Verzugszinsen und Mahnkosten setzt das Portal **nicht von selbst** an — sie
+// kommen als fertige Beträge herein (`interestCents`, `feeCents`), festgeschrieben
+// zum Erstellzeitpunkt der Mahnung. Ein Schreiben, dessen Beträge sich später von
+// selbst ändern, ist als Nachweis wertlos.
+import { briefAnrede, anschriftZeilen, type Empfaenger } from "./anrede";
 import { formatCents } from "@/lib/money";
 import { reminderLevelLabel } from "@/lib/dunning";
-import { encodeWinAnsi, fitText, wrapText } from "./pdf-text";
+import {
+  CONTENT_WIDTH,
+  Doc,
+  color,
+  drawLetterHead,
+  mm,
+  size,
+  type LetterIssuer,
+} from "./kit";
+import type { RGB } from "pdf-lib";
 
-const A4: [number, number] = [595.28, 841.89];
-const MM = 841.89 / 297; // Punkt je Millimeter
-const ML = 25 * MM; // linker Rand 25 mm (DIN 5008)
-const MR = 20 * MM;
-const CW = A4[0] - ML - MR;
-const GREEN = rgb(0, 0.21, 0.19);
-const GRAY = rgb(0.4, 0.4, 0.4);
-const BLACK = rgb(0.1, 0.1, 0.1);
+export type MahnungPosition = { label: string; cents: number };
 
 export type MahnungInput = {
-  issuer: { legalName: string; contactLine: string }; // Absender (WEG/Verwaltung)
+  /** Absender (WEG bzw. Verwaltung). */
+  issuer: LetterIssuer;
+  /** Mandantenfarbe und Logo, beides optional. */
+  brand?: RGB;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
   propertyName: string;
   unitLabel: string;
-  level: number; // 1–3 (reminderLevelLabel)
-  recipientName: string;
-  recipientAddress: string | null; // "Straße\nPLZ Ort"
+  /** 1–3, siehe reminderLevelLabel. */
+  level: number;
+  recipient: Empfaenger;
+  /** „Straße\nPLZ Ort" */
+  recipientAddress: string | null;
+  /** Zusatzvermerk der Vermerkzone, z. B. „Einschreiben mit Rückschein". */
+  versandVermerk?: string | null;
   arrearsCents: number;
+  /** Einzelne offene Posten; ohne Angabe erscheint nur die Summe. */
+  positions?: MahnungPosition[];
+  /**
+   * Verzugszinsen (§ 288 Abs. 1 BGB) zum Erstellzeitpunkt.
+   *
+   * `null` = für den Zeitraum ist kein Basiszinssatz hinterlegt. Dann nennt das
+   * Schreiben **keine** Zinsen — statt einer Null, die wie „keine Zinsen
+   * entstanden" aussieht.
+   */
+  interestCents?: number | null;
+  /** Mahnkosten (tatsächlicher Aufwand). Erst ab der zweiten Stufe. */
+  feeCents?: number;
   paymentDeadline: Date;
-  iban: string | null; // Girokonto der Gemeinschaft
+  /** Girokonto der Gemeinschaft. */
+  iban: string | null;
   accountHolder: string | null;
+  /** Frühere Stufe, auf die sich der Text bezieht. */
+  previousReminderAt?: Date | null;
   createdAt: Date;
-  city: string | null; // Ortsangabe der Datumszeile
+  /** Ortsangabe der Datumszeile. */
+  city: string | null;
+  /** Aktenzeichen für den Informationsblock. */
+  vorgang?: string | null;
 };
 
-function fmtDate(d: Date): string {
-  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+function fmtDate(value: Date): string {
+  return `${String(value.getDate()).padStart(2, "0")}.${String(value.getMonth() + 1).padStart(2, "0")}.${value.getFullYear()}`;
 }
 
-export async function generateMahnung(rawInput: MahnungInput): Promise<Buffer> {
-  const input: MahnungInput = {
-    ...rawInput,
-    issuer: {
-      legalName: encodeWinAnsi(rawInput.issuer.legalName),
-      contactLine: encodeWinAnsi(rawInput.issuer.contactLine),
-    },
-    propertyName: encodeWinAnsi(rawInput.propertyName),
-    unitLabel: encodeWinAnsi(rawInput.unitLabel),
-    recipientName: encodeWinAnsi(rawInput.recipientName),
-    recipientAddress: rawInput.recipientAddress == null ? null : encodeWinAnsi(rawInput.recipientAddress),
-    iban: rawInput.iban == null ? null : encodeWinAnsi(rawInput.iban),
-    accountHolder: rawInput.accountHolder == null ? null : encodeWinAnsi(rawInput.accountHolder),
-    city: rawInput.city == null ? null : encodeWinAnsi(rawInput.city),
-  };
-  const levelLabel = encodeWinAnsi(reminderLevelLabel(input.level));
+// Der Brieftext je Stufe.
+//
+// Bewusst ohne die Fußnote „Muster — ersetzt keine Rechtsberatung": Dieses
+// Schreiben ist kein Muster, es geht so an den Eigentümer. Der Hinweis stand
+// vorher unter jedem versendeten Brief und stellte das eigene Schreiben infrage.
+export function mahnungAbsaetze(input: MahnungInput): string[] {
+  const betrag = formatCents(input.arrearsCents);
+  const frist = fmtDate(input.paymentDeadline);
+  const einheit = input.unitLabel;
+  const vorher = input.previousReminderAt ? ` vom ${fmtDate(input.previousReminderAt)}` : "";
 
-  const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-
-  // Der Brief war bis hierher fest einseitig: ohne Umbruch wurde alles, was
-  // unter den Blattrand rutschte (viele Positionen, lange Texte), stillschweigend
-  // ins Nichts gezeichnet. Jetzt bricht er um.
-  let page: PDFPage = pdf.addPage(A4);
-  let y = 0;
-  const BOTTOM = 25 * MM; // unterer Rand, ab dem umgebrochen wird
-  const ensure = (needed: number) => {
-    if (y - needed >= BOTTOM) return;
-    page = pdf.addPage(A4);
-    y = A4[1] - 40 * MM;
-  };
-
-  // ── Kopf ───────────────────────────────────────────────────────────────────
-  page.drawRectangle({ x: 0, y: A4[1] - 6, width: A4[0], height: 6, color: GREEN });
-  // Firmenname umbrechen (nie kürzen – er ist die Absenderangabe), Kontaktzeile
-  // gegen die Satzbreite begrenzen. Vorher liefen beide über den Blattrand.
-  let hy = A4[1] - 40;
-  for (const line of wrapText(input.issuer.legalName, bold, 10, CW).slice(0, 2)) {
-    page.drawText(line, { x: ML, y: hy, size: 10, font: bold, color: GREEN });
-    hy -= 12;
+  if (input.level <= 1) {
+    return [
+      `bei der Durchsicht der Hausgeld-Konten ist uns aufgefallen, dass für Ihre Einheit ` +
+        `${einheit} derzeit ein Rückstand von ${betrag} offen steht.`,
+      `Wir gehen davon aus, dass es sich um ein Versehen handelt, und bitten Sie, den Betrag ` +
+        `bis zum ${frist} auszugleichen. Hat sich Ihre Zahlung mit diesem Schreiben ` +
+        `überschnitten, betrachten Sie es bitte als erledigt.`,
+    ];
   }
-  if (input.issuer.contactLine) {
-    page.drawText(fitText(input.issuer.contactLine, font, 8, CW), { x: ML, y: hy, size: 8, font, color: GRAY });
+  if (input.level === 2) {
+    return [
+      `unsere Zahlungserinnerung${vorher} ist bisher ohne Ausgleich geblieben. Für Ihre ` +
+        `Einheit ${einheit} besteht weiterhin ein Hausgeld-Rückstand von ${betrag}.`,
+      `Wir bitten Sie, den offenen Betrag bis zum ${frist} auf das unten genannte Konto der ` +
+        `Gemeinschaft zu überweisen. Sollten Sie die Forderung für unzutreffend halten oder ` +
+        `eine Ratenzahlung wünschen, melden Sie sich bitte vor Ablauf der Frist bei uns.`,
+    ];
   }
+  return [
+    `trotz Zahlungserinnerung und Mahnung${vorher} ist der Hausgeld-Rückstand für Ihre ` +
+      `Einheit ${einheit} in Höhe von ${betrag} bis heute offen.`,
+    `Wir fordern Sie letztmalig auf, den Betrag bis zum ${frist} auszugleichen. Nach ` +
+      `fruchtlosem Fristablauf behält sich die Gemeinschaft der Wohnungseigentümer vor, die ` +
+      `Forderung gerichtlich geltend zu machen; die damit verbundenen Kosten gehen zu Ihren ` +
+      `Lasten. Falls einer Zahlung etwas entgegensteht, sprechen Sie uns bitte vorher an — ` +
+      `eine Verständigung ist beiden Seiten lieber als ein Verfahren.`,
+  ];
+}
 
-  // ── Anschriftfeld (Fensterumschlag, DIN 5008 Form B: ab 45 mm von oben) ────
-  let ay = A4[1] - 45 * MM;
-  // Rücksendeangabe (einzeilig, klein, unterstrichen wirkt über die Linie)
-  const returnLine = [input.issuer.legalName, input.issuer.contactLine].filter(Boolean).join(" · ");
-  // Muss in die 85 mm des Anschriftfelds passen – gemessen, nicht gezählt.
-  page.drawText(fitText(returnLine, font, 6.5, 85 * MM), { x: ML, y: ay, size: 6.5, font, color: GRAY });
-  page.drawLine({ start: { x: ML, y: ay - 2 }, end: { x: ML + 85 * MM, y: ay - 2 }, thickness: 0.4, color: GRAY });
-  ay -= 16;
-  // Anschriften werden UMGEBROCHEN, nie gekürzt – eine abgeschnittene Anschrift
-  // ist unzustellbar.
-  const addressLines = [input.recipientName, ...(input.recipientAddress?.split("\n") ?? [])]
-    .filter((l) => l.trim())
-    .flatMap((l) => wrapText(l, font, 11, 85 * MM));
-  for (const line of addressLines) {
-    page.drawText(line, { x: ML, y: ay, size: 11, font, color: BLACK });
-    ay -= 14;
-  }
-
-  // ── Datum & Betreff ────────────────────────────────────────────────────────
-  y = A4[1] - 100 * MM;
-  const dateLine = `${input.city ? `${input.city}, ` : ""}${fmtDate(input.createdAt)}`;
-  page.drawText(dateLine, { x: ML + CW - font.widthOfTextAtSize(dateLine, 10), y: y + 24, size: 10, font, color: GRAY });
-  // Betreff umbrechen: mit langem Objektnamen lief er vorher über den Blattrand
-  // hinaus und war im Druck abgeschnitten.
-  for (const line of wrapText(
-    `${levelLabel} — Hausgeld ${input.propertyName}, Einheit ${input.unitLabel}`,
-    bold, 12, CW,
-  )) {
-    ensure(16);
-    page.drawText(line, { x: ML, y, size: 12, font: bold, color: BLACK });
-    y -= 16;
-  }
-  y -= 14;
-
-  // ── Text ───────────────────────────────────────────────────────────────────
-  const anrede = `Sehr geehrte(r) ${input.recipientName},`;
-  const amount = encodeWinAnsi(formatCents(input.arrearsCents));
-  const bodyByLevel: Record<number, string> = {
-    1:
-      `bei der Durchsicht der Hausgeld-Konten haben wir festgestellt, dass für Ihre Einheit ` +
-      `${input.unitLabel} derzeit ein Rückstand von ${amount} besteht. Sicher handelt es sich ` +
-      `nur um ein Versehen. Wir bitten Sie, den offenen Betrag bis zum ` +
-      `${fmtDate(input.paymentDeadline)} auszugleichen. Sollte sich Ihre Zahlung mit diesem ` +
-      `Schreiben überschnitten haben, betrachten Sie es bitte als gegenstandslos.`,
-    2:
-      `trotz unserer Zahlungserinnerung besteht für Ihre Einheit ${input.unitLabel} weiterhin ` +
-      `ein Hausgeld-Rückstand von ${amount}. Wir fordern Sie auf, den offenen Betrag bis ` +
-      `spätestens ${fmtDate(input.paymentDeadline)} auf das unten genannte Konto der ` +
-      `Gemeinschaft zu zahlen.`,
-    3:
-      `trotz Zahlungserinnerung und Mahnung besteht für Ihre Einheit ${input.unitLabel} ` +
-      `weiterhin ein Hausgeld-Rückstand von ${amount}. Wir fordern Sie letztmalig auf, den ` +
-      `offenen Betrag bis spätestens ${fmtDate(input.paymentDeadline)} auszugleichen. ` +
-      `Nach fruchtlosem Fristablauf behält sich die Gemeinschaft der Wohnungseigentümer vor, ` +
-      `die Forderung ohne weitere Ankündigung gerichtlich geltend zu machen; dadurch ` +
-      `entstehende Kosten gehen zu Ihren Lasten.`,
-  };
-
-  ensure(20);
-  page.drawText(anrede, { x: ML, y, size: 10, font, color: BLACK });
-  y -= 20;
-  for (const line of wrapText(bodyByLevel[input.level] ?? bodyByLevel[2], font, 10, CW)) {
-    ensure(14);
-    page.drawText(line, { x: ML, y, size: 10, font, color: BLACK });
-    y -= 14;
-  }
-  y -= 8;
-
-  // Betrag hervorgehoben
-  ensure(50);
-  page.drawRectangle({ x: ML, y: y - 8, width: CW, height: 26, color: rgb(0.96, 0.96, 0.96) });
-  page.drawText("Offener Betrag:", { x: ML + 8, y, size: 11, font: bold, color: BLACK });
-  page.drawText(amount, {
-    x: ML + CW - 8 - bold.widthOfTextAtSize(amount, 12), y, size: 12, font: bold, color: rgb(0.6, 0.09, 0.09),
+export async function generateMahnung(input: MahnungInput): Promise<Buffer> {
+  const stufe = reminderLevelLabel(input.level);
+  const doc = await Doc.create({
+    title: `${stufe} Hausgeld — ${input.unitLabel}`,
+    author: input.issuer.legalName,
+    subject: `${stufe}, ${input.propertyName}, Einheit ${input.unitLabel}`,
+    brand: input.brand,
   });
-  y -= 26;
-  page.drawText(`Zahlbar bis: ${fmtDate(input.paymentDeadline)}`, { x: ML + 8, y, size: 10, font, color: BLACK });
-  y -= 24;
+  doc.newPage();
 
-  if (input.iban) {
-    ensure(76);
-    page.drawText("Bankverbindung der Gemeinschaft:", { x: ML, y, size: 10, font: bold, color: BLACK });
-    y -= 14;
-    if (input.accountHolder) {
-      page.drawText(fitText(`Kontoinhaber: ${input.accountHolder}`, font, 10, CW), { x: ML, y, size: 10, font, color: BLACK });
-      y -= 14;
+  await drawLetterHead(doc, {
+    issuer: input.issuer,
+    logo: input.logo,
+    // Nur Firma und Anschrift: mehr passt nicht in die 85 mm des Felds.
+    returnLine: [input.issuer.legalName, input.issuer.lines[0]].filter(Boolean).join(" · "),
+    recipient: {
+      note: input.versandVermerk,
+      lines: anschriftZeilen(input.recipient, input.recipientAddress),
+    },
+    infoBlock: [
+      ["Objekt", input.propertyName],
+      ["Einheit", input.unitLabel],
+      ...(input.vorgang ? ([["Vorgang", input.vorgang]] as [string, string][]) : []),
+      ["Datum", `${input.city ? `${input.city}, ` : ""}${fmtDate(input.createdAt)}`],
+    ],
+  });
+
+  doc.subject(
+    `${stufe} — rückständiges Hausgeld`,
+    `${input.propertyName} · Einheit ${input.unitLabel}`,
+  );
+  doc.text(briefAnrede(input.recipient), { lead: mm(7) });
+  for (const absatz of mahnungAbsaetze(input)) {
+    doc.para(absatz);
+    doc.space(mm(2));
+  }
+  doc.space(mm(2));
+
+  // ── Offene Posten ──────────────────────────────────────────────────────────
+  //
+  // Zinsen und Kosten sind eigene Forderungen neben der Hauptforderung
+  // (§ 367 Abs. 1 BGB) und stehen deshalb als eigene Zeilen. Eine Mahnung, die
+  // nur einen Endbetrag nennt, gibt dem Empfänger nichts, was er prüfen kann —
+  // und genau daran scheitert sie, wenn er widerspricht.
+  const zusatz: MahnungPosition[] = [];
+  if (input.interestCents && input.interestCents > 0) {
+    zusatz.push({ label: "Verzugszinsen (§ 288 Abs. 1 BGB)", cents: input.interestCents });
+  }
+  if (input.feeCents && input.feeCents > 0) {
+    zusatz.push({ label: "Mahnkosten", cents: input.feeCents });
+  }
+  const gesamtCents = input.arrearsCents + zusatz.reduce((s, p) => s + p.cents, 0);
+
+  // Steht nur der Rückstand da, ist eine Aufstellung mit einer einzigen Zeile
+  // Ballast — dann bleibt es beim einzeiligen Betrag.
+  const posten: MahnungPosition[] = [
+    ...(input.positions ?? (zusatz.length ? [{ label: "Hausgeld-Rückstand", cents: input.arrearsCents }] : [])),
+    ...zusatz,
+  ];
+
+  if (posten.length) {
+    doc.text("Offene Posten", { size: size.small, font: doc.bold, color: color.muted, lead: mm(2) });
+    doc.rule({ gapAbove: mm(2), gapBelow: mm(4) });
+    for (const position of posten) {
+      doc.amountRow(position.label, formatCents(position.cents));
     }
-    page.drawText(fitText(`IBAN: ${input.iban}`, font, 10, CW), { x: ML, y, size: 10, font, color: BLACK });
-    y -= 14;
-    page.drawText(fitText(`Verwendungszweck: Hausgeld ${input.unitLabel}`, font, 10, CW), { x: ML, y, size: 10, font, color: BLACK });
-    y -= 24;
+    doc.rule({ gapAbove: mm(2), gapBelow: mm(3) });
+    doc.space(mm(1));
   }
 
-  ensure(56);
-  page.drawText("Mit freundlichen Grüßen", { x: ML, y, size: 10, font, color: BLACK });
-  y -= 16;
-  for (const line of wrapText(input.issuer.legalName, font, 10, CW)) {
-    page.drawText(line, { x: ML, y, size: 10, font, color: BLACK });
-    y -= 13;
-  }
-  y -= 27;
+  doc.amountPanel(zusatz.length ? "Gesamtforderung" : "Offener Betrag", formatCents(gesamtCents), {
+    sub: `Zahlbar bis ${fmtDate(input.paymentDeadline)} · Verwendungszweck: Hausgeld ${input.unitLabel}`,
+  });
 
-  for (const line of wrapText(
-    "Bereits geleistete Zahlungen sind ggf. noch nicht berücksichtigt. Muster — ersetzt keine Rechtsberatung.",
-    font, 7.5, CW,
-  )) {
-    ensure(10);
-    page.drawText(line, { x: ML, y, size: 7.5, font, color: GRAY });
-    y -= 10;
+  // ── Bankverbindung ─────────────────────────────────────────────────────────
+  if (input.iban) {
+    doc.text("Bankverbindung der Gemeinschaft", {
+      size: size.small,
+      font: doc.bold,
+      color: color.muted,
+      lead: mm(5),
+    });
+    doc.defList([
+      ...(input.accountHolder ? ([["Kontoinhaber", input.accountHolder]] as [string, string][]) : []),
+      ["IBAN", input.iban],
+      ["Verwendungszweck", `Hausgeld ${input.unitLabel}`],
+    ]);
+    doc.space(mm(5));
   }
 
-  return Buffer.from(await pdf.save());
+  // Hinweis, Grußformel und Absender bleiben zusammen.
+  const hinweis =
+    "Bereits geleistete Zahlungen sind in dieser Aufstellung möglicherweise noch nicht berücksichtigt.";
+  doc.ensure(doc.measure(hinweis) + mm(4) + mm(11) + doc.measure(input.issuer.legalName));
+  doc.para(hinweis);
+  doc.space(mm(4));
+  doc.text("Mit freundlichen Grüßen", { lead: mm(11) });
+  doc.para(input.issuer.legalName, { width: CONTENT_WIDTH });
+
+  return doc.finish({
+    left: input.issuer.legalName,
+    right: `Erstellt am ${fmtDate(input.createdAt)}`,
+  });
 }

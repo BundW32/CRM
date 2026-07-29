@@ -1209,3 +1209,382 @@ Schrittzahlen danach: verwaltender Eigentümer 6 (7 mit Assistent),
 professioneller Verwalter 3 (4), Eigentümer 6, Mieter 5. An echten Daten mit
 allen vier Konten durchgeklickt — jeder Schritt trifft ein Ziel, das es in
 diesem Menü wirklich gibt.
+
+## Schritt 37 — Bauabzugsteuer § 48 EStG (28.07.2026)
+
+Vorgezogen aus „Block 4 — später" des Finanzplans. Begründung: Es ist der
+einzige offene Punkt, bei dem Nichtwissen unmittelbar Geld kostet. Bleibt der
+Steuerabzug zu Unrecht aus, haftet der Leistungsempfänger für den nicht
+abgeführten Betrag (§ 48a Abs. 3 EStG) — bei einer selbstverwalteten WEG also
+die Gemeinschaft und damit alle Eigentümer. Ein Eigentümer, der nebenbei
+verwaltet, weiß davon nichts. Die Falle ist unauffällig: Drei Rechnungen à
+1.800 € sind einzeln harmlos und zusammen über der Grenze.
+
+197. **Der Zahlungspartner war Freitext — das war die eigentliche Lücke.** Die
+     Buchhaltung ist strukturiert (Konto, Kostenart, Einheit); nur *wer* bezahlt
+     wurde, stand als getippter Name da. Die 5.000-€-Grenze gilt aber **je
+     Leistendem und Kalenderjahr**, und über Text lässt sich nicht summieren:
+     „Meier GmbH", „Meier Gmbh" und „Fa. Meier" wären drei Handwerker. Deshalb
+     `Booking.craftsmanId` als Verknüpfung. `counterparty` bleibt daneben — der
+     Bankimport liefert nun einmal Text, und die meisten Zahlungen gehen an
+     niemanden aus dem Adressbuch.
+198. **Kalenderjahr, nicht Wirtschaftsjahr.** § 48 Abs. 2 EStG stellt auf das
+     laufende Kalenderjahr ab; eine WEG darf ein abweichendes Wirtschaftsjahr
+     haben (`fiscalYearStartMonth`). Wer hier das Wirtschaftsjahr nähme, käme
+     bei jeder solchen WEG auf eine falsche Summe.
+199. **Die zweite Grenze von 15.000 € ist NICHT eingebaut** — eine bewusste
+     Auslassung, keine Vergesslichkeit. § 48 Abs. 2 Satz 1 Nr. 1 EStG knüpft sie
+     an ausschließlich steuerfreie Vermietungsumsätze nach § 4 Nr. 12 UStG. Die
+     Leistungen einer WEG an ihre Eigentümer sind nach § 4 Nr. **13** UStG
+     steuerfrei — eine andere Nummer. Ob die höhere Grenze greift, ist eine
+     Frage an den Steuerberater, nicht aus dem Wortlaut zu beantworten. Bis das
+     geklärt ist, gilt die niedrigere: Wer zu früh warnt, verursacht eine
+     Rückfrage; wer zu spät warnt, verursacht eine Haftung. Die Zahl steht an
+     genau einer Stelle (`BAGATELLGRENZE_CENTS`).
+200. **„Bauleistung" als Kennzeichen an der Kostenart.** § 48 gilt nur für
+     Herstellung, Instandsetzung, Instandhaltung, Änderung und Beseitigung von
+     Bauwerken. Gartenpflege, Treppenhausreinigung und Winterdienst sind keine
+     Bauleistungen. Ohne diese Unterscheidung warnte das Programm bei jeder
+     Reinigungsrechnung und wäre nach dem dritten Fehlalarm wertlos.
+201. **Die Warnung steht vor der Zahlung, nicht danach** — und rechnet ohne
+     Serveranfrage, weil Jahressummen und Bauleistungs-Kennzeichen ohnehin auf
+     der Seite stehen.
+202. **Sie sperrt nicht, sie verlangt eine Entscheidung.** Ob einbehalten wurde,
+     weiß nur der Mensch davor — vielleicht wurde längst gekürzt überwiesen. Das
+     bewusste Häkchen wandert samt Betrag ins Audit-Log: Bei einer späteren
+     Haftungsfrage ist genau das die Frage — wusste es jemand, und wann?
+     Serverseitig läuft dieselbe Prüfung noch einmal; ein Häkchen im Browser ist
+     keine Zusicherung.
+203. **Drei Orte, drei Tonlagen — weil drei verschiedene Dinge noch möglich
+     sind.** Beim manuellen Buchen: warnen, Einbehalt ist noch möglich. Beim
+     nachträglichen Zuordnen importierter Buchungen: nur informieren, das Geld
+     ist überwiesen. In der Kontaktliste: vorwarnen ab 4.000 €, damit die
+     Bescheinigung **vor** dem nächsten Auftrag angefordert wird.
+204. **Freistellungsbescheinigung: zwei Felder und eine Datei, kein Häkchen.**
+     Ein Kreuz „hat eine" könnte das Programm nie widerrufen — Bescheinigungen
+     laufen ab, und das ist der häufige Fall. Das Datum macht die Prüfung
+     selbsttätig, und „abgelaufen" wird von „gab es noch nie" unterschieden,
+     weil die Abhilfe eine andere ist. Alle drei Angaben sind **freiwillig**.
+205. **Ein Upload darf kein Feld löschen.** Die Dateifelder werden nur
+     überschrieben, wenn wirklich eine neue Datei kam — sonst hätte das Ändern
+     der Telefonnummer die hinterlegte Bescheinigung mitgelöscht.
+
+**Was die Prüfläufe gefunden haben** (alles behoben): ein Codeblock war in die
+**falsche Funktion** gerutscht (`createBooking` statt `assignCostType`); der
+Fehlerfall beim Datei-Upload wäre **stumm** geblieben, weil die Kontakt-
+Detailseite kein Fehlerbanner hatte; der Link auf die hinterlegte Datei wurde
+vom Rahmen **abgeschnitten**; und **„5.400,00 € €"** — `formatCents` bringt das
+Währungszeichen selbst mit.
+
+Geprüft an echten Daten: drei Rechnungen à 1.800 €, mit und ohne Bescheinigung,
+mit abgelaufener, gegen eine Nicht-Bauleistung über 9.000 €, und nach Storno
+einer der drei. Dazu der Import-Weg im Browser.
+
+## Schritt 38 — Verzugszinsen § 288 BGB (29.07.2026)
+
+Vorgezogen, weil die Lücke **im schon gebauten Code** stand: Die Tilgungs-
+reihenfolge nach § 367 BGB (Kosten → Zinsen → Hauptforderung) war seit KP9
+sauber eingebaut und bekam in `opos-service.ts` immer Nullen geliefert
+(`kostenCents: 0, zinsenCents: 0`). Das ist die unangenehmste Sorte Lücke — sie
+sieht im Code vollständig aus. Für eine WEG ist sie existenziell: Ein säumiger
+Eigentümer bedeutet, dass die übrigen seine Lücke vorstrecken.
+
+206. **Der Basiszinssatz ist Daten, keine Tabelle im Quelltext.** Er wechselt
+     halbjährlich zum 1.1. und 1.7. (§ 247 Abs. 2 BGB). Ein einprogrammierter
+     Wert ist ab dem nächsten Halbjahr falsch, niemand merkt es, und die
+     veraltete Zahl steht in einer Mahnung, die nach außen geht. **Bewusst ohne
+     Vorbelegung ausgeliefert:** Werte, die ich nicht belegen kann, wären in
+     einem Schreiben, das der Empfänger nachrechnet, schlimmer als gar keine.
+207. **Fehlt ein Satz, wird nicht gerechnet.** Kein Fortschreiben des letzten
+     bekannten Werts. Die Oberfläche schreibt „nicht berechenbar" statt
+     „0,00 €" und nennt den Weg zur Pflege. Eine Null, die in Wahrheit eine
+     Lücke ist, ist die gefährlichste Zahl auf der Seite. Ein Test hält das fest.
+208. **Fünf Punkte über Basiszinssatz, nicht neun.** § 288 Abs. 2 BGB gilt nur
+     ohne Verbraucherbeteiligung; der Wohnungseigentümer ist regelmäßig
+     Verbraucher. Eine Mahnung mit überhöhter Zinsforderung ist angreifbar.
+209. **Verzug ab dem Tag nach Fälligkeit, ohne Mahnung.** Hausgeld aus einem
+     beschlossenen Wirtschaftsplan ist kalendermäßig bestimmt (§ 286 Abs. 2
+     Nr. 1 BGB). Der Fälligkeitstag selbst zählt nicht mit (§ 187 Abs. 1).
+210. **Taggenau und je Zinsperiode getrennt**, mit 365 bzw. 366 Tagen. Über den
+     ganzen Zeitraum mit einem Durchschnittssatz zu rechnen wäre einfacher und
+     falsch. Gerundet wird erst am Ende.
+211. **Zinsen nur auf fällige Forderungen**, und je Forderung ab ihrer eigenen
+     Fälligkeit. Eine Sollstellung für den nächsten Monat ist nicht rückständig.
+212. **Keine 40-€-Pauschale.** § 288 Abs. 5 BGB gilt nur zwischen Unternehmern.
+213. **Ein Fehler in meiner eigenen Zeile, sofort korrigiert.** Die Mahnkosten
+     hängen an der ältesten offenen Forderung. Ohne die Fälligkeit in der
+     Bedingung wären sie in dem Fall, dass alle vergangenen Forderungen bezahlt
+     sind, lautlos aus der gefilterten Liste gefallen.
+214. **Der Glossar-Test aus LP3 hat mich abgefangen**: Meine erste Erklärung zu
+     „Verzugszinsen" war zu lang. Die Regel gilt auch für den, der sie
+     aufgestellt hat.
+
+Gegengerechnet an echten Daten, Zeile für Zeile:
+
+```
+2026-03-01: 51,99 € x 7,5 % x 150 d = 1,60 €
+2026-04-01: 52,00 € x 7,5 % x 119 d = 1,27 €
+2026-05-01: 52,00 € x 7,5 % x  89 d = 0,95 €
+2026-06-01: 52,00 € x 7,5 % x  58 d = 0,62 €
+2026-07-01: 52,00 € x 7,5 % x  28 d = 0,30 €
+                                SUMME 4,74 €
+```
+
+Dieselben 4,74 € stehen in der Rückstandsliste; ohne hinterlegten Satz stand
+dort in jeder Zeile „nicht berechenbar".
+
+## Schritt 39 — Mahnwesen vollständig (29.07.2026)
+
+Zinsen und Kosten stehen jetzt auch **im Schreiben**, nicht nur in der Liste.
+
+215. **Festgeschrieben beim Erstellen**, nicht bei jeder Anzeige neu gerechnet.
+     Ist das Schreiben raus, muss nachvollziehbar bleiben, was darin stand. Eine
+     Mahnung, deren Beträge sich später von selbst ändern, ist als Nachweis
+     wertlos. `interestCents` bleibt `null`, wenn kein Basiszinssatz vorlag.
+216. **Die erste Stufe bleibt kostenfrei.** Vor der ersten Mahnung wusste der
+     Schuldner nicht, dass Kosten entstehen; erst ab der zweiten sind sie ein
+     ersatzfähiger Verzugsschaden.
+217. **Das PDF schlüsselt auf, statt eine Summe zu nennen.** Eine Mahnung, die
+     nur einen Endbetrag zeigt, gibt dem Empfänger nichts, was er prüfen kann.
+     Bei einer Zahlungserinnerung ohne Zinsen und Kosten bleibt es beim
+     bisherigen einzeiligen „Offener Betrag".
+218. **Das Mahnkosten-Feld zeigte „2,50 €" statt „2,50".** `formatCents` hängt
+     ein geschütztes Leerzeichen und das Währungszeichen an; das Label sagt
+     ohnehin „(€)". Gefunden im Prüflauf, nicht beim Lesen.
+219. **Drei DECISIONS-Einträge waren zwischenzeitlich verloren.** Die Schritte
+     37 bis 39 wurden mit `cat >> portal/DECISIONS.md` in Befehlsketten
+     angehängt, die vorher an einem Verzeichniswechsel abbrachen — der Commit
+     danach enthielt nur den Code. Ich hatte den Eintrag jeweils schon als
+     erledigt gemeldet. Nachgetragen; künftig wird das Anhängen nicht mit
+     anderen Befehlen verkettet.
+
+Am fertigen PDF gegengeprüft (Text aus dem Dokument selbst gezogen, nicht aus
+der Oberfläche):
+
+```
+Hausgeld-Rückstand                259,99 €
+Verzugszinsen (§ 288 Abs. 1 BGB)    4,74 €
+Mahnkosten                          2,50 €
+Gesamtforderung:                  267,23 €
+```
+
+Datenseitig bestätigt: Stufe 1 mit `feeCents = 0`, Stufen 2 und 3 mit 2,50 €.
+Der zum Prüfen eingetragene Basiszinssatz, die Testmahnungen und die Mahnkosten
+wurden danach wieder entfernt — erfundene Zahlen bleiben nicht in der Datenbank
+stehen.
+
+## Schritt 40 — Eigentümer-Kontoauszug (29.07.2026)
+
+Die Gegenseite der Mahnung. Der Verwalter sieht Rückstände, Zinsen und
+Mahnstufen; der Eigentümer sah bisher zwei Summen — „Soll" und „Gezahlt". Wer
+bei einer Differenz wissen wollte, *woran* es liegt (welcher Monat offen ist, ob
+die Überweisung vom März angekommen ist), konnte das nicht nachvollziehen. Was
+gemahnt wird, muss der Gemahnte prüfen können; sonst bleibt ihm nur, dem
+Programm zu glauben.
+
+220. **Bewegungen statt Salden.** Der Auszug führt jede Sollstellung als
+     Belastung und jede **angerechnete** Zahlung als Gutschrift, in ihrer
+     Entstehungsreihenfolge. Bewusst über die Zuordnungen und nicht als
+     Differenz zweier Summen — genau diese Differenzrechnung war der Fehler, den
+     KP9 beseitigt hat: Eine Vorauszahlung konnte einen offenen Monat verdecken.
+     Ein Test hält den Fall fest.
+221. **Am selben Tag steht die Belastung vor der Gutschrift.** Sonst sähe der
+     Saldo zwischendurch nach einem Guthaben aus, das es nie gab.
+222. **Künftige Monate zählen nicht zum Stand von heute.** Im ersten Prüflauf
+     stand für eine Einheit mit 1.574,93 € Rückstand „3.599,80 € offen": Zwölf
+     noch nicht fällige Monate waren mitgezählt. Ein Programm, das jemandem das
+     Doppelte seiner Schuld nennt, verliert sein Vertrauen an dieser Stelle
+     endgültig. Die kommenden Monate bleiben sichtbar — wer wissen will, was auf
+     ihn zukommt, findet es hier —, aber grau und mit „noch nicht fällig", und
+     `saldoHeute()` nimmt die letzte nicht-künftige Zeile.
+223. **Zinsen stehen getrennt, nicht im Saldo.** Sie sind eine eigene Forderung
+     neben der Hauptforderung (§ 367 Abs. 1 BGB); sie in die Spalte „Saldo" zu
+     mischen machte diese mehrdeutig. Fehlt der Basiszinssatz, sagt die Seite
+     genau das — statt „0,00 €".
+224. **Nicht zugeordnete Zahlungen als eigener Hinweis.** Sie erscheinen nicht
+     in der Tabelle (sie gehören noch zu keiner Forderung), aber der Eigentümer
+     erfährt, dass sein Geld angekommen ist und was als Nächstes passiert.
+225. **Die Zugriffsprüfung ist der wichtigste Teil der Seite.** Die Einheiten-ID
+     steht offen in der URL. Geprüft wird serverseitig gegen die
+     Eigentümerschaft (`ownedUnitIdsInProperty`); ein Verwalter zusätzlich gegen
+     sein Objekt, nie gegen die Rolle allein. Bei fehlender Berechtigung
+     `notFound()` — wer keinen Zugriff hat, soll nicht einmal erfahren, dass es
+     die Einheit gibt.
+
+**Gegenprobe im Browser, mit vier Konten.** Erika (Eigentümerin) sieht ihre
+Einheit, nicht die eines fremden Objekts; Klaus sieht seine, nicht Erikas; der
+Mieter sieht keine; der Verwalter sieht alle seines Objekts. Der ausgelieferte
+HTML-Text der gesperrten Seite enthält **keine** Spur der fremden Daten — weder
+Einheitenbezeichnung noch Beträge noch Objektname; geprüft wurde der Rohtext,
+nicht nur das Bild.
+
+Zur Statuszeile: Next liefert bei gestreamten Seiten HTTP 200 aus, auch wenn
+`notFound()` später greift — die Kopfzeilen sind da schon raus. Die Sperre wirkt
+trotzdem; der Inhalt ist die 404-Seite. Ein Prüfskript, das nur den Statuscode
+liest, hielte das fälschlich für einen Treffer. Deshalb wird der **Inhalt**
+geprüft, und `kontoauszug-zugriff.test.ts` hält die Regel im Quelltext fest,
+damit sie nicht bei einem Umbau still verschwindet.
+
+## Schritt 41 — Die Prüfung hängt nicht mehr an GitHub Actions (29.07.2026)
+
+**Befund.** Ab dem 29.07.2026, 06:58 Uhr, wurde auf diesem Repository auf
+**keinem** Branch mehr ein Workflow gestartet — nicht fehlgeschlagen, sondern
+gar nicht ausgelöst. Der letzte Lauf über alle Branches:
+
+```
+06:58  claude/pdf-generation-analysis-229u0r   success
+06:51  claude/pdf-generation-analysis-229u0r   success
+06:35  claude/weg-accounting-review-dch465     success   ← PR #51
+(danach nichts mehr, auf keinem Branch)
+```
+
+PR #53 bekam deshalb keine `pruefung`. Schließen und Wiederöffnen löste nichts
+aus. Das Workflow selbst steht auf `active`, die Datei ist unverändert, der
+Auslöser (`pull_request`) stimmt — die Ursache liegt also außerhalb des
+Quelltextes, auf Konto- oder Repository-Ebene (Actions-Kontingent oder
+-Berechtigung). Daran kommt aus dieser Umgebung niemand heran.
+
+226. **Rückfallebene statt Warten: dieselbe Prüfung läuft jetzt im
+     Vercel-Build.** Vercel baute unverändert weiter — nur prüfte der Build
+     nichts. Ein grüner Deploy sagte damit nichts über Typen, Linter oder Tests
+     aus. `portal/vercel.json` ruft jetzt `npm run pruefung` **vor** Migration
+     und Build auf. Damit ist jeder Pull Request wieder prüfbar, ganz ohne
+     GitHub-Runner.
+227. **Ein Skript, zwei Aufrufer.** `package.json` bekommt
+     `"pruefung": "tsc --noEmit && eslint && vitest run"`; sowohl das
+     GitHub-Workflow als auch Vercel rufen genau diesen Eintrag auf. Vorher
+     standen die drei Befehle als eigene Schritte im Workflow — zwei Listen von
+     Befehlen laufen früher oder später auseinander, und dann prüft die eine
+     Seite etwas, das die andere nicht prüft.
+228. **Was das kostet, und warum es richtig ist.** Ein Fehlschlag blockiert
+     jetzt den Deploy — auch den in Produktion. Das ist die Absicht: Genau davor
+     soll eine Prüfung schützen. Der Preis sind rund anderthalb Minuten je
+     Deploy. Wer im Notfall daran vorbei muss, nimmt den Aufruf in
+     `vercel.json` heraus; das ist eine Zeile und in der Datei vermerkt.
+229. **Gegengeprüft, dass es wirklich abbricht** — eine Prüfung, die nie „nein"
+     sagt, ist keine. Mit einem absichtlich eingebauten Typfehler bricht die
+     Kette mit Exit 2 ab, mit einem absichtlich falschen Test mit Exit 1, im
+     heilen Zustand mit 0. Danach die vollständige Vercel-Befehlskette
+     (`pruefung && repair || true && migrate deploy && next build`) einmal
+     genau so ausgeführt, wie Vercel sie aufruft: 337 Tests, 90 Migrationen,
+     Build — Exit 0.
+
+**Was Ihr Gegenüber am Konto prüfen müsste**, falls die Workflows dauerhaft
+ausbleiben: GitHub → Settings → Billing (Actions-Minuten / Spending Limit) und
+Settings → Actions → General (ob Actions für das Repository erlaubt sind). Für
+den Betrieb ist das nun nicht mehr dringend — die Prüfung läuft ohnehin.
+
+## Schritt 42 — Die drei gesetzlich geforderten Lücken (29.07.2026)
+
+Drei Punkte, die das Gesetz verlangt und die das Programm bisher offen ließ.
+Klein im Umfang, aber jeder davon der Unterschied zwischen „erfüllt" und
+„nicht erfüllt".
+
+230. **Der Vermögensbericht kannte nur die Haben-Seite** (§ 28 Abs. 4 WEG).
+     Gezeigt wurden Rücklage, Kontostände und Hausgeldrückstände; darunter stand
+     der Satz, Verbindlichkeiten würden „derzeit nicht erfasst". Ein Bericht
+     über das Vermögen, der nur nennt, was hereinkommt, ist keiner — und er ist
+     auf die gefährliche Weise falsch: Er sieht zu gut aus, und genau danach
+     wird über Sonderumlagen entschieden. Neu ist ein Modell `Verbindlichkeit`
+     je Objekt, eine Pflegeseite und die Gegenüberstellung Aktiva/Passiva mit
+     **Reinvermögen**. Ist es negativ, sagt der Bericht das ausdrücklich.
+231. **Verbindlichkeiten werden von Hand geführt, nicht abgeleitet.** Eine noch
+     nicht bezahlte Rechnung ist gerade *keine* Buchung — sie liegt im Ordner.
+     Ableiten ließe sich nur, was schon bezahlt wurde, und das ist keine
+     Verbindlichkeit mehr.
+232. **Drei Daten statt einem, und das ist der ganze Punkt.** `incurredOn`
+     (entstanden), `dueDate` (fällig, freiwillig), `settledAt` (beglichen). Der
+     Bericht blickt auf einen **Stichtag**: Eine Rechnung vom 3. November zählt
+     zum 31.12., auch wenn sie erst im Februar bezahlt wird; eine vom Februar
+     zählt nicht. Beglichene Einträge werden **nicht gelöscht**, sondern
+     datiert — sonst änderte sich ein bereits beschlossener Bericht rückwirkend,
+     sobald jemand eine alte Rechnung bezahlt.
+233. **Der Bericht wird eingefroren, nicht nachgerechnet.** Er entsteht in
+     `computeStatementView` und wandert damit bei FERTIG in den Snapshot. Läde
+     die Seite die Verbindlichkeiten stattdessen live, hätte derselbe Fehler
+     durch die Hintertür wieder Einzug gehalten. Ältere, vor dieser Erweiterung
+     fertiggestellte Abrechnungen tragen den Bericht nicht im Snapshot; sie
+     bekommen einen Hinweis statt einer nachträglich gerechneten Zahl.
+234. **Bauabzugsteuer: die zweite Hälfte der Pflicht** (§ 48a Abs. 1 EStG).
+     Bisher warnte das Programm *vor* der Zahlung — richtig, aber halb. Wer
+     einbehält, muss bis zum **10. Tag des Folgemonats** anmelden und abführen.
+     Diese Frist verstreicht lautlos: Das Geld liegt auf dem Gemeinschaftskonto,
+     sieht nach Guthaben aus und ist keines, und die Haftung besteht fort.
+235. **Aus einem Häkchen wurde eine Frage.** Vorher: „Ich habe das
+     berücksichtigt" — das hielt nur fest, *dass* gewarnt wurde. Jetzt zwei
+     Antworten: einbehalten oder ungekürzt gezahlt. Nur die erste erzeugt eine
+     Frist, und nur weil das Programm den Unterschied kennt, kann es erinnern.
+     Beides landet zusätzlich im Audit-Log — bei einer Haftungsfrage ist genau
+     das die Frage.
+236. **§ 108 Abs. 3 AO ist mitgerechnet**, samt beweglicher Feiertage. Fällt der
+     10. auf Samstag, Sonntag oder Feiertag, endet die Frist am nächsten
+     Werktag. Dafür braucht es den Ostersonntag (Karfreitag, Ostermontag und
+     Christi Himmelfahrt können auf einen Zehnten fallen). **Landesfeiertage
+     bewusst nicht**: § 108 Abs. 3 AO stellt auf den Ort des Finanzamts ab, und
+     Fronleichnam gilt nicht überall. Wer sie einträgt, trifft für die Hälfte
+     der Nutzer eine falsche Aussage; das Weglassen nennt höchstens einen Tag zu
+     früh — nie einen zu spät.
+237. **Abgehakt wird je Monat, nicht je Buchung.** Abgegeben wird eine Anmeldung
+     für den Monat. Ließen sich einzelne Buchungen abhaken, gäbe es irgendwann
+     einen halb angemeldeten Monat — und keine Möglichkeit zu sagen, welche
+     Hälfte. Die Meldung sagt außerdem ausdrücklich, dass der Haken ein Vermerk
+     ist und keine Abgabe.
+238. **Belegeinsicht: das meiste war schon da, die Lücke lag woanders.** Der
+     geplante Punkt „Belegeinsicht für den Beirat" war zu zwei Dritteln bereits
+     gebaut — Eigentümer sehen die Buchhaltung ihrer WEG samt Belegen, und der
+     Prüfvermerk des Beirats ließ sich setzen. Zwei echte Lücken blieben:
+239. **Stornierte Buchungen standen ungekennzeichnet in der Belegeinsicht.**
+     Herausgefiltert werden dürfen sie nicht — § 18 Abs. 4 WEG umfasst den
+     vollständigen Bestand, und eine Buchhaltung, aus der etwas verschwindet,
+     ist keine. Ungekennzeichnet zählt der Eigentümer die Ausgabe aber zweimal:
+     einmal das Original, einmal die Gegenbuchung. Jetzt tragen beide ein
+     Etikett und einen durchgestrichenen Betrag.
+240. **Der Beirat wusste nicht, dass etwas auf ihn wartet.** Der Prüfvermerk
+     ließ sich setzen — aber nur, wenn man ihn auf der Finanzen-Seite zufällig
+     fand. Der Beiratsbereich listet jetzt, was zu prüfen ist, mit dem Stand des
+     Vermerks und einem Link in die Belege **des betreffenden Jahres**: Wer die
+     Abrechnung 2025 prüft, will die Buchungen von 2025 sehen und nicht erst
+     einen Filter suchen.
+
+**Unterwegs gefunden — und das war der wichtigste Fund des Tages.**
+
+241. **Jede Seite antwortete mit HTTP 500, solange die Tour lief.** In der
+     Sprechblase stand `window.innerWidth`, und zwar in dem Zweig, der greift,
+     solange kein Ziel gemessen ist — also genau im Serverfall. Ergebnis:
+     `ReferenceError: window is not defined`, und der Server antwortete mit 500.
+     Im Browser sah man davon **nichts**: React reicht den Client-Teil nach, die
+     Seite baut sich auf, alles wirkt heil. Aufgefallen ist es erst, weil der
+     Prüfdurchgang die Antwortcodes mitliest und nicht nur den sichtbaren Text.
+     Gegengeprüft an vier bestehenden Seiten (`/dashboard`, `/verwaltung/objekte`,
+     `/vorgaenge`, `/verwaltung/weg`) — alle vier betroffen, alle vier jetzt 200.
+     Das stand seit LP6 in Produktion.
+242. **Behoben per CSS, nicht per Messung**: `min(Xpx, calc(100vw - 24px))`. Das
+     rechnet der Browser selbst, bei jeder Größenänderung, ganz ohne erneutes
+     Rendern — und es gibt nichts mehr, was auf dem Server fehlen könnte.
+243. **Ein Test, der ohne `window` rendert.** `tour.ssr.test.tsx` ruft
+     `renderToString` in der Node-Umgebung der Testsuite auf — dieselbe Lage wie
+     im Produktionsserver. Bewusst **kein** jsdom: Ein Test, der `window`
+     bekommt, hätte diesen Fehler nie gefunden. Und bewusst kein Verbot des
+     Wortes `window` im Quelltext — in Effekten ist es völlig richtig. Geprüft
+     wird, ob das Rendern gelingt. Gegengeprüft, dass er greift: mit
+     zurückgedrehter Korrektur schlägt er mit genau diesem `ReferenceError` fehl.
+     Dafür nimmt `vitest.config.ts` jetzt auch `.test.tsx` an.
+
+**Zwei Fehler, die erst der Blick auf die fertige Seite zeigte** — beide wären
+durch Typprüfung, Linter und Tests unbemerkt durchgegangen:
+
+244. **Datumsangaben trugen die Uhrzeit**: „01.06.2025, 00:00". `formatDate`
+     statt `formatDateOnly` — in einer Liste von Rechnungsdaten ist die Uhrzeit
+     Lärm, und „00:00" sieht nach fehlender Angabe aus.
+245. **Die erledigten Verbindlichkeiten standen oben.** `orderBy settledAt asc`
+     sortiert NULL in PostgreSQL ans **Ende** — offene Posten haben aber
+     `settledAt = null`. Also stand ganz oben, was schon erledigt war, und
+     unten, was noch zu tun ist. Behoben mit `nulls: "first"`.
+
+**Geprüft.** 398 Tests (27 neue), ESLint, `tsc`, Produktions-Build. Datenbank von
+null: 94 Migrationen, Seed, dann 16 Gegenproben an echten Daten — unter anderem,
+dass von fünf Verbindlichkeiten genau drei zum Stichtag zählen, dass der Bericht
+die JSON-Runde des Snapshots übersteht, dass die Frist für eine Zahlung im
+September 2026 auf Montag, den 12.10., rutscht (der 10. ist ein Samstag) und dass
+eine stornierte Zahlung keine Anmeldepflicht erzeugt. Danach der Durchgang im
+Browser mit Verwalter- und Eigentümerkonto: keine Fehler, kein 500er.

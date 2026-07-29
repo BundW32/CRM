@@ -79,6 +79,8 @@ const settingsSchema = z.object({
     (v) => (typeof v === "string" && v.trim() !== "" ? Number(v.trim()) : null),
     z.number().int().min(1).max(28).nullable(),
   ),
+  /** Tatsächliche Mahnkosten je Mahnung, als Euro-Zeichenkette. */
+  mahnkosten: z.string().optional(),
 });
 
 export async function saveFinanceSettings(formData: FormData) {
@@ -89,10 +91,21 @@ export async function saveFinanceSettings(formData: FormData) {
     fiscalYearStartMonth: formData.get("fiscalYearStartMonth"),
     dueDayRule: formData.get("dueDayRule"),
     dueDayOfMonth: formData.get("dueDayOfMonth"),
+    mahnkosten: String(formData.get("mahnkosten") ?? "") || undefined,
   });
   if (!parsed.success) redirect("/verwaltung/weg");
   const property = await loadWegProperty(verwalter, parsed.data.propertyId);
   if (!property) redirect("/verwaltung/weg");
+
+  // Leeres Feld = 0, nicht „unverändert": Wer die Mahnkosten löscht, will sie
+  // los sein. Ein unlesbarer Wert bricht dagegen ab, statt still auf 0 zu
+  // fallen — sonst verschwänden Kosten durch einen Tippfehler.
+  let mahnkostenCents = 0;
+  if (parsed.data.mahnkosten && parsed.data.mahnkosten.trim() !== "") {
+    const wert = parseEuroToCents(parsed.data.mahnkosten);
+    if (wert === null || wert < 0) back(property.id, "fehler=mahnkosten");
+    mahnkostenCents = wert;
+  }
 
   await db.property.update({
     where: { id: property.id },
@@ -103,6 +116,7 @@ export async function saveFinanceSettings(formData: FormData) {
       // Ein fester Tag ohne die passende Regel wäre ein stiller Blindgänger:
       // Er stünde im Feld, wirkte aber nirgends.
       dueDayOfMonth: parsed.data.dueDayRule === "FREIER_TAG" ? parsed.data.dueDayOfMonth : null,
+      mahnkostenCents,
     },
   });
   await logAudit({

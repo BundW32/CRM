@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Badge } from "@/components/data-display";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
@@ -29,6 +31,47 @@ export default async function BeiratPage() {
   if (user.role === "EIGENTUEMER" && properties.length === 0) redirect("/dashboard");
 
   const propIds = properties.map((p) => p.id);
+
+  // Was der Beirat zu prüfen hat (§ 29 Abs. 2 Satz 1 WEG): beschlossene
+  // Wirtschaftspläne und fertiggestellte Jahresabrechnungen.
+  //
+  // Diese Liste stand bisher nirgends. Der Prüfvermerk ließ sich zwar setzen —
+  // aber nur, wenn man ihn auf der Finanzen-Seite zufällig fand. Ein Beirat, der
+  // nicht weiß, dass etwas auf ihn wartet, prüft nichts.
+  const [plaene, abrechnungen] = propIds.length
+    ? await Promise.all([
+        db.economicPlan.findMany({
+          where: { propertyId: { in: propIds }, status: "BESCHLOSSEN" },
+          orderBy: { year: "desc" },
+          select: { id: true, year: true, propertyId: true, beiratReviewStatus: true },
+        }),
+        db.annualStatement.findMany({
+          where: { propertyId: { in: propIds }, status: "FERTIG" },
+          orderBy: { year: "desc" },
+          select: { id: true, year: true, propertyId: true, beiratReviewStatus: true },
+        }),
+      ])
+    : [[], []];
+  type Pruefstueck = {
+    art: "Wirtschaftsplan" | "Jahresabrechnung";
+    jahr: number;
+    propertyId: string;
+    geprueft: "GEPRUEFT" | "ANMERKUNGEN" | null;
+  };
+  const pruefstuecke: Pruefstueck[] = [
+    ...plaene.map((x) => ({
+      art: "Wirtschaftsplan" as const,
+      jahr: x.year,
+      propertyId: x.propertyId,
+      geprueft: x.beiratReviewStatus,
+    })),
+    ...abrechnungen.map((x) => ({
+      art: "Jahresabrechnung" as const,
+      jahr: x.year,
+      propertyId: x.propertyId,
+      geprueft: x.beiratReviewStatus,
+    })),
+  ].sort((a, b) => b.jahr - a.jahr);
   const tasks = propIds.length
     ? await db.beiratTask.findMany({
         where: { propertyId: { in: propIds } },
@@ -106,6 +149,57 @@ export default async function BeiratPage() {
                   ))}
                 </ul>
               )}
+
+              {user.role === "EIGENTUEMER" ? (
+                <div className="mb-4 border-t border-gray-100 pt-3">
+                  <h3 className="mb-2 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+                    Rechnungsprüfung (§ 29 Abs. 2 WEG)
+                  </h3>
+                  {pruefstuecke.filter((x) => x.propertyId === p.id).length === 0 ? (
+                    <p className="text-sm text-gray-500">
+                      Zurzeit liegt nichts zur Prüfung vor.
+                    </p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {pruefstuecke
+                        .filter((x) => x.propertyId === p.id)
+                        .map((x) => (
+                          <li
+                            key={`${x.art}-${x.jahr}`}
+                            className="flex flex-wrap items-center gap-2 text-sm"
+                          >
+                            <span className="text-gray-800">
+                              {x.art} {x.jahr}
+                            </span>
+                            {x.geprueft === "GEPRUEFT" ? (
+                              <Badge tone="success">geprüft</Badge>
+                            ) : x.geprueft === "ANMERKUNGEN" ? (
+                              <Badge tone="warning">mit Anmerkungen</Badge>
+                            ) : (
+                              <Badge tone="neutral">noch nicht geprüft</Badge>
+                            )}
+                            {/*
+                              Der Beleg-Link trägt das Jahr mit: Wer die
+                              Abrechnung 2025 prüft, will die Buchungen von 2025
+                              sehen und nicht erst einen Filter suchen.
+                            */}
+                            <Link
+                              href={`/finanzen?objekt=${encodeURIComponent(p.id)}&bjahr=${x.jahr}`}
+                              className="text-brand-green underline-offset-2 hover:underline"
+                            >
+                              Belege {x.jahr} ansehen
+                            </Link>
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+                  <p className="mt-2 text-xs text-gray-400">
+                    Den Prüfvermerk setzen Sie unter „Finanzen“ beim jeweiligen Dokument.
+                    Ihr Einsichtsrecht in die Buchhaltung folgt aus § 18 Abs. 4 WEG und
+                    gilt unabhängig davon, ob etwas zur Prüfung ansteht.
+                  </p>
+                </div>
+              ) : null}
 
               <form action={addBeiratTask} className="space-y-2 border-t border-gray-100 pt-3">
                 <input type="hidden" name="propertyId" value={p.id} />

@@ -14,6 +14,7 @@ import {
 } from "@/lib/weg/opos-service";
 import { schlageZuordnungVor, type Tilgungszweck } from "@/lib/weg/payment-allocation";
 import { loadWegProperty } from "@/lib/weg/scope";
+import { basiszinssaetze, verzugJeForderung } from "@/lib/weg/verzug-service";
 import { fortgeltenderPlan, synchronisiereSollstellungen } from "@/lib/weg/due-postings";
 
 function back(propertyId: string, param?: string): never {
@@ -107,7 +108,11 @@ export async function createMahnung(formData: FormData) {
   const now = new Date();
   const owners = await db.unitOwnership.findMany({
     where: { unitId: unit.id, validFrom: { lte: now }, OR: [{ validTo: null }, { validTo: { gt: now } }] },
-    include: { user: { select: { name: true, street: true, zip: true, city: true } } },
+    include: {
+      user: {
+        select: { name: true, salutation: true, lastName: true, street: true, zip: true, city: true },
+      },
+    },
     orderBy: { validFrom: "asc" },
   });
   if (owners.length === 0) back(property.id, "fehler=keineigentuemer");
@@ -115,6 +120,42 @@ export async function createMahnung(formData: FormData) {
   const first = owners[0].user;
   const recipientAddress =
     first.street && first.zip && first.city ? `${first.street}\n${first.zip} ${first.city}` : null;
+  // Anrede nur bei genau einem Eigentümer: bei Eheleuten oder einer
+  // Erbengemeinschaft wäre jede Einzelanrede falsch.
+  const alleine = owners.length === 1;
+
+  // Zinsen und Kosten werden **jetzt** festgeschrieben, nicht bei jeder Anzeige
+  // neu gerechnet. Ist das Schreiben raus, muss nachvollziehbar bleiben, was
+  // darin stand — eine Mahnung, deren Beträge sich später von selbst ändern,
+  // ist als Nachweis wertlos.
+  //
+  // `interestCents` bleibt `null`, wenn für den Zeitraum kein Basiszinssatz
+  // hinterlegt ist. Dann nennt das Schreiben keine Zinsen, statt eine Null
+  // auszuweisen, die wie „keine Zinsen entstanden" aussieht.
+  const saetze = await basiszinssaetze(verwalter.organizationId);
+  const offeneForderungen = await db.duePosting.findMany({
+    where: { unitId: unit.id, dueDate: { lte: now } },
+    select: { id: true, dueDate: true, amountCents: true, allocations: { select: { amountCents: true } } },
+  });
+  const zinsen = verzugJeForderung(
+    offeneForderungen
+      .map((f) => ({
+        id: f.id,
+        dueDate: f.dueDate,
+        offenCents: f.amountCents - f.allocations.reduce((s, a) => s + a.amountCents, 0),
+      }))
+      .filter((f) => f.offenCents > 0),
+    saetze,
+    now,
+  );
+  let interestCents: number | null = 0;
+  for (const z of zinsen.values()) {
+    if (z.zinsenCents === null) {
+      interestCents = null;
+      break;
+    }
+    interestCents += z.zinsenCents;
+  }
 
   const mahnung = await db.hausgeldMahnung.create({
     data: {
@@ -123,9 +164,16 @@ export async function createMahnung(formData: FormData) {
       unitId: unit.id,
       level,
       arrearsCents: arrears,
+      interestCents,
+      // Erste Mahnung ohne Kosten: Vor der ersten Mahnung war der Schuldner
+      // nicht darauf hingewiesen, dass Kosten entstehen. Erst ab der zweiten
+      // sind sie ein ersatzfähiger Verzugsschaden.
+      feeCents: level > 1 ? property.mahnkostenCents : 0,
       paymentDeadline: new Date(Date.now() + PAYMENT_DEADLINE_DAYS * 24 * 60 * 60 * 1000),
       recipientName,
       recipientAddress,
+      recipientSalutation: alleine ? first.salutation : null,
+      recipientLastName: alleine ? first.lastName : null,
       createdById: verwalter.id,
     },
   });
@@ -134,7 +182,7 @@ export async function createMahnung(formData: FormData) {
     action: AUDIT.WEG_MAHNUNG_CREATED,
     targetType: "HausgeldMahnung",
     targetId: mahnung.id,
-    meta: { unit: unit.label, level, arrearsCents: arrears },
+    meta: { unit: unit.label, level, arrearsCents: arrears, interestCents, feeCents: level > 1 ? property.mahnkostenCents : 0 },
   });
   revalidatePath(`/verwaltung/weg/${property.id}/hausgeld`);
   back(property.id, "gespeichert=mahnung");

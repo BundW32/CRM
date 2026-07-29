@@ -10,7 +10,8 @@
     "test": "vitest run",
     "pruefung": "tsc --noEmit && eslint && vitest run",
     "db:seed": "tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:db": "vitest run --config vitest.db.config.ts"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
@@ -28,8 +29,8 @@
     "pdfjs-dist": "^5.7.284",
     "prisma": "^7.8.0",
     "react": "19.2.4",
-    "sharp": "^0.34.5",
     "react-dom": "19.2.4",
+    "sharp": "^0.34.5",
     "stripe": "^22.3.0",
     "web-push": "^3.6.7",
     "zod": "^4.4.3"

@@ -389,6 +389,16 @@ model User {
   certMandateNote      String?
   certMandateRecordedById String?
   createdAt            DateTime                  @default(now())
+  // Ab wann Sitzungen dieses Nutzers gelten. Jedes Sitzungs-Token trägt seinen
+  // Ausstellungszeitpunkt; liegt der davor, ist es ungültig.
+  //
+  // Ohne das war eine Sitzung sieben Tage lang nicht zurückzuholen: Ein
+  // Passwortwechsel beendete keine einzige bestehende Anmeldung. Wer ein
+  // Passwort erbeutet hatte, arbeitete weiter, obwohl das Opfer genau das
+  // verhindern wollte — und „auf allen Geräten abmelden" gab es nicht. Wird bei
+  // jedem Passwortwechsel, jedem Reset und beim Abmelden aller Geräte
+  // hochgesetzt. `null` = nie hochgesetzt, alle Token gelten.
+  sessionsValidFrom    DateTime?
   passwordResetToken   String?                   @unique
   passwordResetExpiry  DateTime?
   // E-Mail-Verifizierung (Phase 5 – Self-Service-Onboarding)

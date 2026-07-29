@@ -713,6 +713,11 @@ export async function regenerateAccessLetter(formData: FormData) {
     data: {
       passwordHash: await bcrypt.hash(tempPassword, 12),
       mustChangePassword: true,
+      // Bestehende Anmeldungen dieses Nutzers beenden. Der Verwalter setzt das
+      // Passwort in aller Regel zurück, weil jemand nicht mehr hineinkommt —
+      // oder weil jemand hineingekommen ist, der nicht sollte. Im zweiten Fall
+      // wäre ein Zurücksetzen ohne Abmelden wirkungslos.
+      sessionsValidFrom: new Date(),
       ...(username && !user.username ? { username } : {}),
     },
   });

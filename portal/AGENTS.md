@@ -299,6 +299,25 @@ Ein Fehlschlag blockiert damit auch den Deploy, absichtlich. Wer im Notfall
 daran vorbei muss, streicht `npm run pruefung && ` aus dem `buildCommand` in
 `portal/vercel.json` — eine Zeile, und danach wieder hinein.
 
+### Prüfungen mit Datenbank
+
+`npm run test:db` (`vitest.db.config.ts`, Dateien `*.dbtest.ts`) läuft gegen eine
+**echte** Datenbank und braucht eine gesetzte `DATABASE_URL`.
+
+Diese Prüfungen gehören **nicht** in `npm run pruefung` — das Skript läuft auch im
+Vercel-Build, und dort gibt es keine Datenbank. Wer sie dort einhängt, bricht den
+Deploy.
+
+Hier hinein gehört alles, was Zugriffskontrolle betrifft. Eine Sperre besteht in
+diesem Portal aus Datenbankabfragen mit Organisations- und Objektfiltern; ob ein
+Filter wirkt, lässt sich nicht am Quelltext ablesen, sondern nur daran, was die
+Abfrage zurückgibt. Die älteren Prüfungen (`kontoauszug-zugriff`,
+`versammlungsbeschluss`) lesen die Seitendatei als Text und suchen Bezeichner —
+das hält fest, dass die Sperre dasteht, nicht dass sie hält. Für neue
+Zugriffsfunktionen ist der Weg über `src/test/harness.ts` der richtige:
+`seedOrganization()` liefert zwei vollständige Organisationen, und jede Funktion
+wird über Kreuz befragt.
+
 ## Rollen
 
 `VERWALTER`, `EIGENTUEMER`, `MIETER`. Zusätzlich `isSuperAdmin` (Admin innerhalb einer

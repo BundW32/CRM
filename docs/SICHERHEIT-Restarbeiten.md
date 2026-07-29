@@ -1,0 +1,134 @@
+# Sicherheit: offene Arbeiten
+
+Fortschreibung zu `docs/SICHERHEITSBERICHT-Marktreife.md`. Was am **29.07.2026**
+erledigt wurde, steht unten unter „Erledigt"; alles andere ist offen und nach
+Priorität sortiert.
+
+> **Vor dem nächsten Deploy zu erledigen — sonst sperrt sich der Betreiber aus.**
+> `isPlatformAdminUser` verlangt jetzt zusätzlich das Datenbank-Flag
+> `User.isPlatformAdmin`. In der Produktionsdatenbank muss es für jedes
+> Betreiberkonto gesetzt werden, **bevor** die Änderung ausgerollt wird:
+> ```sql
+> UPDATE "User" SET "isPlatformAdmin" = true
+> WHERE lower(email) IN ('<adressen aus PLATFORM_ADMIN_EMAILS>');
+> ```
+> Der Seed (`prisma/seed.ts`) setzt es bereits; bestehende Installationen nicht
+> zwingend. Ohne diesen Schritt ist `/plattform` für niemanden mehr erreichbar.
+> Zurückholbar ist das nur über direkten Datenbankzugriff.
+
+---
+
+## P0 — noch offen
+
+### P0-4 Abhängigkeiten aktualisieren, Audit in die CI
+
+`npm audit --omit=dev` meldet unverändert **11 Schwachstellen (6 hoch)**:
+Next.js 16.2.9 (Middleware/Proxy-Bypass — trifft die Mandantenauflösung in
+`src/proxy.ts`), `undici`, `fast-uri`, `hono`/`@hono/node-server` über Prisma.
+
+**Wichtig beim Einbauen:** Der Audit-Schritt darf **nicht** in `npm run pruefung`.
+Dieses Skript läuft laut `portal/vercel.json` auch im Produktions-Build — ein neu
+veröffentlichter CVE brächte damit den Deploy zum Stehen, ohne dass jemand etwas
+geändert hat. Er gehört als eigener Schritt in `.github/workflows/pruefung.yml`,
+wo er nur den Pull Request rot färbt.
+
+Aufwand: 0,5 Tag + Regressionsdurchlauf.
+**Kollision:** `package.json`/`package-lock.json` werden derzeit von
+`claude/pdf-generation-analysis-229u0r` und `claude/weg-accounting-review-dch465`
+angefasst. Erst nach deren Merge angehen, sonst wird die Lock-Datei zweimal
+aufgelöst.
+
+### P0-5 Zugriffskontroll-Tests ausbauen
+
+Das Fundament steht (siehe „Erledigt"), die Abdeckung ist noch dünn. Es fehlen
+Prüfungen für:
+
+- alle zwölf Ressourcenarten in `api/files/[kind]/[id]` über Kreuz zwischen zwei
+  Organisationen (Beleg, Mietvertrag, Freistellung, Stimmnachweis, Rechnung,
+  Übergabefotos, Objektbild, Org-Logo …),
+- den Handwerker-Magic-Link gegen Anhänge fremder Aufträge,
+- eingeschränkte Verwalter (`PropertyAssignment`) gegen nicht zugewiesene Objekte,
+- Eigentümer ohne Beiratskennzeichen gegen die Beiratsbereiche,
+- `documentWhereForUser` und `canViewTicket` über Kreuz,
+- den DSGVO-Export `/api/export/[userId]` gegen fremde Nutzer.
+
+Aufwand: 2–4 Tage. Kollidiert mit nichts.
+
+---
+
+## P1 — vor dem Marktstart
+
+| # | Was | Aufwand | Kollision |
+|---|---|---|---|
+| P1-6 | Passwort-Reset-Token nur noch **gehasht** speichern (SHA-256), Rate-Limit auf das Einlösen, gleiches für `emailVerifyToken` | 0,5 Tag | `login/forgot/actions.ts` — `claude/email-interfaces-overview-5bw9kc` |
+| P1-7 | Erstpasswort nicht mehr über die URL (`/zugangsschreiben/[id]?pw=…`) — kurzlebiges Server-Token oder direkte Ausgabe | 2 Std. | `nutzer/actions.ts` — `email-interfaces` |
+| P1-9 | Rate-Limit atomar (ein `UPDATE … RETURNING` statt Lesen-Prüfen-Erhöhen), für die Anmeldung fail-closed, IP-Quelle an die Plattform binden statt an frei setzbare Header | 0,5 Tag | keine |
+| P1-10 | **MFA** (TOTP + Wiederherstellungscodes), Pflicht für Plattform-Betreiber und Verwalter-SuperAdmins | 3–5 Tage | keine |
+| P1-11 | `organizationId` am `AuditLog` (fehlgeschlagene Anmeldungen sind für Kunden heute unsichtbar), Fehler-/Sicherheitsmonitoring, Schwellwert-Alarme | 3–5 Tage | keine |
+| P1-12 | CSP mit Nonce statt `script-src 'unsafe-inline'`, dazu `object-src 'none'` | 0,5 Tag | `next.config.ts` — geringfügig |
+| P1-13 | Handwerker-Magic-Link: Ablauf, Rotation, Widerruf in der Oberfläche, alles protokolliert | 1 Tag | keine |
+
+Zusätzlich als Sofortmaßnahme (kleine Ergänzung, heute bewusst zurückgestellt,
+weil `nutzer/actions.ts` gerade von einem anderen Branch bearbeitet wird):
+
+- **Adressen aus `PLATFORM_ADMIN_EMAILS` beim Anlegen und Ändern von Nutzern
+  serverseitig ablehnen.** Der Angriffsweg ist durch das Datenbank-Flag
+  geschlossen; die Sperre verhindert zusätzlich, dass ein Verwalter versehentlich
+  ein totes Konto auf einer Betreiberadresse anlegt und die Adresse damit blockiert.
+- **`emailVerifiedAt != null`** als weitere Bedingung in `isPlatformAdminUser`.
+
+---
+
+## P2 — erstes Quartal nach Marktstart
+
+- **P2-14** Audit-Log vervollständigen (Passwortänderung, Rollenwechsel,
+  Nutzeranlage, Dokumentzugriff, SEPA-Mandate fehlen), append-only auslegen,
+  Export für Kunden, Aufbewahrungsfrist über die IP hinaus.
+- **P2-15** IBAN, SEPA-Mandate und Steuernummern verschlüsseln.
+  `src/lib/crypto.ts` kann es bereits, wird aber nur für Integrations-Secrets
+  genutzt. Dabei den Rückfall auf `SESSION_SECRET` entfernen — solange er
+  besteht, ist `SESSION_SECRET` **nicht rotierbar**, ohne alle verschlüsselten
+  Werte zu verlieren.
+- **P2-16** KI: Fremdinhalte im Prompt als Daten abgrenzen (Prompt-Injection über
+  eingegangene Dokumente), Verarbeitung protokollieren, API-Schlüssel im Header
+  statt in der URL.
+- **P2-17** `bodySizeLimit: "200mb"` gilt global für alle Server Actions —
+  auf die Upload-Routen begrenzen.
+- **P2-18** Löschkonzept je Datenart schriftlich festlegen und umsetzen
+  (heute nur Anonymisierung + IP-Bereinigung im Audit-Log).
+- **P2-19** Zweite Wand für die Mandantentrennung: PostgreSQL Row Level Security
+  oder eine Prisma-Erweiterung, die den Org-Filter zentral erzwingt.
+
+---
+
+## P3 — Nachweise und Betrieb
+
+Kein Code, blockiert aber den Vertrieb genauso hart: TOM nach Art. 32 DSGVO,
+Verarbeitungsverzeichnis, Backup- und Wiederanlaufkonzept mit RPO/RTO und
+getesteter Wiederherstellung, externer Penetrationstest, Meldeweg für Finder
+(`security.txt`), Incident-Response nach Art. 33/34, Verfügbarkeitsmonitoring und
+SLA, Lasttests.
+
+Details im Hauptbericht, Abschnitt P3.
+
+---
+
+## Erledigt am 29.07.2026
+
+| Befund | Was gemacht wurde |
+|---|---|
+| **P0-1** Rechteausweitung über die E-Mail-Adresse | `isPlatformAdminUser` verlangt jetzt **beide** Wände: das Datenbank-Flag `User.isPlatformAdmin` **und** die Env-Allowlist. Das Feld gab es im Schema samt Kommentar „doppelte Wand" bereits — gelesen wurde es nie. Ein Verwalter kann das Flag über keine Anwendungsfunktion setzen; der Weg über ein selbst angelegtes Konto auf einer Betreiberadresse ist damit zu. |
+| **P0-2** Sitzungen nicht widerrufbar | `User.sessionsValidFrom` + Migration `20260729170000_sessions_valid_from`. Jedes Token trägt seinen Ausstellungszeitpunkt; liegt er davor, gilt es nicht mehr. `revokeSessions()` wird bei Passwortwechsel, Passwort-Reset, Erstpasswortvergabe und beim Zurücksetzen durch den Verwalter aufgerufen. |
+| **P0-3** Token austauschbar | Sitzungs- und Impersonations-Token tragen jetzt einen `typ`-Claim und werden gegen den erwarteten Zweck geprüft. Token ohne `typ` (Altbestand) gelten nicht mehr. |
+| **P1-8** Blob-Token an ungeprüften Host | Host-Prüfung als `isBlobUrl()` in `storage.ts` herausgezogen und im Teilbereichs-Pfad von `api/files/[kind]/[id]` **vor** dem Mitschicken des Tokens angewandt. |
+| **P0-5** (Fundament) | Testharness gegen echte Datenbank: `src/test/harness.ts`, `vitest.db.config.ts`, `npm run test:db`. 16 Prüfungen — Mandantentrennung über zwei Organisationen und alle Rollen (`access.dbtest.ts`), Sitzungswiderruf und Token-Trennung mit echten Tokens (`session.dbtest.ts`). |
+
+### Was beim Ausrollen zu beachten ist
+
+1. **Das Datenbank-Flag setzen** (siehe Kasten oben) — sonst kein Betreiberzugang mehr.
+2. **Alle Nutzer müssen sich einmal neu anmelden.** Token ohne `typ`-Claim gelten
+   nicht mehr. Das ist gewollt: Ein Altbestand, der als beides durchginge, wäre
+   genau die Lücke, die P0-3 schließt. Am besten in ein Wartungsfenster legen.
+3. **Die Datenbankprüfungen laufen nicht in `npm run pruefung`.** Das Skript läuft
+   auch im Vercel-Build, wo es keine Datenbank gibt. Sie hängen an
+   `npm run test:db` und brauchen eine gesetzte `DATABASE_URL`.

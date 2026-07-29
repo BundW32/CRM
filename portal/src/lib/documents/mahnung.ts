@@ -164,9 +164,11 @@ export async function generateMahnung(input: MahnungInput): Promise<Buffer> {
     doc.space(mm(5));
   }
 
-  doc.para(
-    "Bereits geleistete Zahlungen sind in dieser Aufstellung möglicherweise noch nicht berücksichtigt.",
-  );
+  // Hinweis, Grußformel und Absender bleiben zusammen.
+  const hinweis =
+    "Bereits geleistete Zahlungen sind in dieser Aufstellung möglicherweise noch nicht berücksichtigt.";
+  doc.ensure(doc.measure(hinweis) + mm(4) + mm(11) + doc.measure(input.issuer.legalName));
+  doc.para(hinweis);
   doc.space(mm(4));
   doc.text("Mit freundlichen Grüßen", { lead: mm(11) });
   doc.para(input.issuer.legalName, { width: CONTENT_WIDTH });

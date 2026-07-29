@@ -136,14 +136,15 @@ export async function generateBetriebskosten(input: BetriebskostenInput): Promis
   );
 
   // Schlusshinweis und Grußformel bilden einen Block: rutscht er auf eine
-  // Folgeseite, dann gemeinsam. Eine Seite, auf der allein „Mit freundlichen
-  // Grüßen" steht, sieht nach Fehler aus.
-  doc.ensure(mm(42));
-  doc.para(
+  // Folgeseite, dann gemeinsam. Die Reserve wird gemessen statt geschätzt —
+  // eine Seite, auf der allein „Mit freundlichen Grüßen" steht, sieht nach
+  // Fehler aus, und eine zu großzügige Schätzung bricht unnötig um.
+  const schluss =
     "Die Abrechnung leitet sich aus der Jahresabrechnung der Wohnungseigentümergemeinschaft " +
-      "ab. Die Belege können Sie nach Absprache einsehen; Einwendungen teilen Sie uns bitte " +
-      "innerhalb von zwölf Monaten nach Zugang dieser Abrechnung mit.",
-  );
+    "ab. Die Belege können Sie nach Absprache einsehen; Einwendungen teilen Sie uns bitte " +
+    "innerhalb von zwölf Monaten nach Zugang dieser Abrechnung mit.";
+  doc.ensure(doc.measure(schluss) + mm(3) + mm(10) + doc.measure(input.issuer.legalName));
+  doc.para(schluss);
   doc.space(mm(3));
   doc.text("Mit freundlichen Grüßen", { lead: mm(10) });
   doc.para(input.issuer.legalName, { width: CONTENT_WIDTH });

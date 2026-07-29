@@ -157,6 +157,24 @@ export class Doc {
     }
   }
 
+  /**
+   * Höhe, die `para` für diesen Text brauchen wird.
+   *
+   * Damit lässt sich ein Block, der zusammenbleiben soll, exakt reservieren.
+   * Geschätzte Reserven gehen in beide Richtungen schief: zu knapp, und der
+   * Block reißt doch auseinander; zu großzügig, und eine Seite bricht um,
+   * obwohl der Inhalt gepasst hätte.
+   */
+  measure(
+    value: string,
+    options: { size?: number; width?: number; lead?: number; font?: PDFFont } = {},
+  ): number {
+    const fontSize = options.size ?? size.body;
+    const font = options.font ?? this.font;
+    const lead = options.lead ?? leading.body;
+    return wrapText(value, font, fontSize, options.width ?? MEASURE).length * lead;
+  }
+
   /** Betreff samt Unterzeile. Bricht um — im Bestand lief er über die Blattkante. */
   subject(title: string, sub?: string | null): void {
     this.para(title, { size: size.section, font: this.bold, width: CONTENT_WIDTH, lead: mm(6) });

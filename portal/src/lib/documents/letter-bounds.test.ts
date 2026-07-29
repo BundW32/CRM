@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { PDFDocument } from "pdf-lib";
 import { generateMahnung } from "./mahnung";
 import { generateBetriebskosten } from "./betriebskosten";
+import { generateMeetingInvitation } from "./meeting-invitation";
 // Gemeinsamer Prüfhelfer: liest über pdf.js zurück und kommt damit sowohl mit
 // den eingebetteten Schriften des Kits als auch mit den noch nicht umgestellten
 // Standard-Schriften zurecht.
@@ -144,5 +145,60 @@ describe("Betriebskostenabrechnung: Satzspiegel", () => {
     const doc = await PDFDocument.load(pdf);
     expect(doc.getPageCount()).toBeGreaterThan(1);
     assertInsideMargins(await drawnTexts(pdf));
+  });
+});
+
+describe("Versammlungseinladung: Satzspiegel", () => {
+  const basis = {
+    issuer: kitIssuer,
+    propertyName: "WEG Lindenhof",
+    meetingTitle: "Ordentliche Eigentümerversammlung 2026",
+    scheduledAt: new Date(2026, 8, 17, 18, 30),
+    location: "Gemeindesaal St. Marien, Kirchplatz 3, 45964 Gladbeck",
+    videoLink: null,
+    city: "Gladbeck",
+    createdAt: new Date(2026, 6, 28),
+  };
+
+  it("hält die Ränder mit Empfänger", async () => {
+    const pdf = await generateMeetingInvitation({
+      ...basis,
+      recipient: { name: "Ayşe Şahin-Grünewald", salutation: "Frau", lastName: "Şahin-Grünewald" },
+      recipientAddress: "Lindenstraße 14\n45964 Gladbeck",
+      agenda: [
+        { index: 1, title: "Begrüßung", description: null, type: "INFO" as const },
+        { index: 2, title: "Jahresabrechnung 2025", description: "Mit Bericht des Beirats.", type: "BESCHLUSS" as const },
+      ],
+    });
+    assertInsideMargins(await drawnTexts(pdf));
+  });
+
+  it("hält die Ränder als Vorlagendruck ohne Empfänger", async () => {
+    const pdf = await generateMeetingInvitation({ ...basis, agenda: [] });
+    assertInsideMargins(await drawnTexts(pdf));
+  });
+
+  it("bricht bei langer Tagesordnung um, ohne einen Punkt zu verlieren", async () => {
+    const pdf = await generateMeetingInvitation({
+      ...basis,
+      issuer: langerKitIssuer,
+      videoLink: "https://meet.bw-immobilien-management-gladbeck.de/lindenhof-eigentuemerversammlung-2026",
+      agenda: Array.from({ length: 40 }, (_, i) => ({
+        index: i + 1,
+        title: `Beschluss über die Vergabe der Arbeiten am Bauteil ${i + 1} nebst Finanzierung`,
+        description:
+          "Drei Angebote liegen vor. Die Finanzierung erfolgt aus der Erhaltungsrücklage " +
+          "sowie einer Sonderumlage, fällig in zwei Raten.",
+        type: "BESCHLUSS" as const,
+      })),
+    });
+    const doc = await PDFDocument.load(pdf);
+    expect(doc.getPageCount()).toBeGreaterThan(1);
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    // Kein Punkt darf beim Umbruch verlorengehen.
+    for (let i = 1; i <= 40; i++) {
+      expect(items.some((it) => it.text.startsWith(`TOP ${i}:`)), `TOP ${i} fehlt`).toBe(true);
+    }
   });
 });

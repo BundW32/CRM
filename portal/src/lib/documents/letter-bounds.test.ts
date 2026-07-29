@@ -18,7 +18,9 @@ import { generateWirtschaftsplan } from "./wirtschaftsplan";
 import { generateEinzelabrechnungen } from "./einzelabrechnung";
 import { generateMeetingProtocol } from "./meeting-protocol";
 import { generateBeschlussSammlung } from "./beschluss-sammlung";
+import sharp from "sharp";
 import { generateHandoverPdfBuffer } from "@/lib/handover-pdf";
+import { fotoVorbereiten } from "./photo";
 import { generateEinzelwirtschaftsplaene } from "./einzelwirtschaftsplan";
 import {
   generateMietbescheinigung,
@@ -35,6 +37,10 @@ const PAGE_W = 595.28;
 const LEFT = 20 * MM;
 const RIGHT = PAGE_W - 20 * MM;
 const TOLERANCE = 0.5; // Punkt
+// Grundlinie der Fußzeile (DIN.footerTop = 272 mm von oben). Inhalt, der
+// darunter steht, überschreibt die Fußzeile — das sieht man auf dem Blatt erst,
+// wenn Seitenzahl und Firmenname überdruckt sind.
+const FOOTER_Y = 841.89 - 272 * MM;
 
 function assertInsideMargins(items: DrawnText[]) {
   expect(items.length).toBeGreaterThan(0);
@@ -44,6 +50,8 @@ function assertInsideMargins(items: DrawnText[]) {
     expect(it.x + it.width, where).toBeLessThanOrEqual(RIGHT + TOLERANCE);
     // Nichts unterhalb des Blattrands – genau das war der stille Datenverlust.
     expect(it.y, where).toBeGreaterThan(0);
+    // Und nichts unter der Fußzeile: Dort überdruckt Inhalt die Seitenzahl.
+    expect(it.y, where).toBeGreaterThanOrEqual(FOOTER_Y - TOLERANCE);
   }
 }
 
@@ -478,6 +486,53 @@ describe("Berichte: Satzspiegel", () => {
   });
 });
 
+// Stammdaten einer Übergabe, ohne Räume und Zähler — die setzt jeder Test selbst.
+const uebergabeBasis = {
+  type: "EINZUG",
+  handoverDate: new Date(2026, 6, 1),
+  moveDate: new Date(2026, 6, 1),
+  unit: {
+    label: "WE 07",
+    floor: "3. OG",
+    property: {
+      name: "WEG Lindenhof",
+      street: "Lindenstraße 14",
+      zip: "45964",
+      city: "Gladbeck",
+    },
+  },
+  livingArea: 78.5,
+  roomCount: 3,
+  personCount: 2,
+  tenantName: "Ayşe Şahin-Grünewald",
+  tenantEmail: "ayse@example.de",
+  tenantPhone: "0176 1234567",
+  tenantAddress: "Alte Straße 9, 45879 Gelsenkirchen",
+  tenantBirthDate: new Date(1988, 3, 12),
+  tenant2Name: null,
+  tenant2BirthDate: null,
+  tenant2Signature: null,
+  ownerName: "Petra Kiefer",
+  ownerEmail: null,
+  ownerPhone: null,
+  managerCompany: "B&W Immobilien Management UG",
+  managerName: "Jan Bergmann",
+  managerEmail: null,
+  managerPhone: null,
+  keysApartment: 3,
+  keysMailbox: 2,
+  keysBasement: null,
+  keysGarage: null,
+  keysOther: null,
+  parkingSpace: null,
+  cellarSpace: null,
+  checklist: null,
+  generalNotes: null,
+  agreements: null,
+  tenantSignature: null,
+  managerSignature: null,
+};
+
 describe("Übergabeprotokoll: Satzspiegel", () => {
   it("hält die Ränder und behält Räume, Zähler und Unterschriften", async () => {
     const pdf = await generateHandoverPdfBuffer({
@@ -584,5 +639,84 @@ describe("Logo: nur einmal je Dokument", () => {
     // Das Logo darf das Dokument um seine eigene Größe vergrößern — nicht um
     // ein Vielfaches davon.
     expect(mit.length - ohne.length).toBeLessThan(logoBytes * 2);
+    // Zwei Dokumente à 20 Einheiten — das dauert länger als die Vorgabe.
+  }, 30_000);
+});
+
+describe("Übergabeprotokoll: Fotos", () => {
+  // Die Fotos sind die Beweissicherung. Vorher stand im Protokoll nur
+  // „2 Foto(s) dokumentiert" — im Streitfall belegt das nichts.
+  async function testFoto(breite: number, hoehe: number) {
+    const roh = await sharp({
+      create: {
+        width: breite,
+        height: hoehe,
+        channels: 3,
+        background: { r: 128, g: 128, b: 128 },
+        noise: { type: "gaussian" as const, mean: 128, sigma: 55 },
+      },
+    })
+      .jpeg({ quality: 90 })
+      .toBuffer();
+    const fertig = await fotoVorbereiten(new Uint8Array(roh));
+    expect(fertig).not.toBeNull();
+    return fertig!;
+  }
+
+  it("bettet die Fotos ein und bleibt dabei versandfähig", async () => {
+    // Ein Foto aus der Kamera: 12 MP, hochkant.
+    const foto = await testFoto(3024, 4032);
+    // Verkleinert, sonst trüge ein Protokoll mit zwölf Aufnahmen zweistellige
+    // Megabyte und käme durch keinen Mail-Anhang.
+    expect(foto.breite).toBeLessThanOrEqual(900);
+    expect(foto.jpeg.length).toBeLessThan(200 * 1024);
+
+    const rooms = Array.from({ length: 4 }, (_, r) => ({
+      name: `Raum ${r + 1}`,
+      roomType: "WOHNZIMMER",
+      checks: {},
+      overallNote: null,
+      photos: [{ storedName: "a" }, { storedName: "b" }, { storedName: "c" }],
+      photoImages: Array.from({ length: 3 }, (_, i) => ({
+        bytes: foto.jpeg,
+        breite: foto.breite,
+        hoehe: foto.hoehe,
+        titel: `Aufnahme ${r + 1}.${i + 1}`,
+      })),
+    }));
+
+    const pdf = await generateHandoverPdfBuffer({ ...uebergabeBasis, rooms, meters: [] });
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+
+    // Jede Bildunterschrift steht im Dokument — kein Foto fällt still heraus.
+    const alle = items.map((it) => it.text).join(" ");
+    for (let r = 1; r <= 4; r++) {
+      for (let i = 1; i <= 3; i++) {
+        expect(alle, `Bildunterschrift ${r}.${i} fehlt`).toContain(`Aufnahme ${r}.${i}`);
+      }
+    }
+    // Zwölf Fotos dürfen das Protokoll nicht sprengen.
+    expect(pdf.length).toBeLessThan(2 * 1024 * 1024);
+    // Das Erzeugen eines 12-MP-Testfotos und zwölf Einbettungen brauchen Zeit.
+  }, 30_000);
+
+  it("nennt Fotos, die sich nicht laden ließen, statt sie zu verschweigen", async () => {
+    const pdf = await generateHandoverPdfBuffer({
+      ...uebergabeBasis,
+      rooms: [
+        {
+          name: "Wohnzimmer",
+          roomType: "WOHNZIMMER",
+          checks: {},
+          overallNote: null,
+          photos: [{ storedName: "weg" }, { storedName: "auch-weg" }],
+          photoImages: [],
+        },
+      ],
+      meters: [],
+    });
+    const alle = (await drawnTexts(pdf)).map((it) => it.text).join(" ");
+    expect(alle).toContain("nicht ladbar");
   });
 });

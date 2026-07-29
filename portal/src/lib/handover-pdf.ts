@@ -28,6 +28,11 @@ type Room = {
   checks: unknown; // { key: "ok"|"maengel"|"na", note_key: "…" }
   overallNote: string | null;
   photos: { storedName: string }[];
+  /**
+   * Die aufbereiteten Fotos des Raums. Geladen und verkleinert wird in
+   * `lib/handover.ts` — der Generator greift auf keinen Dateispeicher zu.
+   */
+  photoImages?: { bytes: Uint8Array; breite: number; hoehe: number; titel?: string | null }[];
 };
 
 type Meter = {
@@ -315,8 +320,15 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
           { labelWidth: mm(52), indent: mm(4) },
         );
       }
-      if (room.photos.length > 0) {
-        doc.text(`${room.photos.length} Foto(s) dokumentiert`, {
+      // Die Fotos SIND die Beweissicherung — ein Protokoll, das sie nur zählt
+      // („2 Foto(s) dokumentiert"), belegt im Streitfall nichts. Lassen sie
+      // sich nicht laden, bleibt wenigstens der Hinweis stehen.
+      const bilder = room.photoImages ?? [];
+      if (bilder.length > 0) {
+        doc.space(mm(1));
+        await doc.photos(bilder, { indent: mm(4) });
+      } else if (room.photos.length > 0) {
+        doc.text(`${room.photos.length} Foto(s) dokumentiert (nicht ladbar)`, {
           size: size.foot,
           color: color.muted,
           x: mm(24),

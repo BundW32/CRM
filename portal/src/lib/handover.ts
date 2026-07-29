@@ -5,6 +5,7 @@ import { getBrandingForOrg } from "@/lib/branding-server";
 import { saveBuffer, readUpload } from "@/lib/storage";
 import { generateHandoverPdfBuffer } from "@/lib/handover-pdf";
 import { briefkopfAus } from "@/lib/documents/briefkopf";
+import { fotoVorbereiten } from "@/lib/documents/photo";
 
 const handoverInclude = {
   unit: { include: { property: true } },
@@ -29,8 +30,34 @@ export async function createHandoverPdf(
   const branding = await getBrandingForOrg(handover.organizationId);
   const kopf = await briefkopfAus(branding);
 
+  // Fotos laden und verkleinern. Sie gehören ins Protokoll — es ist ein
+  // Beweissicherungsdokument —, aber unverkleinert wäre es zweistellig
+  // megabyteschwer und käme durch keinen Mail-Anhang.
+  const rooms = await Promise.all(
+    handover.rooms.map(async (room) => ({
+      ...room,
+      photoImages: (
+        await Promise.all(
+          room.photos.map(async (photo) => {
+            try {
+              const bytes = new Uint8Array(await readUpload(photo.storedName));
+              const fertig = await fotoVorbereiten(bytes);
+              return fertig
+                ? { bytes: fertig.jpeg, breite: fertig.breite, hoehe: fertig.hoehe, titel: photo.caption }
+                : null;
+            } catch {
+              // Ein fehlendes Foto darf das Protokoll nicht verhindern.
+              return null;
+            }
+          }),
+        )
+      ).filter((bild) => bild !== null),
+    })),
+  );
+
   const buffer = await generateHandoverPdfBuffer({
     ...handover,
+    rooms,
     checklist: (handover.checklist ?? null) as Record<string, string> | null,
     fallbackCompany: branding.legalName,
     brand: kopf.brand,

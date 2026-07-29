@@ -24,7 +24,6 @@ export function checkbox(doc: Doc, x: number, y: number, checked: boolean): void
     height: s,
     borderColor: color.ink,
     borderWidth: 0.75,
-    color: undefined,
   });
   if (checked) {
     const pad = mm(0.7);

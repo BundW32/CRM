@@ -169,11 +169,13 @@ export async function generateWohnungsgeberbescheinigung(
     }),
     PERSON_ROWS,
   );
+  // Der unangekreuzte Kasten darf nicht auf eine Anlage verweisen, die es nicht
+  // gibt: Wer die Bescheinigung bei der Meldebehörde vorlegt, sucht sie sonst.
   checkboxLine(
     doc,
     weitere
       ? `weitere Personen — siehe Anlage (insgesamt ${input.mieterNamen.length})`
-      : "weitere Personen — siehe Anlage",
+      : "weitere Personen — keine",
     weitere,
     { gap: mm(6) },
   );

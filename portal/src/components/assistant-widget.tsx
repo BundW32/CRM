@@ -8,10 +8,13 @@ import { ask } from "@/app/(portal)/assistent/actions";
 type Source = { type: string; title: string; href: string };
 type Msg = { role: "user" | "assistant"; text: string; sources?: Source[] };
 
+// Die Beispiele sind die einzige Stelle, an der jemand erfährt, was der
+// Assistent überhaupt kann. Sie decken deshalb bewusst die drei Wissensquellen
+// ab und nicht dreimal dieselbe: Geld, Fachbegriff, Unterlagen.
 const EXAMPLES = [
+  "Wie viel Geld hat die Gemeinschaft auf dem Konto?",
+  "Was ist eine Abrechnungsspitze?",
   "Welche Beschlüsse wurden zuletzt gefasst?",
-  "Wann ist die nächste Versammlung?",
-  "Gibt es aktuelle Aushänge?",
 ];
 
 export function AssistantWidget() {

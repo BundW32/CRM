@@ -1663,3 +1663,72 @@ beim nächsten Mal wieder auftreten:
      war die ganze Zeit richtig.
 258. „Konten verlinkt: 0" — im HTML steht `&amp;` statt `&`. Die Suche im
      Quelltext muss beides zulassen.
+
+## Schritt 44 — LP7: Der Assistent bekommt Geld, Begriffe und eine Grenze (29.07.2026)
+
+Der letzte offene Punkt aus `PLAN-Laientauglichkeit.md`. **Zuerst nachgesehen,
+was schon da ist** — und das war das Wichtigste an diesem Schritt: Der Assistent
+existierte bereits, mit rechtegefiltertem Abruf über Beschlüsse, Aushänge,
+Versammlungen, Anträge, Vorgänge und Dokumenttitel, mit Bedienhilfe,
+Quellenangabe und Gemini-Anbindung. Ihn neu zu bauen wäre teuer und falsch
+gewesen. Es fehlten genau die drei Punkte, die der Plan nennt.
+
+259. **Er kannte kein Geld.** Auf „Wie viel haben wir auf dem Konto?" oder „Bin
+     ich im Rückstand?" kam „Dazu finde ich in Ihren Unterlagen nichts" — die
+     häufigsten Fragen eines selbstverwaltenden Eigentümers. Neu ist
+     `assistant-finanzen.ts` mit Kontoständen, Rückständen, dem eigenen Stand
+     und der Lage im Jahreslauf.
+260. **Die Rechte-Grenze verläuft nicht entlang der Rolle, sondern entlang
+     dessen, was der Fragende ohnehin sehen darf.** Kontostände und die
+     **Summe** der Rückstände stehen im Vermögensbericht (§ 28 Abs. 4 WEG), den
+     die Gemeinschaft bekommt — die darf also jeder Eigentümer erfahren.
+     **Wer** säumig ist, steht in keinem Bericht, den alle bekommen, und bleibt
+     der Verwaltung vorbehalten. Den eigenen Stand sieht der Eigentümer über
+     seine Einheiten. Mieter und Handwerker bekommen gar nichts.
+261. **Diese Grenze steht im Code, nicht im Prompt.** Ein Sprachmodell ist keine
+     Zugriffskontrolle. Was `finanzQuellen` nicht herausgibt, kann es auch nicht
+     ausplaudern — deshalb filtert die Funktion, und der Prompt bekommt nur, was
+     ohnehin herausgehen darf.
+262. **Gegengeprüft, dass der Test den Bruch findet.** Mit entferntem
+     `istVerwalter`-Wächter schlägt `assistant-finanzen.test.ts` mit genau der
+     Zeile fehl, um die es geht („expected … not to contain 'WE 02'").
+263. **Und gegengeprüft, dass die Prüfung an echten Daten nicht gegenstandslos
+     ist.** Der erste Lauf gegen die Datenbank meldete „keine fremde Einheit
+     verraten" — er ging aus dem falschen Grund durch: Der Demo-Eigentümer
+     besitzt **alle** sechs Einheiten, es gab schlicht nichts zu verraten. Erst
+     mit `kaeufer@demo.de` (eine Einheit von sechs) war die Probe echt: fünf
+     fremde Einheiten vorhanden, keine davon im Text, die eigene drin, die
+     Gesamtsumme trotzdem sichtbar. Eine Prüfung, die nicht scheitern **kann**,
+     ist keine.
+264. **Das Glossar aus LP3 ist jetzt eine Quelle.** „Was ist eine
+     Abrechnungsspitze?" war bis dahin unbeantwortbar. Bewusst dieselben Texte,
+     die im Programm an den Begriffen hängen — eine zweite Sammlung daneben
+     altert getrennt, und dann erklärt der Assistent etwas anderes als die Seite.
+265. **Abgrenzung zur Rechtsberatung im Prompt.** Der Assistent erklärt Recht,
+     er wendet es nicht an. Ohne diesen Satz klingt eine Auskunft zu einem
+     Paragraphen wie eine Rechtsberatung — und wird dann auch so verstanden.
+266. **Finanzquellen tragen das Datum „heute".** Die Kandidaten werden bei
+     Gleichstand nach Aktualität sortiert. Fragt jemand nach dem Kontostand,
+     ist die heutige Zahl die Antwort — nicht ein Beschluss von 2024, der
+     zufällig dieselben Wörter enthält.
+267. **Die Beispielfragen decken jetzt die drei Quellen ab** statt dreimal
+     dieselbe. Sie sind die einzige Stelle, an der jemand erfährt, was der
+     Assistent überhaupt kann.
+268. **Punkt 1 des Plans bleibt bewusst offen.** „Speist sich aus `app-nav.ts`"
+     — die Bedienhilfe deckt das inhaltlich ab. Aus `app-nav.ts` erzeugte
+     Einträge wären Menütitel ohne Erklärung, und die Erklärung ist der Teil,
+     der hilft.
+
+**Was ich nicht prüfen konnte, und das ist ein echter Unterschied zu allem
+anderen hier:** Die Antwort von Gemini selbst. In dieser Umgebung liegt kein
+Schlüssel, und ausgehende Verbindungen sind ohnehin gesperrt. Geprüft ist die
+gesamte Kette **bis** zum Modell — Abruf, Rechtefilter, Prompt-Aufbau — sowie
+das Verhalten bei ungültigem Schlüssel: Der Assistent antwortet dann „momentan
+nicht erreichbar", ohne Absturz und ohne 500er. Im Browser mit drei Rollen
+gegengeprüft: Verwalter und Eigentümer sehen den Assistenten, der Mieter nicht.
+
+**Zum Betrieb:** Der Assistent braucht **zwei** Umgebungsvariablen, nicht eine —
+`GEMINI_API_KEY` **und** `AI_ASSISTANT_ENABLED="true"`. Fehlt eine davon,
+erscheint er gar nicht erst. Das ist Absicht (Freitext geht an Google, das
+gehört bewusst eingeschaltet), aber es ist auch die Stolperstelle: Ein
+hinterlegter Schlüssel allein genügt nicht.

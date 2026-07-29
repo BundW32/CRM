@@ -2,6 +2,7 @@
 // versenden. Wird von der PDF-Route, dem Mailversand und dem Mahnwesen genutzt,
 // damit die Assembly nur an einer Stelle lebt.
 import { db } from "@/lib/db";
+import path from "node:path";
 import { renderPlatformInvoicePdf } from "@/lib/documents/platform-invoice";
 import { formatInvoiceNumber, platformIssuer } from "@/lib/platform";
 import { MailAttachment, isMailEnabled, sendMail } from "@/lib/mailer";
@@ -24,6 +25,9 @@ type LoadedInvoice = NonNullable<Awaited<ReturnType<typeof loadInvoiceForPdf>>>;
 // Baut das Rechnungs-PDF aus einem geladenen Datensatz.
 export async function buildInvoicePdf(invoice: LoadedInvoice): Promise<Buffer> {
   return renderPlatformInvoicePdf({
+    // Der Betreiber tritt hier als Absender auf, nicht ein Mandant — deshalb
+    // das feste Logo aus public/ und nicht das Branding der Organisation.
+    logoPath: path.join(process.cwd(), "public", "bw-logo.png"),
     year: invoice.year,
     number: invoice.number,
     title: invoice.title,

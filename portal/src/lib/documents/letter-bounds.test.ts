@@ -11,6 +11,7 @@ import { PDFDocument } from "pdf-lib";
 import { generateMahnung } from "./mahnung";
 import { generateBetriebskosten } from "./betriebskosten";
 import { generateMeetingInvitation } from "./meeting-invitation";
+import { renderPlatformInvoicePdf } from "./platform-invoice";
 // Gemeinsamer Prüfhelfer: liest über pdf.js zurück und kommt damit sowohl mit
 // den eingebetteten Schriften des Kits als auch mit den noch nicht umgestellten
 // Standard-Schriften zurecht.
@@ -200,5 +201,62 @@ describe("Versammlungseinladung: Satzspiegel", () => {
     for (let i = 1; i <= 40; i++) {
       expect(items.some((it) => it.text.startsWith(`TOP ${i}:`)), `TOP ${i} fehlt`).toBe(true);
     }
+  });
+});
+
+describe("Plattform-Rechnung: Satzspiegel", () => {
+  const basis = {
+    year: 2026,
+    number: 148,
+    title: "Portalnutzung Jahresbeitrag 2026",
+    vatRate: 19,
+    issuedAt: new Date(2026, 6, 28),
+    dueAt: new Date(2026, 7, 11),
+    createdAt: new Date(2026, 6, 28),
+    recipient: {
+      name: "Hausverwaltung Kiefer",
+      legalName: "Hausverwaltung Kiefer GmbH",
+      street: "Rosenweg 3a",
+      zip: "45879",
+      city: "Gelsenkirchen",
+    },
+    issuer: {
+      legalName: "B&W Immobilien Management UG (haftungsbeschränkt)",
+      contactLine: "Goethestraße 42 · 45964 Gladbeck · abrechnung@bw-immobilien.de",
+      iban: "DE02 4265 0150 0000 1234 56",
+      bank: "Sparkasse Gladbeck",
+      vatId: "DE123456789",
+    },
+  };
+
+  it("hält die Ränder bei üblichen Positionen", async () => {
+    const pdf = await renderPlatformInvoicePdf({
+      ...basis,
+      status: "OFFEN" as const,
+      items: [
+        { description: "Portalnutzung Grundgebühr (12 Monate)", quantity: 12, unitPriceCents: 4900 },
+        { description: "Verwaltete Einheiten über Kontingent", quantity: 34, unitPriceCents: 120 },
+      ],
+    });
+    assertInsideMargins(await drawnTexts(pdf));
+  });
+
+  it("bricht bei vielen Positionen um und behält die Summen", async () => {
+    const pdf = await renderPlatformInvoicePdf({
+      ...basis,
+      status: "STORNIERT" as const,
+      items: Array.from({ length: 60 }, (_, i) => ({
+        description: `Position ${i + 1}: Zusatzleistung mit ausführlicher Bezeichnung im Vertrag`,
+        quantity: 3,
+        unitPriceCents: 12345,
+      })),
+    });
+    const doc = await PDFDocument.load(pdf);
+    expect(doc.getPageCount()).toBeGreaterThan(1);
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    expect(items.some((it) => it.text.startsWith("Gesamtbetrag"))).toBe(true);
+    // Der Storno-Hinweis darf nicht untergehen.
+    expect(items.some((it) => it.text.includes("storniert"))).toBe(true);
   });
 });

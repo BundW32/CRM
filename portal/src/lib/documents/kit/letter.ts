@@ -43,18 +43,6 @@ export type LetterHead = {
   infoBlock?: [string, string][];
 };
 
-/**
- * PNG oder JPEG — ein hochgeladenes Logo ist mal das eine, mal das andere,
- * und pdf-lib hat für jedes eine eigene Funktion.
- */
-async function embedImage(doc: Doc, bytes: Uint8Array) {
-  try {
-    return await doc.pdf.embedPng(bytes);
-  } catch {
-    return await doc.pdf.embedJpg(bytes);
-  }
-}
-
 /** Die Anschriftzone fasst fünf Zeilen à 4,23 mm. */
 const MAX_ADDRESS_LINES = 5;
 
@@ -78,7 +66,8 @@ export async function drawBrandHead(
     typeof logo === "string" ? (fs.existsSync(logo) ? fs.readFileSync(logo) : null) : (logo ?? null);
   if (bytes) {
     try {
-      const image = await embedImage(doc, bytes);
+      // Über doc.image(), damit ein mehrseitiges Dokument das Logo nur einmal trägt.
+      const image = await doc.image(logo!, bytes);
       const height = mm(13);
       const width = image.width * (height / image.height);
       page.drawImage(image, {

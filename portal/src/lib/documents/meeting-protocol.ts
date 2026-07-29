@@ -55,6 +55,8 @@ export async function generateMeetingProtocol(input: MeetingProtocolInput): Prom
     author: input.issuer.legalName,
     subject: `Protokoll der Eigentümerversammlung ${input.propertyName} vom ${fmtDate(input.scheduledAt)}`,
     brand: input.brand,
+    // Das Protokoll geht als Anhang oder Ausdruck heraus, nie im Umschlag.
+    marks: false,
   });
   doc.newPage();
 

@@ -21,8 +21,11 @@ export type ReportHead = {
    * Bearbeitungsstand, z. B. „Entwurf — noch nicht beschlossen".
    * Als Wort, nicht als diagonales Wasserzeichen: Das lag quer über der Seite
    * und war im Schwarzweißdruck kaum zu erkennen.
+   *
+   * `neutral` für Angaben, die gar kein Stand sind, sondern eine Art — „Einzug"
+   * ist weder gut noch schlecht und darf nicht wie „beschlossen" aussehen.
    */
-  status?: { text: string; tone?: "draft" | "final" } | null;
+  status?: { text: string; tone?: "draft" | "final" | "neutral" } | null;
   /** Kennzahlen rechts neben dem Titel: Zeitraum, Stand, Beschlussdatum. */
   meta?: [string, string][];
 };
@@ -59,7 +62,12 @@ export async function drawReportHead(doc: Doc, head: ReportHead): Promise<void> 
     doc.text(head.status.text, {
       size: size.small,
       font: doc.bold,
-      color: head.status.tone === "final" ? color.credit : color.due,
+      color:
+        head.status.tone === "final"
+          ? color.credit
+          : head.status.tone === "neutral"
+            ? doc.brand
+            : color.due,
       lead: mm(6),
     });
   }

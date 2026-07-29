@@ -7,7 +7,7 @@
 //
 // Hier gibt es das genau einmal, und jeder Baustein begrenzt sich selbst gegen
 // seine eigene Box. Ein Aufrufer kann das nicht mehr vergessen.
-import { PDFDocument, PDFPage, type PDFFont, type RGB } from "pdf-lib";
+import { PDFDocument, PDFPage, type PDFFont, type PDFImage, type RGB } from "pdf-lib";
 import { fitText, wrapText } from "../pdf-text";
 import { embedFonts } from "./fonts";
 import {
@@ -28,6 +28,13 @@ export type DocMeta = {
   subject?: string;
   /** Mandantenfarbe (#rrggbb bereits aufgelöst). */
   brand?: RGB;
+  /**
+   * Falz- und Lochmarken. Standard ist `true`, weil die meisten Dokumente in
+   * einen Fensterumschlag gehen — auch die je Einheit versandten Abrechnungen
+   * und Wirtschaftspläne. Wer nie kuvertiert (Beschluss-Sammlung, Protokolle),
+   * schaltet sie ab: Sonst stehen unerklärliche Striche am linken Rand.
+   */
+  marks?: boolean;
 };
 
 export type TableColumn = {
@@ -52,16 +59,26 @@ export class Doc {
   readonly font: PDFFont;
   readonly bold: PDFFont;
   readonly brand: RGB;
+  private readonly marks: boolean;
 
   page!: PDFPage;
   y = 0;
   private readonly pages: PDFPage[] = [];
+  /** Einmal eingebettete Bilder, nach Quelle. Siehe `image()`. */
+  private readonly images = new Map<string | Uint8Array, PDFImage>();
 
-  private constructor(pdf: PDFDocument, font: PDFFont, bold: PDFFont, brand: RGB) {
+  private constructor(
+    pdf: PDFDocument,
+    font: PDFFont,
+    bold: PDFFont,
+    brand: RGB,
+    marks: boolean,
+  ) {
     this.pdf = pdf;
     this.font = font;
     this.bold = bold;
     this.brand = brand;
+    this.marks = marks;
   }
 
   static async create(meta: DocMeta): Promise<Doc> {
@@ -75,7 +92,7 @@ export class Doc {
     pdf.setCreator(meta.author);
     pdf.setProducer("B&W Portal");
     pdf.setCreationDate(new Date());
-    return new Doc(pdf, regular, bold, meta.brand ?? color.brand);
+    return new Doc(pdf, regular, bold, meta.brand ?? color.brand, meta.marks ?? true);
   }
 
   // ── Seiten ─────────────────────────────────────────────────────────────────
@@ -84,7 +101,7 @@ export class Doc {
     this.page = this.pdf.addPage([PAGE.width, PAGE.height]);
     this.pages.push(this.page);
     this.y = PAGE.height - mm(30);
-    this.drawMarks();
+    if (this.marks) this.drawMarks();
     return this.page;
   }
 
@@ -100,6 +117,30 @@ export class Doc {
     mark(DIN.foldMark1, mm(4));
     mark(DIN.foldMark2, mm(4));
     mark(DIN.holeMark, mm(7));
+  }
+
+  /**
+   * Bettet ein Bild EINMAL je Dokument ein und gibt es danach wieder zurück.
+   *
+   * `embedPng` legt bei jedem Aufruf ein neues Bildobjekt an. Der Berichtskopf
+   * läuft in den Einzelabrechnungen je Einheit einmal — bei 120 Einheiten trug
+   * das Dokument 120 Kopien desselben Logos: 19,6 MB statt 0,5 MB und 48 s
+   * statt 19 s. Aufgefallen war es nie, weil ein PDF mit 120 Logos genauso
+   * aussieht wie eines mit einem.
+   *
+   * PNG oder JPEG — ein hochgeladenes Logo ist mal das eine, mal das andere.
+   */
+  async image(source: string | Uint8Array, bytes: Uint8Array): Promise<PDFImage> {
+    const bekannt = this.images.get(source);
+    if (bekannt) return bekannt;
+    let bild: PDFImage;
+    try {
+      bild = await this.pdf.embedPng(bytes);
+    } catch {
+      bild = await this.pdf.embedJpg(bytes);
+    }
+    this.images.set(source, bild);
+    return bild;
   }
 
   /** Bricht um, wenn die nächsten `needed` Punkte nicht mehr über die Fußzeile passen. */

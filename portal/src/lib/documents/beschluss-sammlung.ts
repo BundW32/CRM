@@ -54,6 +54,8 @@ export async function generateBeschlussSammlung(input: BeschlussSammlungInput): 
     author: input.issuer.legalName,
     subject: `Beschluss-Sammlung nach § 24 Abs. 7 WEG, ${input.propertyName}`,
     brand: input.brand,
+    // Die Sammlung wird abgelegt und eingesehen, nie kuvertiert.
+    marks: false,
   });
   doc.newPage();
 

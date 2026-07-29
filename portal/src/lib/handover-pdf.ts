@@ -4,7 +4,6 @@
 // `PageWriter`-Klasse mit eigenen Rändern (42 pt statt 20 mm), eigener Fußzeile
 // und eigenem Kopf mit randabfallendem Farbbalken — den schneidet jeder
 // Bürodrucker ab, und die Maße passten zu keinem anderen Dokument des Portals.
-import path from "path";
 import {
   CONTENT_WIDTH,
   Doc,
@@ -13,6 +12,7 @@ import {
   mm,
   size,
 } from "@/lib/documents/kit";
+import type { RGB } from "pdf-lib";
 import {
   checksForRoomType,
   ALL_ROOM_CHECK_LABELS,
@@ -77,6 +77,12 @@ type HandoverData = {
   meters: Meter[];
   // Fallback-Firmenname (Org-Branding), falls managerCompany leer ist.
   fallbackCompany?: string | null;
+  /** Mandantenfarbe aus dem Branding. */
+  brand?: RGB;
+  /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
+  logo?: string | Uint8Array | null;
+  /** Kontaktzeilen der Verwaltung für den Kopf. */
+  issuerLines?: string[];
 };
 
 const DEFAULT_COMPANY = "B&W Immobilien Management UG";
@@ -157,15 +163,21 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
     title: `Wohnungsübergabeprotokoll — ${prop.name}, ${data.unit.label}`,
     author: company,
     subject: `${TYPE_LABELS[data.type] ?? data.type} am ${fmt(data.handoverDate)}`,
+    brand: data.brand,
+    // Das Protokoll wird vor Ort unterschrieben und ausgehändigt.
+    marks: false,
   });
   doc.newPage();
 
   await drawReportHead(doc, {
-    issuer: { legalName: company, lines: objektAnschrift ? [objektAnschrift] : [] },
-    logo: path.join(process.cwd(), "public", "bw-logo.png"),
+    // Der Firmenname bleibt `managerCompany`: Das ist die Verwaltung, die DIESE
+    // Übergabe protokolliert hat — nicht zwingend der Mandant, dem das Portal
+    // gehört. Farbe, Logo und Kontaktzeilen kommen dagegen aus dem Branding.
+    issuer: { legalName: company, lines: data.issuerLines ?? [] },
+    logo: data.logo,
     title: "Wohnungsübergabeprotokoll",
     subtitle: [`${prop.name} · ${data.unit.label}`, objektAnschrift].filter(Boolean).join("\n"),
-    status: { text: TYPE_LABELS[data.type] ?? data.type, tone: "final" },
+    status: { text: TYPE_LABELS[data.type] ?? data.type, tone: "neutral" },
     meta: [
       ["Protokolldatum", fmt(data.handoverDate)],
       ...(data.moveDate

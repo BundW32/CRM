@@ -6,6 +6,8 @@
 // sichtbar wird — erst bei langen Objektnamen oder vielen Positionen. Der Test
 // prüft deshalb jeden Brief zweimal: mit normalen und mit absichtlich
 // überlangen Daten.
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { PDFDocument } from "pdf-lib";
 import { generateMahnung } from "./mahnung";
@@ -542,5 +544,45 @@ describe("Übergabeprotokoll: Satzspiegel", () => {
     const alle = items.map((it) => it.text).join(" ");
     expect(alle).toContain("Raum 12");
     expect(alle).toContain("Protokollführer");
+  });
+});
+
+describe("Logo: nur einmal je Dokument", () => {
+  // Ein PDF mit 40 Kopien desselben Logos sieht aus wie eines mit einem —
+  // aufgefallen ist das erst beim Messen: 6,5 MB statt 327 KB und 16 s statt
+  // 6,5 s für die Einzelabrechnungen eines mittleren Objekts.
+  const einheit = (i: number) => ({
+    label: `WE ${String(i + 1).padStart(2, "0")}`,
+    owners: [{ name: "Ayşe Şahin-Grünewald", days: 365, cents: 0 }],
+    uncoveredCents: 0,
+    costRows: [
+      { name: "Hausmeisterdienst", keyLabel: "Miteigentumsanteile", totalCents: 123456, shareCents: 10288 },
+    ],
+    kostenanteilCents: 123456,
+    sollCents: 120000,
+    peakCents: 3456,
+    laborHaushaltsnahCents: 0,
+    laborHandwerkerCents: 0,
+    laborUnerfasstCents: 0,
+  });
+  const basis = {
+    propertyName: "WEG Lindenhof",
+    issuer: kitIssuer,
+    year: 2026,
+    periodLabel: "01.01.2026 – 31.12.2026",
+    finalizedAt: new Date(2027, 2, 14),
+    generatedAt: new Date(2027, 2, 14),
+  };
+
+  it("wächst nicht mit der Seitenzahl", async () => {
+    const units = Array.from({ length: 20 }, (_, i) => einheit(i));
+    const logo = path.join(process.cwd(), "public", "bw-logo.png");
+    const ohne = await generateEinzelabrechnungen({ ...basis, units });
+    const mit = await generateEinzelabrechnungen({ ...basis, units, logo });
+
+    const logoBytes = fs.statSync(logo).size;
+    // Das Logo darf das Dokument um seine eigene Größe vergrößern — nicht um
+    // ein Vielfaches davon.
+    expect(mit.length - ohne.length).toBeLessThan(logoBytes * 2);
   });
 });

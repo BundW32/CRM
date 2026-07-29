@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { saveBuffer, readUpload } from "@/lib/storage";
 import { generateHandoverPdfBuffer } from "@/lib/handover-pdf";
+import { briefkopfAus } from "@/lib/documents/briefkopf";
 
 const handoverInclude = {
   unit: { include: { property: true } },
@@ -23,13 +24,18 @@ export async function createHandoverPdf(
   if (!handover) return null;
 
   // Org-Branding als Fallback für den Protokollführer (Verwaltung), falls am
-  // Übergabe-Datensatz keine managerCompany hinterlegt ist.
+  // Übergabe-Datensatz keine managerCompany hinterlegt ist — und für die
+  // Mandantenoptik (Farbe, Logo, Kontaktzeilen) im Kopf des Protokolls.
   const branding = await getBrandingForOrg(handover.organizationId);
+  const kopf = await briefkopfAus(branding);
 
   const buffer = await generateHandoverPdfBuffer({
     ...handover,
     checklist: (handover.checklist ?? null) as Record<string, string> | null,
     fallbackCompany: branding.legalName,
+    brand: kopf.brand,
+    logo: kopf.logo,
+    issuerLines: kopf.issuer.lines,
   });
 
   const unitLabel = handover.unit.label.replace(/[^a-zA-Z0-9]/g, "_");

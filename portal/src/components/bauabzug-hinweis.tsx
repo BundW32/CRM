@@ -118,13 +118,13 @@ export function BauabzugHinweis({
 
       {warnt && pruefung.pflicht ? (
         <div className="w-full">
-          <Alert variant="warning" title={`Bauabzugsteuer: ${formatCents(pruefung.einbehaltCents)} € einbehalten`}>
+          <Alert variant="warning" title={`Bauabzugsteuer: ${formatCents(pruefung.einbehaltCents)} einbehalten`}>
             <p>
               {pruefung.grund === "FREISTELLUNG_ABGELAUFEN"
                 ? "Die Freistellungsbescheinigung dieses Handwerkers ist abgelaufen."
                 : "Für diesen Handwerker liegt keine gültige Freistellungsbescheinigung vor."}{" "}
               Mit dieser Zahlung übersteigt die Gemeinschaft in diesem Kalenderjahr{" "}
-              {formatCents(pruefung.gesamtCents)} € an Bauleistungen an ihn. Ab 5.000 € müssen
+              {formatCents(pruefung.gesamtCents)} an Bauleistungen an ihn. Ab 5.000 € müssen
               Sie {EINBEHALT_PROZENT} % einbehalten und ans Finanzamt abführen — sonst haftet
               die Gemeinschaft dafür (§§ 48, 48a Abs. 3 EStG).
             </p>

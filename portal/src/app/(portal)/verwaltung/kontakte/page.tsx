@@ -17,6 +17,9 @@ import {
 import { contactKindLabels, roleLabels } from "@/lib/labels";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
+import { formatCents } from "@/lib/money";
+import { freistellungGueltig } from "@/lib/weg/bauabzugsteuer";
+import { bauleistungenJeHandwerker } from "@/lib/weg/bauabzugsteuer-service";
 import { KontaktZeile } from "./KontaktZeile";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +57,23 @@ export default async function KontaktePage({
   const mandate = parseMandate(params.vollmacht);
   const currentPage = parsePage(params.page);
   const sort = resolveSort(params.sort, params.dir, SORT_FIELDS, "name", "asc");
+
+  // Vorwarnung zur Bauabzugsteuer (§ 48 EStG).
+  //
+  // Die Warnung im Buchungsformular kommt richtig, aber spät: Wer dort steht,
+  // hat die Rechnung schon in der Hand. Wer bei 4.000 € steht, soll die
+  // Bescheinigung **vor** dem nächsten Auftrag anfordern — dann ist das Thema
+  // für das ganze Jahr erledigt. Deshalb hier, wo die Handwerker gepflegt
+  // werden, und nicht in der Buchhaltung.
+  const bauleistungen = await bauleistungenJeHandwerker(verwalter.organizationId, new Date());
+  const bauabzugFaelle = bauleistungen.filter(
+    (h) =>
+      h.naehe !== "FREI" &&
+      !freistellungGueltig(
+        { nummer: h.freistellung.nummer, gueltigBis: h.freistellung.gueltigBis },
+        new Date(),
+      ),
+  );
 
   const { entries, total } = await loadAddressBook(verwalter, {
     q,
@@ -103,6 +123,33 @@ export default async function KontaktePage({
       >
         Kontakte
       </PageTitle>
+
+      {bauabzugFaelle.length > 0 ? (
+        <Alert variant="warning" className="mb-4" title="Freistellungsbescheinigung fehlt">
+          <p>
+            Für {bauabzugFaelle.length === 1 ? "diesen Handwerker" : "diese Handwerker"} nähert
+            sich die Gemeinschaft in diesem Kalenderjahr der 5.000-€-Grenze für Bauleistungen
+            oder hat sie überschritten — ohne gültige Freistellungsbescheinigung müssen Sie dann
+            15 % einbehalten und ans Finanzamt abführen (§ 48 EStG).
+          </p>
+          <ul className="mt-2 space-y-1">
+            {bauabzugFaelle.map((h) => (
+              <li key={h.craftsmanId}>
+                <Link href={`/verwaltung/kontakte/${h.craftsmanId}`} className="underline">
+                  {h.name}
+                </Link>{" "}
+                — {formatCents(h.bisherCents)} in diesem Jahr
+                {h.naehe === "UEBER" ? " (Grenze überschritten)" : ""}
+                {h.freistellung.nummer ? ", Bescheinigung abgelaufen" : ""}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2">
+            Fordern Sie die Bescheinigung an — die meisten Betriebe haben eine — und tragen Sie
+            sie beim Kontakt ein. Dann entfällt der Einbehalt.
+          </p>
+        </Alert>
+      ) : null}
 
       {/* Erfolg meldet der ToastHost (`?flash=…`) – er erscheint auch dann,
           wenn die Aktion von einer anderen Seite zurückspringt. Fehler bleiben

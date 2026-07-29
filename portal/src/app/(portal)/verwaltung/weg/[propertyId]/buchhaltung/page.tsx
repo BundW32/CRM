@@ -72,6 +72,13 @@ const FEHLER_TEXTE: Record<string, string> = {
     "Das Wirtschaftsjahr ist abgeschlossen — für dieses Jahr liegt eine fertige Jahresabrechnung vor. Buchungen abgeschlossener Jahre bleiben unverändert.",
   schonstorniert: "Diese Buchung ist bereits storniert (oder ist selbst eine Stornobuchung).",
   handwerker: "Der gewählte Handwerker gehört nicht zu Ihrer Organisation.",
+  // Nachträglich, also nach der Zahlung. Bewusst anders formuliert als die
+  // Warnung im Buchungsformular: Einbehalten lässt sich hier nichts mehr, das
+  // Geld ist überwiesen. Was bleibt, ist die Anmeldung und die Bescheinigung
+  // fürs nächste Mal. Eine Meldung, die zum Einbehalt auffordert, wäre an
+  // dieser Stelle schlicht nicht ausführbar.
+  bauabzugnachtraeglich:
+    "Zugeordnet — mit einem Hinweis: Für diesen Handwerker sind in diesem Kalenderjahr mehr als 5.000 € an Bauleistungen gebucht, ohne dass eine gültige Freistellungsbescheinigung vorliegt (§ 48 EStG). Die Zahlungen sind bereits erfolgt, einbehalten lässt sich nichts mehr. Fordern Sie die Bescheinigung an und sprechen Sie den Fall mit Ihrem Steuerberater durch.",
   // Nicht „Fehler bei der Eingabe", sondern die Handlungsanweisung: Der Nutzer
   // hat nichts falsch getippt, er soll etwas tun (LP2).
   bauabzugsteuer:
@@ -611,7 +618,21 @@ export default async function WegBuchhaltungPage({
                     ))}
                   </select>
                 </Field>
-                <PendingButton className={buttonSecondaryClass}>Kostenart setzen</PendingButton>
+                {/* Handwerker gleich mit zuordnen. Für importierte Buchungen ist
+                    das der einzige Weg zur Prüfung nach § 48 EStG: Die Bank
+                    liefert nur Text, und über Text lässt sich nicht summieren. */}
+                <Field label="Handwerker (optional)">
+                  <select name="craftsmanId" className={`${inputClass} w-auto`} defaultValue="">
+                    <option value="">— unverändert lassen —</option>
+                    <option value="OHNE">— Zuordnung aufheben —</option>
+                    {handwerkerWahl.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <PendingButton className={buttonSecondaryClass}>Zuordnen</PendingButton>
                 <Tipp className="w-full">
                   Erst in der Liste auswählen, dann Kostenart wählen und setzen. Umbuchungen
                   tragen keine Kostenart — sie sind kein Aufwand, sondern verschieben Geld

@@ -15,6 +15,7 @@ import {
   parseCsv,
   type ColumnMapping,
 } from "@/lib/weg/bank-import";
+import { pruefeZahlung } from "@/lib/weg/bauabzugsteuer-service";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { loadWegProperty } from "@/lib/weg/scope";
 import { allDatesEditable } from "@/lib/weg/statement-lock";
@@ -45,6 +46,10 @@ const bookingSchema = z.object({
   text: z.string().trim().min(2).max(500),
   counterparty: z.string().trim().max(200).optional(),
   reference: z.string().trim().max(500).optional(),
+  /** Verknüpfter Handwerker — Grundlage der § 48-Prüfung. */
+  craftsmanId: z.string().optional(),
+  /** Der Nutzer hat die Bauabzugsteuer-Warnung gesehen und trotzdem gebucht. */
+  bauabzugBestaetigt: z.string().optional(),
 });
 
 export async function createBooking(formData: FormData) {
@@ -60,6 +65,8 @@ export async function createBooking(formData: FormData) {
     text: formData.get("text"),
     counterparty: String(formData.get("counterparty") ?? "") || undefined,
     reference: String(formData.get("reference") ?? "") || undefined,
+    craftsmanId: String(formData.get("craftsmanId") ?? "") || undefined,
+    bauabzugBestaetigt: String(formData.get("bauabzugBestaetigt") ?? "") || undefined,
   });
   if (!parsed.success) redirect("/verwaltung/weg");
   const property = await loadWegProperty(verwalter, parsed.data.propertyId);
@@ -95,6 +102,35 @@ export async function createBooking(formData: FormData) {
     }
   }
 
+  // Handwerker muss zur eigenen Organisation gehören (IDOR-Schutz).
+  if (parsed.data.craftsmanId) {
+    const handwerker = await db.craftsman.findFirst({
+      where: { id: parsed.data.craftsmanId, organizationId: verwalter.organizationId },
+      select: { id: true },
+    });
+    if (!handwerker) back(property.id, "fehler=handwerker");
+  }
+
+  // ── Bauabzugsteuer (§ 48 EStG) ─────────────────────────────────────────────
+  //
+  // Die Prüfung läuft **hier**, nicht nur im Browser: Das Häkchen in der
+  // Sprechblase ist eine Bestätigung des Nutzers, keine Zusicherung — wer das
+  // Formular ohne JavaScript abschickt, käme sonst an der Warnung vorbei.
+  //
+  // Gesperrt wird trotzdem nicht. Ob einbehalten wurde, weiß nur der Mensch
+  // davor; vielleicht wurde bereits gekürzt überwiesen. Verlangt wird eine
+  // bewusste Entscheidung, und die wird protokolliert.
+  const bauabzug = await pruefeZahlung({
+    organizationId: verwalter.organizationId,
+    craftsmanId: parsed.data.craftsmanId ?? null,
+    costTypeId: parsed.data.costTypeId ?? null,
+    betragCents: amountCents,
+    stichtag: bookingDate,
+  });
+  if (bauabzug.pflicht && parsed.data.kind === "AUSGABE" && parsed.data.bauabzugBestaetigt !== "ja") {
+    back(property.id, "fehler=bauabzugsteuer");
+  }
+
   // Optionaler Beleg (Foto/PDF)
   let beleg: { storedName: string; fileName: string; mimeType: string } | null = null;
   const file = formData.get("beleg");
@@ -118,6 +154,7 @@ export async function createBooking(formData: FormData) {
       laborShareCents,
       text: parsed.data.text,
       counterparty: parsed.data.counterparty ?? null,
+      craftsmanId: parsed.data.craftsmanId ?? null,
       reference: parsed.data.reference ?? null,
       belegStoredName: beleg?.storedName ?? null,
       belegFileName: beleg?.fileName ?? null,
@@ -130,7 +167,17 @@ export async function createBooking(formData: FormData) {
     action: AUDIT.WEG_BOOKING_CREATED,
     targetType: "Booking",
     targetId: created.id,
-    meta: { kind: parsed.data.kind, amountCents, account: account.name },
+    meta: {
+      kind: parsed.data.kind,
+      amountCents,
+      account: account.name,
+      // Wer trotz Einbehaltungspflicht ungekürzt bucht, hinterlässt eine Spur.
+      // Bei einer späteren Haftungsfrage ist genau das die Frage: Wusste es
+      // jemand, und wann?
+      ...(bauabzug.pflicht
+        ? { bauabzugsteuerBestaetigt: true, einbehaltCents: bauabzug.einbehaltCents }
+        : {}),
+    },
   });
   revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
   back(property.id, "gespeichert=buchung");
@@ -426,6 +473,10 @@ export async function assignCostType(formData: FormData) {
   const verwalter = await requireVerwalter();
   const propertyId = String(formData.get("propertyId") ?? "");
   const costTypeId = String(formData.get("costTypeId") ?? "");
+  // Handwerker mitzuordnen ist der einzige Weg, importierte Buchungen für die
+  // Prüfung nach § 48 EStG greifbar zu machen: Der Bankimport liefert nur
+  // Verwendungszweck-Text, und über Text lässt sich nicht summieren.
+  const craftsmanId = String(formData.get("craftsmanId") ?? "");
   const bookingIds = formData
     .getAll("bookingId")
     .map((v) => String(v))
@@ -442,6 +493,17 @@ export async function assignCostType(formData: FormData) {
       select: { id: true },
     });
     if (!costType) back(property.id, "fehler=kostenart");
+  }
+
+  // „—" lässt den Handwerker unverändert; „ohne" hebt die Zuordnung auf. Ohne
+  // diese Unterscheidung löschte jedes Setzen einer Kostenart die mühsam
+  // gepflegte Handwerker-Zuordnung gleich mit.
+  if (craftsmanId && craftsmanId !== "OHNE") {
+    const handwerker = await db.craftsman.findFirst({
+      where: { id: craftsmanId, organizationId: verwalter.organizationId },
+      select: { id: true },
+    });
+    if (!handwerker) back(property.id, "fehler=handwerker");
   }
 
   // Nur Buchungen dieses Objekts — und nur solche, die eine Kostenart tragen
@@ -463,17 +525,45 @@ export async function assignCostType(formData: FormData) {
 
   await db.booking.updateMany({
     where: { id: { in: bookings.map((b) => b.id) } },
-    data: { costTypeId: costTypeId || null },
+    data: {
+      costTypeId: costTypeId || null,
+      ...(craftsmanId ? { craftsmanId: craftsmanId === "OHNE" ? null : craftsmanId } : {}),
+    },
   });
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_BOOKING_COSTTYPE_ASSIGNED,
     targetType: "Booking",
     targetId: bookings.length === 1 ? bookings[0].id : property.id,
-    meta: { count: bookings.length, costTypeId: costTypeId || null },
+    meta: { count: bookings.length, costTypeId: costTypeId || null, craftsmanId: craftsmanId || null },
   });
+
+  // Nachträgliche Prüfung nach § 48 EStG.
+  //
+  // **Hier wird nicht gewarnt, sondern informiert** — und der Unterschied ist
+  // kein sprachlicher: Diese Buchungen stammen aus dem Bankauszug, das Geld ist
+  // längst überwiesen. Einbehalten lässt sich nichts mehr. Was bleibt, ist die
+  // Anmeldung beim Finanzamt und die Bescheinigung für das nächste Mal. Ein
+  // Formular zu blockieren, dessen Zahlung schon raus ist, hülfe niemandem.
+  let hinweis = "";
+  if (craftsmanId && craftsmanId !== "OHNE" && costTypeId) {
+    const kostenart = await db.costType.findUnique({
+      where: { id: costTypeId },
+      select: { constructionWork: true },
+    });
+    if (kostenart?.constructionWork) {
+      const pruefung = await pruefeZahlung({
+        organizationId: verwalter.organizationId,
+        craftsmanId,
+        costTypeId,
+        betragCents: 0, // schon gebucht — geprüft wird der erreichte Jahresstand
+        stichtag: new Date(),
+      });
+      if (pruefung.pflicht) hinweis = "&fehler=bauabzugnachtraeglich";
+    }
+  }
   revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
-  back(property.id, `zugeordnet=${bookings.length}`);
+  back(property.id, `zugeordnet=${bookings.length}${hinweis}`);
 }
 
 // ── §35a-Lohnanteil nachtragen ───────────────────────────────────────────────

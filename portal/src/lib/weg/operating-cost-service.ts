@@ -2,7 +2,7 @@
 // WEG-Jahresabrechnung ab (M-K). Gemeinsame Grundlage für Seite und PDF-Route.
 import { db } from "@/lib/db";
 import { co2PerUnit } from "@/lib/weg/co2-allocation";
-import { distributionKeyLabels } from "@/lib/labels";
+import { umlageschluesselText } from "@/lib/weg/umlageschluessel-text";
 import { computeOperatingCosts, type OperatingCostResult } from "@/lib/weg/operating-costs";
 import type { StatementView } from "@/lib/weg/statement-service";
 
@@ -26,6 +26,8 @@ export type OperatingCostStatement = {
   prepaymentMonthlyCents: number;
   co2Present: boolean;
   co2LandlordCents: number;
+  /** Enthält die Abrechnung Heiz-/Warmwasserkosten? Dann braucht sie den Hinweis nach HeizkostenV. */
+  heatingPresent: boolean;
   result: OperatingCostResult;
 };
 
@@ -77,7 +79,8 @@ export async function deriveOperatingCostStatement(params: {
       unitShareCents: r.perUnit![params.unitId] ?? 0,
       recoverable: recoverable.get(r.costTypeId) ?? false,
       totalCents: r.totalCents,
-      keyLabel: distributionKeyLabels[r.distributionKey] ?? r.distributionKey,
+      keyLabel: umlageschluesselText(r),
+      heatingCost: Boolean(r.heatingCost),
     }));
 
   // Vermieter-CO2-Anteil dieser Einheit (falls für das Jahr erfasst).
@@ -117,6 +120,7 @@ export async function deriveOperatingCostStatement(params: {
     months,
     prepaymentMonthlyCents,
     co2Present: Boolean(allocation),
+    heatingPresent: rows.some((r) => r.heatingCost),
     co2LandlordCents,
     result,
   };

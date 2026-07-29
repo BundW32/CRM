@@ -9,6 +9,7 @@ export type OperatingCostInput = {
   recoverable: boolean; // nach BetrKV auf den Mieter umlagefähig?
   totalCents: number; // Gesamtkosten der Liegenschaft für diese Kostenart
   keyLabel: string; // Umlageschlüssel im Klartext, z. B. "Wohnfläche"
+  heatingCost?: boolean; // Heiz-/Warmwasserkosten nach HeizkostenV
 };
 
 // Eine Abrechnung muss die Gesamtkosten, den Verteilerschlüssel und den daraus

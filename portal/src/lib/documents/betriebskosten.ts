@@ -5,6 +5,7 @@
 // CO2-Anteil nach CO2KostAufG zwischen Vermieter und Mieter aufgeteilt.
 import { briefAnrede, anschriftZeilen, type Empfaenger } from "./anrede";
 import { formatCents } from "@/lib/money";
+import { HEIZKOSTEN_HINWEIS } from "@/lib/weg/umlageschluessel-text";
 import {
   CONTENT_WIDTH,
   Doc,
@@ -23,7 +24,7 @@ export type BetriebskostenZeile = {
   cents: number;
   /** Gesamtkosten der Liegenschaft für diese Kostenart. */
   totalCents: number;
-  /** Umlageschlüssel im Klartext, z. B. „Wohnfläche". */
+  /** Umlageschlüssel im Klartext, z. B. „Wohnfläche" oder „70 % Verbrauch, 30 % Wohnfläche". */
   keyLabel: string;
 };
 
@@ -49,6 +50,11 @@ export type BetriebskostenInput = {
   prepaymentCents: number;
   /** + Nachzahlung, − Guthaben */
   balanceCents: number;
+  /**
+   * Enthält die Abrechnung Heiz-/Warmwasserkosten? Dann bekommt die Anlage die
+   * Fußnote zur Aufteilung nach HeizkostenV.
+   */
+  heatingPresent?: boolean;
   city: string | null;
   createdAt: Date;
 };
@@ -160,9 +166,11 @@ export async function generateBetriebskosten(input: BetriebskostenInput): Promis
   });
 
   const spalten = [
-    { header: "Kostenart", width: 40 },
-    { header: "Gesamtkosten", width: 20, align: "right" as const },
-    { header: "Umlageschlüssel", width: 24 },
+    // Beträge brauchen wenig Platz, der Schlüssel viel: „70 % Verbrauch,
+    // 30 % Wohnfläche" ist länger als jede Zahl in der Tabelle.
+    { header: "Kostenart", width: 36 },
+    { header: "Gesamtkosten", width: 16, align: "right" as const },
+    { header: "Umlageschlüssel", width: 32 },
     { header: "Ihr Anteil", width: 16, align: "right" as const },
   ];
   const zeile = (row: BetriebskostenZeile, muted = false): TableCell[] => [
@@ -200,6 +208,10 @@ export async function generateBetriebskosten(input: BetriebskostenInput): Promis
   }
 
   doc.space(mm(6));
+  if (input.heatingPresent) {
+    doc.para(HEIZKOSTEN_HINWEIS, { size: size.small, color: color.muted });
+    doc.space(mm(3));
+  }
   doc.para(
     "Die Gesamtkosten stammen aus der Jahresabrechnung der Wohnungseigentümergemeinschaft. " +
       "Ihr Anteil ergibt sich aus dem jeweils angegebenen Umlageschlüssel.",

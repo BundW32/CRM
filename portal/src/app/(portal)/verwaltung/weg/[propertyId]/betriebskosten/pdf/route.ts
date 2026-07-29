@@ -57,6 +57,7 @@ export async function GET(
       recoverableSumCents: data.result.recoverableSumCents,
       co2LandlordDeductionCents: data.result.co2LandlordDeductionCents,
       tenantCostsCents: data.result.tenantCostsCents,
+      heatingPresent: data.heatingPresent,
       months: data.months,
       prepaymentMonthlyCents: data.prepaymentMonthlyCents,
       prepaymentCents: data.result.prepaymentCents,

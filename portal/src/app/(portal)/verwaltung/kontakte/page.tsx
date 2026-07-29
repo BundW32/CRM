@@ -111,7 +111,9 @@ export default async function KontaktePage({
         <Alert variant="error" className="mb-4">
           {fehler === "email"
             ? "Diese E-Mail-Adresse wird bereits von einer anderen Person verwendet."
-            : "Bitte Pflichtfelder (Name, Art) korrekt ausfüllen."}
+            : fehler === "bescheinigung"
+              ? "Die Freistellungsbescheinigung konnte nicht gespeichert werden (erlaubt: Foto oder PDF). Nummer und Gültigkeitsdatum wurden ebenfalls nicht übernommen — bitte erneut speichern."
+              : "Bitte Pflichtfelder (Name, Art) korrekt ausfüllen."}
         </Alert>
       ) : null}
 

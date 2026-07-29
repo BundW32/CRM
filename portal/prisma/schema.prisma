@@ -756,6 +756,12 @@ model Craftsman {
   // Programm bei jedem Handwerker und würde nach dem dritten Mal weggeklickt.
   exemptionNumber      String? // Sicherheitsnummer der Bescheinigung
   exemptionValidUntil  DateTime? // Gültig bis; danach greift der Einbehalt wieder
+  // Die Bescheinigung als Datei (gleiche Storage-Konvention wie Beleg/Anhang).
+  // Nummer und Datum steuern die Prüfung; das Dokument ist der Nachweis, den
+  // das Finanzamt im Zweifel sehen will — eine abgetippte Nummer ist keiner.
+  exemptionStoredName  String?
+  exemptionFileName    String?
+  exemptionMimeType    String?
   createdAt            DateTime              @default(now())
   tickets              Ticket[]
   comments             TicketComment[]       @relation("CraftsmanComments")

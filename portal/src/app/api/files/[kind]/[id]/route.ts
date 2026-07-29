@@ -87,6 +87,26 @@ export async function GET(
         };
       }
     }
+  } else if (kind === "freistellung" && user?.role === "VERWALTER") {
+    // Freistellungsbescheinigung nach § 48b EStG. Nur Verwalter der eigenen
+    // Organisation — die Bescheinigung enthält Steuernummer und Anschrift des
+    // Betriebs und geht Eigentümer und Mieter nichts an.
+    const handwerker = await db.craftsman.findUnique({
+      where: { id },
+      select: {
+        organizationId: true,
+        exemptionStoredName: true,
+        exemptionFileName: true,
+        exemptionMimeType: true,
+      },
+    });
+    if (handwerker?.exemptionStoredName && handwerker.organizationId === user.organizationId) {
+      file = {
+        storedName: handwerker.exemptionStoredName,
+        fileName: handwerker.exemptionFileName ?? `freistellungsbescheinigung-${id}.pdf`,
+        mimeType: handwerker.exemptionMimeType ?? "application/pdf",
+      };
+    }
   } else if (kind === "rechnung") {
     // Handwerker-Rechnung (M-L): Verwalter im Ticket-Scope ODER der Handwerker,
     // der die Rechnung eingereicht hat (Magic-Link).

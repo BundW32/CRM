@@ -7,6 +7,7 @@ import { z } from "zod";
 import { canVerwalterManageUser, canVerwalterUseCraftsman } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
+import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
 
 // Rücksprung: `updatePersonContact` läuft aus der Adressbuch-Zeile UND von der
 // Kontakt-Detailseite. Der Pfad wird gegen ein festes Muster geprüft, damit über
@@ -212,6 +213,17 @@ export async function updateCraftsman(formData: FormData) {
     redirect(zurueckZu(formData, "?fehler=eingabe"));
   }
 
+  // Optionale Datei der Freistellungsbescheinigung.
+  let bescheinigung: { storedName: string; fileName: string; mimeType: string } | null = null;
+  const datei = formData.get("exemptionFile");
+  if (datei instanceof File && datei.size > 0) {
+    try {
+      bescheinigung = await saveUpload(datei, DOCUMENT_TYPES);
+    } catch {
+      redirect(zurueckZu(formData, "?fehler=bescheinigung"));
+    }
+  }
+
   await db.craftsman.update({
     where: { id },
     data: {
@@ -225,6 +237,15 @@ export async function updateCraftsman(formData: FormData) {
       notes: parsed.data.notes || null,
       exemptionNumber: parsed.data.exemptionNumber || null,
       exemptionValidUntil: freistellungsDatum(parsed.data.exemptionValidUntil),
+      // Nur überschreiben, wenn wirklich eine neue Datei kam. Sonst löschte
+      // jedes Speichern der Telefonnummer die hinterlegte Bescheinigung.
+      ...(bescheinigung
+        ? {
+            exemptionStoredName: bescheinigung.storedName,
+            exemptionFileName: bescheinigung.fileName,
+            exemptionMimeType: bescheinigung.mimeType,
+          }
+        : {}),
     },
   });
   revalidatePath("/verwaltung/kontakte");

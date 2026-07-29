@@ -1,6 +1,7 @@
 "use client";
 
 import { DateField, toDateInputValue } from "@/components/fields";
+import { FileInput } from "@/components/file-input";
 import { inputClass } from "@/components/ui";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
@@ -29,6 +30,8 @@ export type Karteikarte = {
   /** Freistellungsbescheinigung § 48b EStG (ISO-Datum). */
   exemptionNumber: string | null;
   exemptionValidUntil: string | null;
+  /** Ist die Bescheinigung als Datei hinterlegt? */
+  exemptionFileName: string | null;
   active: boolean;
   isInternal: boolean;
 };
@@ -49,7 +52,9 @@ export function KarteikarteFormular({
 }) {
   return (
     <>
-      <form action={updateCraftsman} className="grid gap-2 sm:grid-cols-2">
+      {/* `encType` ist Pflicht, sobald eine Datei mitgeht — ohne sie käme beim
+          Server nur der Dateiname an, nicht die Datei. */}
+      <form action={updateCraftsman} encType="multipart/form-data" className="grid gap-2 sm:grid-cols-2">
         <input type="hidden" name="id" value={k.id} />
         <input type="hidden" name="zurueck" value={zurueck} />
         <label>
@@ -165,6 +170,32 @@ export function KarteikarteFormular({
                 name="exemptionValidUntil"
                 defaultValue={k.exemptionValidUntil ? toDateInputValue(new Date(k.exemptionValidUntil)) : undefined}
               />
+              <div className="sm:col-span-2">
+                {/* Die hinterlegte Datei steht **über** dem Auswahlfeld. Darunter
+                    stand sie im Prüflauf halb hinter dem „Keine Datei gewählt"
+                    des Auswahlfelds und wurde vom Rahmen abgeschnitten — und
+                    genau diese Zeile ist die Antwort auf „ist sie schon da?". */}
+                {k.exemptionFileName ? (
+                  <p className="mb-2 text-xs text-gray-600">
+                    Hinterlegt:{" "}
+                    <a
+                      href={`/api/files/freistellung/${k.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      {k.exemptionFileName}
+                    </a>{" "}
+                    — eine neue Datei ersetzt sie.
+                  </p>
+                ) : null}
+                <label>
+                  <span className="mb-1 block text-xs text-gray-500">
+                    Bescheinigung als Datei (Foto oder PDF, optional)
+                  </span>
+                  <FileInput name="exemptionFile" accept="image/*,application/pdf" />
+                </label>
+              </div>
             </div>
           </fieldset>
         ) : null}

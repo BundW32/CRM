@@ -150,9 +150,13 @@ const CAPTION_CSS = `
 const holdMs = (text) =>
   Math.max(2000, Math.min(6000, Math.round((text.replace(/[*|]/g, "").length / 14) * 1000) + 550));
 
+// Mehrfach aufrufbar: Die App navigiert clientseitig, der DOM überlebt den
+// Seitenwechsel. Ohne das Aufräumen entstehen doppelte Ebenen, und die
+// Einblendung landet auf der alten.
 async function installOverlay(page) {
   await page.addStyleTag({ content: CURSOR_CSS + CAPTION_CSS });
   await page.evaluate(() => {
+    for (const id of ["__capscrim", "__cap"]) document.getElementById(id)?.remove();
     for (const [id, html] of [
       ["__capscrim", ""],
       ["__cap", ""],

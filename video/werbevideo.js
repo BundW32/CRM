@@ -88,8 +88,11 @@ async function main() {
     const t0 = Date.now();
     await page.goto(card("Keine Verwaltung|für Ihre WEG?"));
     await page.waitForTimeout(400);
-    const end = shot("01-hook", t0, "hook");
+    // 300 ms Vorlauf: Die Zeilen sind schon im Bild, wenn die Einstellung
+    // beginnt. Sonst startet die Schleife auf einer leeren Tafel.
     await page.evaluate(() => window.__play());
+    await page.waitForTimeout(300);
+    const end = shot("01-hook", t0, "hook");
     await page.waitForTimeout(2900);
     end();
     await context.close();
@@ -174,6 +177,11 @@ async function main() {
     await page.evaluate(() => window.__capHide());
     await page.waitForTimeout(260);
     await clickAt(page, 'button:has-text("Abrechnung anlegen")');
+    // Zeiger ausblenden: Die App navigiert clientseitig, der synthetische
+    // Zeiger überlebt den Seitenwechsel und stünde sonst ohne Aufgabe über
+    // den Zahlen der fertigen Abrechnung.
+    await page.evaluate(() => window.__curHide?.());
+    await page.mouse.move(1279, 719);
     endA();
     // Die Rechenpause gehört ins Bild: Sie erzeugt die Erwartung, die das
     // Ergebnis trägt.
@@ -224,8 +232,9 @@ async function main() {
     const t0 = Date.now();
     await page.goto(card("Ihre Gemeinschaft.|*Ihre Zahlen.*", "cta"));
     await page.waitForTimeout(400);
-    const end = shot("10-cta", t0, "cta");
     await page.evaluate(() => window.__play());
+    await page.waitForTimeout(300);
+    const end = shot("10-cta", t0, "cta");
     await page.waitForTimeout(3600);
     end();
     await context.close();

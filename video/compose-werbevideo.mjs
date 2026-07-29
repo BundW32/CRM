@@ -28,7 +28,9 @@ const MAX_SHOT = 5.0; // Sekunden — Obergrenze je Einstellung
 
 const ff = (args) => execFileSync(ffmpegPath, args, { stdio: ["ignore", "pipe", "pipe"] });
 
-const shots = JSON.parse(readFileSync(path.join(OUT, "manifest.json"), "utf8"));
+// MANIFEST wählt die Schnittliste: manifest.json für die Vollversion,
+// manifest-loop.json für die Hero-Schleife.
+const shots = JSON.parse(readFileSync(path.join(OUT, process.env.MANIFEST || "manifest.json"), "utf8"));
 rmSync(CUT, { recursive: true, force: true });
 mkdirSync(CUT, { recursive: true });
 

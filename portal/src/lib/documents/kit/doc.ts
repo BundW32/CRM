@@ -379,27 +379,75 @@ export class Doc {
     this.y = top - height - mm(6);
   }
 
-  /** Bezeichnung/Wert mit fester Wertespalte — Bankverbindungen, Kennzahlen. */
-  defList(rows: [string, string][], options: { labelWidth?: number } = {}): void {
+  /**
+   * Bezeichnung/Wert mit fester Wertespalte — Bankverbindungen, Eckdaten.
+   *
+   * Der Wert bricht um, statt zu kürzen: Anschriften, Notizen und Links sind
+   * genau die Angaben, bei denen ein „…" die Auskunft wertlos macht.
+   */
+  defList(
+    rows: [string, string][],
+    options: { labelWidth?: number; indent?: number } = {},
+  ): void {
     const labelWidth = options.labelWidth ?? mm(38);
+    const x = DIN.marginLeft + (options.indent ?? 0);
+    const valueX = x + labelWidth;
+    const valueWidth = DIN.marginLeft + CONTENT_WIDTH - valueX;
     for (const [key, value] of rows) {
-      this.ensure(leading.body);
+      const lines = wrapText(value, this.font, size.body, valueWidth);
+      this.ensure(leading.body * Math.max(1, lines.length));
       this.page.drawText(fitText(key, this.font, size.body, labelWidth - mm(3)), {
-        x: DIN.marginLeft,
+        x,
         y: this.y,
         size: size.body,
         font: this.font,
         color: color.muted,
       });
-      this.page.drawText(fitText(value, this.font, size.body, CONTENT_WIDTH - labelWidth), {
-        x: DIN.marginLeft + labelWidth,
-        y: this.y,
-        size: size.body,
-        font: this.font,
-        color: color.ink,
+      lines.forEach((line, i) => {
+        this.page.drawText(line, {
+          x: valueX,
+          y: this.y - i * leading.body,
+          size: size.body,
+          font: this.font,
+          color: color.ink,
+        });
       });
-      this.y -= leading.body;
+      this.y -= leading.body * Math.max(1, lines.length);
     }
+  }
+
+  /**
+   * Abschnittsüberschrift mit hinterlegtem Band und Akzent in der
+   * Mandantenfarbe. Ein langes Dokument braucht sichtbare Abschnitte — im
+   * Übergabeprotokoll trennt sie Eckdaten, Räume, Zähler und Unterschriften.
+   */
+  section(title: string): void {
+    const height = mm(7.5);
+    this.ensure(height + mm(6));
+    this.y -= mm(2);
+    const top = this.y + mm(2);
+    this.page.drawRectangle({
+      x: DIN.marginLeft,
+      y: top - height,
+      width: CONTENT_WIDTH,
+      height,
+      color: color.panel,
+    });
+    this.page.drawRectangle({
+      x: DIN.marginLeft,
+      y: top - height,
+      width: mm(1.2),
+      height,
+      color: this.brand,
+    });
+    this.page.drawText(fitText(title, this.bold, size.body, CONTENT_WIDTH - mm(10)), {
+      x: DIN.marginLeft + mm(5),
+      y: top - height + mm(2.3),
+      size: size.body,
+      font: this.bold,
+      color: color.ink,
+    });
+    this.y = top - height - mm(5);
   }
 
   /**

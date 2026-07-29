@@ -16,6 +16,7 @@ import { generateWirtschaftsplan } from "./wirtschaftsplan";
 import { generateEinzelabrechnungen } from "./einzelabrechnung";
 import { generateMeetingProtocol } from "./meeting-protocol";
 import { generateBeschlussSammlung } from "./beschluss-sammlung";
+import { generateHandoverPdfBuffer } from "@/lib/handover-pdf";
 import { generateEinzelwirtschaftsplaene } from "./einzelwirtschaftsplan";
 import {
   generateMietbescheinigung,
@@ -472,5 +473,74 @@ describe("Berichte: Satzspiegel", () => {
     for (let i = 1; i <= 40; i++) {
       expect(alle, `Nr. ${i} fehlt`).toContain(`Nr. ${i}`);
     }
+  });
+});
+
+describe("Übergabeprotokoll: Satzspiegel", () => {
+  it("hält die Ränder und behält Räume, Zähler und Unterschriften", async () => {
+    const pdf = await generateHandoverPdfBuffer({
+      type: "EINZUG",
+      handoverDate: new Date(2026, 6, 1),
+      moveDate: new Date(2026, 6, 1),
+      unit: {
+        label: "WE 07 · Dachgeschoss links",
+        floor: "3. OG",
+        property: {
+          name: "Wohnungseigentümergemeinschaft Lindenhof-Gladbeck",
+          street: "Lindenstraße 14, Hinterhaus",
+          zip: "45964",
+          city: "Gladbeck-Zweckel",
+        },
+      },
+      livingArea: 78.5,
+      roomCount: 3,
+      personCount: 2,
+      tenantName: "Ayşe Şahin-Grünewald",
+      tenantEmail: "ayse.sahin-gruenewald@sehr-lange-domain-fuer-den-test.example.de",
+      tenantPhone: "0176 1234567",
+      tenantAddress: "Alte Straße 9, Aufgang B, 45879 Gelsenkirchen-Buer",
+      tenantBirthDate: new Date(1988, 3, 12),
+      tenant2Name: "Krzysztof Wiśniewski-Öztürk",
+      tenant2BirthDate: new Date(1986, 1, 3),
+      tenant2Signature: null,
+      ownerName: "Petra Kiefer",
+      ownerEmail: "kiefer@example.de",
+      ownerPhone: null,
+      managerCompany: "B&W Immobilien Management UG (haftungsbeschränkt)",
+      managerName: "Jan Bergmann",
+      managerEmail: "bergmann@bw-immobilien.de",
+      managerPhone: "02043 123456",
+      keysApartment: 3,
+      keysMailbox: 2,
+      keysBasement: 1,
+      keysGarage: null,
+      keysOther: "1x Fahrradkeller, 1x Dachboden",
+      parkingSpace: "TG 12",
+      cellarSpace: "K7",
+      checklist: { fenster: "maengel", note_fenster: "Dichtung im Wohnzimmer porös", rauchmelder: "na" },
+      generalNotes: "Die Wohnung wurde besenrein übergeben.",
+      agreements: "Die Dichtung wird bis zum 31.08.2026 durch den Vermieter erneuert.",
+      tenantSignature: null,
+      managerSignature: null,
+      rooms: Array.from({ length: 12 }, (_, i) => ({
+        name: `Raum ${i + 1} mit einer ungewöhnlich ausführlichen Bezeichnung`,
+        roomType: "WOHNZIMMER",
+        checks: { waende: "maengel", note_waende: "Kleine Druckstelle neben der Tür, Tapete gelöst" },
+        overallNote: "Insgesamt gepflegt.",
+        photos: [{ storedName: "a" }],
+      })),
+      meters: Array.from({ length: 6 }, (_, i) => ({
+        meterType: "STROM",
+        meterNumber: `1EW00123456${i}`,
+        reading: "42.318,7",
+        readingDate: new Date(2026, 6, 1),
+        notes: null,
+      })),
+    });
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    const alle = items.map((it) => it.text).join(" ");
+    expect(alle).toContain("Raum 12");
+    expect(alle).toContain("Protokollführer");
   });
 });

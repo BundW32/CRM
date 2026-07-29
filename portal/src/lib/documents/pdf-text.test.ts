@@ -1,50 +1,33 @@
 import { describe, expect, it } from "vitest";
 import { PDFDocument, StandardFonts } from "pdf-lib";
-import { encodeWinAnsi, fitText, wrapText } from "./pdf-text";
+import { fitText, normalizeText, wrapText } from "./pdf-text";
 
-describe("encodeWinAnsi", () => {
+describe("normalizeText", () => {
   it("normalisiert CRLF/CR/Tab, damit widthOfTextAtSize nicht crasht", () => {
-    expect(encodeWinAnsi("a\r\nb")).toBe("a\nb");
-    expect(encodeWinAnsi("a\rb")).toBe("a\nb");
-    expect(encodeWinAnsi("a\tb")).toBe("a b");
-    // Kein rohes CR/Tab mehr enthalten.
-    expect(encodeWinAnsi("x\r\ny\t z")).not.toMatch(/[\r\t]/);
+    expect(normalizeText("a\r\nb")).toBe("a\nb");
+    expect(normalizeText("a\rb")).toBe("a\nb");
+    expect(normalizeText("a\tb")).toBe("a b");
+    expect(normalizeText("x\r\ny\t z")).not.toMatch(/[\r\t]/);
   });
 
-  it("erhält von Helvetica kodierbare CP1252-Sonderbuchstaben", () => {
-    expect(encodeWinAnsi("Šimon Žák")).toBe("Šimon Žák");
-    expect(encodeWinAnsi("Œuvre œ Ÿ ƒ")).toBe("Œuvre œ Ÿ ƒ");
-  });
-
-  it("bildet Typografie auf ASCII ab", () => {
-    expect(encodeWinAnsi("„Test“")).toBe('"Test"');
-    expect(encodeWinAnsi("‚x‘")).toBe("'x'");
-    expect(encodeWinAnsi("a–b—c")).toBe("a-b-c");
-    expect(encodeWinAnsi("x…")).toBe("x...");
-    expect(encodeWinAnsi("A→B")).toBe("A->B");
-  });
-
-  it("ersetzt echt unkodierbare Zeichen (Emoji, nicht-latein) durch ?", () => {
-    expect(encodeWinAnsi("Hallo \u{1f600}")).toBe("Hallo ?");
-    expect(encodeWinAnsi("日本語")).toBe("???");
+  it("erhält Zeichen, die die eingebettete Schrift darstellen kann", () => {
+    expect(normalizeText("Ayşe Şahin-Grünewald")).toBe("Ayşe Şahin-Grünewald");
+    expect(normalizeText("Krzysztof Wiśniewski")).toBe("Krzysztof Wiśniewski");
+    expect(normalizeText("„Test“ – x…")).toBe("„Test“ – x…");
   });
 
   it("wandelt geschütztes Leerzeichen in normales Leerzeichen", () => {
-    expect(encodeWinAnsi("a b")).toBe("a b");
-    expect(encodeWinAnsi("a b")).toBe("a b");
+    expect(normalizeText("a\u00a0b")).toBe("a b");
+    expect(normalizeText("a\u202fb")).toBe("a b");
+  });
+
+  it("entfernt übrige Steuerzeichen", () => {
+    expect(normalizeText("a\u0007b")).toBe("ab");
   });
 
   it("behandelt null/undefined als leeren String", () => {
-    expect(encodeWinAnsi(null)).toBe("");
-    expect(encodeWinAnsi(undefined)).toBe("");
-  });
-
-  it("liefert ausschließlich WinAnsi-kodierbaren Text (kein Crash in pdf-lib)", async () => {
-    const pdf = await PDFDocument.create();
-    const font = await pdf.embedFont(StandardFonts.Helvetica);
-    const nasty = "Zeile1\r\nZeile2\tTab \u{1f600} 日本語 Š €";
-    // Darf NICHT werfen:
-    expect(() => font.widthOfTextAtSize(encodeWinAnsi(nasty).replace(/\n/g, " "), 10)).not.toThrow();
+    expect(normalizeText(null)).toBe("");
+    expect(normalizeText(undefined)).toBe("");
   });
 });
 

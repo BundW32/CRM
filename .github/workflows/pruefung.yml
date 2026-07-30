@@ -53,3 +53,63 @@ jobs:
       # Genau der Befehl, den auch Vercel ausführt.
       - name: Typprüfung, Linter und Tests
         run: npm run pruefung
+
+  # ── Prüfungen gegen eine echte Datenbank ──────────────────────────────────
+  #
+  # Eigener Job, weil `npm run pruefung` auch im Vercel-Build läuft und dort
+  # keine Datenbank erreichbar ist — die `*.dbtest.ts` gehören deshalb nicht in
+  # das Skript (siehe portal/AGENTS.md).
+  #
+  # **Warum dieser Job dazukam.** Die Prüfungen der Mandantentrennung
+  # (`access.dbtest.ts`, `session.dbtest.ts`) lagen im Bestand, wurden aber von
+  # **niemandem** automatisch ausgeführt: Der Workflow rief nur `pruefung`, und
+  # das lässt sie aus. Damit war die Wand zwischen zwei Kunden durch Tests
+  # abgedeckt, die nie liefen — der unangenehmste Zustand, weil er nach
+  # Abdeckung aussieht. Wer eine Zugriffsfunktion kaputt macht, muss es hier
+  # erfahren, nicht im Betrieb.
+  datenbank:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: portal
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: pruefung
+          POSTGRES_DB: pruefung
+        ports:
+          - 5432:5432
+        # Ohne Health-Check startet der nächste Schritt, bevor die Datenbank
+        # Verbindungen annimmt — der Lauf scheitert dann an etwas, das gar
+        # nicht kaputt ist.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:pruefung@localhost:5432/pruefung
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      # Das Schema von null aufbauen — dieselben Migrationen wie in Produktion.
+      # Schlägt das fehl, ist eine Migration kaputt, und das ist der wichtigere
+      # Befund als jeder Testfehler danach.
+      - name: Migrationen anwenden
+        run: npx prisma migrate deploy
+
+      - name: Prüfungen mit Datenbank
+        run: npm run test:db

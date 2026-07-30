@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { uebernehmeBasiszinssaetze } from "@/lib/weg/basiszins-abruf-service";
 
 function backTo(suffix = ""): string {
   return `/verwaltung/basiszinssatz${suffix}`;
@@ -77,36 +76,4 @@ export async function deleteBaseRate(formData: FormData) {
   await db.baseInterestRate.delete({ where: { id: satz.id } });
   revalidatePath("/verwaltung/basiszinssatz");
   redirect(backTo("?flash=geloescht"));
-}
-
-/**
- * Sätze bei der Bundesbank abrufen und fehlende Halbjahre nachtragen.
- *
- * Denselben Weg geht der monatliche Cron-Lauf; dieser Knopf ist der Auslöser
- * von Hand — damit sich der Abruf sofort prüfen lässt, statt bis zum Zweiten
- * des nächsten Monats zu warten.
- *
- * **Vorhandene Sätze bleiben unangetastet.** Der Abruf ergänzt nur, was fehlt.
- *
- * Die Rückmeldung nennt Zahlen statt „hat geklappt": Wie viele Sätze
- * dazugekommen sind, ist die eigentliche Auskunft — und „0 neu" heißt, dass
- * alles schon da war, nicht dass etwas schiefging.
- */
-export async function abrufBaseRates() {
-  const verwalter = await requireVerwalter();
-  const ergebnis = await uebernehmeBasiszinssaetze({
-    organizationId: verwalter.organizationId,
-  });
-  revalidatePath("/verwaltung/basiszinssatz");
-
-  if (ergebnis.fehler) {
-    // Der Grund wandert in die URL, weil die Ursache außerhalb liegt und der
-    // Nutzer sie kennen muss, um zu entscheiden: warten oder von Hand eintragen.
-    redirect(backTo(`?abrufFehler=${encodeURIComponent(ergebnis.fehler)}`));
-  }
-  redirect(
-    backTo(
-      `?abrufOk=${ergebnis.neu}&abrufGeprueft=${ergebnis.gefunden.length}`,
-    ),
-  );
 }

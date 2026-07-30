@@ -12,10 +12,6 @@
     {
       "path": "/api/cron/pruefpflichten",
       "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/basiszinssatz",
-      "schedule": "0 5 2 * *"
     }
   ]
 }

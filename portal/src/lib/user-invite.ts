@@ -11,6 +11,7 @@ import { db } from "./db";
 import { getBrandingForOrg } from "./branding-server";
 import { generatePassword, generateUsername } from "./credentials";
 import { portalUrlFromRequest, sendMail } from "./mailer";
+import { hashToken } from "./token-hash";
 
 const INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 Tage
 
@@ -44,7 +45,9 @@ export async function inviteOrLetter(opts: {
         phone: opts.phone ?? undefined,
         role: opts.role,
         passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12),
-        passwordResetToken: inviteToken,
+        // Nur der Hash landet in der Datenbank – der Rohwert bleibt allein im
+        // Einladungslink.
+        passwordResetToken: hashToken(inviteToken),
         passwordResetExpiry: new Date(Date.now() + INVITE_TTL_MS),
         organizationId: opts.organizationId,
       },

@@ -13,6 +13,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { isReservedSlug } from "@/lib/slug";
 import { trialDays } from "@/lib/platform";
 import { registrationEnabled } from "@/lib/app-mode";
+import { hashToken } from "@/lib/token-hash";
 
 // Version der bei der Registrierung akzeptierten Rechtsdokumente (AGB/AVV).
 // Bei inhaltlichen Änderungen hochzählen → erneute Zustimmung einholbar.
@@ -144,7 +145,9 @@ export async function registerOrganization(formData: FormData) {
         passwordHash,
         organizationId: org.id,
         isSuperAdmin: true,
-        emailVerifyToken: verifyToken,
+        // Nur der Hash landet in der Datenbank – der Rohwert bleibt allein im
+        // Bestätigungslink.
+        emailVerifyToken: hashToken(verifyToken),
         emailVerifyExpiry: verifyExpiry,
       },
     });

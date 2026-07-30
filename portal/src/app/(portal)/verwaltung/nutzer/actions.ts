@@ -16,6 +16,7 @@ import { IMAGE_TYPES, deleteBlob, saveBuffer } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
+import { hashToken } from "@/lib/token-hash";
 
 // ── Rücksprung ──────────────────────────────────────────────────────
 // Dieselben Aktionen laufen von zwei Oberflächen: der Nutzerliste und der
@@ -326,7 +327,9 @@ export async function createUser(formData: FormData) {
         preferredContact: pcOrNull(parsed.data.preferredContact),
         role: parsed.data.role,
         passwordHash,
-        passwordResetToken: inviteToken,
+        // Nur der Hash landet in der Datenbank – der Rohwert bleibt allein im
+        // Einladungslink.
+        passwordResetToken: hashToken(inviteToken),
         passwordResetExpiry: inviteExpiry,
         organizationId: actor.organizationId,
       },
@@ -526,7 +529,8 @@ export async function resendInvite(formData: FormData) {
   const inviteExpiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
   await db.user.update({
     where: { id },
-    data: { passwordResetToken: inviteToken, passwordResetExpiry: inviteExpiry },
+    // Nur der Hash landet in der Datenbank – der Rohwert bleibt allein im Link.
+    data: { passwordResetToken: hashToken(inviteToken), passwordResetExpiry: inviteExpiry },
   });
 
   const link = await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`);

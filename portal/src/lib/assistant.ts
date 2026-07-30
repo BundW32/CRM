@@ -340,10 +340,36 @@ export async function askAssistant(user: User, question: string): Promise<Assist
       },
     ).finally(() => clearTimeout(timer));
 
-    if (!res.ok) return { answer: "Der Assistent ist momentan nicht erreichbar.", sources: [] };
+    if (!res.ok) {
+      // Der Grund muss sichtbar werden. Vorher endeten Modellfehler,
+      // Schlüsselprobleme und Zeitüberschreitungen alle in derselben
+      // Sammelmeldung — und damit war von außen nicht zu unterscheiden, ob der
+      // Schlüssel fehlt, das Modell nicht existiert oder Google gerade streikt.
+      // Genau diese Frage stand hier einen halben Tag im Raum.
+      //
+      // **Die Adresse wird nicht mitgeloggt**: Sie trägt den API-Schlüssel im
+      // Query-String. Statuscode, Modellname und ein Auszug der Antwort reichen
+      // zur Einordnung und enthalten kein Geheimnis.
+      const fehlertext = await res.text().catch(() => "");
+      console.error(
+        `[assistant] Gemini antwortete ${res.status} für Modell "${model}": ${fehlertext.slice(0, 400)}`,
+      );
+      return { answer: modellFehlerText(res.status, model), sources: [] };
+    }
     const data = await res.json();
     const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return { answer: "Der Assistent ist momentan nicht erreichbar.", sources: [] };
+    if (!text) {
+      // Antwort da, aber leer — typisch, wenn ein Sicherheitsfilter greift.
+      console.error(
+        `[assistant] Gemini lieferte keinen Text. finishReason=${data?.candidates?.[0]?.finishReason ?? "?"} promptFeedback=${JSON.stringify(data?.promptFeedback ?? null)}`,
+      );
+      return {
+        answer:
+          "Der Assistent hat keine Antwort erhalten. Die Anfrage wurde beim Anbieter " +
+          "abgewiesen oder gefiltert — Einzelheiten stehen im Server-Protokoll.",
+        sources: [],
+      };
+    }
 
     const parsed = JSON.parse(text) as { answer?: string; used?: number[] };
     const answer = (parsed.answer ?? "").trim() || "Dazu finde ich in Ihren Unterlagen nichts.";
@@ -356,9 +382,40 @@ export async function askAssistant(user: User, question: string): Promise<Assist
     const noHit = /finde ich in ihren unterlagen nichts/i.test(answer);
     const shown = noHit ? [] : cited.length > 0 ? cited : sources.slice(0, 3);
     return { answer, sources: dedupe(shown) };
-  } catch {
-    return { answer: "Der Assistent ist momentan nicht erreichbar.", sources: [] };
+  } catch (err) {
+    const abgebrochen = err instanceof Error && err.name === "AbortError";
+    console.error(`[assistant] Aufruf fehlgeschlagen${abgebrochen ? " (Zeitüberschreitung)" : ""}:`, err);
+    return {
+      answer: abgebrochen
+        ? "Der Assistent hat zu lange gebraucht und wurde abgebrochen. Bitte noch einmal versuchen."
+        : "Der Assistent ist momentan nicht erreichbar (keine Verbindung zum Anbieter).",
+      sources: [],
+    };
   }
+}
+
+/**
+ * Was dem Nutzer bei einem Fehlerstatus gesagt wird.
+ *
+ * Bewusst mit **Statuscode und Modellnamen**: Diese Meldung liest in aller Regel
+ * der Verwalter, der den Schlüssel eingerichtet hat — und für ihn ist „404 für
+ * Modell gemini-2.0-flash" die Antwort auf seine Frage, während „nicht
+ * erreichbar" es nicht ist. Ein Geheimnis steht darin nicht.
+ */
+function modellFehlerText(status: number, model: string): string {
+  if (status === 404) {
+    return `Das Modell „${model}" ist unter diesem Zugang nicht verfügbar (404). Bitte in den Umgebungsvariablen GEMINI_MODEL auf ein verfügbares Modell setzen.`;
+  }
+  if (status === 400) {
+    return `Der Anbieter hat die Anfrage abgelehnt (400) — häufig ein ungültiger API-Schlüssel oder ein Modell, das die verwendeten Einstellungen nicht unterstützt. Modell: „${model}".`;
+  }
+  if (status === 401 || status === 403) {
+    return `Der API-Schlüssel wurde nicht akzeptiert (${status}). Bitte GEMINI_API_KEY prüfen — auch auf Einschränkungen nach Domain oder IP-Adresse.`;
+  }
+  if (status === 429) {
+    return "Das Kontingent des Anbieters ist erschöpft (429). Bitte später erneut versuchen.";
+  }
+  return `Der Assistent ist momentan nicht erreichbar (Antwort ${status} vom Anbieter, Modell „${model}").`;
 }
 
 function dedupe(sources: AssistantSource[]): AssistantSource[] {

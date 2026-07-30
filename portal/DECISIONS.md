@@ -1732,3 +1732,76 @@ gegengeprüft: Verwalter und Eigentümer sehen den Assistenten, der Mieter nicht
 erscheint er gar nicht erst. Das ist Absicht (Freitext geht an Google, das
 gehört bewusst eingeschaltet), aber es ist auch die Stolperstelle: Ein
 hinterlegter Schlüssel allein genügt nicht.
+
+## Schritt 45 — Der Basiszinssatz kommt von der Quelle (30.07.2026)
+
+Bis hierher musste der Basiszinssatz zweimal im Jahr von Hand eingetragen
+werden, sonst rechnete das Programm keine Verzugszinsen. Der Abruf schließt das
+— und die Frage, wie er es tut, ist wichtiger als dass er es tut.
+
+269. **Von der Quelle, nicht aus einem Sprachmodell.** Die Anfrage lautete
+     zunächst, ob „die KI" den Satz nicht selbst herausfinden könne. Nein — und
+     zwar nicht aus technischen Gründen: Der Basiszinssatz nach § 247 BGB ist
+     keine Wissensfrage, sondern eine amtlich veröffentlichte Zahl. Ein Modell
+     würde sie *raten*, und ein geratener Zinssatz in einer Mahnung ist
+     schlimmer als gar keiner, weil er richtig aussieht. Geholt wird deshalb die
+     Zeitreihe der Bundesbank.
+270. **Leitentscheidung: lieber nichts als etwas Falsches.** Jede Unsicherheit
+     endet in „nicht übernommen" — Netzfehler, Statuscode, unlesbare Antwort,
+     unplausibler Wert. Geschrieben wird nur, was drei Prüfungen besteht.
+271. **Ein von Hand eingetragener Satz wird nie überschrieben.** Er ist die
+     Entscheidung eines Menschen, der die Bekanntmachung gelesen hat. Ihn durch
+     einen Abruf zu ersetzen hieße, diese Entscheidung stillschweigend zu
+     verwerfen — und danach stünde die andere Zahl in einer Mahnung, ohne dass
+     es jemand merkt. Der Abruf **ergänzt** nur, was fehlt.
+272. **Das Datum ist der Formatwächter.** § 247 Abs. 2 BGB: Der Satz ändert sich
+     zum 1.1. und 1.7. Ein Wert mit dem Datum 15. März ist damit kein
+     Basiszinssatz, sondern ein Lesefehler — genau daran erkennt der Parser, dass
+     er die falsche Spalte erwischt hat. Dazu die Plausibilitätsgrenze von ±25 %,
+     dieselbe wie bei der Eingabe von Hand; sie fängt den verrutschten Faktor 100.
+273. **Der Parser ist absichtlich formattolerant, weil ich das Format nicht
+     prüfen konnte.** Die Bundesbank-Adresse war aus der Entwicklungsumgebung
+     gesperrt (403 über die Sicherheitsrichtlinie), die Antwort ließ sich also
+     nicht ansehen. Er sucht deshalb in *jeder* Zeile nach einem Datum-Wert-Paar
+     und ignoriert alles andere. Ein Parser, der das Format genau kennen muss,
+     wäre beim ersten Umbau der Seite still kaputt; dieser liefert dann schlicht
+     nichts — und das ist der ungefährliche Fall, weil dann nichts geschrieben wird.
+274. **Der Test fand einen Fehler, der eine falsche Mahnung verursacht hätte.**
+     Erste Fassung behandelte `;` **und** `,` gleichzeitig als Spaltentrenner.
+     Bei `2024-01-01;3,62` wurden daraus die Spalten „3" und „62" — gelesen
+     wurden **3,00 %** statt 3,62 %. Plausibel, innerhalb aller Grenzen, und
+     falsch. Jetzt wird das Trennzeichen je Zeile entschieden: Enthält die Zeile
+     ein `;`, ist das der Trenner und `,` das Dezimalzeichen; sonst umgekehrt.
+275. **Monatlich statt halbjährlich.** Der Lauf ist idempotent, also heilt ein
+     monatlicher Versuch sich selbst — bei verzögerter Bekanntmachung, bei einem
+     einmaligen Netzfehler, bei Wartung an genau dem einen Tag. Zwei Termine im
+     Jahr hätten genau zwei Chancen.
+276. **Der Cron antwortet auch bei misslungenem Abruf mit 200.** Der Job hat
+     getan, was er konnte; die Bundesbank ist nicht Teil dieser Anwendung. Ein
+     500er ließe Vercel einen Ausfall melden, obwohl nichts kaputt ist — und
+     würde die echten Ausfälle im Rauschen untergehen lassen.
+277. **Auslöser von Hand auf der Seite**, damit sich der Abruf sofort prüfen
+     lässt, statt bis zum Zweiten des nächsten Monats zu warten. Das war der
+     eigentliche Grund für den Knopf: Ich kann den Erfolgsfall hier nicht
+     erzeugen, also muss ihn jemand anders auslösen können.
+278. **Die Rückmeldung nennt Zahlen, nicht „hat geklappt".** Wie viele Sätze
+     dazukamen, ist die eigentliche Auskunft — und „0 neu" heißt „alles war schon
+     da", nicht „es ging schief". Deshalb zwei getrennte Meldungen mit
+     unterschiedlichem Ton.
+279. **Geprüft im neuen Datenbank-Harnisch** (`basiszins-abruf.dbtest.ts`, sieben
+     Prüfungen). Das Netz wird ersetzt, die Datenbank nicht: Ob ein Handeintrag
+     überlebt, lässt sich nur daran ablesen, was nach dem Lauf in der Tabelle
+     steht. **Gegengeprüft, dass die Prüfung greift** — mit einem `upsert`
+     anstelle des Ergänzens schlägt sie mit genau der richtigen Zeile fehl.
+280. **Im Browser geprüft, was ich prüfen konnte.** Der Knopf löst aus, und der
+     Fehlerfall sieht gut aus: „Die Bundesbank antwortete mit Status 403. Es
+     wurde nichts übernommen — die hinterlegten Sätze sind unverändert." Kein
+     Absturz, kein 500er, Tabelle unangetastet. Die drei Erfolgsmeldungen über
+     ihre Parameter gegengeprüft, samt Singular/Plural.
+
+**Was offen bleibt und von Ihnen geprüft werden muss:** der Erfolgsfall über das
+echte Netz. Aus dieser Umgebung ist die Bundesbank nicht erreichbar; ob die
+Antwort so aussieht, wie der Parser sie erwartet, zeigt erst der erste Klick auf
+„Bei der Bundesbank abrufen" nach dem Deploy. Meldet die Seite dann
+„Format geändert", ist der Parser anzupassen — geschrieben wird in diesem Fall
+nichts, es entsteht also kein Schaden, nur Arbeit.

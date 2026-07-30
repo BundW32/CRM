@@ -1,7 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run pruefung && (prisma db execute --file prisma/repair_failed_migration.sql || true) && prisma migrate deploy && next build",
-  "regions": ["fra1"],
+  "regions": [
+    "fra1"
+  ],
   "crons": [
     {
       "path": "/api/cron/cleanup",
@@ -10,6 +12,10 @@
     {
       "path": "/api/cron/pruefpflichten",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/basiszinssatz",
+      "schedule": "0 5 2 * *"
     }
   ]
 }

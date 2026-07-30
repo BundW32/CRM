@@ -11,7 +11,8 @@ import os, subprocess
 BASE = os.path.dirname(os.path.abspath(__file__))
 SHOTS = os.path.join(BASE, "shots")
 FRAMES = os.path.join(BASE, "frames")
-VO = os.path.join(BASE, "vo")
+VOICE = os.environ.get("VOICE", "vo")   # Ordner mit den Sprecheraufnahmen
+VO = os.path.join(BASE, VOICE)
 CLIPS = os.path.join(BASE, "clips")
 FONT = os.path.join(BASE, "..", "..", "portal", "public", "fonts", "SourceSans3-Semibold.ttf")
 MUSIC = os.path.join(BASE, "music.mp3")   # optional, siehe README
@@ -63,6 +64,18 @@ BLOCKS = [
 ]
 
 XF = {"fade": 0.5, "fadeblack": 0.6, "slideleft": 0.45, "smoothleft": 0.5}
+
+# Aufbereitung der Sprecherspur: Rumpeln weg, etwas weniger Kastenklang,
+# mehr Präsenz für die Verständlichkeit, Zischlaute gebändigt und ein sanfter
+# Kompressor, damit die Lautstärke über alle Sätze gleich bleibt.
+VOICE_FX = ",".join([
+    "aresample=48000:resampler=soxr",
+    "highpass=f=85",
+    "equalizer=f=260:t=q:w=1.1:g=-2",
+    "equalizer=f=3200:t=q:w=1.6:g=2.5",
+    "deesser=i=0.35",
+    "acompressor=threshold=-18dB:ratio=3:attack=8:release=180:makeup=1.6",
+])
 
 
 def kenburns(mode, frames, focus):
@@ -170,7 +183,7 @@ def main():
     n = len(plan)
     for i, (wav, at) in enumerate(audio):
         a_inputs += ["-i", os.path.join(VO, wav)]
-        a_filt.append(f"[{n+i}:a]aresample=48000,adelay={int(at*1000)}|{int(at*1000)}[a{i}]")
+        a_filt.append(f"[{n+i}:a]{VOICE_FX},adelay={int(at*1000)}|{int(at*1000)}[a{i}]")
     mix = "".join(f"[a{i}]" for i in range(len(audio)))
     a_filt.append(f"{mix}amix=inputs={len(audio)}:normalize=0[speech]")
     bus = "[speech]"
@@ -187,7 +200,8 @@ def main():
     a_filt.append(f"{bus}loudnorm=I=-16:TP=-1.5:LRA=11,"
                   f"afade=t=out:st={fade_out:.2f}:d=1.0[a]")
 
-    out_path = os.path.join(BASE, "kundenportal-erklaervideo.mp4")
+    suffix = "" if VOICE == "vo" else "-" + VOICE.replace("vo-", "")
+    out_path = os.path.join(BASE, f"kundenportal-erklaervideo{suffix}.mp4")
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error"] + inputs + a_inputs +
                    ["-filter_complex", ";".join(filt + a_filt),
                     "-map", "[v]", "-map", "[a]",

@@ -1,6 +1,6 @@
 # Erklärvideo Kundenportal
 
-Ein rund 58 Sekunden langes Erklärvideo (1920×1080, 30 fps, deutscher Sprecher)
+Ein rund 65 Sekunden langes Erklärvideo (1920×1080, 30 fps, deutscher Sprecher)
 für Kundenpräsentationen und die Website. Fertige Datei:
 `kundenportal-erklaervideo.mp4`.
 
@@ -97,19 +97,41 @@ eingecheckt – dafür braucht es eine Lizenz für die geplante Nutzung.
 
 ## Sprecherstimme
 
-Die Aufnahmen wurden lokal mit [Piper](https://github.com/rhasspy/piper) und der
-deutschen Stimme `de-thorsten-low` erzeugt. Für eine neue Fassung genügt es, die
-Texte in `build.py` zu ändern und die WAV-Dateien neu zu synthetisieren:
+Die Aufnahmen sind synthetisch und liegen in zwei Fassungen bei. `build.py`
+nimmt standardmäßig `vo/`; über die Umgebungsvariable `VOICE` lässt sich eine
+andere Aufnahme wählen, der Dateiname des Videos bekommt dann ein Suffix.
+
+| Ordner     | Modell                                  | Qualität                    |
+| ---------- | --------------------------------------- | --------------------------- |
+| `vo/`      | Coqui VITS, deutsche Stimme „Thorsten"  | 22 kHz, ruhiger Erzählton   |
+| `vo-piper/`| Piper `de-thorsten-low`                 | 16 kHz, knapper und schneller |
 
 ```bash
-pip install piper-tts
-curl -sSL -O https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-de-thorsten-low.tar.gz
-tar xzf voice-de-thorsten-low.tar.gz
+python3 build.py                 # Standardstimme aus vo/
+VOICE=vo-piper python3 build.py  # ergibt kundenportal-erklaervideo-piper.mp4
+```
+
+Die Texte stehen in `build.py` unter `BLOCKS`. Neu einsprechen lassen sie sich
+mit Coqui:
+
+```bash
+python3 -m venv venv && ./venv/bin/pip install coqui-tts "gruut[de]"
+curl -sSLO https://github.com/coqui-ai/TTS/releases/download/v0.7.0_models/tts_models--de--thorsten--vits.zip
+unzip tts_models--de--thorsten--vits.zip -d coqui
+# in coqui/.../config.json steuert model_args.length_scale das Sprechtempo
+#   (0.9 = etwas zügiger als das Original)
+./venv/bin/tts --model_path coqui/.../model_file.pth \
+               --config_path coqui/.../config.json \
+               --text "…" --out_path vo/01.wav
 ```
 
 Soll das Video mit einer professionell eingesprochenen Stimme erscheinen,
 reicht es, `vo/00.wav` … `vo/06.wav` durch die neuen Aufnahmen zu ersetzen und
-`build.py` erneut laufen zu lassen – die Bildlängen passen sich an.
+`build.py` erneut laufen zu lassen – die Bildlängen passen sich automatisch an.
+
+Die Sprecherspur wird beim Bauen noch aufbereitet (`VOICE_FX` in `build.py`):
+Rumpeln raus, weniger Kastenklang, mehr Präsenz, Zischlaute gebändigt, sanfte
+Kompression und am Ende eine Normalisierung auf −16 LUFS.
 
 ## Hinweis zu den Demodaten
 

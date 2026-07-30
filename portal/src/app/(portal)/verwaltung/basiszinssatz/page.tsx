@@ -3,12 +3,12 @@ import { DataTable, type Column } from "@/components/data-display";
 import { DateField } from "@/components/fields";
 import { PendingButton } from "@/components/pending-button";
 import { Tipp } from "@/components/tipp";
-import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDateOnly } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import { VERZUGSAUFSCHLAG_PUNKTE } from "@/lib/weg/verzug";
-import { abrufBaseRates, addBaseRate, deleteBaseRate } from "./actions";
+import { addBaseRate, deleteBaseRate } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ export default async function BasiszinssatzPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const verwalter = await requireVerwalter();
-  const { fehler, abrufOk, abrufGeprueft, abrufFehler } = await searchParams;
+  const { fehler } = await searchParams;
 
   const saetze = await db.baseInterestRate.findMany({
     where: { organizationId: verwalter.organizationId },
@@ -69,44 +69,9 @@ export default async function BasiszinssatzPage({
 
   return (
     <>
-      <PageTitle
-        back={{ href: "/verwaltung/einstellungen", label: "Einstellungen" }}
-        action={
-          <form action={abrufBaseRates}>
-            <PendingButton className={buttonSecondaryClass} pendingLabel="Wird abgerufen…">
-              Bei der Bundesbank abrufen
-            </PendingButton>
-          </form>
-        }
-      >
+      <PageTitle back={{ href: "/verwaltung/einstellungen", label: "Einstellungen" }}>
         Basiszinssatz
       </PageTitle>
-
-      {abrufFehler ? (
-        <Alert variant="warning" className="mb-4" title="Abruf nicht möglich">
-          {abrufFehler} Es wurde <strong>nichts</strong> übernommen — die
-          hinterlegten Sätze sind unverändert. Tragen Sie den Satz bei Bedarf unten von
-          Hand ein.
-        </Alert>
-      ) : null}
-
-      {abrufOk !== undefined ? (
-        <Alert
-          variant={Number(abrufOk) > 0 ? "success" : "info"}
-          className="mb-4"
-          title={
-            Number(abrufOk) > 0
-              ? `${abrufOk} ${Number(abrufOk) === 1 ? "Satz" : "Sätze"} übernommen`
-              : "Alles schon vorhanden"
-          }
-        >
-          Die Bundesbank lieferte {abrufGeprueft} veröffentlichte{" "}
-          {Number(abrufGeprueft) === 1 ? "Halbjahressatz" : "Halbjahressätze"}.
-          {Number(abrufOk) > 0
-            ? " Fehlende wurden ergänzt; vorhandene blieben unverändert."
-            : " Es fehlte keiner — es wurde nichts geändert."}
-        </Alert>
-      ) : null}
 
       {fehler ? (
         <Alert variant="error" className="mb-4">
@@ -135,14 +100,17 @@ export default async function BasiszinssatzPage({
         </p>
 
         <Tipp className="mb-4">
-          <strong>Der Abruf holt die Zahl bei der Quelle</strong> — der Zeitreihe der
-          Deutschen Bundesbank — und trägt fehlende Halbjahre nach. Er läuft zusätzlich
-          einmal im Monat von selbst. Drei Dinge tut er bewusst <em>nicht</em>: Er
-          überschreibt <strong>nie</strong> einen Satz, den Sie eingetragen haben; er
-          übernimmt keinen Wert, dessen Datum kein 1. Januar oder 1. Juli ist (§ 247 Abs. 2
-          BGB) oder der unplausibel weit vom bisherigen Bereich abweicht; und wenn die
-          Antwort unlesbar ist, schreibt er lieber nichts und sagt es. Eine geratene Zahl in
-          einer Mahnung wäre schlimmer als eine fehlende.
+          <strong>Wo Sie die Zahl finden:</strong> auf bundesbank.de unter &bdquo;Basiszinssatz
+          nach § 247 BGB&ldquo;. Dort steht eine Tabelle mit zwei Spalten — &bdquo;aktueller Stand&ldquo;
+          und &bdquo;gültig ab&ldquo;. Es sind zwei Werte im Jahr; das Eintragen dauert eine halbe Minute.
+        </Tipp>
+        <Tipp className="mb-4">
+          Ein automatischer Abruf war hier kurzzeitig eingebaut und wurde wieder
+          <strong> entfernt</strong>: Er hatte die falsche Zeitreihe der Bundesbank gelesen —
+          eine tagesgenaue Zinsreihe statt des Basiszinssatzes — und dabei Werte
+          geschrieben, die richtig aussahen und es nicht waren. Bis der Abruf gegen die
+          echte Quelle geprüft ist, bleibt die Eingabe von Hand der einzige Weg. Eine Zahl,
+          die niemand geprüft hat, hat in einer Mahnung nichts verloren.
         </Tipp>
 
         <DataTable

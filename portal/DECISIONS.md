@@ -1864,3 +1864,68 @@ entfallen), 31 im Datenbank-Harnisch (8 neue). Der neue CI-Job ließ sich hier
 nicht ausführen — GitHub Actions laufen nicht lokal —, aber die Befehlskette
 darin ist genau die, die hier durchlief: Migrationen von null auf eine leere
 Datenbank, dann `npm run test:db`.
+
+## Schritt 47 — Der Bundesbank-Abruf schrieb falsche Zinssätze und ist wieder draußen (30.07.2026)
+
+Der Abruf aus Schritt 45 hat in Produktion **21 falsche Basiszinssätze**
+geschrieben. Der Nutzer hat es gemerkt, nicht ich.
+
+290. **Was tatsächlich abgerufen wurde.** Nicht der Basiszinssatz nach § 247 BGB,
+     sondern eine **tagesgenaue Zinsreihe** der Bundesbank — vermutlich eine
+     Rendite. Gegenüberstellung zur amtlichen Tabelle:
+
+     | gilt ab | amtlich | geschrieben |
+     |---|---|---|
+     | 01.07.2026 | 1,52 % | 2,46 % |
+     | 01.07.2025 | 1,27 % | 1,81 % |
+     | 01.07.2024 | 3,37 % | 3,18 % |
+     | 01.07.2022 | −0,88 % | 0,31 % |
+     | 01.07.2021 | −0,88 % | −0,68 % |
+
+     Jeder Wert falsch, und **kein einziger 1.-Januar-Satz** — also die Hälfte
+     aller Sätze fehlte.
+
+291. **Der Denkfehler steckte ausgerechnet im Wächter.** Ich hatte den
+     Datumsfilter (nur 1.1. und 1.7., § 247 Abs. 2 BGB) als Formatprüfung
+     verkauft: „Ein Wert vom 15. März ist ein Lesefehler." Das stimmt — schließt
+     eine **Tagesreihe** aber nicht aus, denn die enthält jeden 1. Juli. Der
+     Filter hat die falsche Quelle nicht erkannt, sondern **als richtige
+     verkleidet**: Er warf genau die Tage weg, an denen man die Tagesreihe
+     erkannt hätte. Dass 2017, 2018 und 2023 fehlten, war das sichtbare Symptom —
+     diese 1. Juli lagen auf einem Wochenende. Ich habe es nicht gelesen.
+292. **Alle drei Wächter zielten auf dieselbe, falsche Gefahr.** Format unlesbar,
+     Wert unplausibel, Datum falsch — sie schützten gegen *offensichtlich*
+     kaputte Antworten. Der eingetretene Fall war das Gegenteil: eine formal
+     einwandfreie Antwort aus der **falschen Quelle**. Dagegen half nichts davon,
+     und „lieber nichts als etwas Falsches" war damit eine Zusicherung, die ich
+     nicht einlösen konnte.
+293. **Was die Prüfung hätte finden können, und warum sie es nicht tat.** Es gibt
+     eine strukturelle Aussage, die jede echte Reihe erfüllt und die abgerufene
+     verletzt: Der Basiszinssatz ist **innerhalb eines Halbjahres konstant** und
+     hat **zu beiden** Terminen einen Wert. Beides lässt sich ohne Kenntnis der
+     Quelle prüfen. Meine Tests prüften stattdessen den Parser gegen selbst
+     erfundene Beispieldaten — sie konnten nur bestätigen, dass er liest, was ich
+     ihm vorlegte.
+294. **Rücknahme statt Nachbesserung.** Entfernt sind Modul, Service, Cron-Route,
+     Cron-Eintrag, Knopf und Aktion. Ich hätte eine andere Adresse einsetzen
+     können — aber ich kann aus dieser Umgebung **keine** Quelle prüfen (die
+     Bundesbank ist gesperrt), und genau das hat den Fehler erzeugt. Eine zweite
+     ungeprüfte Adresse wäre derselbe Fehler mit anderer Zahl.
+295. **Die Seite sagt jetzt, was passiert ist.** Statt des Knopfs steht dort der
+     Weg zur amtlichen Tabelle — und der Hinweis, dass ein Abruf eingebaut war,
+     falsche Werte schrieb und deshalb entfernt wurde.
+296. **Für einen zweiten Anlauf** braucht es die **echte Antwort** der Quelle als
+     Text; die kann nur jemand mit Netzzugang liefern. Dann: Parser gegen die
+     *tatsächliche* Antwort, und die beiden strukturellen Prüfungen (Konstanz im
+     Halbjahr, beide Termine vorhanden) als harte Bedingung davor.
+
+**Die Lehre über den Fall hinaus:** Eine Zusicherung wie „lieber nichts als
+etwas Falsches" ist nur so viel wert wie der schwächste Weg, auf dem Falsches
+hereinkommt. Ich hatte drei Türen verriegelt und die vierte — die falsche
+Quelle — nicht einmal als Tür erkannt. Wo Daten aus fremder Quelle in Zahlen
+münden, die nach außen gehen, muss die Prüfung an einer **Eigenschaft der
+Daten** hängen, nicht an ihrer Form.
+
+**Zum zweiten Mal in dieser Sitzung** ging ein `cat >> DECISIONS.md` verloren,
+weil es an einen Befehl gekettet war, der das Verzeichnis wechselte. Prüfen,
+**bevor** committet wird — `grep -c "^## Schritt N"`.

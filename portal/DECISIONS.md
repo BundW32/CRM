@@ -1732,3 +1732,135 @@ gegengeprüft: Verwalter und Eigentümer sehen den Assistenten, der Mieter nicht
 erscheint er gar nicht erst. Das ist Absicht (Freitext geht an Google, das
 gehört bewusst eingeschaltet), aber es ist auch die Stolperstelle: Ein
 hinterlegter Schlüssel allein genügt nicht.
+
+## Schritt 45 — Der Basiszinssatz kommt von der Quelle (30.07.2026)
+
+Bis hierher musste der Basiszinssatz zweimal im Jahr von Hand eingetragen
+werden, sonst rechnete das Programm keine Verzugszinsen. Der Abruf schließt das
+— und die Frage, wie er es tut, ist wichtiger als dass er es tut.
+
+269. **Von der Quelle, nicht aus einem Sprachmodell.** Die Anfrage lautete
+     zunächst, ob „die KI" den Satz nicht selbst herausfinden könne. Nein — und
+     zwar nicht aus technischen Gründen: Der Basiszinssatz nach § 247 BGB ist
+     keine Wissensfrage, sondern eine amtlich veröffentlichte Zahl. Ein Modell
+     würde sie *raten*, und ein geratener Zinssatz in einer Mahnung ist
+     schlimmer als gar keiner, weil er richtig aussieht. Geholt wird deshalb die
+     Zeitreihe der Bundesbank.
+270. **Leitentscheidung: lieber nichts als etwas Falsches.** Jede Unsicherheit
+     endet in „nicht übernommen" — Netzfehler, Statuscode, unlesbare Antwort,
+     unplausibler Wert. Geschrieben wird nur, was drei Prüfungen besteht.
+271. **Ein von Hand eingetragener Satz wird nie überschrieben.** Er ist die
+     Entscheidung eines Menschen, der die Bekanntmachung gelesen hat. Ihn durch
+     einen Abruf zu ersetzen hieße, diese Entscheidung stillschweigend zu
+     verwerfen — und danach stünde die andere Zahl in einer Mahnung, ohne dass
+     es jemand merkt. Der Abruf **ergänzt** nur, was fehlt.
+272. **Das Datum ist der Formatwächter.** § 247 Abs. 2 BGB: Der Satz ändert sich
+     zum 1.1. und 1.7. Ein Wert mit dem Datum 15. März ist damit kein
+     Basiszinssatz, sondern ein Lesefehler — genau daran erkennt der Parser, dass
+     er die falsche Spalte erwischt hat. Dazu die Plausibilitätsgrenze von ±25 %,
+     dieselbe wie bei der Eingabe von Hand; sie fängt den verrutschten Faktor 100.
+273. **Der Parser ist absichtlich formattolerant, weil ich das Format nicht
+     prüfen konnte.** Die Bundesbank-Adresse war aus der Entwicklungsumgebung
+     gesperrt (403 über die Sicherheitsrichtlinie), die Antwort ließ sich also
+     nicht ansehen. Er sucht deshalb in *jeder* Zeile nach einem Datum-Wert-Paar
+     und ignoriert alles andere. Ein Parser, der das Format genau kennen muss,
+     wäre beim ersten Umbau der Seite still kaputt; dieser liefert dann schlicht
+     nichts — und das ist der ungefährliche Fall, weil dann nichts geschrieben wird.
+274. **Der Test fand einen Fehler, der eine falsche Mahnung verursacht hätte.**
+     Erste Fassung behandelte `;` **und** `,` gleichzeitig als Spaltentrenner.
+     Bei `2024-01-01;3,62` wurden daraus die Spalten „3" und „62" — gelesen
+     wurden **3,00 %** statt 3,62 %. Plausibel, innerhalb aller Grenzen, und
+     falsch. Jetzt wird das Trennzeichen je Zeile entschieden: Enthält die Zeile
+     ein `;`, ist das der Trenner und `,` das Dezimalzeichen; sonst umgekehrt.
+275. **Monatlich statt halbjährlich.** Der Lauf ist idempotent, also heilt ein
+     monatlicher Versuch sich selbst — bei verzögerter Bekanntmachung, bei einem
+     einmaligen Netzfehler, bei Wartung an genau dem einen Tag. Zwei Termine im
+     Jahr hätten genau zwei Chancen.
+276. **Der Cron antwortet auch bei misslungenem Abruf mit 200.** Der Job hat
+     getan, was er konnte; die Bundesbank ist nicht Teil dieser Anwendung. Ein
+     500er ließe Vercel einen Ausfall melden, obwohl nichts kaputt ist — und
+     würde die echten Ausfälle im Rauschen untergehen lassen.
+277. **Auslöser von Hand auf der Seite**, damit sich der Abruf sofort prüfen
+     lässt, statt bis zum Zweiten des nächsten Monats zu warten. Das war der
+     eigentliche Grund für den Knopf: Ich kann den Erfolgsfall hier nicht
+     erzeugen, also muss ihn jemand anders auslösen können.
+278. **Die Rückmeldung nennt Zahlen, nicht „hat geklappt".** Wie viele Sätze
+     dazukamen, ist die eigentliche Auskunft — und „0 neu" heißt „alles war schon
+     da", nicht „es ging schief". Deshalb zwei getrennte Meldungen mit
+     unterschiedlichem Ton.
+279. **Geprüft im neuen Datenbank-Harnisch** (`basiszins-abruf.dbtest.ts`, sieben
+     Prüfungen). Das Netz wird ersetzt, die Datenbank nicht: Ob ein Handeintrag
+     überlebt, lässt sich nur daran ablesen, was nach dem Lauf in der Tabelle
+     steht. **Gegengeprüft, dass die Prüfung greift** — mit einem `upsert`
+     anstelle des Ergänzens schlägt sie mit genau der richtigen Zeile fehl.
+280. **Im Browser geprüft, was ich prüfen konnte.** Der Knopf löst aus, und der
+     Fehlerfall sieht gut aus: „Die Bundesbank antwortete mit Status 403. Es
+     wurde nichts übernommen — die hinterlegten Sätze sind unverändert." Kein
+     Absturz, kein 500er, Tabelle unangetastet. Die drei Erfolgsmeldungen über
+     ihre Parameter gegengeprüft, samt Singular/Plural.
+
+**Was offen bleibt und von Ihnen geprüft werden muss:** der Erfolgsfall über das
+echte Netz. Aus dieser Umgebung ist die Bundesbank nicht erreichbar; ob die
+Antwort so aussieht, wie der Parser sie erwartet, zeigt erst der erste Klick auf
+„Bei der Bundesbank abrufen" nach dem Deploy. Meldet die Seite dann
+„Format geändert", ist der Parser anzupassen — geschrieben wird in diesem Fall
+nichts, es entsteht also kein Schaden, nur Arbeit.
+
+## Schritt 46 — Die Prüfungen der Mandantentrennung liefen nie (30.07.2026)
+
+Beim Nachziehen der Datenschutzgrenze des Assistenten auf den
+Datenbank-Harnisch kam ein größerer Befund heraus als der, den ich beheben
+wollte.
+
+281. **Die `*.dbtest.ts` wurden von niemandem ausgeführt.** `access.dbtest.ts`
+     und `session.dbtest.ts` prüfen die Wand zwischen zwei Kunden — die eine
+     Zusicherung, an der dieses Produkt hängt. Der GitHub-Workflow rief aber nur
+     `npm run pruefung` auf, und das schließt sie ausdrücklich aus (sie brauchen
+     eine Datenbank, die es im Vercel-Build nicht gibt). Ergebnis: Tests im
+     Bestand, die nach Abdeckung aussehen und keine sind. Das ist schlimmer als
+     gar keine, weil niemand mehr nachsieht.
+282. **Eigener CI-Job mit PostgreSQL als Service-Container.** Nicht in
+     `pruefung` hineingezogen — das würde den Deploy brechen —, sondern daneben:
+     Migrationen von null anwenden, dann `npm run test:db`. Schlägt schon die
+     Migration fehl, ist das der wichtigere Befund als jeder Testfehler danach.
+283. **Der Health-Check ist kein Zierrat.** Ohne ihn startet der nächste Schritt,
+     bevor die Datenbank Verbindungen annimmt — der Lauf scheitert dann an
+     etwas, das gar nicht kaputt ist, und man sucht an der falschen Stelle.
+
+**Und der Punkt, wegen dem ich hier war:**
+
+284. **Attrappen für die Zugriffsschicht sind der Fehler, nicht die Abkürzung.**
+     `assistant-finanzen.test.ts` ersetzte `access.ts` und `db` durch Attrappen.
+     Der Test war nicht wertlos — er hat die Verzweigung geprüft und hätte ein
+     entferntes `istVerwalter` gefunden. Aber er konnte die eigentliche Frage
+     nicht beantworten: Halten die Organisations- und Objektfilter? Das steht
+     nicht im Code, das steht im Ergebnis der Abfrage. Ersetzt durch
+     `assistant-finanzen.dbtest.ts` gegen zwei echte Organisationen.
+285. **Zwei verschiedene Grenzen, beide geprüft.** Innerhalb der Gemeinschaft:
+     Der Eigentümer erfährt die Summe der Rückstände (600,00 €), aber nicht,
+     dass davon 500,00 € auf die Einheit des Nachbarn entfallen. Zwischen zwei
+     Kunden: kein Objektname, kein Betrag, keine Einheit der anderen
+     Organisation.
+286. **Die Kreuzprüfung gehört in beide Richtungen.** Nur A→B zu prüfen
+     übersieht einen Filter, der versehentlich auf eine feste Organisation zeigt
+     — er hielte dann in einer Richtung und wäre in der anderen offen. In der
+     Gegenprobe schlug genau diese zweite Richtung mit fehl.
+287. **Gegengeprüft, dass es greift.** Mit entferntem `organizationId`-Filter in
+     `wegObjekteFuer` scheitern zwei Prüfungen — „zeigt dem Verwalter von A
+     nichts aus B" und „gilt in beide Richtungen".
+288. **Der Harnisch liefert je Organisation eine Einheit — das genügt hier
+     nicht.** Für die Frage „sieht er die *fremde* Einheit im eigenen Objekt?"
+     braucht es eine zweite mit eigenem Eigentümer. Ohne sie gibt es nichts zu
+     verraten, und die Prüfung geht aus dem falschen Grund durch. Genau dieser
+     Fehler war mir am Vortag an den Demodaten schon einmal unterlaufen; in
+     `AGENTS.md` steht er jetzt als Falle.
+289. **Beim Aufbau der Testdaten gefunden:** `DuePosting` verlangt `periodYear`
+     **und** `periodMonth`, nicht nur `dueDate` — zweimal nacheinander an der
+     Fehlermeldung gelernt und in `AGENTS.md` notiert, damit es der nächste
+     nicht auch tut.
+
+**Geprüft.** 440 Tests in `pruefung` (die sechs Attrappen-Prüfungen sind
+entfallen), 31 im Datenbank-Harnisch (8 neue). Der neue CI-Job ließ sich hier
+nicht ausführen — GitHub Actions laufen nicht lokal —, aber die Befehlskette
+darin ist genau die, die hier durchlief: Migrationen von null auf eine leere
+Datenbank, dann `npm run test:db`.

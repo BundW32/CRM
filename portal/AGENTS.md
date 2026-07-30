@@ -308,6 +308,14 @@ Diese Prüfungen gehören **nicht** in `npm run pruefung` — das Skript läuft 
 Vercel-Build, und dort gibt es keine Datenbank. Wer sie dort einhängt, bricht den
 Deploy.
 
+**Sie laufen trotzdem bei jedem Pull Request**, in einem **eigenen Job**
+(`datenbank` in `.github/workflows/pruefung.yml`) mit PostgreSQL als
+Service-Container. Das war bis zum 30.07.2026 nicht so: Die Prüfungen der
+Mandantentrennung lagen im Bestand, wurden aber von **niemandem** automatisch
+ausgeführt, weil der Workflow nur `pruefung` aufrief. Das ist der unangenehmste
+Zustand — es sieht nach Abdeckung aus und ist keine. Wer eine neue `*.dbtest.ts`
+anlegt, muss nichts tun; der Job nimmt sie mit.
+
 Hier hinein gehört alles, was Zugriffskontrolle betrifft. Eine Sperre besteht in
 diesem Portal aus Datenbankabfragen mit Organisations- und Objektfiltern; ob ein
 Filter wirkt, lässt sich nicht am Quelltext ablesen, sondern nur daran, was die
@@ -317,6 +325,23 @@ das hält fest, dass die Sperre dasteht, nicht dass sie hält. Für neue
 Zugriffsfunktionen ist der Weg über `src/test/harness.ts` der richtige:
 `seedOrganization()` liefert zwei vollständige Organisationen, und jede Funktion
 wird über Kreuz befragt.
+
+**Attrappen für die Zugriffsschicht sind hier keine Abkürzung, sondern der
+Fehler.** Ersetzt man `access.ts` oder `db` durch Attrappen, prüft man die
+Verzweigungen im eigenen Code — nicht, ob die Filter halten. Genau das war bei
+`assistant-finanzen` zuerst so und wurde am 30.07.2026 auf den Harnisch
+umgestellt.
+
+**Und die Kreuzprüfung gehört in beide Richtungen.** Nur A→B zu prüfen übersieht
+einen Filter, der versehentlich auf eine feste Organisation zeigt: Er hält dann
+in einer Richtung und ist in der anderen offen.
+
+Zwei Fallen beim Aufbau eigener Testdaten:
+- **Der Harnisch liefert je Organisation genau eine Einheit.** Wer prüfen will,
+  ob jemand die *fremde* Einheit im eigenen Objekt sieht, muss eine zweite
+  anlegen. Sonst gibt es nichts zu verraten, und die Prüfung geht aus dem
+  falschen Grund durch — genau so ist es einmal passiert.
+- **`DuePosting` braucht `periodYear` und `periodMonth`**, nicht nur `dueDate`.
 
 ## Rollen
 

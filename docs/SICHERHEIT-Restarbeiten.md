@@ -60,8 +60,9 @@ Aufwand: 2–4 Tage. Kollidiert mit nichts.
 
 | # | Was | Aufwand | Kollision |
 |---|---|---|---|
-| P1-6 | Passwort-Reset-Token nur noch **gehasht** speichern (SHA-256), Rate-Limit auf das Einlösen, gleiches für `emailVerifyToken` | 0,5 Tag | `login/forgot/actions.ts` — `claude/email-interfaces-overview-5bw9kc` |
+| ~~P1-6~~ | ~~Passwort-Reset-Token nur noch gehasht speichern~~ | **erledigt am 29.07.2026** | — |
 | P1-7 | Erstpasswort nicht mehr über die URL (`/zugangsschreiben/[id]?pw=…`) — kurzlebiges Server-Token oder direkte Ausgabe | 2 Std. | `nutzer/actions.ts` — `email-interfaces` |
+| P1-6b | Rate-Limit auf das **Einlösen** eines Reset-/Bestätigungslinks (bisher nur auf das Anfordern). Bei 256 Bit Zufall im Token akademisch, aber billig nachzuziehen | 1 Std. | keine |
 | P1-9 | Rate-Limit atomar (ein `UPDATE … RETURNING` statt Lesen-Prüfen-Erhöhen), für die Anmeldung fail-closed, IP-Quelle an die Plattform binden statt an frei setzbare Header | 0,5 Tag | keine |
 | P1-10 | **MFA** (TOTP + Wiederherstellungscodes), Pflicht für Plattform-Betreiber und Verwalter-SuperAdmins | 3–5 Tage | keine |
 | P1-11 | `organizationId` am `AuditLog` (fehlgeschlagene Anmeldungen sind für Kunden heute unsichtbar), Fehler-/Sicherheitsmonitoring, Schwellwert-Alarme | 3–5 Tage | keine |
@@ -121,7 +122,12 @@ Details im Hauptbericht, Abschnitt P3.
 | **P0-2** Sitzungen nicht widerrufbar | `User.sessionsValidFrom` + Migration `20260729170000_sessions_valid_from`. Jedes Token trägt seinen Ausstellungszeitpunkt; liegt er davor, gilt es nicht mehr. `revokeSessions()` wird bei Passwortwechsel, Passwort-Reset, Erstpasswortvergabe und beim Zurücksetzen durch den Verwalter aufgerufen. |
 | **P0-3** Token austauschbar | Sitzungs- und Impersonations-Token tragen jetzt einen `typ`-Claim und werden gegen den erwarteten Zweck geprüft. Token ohne `typ` (Altbestand) gelten nicht mehr. |
 | **P1-8** Blob-Token an ungeprüften Host | Host-Prüfung als `isBlobUrl()` in `storage.ts` herausgezogen und im Teilbereichs-Pfad von `api/files/[kind]/[id]` **vor** dem Mitschicken des Tokens angewandt. |
-| **P0-5** (Fundament) | Testharness gegen echte Datenbank: `src/test/harness.ts`, `vitest.db.config.ts`, `npm run test:db`. 16 Prüfungen — Mandantentrennung über zwei Organisationen und alle Rollen (`access.dbtest.ts`), Sitzungswiderruf und Token-Trennung mit echten Tokens (`session.dbtest.ts`). |
+| **P0-5** (Fundament) | Testharness gegen echte Datenbank: `src/test/harness.ts`, `vitest.db.config.ts`, `npm run test:db`. |
+| **P1-6** Reset-/Bestätigungs-Token im Klartext in der Datenbank | Alle vier Erzeuger (`login/forgot`, `registrieren`, `dashboard/verify-actions`, `verwaltung/nutzer` — Einladung und erneuter Versand) speichern jetzt `hashToken(token)` (SHA-256) statt des Rohwerts; alle drei Verbraucher (`login/reset/[token]` Action und Seite, `registrieren/bestaetigen`) prüfen nur noch gegen den Hash. Eine erste Fassung akzeptierte übergangsweise zusätzlich den Rohwert — das öffnete dieselbe Lücke wieder (wer den gespeicherten Hash kennt, reicht ihn als „Rohwert" ein und trifft auf sich selbst) und wurde durch einen Datenbanktest sofort aufgedeckt, bevor sie auslieferte. |
+
+Testebene jetzt 20 Prüfungen (16 aus dem vorigen Durchgang + `token-hash.test.ts` +
+`token-hash.dbtest.ts`), Letzterer hält genau die oben beschriebene Lücke fest,
+damit sie kein zweites Mal zurückkommt.
 
 ### Was beim Ausrollen zu beachten ist
 

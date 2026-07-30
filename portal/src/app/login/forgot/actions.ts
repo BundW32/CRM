@@ -7,6 +7,7 @@ import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { hashToken } from "@/lib/token-hash";
 
 export async function requestPasswordReset(formData: FormData) {
   const email = String(formData.get("email") ?? "")
@@ -31,7 +32,9 @@ export async function requestPasswordReset(formData: FormData) {
 
     await db.user.update({
       where: { id: user.id },
-      data: { passwordResetToken: token, passwordResetExpiry: expiry },
+      // Nur der Hash landet in der Datenbank – der Rohwert bleibt allein im
+      // Link, den ausschließlich der Empfänger der E-Mail sieht.
+      data: { passwordResetToken: hashToken(token), passwordResetExpiry: expiry },
     });
 
     const link = await portalUrlFromRequest(`/login/reset/${token}`);

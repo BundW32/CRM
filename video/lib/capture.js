@@ -193,6 +193,88 @@ async function installCaption(page) {
   });
 }
 
+// ── Spotlight ───────────────────────────────────────────────────────────────
+// Dunkelt alles ab AUSSER einem Element. Erzeugt in einem Zug den Blickfang,
+// für den man sonst stark zoomen müsste — und zoomen schneidet Beschriftungen
+// ab. Umgesetzt als ein einziges Element mit riesigem box-shadow: Das Loch ist
+// das Element selbst, der Schatten deckt den Rest.
+async function spotlight(page, selector, opts = {}) {
+  const box = await page.locator(selector).first().boundingBox();
+  if (!box) throw new Error(`Spotlight findet nichts: ${selector}`);
+  const pad = opts.pad ?? 10;
+  await page.evaluate(
+    ([b, pad]) => {
+      let el = document.getElementById("__spot");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "__spot";
+        Object.assign(el.style, {
+          position: "fixed", zIndex: "2147482000", pointerEvents: "none",
+          borderRadius: "14px", opacity: "0",
+          transition: "opacity .45s cubic-bezier(.22,.61,.36,1), all .5s cubic-bezier(.22,.61,.36,1)",
+          boxShadow: "0 0 0 9999px rgba(8,6,5,.72)",
+          outline: "2px solid rgba(246,144,24,.85)",
+        });
+        document.body.appendChild(el);
+      }
+      el.style.left = b.x - pad + "px";
+      el.style.top = b.y - pad + "px";
+      el.style.width = b.width + pad * 2 + "px";
+      el.style.height = b.height + pad * 2 + "px";
+      el.style.opacity = "1";
+    },
+    [box, pad],
+  );
+  await page.waitForTimeout(opts.wait ?? 500);
+}
+
+async function spotlightOff(page) {
+  await page.evaluate(() => {
+    const el = document.getElementById("__spot");
+    if (el) el.style.opacity = "0";
+  });
+  await page.waitForTimeout(450);
+}
+
+// ── Klicken wie ein Mensch ──────────────────────────────────────────────────
+// Zeiger hinfahren, Ring-Impuls, dann erst klicken. Ein Klick ohne sichtbaren
+// Zeiger wirkt im Video wie ein Sprung ohne Ursache.
+async function moveAndClick(page, selector, opts = {}) {
+  const el = page.locator(selector).first();
+  await el.scrollIntoViewIfNeeded().catch(() => {});
+  const box = await el.boundingBox();
+  const to = { x: box.x + box.width / 2, y: box.y + Math.min(box.height / 2, 24) };
+  await moveCursor(page, to, opts);
+  await page.evaluate(([x, y]) => window.__pulseAt(x, y), [to.x, to.y]);
+  await page.waitForTimeout(140);
+  await el.click({ timeout: 15000 });
+  return to;
+}
+
+// ── Scrollfahrt mit Tempowechsel ────────────────────────────────────────────
+// Schnell über das Bekannte, langsam auf das Ziel. Gleichmäßiges Scrollen ist
+// so tot wie ein Standbild; der Bremsvorgang erzeugt die Erwartung.
+async function scrollFahrt(page, to, opts = {}) {
+  const ms = opts.ms ?? 1500;
+  await page.evaluate(
+    ([to, ms]) =>
+      new Promise((done) => {
+        const from = window.scrollY;
+        const t0 = performance.now();
+        const step = (t) => {
+          const p = Math.min(1, (t - t0) / ms);
+          // schnell los, spät stark abbremsen
+          const e = p < 0.65 ? 1.35 * p : 1 - Math.pow(1 - p, 3) * 0.62;
+          window.scrollTo(0, from + (to - from) * Math.min(1, e));
+          p < 1 ? requestAnimationFrame(step) : done();
+        };
+        requestAnimationFrame(step);
+      }),
+    [to, ms],
+  );
+  await page.waitForTimeout(opts.settle ?? 500);
+}
+
 // Standzeit aus der Textlänge: ~14 Zeichen je Sekunde, nie unter 2 s.
 // Fest verdrahtete Standzeiten sind der häufigste Grund für unlesbare Videos.
 function holdMs(text) {
@@ -230,5 +312,6 @@ async function smoothScroll(page, to, ms = 900) {
 module.exports = {
   launch, newClip, clock, installCursor, moveCursor, clickAt, humanType,
   installCaption, caption, holdMs, smoothScroll,
+  spotlight, spotlightOff, moveAndClick, scrollFahrt,
   BASE, VIEW, REC, easeOut,
 };

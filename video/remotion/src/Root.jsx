@@ -5,8 +5,9 @@
 // Einstellungen sich überlappen und die obere aufblendet.
 import React from "react";
 import { AbsoluteFill, Composition, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { BREITE, FARBEN, FPS, HOEHE, Einstellung } from "./bausteine";
+import { BREITE, FARBEN, FPS, HOEHE, Einstellung, Unterzeile } from "./bausteine";
 import { EINSTELLUNGEN, Endtafel, Titel } from "./schnitt";
+import { Karte, Nebeneinander, Notiz } from "./stilmittel";
 
 // 5 Bilder (~0,17 s). Länger erzeugt zwischen zwei FAHRENDEN Einstellungen ein
 // sichtbares Doppelbild — beide Bilder bewegen sich, und das Auge nimmt die
@@ -44,7 +45,19 @@ const Inhalt = ({ liste }) => {
             <Aufblenden aktiv={i > 0}>
               {e.art === "titel" ? <Titel zeilen={e.zeilen} dauer={e.dauer} />
                 : e.art === "ende" ? <Endtafel dauer={e.dauer} />
-                : <Einstellung {...e} />}
+                : e.art === "karte" ? (
+                  <AbsoluteFill>
+                    <Karte clip={e.clip} ab={e.ab} dauer={e.dauer} />
+                    {e.unterzeile ? <Unterzeile {...e.unterzeile} /> : null}
+                  </AbsoluteFill>
+                )
+                : e.art === "nebeneinander" ? (
+                  <AbsoluteFill>
+                    <Nebeneinander links={e.links} rechts={e.rechts} dauer={e.dauer} />
+                    {e.unterzeile ? <Unterzeile {...e.unterzeile} /> : null}
+                  </AbsoluteFill>
+                )
+                : <Einstellung {...e} kinder={e.notiz ? <Notiz {...e.notiz} /> : null} />}
             </Aufblenden>
           </Sequence>
         );

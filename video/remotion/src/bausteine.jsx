@@ -146,7 +146,9 @@ export const Unterzeile = ({ text, ab, bis }) => {
 };
 
 // ── Eine Einstellung ────────────────────────────────────────────────────────
-export const Einstellung = ({ clip, ab, dauer, kamera, ziele = [], unterzeile }) => (
+// `kinder` nimmt weitere Ebenen auf, die IN der Kamera liegen sollen (Notizen
+// etwa), damit sie mit dem Inhalt mitwandern.
+export const Einstellung = ({ clip, ab, dauer, kamera, ziele = [], unterzeile, kinder }) => (
   <AbsoluteFill style={{ backgroundColor: FARBEN.dunkel }}>
     <Kamera von={kamera.von} nach={kamera.nach} dauer={kamera.dauer ?? dauer} verzug={kamera.verzug ?? 0}>
       <OffthreadVideo
@@ -155,6 +157,7 @@ export const Einstellung = ({ clip, ab, dauer, kamera, ziele = [], unterzeile })
         style={{ width: BREITE, height: HOEHE, objectFit: "cover" }}
       />
       <Spotlight ziele={ziele} />
+      {kinder}
     </Kamera>
     {unterzeile ? <Unterzeile {...unterzeile} /> : null}
   </AbsoluteFill>

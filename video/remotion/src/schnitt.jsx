@@ -6,6 +6,7 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { BREITE, FARBEN, FPS, HOEHE, Einstellung, Unterzeile } from "./bausteine";
+import { Karte, Nebeneinander, Notiz } from "./stilmittel";
 
 const M = {};
 for (const n of ["02-fahrplan", "03-erststart", "04-palette", "05-wirtschaftsplan",
@@ -15,6 +16,13 @@ for (const n of ["02-fahrplan", "03-erststart", "04-palette", "05-wirtschaftspla
 
 const s = (x) => Math.round(x * FPS);        // Sekunden → Bilder
 const MITTE = { z: 1, cx: 0.5, cy: 0.5 };
+
+// STEHT: keine Kamerabewegung. In Fassung 4 hatte jede der 13 Einstellungen
+// eine Fahrt — damit wird das stärkste Mittel zur Gewohnheit. Jetzt bewegt sich
+// die Kamera nur noch dort, wo die Bewegung etwas erzählt; dazwischen steht das
+// Bild, und genau dieser Wechsel hält das Video wach.
+const STEHT = { von: MITTE, nach: MITTE };
+const naeher = (z, cx, cy) => ({ von: MITTE, nach: { z, cx, cy } });
 
 // Kleinstes Rechteck, das beide umschließt.
 const vereinigung = (a, b) => {
@@ -128,7 +136,9 @@ function bauen() {
     const dauer = s(5.4);
     add({
       art: "clip", clip: "02-fahrplan", ab: m.bereit + 0.1, dauer,
-      kamera: { von: { z: 1.0, cx: 0.5, cy: 0.44 }, nach: { z: 1.14, cx: 0.52, cy: 0.6 } },
+      // Steht. Der wandernde Spotlight ist hier die Bewegung — eine Fahrt
+      // zusätzlich wäre eine zweite Bewegungsart im selben Bild.
+      kamera: STEHT,
       ziele: [
         { box: m.boxes.z1, ab: s(0.5), bis: s(1.7) },
         { box: m.boxes.z2, ab: s(2.0), bis: s(3.1) },
@@ -144,7 +154,8 @@ function bauen() {
     const dauer = s(4.6);
     add({
       art: "clip", clip: "03-erststart", ab: m.bereit + 0.1, dauer,
-      kamera: { von: { z: 1.06, cx: 0.5, cy: 0.4 }, nach: { z: 1.0, cx: 0.5, cy: 0.5 }, dauer: s(2.4) },
+      // Steht: In der Aufnahme scrollt die Seite bereits.
+      kamera: STEHT,
       ziele: [{ box: m.boxes.naechstes, ab: s(0.4), bis: s(1.5) }],
       unterzeile: zeile("Acht Schritte. *Einer nach dem anderen.*", dauer),
     });
@@ -156,7 +167,7 @@ function bauen() {
     const dauer = s(Math.min(5.4, m.gesprungen - m.strg_k + 1.2));
     add({
       art: "clip", clip: "04-palette", ab: m.strg_k - 0.35, dauer,
-      kamera: { von: { z: 1.0, cx: 0.5, cy: 0.5 }, nach: { z: 1.1, cx: 0.5, cy: 0.36 } },
+      kamera: naeher(1.1, 0.5, 0.36),
       unterzeile: zeile("*Suchen* statt klicken.", dauer),
     });
   }
@@ -167,7 +178,7 @@ function bauen() {
     const d1 = s(4.2);
     add({
       art: "clip", clip: "05-wirtschaftsplan", ab: m.bereit + 0.1, dauer: d1,
-      kamera: { von: { z: 1.0, cx: 0.5, cy: 0.5 }, nach: { z: 1.14, cx: 0.56, cy: 0.44 } },
+      kamera: STEHT,
       ziele: [
         { box: m.boxes.muell, ab: s(0.5), bis: s(1.8) },
         { box: m.boxes.treppe, ab: s(2.1), bis: s(3.5) },
@@ -176,9 +187,10 @@ function bauen() {
     });
     // … und die Scrollfahrt hinunter zum Hausgeld je Einheit.
     const d2 = s(3.4);
+    // Als Karte auf Markengrund: ein Beat ohne Bewegung nach zwei bewegten
+    // Einstellungen — und der Rahmen betont, dass hier ein Ergebnis steht.
     add({
-      art: "clip", clip: "05-wirtschaftsplan", ab: m.scroll_los - 0.15, dauer: d2,
-      kamera: { von: { z: 1.0, cx: 0.5, cy: 0.5 }, nach: { z: 1.1, cx: 0.52, cy: 0.44 } },
+      art: "karte", clip: "05-wirtschaftsplan", ab: m.scroll_los - 0.15, dauer: d2,
       unterzeile: zeile("Daraus entsteht das *Hausgeld je Einheit.*", d2),
     });
   }
@@ -189,13 +201,15 @@ function bauen() {
     const d1 = s(2.2);
     add({
       art: "clip", clip: "06-hausgeld", ab: m.scroll_los, dauer: d1,
-      kamera: { von: MITTE, nach: { z: 1.05, cx: 0.5, cy: 0.5 } },
+      kamera: STEHT,
     });
     const d2 = s(3.8);
     add({
       art: "clip", clip: "06-hausgeld", ab: m.liste + 0.1, dauer: d2,
-      kamera: { von: { z: 1.02, cx: 0.5, cy: 0.45 }, nach: { z: 1.16, cx: 0.5, cy: 0.4 } },
+      kamera: naeher(1.12, 0.5, 0.42),
       ziele: [{ box: m.boxes.summe, ab: s(0.6), bis: s(3.0) }],
+      // Die Zahl wird benannt, statt sie nur größer zu zeigen.
+      notiz: { box: m.boxes.summe, text: "8.525,11 € offen", ab: s(1.2), bis: s(3.2), seite: "links" },
       unterzeile: zeile("Wer gezahlt hat — und *wer nicht.*", d2),
     });
   }
@@ -206,24 +220,28 @@ function bauen() {
     const d1 = s(3.2);
     add({
       art: "clip", clip: "07-versammlung", ab: m.bereit + 0.1, dauer: d1,
-      kamera: { von: { z: 1.0, cx: 0.45, cy: 0.45 }, nach: { z: 1.12, cx: 0.42, cy: 0.48 } },
+      kamera: STEHT,
       ziele: [{ box: m.boxes.top2, ab: s(0.5), bis: s(2.4) }],
       unterzeile: zeile("Tagesordnung, *Punkt für Punkt.*", d1),
     });
     add({
       art: "clip", clip: "07-versammlung", ab: m.reihenfolge - 0.6, dauer: s(3.0),
-      kamera: { von: { z: 1.08, cx: 0.42, cy: 0.55 }, nach: { z: 1.2, cx: 0.4, cy: 0.6 } },
+      kamera: naeher(1.16, 0.4, 0.58),
     });
   }
 
   // 08 Rollenwechsel — dieselbe WEG, kürzeres Menü.
   {
     const m = M["08-rollen"];
-    const dauer = s(3.8);
+    const f = M["02-fahrplan"];
+    const dauer = s(4.0);
+    // Geteiltes Bild statt Kamerafahrt: Der Rollenunterschied ist ein
+    // Vergleich, und ein Vergleich gehört in EIN Bild. Nacheinander gezeigt
+    // müsste der Zuschauer sich die linke Seite merken.
     add({
-      art: "clip", clip: "08-rollen", ab: m.drin + 0.2, dauer,
-      kamera: { von: { z: 1.0, cx: 0.5, cy: 0.5 }, nach: { z: 1.16, cx: 0.28, cy: 0.5 } },
-      ziele: [{ box: m.boxes.menue, ab: s(0.8), bis: s(3.0) }],
+      art: "nebeneinander", dauer,
+      links: { clip: "02-fahrplan", ab: f.bereit + 0.3, titel: "Verwaltender Eigentümer" },
+      rechts: { clip: "08-rollen", ab: m.drin + 0.4, titel: "Miteigentümerin" },
       unterzeile: zeile("Und jeder Eigentümer *sieht mit.*", dauer),
     });
   }
@@ -233,11 +251,12 @@ function bauen() {
     const m = M["09-ki"];
     add({
       art: "clip", clip: "09-ki", ab: m.zeiger_los - 0.2, dauer: s(Math.min(2.4, m.offen - m.zeiger_los - 0.4)),
-      kamera: { von: MITTE, nach: { z: 1.06, cx: 0.62, cy: 0.6 } },
+      kamera: STEHT,
     });
     add({
       art: "clip", clip: "09-ki", ab: m.offen + 0.15, dauer: s(3.0),
-      kamera: { von: { z: 1.5, cx: 0.79, cy: 0.55 }, nach: { z: 1.6, cx: 0.79, cy: 0.62 } },
+      // Nah dran und ruhig: Beim Mitlesen stört jede Bewegung.
+      kamera: { von: { z: 1.55, cx: 0.79, cy: 0.58 }, nach: { z: 1.55, cx: 0.79, cy: 0.58 } },
     });
     const dA = s(3.6);
     add({

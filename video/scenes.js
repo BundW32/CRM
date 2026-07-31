@@ -42,19 +42,31 @@ async function scene(browser, name, state, fn) {
   console.log("fertig:", name);
 }
 
-// Unterzeile zeigen und wieder ausblenden, mit Marken für den Schnitt.
-async function untertitel(page, clock, text, ruheMs = 1200) {
+// Unterzeile einblenden — OHNE zu warten. Genau hier lag der Fehler von
+// Fassung 2: `caption()` hielt den Ablauf für die volle Lesezeit an, also stand
+// das Bild still, und erst danach begann die Bewegung. Jetzt läuft die Zeile
+// mit, während der Spotlight wandert oder die Seite scrollt.
+async function capAn(page, clock, text) {
   clock.mark("cap_an");
-  await caption(page, text, { keep: true });
-  await page.waitForTimeout(500);
+  await page.evaluate((t) => window.__cap(t), text);
+  await page.waitForTimeout(350);          // nur das Einblenden abwarten
+}
+
+// Ausblenden, sobald die Lesezeit um ist — gemessen ab dem Einblenden.
+async function capAus(page, clock, text, seitMs) {
+  const noetig = Math.max(2000, Math.round((text.replace(/[*|]/g, "").length / 14) * 1000));
+  const rest = noetig - seitMs;
+  if (rest > 0) await page.waitForTimeout(rest);
   await page.evaluate(() => window.__capOff());
-  await page.waitForTimeout(450);
+  await page.waitForTimeout(400);
   clock.mark("cap_aus");
-  await page.waitForTimeout(ruheMs);
 }
 
 // Jede Produktszene beginnt gleich: ankommen, Zeiger bereitstellen.
-async function ankommen(page, clock, url, wartenMs = 1500) {
+async function ankommen(page, clock, url, wartenMs = 600) {
+  // Kurz halten! In Fassung 2 stand hier 1,5 s, dazu kam die Unterzeile — vor
+  // der ersten Bewegung vergingen fast fünf Sekunden. Genau das war der Vorwurf
+  // „fünf Sekunden dasselbe Bild, dann eine halbe Sekunde Spotlight".
   await page.goto(url, { waitUntil: "networkidle" });
   await page.waitForTimeout(wartenMs);
   await installCursor(page);
@@ -81,18 +93,18 @@ const SCENES = {
   // ohne dass ein Wort nötig wäre.
   async fahrplan(browser, state) {
     await scene(browser, "02-fahrplan", state, async (page, clock) => {
-      await ankommen(page, clock, `${BASE}/dashboard`, 1700);
-      await untertitel(page, clock, "Das Portal sagt Ihnen, was *jetzt* dran ist.", 400);
-
+      const T = "Das Portal sagt Ihnen, was *jetzt* dran ist.";
+      await ankommen(page, clock, `${BASE}/dashboard`, 700);
+      await capAn(page, clock, T);
       clock.mark("spot1");
-      await spotlight(page, 'a:has-text("Rauchwarnmelder prüfen"), div:has-text("Rauchwarnmelder prüfen") >> nth=-1', { wait: 900 });
-      clock.mark("spot2");
-      await spotlight(page, 'text=Jahresabrechnung 2025 erstellen', { wait: 900 });
+      await spotlight(page, 'text=Rauchwarnmelder prüfen >> nth=0', { wait: 1050 });
+      await spotlight(page, 'text=Jahresabrechnung 2025 erstellen', { wait: 1050 });
       clock.mark("spot3");
       await spotlight(page, 'text=Hausgeld-Rückstände offen', { wait: 1100 });
+      await capAus(page, clock, T, 3550);
       await spotlightOff(page);
       clock.mark("spot_aus");
-      await page.waitForTimeout(700);
+      await page.waitForTimeout(300);
     });
   },
 
@@ -101,15 +113,17 @@ const SCENES = {
   // erledigt sind — das geht nur, wenn die Liste sich bewegt.
   async erststart(browser, state) {
     await scene(browser, "03-erststart", state, async (page, clock) => {
-      await ankommen(page, clock, `${BASE}/dashboard`, 1600);
-      await untertitel(page, clock, "Acht Schritte. *Einer nach dem anderen.*", 300);
+      const T = "Acht Schritte. *Einer nach dem anderen.*";
+      await ankommen(page, clock, `${BASE}/dashboard`, 700);
+      await capAn(page, clock, T);
       clock.mark("spot");
-      await spotlight(page, 'text=Unterlagen der bisherigen Verwaltung anfordern >> nth=0', { wait: 1100 });
+      await spotlight(page, 'text=Unterlagen der bisherigen Verwaltung anfordern >> nth=0', { wait: 1200 });
       await spotlightOff(page);
+      await capAus(page, clock, T, 1900);
       clock.mark("scroll_los");
-      await scrollFahrt(page, 700, { ms: 1900, settle: 900 });
+      await scrollFahrt(page, 700, { ms: 1500, settle: 600 });
       clock.mark("unten");
-      await page.waitForTimeout(900);
+      await page.waitForTimeout(500);
     });
   },
 
@@ -118,9 +132,11 @@ const SCENES = {
   // Tippen ist im Video die stärkste Form von „hier passiert etwas".
   async palette(browser, state) {
     await scene(browser, "04-palette", state, async (page, clock) => {
-      await ankommen(page, clock, `${BASE}/dashboard`, 1500);
-      await untertitel(page, clock, "*Suchen* statt klicken.", 200);
-
+      const T = "*Suchen* statt klicken.";
+      await ankommen(page, clock, `${BASE}/dashboard`, 700);
+      await capAn(page, clock, T);
+      await page.waitForTimeout(1400);
+      await capAus(page, clock, T, 1750);
       clock.mark("strg_k");
       await page.keyboard.press("Control+k");
       await page.waitForTimeout(750);
@@ -141,18 +157,17 @@ const SCENES = {
   // ── 05 Wirtschaftsplan: Spotlight auf die Schlüssel, dann Scrollfahrt ────
   async wirtschaftsplan(browser, state) {
     await scene(browser, "05-wirtschaftsplan", state, async (page, clock) => {
-      await ankommen(page, clock, `${BASE}/verwaltung/weg/${PID()}/wirtschaftsplan/${PLAN()}`, 1600);
-      await untertitel(page, clock, "Verteilt nach dem *richtigen Schlüssel.*", 300);
-
+      await ankommen(page, clock, `${BASE}/verwaltung/weg/${PID()}/wirtschaftsplan/${PLAN()}`, 800);
+      const T = "Verteilt nach dem *richtigen Schlüssel.*";
+      await capAn(page, clock, T);
       // Drei verschiedene Schlüssel in drei Zeilen — genau das ist der Punkt.
       clock.mark("spot1");
-      await spotlight(page, 'tr:has-text("Müllabfuhr")', { wait: 1000 });
-      clock.mark("spot2");
-      await spotlight(page, 'tr:has-text("Treppenhausreinigung")', { wait: 1000 });
+      await spotlight(page, 'tr:has-text("Müllabfuhr")', { wait: 1150 });
+      await spotlight(page, 'tr:has-text("Treppenhausreinigung")', { wait: 1150 });
+      await capAus(page, clock, T, 2650);
       await spotlightOff(page);
-
       clock.mark("scroll_los");
-      await scrollFahrt(page, 620, { ms: 1700, settle: 700 });
+      await scrollFahrt(page, 620, { ms: 1400, settle: 500 });
       clock.mark("unten");
       await page.evaluate(() => window.__cap("Daraus entsteht das *Hausgeld je Einheit.*"));
       await page.waitForTimeout(2600);
@@ -165,16 +180,18 @@ const SCENES = {
   // ── 06 Hausgeld: Scrollfahrt auf die Rückstandsliste, Spotlight auf die Summe ─
   async hausgeld(browser, state) {
     await scene(browser, "06-hausgeld", state, async (page, clock) => {
-      await ankommen(page, clock, `${BASE}/verwaltung/weg/${PID()}/hausgeld`, 1300);
+      await ankommen(page, clock, `${BASE}/verwaltung/weg/${PID()}/hausgeld`, 700);
+      const T = "Wer gezahlt hat — und *wer nicht.*";
       clock.mark("scroll_los");
-      await scrollFahrt(page, 640, { ms: 1800, settle: 800 });
+      await scrollFahrt(page, 640, { ms: 1500, settle: 400 });
       clock.mark("liste");
-      await untertitel(page, clock, "Wer gezahlt hat — und *wer nicht.*", 300);
+      await capAn(page, clock, T);
       clock.mark("spot");
-      await spotlight(page, 'tr:has-text("Summe")', { wait: 1400 });
+      await spotlight(page, 'tr:has-text("Summe")', { wait: 1500 });
+      await capAus(page, clock, T, 1900);
       await spotlightOff(page);
       clock.mark("ende");
-      await page.waitForTimeout(600);
+      await page.waitForTimeout(300);
     });
   },
 
@@ -184,15 +201,15 @@ const SCENES = {
   // auf eine Eingabe reagiert.
   async versammlung(browser, state) {
     await scene(browser, "07-versammlung", state, async (page, clock) => {
-      await ankommen(page, clock, `${BASE}/versammlungen/${MEETING()}`, 1600);
-      await untertitel(page, clock, "Tagesordnung, *Punkt für Punkt.*", 300);
-
+      await ankommen(page, clock, `${BASE}/versammlungen/${MEETING()}`, 800);
+      const T = "Tagesordnung, *Punkt für Punkt.*";
+      await capAn(page, clock, T);
       clock.mark("spot");
-      await spotlight(page, 'text=TOP 2: Beschluss über die Jahresabrechnung (Abrechnungsspitze)', { wait: 1300 });
+      await spotlight(page, 'text=TOP 2: Beschluss über die Jahresabrechnung (Abrechnungsspitze)', { wait: 1400 });
+      await capAus(page, clock, T, 1800);
       await spotlightOff(page);
-
       clock.mark("scroll_los");
-      await smoothScroll(page, 520, 1100);
+      await smoothScroll(page, 520, 900);
       await page.waitForTimeout(500);
       clock.mark("reihenfolge");
       // Den dritten Punkt nach oben holen — sichtbare Wirkung eines Klicks.
@@ -207,9 +224,40 @@ const SCENES = {
     });
   },
 
-  // ── 08 KI-Assistent ──────────────────────────────────────────────────────
+  // ── 07b Rollenwechsel: dieselbe WEG aus Sicht eines Miteigentümers ───────
+  // Der verwaltende Eigentümer hat nur ein paar Rechte mehr — sichtbar an der
+  // kürzeren Bereichsleiste. Für die Zielgruppe ist genau das die Beruhigung:
+  // Die Gemeinschaft sieht mit, ohne dass jeder alles ändern kann.
+  async rollen(browser) {
+    fs.rmSync(path.join(OUT, "08-rollen"), { recursive: true, force: true });
+    const { context, page, clock } = await newClip(browser, path.join(OUT, "08-rollen"), {});
+    const T = "Und jeder Eigentümer *sieht mit.*";
+    await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
+    await page.fill('input[name="email"]', "eigentuemer@demo.de");
+    await page.fill('input[name="password"]', "Demo-2026!");
+    await page.waitForTimeout(400);
+    await installCursor(page);
+    clock.mark("anmelden");
+    await moveAndClick(page, 'button[type="submit"]', { from: { x: 640, y: 320 } });
+    await page.waitForURL(/dashboard/, { timeout: 20000 });
+    await page.waitForTimeout(1100);
+    clock.mark("drin");
+    await installCaption(page);
+    await capAn(page, clock, T);
+    clock.mark("spot");
+    await spotlight(page, "nav, aside >> nth=0", { wait: 1500, pad: 6 });
+    await capAus(page, clock, T, 1900);
+    await spotlightOff(page);
+    clock.mark("ende");
+    await page.waitForTimeout(300);
+    clock.save();
+    await context.close();
+    console.log("fertig: 08-rollen");
+  },
+
+  // ── 09 KI-Assistent ──────────────────────────────────────────────────────
   async ki(browser, state) {
-    await scene(browser, "08-ki", state, async (page, clock) => {
+    await scene(browser, "09-ki", state, async (page, clock) => {
       await page.goto(`${BASE}/dashboard`, { waitUntil: "networkidle" });
       await page.waitForTimeout(1400);
       await installCursor(page);
@@ -234,14 +282,14 @@ const SCENES = {
 
   // ── 09 Endtafel ──────────────────────────────────────────────────────────
   async cta(browser) {
-    fs.rmSync(path.join(OUT, "09-cta"), { recursive: true, force: true });
-    const { context, page } = await newClip(browser, path.join(OUT, "09-cta"));
+    fs.rmSync(path.join(OUT, "10-cta"), { recursive: true, force: true });
+    const { context, page } = await newClip(browser, path.join(OUT, "10-cta"));
     await page.goto(card("Ihre Gemeinschaft.|*Ihre Zahlen.*", "cta"));
     await page.waitForTimeout(500);
     await page.evaluate(() => window.__play());
     await page.waitForTimeout(3200);
     await context.close();
-    console.log("fertig: 09-cta");
+    console.log("fertig: 10-cta");
   },
 };
 

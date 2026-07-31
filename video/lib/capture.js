@@ -211,7 +211,7 @@ async function spotlight(page, selector, opts = {}) {
         Object.assign(el.style, {
           position: "fixed", zIndex: "2147482000", pointerEvents: "none",
           borderRadius: "14px", opacity: "0",
-          transition: "opacity .45s cubic-bezier(.22,.61,.36,1), all .5s cubic-bezier(.22,.61,.36,1)",
+          transition: "opacity .4s cubic-bezier(.22,.61,.36,1), left .75s cubic-bezier(.4,0,.2,1), top .75s cubic-bezier(.4,0,.2,1), width .75s cubic-bezier(.4,0,.2,1), height .75s cubic-bezier(.4,0,.2,1)",
           boxShadow: "0 0 0 9999px rgba(8,6,5,.72)",
           outline: "2px solid rgba(246,144,24,.85)",
         });
@@ -225,7 +225,7 @@ async function spotlight(page, selector, opts = {}) {
     },
     [box, pad],
   );
-  await page.waitForTimeout(opts.wait ?? 500);
+  await page.waitForTimeout(opts.wait ?? 900);
 }
 
 async function spotlightOff(page) {

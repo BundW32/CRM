@@ -6,6 +6,7 @@
 //     aufgenommen in doppelter Fenstergröße.
 //  2. Der vorinstallierte Chromium ist älter als das npm-Paket. Deshalb
 //     executablePath explizit setzen; `playwright install` ist hier gesperrt.
+const fs = require("fs");
 const path = require("path");
 const { chromium } = require("playwright");
 
@@ -22,6 +23,25 @@ async function launch() {
   });
 }
 
+// Marken: Jede Szene schreibt mit, WANN etwas passiert ist — relativ zum Beginn
+// der Aufnahme. Vorher wurden die Schnittzeiten geschätzt, und weil das Laden
+// der Seite mal 0,5 und mal 1,5 Sekunden dauert, landeten Zoomfahrten mitten
+// in einer noch sichtbaren Unterzeile. Geschätzte Zeiten sind bei einer
+// Pipeline, die nach jedem Design-Update neu läuft, ohnehin nicht haltbar.
+function clock(dir) {
+  const t0 = Date.now();
+  const marks = {};
+  return {
+    mark(name) {
+      marks[name] = +((Date.now() - t0) / 1000).toFixed(2);
+    },
+    save() {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "marks.json"), JSON.stringify(marks, null, 2));
+    },
+  };
+}
+
 async function newClip(browser, dir, opts = {}) {
   const context = await browser.newContext({
     viewport: VIEW,
@@ -32,7 +52,7 @@ async function newClip(browser, dir, opts = {}) {
     storageState: opts.storageState,
   });
   const page = await context.newPage();
-  return { context, page };
+  return { context, page, clock: clock(dir) };
 }
 
 // ── Synthetischer Mauszeiger ────────────────────────────────────────────────
@@ -129,4 +149,86 @@ async function humanType(page, sel, text) {
   }
 }
 
-module.exports = { launch, newClip, installCursor, moveCursor, clickAt, humanType, BASE, VIEW, REC, easeOut };
+// ── Unterzeile über der Oberfläche ──────────────────────────────────────────
+// Volltafeln zwischen jeder Szene ergäben eine Diashow. Eine Unterzeile lässt
+// das Produkt im Bild und nennt die Aussage dazu. Sie wird in die Seite
+// injiziert und mit aufgenommen — kein nachträgliches Compositing nötig.
+//
+// Alle Stile über element.style: <style>-Tags gehen zwar durch die CSP, aber
+// so bleibt die Unterzeile unabhängig von den Regeln der Seite.
+async function installCaption(page) {
+  await page.evaluate(() => {
+    const box = document.createElement("div");
+    box.id = "__cap";
+    Object.assign(box.style, {
+      position: "fixed", left: "0", right: "0", bottom: "0", zIndex: "2147483000",
+      padding: "96px 56px 58px", pointerEvents: "none",
+      background: "linear-gradient(to top, rgba(8,6,5,.95) 0%, rgba(8,6,5,.86) 40%, rgba(10,8,6,0) 100%)",
+      opacity: "0", transition: "opacity .35s cubic-bezier(.22,.61,.36,1)",
+      fontFamily: '"Plus Jakarta Sans","Inter",sans-serif',
+    });
+    const t = document.createElement("div");
+    t.id = "__capT";
+    Object.assign(t.style, {
+      color: "#fff", fontSize: "40px", fontWeight: "800", letterSpacing: "-0.02em",
+      lineHeight: "1.15", textShadow: "0 2px 18px rgba(0,0,0,.6)",
+      transform: "translateY(14px)", transition: "transform .4s cubic-bezier(.22,.61,.36,1)",
+    });
+    box.appendChild(t);
+    document.body.appendChild(box);
+
+    window.__cap = (html) => {
+      const b = document.getElementById("__cap");
+      const el = document.getElementById("__capT");
+      el.innerHTML = html.replace(/\*(.+?)\*/g, '<span style="color:#f69018">$1</span>');
+      b.style.opacity = "1";
+      el.style.transform = "translateY(0)";
+    };
+    window.__capOff = () => {
+      const b = document.getElementById("__cap");
+      const el = document.getElementById("__capT");
+      b.style.opacity = "0";
+      el.style.transform = "translateY(14px)";
+    };
+  });
+}
+
+// Standzeit aus der Textlänge: ~14 Zeichen je Sekunde, nie unter 2 s.
+// Fest verdrahtete Standzeiten sind der häufigste Grund für unlesbare Videos.
+function holdMs(text) {
+  const clean = text.replace(/[*|]/g, "");
+  return Math.max(2000, Math.round((clean.length / 14) * 1000));
+}
+
+async function caption(page, text, opts = {}) {
+  await page.evaluate((t) => window.__cap(t), text);
+  await page.waitForTimeout(opts.hold ?? holdMs(text));
+  if (opts.keep) return;
+  await page.evaluate(() => window.__capOff());
+  await page.waitForTimeout(350);
+}
+
+// Sanftes Scrollen statt Sprung: ein harter Sprung liest sich im Video als Schnitt.
+async function smoothScroll(page, to, ms = 900) {
+  await page.evaluate(
+    ([to, ms]) =>
+      new Promise((done) => {
+        const from = window.scrollY;
+        const t0 = performance.now();
+        const step = (t) => {
+          const p = Math.min(1, (t - t0) / ms);
+          const e = 1 - Math.pow(1 - p, 3);
+          window.scrollTo(0, from + (to - from) * e);
+          p < 1 ? requestAnimationFrame(step) : done();
+        };
+        requestAnimationFrame(step);
+      }),
+    [to, ms],
+  );
+}
+
+module.exports = {
+  launch, newClip, clock, installCursor, moveCursor, clickAt, humanType,
+  installCaption, caption, holdMs, smoothScroll,
+  BASE, VIEW, REC, easeOut,
+};

@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8">
+<body style="margin:0;background:#fff">
+<canvas id="c"></canvas>
+<script type="module">
+import * as pdfjs from "./pdf.mjs";
+pdfjs.GlobalWorkerOptions.workerSrc = "./pdf.worker.mjs";
+window.__render = async (b64, scale) => {
+  const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const doc = await pdfjs.getDocument({ data: bin }).promise;
+  const seite = await doc.getPage(1);
+  const vp = seite.getViewport({ scale });
+  const c = document.getElementById("c");
+  c.width = vp.width; c.height = vp.height;
+  await seite.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+  return [c.width, c.height];
+};
+</script></body>

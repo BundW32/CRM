@@ -17,7 +17,7 @@
 //   Schub         — Übergang, bei dem die neue Einstellung die alte seitlich
 //                   hinausschiebt. Sparsam: höchstens zweimal im Video.
 import React from "react";
-import { AbsoluteFill, OffthreadVideo, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, OffthreadVideo, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { BREITE, FARBEN, FPS, HOEHE } from "./bausteine";
 
 const ease = (p) => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
@@ -127,3 +127,78 @@ export const Notiz = ({ box, text, ab, bis, seite = "rechts" }) => {
 };
 
 export { ease, federn };
+
+// ── PDF-Blatt ───────────────────────────────────────────────────────────────
+// Zeigt die erste Seite eines echten, von der App erzeugten PDFs.
+//
+// Warum ein Bild statt einer Aufnahme: Ein Klick auf einen PDF-Link führt den
+// Browser in Chromiums eingebaute PDF-Anzeige — und die lässt sich mit
+// Playwright nicht aufzeichnen, die Aufnahme bricht ab. Das Blatt hier stammt
+// aus derselben Datei, die der Nutzer herunterlädt (video/pdf-bilder.js holt
+// sie über die angemeldete Sitzung und rendert Seite 1).
+export const PdfBlatt = ({ datei, dauer, hoch = true }) => {
+  const frame = useCurrentFrame();
+  const auf = federn(interpolate(frame, [0, 20], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
+  // Das Blatt fährt von unten herein und kommt weich zum Stehen — wie ein
+  // Dokument, das aus dem Drucker kommt.
+  const y = (1 - auf) * 90;
+  const h = hoch ? HOEHE - 60 : HOEHE - 120;
+  return (
+    <AbsoluteFill style={{
+      background: `radial-gradient(120% 120% at 50% 0%, #1d332e 0%, ${FARBEN.dunkel} 70%)`,
+      alignItems: "center", justifyContent: "flex-start", paddingTop: 30,
+    }}>
+      <div style={{
+        height: h, borderRadius: 6, overflow: "hidden", background: "#fff",
+        boxShadow: "0 26px 70px rgba(0,0,0,.6)", opacity: auf,
+        transform: `translateY(${y}px)`,
+      }}>
+        <Img src={staticFile(`pdf/${datei}.png`)} style={{ height: h, width: "auto", display: "block" }} />
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ── Telefon ─────────────────────────────────────────────────────────────────
+// Die Handy-Aufnahme (390×844) in einem schlichten Gerätrahmen. Kein
+// fotorealistisches Gerät: Der Rahmen soll sagen „das läuft auch am Telefon",
+// nicht von der Oberfläche ablenken.
+export const Telefon = ({ clip, ab, dauer, nebenText }) => {
+  const frame = useCurrentFrame();
+  const auf = federn(interpolate(frame, [0, 18], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
+  const hoehe = 660;
+  const breite = Math.round((390 / 844) * hoehe);
+  return (
+    <AbsoluteFill style={{
+      background: `radial-gradient(120% 120% at 30% 0%, #1d332e 0%, ${FARBEN.dunkel} 70%)`,
+      alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 60,
+    }}>
+      {nebenText ? (
+        <div style={{
+          maxWidth: 420, opacity: auf, transform: `translateX(${(1 - auf) * -20}px)`,
+          fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 800, fontSize: 44,
+          color: "#fff", lineHeight: 1.15, letterSpacing: "-0.02em",
+        }}>
+          {nebenText.split(/(\*[^*]+\*)/).filter(Boolean).map((t, i) =>
+            t.startsWith("*")
+              ? <span key={i} style={{ color: FARBEN.orange }}>{t.slice(1, -1)}</span>
+              : <span key={i}>{t}</span>)}
+        </div>
+      ) : null}
+      <div style={{
+        width: breite + 16, height: hoehe + 16, borderRadius: 36, padding: 8,
+        background: "#15100c", border: "1px solid rgba(255,255,255,.14)",
+        boxShadow: "0 30px 70px rgba(0,0,0,.6)",
+        opacity: auf, transform: `translateY(${(1 - auf) * 26}px)`,
+      }}>
+        <div style={{ width: breite, height: hoehe, borderRadius: 28, overflow: "hidden", background: "#000" }}>
+          <OffthreadVideo
+            src={staticFile(`clips/${clip}.webm`)}
+            trimBefore={Math.round(ab * FPS)}
+            style={{ width: breite, height: hoehe, objectFit: "cover" }}
+          />
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};

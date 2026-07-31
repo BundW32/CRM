@@ -7,7 +7,7 @@ import React from "react";
 import { AbsoluteFill, Composition, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { BREITE, FARBEN, FPS, HOEHE, Einstellung, Unterzeile } from "./bausteine";
 import { EINSTELLUNGEN, Endtafel, Titel } from "./schnitt";
-import { Karte, Nebeneinander, Notiz } from "./stilmittel";
+import { Karte, Nebeneinander, Notiz, PdfBlatt, Telefon } from "./stilmittel";
 
 // 5 Bilder (~0,17 s). Länger erzeugt zwischen zwei FAHRENDEN Einstellungen ein
 // sichtbares Doppelbild — beide Bilder bewegen sich, und das Auge nimmt die
@@ -51,6 +51,15 @@ const Inhalt = ({ liste }) => {
                     {e.unterzeile ? <Unterzeile {...e.unterzeile} /> : null}
                   </AbsoluteFill>
                 )
+                : e.art === "pdf" ? (
+                  <AbsoluteFill>
+                    <PdfBlatt datei={e.datei} dauer={e.dauer} />
+                    {e.unterzeile ? <Unterzeile {...e.unterzeile} /> : null}
+                  </AbsoluteFill>
+                )
+                : e.art === "handy" ? (
+                  <Telefon clip={e.clip} ab={e.ab} dauer={e.dauer} nebenText={e.nebenText} />
+                )
                 : e.art === "nebeneinander" ? (
                   <AbsoluteFill>
                     <Nebeneinander links={e.links} rechts={e.rechts} dauer={e.dauer} />
@@ -69,7 +78,9 @@ const Inhalt = ({ liste }) => {
 const gesamt = (liste) => liste.reduce((n, e, i) => n + e.dauer - (i > 0 ? BLENDE : 0), 0);
 
 // Loop fürs Autoplay: Hook, die beiden Momente mit Tippen, Plakat.
-const LOOP = [EINSTELLUNGEN[0], ...EINSTELLUNGEN.filter((e) => e.clip === "04-palette"),
+// Loop fürs Autoplay: Hook, das PDF, der KI-Moment, Plakat.
+const LOOP = [EINSTELLUNGEN[0],
+  ...EINSTELLUNGEN.filter((e) => e.art === "pdf").slice(0, 1),
   ...EINSTELLUNGEN.filter((e) => e.clip === "09-ki").slice(1),
   EINSTELLUNGEN[EINSTELLUNGEN.length - 1]];
 

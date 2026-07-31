@@ -27,6 +27,7 @@ const OUT = path.join(__dirname, "out", "raw");
 const PID = () => process.env.WEG_PROPERTY_ID;
 const PLAN = () => process.env.WEG_PLAN_ID;
 const MEETING = () => process.env.WEG_MEETING_ID;
+const STATEMENT = () => process.env.WEG_STATEMENT_ID;
 
 const FRAGE = "Wann ist die nächste Eigentümerversammlung?";
 
@@ -61,40 +62,6 @@ const SCENES = {
       await zielBox(page, clock, "z3", 'li:has-text("Hausgeld-Rückstände offen")');
       await page.waitForTimeout(4200);
       clock.mark("ende");
-    });
-  },
-
-  // ── 03 Erststart: Scrollfahrt durch die acht Schritte ───────────────────
-  async erststart(browser, state) {
-    await scene(browser, "03-erststart", state, async (page, clock) => {
-      await ankommen(page, clock, `${BASE}/dashboard`, 700);
-      await zielBox(page, clock, "naechstes", 'div:has(> p:text-is("Als Nächstes")), section:has-text("Als Nächstes") >> nth=-1');
-      await page.waitForTimeout(1600);
-      clock.mark("scroll_los");
-      await scrollFahrt(page, 700, { ms: 1500, settle: 500 });
-      clock.mark("unten");
-      await page.waitForTimeout(700);
-    });
-  },
-
-  // ── 04 Kommandopalette: Strg+K, tippen, springen ────────────────────────
-  async palette(browser, state) {
-    await scene(browser, "04-palette", state, async (page, clock) => {
-      await ankommen(page, clock, `${BASE}/dashboard`, 700);
-      await page.waitForTimeout(500);
-      clock.mark("strg_k");
-      await page.keyboard.press("Control+k");
-      await page.waitForTimeout(700);
-      clock.mark("offen");
-      // „Musterstraße" trifft die Daten, nicht nur die Menüpunkte — die Palette
-      // durchsucht für Verwalter auch den Bestand.
-      await humanType(page, 'input[aria-label="Suchbegriff"]', "Musterstraße");
-      await page.waitForTimeout(800);
-      clock.mark("getippt");
-      await page.keyboard.press("Enter");
-      await page.waitForTimeout(2000);
-      clock.mark("gesprungen");
-      await page.waitForTimeout(1000);
     });
   },
 
@@ -142,6 +109,74 @@ const SCENES = {
       await page.waitForTimeout(1700);
       clock.mark("ende");
     });
+  },
+
+  // ── 10 Jahresabrechnung: Abrechnungsspitze je Einheit, dann das PDF ──────
+  async jahresabrechnung(browser, state) {
+    await scene(browser, "10-jahresabrechnung", state, async (page, clock) => {
+      await ankommen(page, clock, `${BASE}/verwaltung/weg/${PID()}/jahresabrechnung/${STATEMENT()}`, 900);
+      clock.mark("scroll_los");
+      await scrollFahrt(page, 780, { ms: 1500, settle: 500 });
+      clock.mark("spitze");
+      await zielBox(page, clock, "spitze", 'tr:has-text("WE 01, EG links")');
+      await page.waitForTimeout(2600);
+      // Der Klick auf „PDF" öffnet die Einzelabrechnung als fertiges Dokument.
+      clock.mark("pdf_klick");
+      await moveAndClick(page, 'tr:has-text("WE 01, EG links") a:has-text("PDF")',
+        { from: { x: 700, y: 300 } }).catch(() => {});
+      await page.waitForTimeout(3200);
+      clock.mark("ende");
+    });
+  },
+
+  // ── 11 Beschluss-Sammlung: nummeriert, mit PDF-Export ───────────────────
+  async sammlung(browser, state) {
+    await scene(browser, "11-sammlung", state, async (page, clock) => {
+      await ankommen(page, clock, `${BASE}/beschluesse/sammlung`, 900);
+      await zielBox(page, clock, "eintrag", 'li:has-text("Wirtschaftsplan 2026"), div:has-text("Nr. 3") >> nth=-1').catch(() => {});
+      await page.waitForTimeout(2400);
+      clock.mark("export");
+      await moveAndClick(page, 'a:has-text("Als PDF exportieren"), button:has-text("Als PDF exportieren")',
+        { from: { x: 640, y: 400 } }).catch(() => {});
+      await page.waitForTimeout(2800);
+      clock.mark("ende");
+    });
+  },
+
+  // ── 12 Handy: dieselbe Abrechnung als PDF auf dem Telefon ───────────────
+  // Eigene Aufnahmegröße: 390×844 wie ein Telefon, aufgenommen in doppelter
+  // Auflösung. Im Schnitt sitzt das Bild in einem Telefonrahmen.
+  async handy(browser) {
+    fs.rmSync(path.join(OUT, "12-handy"), { recursive: true, force: true });
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      recordVideo: { dir: path.join(OUT, "12-handy"), size: { width: 780, height: 1688 } },
+      locale: "de-DE", timezoneId: "Europe/Berlin",
+      isMobile: true, hasTouch: true,
+      deviceScaleFactor: 2,
+    });
+    const page = await context.newPage();
+    const { clock: uhr } = require("./lib/capture");
+    const clock = uhr(path.join(OUT, "12-handy"));
+    await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
+    await page.fill('input[name="email"]', "eigentuemer@demo.de");
+    await page.fill('input[name="password"]', "Demo-2026!");
+    await page.click('button[type="submit"]');
+    await page.waitForURL(/dashboard/, { timeout: 20000 });
+    await page.waitForTimeout(1200);
+    clock.mark("drin");
+    await page.goto(`${BASE}/finanzen`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(1400);
+    clock.mark("finanzen");
+    await installCursor(page);
+    await moveAndClick(page, 'a[href*="/pdf"]', { from: { x: 195, y: 300 } }).catch(() => {});
+    await page.waitForTimeout(3400);
+    clock.mark("pdf");
+    await page.waitForTimeout(1600);
+    clock.mark("ende");
+    clock.save();
+    await context.close();
+    console.log("fertig: 12-handy");
   },
 
   // ── 08 Rollenwechsel: dieselbe WEG aus Sicht einer Miteigentümerin ──────

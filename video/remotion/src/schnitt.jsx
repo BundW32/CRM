@@ -6,11 +6,11 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { BREITE, FARBEN, FPS, HOEHE, Einstellung, Unterzeile } from "./bausteine";
-import { Karte, Nebeneinander, Notiz } from "./stilmittel";
+import { Karte, Nebeneinander, Notiz, PdfBlatt, Telefon } from "./stilmittel";
 
 const M = {};
-for (const n of ["02-fahrplan", "03-erststart", "04-palette", "05-wirtschaftsplan",
-  "06-hausgeld", "07-versammlung", "08-rollen", "09-ki"]) {
+for (const n of ["02-fahrplan", "05-wirtschaftsplan", "06-hausgeld", "07-versammlung",
+  "08-rollen", "09-ki", "10-jahresabrechnung", "11-sammlung", "12-handy"]) {
   M[n] = require(`../public/clips/${n}.json`);
 }
 
@@ -148,30 +148,6 @@ function bauen() {
     });
   }
 
-  // 03 Erststart — Licht auf „Als Nächstes", dann die Scrollfahrt der Aufnahme.
-  {
-    const m = M["03-erststart"];
-    const dauer = s(4.6);
-    add({
-      art: "clip", clip: "03-erststart", ab: m.bereit + 0.1, dauer,
-      // Steht: In der Aufnahme scrollt die Seite bereits.
-      kamera: STEHT,
-      ziele: [{ box: m.boxes.naechstes, ab: s(0.4), bis: s(1.5) }],
-      unterzeile: zeile("Acht Schritte. *Einer nach dem anderen.*", dauer),
-    });
-  }
-
-  // 04 Kommandopalette — Strg+K, tippen, springen. Ungeschnitten.
-  {
-    const m = M["04-palette"];
-    const dauer = s(Math.min(5.4, m.gesprungen - m.strg_k + 1.2));
-    add({
-      art: "clip", clip: "04-palette", ab: m.strg_k - 0.35, dauer,
-      kamera: naeher(1.1, 0.5, 0.36),
-      unterzeile: zeile("*Suchen* statt klicken.", dauer),
-    });
-  }
-
   // 05 Wirtschaftsplan — zwei Umlageschlüssel im Licht …
   {
     const m = M["05-wirtschaftsplan"];
@@ -229,6 +205,43 @@ function bauen() {
       kamera: naeher(1.16, 0.4, 0.58),
     });
   }
+
+  // 10 Jahresabrechnung — Abrechnungsspitze je Einheit.
+  {
+    const m = M["10-jahresabrechnung"];
+    const d1 = s(4.4);
+    add({
+      art: "clip", clip: "10-jahresabrechnung", ab: m.scroll_los, dauer: d1,
+      kamera: STEHT,
+      ziele: [{ box: m.boxes.spitze, ab: s(2.2), bis: s(4.0) }],
+      unterzeile: zeile("Jahresabrechnung mit *Abrechnungsspitze.*", d1),
+    });
+  }
+
+  // 11 Das PDF — echtes Dokument aus der App.
+  add({ art: "pdf", datei: "einzelabrechnung", dauer: s(3.6),
+    unterzeile: zeile("Ein Klick, *ein fertiges Dokument.*", s(3.6)) });
+
+  // 12 Handy — dieselbe Sache am Telefon.
+  {
+    const m = M["12-handy"];
+    add({ art: "handy", clip: "12-handy", ab: m.finanzen - 0.3, dauer: s(4.6),
+      nebenText: "Und *am Telefon* genauso." });
+  }
+
+  // 13 Beschluss-Sammlung — nummeriert, § 24 Abs. 7 WEG.
+  {
+    const m = M["11-sammlung"];
+    const d = s(3.6);
+    add({
+      art: "clip", clip: "11-sammlung", ab: m.bereit + 0.2, dauer: d,
+      kamera: naeher(1.08, 0.5, 0.45),
+      ziele: m.boxes.eintrag ? [{ box: m.boxes.eintrag, ab: s(0.8), bis: s(3.0) }] : [],
+      unterzeile: zeile("Beschluss-Sammlung, *lückenlos.*", d),
+    });
+  }
+  add({ art: "pdf", datei: "sammlung", dauer: s(3.0),
+    unterzeile: zeile("Auch als *PDF-Export.*", s(3.0)) });
 
   // 08 Rollenwechsel — dieselbe WEG, kürzeres Menü.
   {

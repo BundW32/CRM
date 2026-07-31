@@ -94,24 +94,18 @@ async function main() {
   // ── Beschlüsse entscheiden ───────────────────────────────────────────────
   // Die Beschluss-Sammlung (§ 24 Abs. 7 WEG) führt nur ENTSCHIEDENE Beschlüsse
   // mit laufender Nummer. Offene stehen dort nicht — die Sammlung wäre sonst
-  // leer, obwohl drei Beschlüsse angelegt sind.
-  await p.goto(`${BASE}/beschluesse`, { waitUntil: "networkidle" });
-  for (const b of BESCHLUESSE) {
-    const karte = p.locator(`li:has-text("${b.titel}"), article:has-text("${b.titel}")`).first();
-    // Der Knopf heißt „Schließen"; das Ergebnis (ANGENOMMEN) kommt aus dem
-    // Formular, das ihn umgibt.
-    const knopf = karte.locator('button:has-text("Schließen")').first();
-    if (await knopf.count()) {
-      const form = knopf.locator("xpath=ancestor::form[1]");
-      await form.locator('select[name="result"], input[name="result"]')
-        .selectOption("ANGENOMMEN").catch(() => {});
-      await knopf.click();
-      await p.waitForTimeout(1400);
-      console.log("entschieden:", b.titel);
-      await p.goto(`${BASE}/beschluesse`, { waitUntil: "networkidle" });
-    } else {
-      console.log("kein Knopf zum Entscheiden bei:", b.titel);
-    }
+  // leer, obwohl Beschlüsse angelegt sind.
+  //
+  // Die Karte ist ein DIV, kein li/article; deshalb wird hier nicht über die
+  // Karte gesucht, sondern direkt über das Formular, das den Knopf trägt.
+  for (let i = 0; i < BESCHLUESSE.length; i++) {
+    await p.goto(`${BASE}/beschluesse`, { waitUntil: "networkidle" });
+    const form = p.locator('form:has(button:has-text("Schließen"))').first();
+    if (!(await form.count())) { console.log("nichts mehr zu entscheiden"); break; }
+    await form.locator('select[name="result"]').selectOption("ANGENOMMEN").catch(() => {});
+    await form.locator('button:has-text("Schließen")').click();
+    await p.waitForTimeout(1600);
+    console.log("Beschluss entschieden");
   }
 
   await ctx.close();

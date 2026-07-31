@@ -47,5 +47,30 @@ rm -rf out/raw/03-erststart
 node record.js erststart
 cd .. && db "$SETUP_DONE" && cd video
 
-echo "→ Schnitt"
-node compose.js
+echo "→ Schnitt in Remotion"
+# Die Aufnahmen und ihre Marken wandern nach remotion/public/clips — von dort
+# liest die Komposition sie über staticFile().
+mkdir -p remotion/public/clips
+for d in out/raw/*/; do
+  n=$(basename "$d")
+  f=$(find "$d" -name '*.webm' | head -1)
+  [ -n "$f" ] && cp "$f" "remotion/public/clips/$n.webm"
+  [ -f "$d/marks.json" ] && cp "$d/marks.json" "remotion/public/clips/$n.json"
+done
+
+SHELL_BIN=/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell
+cd remotion
+npx remotion render src/index.js hero-full ../out/roh.mp4      --crf=20 --browser-executable=$SHELL_BIN
+npx remotion render src/index.js hero-loop ../out/roh-loop.mp4 --crf=20 --browser-executable=$SHELL_BIN
+cd ..
+
+# Remotion liefert bewusst hohe Qualität; fürs Web wird nachverdichtet.
+FF=$(node -p "require('ffmpeg-static')")
+for p in roh:hero-full roh-loop:hero-loop; do
+  "$FF" -nostdin -y -loglevel error -i "out/${p%%:*}.mp4" -c:v libx264 -preset slow -crf 28 \
+    -pix_fmt yuv420p -movflags +faststart -an "out/${p##*:}.mp4"
+  "$FF" -nostdin -y -loglevel error -i "out/${p%%:*}.mp4" -c:v libvpx-vp9 -crf 42 -b:v 0 \
+    -row-mt 1 -an "out/${p##*:}.webm"
+done
+"$FF" -nostdin -y -loglevel error -sseof -0.3 -i out/hero-full.mp4 -vframes 1 -q:v 3 out/hero-poster.jpg
+rm -f out/roh.mp4 out/roh-loop.mp4

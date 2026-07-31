@@ -31,13 +31,23 @@ async function launch() {
 function clock(dir) {
   const t0 = Date.now();
   const marks = {};
+  const boxes = {};
   return {
     mark(name) {
       marks[name] = +((Date.now() - t0) / 1000).toFixed(2);
     },
+    // Rechteck eines Ziels in CSS-Pixeln (1280×720). Die Aufnahme läuft in
+    // 2560×1440, also exakt doppelt — bei der Wiedergabe in 1280×720 stimmen
+    // die Koordinaten wieder 1:1.
+    box(name, b) {
+      boxes[name] = {
+        x: Math.round(b.x), y: Math.round(b.y),
+        w: Math.round(b.width), h: Math.round(b.height),
+      };
+    },
     save() {
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, "marks.json"), JSON.stringify(marks, null, 2));
+      fs.writeFileSync(path.join(dir, "marks.json"), JSON.stringify({ ...marks, boxes }, null, 2));
     },
   };
 }
@@ -149,93 +159,29 @@ async function humanType(page, sel, text) {
   }
 }
 
-// ── Unterzeile über der Oberfläche ──────────────────────────────────────────
-// Volltafeln zwischen jeder Szene ergäben eine Diashow. Eine Unterzeile lässt
-// das Produkt im Bild und nennt die Aussage dazu. Sie wird in die Seite
-// injiziert und mit aufgenommen — kein nachträgliches Compositing nötig.
+// ── Ziele merken statt zeichnen ─────────────────────────────────────────────
+// Bis Fassung 3 wurden Spotlight und Unterzeile in die Seite injiziert und
+// mitaufgenommen. Zwei Fehler folgten daraus zwangsläufig:
 //
-// Alle Stile über element.style: <style>-Tags gehen zwar durch die CSP, aber
-// so bleibt die Unterzeile unabhängig von den Regeln der Seite.
-async function installCaption(page) {
-  await page.evaluate(() => {
-    const box = document.createElement("div");
-    box.id = "__cap";
-    Object.assign(box.style, {
-      position: "fixed", left: "0", right: "0", bottom: "0", zIndex: "2147483000",
-      padding: "96px 56px 58px", pointerEvents: "none",
-      background: "linear-gradient(to top, rgba(8,6,5,.95) 0%, rgba(8,6,5,.86) 40%, rgba(10,8,6,0) 100%)",
-      opacity: "0", transition: "opacity .35s cubic-bezier(.22,.61,.36,1)",
-      fontFamily: '"Plus Jakarta Sans","Inter",sans-serif',
-    });
-    const t = document.createElement("div");
-    t.id = "__capT";
-    Object.assign(t.style, {
-      color: "#fff", fontSize: "40px", fontWeight: "800", letterSpacing: "-0.02em",
-      lineHeight: "1.15", textShadow: "0 2px 18px rgba(0,0,0,.6)",
-      transform: "translateY(14px)", transition: "transform .4s cubic-bezier(.22,.61,.36,1)",
-    });
-    box.appendChild(t);
-    document.body.appendChild(box);
-
-    window.__cap = (html) => {
-      const b = document.getElementById("__cap");
-      const el = document.getElementById("__capT");
-      el.innerHTML = html.replace(/\*(.+?)\*/g, '<span style="color:#f69018">$1</span>');
-      b.style.opacity = "1";
-      el.style.transform = "translateY(0)";
-    };
-    window.__capOff = () => {
-      const b = document.getElementById("__cap");
-      const el = document.getElementById("__capT");
-      b.style.opacity = "0";
-      el.style.transform = "translateY(14px)";
-    };
-  });
+//   * Die Unterzeile wurde von der Kamerafahrt mitbeschnitten — sie klebte am
+//     Browserbild, nicht am Bildrand.
+//   * Der Spotlight lief über CSS-Übergänge und wurde mit 25 Bildern je Sekunde
+//     bei schwankender Bildrate aufgenommen: sichtbar ruckelig.
+//
+// Jetzt merkt sich die Aufnahme nur noch die RECHTECKE der Ziele. Gezeichnet
+// wird in Remotion, Bild für Bild — scharf, und die Unterzeile liegt über der
+// Kamera statt darunter.
+async function zielBox(page, clock, name, selector) {
+  const el = page.locator(selector).first();
+  await el.scrollIntoViewIfNeeded().catch(() => {});
+  const b = await el.boundingBox();
+  if (!b) throw new Error(`Ziel nicht gefunden: ${selector}`);
+  clock.box(name, b);
+  return b;
 }
 
-// ── Spotlight ───────────────────────────────────────────────────────────────
-// Dunkelt alles ab AUSSER einem Element. Erzeugt in einem Zug den Blickfang,
-// für den man sonst stark zoomen müsste — und zoomen schneidet Beschriftungen
-// ab. Umgesetzt als ein einziges Element mit riesigem box-shadow: Das Loch ist
-// das Element selbst, der Schatten deckt den Rest.
-async function spotlight(page, selector, opts = {}) {
-  const box = await page.locator(selector).first().boundingBox();
-  if (!box) throw new Error(`Spotlight findet nichts: ${selector}`);
-  const pad = opts.pad ?? 10;
-  await page.evaluate(
-    ([b, pad]) => {
-      let el = document.getElementById("__spot");
-      if (!el) {
-        el = document.createElement("div");
-        el.id = "__spot";
-        Object.assign(el.style, {
-          position: "fixed", zIndex: "2147482000", pointerEvents: "none",
-          borderRadius: "14px", opacity: "0",
-          transition: "opacity .4s cubic-bezier(.22,.61,.36,1), left .75s cubic-bezier(.4,0,.2,1), top .75s cubic-bezier(.4,0,.2,1), width .75s cubic-bezier(.4,0,.2,1), height .75s cubic-bezier(.4,0,.2,1)",
-          boxShadow: "0 0 0 9999px rgba(8,6,5,.72)",
-          outline: "2px solid rgba(246,144,24,.85)",
-        });
-        document.body.appendChild(el);
-      }
-      el.style.left = b.x - pad + "px";
-      el.style.top = b.y - pad + "px";
-      el.style.width = b.width + pad * 2 + "px";
-      el.style.height = b.height + pad * 2 + "px";
-      el.style.opacity = "1";
-    },
-    [box, pad],
-  );
-  await page.waitForTimeout(opts.wait ?? 900);
-}
-
-async function spotlightOff(page) {
-  await page.evaluate(() => {
-    const el = document.getElementById("__spot");
-    if (el) el.style.opacity = "0";
-  });
-  await page.waitForTimeout(450);
-}
-
+// Standzeit aus der Textlänge: ~14 Zeichen je Sekunde, nie unter 2 s.
+// Fest verdrahtete Standzeiten sind der häufigste Grund für unlesbare Videos.
 // ── Klicken wie ein Mensch ──────────────────────────────────────────────────
 // Zeiger hinfahren, Ring-Impuls, dann erst klicken. Ein Klick ohne sichtbaren
 // Zeiger wirkt im Video wie ein Sprung ohne Ursache.
@@ -263,7 +209,6 @@ async function scrollFahrt(page, to, opts = {}) {
         const t0 = performance.now();
         const step = (t) => {
           const p = Math.min(1, (t - t0) / ms);
-          // schnell los, spät stark abbremsen
           const e = p < 0.65 ? 1.35 * p : 1 - Math.pow(1 - p, 3) * 0.62;
           window.scrollTo(0, from + (to - from) * Math.min(1, e));
           p < 1 ? requestAnimationFrame(step) : done();
@@ -275,22 +220,6 @@ async function scrollFahrt(page, to, opts = {}) {
   await page.waitForTimeout(opts.settle ?? 500);
 }
 
-// Standzeit aus der Textlänge: ~14 Zeichen je Sekunde, nie unter 2 s.
-// Fest verdrahtete Standzeiten sind der häufigste Grund für unlesbare Videos.
-function holdMs(text) {
-  const clean = text.replace(/[*|]/g, "");
-  return Math.max(2000, Math.round((clean.length / 14) * 1000));
-}
-
-async function caption(page, text, opts = {}) {
-  await page.evaluate((t) => window.__cap(t), text);
-  await page.waitForTimeout(opts.hold ?? holdMs(text));
-  if (opts.keep) return;
-  await page.evaluate(() => window.__capOff());
-  await page.waitForTimeout(350);
-}
-
-// Sanftes Scrollen statt Sprung: ein harter Sprung liest sich im Video als Schnitt.
 async function smoothScroll(page, to, ms = 900) {
   await page.evaluate(
     ([to, ms]) =>
@@ -311,7 +240,6 @@ async function smoothScroll(page, to, ms = 900) {
 
 module.exports = {
   launch, newClip, clock, installCursor, moveCursor, clickAt, humanType,
-  installCaption, caption, holdMs, smoothScroll,
-  spotlight, spotlightOff, moveAndClick, scrollFahrt,
+  smoothScroll, zielBox, moveAndClick, scrollFahrt,
   BASE, VIEW, REC, easeOut,
 };

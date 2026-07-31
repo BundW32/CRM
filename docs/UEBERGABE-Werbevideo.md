@@ -18,37 +18,26 @@ Daneben:
 
 ## Was steht
 
-Eine **~14-sekündige Vorschau** ist gebaut und läuft: Hook-Tafel → synthetischer
-Zeiger klickt den KI-Assistenten → Frage wird getippt → Antwort erscheint mit
-Quellenangabe, Zufahrt → Endtafel. Alles echte Aufnahmen der laufenden App in
-2560×1440, ausgegeben als `.mp4` und `.webm` mit Poster.
+Die **Endfassung ist gebaut**: `video/out/hero-full.mp4` (~50 s),
+`hero-loop.mp4` (~16 s fürs Autoplay), `hero-poster.jpg`, jeweils auch als
+`.webm`. Acht Szenen, alle in der laufenden App aufgenommen:
 
-Damit ist bewiesen: Aufnahme, synthetischer Cursor, Tippanimation, Zoomfahrt mit
-Easing, Texttafeln in Markenschrift, Encoding und die Sichtprüfung über
-Einzelbilder funktionieren alle.
+Hook-Tafel → Jahresfahrplan mit den überfälligen Punkten → geführter Erststart →
+Wirtschaftsplan mit den Umlageschlüsseln → Rückstandsliste je Einheit →
+Tagesordnung mit Paragraphenbezug → KI-Assistent mit Quellenangabe → Endtafel.
 
-## Was fehlt
+`bash video/aufnehmen.sh` erzeugt alles neu, inklusive Demo-Zustand.
 
-1. **Demo-Daten für eine selbstverwaltete WEG.** `prisma/seed.ts` legt die WEG
-   „Musterstraße 12" bereits an, aber in einer **professionellen** Organisation —
-   die Aufnahme zeigt deshalb das Verwalter-Dashboard statt des geführten
-   Erststarts und des Jahresfahrplans. Gebraucht wird eine selbstverwaltete
-   Organisation mit **beschlossenem Wirtschaftsplan und Sollstellungen**.
-   Achtung, bekannte Falle: Der Kostenkatalog verteilt auch nach Fläche und
-   Personenzahl — fehlen die Werte, blockiert der Plan
-   (`UEBERGABE-WEG-Selbstverwaltung.md`, Abschnitt 2.1).
-2. **Die übrigen acht Szenen** aus dem Schnittplan (Plan, Abschnitt 3).
-3. **Die Loop-Fassung** (12–15 s) fürs Autoplay, Endbild ≈ Anfangsbild.
-4. **Einbau in die Seite** samt Poster, `prefers-reduced-motion` und Transkript.
+## Was noch offen ist
 
-## Was zuerst geklärt sein muss
-
-- **Die offenen Branches sind gemergt und das Design steht.** Vorher aufgenommene
-  Szenen zeigen eine App, die es danach nicht mehr gibt. (Die Vorschau war
-  bewusst die Ausnahme: Ihr Zweck war die Technik, nicht das Bild.)
-- **Der Schnittplan ist freigegeben** (Plan, Abschnitt 3).
-- **`GEMINI_API_KEY`** liegt vor — oder es wird ohne ihn gearbeitet, siehe Skill
-  Abschnitt 5.
+1. **Neu aufnehmen, sobald die Branches gemergt sind.** Die vorliegende Fassung
+   zeigt den Stand von heute; nach den Merges genügt ein erneuter Lauf.
+2. **Einbau in die Seite** samt Poster, `prefers-reduced-motion` (dann nur das
+   Plakat) und Kurztranskript.
+3. **`GEMINI_API_KEY`**, wenn der Antworttext des Assistenten im Video echt sein
+   soll statt fest gesetzt (siehe Skill, Abschnitt 5).
+4. **Feinschliff nach Sichtung** — Tempo, Zoomtiefe, Formulierungen der
+   Unterzeilen. Alles davon ist eine Zahl im Skript, kein Neuschnitt.
 
 ## Umgebung zum Loslaufen
 

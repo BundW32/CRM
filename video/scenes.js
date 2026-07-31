@@ -146,11 +146,20 @@ const SCENES = {
   // ── 12 Handy: dieselbe Abrechnung als PDF auf dem Telefon ───────────────
   // Eigene Aufnahmegröße: 390×844 wie ein Telefon, aufgenommen in doppelter
   // Auflösung. Im Schnitt sitzt das Bild in einem Telefonrahmen.
-  async handy(browser) {
+  async handy() {
     fs.rmSync(path.join(OUT, "12-handy"), { recursive: true, force: true });
+    // Eigener Browser ohne den erzwungenen Skalierungsfaktor — sonst rechnet
+    // die Seite mit ~780 Pixeln Breite und zeigt das Desktop-Layout.
+    const { launchHandy } = require("./lib/capture");
+    const browser = await launchHandy();
     const context = await browser.newContext({
       viewport: { width: 390, height: 844 },
-      recordVideo: { dir: path.join(OUT, "12-handy"), size: { width: 780, height: 1688 } },
+      // Aufnahmegröße = CSS-Größe des Fensters. Mit doppelter Größe blieb das
+      // Bild rechts leer: Der Kontext-Skalierungsfaktor schlägt nicht auf die
+      // Aufzeichnung durch, die Seite landete in der linken Hälfte.
+      // Im Schnitt wird das Telefon ohnehin auf ~305 Pixel Breite gezeigt,
+      // also verliert die Aufnahme dabei nichts.
+      recordVideo: { dir: path.join(OUT, "12-handy"), size: { width: 390, height: 844 } },
       locale: "de-DE", timezoneId: "Europe/Berlin",
       isMobile: true, hasTouch: true,
       deviceScaleFactor: 2,
@@ -165,17 +174,22 @@ const SCENES = {
     await page.waitForURL(/dashboard/, { timeout: 20000 });
     await page.waitForTimeout(1200);
     clock.mark("drin");
-    await page.goto(`${BASE}/finanzen`, { waitUntil: "networkidle" });
+    // Bewusst die Übersicht und das Menü statt der Finanzseite: Deren
+    // Hausgeld-Tabelle ist breiter als 390 Pixel und wird am rechten Rand
+    // abgeschnitten — im Video sieht das nach Fehler aus, obwohl die Tabelle
+    // dort nur seitlich scrollt.
     await page.waitForTimeout(1400);
-    clock.mark("finanzen");
+    clock.mark("uebersicht");
     await installCursor(page);
-    await moveAndClick(page, 'a[href*="/pdf"]', { from: { x: 195, y: 300 } }).catch(() => {});
-    await page.waitForTimeout(3400);
-    clock.mark("pdf");
-    await page.waitForTimeout(1600);
+    await moveAndClick(page, 'button:has-text("Menü")', { from: { x: 195, y: 420 } }).catch(() => {});
+    await page.waitForTimeout(1500);
+    clock.mark("menue");
+    await moveAndClick(page, 'a:has-text("Beschlüsse")', { from: { x: 60, y: 120 } }).catch(() => {});
+    await page.waitForTimeout(2200);
     clock.mark("ende");
     clock.save();
     await context.close();
+    await browser.close();
     console.log("fertig: 12-handy");
   },
 

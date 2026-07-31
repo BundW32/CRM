@@ -225,7 +225,7 @@ function bauen() {
   // 12 Handy — dieselbe Sache am Telefon.
   {
     const m = M["12-handy"];
-    add({ art: "handy", clip: "12-handy", ab: m.finanzen - 0.3, dauer: s(4.6),
+    add({ art: "handy", clip: "12-handy", ab: m.uebersicht - 0.4, dauer: s(4.8),
       nebenText: "Und *am Telefon* genauso." });
   }
 
@@ -237,11 +237,11 @@ function bauen() {
       art: "clip", clip: "11-sammlung", ab: m.bereit + 0.2, dauer: d,
       kamera: naeher(1.08, 0.5, 0.45),
       ziele: m.boxes.eintrag ? [{ box: m.boxes.eintrag, ab: s(0.8), bis: s(3.0) }] : [],
-      unterzeile: zeile("Beschluss-Sammlung, *lückenlos.*", d),
+      unterzeile: zeile("Beschluss-Sammlung, *lückenlos* — auch als PDF.", d),
     });
   }
-  add({ art: "pdf", datei: "sammlung", dauer: s(3.0),
-    unterzeile: zeile("Auch als *PDF-Export.*", s(3.0)) });
+  // Der PDF-Export der Sammlung wird nur erwähnt — ein zweites PDF-Blatt wäre
+  // dieselbe Idee ein zweites Mal und würde das Video nur verlängern.
 
   // 08 Rollenwechsel — dieselbe WEG, kürzeres Menü.
   {

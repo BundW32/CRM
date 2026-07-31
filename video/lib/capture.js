@@ -23,6 +23,20 @@ async function launch() {
   });
 }
 
+// Eigener Start für Telefon-Aufnahmen — OHNE --force-device-scale-factor.
+//
+// Der Schalter erzwingt den Faktor fensterweit und hebelt die Geräte-Emulation
+// des Kontexts aus: Die Seite rechnete dann mit rund 780 CSS-Pixeln Breite,
+// traf damit den Desktop-Breakpoint und wurde im Telefonrahmen als
+// abgeschnittene Desktop-Ansicht sichtbar. Ohne den Schalter setzt der Kontext
+// den Faktor selbst, und die App sieht echte 390 Pixel — also ihr Mobil-Layout.
+async function launchHandy() {
+  return chromium.launch({
+    executablePath: CHROME,
+    args: ["--hide-scrollbars", "--force-color-profile=srgb"],
+  });
+}
+
 // Marken: Jede Szene schreibt mit, WANN etwas passiert ist — relativ zum Beginn
 // der Aufnahme. Vorher wurden die Schnittzeiten geschätzt, und weil das Laden
 // der Seite mal 0,5 und mal 1,5 Sekunden dauert, landeten Zoomfahrten mitten
@@ -239,7 +253,7 @@ async function smoothScroll(page, to, ms = 900) {
 }
 
 module.exports = {
-  launch, newClip, clock, installCursor, moveCursor, clickAt, humanType,
+  launch, launchHandy, newClip, clock, installCursor, moveCursor, clickAt, humanType,
   smoothScroll, zielBox, moveAndClick, scrollFahrt,
   BASE, VIEW, REC, easeOut,
 };

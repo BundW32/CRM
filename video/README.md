@@ -92,3 +92,41 @@ rechtegeprüften Daten. Mit gesetztem `GEMINI_API_KEY` wird der Patch nicht
 gebraucht — dann ist auch der Antworttext echt.
 
 Der Patch gehört **nicht** in einen Deployment-Branch.
+
+## Chat-Vorschau der Startseite
+
+Eine **selbsttragende HTML-Datei** der öffentlichen Startseite: läuft ohne
+Server, ohne React und ohne eine einzige Anfrage nach außen — geeignet zum
+Verschicken, Einbetten oder Ansehen im Chat.
+
+```bash
+cd portal && APP_MODE=weg npx next build && APP_MODE=weg npx next start -p 3200
+cd ../video && node build-chat-vorschau.mjs > out/vorschau.html
+```
+
+Wie beim Werbevideo gilt: **kein von Hand gepflegter Nachbau.** Genommen wird
+das servergerenderte Markup der laufenden App; `chat-vorschau-treiber.js`
+übernimmt danach genau die Arbeit, die sonst React macht — Scroll-Fortschritt
+der Bau-Szene und das Einblenden der Abschnitte. Er steuert dieselben
+`data-`-Attribute, die `scrolly-build.tsx` setzt, und rechnet dieselben
+Formeln. Weicht eine davon ab, läuft die Vorschau sichtbar anders als die
+Seite, für die sie wirbt.
+
+Vier Dinge, die dabei Zeit gekostet haben:
+
+1. **Die Fotos stehen nicht als Pfad im Markup.** `next/image` schreibt
+   `/_next/image?url=%2Fimages%2F…`; ein Muster auf `/images/…` greift daneben
+   und liefert stillschweigend eine Vorschau ohne Bilder. Das `srcSet` fliegt
+   vorher heraus, sonst stünde jede der acht Breiten als eigene Kopie
+   derselben eingebetteten Datei da.
+2. **Die Schriften fallen still zurück.** Inter und Plus Jakarta Sans liegen
+   selbst gehostet unter `/fonts`. Ohne Einbettung sieht die Vorschau auf den
+   ersten Blick richtig aus und ist es nicht — deshalb bricht das Skript ab,
+   wenn eine Datei fehlt.
+3. **Umlaute brauchen Entities.** Wird die Datei ohne Charset-Header geöffnet,
+   liest der Browser Latin-1 und macht aus „Eigentümer" „EigentÃŒmer". Ein
+   `<meta charset>` käme zu spät: Es müsste in den ersten 1024 Byte stehen,
+   davor liegt aber das eingebettete Stylesheet.
+4. **Das Markup ist der Zustand VOR der Hydratation.** Die Bau-Szene steht auf
+   Stufe 1, und alle `.mk-reveal`-Blöcke sind unsichtbar. Ohne den Treiber ist
+   die halbe Seite leer.

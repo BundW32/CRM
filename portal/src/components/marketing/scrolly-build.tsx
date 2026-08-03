@@ -142,6 +142,7 @@ const OUTLINE = "#0b2239"; /* wp-ink */
 const FACADE = "#f2f7fb";
 const GLASS_OFF = "#cddeed";
 const GLASS_ON = "#7fe3d4";
+const TRIM = "var(--color-wp-primary)"; /* Kran, Tür, Blumenkasten */
 
 // Comic-Fenster mit Kreuzsprosse; `on` schaltet warmes Licht + Glühen.
 function Win({ x, y, on, w = 30, h = 42, floor, idx, cnt }: { x: number; y: number; on: boolean; w?: number; h?: number; floor: number; idx: number; cnt: number }) {
@@ -151,7 +152,7 @@ function Win({ x, y, on, w = 30, h = 42, floor, idx, cnt }: { x: number; y: numb
       data-wfloor={floor}
       data-widx={idx}
       data-wcnt={cnt}
-      style={{ filter: on ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none" }}
+      style={{ filter: on ? "drop-shadow(0 0 5px rgba(46,211,190,0.85))" : "none" }}
     >
       <rect x={x} y={y} width={w} height={h} rx={4} fill={OUTLINE} />
       <rect
@@ -174,7 +175,7 @@ function Win({ x, y, on, w = 30, h = 42, floor, idx, cnt }: { x: number; y: numb
 function FlowerBox({ x, y, w = 34 }: { x: number; y: number; w?: number }) {
   return (
     <g>
-      <rect x={x} y={y} width={w} height={7} rx={2.5} fill="#0c534a" stroke={OUTLINE} strokeWidth={2} />
+      <rect x={x} y={y} width={w} height={7} rx={2.5} fill={TRIM} stroke={OUTLINE} strokeWidth={2} />
       {[0.2, 0.5, 0.8].map((f) => (
         <circle key={f} cx={x + w * f} cy={y - 2} r={3.2} fill="var(--color-wp-accent)" />
       ))}
@@ -209,7 +210,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
       <svg viewBox="0 0 320 470" className="absolute inset-0 h-full w-full" role="img" aria-label="Ein Haus baut sich Stockwerk für Stockwerk auf">
         {/* ── Baukran (hinter dem Haus, verschwindet bei Fertigstellung) ── */}
         <g data-crane style={{ ...rise(0), opacity: done ? 0 : appear(0), transition: "opacity 0.7s" }}>
-          <rect x={297} y={104} width={8} height={330} fill="#0c534a" />
+          <rect x={297} y={104} width={8} height={330} fill={TRIM} />
           <line x1={297} y1={150} x2={305} y2={180} stroke="#f5f1e6" strokeWidth={2} />
           <line x1={305} y1={150} x2={297} y2={180} stroke="#f5f1e6" strokeWidth={2} />
           <line x1={297} y1={230} x2={305} y2={260} stroke="#f5f1e6" strokeWidth={2} />
@@ -217,10 +218,10 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
           <line x1={297} y1={320} x2={305} y2={350} stroke="#f5f1e6" strokeWidth={2} />
           <line x1={305} y1={320} x2={297} y2={350} stroke="#f5f1e6" strokeWidth={2} />
           {/* Ausleger + Gegengewicht */}
-          <rect x={190} y={98} width={128} height={7} fill="#0c534a" />
+          <rect x={190} y={98} width={128} height={7} fill={TRIM} />
           <rect x={306} y={105} width={12} height={14} fill="var(--color-wp-accent)" stroke={OUTLINE} strokeWidth={2} />
-          <line x1={301} y1={98} x2={252} y2={80} stroke="#0c534a" strokeWidth={3} />
-          <line x1={252} y1={80} x2={196} y2={98} stroke="#0c534a" strokeWidth={3} />
+          <line x1={301} y1={98} x2={252} y2={80} stroke={TRIM} strokeWidth={3} />
+          <line x1={252} y1={80} x2={196} y2={98} stroke={TRIM} strokeWidth={3} />
           {/* Seil + Haken (pendelt sanft) */}
           <g style={{ animation: "mkFloat 4.5s ease-in-out infinite" }}>
             <line x1={210} y1={105} x2={210} y2={148} stroke={OUTLINE} strokeWidth={2} />
@@ -230,7 +231,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
 
         {/* ── Grundstück: Boden, Büsche, Baum, Fundament (Phase 0) ── */}
         <g data-part="0" style={rise(0)}>
-          <ellipse cx={160} cy={448} rx={150} ry={11} fill="rgba(0,54,48,0.10)" />
+          <ellipse cx={160} cy={448} rx={150} ry={11} fill="rgba(11,34,57,0.10)" />
           <line x1={14} y1={444} x2={306} y2={444} stroke={OUTLINE} strokeWidth={3} strokeLinecap="round" />
           {/* Busch links */}
           <circle cx={40} cy={430} r={15} fill="#3c9a6e" stroke={OUTLINE} strokeWidth={2.5} />
@@ -250,7 +251,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
         <g data-part="1" style={rise(1)}>
           <rect x={60} y={322} width={200} height={94} rx={6} fill={FACADE} stroke={OUTLINE} strokeWidth={3} />
           {/* Tür mit Rundbogen */}
-          <path d="M144,414 v-48 a16,16 0 0 1 32,0 v48 z" fill="#0c534a" stroke={OUTLINE} strokeWidth={3} />
+          <path d="M144,414 v-48 a16,16 0 0 1 32,0 v48 z" fill={TRIM} stroke={OUTLINE} strokeWidth={3} />
           <circle cx={170} cy={386} r={2.8} fill="var(--color-wp-accent)" />
           {/* Hausnummer 12 – Gruß an die WEG Musterstraße 12 */}
           <rect x={184} y={352} width={20} height={15} rx={3} fill="#fff" stroke={OUTLINE} strokeWidth={2} />
@@ -296,7 +297,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
           <path d="M44,150 L160,62 L276,150 Z" fill="var(--color-wp-accent)" stroke={OUTLINE} strokeWidth={3.5} strokeLinejoin="round" />
           <rect x={48} y={144} width={224} height={11} rx={4} fill="var(--color-wp-accent-dark)" stroke={OUTLINE} strokeWidth={3} />
           {/* rundes Dachfenster */}
-          <g data-atticg style={{ filter: done ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none" }}>
+          <g data-atticg style={{ filter: done ? "drop-shadow(0 0 5px rgba(46,211,190,0.85))" : "none" }}>
             <circle cx={160} cy={116} r={14} fill={OUTLINE} />
             <circle data-glass cx={160} cy={116} r={10} fill={done ? GLASS_ON : GLASS_OFF} style={{ transition: "fill 0.4s" }} />
             <line x1={160} y1={107} x2={160} y2={125} stroke={OUTLINE} strokeWidth={2.5} />
@@ -304,7 +305,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
           </g>
           {/* Zwei Bewohner vor der Tür (die Gemeinschaft zieht ein) */}
           <g data-figs style={{ opacity: stage >= ROOF_AT ? 1 : 0, transition: "opacity 0.5s", animation: stage >= ROOF_AT ? "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : "none", animationDelay: "250ms" }}>
-            <rect x={104} y={390} width={15} height={24} rx={7} fill="#0c534a" stroke={OUTLINE} strokeWidth={2} />
+            <rect x={104} y={390} width={15} height={24} rx={7} fill={TRIM} stroke={OUTLINE} strokeWidth={2} />
             <circle cx={111.5} cy={383} r={7} fill="#f2c9a0" stroke={OUTLINE} strokeWidth={2} />
             <rect x={124} y={396} width={13} height={18} rx={6} fill="var(--color-wp-accent)" stroke={OUTLINE} strokeWidth={2} />
             <circle cx={130.5} cy={390} r={5.5} fill="#f2c9a0" stroke={OUTLINE} strokeWidth={2} />

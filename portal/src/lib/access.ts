@@ -107,6 +107,27 @@ export function isSelfManaged(org: { accountType: string } | null | undefined): 
   return org?.accountType === "selbstverwalter";
 }
 
+/**
+ * Voreinstellung für die erklärenden Hinweise (`User.showHints`) eines neu
+ * angelegten Kontos.
+ *
+ * Aus `docs/PRODUKT-Laientauglichkeit-und-UseCases.md` §1.2: Wer beruflich
+ * verwaltet, braucht nicht erklärt zu bekommen, was ein Wirtschaftsplan ist —
+ * für ihn sind die Kästen Ballast. Alle anderen bekommen sie: der
+ * selbstverwaltende Eigentümer, der es nebenbei macht, und **auch** Eigentümer
+ * und Mieter einer professionell verwalteten WEG. Deren Laienstatus hängt nicht
+ * am Kontotyp ihrer Verwaltung.
+ *
+ * Abschaltbar bleibt es in beide Richtungen unter „Konto" — dies ist die
+ * Voreinstellung, keine Festlegung.
+ */
+export function hinweiseVoreinstellung(
+  role: string,
+  org: { accountType: string } | null | undefined,
+): boolean {
+  return !(role === "VERWALTER" && !isSelfManaged(org));
+}
+
 // Darf der Nutzer über Beschlüsse dieses Objekts abstimmen? Rollenunabhängig –
 // allein die Eigentümerstellung (Ownership) zählt. So kann auch ein interner
 // Verwalter (VERWALTER-User, der zugleich Eigentümer ist) mitstimmen.

@@ -28,7 +28,7 @@ import { isPlatformAdminUser } from "@/lib/platform";
 import { orgLogoUrl } from "@/lib/branding";
 import { roleLabels } from "@/lib/labels";
 import { getOrganization, getSession, requireUser } from "@/lib/session";
-import { loadSetupStatus } from "@/lib/weg/setup-status";
+import { loadSetupStatus, loadSetupStatusAlle } from "@/lib/weg/setup-status";
 
 export default async function PortalLayout({
   children,
@@ -90,17 +90,27 @@ export default async function PortalLayout({
   // Einrichtungs-Band: nur für die verwaltende Person einer selbstverwalteten
   // WEG und nur, solange die Einrichtung läuft. Das Band selbst blendet sich
   // auf der Übersicht aus – dort steht der Assistent.
-  const setup =
-    selfManaged && user.role === "VERWALTER"
-      ? await loadSetupStatus(
-          (
-            await db.property.findFirst({
-              where: { ...(await propertyWhereForVerwalter(user)), managementType: "WEG" },
-              select: { id: true },
-            })
-          )?.id ?? null,
-        )
-      : null;
+  //
+  // Gezeigt wird das erste **offene** Objekt, nicht das erste beliebige: Ein
+  // `findFirst` ohne Sortierung lieferte irgendeines, und war das fertig, blieb
+  // das Band für ein zweites, gerade angelegtes Objekt stumm.
+  //
+  // Bewusst auf Selbstverwaltungen begrenzt und auf zehn Objekte gedeckelt:
+  // Jeder Stand kostet sieben Abfragen, und dieses Layout läuft bei **jeder**
+  // Seitenauslieferung. Professionelle Verwaltungen finden den Assistenten im
+  // Arbeitsbereich des Objekts, das sie gerade ansehen.
+  const setup = await (async () => {
+    if (!selfManaged || user.role !== "VERWALTER") return null;
+    const props = await db.property.findMany({
+      where: { ...(await propertyWhereForVerwalter(user)), managementType: "WEG" },
+      orderBy: { name: "asc" },
+      take: 10,
+      select: { id: true },
+    });
+    if (props.length === 0) return loadSetupStatus(null);
+    const staende = await loadSetupStatusAlle(props.map((p) => p.id));
+    return staende.find((s) => !s.fertig) ?? null;
+  })();
 
   // KI-Assistent erscheint als schwebende Bubble (unten rechts), nicht in der
   // Navigation – nur bei Feature-Freigabe und passender Rolle.

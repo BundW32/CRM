@@ -4,6 +4,15 @@ Stand: 03.08.2026 · Basis: Testbericht „WEG Lindenhof 12" und
 „Laientauglichkeit WEG-Portal" · Ergänzung zu
 [`PLAN-Laientauglichkeit.md`](./PLAN-Laientauglichkeit.md)
 
+> **Umsetzungsstand.** **Block 1** (SK1–SK4) und **Block 2** (SK5–SK7) sind
+> gebaut und geprüft. Offen: Block 3 (Status aus Daten), Block 4 (Glossar
+> ausrollen, Kleinkram) und Block 5 (Passwort aus der URL).
+>
+> Zwei Entscheidungen sind unterwegs gefallen: Der Fahrplan **fasst** mehrere
+> Objekte zusammen, statt umschaltbar zu sein, und der Einrichtungs-Assistent
+> erreicht professionelle Verwaltungen über den **Arbeitsbereich des Objekts**
+> statt über ihr Dashboard. Begründungen bei SK5 und SK6.
+
 Zwei Testberichte, dreizehn plus zehn Befunde. Nach Prüfung am Code bleibt ein
 Bild, das den Aufwand deutlich senkt: **Fast nichts ist fachlich kaputt.** Die
 Berechnungen stimmen, die Wächter greifen, die Fristen werden geführt. Was
@@ -50,16 +59,21 @@ Das erklärt auch, warum der Tester den Einrichtungs-Assistenten nie zu Gesicht
 bekam: War in der Organisation bereits eine fertige WEG vorhanden, gilt
 `setup.fertig` — und das neu angelegte Muster-Objekt bekommt keine Führung.
 
-### Der zweite Befund: die Führung erreicht nur eine Hälfte
+### Der zweite Befund: die Einrichtungsführung erreicht nur eine Hälfte
 
 - `dashboard/page.tsx:37` — `SetupGuide` nur für `isSelfManaged`
 - `layout.tsx:93` — Einrichtungs-Band nur für `selfManaged && role VERWALTER`
-- `verwaltung/weg/Arbeitsbereich.tsx:62` — Fahrplan **nur für Profis**
-  (`selfManaged ? null : loadRoadmap(...)`)
 
-Der Selbstverwalter bekommt die Einrichtung, der Profi den Betrieb. Beide
-brauchen beides: Auch ein professioneller Verwalter nimmt neue WEGs auf, und
-auch ein Selbstverwalter kommt irgendwann in den laufenden Betrieb.
+Ein professioneller Verwalter, der eine neue WEG aufnimmt, bekommt damit weder
+Assistent noch Reihenfolge — obwohl dieselbe fachlich zwingende Kette für ihn
+gilt.
+
+**Korrektur zur ersten Fassung dieses Plans (03.08.2026).** Hier stand, der
+Fahrplan sei „für Selbstverwalter abgeschaltet — genau sie brauchen ihn"
+(`Arbeitsbereich.tsx:62`). Das war falsch: Der Selbstverwalter sieht den
+Fahrplan auf seiner Übersicht und bekommt im Arbeitsbereich nur den Verweis
+dorthin. Die Verzweigung ist bewusste Entdopplung und im Kopfkommentar der
+Datei begründet. Sie bleibt, wie sie ist.
 
 ---
 
@@ -179,12 +193,19 @@ Zusammen ein halber bis ein Tag. Enthält die Antwort auf die offene Frage aus
 
 ### SK6 — Einrichtung auch für professionelle Verwalter
 
-- `SetupGuide` und Einrichtungs-Band von `isSelfManaged` lösen und an den
-  **Einrichtungsstand des Objekts** hängen. Auch B&W nimmt neue WEGs auf.
-- Umgekehrt `Arbeitsbereich.tsx:62`: Der Fahrplan ist heute für Selbstverwalter
-  abgeschaltet. Genau sie brauchen ihn.
-- Ansprache: „**Ihre** WEG einrichten" (`SetupGuide.tsx:34`) stimmt, solange nur
-  Selbstverwalter es sehen. Danach nicht mehr — dort steht der Objektname.
+`SetupGuide` in den **WEG-Arbeitsbereich** des Objekts, nicht in das Dashboard
+der Profis. Zwei Gründe, die erst beim Bauen sichtbar wurden:
+
+- Der Arbeitsbereich gehört ohnehin zu genau einem Objekt. Damit erledigt sich
+  die Frage, welches gemeint ist — ohne Auswahl, ohne Rateschritt.
+- Ein Stand kostet sieben Abfragen. Im Layout, das bei **jeder**
+  Seitenauslieferung läuft, wäre das bei achtzig Objekten untragbar. Das
+  Einrichtungs-Band bleibt deshalb Selbstverwaltungen vorbehalten und ist auf
+  zehn Objekte gedeckelt.
+
+Ansprache: „**Ihre** WEG einrichten" (`SetupGuide.tsx:34`) stimmt, solange nur
+Selbstverwalter es sehen. Sobald eine professionelle Verwaltung es sieht, ist
+es die WEG des Kunden — dort steht der Objektname.
 - Die Oberfläche siezt durchgängig; „Frag deine Gemeinschaft" in
   `assistant.ts:1` ist ein Codekommentar und wird nirgends gerendert. Kein
   Handlungsbedarf, nur der Vollständigkeit halber geprüft.

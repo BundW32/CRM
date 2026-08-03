@@ -6,8 +6,8 @@ import { announcementWhereForUser, ownedProperties, propertyWhereForVerwalter } 
 import { db } from "@/lib/db";
 import { formatDate, formatDateOnly } from "@/lib/labels";
 import { classifyDue, dueLabel } from "@/lib/weg/compliance";
-import { loadRoadmap } from "@/lib/weg/roadmap";
-import { loadSetupStatus } from "@/lib/weg/setup-status";
+import { loadRoadmapAlle } from "@/lib/weg/roadmap";
+import { loadSetupStatus, loadSetupStatusAlle } from "@/lib/weg/setup-status";
 import { Roadmap } from "./Roadmap";
 import { SetupGuide } from "./SetupGuide";
 
@@ -21,15 +21,20 @@ const quickLinkClass =
 export async function SelfManagedDashboard({ user }: { user: User }) {
   const isAdmin = user.role === "VERWALTER";
 
-  // WEG-Objekte des Nutzers bestimmen.
-  const propIds = isAdmin
-    ? (
-        await db.property.findMany({
-          where: { ...(await propertyWhereForVerwalter(user)), managementType: "WEG" },
-          select: { id: true },
-        })
-      ).map((p) => p.id)
-    : (await ownedProperties(user.id)).filter((p) => p.managementType === "WEG").map((p) => p.id);
+  // WEG-Objekte des Nutzers bestimmen. Nach Name sortiert, nicht in
+  // Datenbankreihenfolge: Alles, was daraus folgt – Einrichtungsstand,
+  // Fahrplan, Reihenfolge der Karten – wäre sonst von Lauf zu Lauf anders.
+  const props = isAdmin
+    ? await db.property.findMany({
+        where: { ...(await propertyWhereForVerwalter(user)), managementType: "WEG" },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      })
+    : (await ownedProperties(user.id))
+        .filter((p) => p.managementType === "WEG")
+        .map((p) => ({ id: p.id, name: p.name }))
+        .sort((a, b) => a.name.localeCompare(b.name, "de"));
+  const propIds = props.map((p) => p.id);
 
   // ── Einrichtung zuerst ────────────────────────────────────────────────────
   // Solange die WEG nicht eingerichtet ist, IST die Übersicht die Anleitung.
@@ -38,13 +43,24 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
   //
   // Nur der verwaltende Eigentümer richtet ein; die übrigen sehen so lange,
   // wie weit die Gemeinschaft ist, ohne selbst hakeln zu können.
-  const setup = await loadSetupStatus(propIds[0] ?? null);
-  if (!setup.fertig) {
+  //
+  // Jedes Objekt hat seinen eigenen Stand. Vorher hing die ganze Übersicht am
+  // ersten: War eines fertig, galt die Einrichtung als erledigt, und ein
+  // zweites Objekt bekam nie eine Führung.
+  const setups = await loadSetupStatusAlle(propIds);
+  const offene = setups.filter((s) => !s.fertig);
+  // Die Übersicht wird nur dann ganz zur Anleitung, wenn es noch **nichts**
+  // Laufendes gibt. Steht ein Objekt schon im Betrieb, hat es Zahlen, Fristen
+  // und Aushänge – die dürfen nicht verschwinden, weil ein zweites Objekt neu
+  // hinzugekommen ist.
+  if (offene.length === setups.length) {
+    const setup = offene[0] ?? (await loadSetupStatus(null));
+    const name = props[setups.indexOf(setup)]?.name;
     return (
       <>
         <PageTitle>Willkommen, {user.name}</PageTitle>
         {isAdmin ? (
-          <SetupGuide status={setup} isAdmin />
+          <SetupGuide status={setup} isAdmin objektName={props.length > 1 ? name : undefined} />
         ) : (
           // Miteigentümer sehen den Fortschritt, aber keine Verwaltungs-Links:
           // Die führten für sie ins Leere, weil die Stammdaten-Seiten der
@@ -68,10 +84,11 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
   // Der Fahrplan ersetzt für die Verwaltung die reine Prüfpflichten-Liste – er
   // enthält sie und ordnet sie zwischen Abrechnung, Plan und Versammlung ein.
   // Miteigentümer bekommen ihn nicht: Seine Ziele sind Verwaltungsseiten.
-  // Der Fahrplan gehört zu genau einem Objekt – auch der eigene Termin und der
-  // Kalender-Export hängen daran. Deshalb die ID mitführen, nicht nur die Liste.
-  const fahrplanPropertyId = isAdmin ? (propIds[0] ?? null) : null;
-  const roadmap = fahrplanPropertyId ? await loadRoadmap(fahrplanPropertyId, new Date()) : null;
+  //
+  // Über alle Objekte zusammengefasst, nach Dringlichkeit sortiert. Jeder
+  // Eintrag trägt sein Objekt mit — auch für den eigenen Termin und den
+  // Kalender-Export, die daran hängen.
+  const roadmap = isAdmin && props.length > 0 ? await loadRoadmapAlle(props, now) : null;
 
   const [openResolutions, nextMeeting, openMotions, announcements, complianceDuties] = await Promise.all([
     db.resolution.count({ where: { propertyId: { in: propIds }, status: "OFFEN" } }),
@@ -140,9 +157,22 @@ export async function SelfManagedDashboard({ user }: { user: User }) {
         </Link>
       </div>
 
-      {roadmap && fahrplanPropertyId ? (
+      {/* Ein noch nicht eingerichtetes Objekt neben einem laufenden: Die
+          Führung dafür gehört sichtbar nach oben, nicht weg. Genau dieser Fall
+          ließ den Assistenten vorher verschwinden. */}
+      {isAdmin && offene.length > 0 ? (
         <div className="mt-6">
-          <Roadmap items={roadmap} propertyId={fahrplanPropertyId} />
+          <SetupGuide
+            status={offene[0]}
+            isAdmin
+            objektName={props[setups.indexOf(offene[0])]?.name}
+          />
+        </div>
+      ) : null}
+
+      {roadmap ? (
+        <div className="mt-6">
+          <Roadmap items={roadmap} properties={props} />
         </div>
       ) : null}
 

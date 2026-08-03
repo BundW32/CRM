@@ -18,9 +18,20 @@ import { markSetupStep } from "./setup-actions";
 export function SetupGuide({
   status,
   isAdmin,
+  objektName,
 }: {
   status: SetupStatus;
   isAdmin: boolean;
+  /**
+   * Das Objekt, um das es geht – anzugeben, sobald es mehr als eines gibt oder
+   * die Führung außerhalb der eigenen Übersicht steht.
+   *
+   * „Ihre WEG einrichten" stimmt für eine Gemeinschaft, die sich selbst
+   * verwaltet. Eine professionelle Verwaltung richtet die WEG **ihres Kunden**
+   * ein — dort ist der Objektname die richtige Überschrift, nicht ein
+   * Possessivpronomen.
+   */
+  objektName?: string;
 }) {
   const { steps, erledigt, gesamt, naechster } = status;
   const prozent = Math.round((erledigt / gesamt) * 100);
@@ -31,7 +42,7 @@ export function SetupGuide({
         <Card>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-base font-semibold text-gray-900">
-              Ihre WEG einrichten
+              {objektName ? `${objektName} einrichten` : "Ihre WEG einrichten"}
             </h2>
             <p className="text-sm text-gray-500">
               {erledigt} von {gesamt} Schritten

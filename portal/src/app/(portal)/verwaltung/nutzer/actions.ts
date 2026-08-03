@@ -6,7 +6,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { User } from "@/generated/prisma/client";
-import { canVerwalterManageUser, propertyIdsForVerwalter } from "@/lib/access";
+import {
+  canVerwalterManageUser,
+  hinweiseVoreinstellung,
+  propertyIdsForVerwalter,
+} from "@/lib/access";
 import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
@@ -298,6 +302,15 @@ export async function createUser(formData: FormData) {
 
   const email = parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null;
   const name = `${parsed.data.firstName} ${parsed.data.lastName}`.trim();
+  // Erklärende Hinweise: für Mieter und Eigentümer immer an, für Kollegen einer
+  // professionellen Verwaltung aus. Umschaltbar unter „Konto".
+  const showHints = hinweiseVoreinstellung(
+    parsed.data.role,
+    await db.organization.findUnique({
+      where: { id: actor.organizationId },
+      select: { accountType: true },
+    }),
+  );
 
   // E-Mail-Einladung setzt eine E-Mail-Adresse voraus
   if (parsed.data.method === "email" && !email) {
@@ -332,6 +345,7 @@ export async function createUser(formData: FormData) {
         passwordResetToken: hashToken(inviteToken),
         passwordResetExpiry: inviteExpiry,
         organizationId: actor.organizationId,
+        showHints,
       },
     });
     await assignRole(user.id, parsed.data.role, parsed.data.unitId, parsed.data.propertyId);
@@ -385,6 +399,7 @@ export async function createUser(formData: FormData) {
       passwordHash: await bcrypt.hash(tempPassword, 12),
       mustChangePassword: true,
       organizationId: actor.organizationId,
+      showHints,
     },
   });
   await assignRole(user.id, parsed.data.role, parsed.data.unitId, parsed.data.propertyId);

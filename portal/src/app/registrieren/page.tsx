@@ -5,6 +5,7 @@ import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { AccountTypeFields } from "./account-type-fields";
 import { registerOrganization } from "./actions";
 import { isWegSaas, registrationEnabled } from "@/lib/app-mode";
+import { WegportalLogo } from "@/components/marketing/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +28,17 @@ export default async function RegisterPage({
   const { fehler, ref } = await searchParams;
 
   return (
-    <main className="flex min-h-screen w-full flex-1">
+    // Die Seite gibt es nur in der SaaS-Variante (siehe Wächter oben), sie
+    // trägt deshalb durchgehend die Wegportal24-Marke.
+    <main className="wp-brand flex min-h-screen w-full flex-1">
       {/* Formular-Spalte */}
       <div className="flex w-full items-center justify-center bg-white px-4 py-10 sm:px-8 lg:w-[55%] lg:px-14">
         <div className="w-full max-w-md animate-page-in">
+          <Link href="/" className="mb-8 inline-block" aria-label="Zur Startseite">
+            <WegportalLogo className="h-9 w-auto" />
+          </Link>
           <p className="mb-1 text-sm font-medium text-gray-400">Kostenlos registrieren</p>
-          <h1 className="mb-2 text-2xl font-bold text-brand-green">Ihr eigenes Kundenportal</h1>
+          <h1 className="mb-2 text-2xl font-bold text-brand-green">Ihr eigenes WEG-Portal</h1>
           <p className="mb-6 text-sm text-gray-600">
             Für selbstverwaltende Eigentümergemeinschaften. Legen Sie kostenlos Ihr
             WEG-Portal an – im Anschluss richten Sie alles Weitere ein.
@@ -134,6 +140,7 @@ export default async function RegisterPage({
         <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-brand-orange/20 blur-3xl" />
         <div className="absolute -top-16 -left-10 h-56 w-56 rounded-full bg-white/5 blur-2xl" />
         <div className="relative flex h-full flex-col justify-center px-14 text-white">
+          <WegportalLogo className="mb-8 h-10 w-auto" tone="hell" />
           <h2 className="max-w-md text-3xl font-bold leading-tight">
             Das digitale Portal für Ihre WEG
           </h2>
@@ -148,7 +155,9 @@ export default async function RegisterPage({
               "Dokumente, Zähler & Wohnungsübergaben",
             ].map((t) => (
               <li key={t} className="flex items-center gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-orange/90 text-white">
+                {/* Dunkle Tinte auf dem Akzent statt Weiß: Der Haken muss sich
+                    vom Kreis abheben (3:1), das schafft Weiß auf Türkis nicht. */}
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-orange text-brand-green-dark">
                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3">
                     <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>

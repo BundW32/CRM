@@ -25,7 +25,7 @@ function MockCard({ title, chip, children }: { title: string; chip?: string; chi
       <div className="mb-3 flex items-center justify-between gap-2 border-b border-gray-100 pb-2.5">
         <p className="text-sm font-semibold text-gray-800">{title}</p>
         {chip ? (
-          <span className="rounded-full bg-brand-orange-light px-2 py-0.5 text-[11px] font-semibold text-brand-orange-ink">
+          <span className="rounded-full bg-wp-accent-light px-2 py-0.5 text-[11px] font-semibold text-wp-accent-ink">
             {chip}
           </span>
         ) : null}
@@ -48,11 +48,11 @@ export function OrbitVisual() {
   ];
   return (
     <div className="relative mx-auto flex h-72 w-72 items-center justify-center sm:h-80 sm:w-80">
-      <div className="absolute inset-6 rounded-full border border-dashed border-brand-green/25" />
+      <div className="absolute inset-6 rounded-full border border-dashed border-wp-primary/25" />
       {/* Zentrum: die WEG */}
       <div style={{ animation: "mkFloat 6s ease-in-out infinite" }}>
         <div className="flex h-24 w-24 items-center justify-center rounded-2xl border border-gray-200 bg-white shadow-e3">
-          <Building2 className="h-12 w-12 text-brand-green" />
+          <Building2 className="h-12 w-12 text-wp-primary" />
         </div>
       </div>
       {/* Kreisende Aufgaben – innerer Ring dreht, Icons drehen gegenläufig */}
@@ -60,8 +60,8 @@ export function OrbitVisual() {
         {orbiting.map(({ icon: Icon, pos }) => (
           <div key={pos} className={`absolute ${pos}`}>
             <div style={{ animation: "mkOrbitCounter 28s linear infinite" }}>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-orange shadow-lg shadow-black/20">
-                <Icon className="h-6 w-6 text-brand-green-dark" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-wp-accent shadow-lg shadow-black/20">
+                <Icon className="h-6 w-6 text-wp-ink" />
               </div>
             </div>
           </div>
@@ -80,7 +80,7 @@ export function PlanChartVisual() {
         {bars.map((h, i) => (
           <div
             key={i}
-            className="mk-anim flex-1 origin-bottom rounded-t-md bg-brand-green"
+            className="mk-anim flex-1 origin-bottom rounded-t-md bg-wp-primary"
             style={{ height: `${h}%`, animation: "mkGrowY 0.7s cubic-bezier(0.16,1,0.3,1) both", ...seq(i, 110) }}
           />
         ))}
@@ -190,11 +190,11 @@ export function ReserveVisual() {
           <p className="mt-1.5 text-lg font-bold text-gray-900">12.480,50&nbsp;€</p>
           <p className="text-[11px] text-gray-400">laufende Kosten</p>
         </div>
-        <div className="rounded-lg border-2 border-brand-green/30 bg-brand-green/5 p-3">
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-brand-green">
+        <div className="rounded-lg border-2 border-wp-primary/30 bg-wp-primary/5 p-3">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-wp-primary">
             <PiggyBank className="h-3.5 w-3.5" /> Erhaltungsrücklage
           </p>
-          <p className="mt-1.5 text-lg font-bold text-brand-green">28.900,00&nbsp;€</p>
+          <p className="mt-1.5 text-lg font-bold text-wp-primary">28.900,00&nbsp;€</p>
           <p className="text-[11px] text-gray-400">strikt getrennt</p>
         </div>
       </div>
@@ -202,7 +202,7 @@ export function ReserveVisual() {
       <div className="relative mx-auto mt-4 h-5 w-48">
         <div className="absolute inset-x-0 top-1/2 border-t-2 border-dashed border-gray-200" />
         <div
-          className="absolute left-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-brand-orange shadow"
+          className="absolute left-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-wp-accent shadow"
           style={{ animation: "mkShuttle 3.2s ease-in-out infinite", ["--mk-shuttle-x" as string]: "10.8rem" }}
         />
       </div>
@@ -276,7 +276,7 @@ export function ArrearsVisual() {
         ))}
       </div>
       <div
-        className="mk-anim mt-3 flex items-center gap-2 rounded-lg bg-brand-orange-light px-2.5 py-2 text-xs font-medium text-brand-orange-ink"
+        className="mk-anim mt-3 flex items-center gap-2 rounded-lg bg-wp-accent-light px-2.5 py-2 text-xs font-medium text-wp-accent-ink"
         style={{ animation: "mkPopIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "1000ms" }}
       >
         <HandCoins className="h-4 w-4 shrink-0" />
@@ -312,12 +312,12 @@ export function DunningVisual() {
           <div className="mt-2 h-1.5 w-16 rounded bg-gray-200" />
         </div>
         {/* Umschlagtasche mit Sichtfenster (DIN lang) */}
-        <div className="relative z-10 -mt-10 h-24 rounded-lg bg-brand-green shadow-e2">
+        <div className="relative z-10 -mt-10 h-24 rounded-lg bg-wp-primary shadow-e2">
           <div className="absolute left-4 top-5 h-8 w-24 rounded-sm bg-white/15" />
           <p className="absolute bottom-2.5 left-4 text-[10px] text-white/60">
             Fensterumschlag DIN lang
           </p>
-          <ShieldCheck className="absolute right-3 top-3 h-5 w-5 text-brand-orange" />
+          <ShieldCheck className="absolute right-3 top-3 h-5 w-5 text-wp-accent-bright" />
         </div>
       </div>
     </div>
@@ -372,7 +372,7 @@ export function MeetingVisual() {
             className="mk-anim relative"
             style={{ animation: "mkPopIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both", ...seq(i, 140) }}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-green text-xs font-bold text-white">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-wp-primary text-xs font-bold text-white">
               {initials}
             </span>
             {i < 5 ? (
@@ -396,7 +396,7 @@ export function MeetingVisual() {
 export function TicketVisual() {
   const statusChips = [
     { label: "Offen", tone: "bg-warn-light text-warn", delay: "0s" },
-    { label: "In Bearbeitung", tone: "bg-brand-orange-light text-brand-orange-ink", delay: "2s" },
+    { label: "In Bearbeitung", tone: "bg-wp-accent-light text-wp-accent-ink", delay: "2s" },
     { label: "Erledigt", tone: "bg-good-light text-good", delay: "4s" },
   ];
   return (
@@ -451,7 +451,7 @@ export function RolesVisual() {
           className="mk-anim rounded-xl border border-gray-200 bg-white p-4 shadow-e2"
           style={{ animation: "mkPopIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both", ...seq(i, 150) }}
         >
-          <Icon className="h-6 w-6 text-brand-orange-ink" />
+          <Icon className="h-6 w-6 text-wp-accent-ink" />
           <p className="mt-2 text-sm font-semibold text-gray-800">{name}</p>
           <p className="mt-0.5 text-xs text-gray-500">{text}</p>
         </div>
@@ -473,7 +473,7 @@ export function OnboardingVisual() {
     <MockCard title="Einrichtung Ihrer WEG" chip="3 von 5 Schritten">
       <div className="mb-4 h-2 overflow-hidden rounded-full bg-gray-100">
         <div
-          className="mk-anim h-full w-[60%] origin-left rounded-full bg-brand-orange"
+          className="mk-anim h-full w-[60%] origin-left rounded-full bg-wp-accent"
           style={{ animation: "mkGrowX 1s cubic-bezier(0.16,1,0.3,1) both", animationDelay: "300ms" }}
         />
       </div>

@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Users } from "lucide-react";
-import { buttonClass } from "@/components/ui";
+import { wpButtonClass } from "./brand";
 
 type Stage = {
   step: string;
@@ -101,11 +101,11 @@ function SceneAmbience({ progress }: { progress: number }) {
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
       {/* Driftende Lichtflächen mit sanfter Parallaxe */}
       <div
-        className="absolute -right-16 top-4 h-80 w-80 rounded-full bg-brand-orange/20 blur-3xl"
+        className="absolute -right-16 top-4 h-80 w-80 rounded-full bg-wp-accent/20 blur-3xl"
         style={{ animation: "mkDrift 16s ease-in-out infinite", transform: `translateY(${progress * 60}px)` }}
       />
       <div
-        className="absolute -left-24 bottom-0 h-96 w-96 rounded-full bg-brand-green/10 blur-3xl"
+        className="absolute -left-24 bottom-0 h-96 w-96 rounded-full bg-wp-primary/10 blur-3xl"
         style={{ animation: "mkDrift 22s ease-in-out infinite", ["--mk-dx" as string]: "-24px", ["--mk-dy" as string]: "18px", transform: `translateY(${progress * -40}px)` }}
       />
       {/* Feines Punktraster */}
@@ -114,7 +114,7 @@ function SceneAmbience({ progress }: { progress: number }) {
       {PARTICLES.map((p, i) => (
         <span
           key={i}
-          className={`absolute bottom-[8%] rounded-full ${p.green ? "bg-brand-green/50" : "bg-brand-orange/60"}`}
+          className={`absolute bottom-[8%] rounded-full ${p.green ? "bg-wp-primary/50" : "bg-wp-accent/60"}`}
           style={{
             left: `${p.left}%`,
             width: p.size,
@@ -129,15 +129,19 @@ function SceneAmbience({ progress }: { progress: number }) {
 }
 
 // ── Das Comic-Haus: baut sich Stockwerk für Stockwerk auf ─────────────────
-// Handgezeichnete SVG-Illustration im flachen Comic-Stil (dicke dunkelgrüne
-// Umrisse, Creme-Fassade, oranges Satteldach). Jede Bauphase gleitet stufenlos
+// Handgezeichnete SVG-Illustration im flachen Comic-Stil (dicke tiefblaue
+// Umrisse, helle Fassade, türkises Satteldach). Jede Bauphase gleitet stufenlos
 // mit dem Scroll-Fortschritt an ihren Platz; die Fenster gehen einzeln an.
 // Während des Baus steht ein Kran daneben, bei Fertigstellung: Fahne, Rauch,
 // Katze im Fenster und zwei Bewohner vor der Tür.
-const OUTLINE = "#00332c";
-const FACADE = "#fbf3e0";
-const GLASS_OFF = "#cfe0dd";
-const GLASS_ON = "#ffd489";
+//
+// Die vier Grundtöne stehen hier als feste Werte und nicht als CSS-Variablen:
+// Sie werden für Verläufe und Filter im SVG auch rechnerisch abgewandelt.
+// Wer die Marke umfärbt, ändert sie hier mit.
+const OUTLINE = "#0b2239"; /* wp-ink */
+const FACADE = "#f2f7fb";
+const GLASS_OFF = "#cddeed";
+const GLASS_ON = "#7fe3d4";
 
 // Comic-Fenster mit Kreuzsprosse; `on` schaltet warmes Licht + Glühen.
 function Win({ x, y, on, w = 30, h = 42, floor, idx, cnt }: { x: number; y: number; on: boolean; w?: number; h?: number; floor: number; idx: number; cnt: number }) {
@@ -172,7 +176,7 @@ function FlowerBox({ x, y, w = 34 }: { x: number; y: number; w?: number }) {
     <g>
       <rect x={x} y={y} width={w} height={7} rx={2.5} fill="#0c534a" stroke={OUTLINE} strokeWidth={2} />
       {[0.2, 0.5, 0.8].map((f) => (
-        <circle key={f} cx={x + w * f} cy={y - 2} r={3.2} fill="var(--color-brand-orange)" />
+        <circle key={f} cx={x + w * f} cy={y - 2} r={3.2} fill="var(--color-wp-accent)" />
       ))}
     </g>
   );
@@ -198,7 +202,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
       {/* Glühen bei Fertigstellung */}
       <div
         data-glow
-        className="pointer-events-none absolute left-1/2 top-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-orange/30 blur-3xl transition-opacity duration-700"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-wp-accent/30 blur-3xl transition-opacity duration-700"
         style={{ opacity: done ? 0.55 + 0.45 * subDone : 0 }}
       />
 
@@ -214,13 +218,13 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
           <line x1={305} y1={320} x2={297} y2={350} stroke="#f5f1e6" strokeWidth={2} />
           {/* Ausleger + Gegengewicht */}
           <rect x={190} y={98} width={128} height={7} fill="#0c534a" />
-          <rect x={306} y={105} width={12} height={14} fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={2} />
+          <rect x={306} y={105} width={12} height={14} fill="var(--color-wp-accent)" stroke={OUTLINE} strokeWidth={2} />
           <line x1={301} y1={98} x2={252} y2={80} stroke="#0c534a" strokeWidth={3} />
           <line x1={252} y1={80} x2={196} y2={98} stroke="#0c534a" strokeWidth={3} />
           {/* Seil + Haken (pendelt sanft) */}
           <g style={{ animation: "mkFloat 4.5s ease-in-out infinite" }}>
             <line x1={210} y1={105} x2={210} y2={148} stroke={OUTLINE} strokeWidth={2} />
-            <path d="M204,148 h12 l-2,10 h-8 z" fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={2} />
+            <path d="M204,148 h12 l-2,10 h-8 z" fill="var(--color-wp-accent)" stroke={OUTLINE} strokeWidth={2} />
           </g>
         </g>
 
@@ -247,7 +251,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
           <rect x={60} y={322} width={200} height={94} rx={6} fill={FACADE} stroke={OUTLINE} strokeWidth={3} />
           {/* Tür mit Rundbogen */}
           <path d="M144,414 v-48 a16,16 0 0 1 32,0 v48 z" fill="#0c534a" stroke={OUTLINE} strokeWidth={3} />
-          <circle cx={170} cy={386} r={2.8} fill="var(--color-brand-orange)" />
+          <circle cx={170} cy={386} r={2.8} fill="var(--color-wp-accent)" />
           {/* Hausnummer 12 – Gruß an die WEG Musterstraße 12 */}
           <rect x={184} y={352} width={20} height={15} rx={3} fill="#fff" stroke={OUTLINE} strokeWidth={2} />
           <text x={194} y={363.5} textAnchor="middle" fontSize={10} fontWeight={700} fill={OUTLINE}>12</text>
@@ -289,8 +293,8 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
           <rect x={216} y={74} width={26} height={52} fill="#b34a19" stroke={OUTLINE} strokeWidth={3} />
           <rect x={211} y={66} width={36} height={11} rx={3} fill="#8a3a14" stroke={OUTLINE} strokeWidth={3} />
           {/* Dach */}
-          <path d="M44,150 L160,62 L276,150 Z" fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={3.5} strokeLinejoin="round" />
-          <rect x={48} y={144} width={224} height={11} rx={4} fill="var(--color-brand-orange-dark)" stroke={OUTLINE} strokeWidth={3} />
+          <path d="M44,150 L160,62 L276,150 Z" fill="var(--color-wp-accent)" stroke={OUTLINE} strokeWidth={3.5} strokeLinejoin="round" />
+          <rect x={48} y={144} width={224} height={11} rx={4} fill="var(--color-wp-accent-dark)" stroke={OUTLINE} strokeWidth={3} />
           {/* rundes Dachfenster */}
           <g data-atticg style={{ filter: done ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none" }}>
             <circle cx={160} cy={116} r={14} fill={OUTLINE} />
@@ -302,7 +306,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
           <g data-figs style={{ opacity: stage >= ROOF_AT ? 1 : 0, transition: "opacity 0.5s", animation: stage >= ROOF_AT ? "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : "none", animationDelay: "250ms" }}>
             <rect x={104} y={390} width={15} height={24} rx={7} fill="#0c534a" stroke={OUTLINE} strokeWidth={2} />
             <circle cx={111.5} cy={383} r={7} fill="#f2c9a0" stroke={OUTLINE} strokeWidth={2} />
-            <rect x={124} y={396} width={13} height={18} rx={6} fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={2} />
+            <rect x={124} y={396} width={13} height={18} rx={6} fill="var(--color-wp-accent)" stroke={OUTLINE} strokeWidth={2} />
             <circle cx={130.5} cy={390} r={5.5} fill="#f2c9a0" stroke={OUTLINE} strokeWidth={2} />
           </g>
         </g>
@@ -310,7 +314,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
         {/* ── Fertigstellung: Fahne + Rauch ── */}
         <g data-doneextra style={{ opacity: done ? 1 : 0, transition: "opacity 0.6s" }}>
           <line x1={160} y1={62} x2={160} y2={30} stroke={OUTLINE} strokeWidth={3} strokeLinecap="round" />
-          <path d="M160,32 L188,40 L160,48 Z" fill="var(--color-brand-orange)" stroke={OUTLINE} strokeWidth={2.5} style={{ transformOrigin: "160px 40px", animation: done ? "mkFlag 2.4s ease-in-out infinite" : "none" }} />
+          <path d="M160,32 L188,40 L160,48 Z" fill="var(--color-wp-accent)" stroke={OUTLINE} strokeWidth={2.5} style={{ transformOrigin: "160px 40px", animation: done ? "mkFlag 2.4s ease-in-out infinite" : "none" }} />
           {[
             { cy: 54, r: 5, d: "0s", dur: "4s" },
             { cy: 42, r: 7, d: "1.2s", dur: "5s" },
@@ -330,7 +334,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
 
       {/* Info-Chip am Fundament */}
       <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-medium text-gray-600 shadow-e2">
-        <Users className="h-3.5 w-3.5 text-brand-orange-ink" />
+        <Users className="h-3.5 w-3.5 text-wp-accent-ink" />
         Einheiten · Miteigentumsanteile · Konten
       </div>
 
@@ -345,7 +349,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
           ].map((sp, i) => (
             <span
               key={i}
-              className="pointer-events-none absolute h-2 w-2 bg-brand-orange"
+              className="pointer-events-none absolute h-2 w-2 bg-wp-accent"
               style={{
                 top: sp.top,
                 left: sp.left,
@@ -375,17 +379,17 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
 function ReducedFallback() {
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-      <h2 className="text-2xl font-bold text-brand-green-dark sm:text-3xl">
+      <h2 className="text-2xl font-bold text-wp-ink sm:text-3xl">
         So bauen Sie Ihre Selbstverwaltung auf
       </h2>
       <ol className="mt-8 space-y-4">
         {STAGES.map((s, i) => (
           <li key={s.title} className="flex gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-e1">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-orange font-display text-base font-bold text-brand-green-dark">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-wp-accent font-display text-base font-bold text-wp-on-accent">
               {i + 1}
             </span>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-brand-orange-ink">{s.step}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-wp-accent-ink">{s.step}</p>
               <h3 className="mt-1 text-lg font-semibold text-gray-900">{s.title}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{s.text}</p>
             </div>
@@ -464,13 +468,13 @@ export function ScrollyBuild() {
         <div className="relative mx-auto grid w-full max-w-6xl items-center gap-8 px-4 sm:px-6 lg:grid-cols-2">
           {/* Linke Spalte: Fortschritt + wechselnder Text */}
           <div className="relative">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-orange-ink">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-wp-accent-ink">
               So bauen Sie Ihre Selbstverwaltung auf
             </p>
 
             {/* Schritt-Ziffer + kontinuierlich mitlaufende Fortschrittsleiste */}
             <div className="mt-4 flex items-center gap-4">
-              <span className="font-display text-2xl font-extrabold tabular-nums leading-none text-brand-green-dark">
+              <span className="font-display text-2xl font-extrabold tabular-nums leading-none text-wp-ink">
                 <span data-stepnum>{String(stage + 1).padStart(2, "0")}</span>
                 <span className="ml-1 align-middle text-sm font-semibold text-gray-400">/ 06</span>
               </span>
@@ -482,7 +486,7 @@ export function ScrollyBuild() {
                     <div key={s.title} className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">
                       <div
                         data-seg
-                        className="h-full rounded-full bg-brand-orange"
+                        className="h-full rounded-full bg-wp-accent"
                         style={{ width: `${fill * 100}%` }}
                       />
                     </div>
@@ -505,18 +509,18 @@ export function ScrollyBuild() {
                   }}
                   aria-hidden={i !== stage}
                 >
-                  <p className="text-sm font-semibold text-brand-orange-ink">{s.step}</p>
-                  <h2 className="mt-2 text-3xl font-extrabold leading-tight text-brand-green-dark sm:text-4xl">
+                  <p className="text-sm font-semibold text-wp-accent-ink">{s.step}</p>
+                  <h2 className="mt-2 text-3xl font-extrabold leading-tight text-wp-ink sm:text-4xl">
                     {s.title}
                   </h2>
                   <p className="mt-4 max-w-md text-base leading-relaxed text-gray-600">{s.text}</p>
-                  <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-brand-orange/50 bg-brand-orange-light px-3 py-1.5 text-xs font-semibold text-brand-orange-ink">
+                  <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-wp-accent-ink/40 bg-wp-accent-light px-3 py-1.5 text-xs font-semibold text-wp-accent-ink">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     {s.badge}
                   </p>
                   {i === STAGES.length - 1 ? (
                     <div className="mt-6">
-                      <Link href="/registrieren" className={`${buttonClass} px-6 py-3 text-base`}>
+                      <Link href="/registrieren" className={`${wpButtonClass} px-6 py-3 text-base`}>
                         Jetzt kostenlos starten
                         <ArrowRight className="h-4 w-4" />
                       </Link>

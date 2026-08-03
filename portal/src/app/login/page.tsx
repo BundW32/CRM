@@ -3,11 +3,12 @@ import { PendingButton } from "@/components/pending-button";
 import { Alert, buttonClass, inputClass, Field } from "@/components/ui";
 import { BrandTheme } from "@/components/brand-theme";
 import { BwLogo, OrgLogo } from "@/components/logo";
+import { BRAND_EMAIL, WegportalLogo } from "@/components/marketing/brand";
 import { db } from "@/lib/db";
 import { publicOrgLogoUrl } from "@/lib/branding";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
-import { registrationEnabled } from "@/lib/app-mode";
+import { isWegSaas, registrationEnabled } from "@/lib/app-mode";
 import { login } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -26,8 +27,25 @@ export default async function LoginPage({
   const tenantOrg = await getTenantOrg();
   const tenantLogo = tenantOrg ? publicOrgLogoUrl(tenantOrg) : null;
 
+  // Wegportal24-Marke: nur in der SaaS-Variante und nur auf der Hauptdomain.
+  // Auf einer Mandanten-Subdomain gilt weiterhin deren eigenes Branding.
+  const wegMarke = isWegSaas() && !tenantOrg;
+  // Anlaufstelle für Menschen ohne Zugang: die Verwaltung des Mandanten, sonst
+  // die Marke, unter der die Seite gerade läuft.
+  const kontaktMail =
+    tenantOrg?.email ?? (wegMarke ? BRAND_EMAIL : "info@bundwimmobilien.de");
+
   return (
-    <main className="flex flex-1 items-center justify-center p-4">
+    // Der dunkle Grund des Portals ist B&W-Braun. Unter der Wegportal24-Marke
+    // deckt die Anmeldeseite ihn mit dem eigenen Blauverlauf ab – sonst käme
+    // man von einer blauen Startseite auf eine braune Anmeldung.
+    <main
+      className={`flex flex-1 items-center justify-center p-4 ${
+        wegMarke
+          ? "wp-brand bg-gradient-to-br from-wp-primary via-wp-primary-dark to-wp-ink"
+          : ""
+      }`}
+    >
       {tenantOrg ? <BrandTheme primaryColor={tenantOrg.primaryColor} /> : null}
       <div className="w-full max-w-sm animate-page-in">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
@@ -40,14 +58,18 @@ export default async function LoginPage({
                 {tenantOrg.name}
               </p>
             )
+          ) : wegMarke ? (
+            <WegportalLogo className="mx-auto mb-2 h-11 w-auto" />
           ) : (
             <BwLogo className="mx-auto mb-1 h-20 w-auto" />
           )}
           <p className="mb-4 text-center text-sm font-medium text-gray-500">
-            Kundenportal
+            {wegMarke ? "Portal Ihrer Eigentümergemeinschaft" : "Kundenportal"}
           </p>
           <p className="mx-auto mb-6 max-w-[16rem] text-center text-[13px] leading-relaxed text-gray-500">
-            Ihr sicherer Zugang zu Vorgängen, Dokumenten und Nachrichten.
+            {wegMarke
+              ? "Ihr sicherer Zugang zu Finanzen, Beschlüssen und Dokumenten."
+              : "Ihr sicherer Zugang zu Vorgängen, Dokumenten und Nachrichten."}
           </p>
           <h1 className="mb-5 text-center text-lg font-semibold text-gray-800">
             Anmelden
@@ -102,11 +124,8 @@ export default async function LoginPage({
 
         <p className="mt-6 text-center text-xs text-gray-400">
           Noch keinen Zugang? Wenden Sie sich an{" "}
-          <a
-            href={`mailto:${tenantOrg?.email ?? "info@bundwimmobilien.de"}`}
-            className="hover:underline"
-          >
-            {tenantOrg?.email ?? "info@bundwimmobilien.de"}
+          <a href={`mailto:${kontaktMail}`} className="hover:underline">
+            {kontaktMail}
           </a>
         </p>
         <p className="mt-2 text-center text-xs text-gray-400">

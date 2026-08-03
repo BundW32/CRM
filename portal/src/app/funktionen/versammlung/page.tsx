@@ -7,7 +7,7 @@ import {
   MarketingHeader,
   MarketingHero,
 } from "@/components/marketing/site";
-import { MeetingVisual, VoteVisual } from "@/components/marketing/visuals";
+import { MeetingVisual, RolesVisual, VoteVisual } from "@/components/marketing/visuals";
 import { assertMainDomain } from "@/lib/marketing";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +32,7 @@ export default async function VersammlungPage() {
         title={
           <>
             Beschlüsse, die{" "}
-            <span className="underline decoration-brand-orange decoration-4 underline-offset-8">Bestand haben.</span>
+            <span className="underline decoration-wp-accent-bright decoration-4 underline-offset-8">Bestand haben.</span>
           </>
         }
         intro={
@@ -45,7 +45,7 @@ export default async function VersammlungPage() {
           src: "/images/marketing/versammlung.jpg",
           alt: "Eigentümerversammlung am Tisch mit Protokoll und Tagesordnung",
         }}
-        badge={{ icon: <Users className="h-4 w-4 text-brand-orange-ink" />, text: "Beschlussfähig – Anwesenheit erfasst" }}
+        badge={{ icon: <Users className="h-4 w-4 text-wp-accent-ink" />, text: "Beschlussfähig – Anwesenheit erfasst" }}
       />
 
       <FeatureSection
@@ -117,6 +117,33 @@ export default async function VersammlungPage() {
           Das zahlt sich spätestens beim Wohnungsverkauf aus, wenn Käufer oder
           Notar die Beschlusslage sehen wollen – ein Klick statt einer
           Suchaktion.
+        </p>
+      </FeatureSection>
+
+      <FeatureSection
+        id="beirat"
+        eyebrow="Verwaltungsbeirat & Anträge"
+        title="Vier Augen auf Plan und Abrechnung – im Portal statt per E-Mail"
+        reverse
+        visual={<RolesVisual />}
+        points={[
+          "Beiratsmitglieder haben einen eigenen Bereich mit Aufgaben und Notizen",
+          "Wirtschaftsplan und Jahresabrechnung werden dort geprüft und mit einem Vermerk versehen",
+          "Ergebnis: „geprüft“ oder „mit Anmerkungen“ – nachvollziehbar für die ganze Gemeinschaft",
+          "Eigentümer stellen Anträge zur Tagesordnung, statt Rundmails zu schreiben",
+        ]}
+      >
+        <p>
+          Wirtschaftsplan und Jahresabrechnung sollen vom Verwaltungsbeirat
+          geprüft und mit seiner Stellungnahme versehen werden, bevor die
+          Versammlung darüber beschließt (§ 29 Abs. 2 WEG). In der Praxis
+          scheitert das oft an der Logistik: Wer hat welche Fassung, und wann?
+        </p>
+        <p>
+          Im Portal sieht der Beirat genau die beschlussreifen Unterlagen und
+          hinterlegt sein Prüfergebnis direkt daran. Wer später wissen will, ob
+          geprüft wurde, sieht es am Dokument – nicht in einem alten
+          E-Mail-Verlauf.
         </p>
       </FeatureSection>
 

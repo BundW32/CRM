@@ -6,14 +6,38 @@ Verwaltung und Handwerker. Konzept, Wettbewerbsanalyse und Roadmap:
 
 ## Funktionsumfang
 
-- **Öffentliche Startseite & Marketing-Unterseiten** (`/`,
+- **Öffentliche Startseite & Marketing-Unterseiten von Wegportal24** (`/`,
   `/funktionen/finanzen`, `/funktionen/hausgeld`, `/funktionen/versammlung`,
   `/funktionen/kommunikation`, `/so-funktionierts`): erklären das Problem
   (kleine WEGs finden keinen Verwalter) und das Portal als Lösung zur
   Selbstverwaltung – mit animierten UI-Illustrationen (reines CSS,
   Scroll-Reveals per IntersectionObserver, `prefers-reduced-motion` wird
-  respektiert), Rechtsrahmen-Abschnitt und FAQ. Nur auf der Hauptdomain –
-  Mandanten-Subdomains leiten weiterhin direkt zum gebrandeten Login.
+  respektiert), Rechtsrahmen-Abschnitt und FAQ. **Nur im WEG-SaaS-Modus**
+  (`APP_MODE=weg`) und nur auf der Hauptdomain – in der Verwaltungs-Variante
+  und auf Mandanten-Subdomains führt jeder dieser Pfade zum gebrandeten Login
+  (`assertMainDomain()` in `src/lib/marketing.ts`).
+
+### Zwei Marken aus einer Codebasis
+
+`APP_MODE` entscheidet nicht nur über Funktionen, sondern über den Auftritt:
+
+| | `APP_MODE=verwaltung` (Default) | `APP_MODE=weg` |
+|---|---|---|
+| Marke | B&W Immobilien Management | **Wegportal24.de** |
+| Farben | Dunkelgrün / Orange (`--color-brand-*`) | Tiefblau / Türkis (`--color-wp-*`) |
+| Startseite | Weiterleitung auf `/login` | öffentliche Landing-Page |
+| Registrierung | gesperrt | offen (Self-Service) |
+
+Die Wegportal24-Marke steckt in **einer** Datei
+(`src/components/marketing/brand.tsx`: Name, Domain, Kontaktadresse, Wortmarke,
+Knopf-Klassen) und **einem** Token-Block in `globals.css` (`--color-wp-*`).
+Login und Registrierung sind gemeinsame Seiten; sie tragen im SaaS-Modus die
+Klasse `wp-brand`, in der die B&W-Tokens auf die Wegportal24-Palette zeigen –
+so färbt sich auch `buttonClass` mit, ohne dass die Verwaltungs-Variante oder
+das White-Label-Branding eines Mandanten davon berührt wird.
+
+**Offen:** Das Postfach `info@wegportal24.de` (in `brand.tsx`) muss noch
+eingerichtet werden – bis dahin läuft dort keine Anfrage auf.
 - **Login & Rollen**: Mieter, Eigentümer, Verwalter, Handwerker (Session-Cookie,
   bcrypt). Ersteinrichtung über `/setup`, solange noch kein Nutzer existiert.
 - **Mieter**: Schäden melden mit Foto-Upload, Status verfolgen, Kommentare (auch

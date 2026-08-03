@@ -7,7 +7,12 @@ import {
   MarketingHeader,
   MarketingHero,
 } from "@/components/marketing/site";
-import { RolesVisual, TicketVisual } from "@/components/marketing/visuals";
+import {
+  OnboardingVisual,
+  OrbitVisual,
+  RolesVisual,
+  TicketVisual,
+} from "@/components/marketing/visuals";
 import { assertMainDomain } from "@/lib/marketing";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +37,7 @@ export default async function KommunikationPage() {
         title={
           <>
             Ein Portal für{" "}
-            <span className="underline decoration-brand-orange decoration-4 underline-offset-8">alle im Haus.</span>
+            <span className="underline decoration-wp-accent-bright decoration-4 underline-offset-8">alle im Haus.</span>
           </>
         }
         intro={
@@ -44,7 +49,7 @@ export default async function KommunikationPage() {
           src: "/images/marketing/kommunikation.jpg",
           alt: "Schaden wird mit dem Smartphone im Treppenhaus fotografiert",
         }}
-        badge={{ icon: <Wrench className="h-4 w-4 text-brand-orange-ink" />, text: "Schaden gemeldet – in Sekunden" }}
+        badge={{ icon: <Wrench className="h-4 w-4 text-wp-accent-ink" />, text: "Schaden gemeldet – in Sekunden" }}
       />
 
       <FeatureSection
@@ -135,6 +140,59 @@ export default async function KommunikationPage() {
           Dokumente selbst ein, statt danach fragen zu müssen. Wer vermietet,
           gibt seinen Mietern einen eigenen Zugang für Schadensmeldungen und
           Aushänge.
+        </p>
+      </FeatureSection>
+
+      <FeatureSection
+        id="verbrauch"
+        eyebrow="Zähler & Verbrauch"
+        title="Ablesen, verteilen, und jeder sieht den eigenen Verbrauch"
+        visual={<OrbitVisual />}
+        points={[
+          "Zählerstände je Einheit erfassen – Wasser, Wärme, Strom",
+          "Heizkosten verteilen und in der Jahresabrechnung ausweisen",
+          "CO₂-Kosten zwischen Vermieter und Mieter aufteilen (CO2KostAufG)",
+          "Eigentümer und Mieter sehen ihren eigenen Verbrauch im Portal",
+        ]}
+      >
+        <p>
+          Verbrauch ist der Teil der Abrechnung, über den am meisten diskutiert
+          wird – meist, weil niemand die Zahlen vorher gesehen hat. Im Portal
+          werden Zählerstände dort erfasst, wo sie hingehören, und stehen der
+          Abrechnung wie den Bewohnern gleichermaßen zur Verfügung.
+        </p>
+        <p>
+          Die Aufteilung der CO₂-Kosten zwischen vermietendem Eigentümer und
+          Mieter nimmt Ihnen das Portal ab: Es rechnet die Stufe aus und weist
+          den Anteil aus, statt Sie auf eine Tabelle im Gesetzestext zu
+          verweisen.
+        </p>
+      </FeatureSection>
+
+      <FeatureSection
+        id="assistent"
+        eyebrow="Assistent & Fachsprache"
+        title="Fragen in normalem Deutsch – Antworten aus Ihren Daten"
+        reverse
+        visual={<OnboardingVisual />}
+        points={[
+          "„Wie hoch ist mein Rückstand?“ – gefragt wird im Klartext",
+          "Geantwortet wird nur aus Daten, die Sie ohnehin sehen dürfen",
+          "Fachbegriffe wie MEA, Abrechnungsspitze oder Umlageschlüssel erklären sich per Klick",
+          "Rundgang durch die Oberfläche beim ersten Anmelden",
+        ]}
+      >
+        <p>
+          Selbstverwaltung scheitert selten am Willen, sondern an der Sprache:
+          Wer zum ersten Mal eine Jahresabrechnung liest, stolpert über ein
+          Dutzend Begriffe. Im Portal ist jeder davon anklickbar und erklärt sich
+          an Ort und Stelle – ohne die Seite zu verlassen.
+        </p>
+        <p>
+          Der Assistent beantwortet Fragen zur eigenen Gemeinschaft. Er greift
+          dabei ausschließlich auf die Daten zu, für die Ihre Rolle freigegeben
+          ist – ein Mieter erfährt über den Assistenten nichts, was er im Portal
+          nicht ohnehin sehen dürfte.
         </p>
       </FeatureSection>
 

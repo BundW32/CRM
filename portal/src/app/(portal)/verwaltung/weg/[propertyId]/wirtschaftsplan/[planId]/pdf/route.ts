@@ -1,16 +1,23 @@
 import { NextResponse } from "next/server";
 import { canVerwalterAccessProperty } from "@/lib/access";
-import { getBrandingForOrg } from "@/lib/branding-server";
 import { db } from "@/lib/db";
-import { distributionKeyLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
-import { generateWirtschaftsplan, type WirtschaftsplanUnit } from "@/lib/documents/wirtschaftsplan";
-import { computeUnitAdvances, monthlyInstallments } from "@/lib/weg/economic-plan";
+import {
+  buildEinzelwirtschaftsplanPdf,
+  buildWirtschaftsplanPdf,
+  ownerNamesByUnit,
+} from "@/lib/weg/wirtschaftsplan-pdf";
+import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
 
-// Wirtschaftsplan als PDF (Gesamtplan + Einzelwirtschaftspläne). Verwalter im
-// Objekt-Scope. Enthält bei Entwürfen eine ENTWURF-Kennzeichnung.
+// Wirtschaftsplan als PDF. Verwalter im Objekt-Scope; Entwürfe tragen eine
+// ENTWURF-Kennzeichnung.
+//
+// Zwei Dokumente, wie § 28 Abs. 1 WEG sie verlangt:
+//   ohne Parameter               → Gesamtplan mit Übersicht aller Einheiten
+//   ?dokument=einzelplan         → Einzelwirtschaftspläne, eine Seite je Einheit
+//   ?dokument=einzelplan&einheit → nur diese Einheit (Einzelversand)
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ propertyId: string; planId: string }> },
@@ -39,57 +46,35 @@ export async function GET(
   ]);
   if (!plan) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
+  const url = new URL(request.url);
+  const einzelplan = url.searchParams.get("dokument") === "einzelplan";
+  const einheitId = url.searchParams.get("einheit") ?? undefined;
+  if (einheitId && !units.some((u) => u.id === einheitId)) {
+    return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+  }
+
   try {
-    const totalCents = plan.items.reduce((sum, i) => sum + i.amountCents, 0);
-    const advances = computeUnitAdvances(
-      plan.items.map((i) => ({
-        costTypeId: i.costTypeId,
-        distributionKey: i.costType.distributionKey,
-        amountCents: i.amountCents,
-      })),
-      units,
-    );
+    const pdf = einzelplan
+      ? await buildEinzelwirtschaftsplanPdf({
+          propertyName: property.name,
+          organizationId: property.organizationId,
+          plan,
+          units,
+          ownerNamesByUnit: await ownerNamesByUnit(units.map((u) => u.id)),
+          onlyUnitIds: einheitId ? [einheitId] : undefined,
+        })
+      : await buildWirtschaftsplanPdf({
+          propertyName: property.name,
+          organizationId: property.organizationId,
+          plan,
+          units,
+        });
 
-    const planUnits: WirtschaftsplanUnit[] = units.map((u) => {
-      const annual = advances.perUnit.get(u.id) ?? 0;
-      const rates = monthlyInstallments(annual);
-      return {
-        label: u.label,
-        annualCents: annual,
-        monthlyMinCents: Math.min(...rates),
-        monthlyMaxCents: Math.max(...rates),
-      };
-    });
-
-    const branding = await getBrandingForOrg(property.organizationId);
-    const pdf = await generateWirtschaftsplan({
-      propertyName: property.name,
-      issuer: {
-        legalName: branding.legalName,
-        contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-      },
-      year: plan.year,
-      resolved: plan.status === "BESCHLOSSEN" && plan.resolvedAt
-        ? { date: plan.resolvedAt, note: plan.resolutionNote }
-        : null,
-      positions: plan.items.map((i) => ({
-        name: i.costType.name,
-        keyLabel: distributionKeyLabels[i.costType.distributionKey] ?? i.costType.distributionKey,
-        amountCents: i.amountCents,
-      })),
-      totalCents,
-      units: planUnits,
-      generatedAt: new Date(),
-    });
-
-    const fileName = `Wirtschaftsplan_${plan.year}_${property.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    const einheitLabel = einheitId ? units.find((u) => u.id === einheitId)?.label : undefined;
+    const fileName = einzelplan
+      ? `Einzelwirtschaftsplan_${plan.year}_${fileNamePart(einheitLabel ?? property.name)}.pdf`
+      : `Wirtschaftsplan_${plan.year}_${fileNamePart(property.name)}.pdf`;
+    return pdfResponse(pdf, fileName, request);
   } catch (err) {
     console.error("Wirtschaftsplan-PDF fehlgeschlagen", err);
     // Häufigster Fall: unvollständige Stammdaten (z. B. MEA) → 422 statt 500

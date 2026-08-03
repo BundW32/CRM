@@ -1,22 +1,35 @@
 import Link from "next/link";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { notFound, redirect } from "next/navigation";
-import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { canVerwalterAccessProperty, ownedProperties } from "@/lib/access";
 import { db } from "@/lib/db";
-import { formatDate, resolutionStatusLabels } from "@/lib/labels";
+import { formatDate, formatDateOnly, resolutionStatusLabels } from "@/lib/labels";
+import { isMailEnabled } from "@/lib/mailer";
 import { requireUser } from "@/lib/session";
 import {
+  INVITATION_MIN_WEEKS,
+  checkInvitationDeadline,
+  latestSendDate,
+} from "@/lib/weg/meeting-invitation";
+import {
+  addAgendaFromTemplate,
   addAgendaItem,
   cancelMeeting,
   deleteAgendaItem,
   deleteMeeting,
   generateProtocol,
-  moveAgendaItem,
+  markInvitationSent,
   sendInvitation,
   updateAgendaItem,
   updateAttendance,
   updateMeeting,
 } from "../actions";
+
+import { TopReihenfolge } from "./TopReihenfolge";
+import { VorlagenWahl } from "./VorlagenWahl";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +51,11 @@ export default async function MeetingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ eingeladen?: string; protokoll?: string; fehler?: string; hinweis?: string }>;
+  searchParams: Promise<{ eingeladen?: string; protokoll?: string; fehler?: string; hinweis?: string; markiert?: string }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { eingeladen, protokoll, fehler, hinweis } = await searchParams;
+  const { eingeladen, protokoll, fehler, hinweis, markiert } = await searchParams;
 
   // Mandanten-Wand direkt in der Query (Defense-in-Depth): nur Versammlungen der
   // eigenen Organisation werden überhaupt geladen.
@@ -75,14 +88,24 @@ export default async function MeetingDetailPage({
   const closed = meeting.status === "DURCHGEFUEHRT" || meeting.status === "ABGESAGT";
   const canEditAgenda = isVerwalter && !closed;
 
+  // Empfänger (für den Einzel-PDF-Download) und Fristenrechner nur für Verwalter.
+  const owners = isVerwalter
+    ? await db.ownership.findMany({
+        where: { propertyId: meeting.propertyId },
+        select: { user: { select: { id: true, name: true } } },
+        orderBy: { user: { name: "asc" } },
+      })
+    : [];
+  // Fristenrechner: gerechnet ab dem Versanddatum (falls schon versendet), sonst
+  // ab heute (= „wenn ich jetzt einlade"). Mindestfrist 3 Wochen (§ 24 IV WEG).
+  const referenceSendDate = meeting.invitationSentAt ?? new Date();
+  const deadline = checkInvitationDeadline(meeting.scheduledAt, referenceSendDate);
+  const latestSend = latestSendDate(meeting.scheduledAt);
+
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/versammlungen" className={buttonSecondaryClass}>
-            ← Versammlungen
-          </Link>
-        }
+        back={{ href: "/versammlungen", label: "Versammlungen" }}
       >
         {meeting.title}
       </PageTitle>
@@ -90,6 +113,11 @@ export default async function MeetingDetailPage({
       {eingeladen ? (
         <Alert variant="success" className="mb-4">
           Einladung an {eingeladen} Eigentümer versendet.
+        </Alert>
+      ) : null}
+      {markiert ? (
+        <Alert variant="success" className="mb-4">
+          Einladung als versendet markiert – das Versanddatum ({formatDateOnly(new Date())}) ist gesetzt.
         </Alert>
       ) : null}
       {protokoll ? (
@@ -126,9 +154,15 @@ export default async function MeetingDetailPage({
               {meeting.location ? ` · ${meeting.location}` : ""} ·{" "}
               <span className="font-medium">{statusLabel[meeting.status]}</span>
             </p>
+            {meeting.videoLink ? (
+              <p className="mb-3 text-xs text-gray-500">
+                Video-Zuschaltung:{" "}
+                <span className="break-all text-gray-700">{meeting.videoLink}</span>
+              </p>
+            ) : null}
 
             {meeting.agendaItems.length === 0 ? (
-              <p className="text-sm text-gray-500">Noch keine Tagesordnungspunkte.</p>
+              <EmptyState>Noch keine Tagesordnungspunkte.</EmptyState>
             ) : (
               <ol className="space-y-3">
                 {meeting.agendaItems.map((it, i) => (
@@ -144,38 +178,16 @@ export default async function MeetingDetailPage({
                       </span>
                       {canEditAgenda ? (
                         <div className="flex items-center gap-2">
-                          <form action={moveAgendaItem}>
-                            <input type="hidden" name="meetingId" value={meeting.id} />
-                            <input type="hidden" name="itemId" value={it.id} />
-                            <input type="hidden" name="direction" value="up" />
-                            <button
-                              type="submit"
-                              disabled={i === 0}
-                              className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                              aria-label="nach oben"
-                            >
-                              ↑
-                            </button>
-                          </form>
-                          <form action={moveAgendaItem}>
-                            <input type="hidden" name="meetingId" value={meeting.id} />
-                            <input type="hidden" name="itemId" value={it.id} />
-                            <input type="hidden" name="direction" value="down" />
-                            <button
-                              type="submit"
-                              disabled={i === meeting.agendaItems.length - 1}
-                              className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                              aria-label="nach unten"
-                            >
-                              ↓
-                            </button>
-                          </form>
                           <form action={deleteAgendaItem}>
                             <input type="hidden" name="meetingId" value={meeting.id} />
                             <input type="hidden" name="itemId" value={it.id} />
-                            <button type="submit" className="text-xs text-red-600 hover:underline">
+                            <ConfirmActionButton
+                              className="text-xs text-red-600 hover:underline"
+                              confirmLabel="Wirklich entfernen?"
+                              pendingLabel="Wird entfernt…"
+                            >
                               entfernen
-                            </button>
+                            </ConfirmActionButton>
                           </form>
                         </div>
                       ) : null}
@@ -213,9 +225,7 @@ export default async function MeetingDetailPage({
                             rows={2}
                             className={inputClass}
                           />
-                          <button type="submit" className="text-xs text-brand-green hover:underline">
-                            Speichern
-                          </button>
+                          <PendingButton className="text-xs text-brand-green hover:underline">Speichern</PendingButton>
                         </form>
                       </details>
                     ) : null}
@@ -224,14 +234,30 @@ export default async function MeetingDetailPage({
               </ol>
             )}
 
+            {/* Sortieren in einer eigenen, schmalen Liste statt an den Zeilen
+                selbst: Die tragen verschachtelte Formulare (bearbeiten,
+                entfernen, abstimmen), an denen sich nicht ziehen lässt. */}
+            {canEditAgenda && meeting.agendaItems.length > 1 ? (
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Reihenfolge
+                </p>
+                <TopReihenfolge
+                  meetingId={meeting.id}
+                  items={meeting.agendaItems.map((it) => ({ id: it.id, title: it.title }))}
+                />
+              </div>
+            ) : null}
+
             {meeting.protocolDocumentId ? (
               <p className="mt-4 text-sm">
-                <a
-                  href={`/api/files/dokument/${meeting.protocolDocumentId}`}
+                <FilePreviewLink
+                  src={`/api/files/dokument/${meeting.protocolDocumentId}`}
+                  title={`Protokoll — ${meeting.title}`}
                   className="text-brand-green hover:underline"
                 >
                   Protokoll (PDF) öffnen
-                </a>
+                </FilePreviewLink>
               </p>
             ) : null}
           </Card>
@@ -247,6 +273,15 @@ export default async function MeetingDetailPage({
             ) : null}
             {canEditAgenda ? (
             <Card title="Tagesordnungspunkt hinzufügen">
+              <form action={addAgendaFromTemplate} className="mb-4 space-y-2 border-b border-gray-100 pb-4">
+                <input type="hidden" name="meetingId" value={meeting.id} />
+                <VorlagenWahl />
+                <PendingButton className={buttonSecondaryClass}>Vorlage übernehmen</PendingButton>
+                <p className="text-xs text-gray-500">
+                  Übernimmt den oben gezeigten TOP inkl. Beschlussvorschlag; danach frei
+                  anpassbar.
+                </p>
+              </form>
               <form action={addAgendaItem} className="space-y-3">
                 <input type="hidden" name="meetingId" value={meeting.id} />
                 <Field label="Titel">
@@ -261,9 +296,7 @@ export default async function MeetingDetailPage({
                     <option value="BESCHLUSS">Beschluss (Abstimmung)</option>
                   </select>
                 </Field>
-                <button type="submit" className={buttonClass}>
-                  Hinzufügen
-                </button>
+                <PendingButton className={buttonClass}>Hinzufügen</PendingButton>
                 <p className="text-xs text-gray-500">
                   Beschluss-TOPs erzeugen automatisch eine Abstimmung im Bereich Beschlüsse.
                 </p>
@@ -286,12 +319,30 @@ export default async function MeetingDetailPage({
                     className={inputClass}
                   />
                 </Field>
-                <Field label="Ort (optional)">
-                  <input type="text" name="location" defaultValue={meeting.location ?? ""} className={inputClass} />
+                <Field label="Ort">
+                  <input
+                    type="text"
+                    name="location"
+                    required
+                    defaultValue={meeting.location ?? ""}
+                    placeholder="z. B. Gemeindesaal, Musterstr. 1 – oder Online / Videokonferenz"
+                    className={inputClass}
+                  />
                 </Field>
-                <button type="submit" className={buttonSecondaryClass}>
-                  Eckdaten speichern
-                </button>
+                <Field label="Link zur Video-Zuschaltung (optional)">
+                  <input
+                    type="text"
+                    name="videoLink"
+                    defaultValue={meeting.videoLink ?? ""}
+                    placeholder="nur Abdruck in der Einladung – kein Streaming/keine Live-Abstimmung"
+                    className={inputClass}
+                  />
+                </Field>
+                <label className="flex items-start gap-2 text-xs text-gray-600">
+                  <input type="checkbox" name="saveVideoDefault" className="mt-0.5" />
+                  <span>Link als Standard für dieses Objekt speichern (künftige Versammlungen).</span>
+                </label>
+                <PendingButton className={buttonSecondaryClass}>Eckdaten speichern</PendingButton>
               </form>
 
               <form action={updateAttendance} className="mt-4 space-y-2 border-t border-gray-100 pt-4">
@@ -301,27 +352,112 @@ export default async function MeetingDetailPage({
                     name="attendanceNote"
                     defaultValue={meeting.attendanceNote ?? ""}
                     rows={2}
-                    placeholder="z. B. 5 von 8 Eigentümern anwesend, 1 per Vollmacht vertreten"
+                    placeholder="z. B. 4 in Präsenz, 2 online zugeschaltet (§ 23 Abs. 1a WEG), 1 per Vollmacht vertreten"
                     className={inputClass}
                   />
                 </Field>
-                <button type="submit" className="text-xs text-brand-green hover:underline">
-                  Anwesenheit speichern
-                </button>
+                <PendingButton className="text-xs text-brand-green hover:underline">Anwesenheit speichern</PendingButton>
               </form>
             </Card>
 
-            <Card title="Aktionen">
-              <div className="space-y-3">
-                {/* Einladung nur für planbare Versammlungen. */}
-                {!closed ? (
-                  <form action={sendInvitation}>
+            {!closed ? (
+              <Card title="Einladung & Fristen">
+                {/* Fristenrechner: warnt bei Unterschreitung der 3-Wochen-Frist. */}
+                <div
+                  className={`rounded-lg border p-3 text-sm ${
+                    deadline.meets
+                      ? "border-green-200 bg-green-50 text-green-800"
+                      : "border-red-300 bg-red-50 text-red-800"
+                  }`}
+                >
+                  {meeting.invitationSentAt ? (
+                    <p className="font-medium">
+                      Versendet am {formatDateOnly(meeting.invitationSentAt)} · {deadline.leadDays} Tage bis
+                      zur Versammlung.
+                    </p>
+                  ) : (
+                    <p className="font-medium">
+                      Bei Versand heute: {deadline.leadDays} Tage bis zur Versammlung.
+                    </p>
+                  )}
+                  {deadline.meets ? (
+                    <p className="mt-1 text-xs">
+                      Mindestladefrist von {INVITATION_MIN_WEEKS} Wochen (§ 24 Abs. 4 WEG) gewahrt.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs">
+                      ⚠ Ladefrist von {INVITATION_MIN_WEEKS} Wochen unterschritten (es fehlen{" "}
+                      {deadline.shortfallDays} Tag(e)). Spätestes Versanddatum:{" "}
+                      {formatDateOnly(latestSend)}. Ein Beschluss kann bei zu kurzer Ladung
+                      anfechtbar sein.
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {/* Einladungs-PDF (Vorlage + je Empfänger) – Zero-Key-Selbstdruck. */}
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-gray-600">Einladungs-PDF</p>
+                    <FilePreviewLink
+                      src={`/versammlungen/${meeting.id}/einladung/pdf`}
+                      title={`Einladung — ${meeting.title}`}
+                      className={`${buttonSecondaryClass} w-full justify-center`}
+                    >
+                      PDF „An alle Eigentümer&ldquo;
+                    </FilePreviewLink>
+                    {owners.length > 0 ? (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
+                          Einzeln je Empfänger ({owners.length})
+                        </summary>
+                        <ul className="mt-2 space-y-1">
+                          {owners.map((o) => (
+                            <li key={o.user.id}>
+                              <a
+                                href={`/versammlungen/${meeting.id}/einladung/pdf?owner=${o.user.id}`}
+                                target="_blank"
+                                rel="noopener"
+                                className="text-sm text-brand-green hover:underline"
+                              >
+                                {o.user.name} – PDF
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                  </div>
+
+                  {/* Versand per E-Mail-Adapter ODER „als versendet markieren". */}
+                  {isMailEnabled() ? (
+                    <form action={sendInvitation}>
+                      <input type="hidden" name="meetingId" value={meeting.id} />
+                      <button type="submit" className={`${buttonClass} w-full`}>
+                        {meeting.invitationSentAt
+                          ? "Einladung erneut per E-Mail senden"
+                          : "Einladung per E-Mail senden"}
+                      </button>
+                    </form>
+                  ) : (
+                    <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                      Kein E-Mail-Versand eingerichtet – bitte die PDFs herunterladen, versenden
+                      und anschließend „als versendet markieren&ldquo;.
+                    </p>
+                  )}
+                  <form action={markInvitationSent}>
                     <input type="hidden" name="meetingId" value={meeting.id} />
-                    <button type="submit" className={`${buttonClass} w-full`}>
-                      {meeting.invitationSentAt ? "Einladung erneut senden" : "Einladung an Eigentümer senden"}
+                    <button type="submit" className={`${buttonSecondaryClass} w-full`}>
+                      {meeting.invitationSentAt
+                        ? "Versanddatum aktualisieren"
+                        : "Als versendet markieren"}
                     </button>
                   </form>
-                ) : null}
+                </div>
+              </Card>
+            ) : null}
+
+            <Card title="Aktionen">
+              <div className="space-y-3">
                 {/* Protokoll nicht für abgesagte Versammlungen. */}
                 {meeting.status !== "ABGESAGT" ? (
                   <form action={generateProtocol}>
@@ -335,18 +471,26 @@ export default async function MeetingDetailPage({
                   {meeting.status === "GEPLANT" || meeting.status === "EINBERUFEN" ? (
                     <form action={cancelMeeting}>
                       <input type="hidden" name="meetingId" value={meeting.id} />
-                      <button type="submit" className="text-xs text-amber-700 hover:underline">
+                      <ConfirmActionButton
+                        className="text-xs text-amber-700 hover:underline"
+                        confirmLabel="Wirklich absagen?"
+                        pendingLabel="Wird ausgeführt…"
+                      >
                         Versammlung absagen
-                      </button>
+                      </ConfirmActionButton>
                     </form>
                   ) : (
                     <span className="text-xs text-gray-400">{statusLabel[meeting.status]}</span>
                   )}
                   <form action={deleteMeeting}>
                     <input type="hidden" name="meetingId" value={meeting.id} />
-                    <button type="submit" className="text-xs text-red-600 hover:underline">
+                    <ConfirmActionButton
+                      className="text-xs text-red-600 hover:underline"
+                      confirmLabel="Wirklich löschen?"
+                      pendingLabel="Wird gelöscht…"
+                    >
                       Löschen
-                    </button>
+                    </ConfirmActionButton>
                   </form>
                 </div>
               </div>

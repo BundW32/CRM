@@ -1,2 +1,5 @@
 node_modules/
 .claude/
+
+# Next.js build output (falls versehentlich im Root gebaut)
+.next/

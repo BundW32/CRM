@@ -2,7 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { SubmitButton } from "@/components/submit-button";
-import { inputClass } from "@/components/ui";
+import { Field, inputClass } from "@/components/ui";
+import { Combobox } from "@/components/combobox";
 import { createNote, loadNoteTargets, type NoteTargets } from "./actions";
 
 type Prop = { id: string; name: string };
@@ -12,15 +13,10 @@ export function NoteForm({ properties }: { properties: Prop[] }) {
   const [unitId, setUnitId] = useState("");
   const [targetUserId, setTargetUserId] = useState("");
   const [targets, setTargets] = useState<NoteTargets>({ units: [], persons: [] });
-  const [query, setQuery] = useState("");
   const [pending, startTransition] = useTransition();
   // Race-Schutz: nur die Antwort zur zuletzt gewählten Anfrage übernehmen.
   const reqRef = useRef(0);
 
-  const q = query.toLowerCase().trim();
-  const visibleProps = q
-    ? properties.filter((p) => p.name.toLowerCase().includes(q))
-    : properties;
 
   function handlePropertyChange(value: string) {
     setPropertyId(value);
@@ -52,62 +48,36 @@ export function NoteForm({ properties }: { properties: Prop[] }) {
         </label>
       </div>
 
-      <div>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-gray-700">Objekt (optional)</span>
-          {properties.length > 8 ? (
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Objekt suchen …"
-              className={`${inputClass} mb-1.5`}
-              autoComplete="off"
-            />
-          ) : null}
-          <select
-            name="propertyId"
-            value={propertyId}
-            onChange={(e) => handlePropertyChange(e.target.value)}
-            className={inputClass}
-          >
-            <option value="">— kein Objekt —</option>
-            {visibleProps.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <input type="hidden" name="propertyId" value={propertyId} />
+      <Field label="Objekt (optional)">
+        <Combobox
+          label="Objekt"
+          placeholder="Objekt suchen …"
+          options={properties.map((p) => ({ value: p.id, label: p.name }))}
+          value={propertyId || undefined}
+          onSelect={handlePropertyChange}
+          onClear={() => handlePropertyChange("")}
+          clearOption="— kein Objekt —"
+        />
+      </Field>
 
-      <div>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-gray-700">
-            Einheit (optional)
-            {!propertyId ? (
-              <span className="ml-1 font-normal text-gray-400">(zuerst Objekt wählen)</span>
-            ) : null}
-          </span>
-          <select
-            name="unitId"
-            value={unitId}
-            onChange={(e) => setUnitId(e.target.value)}
-            disabled={!propertyId || pending}
-            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
-          >
-            <option value="">{pending ? "wird geladen …" : "— keine Einheit —"}</option>
-            {targets.units.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {propertyId && !pending && targets.units.length === 0 ? (
-          <p className="mt-1 text-xs text-gray-400">Dieses Objekt hat keine Einheiten.</p>
-        ) : null}
-      </div>
+      <input type="hidden" name="unitId" value={unitId} />
+      <Field label="Einheit (optional)">
+        <Combobox
+          label="Einheit"
+          placeholder={pending ? "Einheiten werden geladen …" : "Einheit suchen …"}
+          options={targets.units.map((u) => ({ value: u.id, label: u.label }))}
+          value={unitId || undefined}
+          onSelect={setUnitId}
+          onClear={() => setUnitId("")}
+          clearOption="— keine Einheit —"
+          disabled={!propertyId || pending}
+          disabledHint={propertyId ? "wird geladen …" : "zuerst Objekt wählen"}
+        />
+      </Field>
+      {propertyId && !pending && targets.units.length === 0 ? (
+        <p className="-mt-2 text-xs text-gray-400">Dieses Objekt hat keine Einheiten.</p>
+      ) : null}
 
       <div>
         <label className="block">

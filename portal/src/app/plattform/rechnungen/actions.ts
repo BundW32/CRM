@@ -217,7 +217,7 @@ export async function createInvoice(formData: FormData) {
     ip: await getClientIp(),
   });
   revalidatePath("/plattform/rechnungen");
-  redirect(`/plattform/rechnungen/${createdId}`);
+  redirect(`/plattform/rechnungen/${createdId}?flash=erstellt`);
 }
 
 // Status ändern (nur erlaubte Übergänge). OFFEN setzt issuedAt + Default-Fälligkeit,
@@ -269,5 +269,5 @@ export async function setInvoiceStatus(formData: FormData) {
     if (result !== "sent") mailHint = `?hinweis=nicht_gesendet`;
   }
   revalidatePath(`/plattform/rechnungen/${id}`);
-  redirect(`/plattform/rechnungen/${id}${mailHint}`);
+  redirect(`/plattform/rechnungen/${id}${mailHint}?flash=gespeichert`);
 }

@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { createSession, destroySession } from "@/lib/session";
 import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { AUDIT, logAudit } from "@/lib/audit";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, resetRateLimit } from "@/lib/rate-limit";
 
 export async function login(formData: FormData) {
   const kennung = String(formData.get("email") ?? "")
@@ -17,8 +17,31 @@ export async function login(formData: FormData) {
 
   const ip = await getClientIp();
 
-  // Rate limit: 5 Versuche pro IP pro 15 Minuten
-  if (!(await checkRateLimit(`login:${ip}`, 5, 900))) {
+  // Zwei Grenzen statt einer.
+  //
+  // Bisher galt allein: fünf Versuche pro IP je 15 Minuten. Das ist für eine
+  // Hausverwaltung gedacht, in der jeder von woanders kommt — für eine
+  // selbstverwaltete WEG ist es das Gegenteil: Deren Eigentümer wohnen im selben
+  // Haus und sitzen nicht selten hinter demselben Anschluss. Fünf Fehlversuche
+  // eines Nachbarn sperrten damit alle anderen für eine Viertelstunde mit aus,
+  // ohne dass sie je etwas falsch gemacht hätten.
+  //
+  // Deshalb: Die enge Grenze hängt jetzt an der **Kennung** — fünf Versuche je
+  // Konto, denn ein Angriff auf ein Passwort zielt immer auf ein bestimmtes
+  // Konto. Die IP behält eine deutlich weitere Grenze, die das massenhafte
+  // Durchprobieren vieler Konten von einer Stelle aus weiter abfängt, eine
+  // Familie am gemeinsamen Anschluss aber in Ruhe lässt.
+  // Gezählt werden nur Fehlversuche: Ein Erfolg räumt beide Zähler ab (siehe
+  // unten). Sonst sperrte die Grenze am Ende genau den aus, der sein Passwort
+  // kennt und sich an einem Vormittag mehrfach anmeldet.
+  //
+  // Die Kennung wird gekappt, damit niemand die Zählertabelle mit beliebig
+  // langen Schlüsseln vollschreiben kann.
+  const kennungKey = `login:kennung:${kennung.slice(0, 120)}`;
+  const ipKey = `login:${ip}`;
+  const kennungLimit = kennung ? await checkRateLimit(kennungKey, 5, 900) : true;
+  const ipLimit = await checkRateLimit(ipKey, 30, 900);
+  if (!kennungLimit || !ipLimit) {
     redirect("/login?fehler=limit");
   }
 
@@ -40,15 +63,25 @@ export async function login(formData: FormData) {
   // ein falsches Passwort behandeln – keine Auskunft über den Grund (kein Leak).
   const orgBlocked = user ? !user.organization.active && !isPlatformAdminUser(user) : false;
 
+  // Handwerker haben kein Portalkonto mehr: Sie erhalten ihre Aufträge per E-Mail
+  // mit Magic-Link auf /auftraege/[token]. Alte Konten aus der Zeit davor können
+  // sich nicht mehr anmelden. Der Rollenwert bleibt im Datenmodell erhalten –
+  // ihn zu entfernen würde an bestehenden Zeilen scheitern und bringt nichts.
+  const roleBlocked = user?.role === "HANDWERKER";
+
   if (
     !user ||
     !user.active ||
     orgBlocked ||
+    roleBlocked ||
     !(await bcrypt.compare(password, user.passwordHash))
   ) {
     await logAudit({ action: AUDIT.LOGIN_FAILED, meta: { kennung: kennung || null }, ip });
     redirect("/login?fehler=1");
   }
+
+  // Erfolg: beide Zähler abräumen, damit nur Fehlversuche zur Sperre führen.
+  await Promise.all([resetRateLimit(kennungKey), resetRateLimit(ipKey)]);
 
   await logAudit({ actorId: user.id, action: AUDIT.LOGIN_SUCCESS, ip });
   await createSession(user.id);

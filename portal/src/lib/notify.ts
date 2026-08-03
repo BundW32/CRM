@@ -151,34 +151,47 @@ export async function notifyAssignee(ticketId: string, assignee: User) {
 export async function notifyDocumentPublished(documentId: string): Promise<void> {
   try {
     const doc = await db.document.findUnique({ where: { id: documentId } });
-    // Ohne Objekt-/Einheiten-Bezug keine Massenmail an alle Nutzer
-    if (!doc || (!doc.propertyId && !doc.unitId)) return;
-
-    const wantMieter = doc.audience === "MIETER" || doc.audience === "ALLE";
-    const wantEigentuemer = doc.audience === "EIGENTUEMER" || doc.audience === "ALLE";
+    if (!doc) return;
 
     type Recipient = { id: string; email: string | null; name: string; active: boolean };
     const recipients = new Map<string, Recipient>();
 
-    if (wantMieter) {
-      const tenancies = await db.tenancy.findMany({
-        where: {
-          active: true,
-          ...(doc.unitId
-            ? { unitId: doc.unitId }
-            : { unit: { propertyId: doc.propertyId! } }),
-        },
-        select: { user: { select: { id: true, email: true, name: true, active: true } } },
-      });
-      for (const t of tenancies) recipients.set(t.user.id, t.user);
-    }
+    // Gezielte Freigabe: sind Empfänger gesetzt, NUR diese benachrichtigen –
+    // unabhängig von audience/Objekt (auch bei objektlosen Dokumenten).
+    const explicit = await db.documentRecipient.findMany({
+      where: { documentId },
+      select: { user: { select: { id: true, email: true, name: true, active: true } } },
+    });
 
-    if (wantEigentuemer && doc.propertyId) {
-      const ownerships = await db.ownership.findMany({
-        where: { propertyId: doc.propertyId },
-        select: { user: { select: { id: true, email: true, name: true, active: true } } },
-      });
-      for (const o of ownerships) recipients.set(o.user.id, o.user);
+    if (explicit.length > 0) {
+      for (const r of explicit) recipients.set(r.user.id, r.user);
+    } else {
+      // Ohne Objekt-/Einheiten-Bezug keine Massenmail an alle Nutzer
+      if (!doc.propertyId && !doc.unitId) return;
+
+      const wantMieter = doc.audience === "MIETER" || doc.audience === "ALLE";
+      const wantEigentuemer = doc.audience === "EIGENTUEMER" || doc.audience === "ALLE";
+
+      if (wantMieter) {
+        const tenancies = await db.tenancy.findMany({
+          where: {
+            active: true,
+            ...(doc.unitId
+              ? { unitId: doc.unitId }
+              : { unit: { propertyId: doc.propertyId! } }),
+          },
+          select: { user: { select: { id: true, email: true, name: true, active: true } } },
+        });
+        for (const t of tenancies) recipients.set(t.user.id, t.user);
+      }
+
+      if (wantEigentuemer && doc.propertyId) {
+        const ownerships = await db.ownership.findMany({
+          where: { propertyId: doc.propertyId },
+          select: { user: { select: { id: true, email: true, name: true, active: true } } },
+        });
+        for (const o of ownerships) recipients.set(o.user.id, o.user);
+      }
     }
 
     // Hochladenden Verwalter ausschließen, Inaktive überspringen
@@ -188,7 +201,7 @@ export async function notifyDocumentPublished(documentId: string): Promise<void>
     if (targets.length === 0) return;
 
     const branding = await getBrandingForOrg(doc.organizationId);
-    const link = portalUrl("/infos?t=dokumente");
+    const link = portalUrl("/dokumente");
     await Promise.all(
       targets
         .filter((u) => u.email)
@@ -199,7 +212,7 @@ export async function notifyDocumentPublished(documentId: string): Promise<void>
             `Guten Tag ${u.name},\n\n` +
               `Ihre Hausverwaltung hat ein neues Dokument für Sie bereitgestellt:\n` +
               `„${doc.title}"\n\n` +
-              `Sie finden es im Portal unter Infos → Dokumente:\n${link}\n\n` +
+              `Sie finden es im Portal unter Dokumente:\n${link}\n\n` +
               `Mit freundlichen Grüßen\n${branding.legalName}`,
             undefined,
             branding
@@ -208,7 +221,7 @@ export async function notifyDocumentPublished(documentId: string): Promise<void>
     );
     await sendPushToUsers(
       targets.map((u) => u.id),
-      { title: "Neues Dokument verfügbar", body: doc.title, url: "/infos?t=dokumente" }
+      { title: "Neues Dokument verfügbar", body: doc.title, url: "/dokumente" }
     );
   } catch {
     // Benachrichtigung darf den Upload nie blockieren

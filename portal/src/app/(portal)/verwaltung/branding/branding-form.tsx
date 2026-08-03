@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FileInput } from "@/components/file-input";
 import { PendingButton } from "@/components/pending-button";
 import { Field, inputClass } from "@/components/ui";
 import { DEFAULT_PRIMARY, normalizeHex } from "@/lib/branding";
@@ -89,11 +90,9 @@ export function BrandingForm({
           ) : (
             <span className="text-xs text-gray-400 italic">Noch kein Logo hinterlegt</span>
           )}
-          <input
-            type="file"
+          <FileInput
             name="logo"
             accept="image/png,image/jpeg,image/webp"
-            className="text-xs text-gray-600 file:mr-2 file:rounded file:border-0 file:bg-brand-orange-light file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-orange-dark"
           />
         </div>
         <p className="mt-1 text-[11px] text-gray-400">

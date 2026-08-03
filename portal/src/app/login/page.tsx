@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PendingButton } from "@/components/pending-button";
 import { Alert, buttonClass, inputClass, Field } from "@/components/ui";
 import { BrandTheme } from "@/components/brand-theme";
 import { BwLogo, OrgLogo } from "@/components/logo";
@@ -6,6 +7,7 @@ import { db } from "@/lib/db";
 import { publicOrgLogoUrl } from "@/lib/branding";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
+import { registrationEnabled } from "@/lib/app-mode";
 import { login } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -74,9 +76,7 @@ export default async function LoginPage({
                 className={inputClass}
               />
             </Field>
-            <button type="submit" className={`${buttonClass} w-full py-2.5`}>
-              Anmelden
-            </button>
+            <PendingButton className={`${buttonClass} w-full py-2.5`}>Anmelden</PendingButton>
           </form>
 
           <div className="mt-4 text-center">
@@ -85,9 +85,10 @@ export default async function LoginPage({
             </a>
           </div>
 
-          {/* Self-Service-Registrierung nur auf der SaaS-Hauptdomain anbieten,
-              nicht auf der gebrandeten Login-Seite eines Mandanten. */}
-          {!tenantOrg ? (
+          {/* Self-Service-Registrierung nur in der WEG-SaaS-Variante
+              (APP_MODE=weg) und nur auf der SaaS-Hauptdomain anbieten, nicht
+              auf der gebrandeten Login-Seite eines Mandanten. */}
+          {registrationEnabled() && !tenantOrg ? (
             <div className="mt-5 border-t border-gray-100 pt-4 text-center">
               <p className="text-xs text-gray-500">
                 Hausverwaltung oder selbstverwaltende WEG?{" "}

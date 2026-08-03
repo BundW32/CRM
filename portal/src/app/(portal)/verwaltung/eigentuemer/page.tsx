@@ -1,19 +1,38 @@
 import Link from "next/link";
-import { Alert, Card, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import type { Prisma } from "@/generated/prisma/client";
+import { Alert, Card, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { FilterBar, SortControl } from "@/components/filter-bar";
+import { Badge } from "@/components/data-display";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 import { updateBoardMember, updateVotingPrinciple } from "./actions";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 50;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { name: "user.name", mea: "mea", stimmen: "voteUnits" } as const;
+
+const sortOptions = [
+  { value: "name", label: "Name" },
+  { value: "mea", label: "MEA" },
+  { value: "stimmen", label: "Stimmanteil" },
+];
+
 export default async function EigentuemerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ objekt?: string; fehler?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const verwalter = await requireVerwalter();
-  const { objekt, fehler } = await searchParams;
+  const sp = await searchParams;
+  const { objekt, fehler } = sp;
+  const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "name", "asc");
+  const q = normalizeSearch(sp.q);
 
   // Nur WEG-Objekte im eigenen Zuständigkeitsbereich.
   const properties = await db.property.findMany({
@@ -24,14 +43,48 @@ export default async function EigentuemerPage({
 
   const selected = properties.find((p) => p.id === objekt) ?? properties[0] ?? null;
 
-  const owners = selected
-    ? await db.ownership.findMany({
-        where: { propertyId: selected.id },
-        include: { user: { select: { name: true, email: true } } },
-        orderBy: { user: { name: "asc" } },
-      })
-    : [];
-  const totalMea = owners.reduce((s, o) => s + (o.mea ?? 0), 0);
+  const ownerWhere: Prisma.OwnershipWhereInput | undefined = selected
+    ? {
+        AND: [
+          { propertyId: selected.id },
+          ...(q
+            ? [
+                {
+                  user: {
+                    OR: [
+                      { name: { contains: q, mode: "insensitive" as const } },
+                      { email: { contains: q, mode: "insensitive" as const } },
+                    ],
+                  },
+                },
+              ]
+            : []),
+        ],
+      }
+    : undefined;
+
+  // Die MEA-Summe wird über die DATENBANK gebildet, nicht über die angezeigte
+  // Liste: sonst würde sie sich beim Blättern oder Filtern ändern – und die
+  // Summe der Miteigentumsanteile muss immer das ganze Objekt abbilden.
+  const [owners, ownerTotal, meaAgg] = selected
+    ? await Promise.all([
+        db.ownership.findMany({
+          where: ownerWhere,
+          include: { user: { select: { name: true, email: true } } },
+          orderBy: toOrderBy(sort.field, sort.dir),
+          skip: (currentPage - 1) * PAGE_SIZE,
+          take: PAGE_SIZE,
+        }),
+        db.ownership.count({ where: ownerWhere }),
+        db.ownership.aggregate({
+          where: { propertyId: selected.id },
+          _sum: { mea: true },
+        }),
+      ])
+    : [[], 0, { _sum: { mea: null } }];
+  const totalMea = meaAgg._sum.mea ?? 0;
+
+  const pageHref = pageHrefFor(`/verwaltung/eigentuemer`, sp);
 
   // Läuft am gewählten Objekt eine Abstimmung? Dann Stimmgewichte/-prinzip sperren.
   const openVotes = selected
@@ -42,11 +95,6 @@ export default async function EigentuemerPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
-        }
       >
         Eigentümer &amp; Miteigentumsanteile
       </PageTitle>
@@ -120,9 +168,20 @@ export default async function EigentuemerPage({
                 </a>
               </form>
 
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <FilterBar
+                  className="flex-1"
+                  searchPlaceholder="Suchen"
+                  searchHint="Nach Name oder E-Mail suchen"
+                />
+                <SortControl sortOptions={sortOptions} defaultSort="name" total={ownerTotal} />
+              </div>
+
               {owners.length === 0 ? (
                 <p className="text-sm text-gray-500">
-                  Diesem Objekt sind noch keine Eigentümer zugeordnet (im Bereich Nutzer).
+                  {q
+                    ? "Keine Eigentümer gefunden."
+                    : "Diesem Objekt sind noch keine Eigentümer zugeordnet (im Bereich Nutzer)."}
                 </p>
               ) : (
                 <div className="overflow-x-auto">
@@ -149,9 +208,7 @@ export default async function EigentuemerPage({
                               <span className="flex flex-wrap items-center gap-2">
                                 {o.user.name}
                                 {o.isBoardMember ? (
-                                  <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-xs font-medium text-brand-green">
-                                    Beirat
-                                  </span>
+                                  <Badge tone="success">Beirat</Badge>
                                 ) : null}
                               </span>
                               {o.user.email ? (
@@ -191,6 +248,15 @@ export default async function EigentuemerPage({
                       </tr>
                     </tbody>
                   </table>
+
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.max(1, Math.ceil(ownerTotal / PAGE_SIZE))}
+                    total={ownerTotal}
+                    itemLabel="Eigentümer"
+                    hrefFor={pageHref}
+                  />
+
                   <p className="mt-3 text-xs text-gray-400">
                     MEA und Einheiten je Eigentümer ergeben sich automatisch aus den
                     Miteigentumsanteilen der Einheiten und der Einheiten-Eigentümerschaft. Gepflegt

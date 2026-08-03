@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Alert, buttonSecondaryClass } from "@/components/ui";
+import { BackLink, Alert } from "@/components/ui";
 import { LetterHead, letterFooterLine } from "@/components/letter-branding";
 import { db } from "@/lib/db";
 import { brandingFromOrg, orgLogoUrl } from "@/lib/branding";
@@ -63,9 +62,7 @@ export default async function BatchZugangsschreibenPage({
   return (
     <main className="min-h-screen bg-gray-100 py-8 print:bg-white print:py-0">
       <div className="no-print mx-auto mb-4 flex max-w-3xl items-center justify-between px-6">
-        <Link href="/verwaltung/nutzer" className={buttonSecondaryClass}>
-          ← Zurück zu Nutzer
-        </Link>
+        <BackLink href="/verwaltung/nutzer" tone="onLight">Zurück zu Nutzer</BackLink>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-600">{letters.length} Schreiben</span>
           <PrintButton />

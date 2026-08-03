@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Alert, Card, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { Alert, Card, PageTitle } from "@/components/ui";
+import { isSelfManaged } from "@/lib/access";
 import { orgLogoUrl } from "@/lib/branding";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { BrandingForm, type BrandingDefaults } from "./branding-form";
@@ -18,6 +18,9 @@ export default async function BrandingPage({
 
   const org = await getOrganization();
   if (!org) redirect("/verwaltung");
+  // Branding (Logo/Farbe/Firmenname) ist professionellen Verwaltungen vorbehalten –
+  // selbstverwaltete WEGs nutzen das Standard-Erscheinungsbild der App.
+  if (isSelfManaged(org)) redirect("/verwaltung");
   const { gespeichert, fehler } = await searchParams;
 
   const defaults: BrandingDefaults = {
@@ -37,11 +40,7 @@ export default async function BrandingPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
-        }
+        back={{ href: "/verwaltung/einstellungen", label: "Einstellungen" }}
       >
         Branding &amp; Erscheinungsbild
       </PageTitle>

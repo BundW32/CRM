@@ -9,6 +9,7 @@
 //  4. Ausgabe als PNG (mit Transparenz). Die Größe im Dokument passt der
 //     PDF-Generator automatisch über das Seitenverhältnis an.
 import { useRef, useState } from "react";
+import { FileInput } from "@/components/file-input";
 
 const MAX_DIMENSION = 1400; // längste Kante in Pixeln (Verarbeitungsauflösung)
 // Helligkeitsschwellen für das Freistellen (0 = schwarz, 255 = weiß):
@@ -117,14 +118,14 @@ async function prepareSignature(file: File): Promise<File> {
   return new File([blob], `${baseName}.png`, { type: "image/png" });
 }
 
-export function SignatureInput({ inputClassName }: { inputClassName?: string }) {
+export function SignatureInput() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  async function handleChange(files: FileList | null) {
+    const file = files?.[0];
     if (!file) {
       setStatus(null);
       setPreview(null);
@@ -159,14 +160,13 @@ export function SignatureInput({ inputClassName }: { inputClassName?: string }) 
 
   return (
     <span className="inline-flex flex-col gap-1">
-      <input
-        ref={inputRef}
-        type="file"
+      <FileInput
+        inputRef={inputRef}
         name="signature"
         accept="image/*"
-        onChange={handleChange}
+        label="Unterschrift wählen"
+        onFilesChange={handleChange}
         disabled={busy}
-        className={inputClassName}
       />
       {preview ? (
         // Karierter Hintergrund zur Kontrolle der Transparenz

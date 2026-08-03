@@ -1,5 +1,6 @@
 import { Alert, buttonClass, Field, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
+import { hashToken } from "@/lib/token-hash";
 import { BwLogo } from "@/components/logo";
 import { resetPassword } from "./actions";
 
@@ -23,7 +24,8 @@ export default async function ResetPasswordPage({
 
   const user = await db.user.findFirst({
     where: {
-      passwordResetToken: token,
+      // Siehe reset/[token]/actions.ts: nur der Hash zählt.
+      passwordResetToken: hashToken(token),
       passwordResetExpiry: { gt: new Date() },
       active: true,
     },

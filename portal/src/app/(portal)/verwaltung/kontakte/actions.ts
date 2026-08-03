@@ -4,65 +4,20 @@ import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import {
-  canVerwalterManageUser,
-  canVerwalterUseCraftsman,
-  userWhereForVerwalter,
-} from "@/lib/access";
+import { canVerwalterManageUser, canVerwalterUseCraftsman } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
+import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
 
-export type ContactPerson = {
-  id: string;
-  name: string;
-  role: "MIETER" | "EIGENTUEMER";
-  email: string | null;
-  phone: string | null;
-  preferredContact: string | null;
-};
+// Rücksprung: `updatePersonContact` läuft aus der Adressbuch-Zeile UND von der
+// Kontakt-Detailseite. Der Pfad wird gegen ein festes Muster geprüft, damit über
+// ein untergeschobenes Feld keine Weiterleitung auf fremde Adressen möglich ist.
+const ZURUECK_ERLAUBT = /^\/verwaltung\/kontakte(\/[A-Za-z0-9_-]+)?$/;
 
-const CONTACT_PERSON_LIMIT = 50;
-
-/**
- * Sucht Mieter/Eigentümer im Scope des Verwalters **serverseitig** und gedeckelt
- * – statt alle (potenziell zehntausende) Personen ins Kontaktbuch zu laden.
- * Ohne Suchbegriff werden die ersten Treffer geliefert.
- */
-export async function searchContactPersons(query: string): Promise<ContactPerson[]> {
-  const verwalter = await requireVerwalter();
-  const q = query.trim();
-  const persons = await db.user.findMany({
-    where: {
-      AND: [
-        { role: { in: ["MIETER", "EIGENTUEMER"] } },
-        // DSGVO-anonymisierte Nutzer nicht im Kontaktbuch anzeigen.
-        { anonymizedAt: null },
-        ...(q
-          ? [
-              {
-                OR: [
-                  { name: { contains: q, mode: "insensitive" as const } },
-                  { email: { contains: q, mode: "insensitive" as const } },
-                  { phone: { contains: q, mode: "insensitive" as const } },
-                ],
-              },
-            ]
-          : []),
-        await userWhereForVerwalter(verwalter),
-      ],
-    },
-    orderBy: [{ role: "asc" }, { name: "asc" }],
-    take: CONTACT_PERSON_LIMIT,
-    select: { id: true, name: true, role: true, email: true, phone: true, preferredContact: true },
-  });
-  return persons.map((p) => ({
-    id: p.id,
-    name: p.name,
-    role: p.role as "MIETER" | "EIGENTUEMER",
-    email: p.email,
-    phone: p.phone,
-    preferredContact: p.preferredContact ?? null,
-  }));
+function zurueckZu(formData: FormData, suffix = ""): string {
+  const raw = String(formData.get("zurueck") ?? "").trim();
+  const base = ZURUECK_ERLAUBT.test(raw) ? raw : "/verwaltung/kontakte";
+  return base + suffix;
 }
 
 const TRADES = [
@@ -73,35 +28,67 @@ const TRADES = [
 
 const CONTACT_METHODS = ["EMAIL", "TELEFON", "MOBIL", "POST"] as const;
 
+const CONTACT_KINDS = [
+  "HANDWERKER",
+  "DIENSTLEISTER",
+  "VERSORGER",
+  "BEHOERDE",
+  "SONSTIGES",
+] as const;
+
 const craftsmanSchema = z.object({
   company: z.string().trim().max(200).optional(),
   name: z.string().trim().min(2).max(200),
+  // Art des Eintrags; ohne Angabe bleibt es beim historischen Fall Handwerker.
+  kind: z.enum(CONTACT_KINDS).default("HANDWERKER"),
   trade: z.enum(TRADES),
   email: z.string().trim().toLowerCase().email().optional().or(z.literal("")),
   phone: z.string().trim().max(50).optional(),
   preferredContact: z.enum(CONTACT_METHODS),
   notes: z.string().trim().max(2000).optional(),
+  // Freistellungsbescheinigung nach § 48b EStG. Liegt eine gültige vor,
+  // entfällt der Steuerabzug bei Bauleistungen (§ 48 EStG) — ohne sie haftet
+  // die Gemeinschaft für den nicht einbehaltenen Betrag (§ 48a Abs. 3 EStG).
+  exemptionNumber: z.string().trim().max(50).optional(),
+  exemptionValidUntil: z.string().trim().optional(),
 });
+
+/**
+ * Datum der Freistellungsbescheinigung lesen.
+ *
+ * Ein unlesbares Datum wird zu `null`, nicht zu „heute". Ein stillschweigend
+ * gesetztes Datum würde die Prüfung nach § 48 EStG entweder dauerhaft
+ * stilllegen oder dauerhaft auslösen — beides schlimmer als ein leeres Feld.
+ */
+function freistellungsDatum(wert: string | undefined): Date | null {
+  if (!wert) return null;
+  const d = new Date(wert);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 export async function createCraftsman(formData: FormData) {
   const verwalter = await requireVerwalter();
   const parsed = craftsmanSchema.safeParse({
     company: formData.get("company") || undefined,
     name: formData.get("name"),
+    kind: formData.get("kind") || "HANDWERKER",
     trade: formData.get("trade"),
     email: formData.get("email") || undefined,
     phone: formData.get("phone") || undefined,
     preferredContact: formData.get("preferredContact") || "TELEFON",
     notes: formData.get("notes") || undefined,
+    exemptionNumber: formData.get("exemptionNumber") || undefined,
+    exemptionValidUntil: formData.get("exemptionValidUntil") || undefined,
   });
   if (!parsed.success) {
-    redirect("/verwaltung/kontakte?fehler=eingabe");
+    redirect("/verwaltung/kontakte/neu?fehler=eingabe");
   }
 
   await db.craftsman.create({
     data: {
       company: parsed.data.company || null,
       name: parsed.data.name,
+      kind: parsed.data.kind,
       trade: parsed.data.trade,
       email: parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null,
       phone: parsed.data.phone || null,
@@ -116,38 +103,38 @@ export async function createCraftsman(formData: FormData) {
   });
 
   revalidatePath("/verwaltung/kontakte");
-  redirect("/verwaltung/kontakte?angelegt=1");
+  redirect("/verwaltung/kontakte?flash=kontakt-angelegt");
 }
 
 export async function toggleCraftsmanActive(formData: FormData) {
   const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   // Scope-/Org-Prüfung: nur Handwerker der eigenen Org (und ggf. zugewiesene).
-  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect("/verwaltung/kontakte");
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect(zurueckZu(formData));
   const c = await db.craftsman.findUnique({ where: { id } });
   if (c) {
     await db.craftsman.update({ where: { id }, data: { active: !c.active } });
   }
   revalidatePath("/verwaltung/kontakte");
-  redirect("/verwaltung/kontakte");
+  redirect(zurueckZu(formData, "?flash=gespeichert"));
 }
 
 export async function toggleCraftsmanInternal(formData: FormData) {
   const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
-  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect("/verwaltung/kontakte");
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect(zurueckZu(formData));
   const c = await db.craftsman.findUnique({ where: { id } });
   if (c) {
     await db.craftsman.update({ where: { id }, data: { isInternal: !c.isInternal } });
   }
   revalidatePath("/verwaltung/kontakte");
-  redirect("/verwaltung/kontakte");
+  redirect(zurueckZu(formData, "?flash=gespeichert"));
 }
 
 export async function deleteCraftsman(formData: FormData) {
   const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
-  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect("/verwaltung/kontakte");
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect(zurueckZu(formData));
   // Nur löschen, wenn keine Vorgänge zugeordnet sind – sonst nur deaktivieren
   const ticketCount = await db.ticket.count({ where: { craftsmanId: id } });
   if (ticketCount > 0) {
@@ -156,7 +143,7 @@ export async function deleteCraftsman(formData: FormData) {
     await db.craftsman.delete({ where: { id } }).catch(() => {});
   }
   revalidatePath("/verwaltung/kontakte");
-  redirect("/verwaltung/kontakte");
+  redirect(zurueckZu(formData, "?flash=geloescht"));
 }
 
 const personSchema = z.object({
@@ -175,7 +162,7 @@ export async function updatePersonContact(formData: FormData) {
 
   // Scope-Prüfung: nur Personen im eigenen Zuständigkeitsbereich bearbeiten.
   if (!id || !(await canVerwalterManageUser(verwalter, id))) {
-    redirect("/verwaltung/kontakte");
+    redirect(zurueckZu(formData));
   }
 
   const parsed = personSchema.safeParse({
@@ -184,7 +171,7 @@ export async function updatePersonContact(formData: FormData) {
     phone: formData.get("phone") || undefined,
   });
   if (!parsed.success) {
-    redirect("/verwaltung/kontakte?fehler=eingabe");
+    redirect(zurueckZu(formData, "?fehler=eingabe"));
   }
   const email = parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null;
 
@@ -192,7 +179,7 @@ export async function updatePersonContact(formData: FormData) {
   if (email) {
     const existing = await db.user.findUnique({ where: { email }, select: { id: true } });
     if (existing && existing.id !== id) {
-      redirect("/verwaltung/kontakte?fehler=email");
+      redirect(zurueckZu(formData, "?fehler=email"));
     }
   }
 
@@ -201,26 +188,40 @@ export async function updatePersonContact(formData: FormData) {
     data: { name: parsed.data.name, email, phone: parsed.data.phone || null, preferredContact },
   });
   revalidatePath("/verwaltung/kontakte");
-  redirect("/verwaltung/kontakte");
+  redirect(zurueckZu(formData, "?flash=kontakt-gespeichert"));
 }
 
 export async function updateCraftsman(formData: FormData) {
   const verwalter = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   // Scope-/Org-Prüfung: nur Handwerker der eigenen Org (und ggf. zugewiesene).
-  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect("/verwaltung/kontakte");
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id))) redirect(zurueckZu(formData));
 
   const parsed = craftsmanSchema.safeParse({
     company: formData.get("company") || undefined,
     name: formData.get("name"),
+    kind: formData.get("kind") || "HANDWERKER",
     trade: formData.get("trade"),
     email: formData.get("email") || undefined,
     phone: formData.get("phone") || undefined,
     preferredContact: formData.get("preferredContact") || "TELEFON",
     notes: formData.get("notes") || undefined,
+    exemptionNumber: formData.get("exemptionNumber") || undefined,
+    exemptionValidUntil: formData.get("exemptionValidUntil") || undefined,
   });
   if (!parsed.success) {
-    redirect("/verwaltung/kontakte?fehler=eingabe");
+    redirect(zurueckZu(formData, "?fehler=eingabe"));
+  }
+
+  // Optionale Datei der Freistellungsbescheinigung.
+  let bescheinigung: { storedName: string; fileName: string; mimeType: string } | null = null;
+  const datei = formData.get("exemptionFile");
+  if (datei instanceof File && datei.size > 0) {
+    try {
+      bescheinigung = await saveUpload(datei, DOCUMENT_TYPES);
+    } catch {
+      redirect(zurueckZu(formData, "?fehler=bescheinigung"));
+    }
   }
 
   await db.craftsman.update({
@@ -228,13 +229,25 @@ export async function updateCraftsman(formData: FormData) {
     data: {
       company: parsed.data.company || null,
       name: parsed.data.name,
+      kind: parsed.data.kind,
       trade: parsed.data.trade,
       email: parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null,
       phone: parsed.data.phone || null,
       preferredContact: parsed.data.preferredContact,
       notes: parsed.data.notes || null,
+      exemptionNumber: parsed.data.exemptionNumber || null,
+      exemptionValidUntil: freistellungsDatum(parsed.data.exemptionValidUntil),
+      // Nur überschreiben, wenn wirklich eine neue Datei kam. Sonst löschte
+      // jedes Speichern der Telefonnummer die hinterlegte Bescheinigung.
+      ...(bescheinigung
+        ? {
+            exemptionStoredName: bescheinigung.storedName,
+            exemptionFileName: bescheinigung.fileName,
+            exemptionMimeType: bescheinigung.mimeType,
+          }
+        : {}),
     },
   });
   revalidatePath("/verwaltung/kontakte");
-  redirect("/verwaltung/kontakte");
+  redirect(zurueckZu(formData, "?flash=kontakt-gespeichert"));
 }

@@ -5,13 +5,15 @@ import { db } from "@/lib/db";
 import { reminderLevelLabel } from "@/lib/dunning";
 import { requireVerwalter } from "@/lib/session";
 import { generateMahnung } from "@/lib/documents/mahnung";
+import { briefkopfAus } from "@/lib/documents/briefkopf";
+import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
 
 // Zahlungserinnerung/Mahnung als druckfertiger DIN-A4-Brief (Fensterumschlag).
 // Verwalter im Objekt-Scope.
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ propertyId: string; mahnungId: string }> },
 ) {
   const verwalter = await requireVerwalter();
@@ -36,33 +38,47 @@ export async function GET(
       select: { iban: true, name: true },
     });
     const branding = await getBrandingForOrg(mahnung.property.organizationId);
+    const kopf = await briefkopfAus(branding);
+
+    // Vorstufe, auf die sich der Text beziehen kann („unsere Zahlungserinnerung
+    // vom …"): die zuletzt versendete Mahnung derselben Einheit.
+    const vorstufe =
+      mahnung.level > 1
+        ? await db.hausgeldMahnung.findFirst({
+            where: { unitId: mahnung.unitId, level: { lt: mahnung.level }, sentAt: { not: null } },
+            orderBy: { sentAt: "desc" },
+            select: { sentAt: true },
+          })
+        : null;
 
     const pdf = await generateMahnung({
-      issuer: {
-        legalName: branding.legalName,
-        contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-      },
+      issuer: kopf.issuer,
+      brand: kopf.brand,
+      logo: kopf.logo,
       propertyName: mahnung.property.name,
       unitLabel: mahnung.unit.label,
       level: mahnung.level,
-      recipientName: mahnung.recipientName,
+      recipient: {
+        name: mahnung.recipientName,
+        salutation: mahnung.recipientSalutation,
+        lastName: mahnung.recipientLastName,
+      },
       recipientAddress: mahnung.recipientAddress,
+      // Ab der letzten Stufe ist der Zugang nachweisbar zu dokumentieren.
+      versandVermerk: mahnung.level >= 3 ? "Einschreiben mit Rückschein" : null,
       arrearsCents: mahnung.arrearsCents,
+      interestCents: mahnung.interestCents,
+      feeCents: mahnung.feeCents,
       paymentDeadline: mahnung.paymentDeadline,
+      previousReminderAt: vorstufe?.sentAt ?? null,
       iban: giro?.iban ?? null,
       accountHolder: giro?.iban ? mahnung.property.name : null,
       createdAt: mahnung.createdAt,
-      city: branding.city ?? mahnung.property.city ?? null,
+      city: kopf.city ?? mahnung.property.city ?? null,
     });
 
-    const fileName = `${reminderLevelLabel(mahnung.level).replace(/[^a-zA-Z0-9]/g, "_")}_${mahnung.unit.label.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    const fileName = `${fileNamePart(reminderLevelLabel(mahnung.level))}_${fileNamePart(mahnung.unit.label)}.pdf`;
+    return pdfResponse(pdf, fileName, request);
   } catch (err) {
     console.error("Mahnung-PDF fehlgeschlagen", err);
     return NextResponse.json({ error: "Export fehlgeschlagen" }, { status: 500 });

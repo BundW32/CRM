@@ -1,16 +1,22 @@
 import { redirect } from "next/navigation";
+import { PendingButton } from "@/components/pending-button";
+import type { Prisma } from "@/generated/prisma/client";
 import { Alert,
   Card,
   EmptyState,
   Field,
   PageTitle,
+  Pagination,
   buttonClass,
   buttonSecondaryClass,
   inputClass,
 } from "@/components/ui";
+import { ComboField } from "@/components/combo-field";
+import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { getOrganization, requireUser } from "@/lib/session";
 import {
   adoptMotionAsResolution,
@@ -20,6 +26,17 @@ import {
 } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 25;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { datum: "createdAt", titel: "title", status: "status" } as const;
+
+const sortOptions = [
+  { value: "datum", label: "Datum" },
+  { value: "titel", label: "Titel" },
+  { value: "status", label: "Status" },
+];
 
 const typeLabels: Record<string, string> = {
   BESCHLUSSANTRAG: "Beschlussantrag",
@@ -54,12 +71,7 @@ const errorText: Record<string, string> = {
 export default async function AntraegePage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    eingereicht?: string;
-    uebernommen?: string;
-    abgelehnt?: string;
-    fehler?: string;
-  }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
   const org = await getOrganization();
@@ -84,11 +96,37 @@ export default async function AntraegePage({
   const isVerwalter = user.role === "VERWALTER";
 
   // Eigene Anträge (Status-Verlauf für den Eigentümer).
-  const myMotions = await db.ownerMotion.findMany({
-    where: { submittedById: user.id },
-    include: { property: { select: { name: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  // Eigene Anträge sammeln sich über die Jahre – paginiert und durchsuchbar.
+  const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "datum", "desc");
+  const q = normalizeSearch(sp.q);
+  const myMotionWhere: Prisma.OwnerMotionWhereInput = {
+    AND: [
+      { submittedById: user.id },
+      ...(q
+        ? [
+            {
+              OR: [
+                { title: { contains: q, mode: "insensitive" as const } },
+                { description: { contains: q, mode: "insensitive" as const } },
+              ],
+            },
+          ]
+        : []),
+    ],
+  };
+  const [myMotions, myMotionTotal] = await Promise.all([
+    db.ownerMotion.findMany({
+      where: myMotionWhere,
+      include: { property: { select: { name: true } } },
+      orderBy: toOrderBy(sort.field, sort.dir),
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+    db.ownerMotion.count({ where: myMotionWhere }),
+  ]);
+
+  const pageHref = pageHrefFor(`/antraege`, sp);
 
   // Review-Bereich für den internen Verwalter: offene Anträge im Scope.
   let reviewMotions: Awaited<ReturnType<typeof loadReview>>["motions"] = [];
@@ -138,9 +176,7 @@ export default async function AntraegePage({
                       {m.type !== "VERSAMMLUNG" ? (
                         <form action={adoptMotionAsResolution}>
                           <input type="hidden" name="motionId" value={m.id} />
-                          <button type="submit" className={buttonSecondaryClass}>
-                            Als Umlaufbeschluss
-                          </button>
+                          <PendingButton className={buttonSecondaryClass}>Als Umlaufbeschluss</PendingButton>
                         </form>
                       ) : null}
 
@@ -158,9 +194,7 @@ export default async function AntraegePage({
                               ))}
                             </select>
                           </label>
-                          <button type="submit" className={buttonSecondaryClass}>
-                            Zu Versammlung
-                          </button>
+                          <PendingButton className={buttonSecondaryClass}>Zu Versammlung</PendingButton>
                         </form>
                       ) : (
                         <span className="text-xs text-gray-400">
@@ -181,9 +215,7 @@ export default async function AntraegePage({
                             className={`${inputClass} mt-1 w-56`}
                           />
                         </label>
-                        <button type="submit" className="text-sm text-red-600 hover:underline">
-                          Ablehnen
-                        </button>
+                        <PendingButton className="text-sm text-red-600 hover:underline">Ablehnen</PendingButton>
                       </form>
                     </div>
                   </li>
@@ -199,15 +231,13 @@ export default async function AntraegePage({
         <div className={isVerwalter ? "mt-6" : ""}>
           <Card title="Antrag einreichen">
             <form action={submitMotion} className="space-y-4">
-              <Field label="Objekt">
-                <select name="propertyId" className={inputClass} required>
-                  {wegOwned.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              <ComboField
+                label="Objekt"
+                name="propertyId"
+                required
+                placeholder="Objekt suchen …"
+                options={wegOwned.map((p) => ({ value: p.id, label: p.name }))}
+              />
               <Field label="Art des Antrags">
                 <select name="type" className={inputClass} defaultValue="BESCHLUSSANTRAG">
                   <option value="BESCHLUSSANTRAG">Beschlussantrag</option>
@@ -241,9 +271,7 @@ export default async function AntraegePage({
                 Viertel der Eigentümer sie verlangt (§ 24 Abs. 2 WEG). Die Verwaltung prüft Ihren
                 Antrag und übernimmt ihn als Umlaufbeschluss oder Tagesordnungspunkt.
               </p>
-              <button type="submit" className={buttonClass}>
-                Antrag einreichen
-              </button>
+              <PendingButton className={buttonClass}>Antrag einreichen</PendingButton>
             </form>
           </Card>
         </div>
@@ -251,9 +279,22 @@ export default async function AntraegePage({
 
       {/* Eigene Anträge */}
       <div className="mt-6">
-        <Card title="Meine Anträge">
+        <Card title={`Meine Anträge (${myMotionTotal})`}>
+          {/* Sortiermenü nur für den Verwalter – er sieht Anträge über viele
+              Objekte hinweg; für Eigentümer ist die Datumsfolge die richtige. */}
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <FilterBar
+              className="flex-1"
+              searchPlaceholder="Suchen"
+              searchHint="Nach Titel oder Antragstext suchen"
+            />
+            <SortControl sortOptions={sortOptions} defaultSort="datum" total={myMotionTotal} />
+          </div>
+
           {myMotions.length === 0 ? (
-            <EmptyState>Sie haben noch keine Anträge eingereicht.</EmptyState>
+            <EmptyState>
+              {q ? "Keine Anträge gefunden." : "Sie haben noch keine Anträge eingereicht."}
+            </EmptyState>
           ) : (
             <ul className="divide-y divide-gray-50">
               {myMotions.map((m) => (
@@ -279,6 +320,14 @@ export default async function AntraegePage({
               ))}
             </ul>
           )}
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.max(1, Math.ceil(myMotionTotal / PAGE_SIZE))}
+            total={myMotionTotal}
+            itemLabel="Anträge"
+            hrefFor={pageHref}
+          />
         </Card>
       </div>
     </>

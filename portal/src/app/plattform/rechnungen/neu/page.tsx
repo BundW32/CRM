@@ -1,9 +1,10 @@
-import Link from "next/link";
-import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Alert, Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/platform";
 import { createInvoice } from "../actions";
 import { InvoiceItemsField } from "./InvoiceItemsField";
+import { DateField } from "@/components/fields";
 
 export const dynamic = "force-dynamic";
 
@@ -29,11 +30,7 @@ export default async function NeueRechnungPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/plattform/rechnungen" className={buttonSecondaryClass}>
-            ← Rechnungen
-          </Link>
-        }
+        back={{ href: "/plattform/rechnungen", label: "Rechnungen" }}
       >
         Neue Rechnung
       </PageTitle>
@@ -61,15 +58,16 @@ export default async function NeueRechnungPage({
             <Field label="USt-Satz (%)">
               <input type="number" name="vatRate" min={0} max={100} defaultValue={19} className={inputClass} />
             </Field>
-            <Field label="Fällig bis (optional)">
-              <input type="date" name="dueAt" className={inputClass} />
-            </Field>
+            <DateField
+              label="Fällig bis (optional)"
+              name="dueAt"
+            />
           </div>
           <div>
             <span className="mb-1 block text-sm font-medium text-gray-700">Positionen</span>
             <InvoiceItemsField />
           </div>
-          <button type="submit" className={buttonClass}>Rechnung anlegen (Entwurf)</button>
+          <PendingButton className={buttonClass}>Rechnung anlegen (Entwurf)</PendingButton>
           <p className="text-xs text-gray-400">
             Die Rechnung wird als Entwurf mit fortlaufender Nummer angelegt. Erst beim
             Übergang auf den Status „Offen“ gilt sie als gestellt.

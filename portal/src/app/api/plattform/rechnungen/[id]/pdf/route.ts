@@ -4,11 +4,12 @@ import { isPlatformAdminUser, formatInvoiceNumber } from "@/lib/platform";
 import { buildInvoicePdf, loadInvoiceForPdf } from "@/lib/platform-invoice-service";
 import { getUser } from "@/lib/session";
 import { getClientIp } from "@/lib/rate-limit";
+import { pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await getUser();
@@ -32,13 +33,7 @@ export async function GET(
     });
 
     const fileName = `Rechnung_${formatInvoiceNumber(invoice.year, invoice.number)}.pdf`;
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    return pdfResponse(pdf, fileName, request);
   } catch (err) {
     console.error("Rechnungs-PDF fehlgeschlagen", err);
     return NextResponse.json({ error: "PDF fehlgeschlagen" }, { status: 500 });

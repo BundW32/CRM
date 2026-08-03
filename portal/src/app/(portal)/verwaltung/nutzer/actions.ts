@@ -10,12 +10,43 @@ import { canVerwalterManageUser, propertyIdsForVerwalter } from "@/lib/access";
 import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
-import { portalUrl, sendMail } from "@/lib/mailer";
+import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, deleteBlob, saveBuffer } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
+import { hashToken } from "@/lib/token-hash";
+
+// ── Rücksprung ──────────────────────────────────────────────────────
+// Dieselben Aktionen laufen von zwei Oberflächen: der Nutzerliste und der
+// Kontakt-Detailseite. Ohne mitgeführten Pfad landete man nach dem Speichern
+// immer in der Nutzerliste – auch wenn man von einem Kontakt kam.
+//
+// Der Wert kommt aus einem versteckten Formularfeld, wird aber NICHT blind
+// übernommen: Nur die beiden bekannten Muster sind erlaubt, sonst könnte über
+// ein untergeschobenes Feld auf eine fremde Adresse weitergeleitet werden.
+const ZURUECK_ERLAUBT = /^\/verwaltung\/(nutzer|kontakte(\/[A-Za-z0-9_-]+)?)$/;
+
+function zurueckZu(formData: FormData, suffix = ""): string {
+  const raw = String(formData.get("zurueck") ?? "").trim();
+  const base = ZURUECK_ERLAUBT.test(raw) ? raw : "/verwaltung/nutzer";
+  return base + suffix;
+}
+
+/**
+ * Wie `zurueckZu`, aber immer auf die **Liste** – ohne die Kennung am Ende.
+ *
+ * Nötig für Aktionen, die den Datensatz unsichtbar machen: Nach einer
+ * DSGVO-Löschung gibt es die Detailseite der Person nicht mehr (sie weist
+ * anonymisierte Datensätze bewusst ab). Ein Rücksprung dorthin endete in 404.
+ */
+function zurueckZurListe(formData: FormData, suffix = ""): string {
+  const raw = String(formData.get("zurueck") ?? "").trim();
+  if (!ZURUECK_ERLAUBT.test(raw)) return "/verwaltung/nutzer" + suffix;
+  const liste = raw.startsWith("/verwaltung/kontakte") ? "/verwaltung/kontakte" : "/verwaltung/nutzer";
+  return liste + suffix;
+}
 
 // ── Scope-Wächter ───────────────────────────────────────────────────
 // Eingeschränkte Verwalter (kein SuperAdmin) dürfen nur Nutzer/Objekte
@@ -71,13 +102,14 @@ export async function uploadStammdaten(formData: FormData) {
     const id = String(formData.get("id") ?? "");
     await ensureCanManageUser(actor, id);
     const user = await db.user.findUnique({ where: { id } });
-    if (!user) redirect("/verwaltung/nutzer");
+    if (!user) redirect(zurueckZu(formData));
 
     const data: {
       street: string | null;
       zip: string | null;
       city: string | null;
       signatureStoredName?: string;
+      signatureSelfSigned?: boolean;
     } = {
       street: String(formData.get("street") ?? "").trim().slice(0, 200) || null,
       zip: String(formData.get("zip") ?? "").trim().slice(0, 20) || null,
@@ -93,16 +125,110 @@ export async function uploadStammdaten(formData: FormData) {
         if (user.signatureStoredName) await deleteBlob(user.signatureStoredName);
         const upload = await saveBuffer(buffer, "unterschrift.png", "image/png", IMAGE_TYPES);
         data.signatureStoredName = upload.storedName;
+        // Fremderfassung: Diese Unterschrift hat der Verwalter gezeichnet, nicht
+        // die Person selbst. Sie darf deshalb nicht unter deren Namen erscheinen
+        // (Bescheinigungen laufen dann über den „i. A."-Weg). Überschreibt eine
+        // zuvor eigenhändig geleistete Unterschrift bewusst mit `false`.
+        data.signatureSelfSigned = false;
       }
     }
 
     await db.user.update({ where: { id }, data });
     revalidatePath("/verwaltung/nutzer");
-    redirect("/verwaltung/nutzer?stammdaten=1");
+    redirect(zurueckZu(formData, "?flash=stammdaten-gespeichert"));
   } catch (e) {
     if (isNextControlFlowError(e)) throw e; // redirect()/notFound() durchlassen
-    redirect(`/verwaltung/nutzer?fehler=stammdaten&msg=${encodeURIComponent(errorMessage(e))}`);
+    redirect(zurueckZu(formData, `?fehler=stammdaten&msg=${encodeURIComponent(errorMessage(e))}`));
   }
+}
+
+// ── Schriftliche Vollmacht vermerken ────────────────────────────────────────
+// Der Self-Service unter „Konto" setzt einen Portalzugang voraus, den der
+// Eigentümer auch nutzt. Viele Eigentümer haben beides nicht – ihre Vollmacht
+// liegt unterschrieben im Ordner. Ohne diesen Weg bliebe für sie überhaupt
+// keine Bescheinigung möglich.
+//
+// Der Vermerk verlangt bewusst Datum UND Fundstelle: Ein blosses Häkchen wäre
+// kein Nachweis, sondern nur die Behauptung des Verwalters, es gebe eine
+// Vollmacht. Wer den Vermerk gesetzt hat, wird mitgeführt und protokolliert.
+const paperMandateSchema = z.object({
+  // Datum der unterschriebenen Vollmacht, nicht das Datum des Vermerks.
+  datum: z.coerce.date(),
+  // Fundstelle: Wo liegt das Papier? Ohne Angabe ist der Vermerk wertlos.
+  fundstelle: z.string().trim().min(3).max(500),
+});
+
+export async function recordPaperMandate(formData: FormData) {
+  const actor = await requireVerwalter();
+  const id = String(formData.get("id") ?? "");
+  await ensureCanManageUser(actor, id);
+  const user = await db.user.findUnique({ where: { id } });
+  // Nur Eigentümer sind Wohnungsgeber – nur sie können bevollmächtigen.
+  if (!user || user.role !== "EIGENTUEMER") redirect(zurueckZu(formData));
+
+  const parsed = paperMandateSchema.safeParse({
+    datum: formData.get("datum"),
+    fundstelle: formData.get("fundstelle"),
+  });
+  if (!parsed.success) {
+    redirect(zurueckZu(formData, "?fehler=vollmacht"));
+  }
+  // Eine auf die Zukunft datierte Vollmacht gibt es nicht.
+  if (parsed.data.datum.getTime() > Date.now()) {
+    redirect(zurueckZu(formData, "?fehler=vollmacht_datum"));
+  }
+
+  await db.user.update({
+    where: { id },
+    data: {
+      certMandateGrantedAt: parsed.data.datum,
+      certMandateRevokedAt: null,
+      certMandateSource: "SCHRIFTLICH",
+      certMandateNote: parsed.data.fundstelle,
+      certMandateRecordedById: actor.id,
+    },
+  });
+
+  await logAudit({
+    actorId: actor.id,
+    action: AUDIT.CERT_MANDATE_GRANTED,
+    targetType: "User",
+    targetId: id,
+    meta: {
+      quelle: "SCHRIFTLICH",
+      vollmachtVom: parsed.data.datum.toISOString(),
+      fundstelle: parsed.data.fundstelle,
+    },
+    ip: await getClientIp(),
+  });
+
+  revalidatePath("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=vollmacht-vermerkt"));
+}
+
+export async function revokePaperMandate(formData: FormData) {
+  const actor = await requireVerwalter();
+  const id = String(formData.get("id") ?? "");
+  await ensureCanManageUser(actor, id);
+  const user = await db.user.findUnique({ where: { id } });
+  if (!user) redirect(zurueckZu(formData));
+
+  await db.user.update({
+    where: { id },
+    data: { certMandateRevokedAt: new Date() },
+  });
+
+  await logAudit({
+    actorId: actor.id,
+    action: AUDIT.CERT_MANDATE_REVOKED,
+    targetType: "User",
+    targetId: id,
+    meta: { durch: "VERWALTER" },
+    ip: await getClientIp(),
+  });
+
+  revalidatePath("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=vollmacht-widerrufen"));
 }
 
 const userSchema = z.object({
@@ -110,7 +236,10 @@ const userSchema = z.object({
   lastName: z.string().trim().min(1).max(100),
   salutation: z.string().trim().optional(),
   email: z.string().trim().toLowerCase().email().optional().or(z.literal("")),
-  role: z.enum(["VERWALTER", "EIGENTUEMER", "MIETER", "HANDWERKER"]),
+  // Kein HANDWERKER: Handwerker haben kein Portalkonto (Magic-Link per E-Mail).
+  // Der Rollenwert bleibt im Datenmodell für Altbestände erhalten, ist aber nicht
+  // mehr anlegbar – serverseitig durchgesetzt, nicht nur im Formular.
+  role: z.enum(["VERWALTER", "EIGENTUEMER", "MIETER"]),
   phone: z.string().trim().max(50).optional(),
   preferredContact: z.enum(["EMAIL", "TELEFON", "MOBIL", "POST"]).optional().or(z.literal("")),
   unitId: z.string().optional(),
@@ -152,14 +281,14 @@ export async function createUser(formData: FormData) {
     method: formData.get("method") || "email",
   });
   if (!parsed.success) {
-    redirect("/verwaltung/nutzer?fehler=eingabe");
+    redirect(zurueckZu(formData, "?fehler=eingabe"));
   }
 
   // Eingeschränkte Verwalter dürfen nur Mieter/Eigentümer im eigenen
   // Zuständigkeitsbereich anlegen – keine Verwalter/Handwerker.
   if (!actor.isSuperAdmin) {
     if (parsed.data.role !== "MIETER" && parsed.data.role !== "EIGENTUEMER") {
-      redirect("/verwaltung/nutzer?fehler=eingabe");
+      redirect(zurueckZu(formData, "?fehler=eingabe"));
     }
   }
   // Mandanten-Wand für Ziel-Objekt/-Einheit IMMER (auch SuperAdmin): verhindert,
@@ -172,12 +301,12 @@ export async function createUser(formData: FormData) {
 
   // E-Mail-Einladung setzt eine E-Mail-Adresse voraus
   if (parsed.data.method === "email" && !email) {
-    redirect("/verwaltung/nutzer?fehler=email_fehlt");
+    redirect(zurueckZu(formData, "?fehler=email_fehlt"));
   }
   if (email) {
     const existing = await db.user.findUnique({ where: { email } });
     if (existing) {
-      redirect("/verwaltung/nutzer?fehler=email");
+      redirect(zurueckZu(formData, "?fehler=email"));
     }
   }
 
@@ -198,14 +327,17 @@ export async function createUser(formData: FormData) {
         preferredContact: pcOrNull(parsed.data.preferredContact),
         role: parsed.data.role,
         passwordHash,
-        passwordResetToken: inviteToken,
+        // Nur der Hash landet in der Datenbank – der Rohwert bleibt allein im
+        // Einladungslink.
+        passwordResetToken: hashToken(inviteToken),
         passwordResetExpiry: inviteExpiry,
         organizationId: actor.organizationId,
       },
     });
     await assignRole(user.id, parsed.data.role, parsed.data.unitId, parsed.data.propertyId);
 
-    const link = portalUrl(`/login/reset/${inviteToken}?einladung=1`);
+    const link = await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`);
+    const loginLink = await portalUrlFromRequest("/login");
     const greeting =
       parsed.data.salutation === "Herr"
         ? `Sehr geehrter Herr ${parsed.data.lastName},`
@@ -220,14 +352,18 @@ export async function createUser(formData: FormData) {
         `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.\n\n` +
         `Klicken Sie auf folgenden Link, um Ihren Zugang einzurichten (gültig 7 Tage):\n` +
         `${link}\n\n` +
-        `Nach der Einrichtung können Sie sich jederzeit unter ${portalUrl("/login")} anmelden.\n\n` +
+        `Nach der Einrichtung können Sie sich jederzeit unter ${loginLink} anmelden.\n\n` +
         `Mit freundlichen Grüßen\n${branding.legalName}`,
       undefined,
       branding
     );
 
     revalidatePath("/verwaltung/nutzer");
-    redirect("/verwaltung/nutzer?eingeladen=1");
+    // Erfolg führt auf die **Liste**, nicht zurück ins Formular: Das Anlegen
+    // liegt auf einer eigenen Seite, und dort noch einmal ein leeres Formular
+    // zu sehen liest sich, als sei nichts passiert. Fehler bleiben dagegen am
+    // Formular stehen (`zurueckZu`), sonst wären die Eingaben umsonst.
+    redirect(zurueckZurListe(formData, "?eingeladen=1"));
   }
 
   // ── Variante B: Zugangsschreiben zum Ausdrucken ───────────────────
@@ -262,13 +398,13 @@ export async function createUser(formData: FormData) {
 export async function anonymizeUser(formData: FormData) {
   const verwalter = await requireVerwalter();
   // DSGVO-Löschung ist unwiderruflich und rechtlich sensibel: nur SuperAdmin.
-  if (!verwalter.isSuperAdmin) redirect("/verwaltung/nutzer");
+  if (!verwalter.isSuperAdmin) redirect(zurueckZurListe(formData));
   const id = String(formData.get("id") ?? "");
   if (!id || id === verwalter.id) {
-    redirect("/verwaltung/nutzer");
+    redirect(zurueckZurListe(formData));
   }
   const user = await db.user.findUnique({ where: { id } });
-  if (!user) redirect("/verwaltung/nutzer");
+  if (!user) redirect(zurueckZurListe(formData));
 
   // DSGVO Art. 17: Blobs mit personenbezogenen Daten löschen
   if (user.signatureStoredName) {
@@ -365,7 +501,7 @@ export async function anonymizeUser(formData: FormData) {
   }
 
   revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer?anonymisiert=1");
+  redirect(zurueckZurListe(formData, "?flash=nutzer-geloescht"));
 }
 
 export async function toggleUserActive(formData: FormData) {
@@ -379,7 +515,7 @@ export async function toggleUserActive(formData: FormData) {
     }
   }
   revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=gespeichert"));
 }
 
 export async function resendInvite(formData: FormData) {
@@ -387,16 +523,17 @@ export async function resendInvite(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   await ensureCanManageUser(actor, id);
   const user = await db.user.findUnique({ where: { id } });
-  if (!user || !user.active || !user.email) redirect("/verwaltung/nutzer");
+  if (!user || !user.active || !user.email) redirect(zurueckZu(formData));
 
   const inviteToken = crypto.randomBytes(32).toString("hex");
   const inviteExpiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
   await db.user.update({
     where: { id },
-    data: { passwordResetToken: inviteToken, passwordResetExpiry: inviteExpiry },
+    // Nur der Hash landet in der Datenbank – der Rohwert bleibt allein im Link.
+    data: { passwordResetToken: hashToken(inviteToken), passwordResetExpiry: inviteExpiry },
   });
 
-  const link = portalUrl(`/login/reset/${inviteToken}?einladung=1`);
+  const link = await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`);
   const branding = await getBrandingForOrg(user.organizationId);
   await sendMail(
     user.email,
@@ -410,14 +547,14 @@ export async function resendInvite(formData: FormData) {
   );
 
   revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer?eingeladen=1");
+  redirect(zurueckZu(formData, "?eingeladen=1"));
 }
 
 export async function addOwnership(formData: FormData) {
   const actor = await requireVerwalter();
   const userId = String(formData.get("userId") ?? "").trim();
   const propertyId = String(formData.get("propertyId") ?? "").trim();
-  if (!userId || !propertyId) redirect("/verwaltung/nutzer");
+  if (!userId || !propertyId) redirect(zurueckZu(formData));
   await ensurePropertyInScope(actor, propertyId);
   await ensureUserInOrg(actor, userId); // Begünstigte userId validieren (deferred-fix)
   await db.ownership.upsert({
@@ -426,26 +563,26 @@ export async function addOwnership(formData: FormData) {
     update: {},
   });
   revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=erstellt"));
 }
 
 export async function removeOwnership(formData: FormData) {
   const actor = await requireVerwalter();
   const id = String(formData.get("id") ?? "").trim();
-  if (!id) redirect("/verwaltung/nutzer");
+  if (!id) redirect(zurueckZu(formData));
   const ownership = await db.ownership.findUnique({ where: { id }, select: { propertyId: true } });
-  if (!ownership) redirect("/verwaltung/nutzer");
+  if (!ownership) redirect(zurueckZu(formData));
   await ensurePropertyInScope(actor, ownership.propertyId);
   await db.ownership.delete({ where: { id } });
   revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=entfernt"));
 }
 
 export async function addTenancy(formData: FormData) {
   const actor = await requireVerwalter();
   const userId = String(formData.get("userId") ?? "").trim();
   const unitId = String(formData.get("unitId") ?? "").trim();
-  if (!userId || !unitId) redirect("/verwaltung/nutzer");
+  if (!userId || !unitId) redirect(zurueckZu(formData));
   await ensureUnitInScope(actor, unitId);
   await ensureUserInOrg(actor, userId); // Begünstigte userId validieren (deferred-fix)
   await db.tenancy.upsert({
@@ -454,113 +591,113 @@ export async function addTenancy(formData: FormData) {
     update: { active: true },
   });
   revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=erstellt"));
 }
 
 export async function removeTenancy(formData: FormData) {
   const actor = await requireVerwalter();
   const id = String(formData.get("id") ?? "").trim();
-  if (!id) redirect("/verwaltung/nutzer");
+  if (!id) redirect(zurueckZu(formData));
   const tenancy = await db.tenancy.findUnique({
     where: { id },
     select: { unit: { select: { propertyId: true } } },
   });
-  if (!tenancy) redirect("/verwaltung/nutzer");
+  if (!tenancy) redirect(zurueckZu(formData));
   await ensurePropertyInScope(actor, tenancy.unit.propertyId);
   await db.tenancy.delete({ where: { id } });
   revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=entfernt"));
 }
 
 export async function addPropertyAssignment(formData: FormData) {
   // Zuständigkeiten anderer Verwalter dürfen nur SuperAdmins ändern,
   // sonst könnte sich ein Verwalter selbst weitere Objekte zuweisen.
   const actor = await requireVerwalter();
-  if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");
+  if (!actor.isSuperAdmin) redirect(zurueckZu(formData));
   const userId = String(formData.get("userId") ?? "").trim();
   const propertyIds = formData.getAll("propertyId").map((p) => String(p).trim()).filter(Boolean);
-  if (!userId || propertyIds.length === 0) redirect("/verwaltung/nutzer");
+  if (!userId || propertyIds.length === 0) redirect(zurueckZu(formData));
   await ensureUserInOrg(actor, userId);
   // Nur Objekte der eigenen Org dürfen zugewiesen werden.
   const validProps = await db.property.findMany({
     where: { id: { in: propertyIds }, organizationId: actor.organizationId },
     select: { id: true },
   });
-  if (validProps.length === 0) redirect("/verwaltung/nutzer");
+  if (validProps.length === 0) redirect(zurueckZu(formData));
   await db.propertyAssignment.createMany({
     data: validProps.map((p) => ({ userId, propertyId: p.id })),
     skipDuplicates: true,
   });
   revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=erstellt"));
 }
 
 export async function removePropertyAssignment(formData: FormData) {
   const actor = await requireVerwalter();
-  if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");
+  if (!actor.isSuperAdmin) redirect(zurueckZu(formData));
   const id = String(formData.get("id") ?? "").trim();
-  if (!id) redirect("/verwaltung/nutzer");
+  if (!id) redirect(zurueckZu(formData));
   // Org-Constraint: nur Zuweisungen von Nutzern der eigenen Org löschen.
   const a = await db.propertyAssignment.findUnique({
     where: { id },
     select: { user: { select: { organizationId: true } } },
   });
-  if (!a || a.user.organizationId !== actor.organizationId) redirect("/verwaltung/nutzer");
+  if (!a || a.user.organizationId !== actor.organizationId) redirect(zurueckZu(formData));
   await db.propertyAssignment.delete({ where: { id } });
   revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=entfernt"));
 }
 
 export async function addCraftsmanAssignment(formData: FormData) {
   // Handwerker-Freigaben anderer Verwalter dürfen nur SuperAdmins ändern.
   const actor = await requireVerwalter();
-  if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");
+  if (!actor.isSuperAdmin) redirect(zurueckZu(formData));
   const userId = String(formData.get("userId") ?? "").trim();
   const craftsmanIds = formData.getAll("craftsmanId").map((c) => String(c).trim()).filter(Boolean);
-  if (!userId || craftsmanIds.length === 0) redirect("/verwaltung/nutzer");
+  if (!userId || craftsmanIds.length === 0) redirect(zurueckZu(formData));
   await ensureUserInOrg(actor, userId);
   // Nur Handwerker der eigenen Org dürfen zugewiesen werden.
   const validCraftsmen = await db.craftsman.findMany({
     where: { id: { in: craftsmanIds }, organizationId: actor.organizationId },
     select: { id: true },
   });
-  if (validCraftsmen.length === 0) redirect("/verwaltung/nutzer");
+  if (validCraftsmen.length === 0) redirect(zurueckZu(formData));
   await db.craftsmanAssignment.createMany({
     data: validCraftsmen.map((c) => ({ userId, craftsmanId: c.id })),
     skipDuplicates: true,
   });
   revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=erstellt"));
 }
 
 export async function removeCraftsmanAssignment(formData: FormData) {
   const actor = await requireVerwalter();
-  if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");
+  if (!actor.isSuperAdmin) redirect(zurueckZu(formData));
   const id = String(formData.get("id") ?? "").trim();
-  if (!id) redirect("/verwaltung/nutzer");
+  if (!id) redirect(zurueckZu(formData));
   // Org-Constraint: nur Zuweisungen von Nutzern der eigenen Org löschen.
   const a = await db.craftsmanAssignment.findUnique({
     where: { id },
     select: { user: { select: { organizationId: true } } },
   });
-  if (!a || a.user.organizationId !== actor.organizationId) redirect("/verwaltung/nutzer");
+  if (!a || a.user.organizationId !== actor.organizationId) redirect(zurueckZu(formData));
   await db.craftsmanAssignment.delete({ where: { id } });
   revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=entfernt"));
 }
 
 export async function toggleSuperAdmin(formData: FormData) {
   const actor = await requireVerwalter();
-  if (!actor.isSuperAdmin) redirect("/verwaltung/nutzer");
+  if (!actor.isSuperAdmin) redirect(zurueckZu(formData));
   const id = String(formData.get("id") ?? "").trim();
-  if (!id || id === actor.id) redirect("/verwaltung/nutzer");
+  if (!id || id === actor.id) redirect(zurueckZu(formData));
   const target = await db.user.findUnique({ where: { id } });
-  if (!target || target.role !== "VERWALTER") redirect("/verwaltung/nutzer");
+  if (!target || target.role !== "VERWALTER") redirect(zurueckZu(formData));
   // Nur Verwalter der eigenen Org dürfen zum SuperAdmin (de)ernannt werden.
-  if (target.organizationId !== actor.organizationId) redirect("/verwaltung/nutzer");
+  if (target.organizationId !== actor.organizationId) redirect(zurueckZu(formData));
   await db.user.update({ where: { id }, data: { isSuperAdmin: !target.isSuperAdmin } });
   revalidatePath("/verwaltung/nutzer");
-  redirect("/verwaltung/nutzer");
+  redirect(zurueckZu(formData, "?flash=gespeichert"));
 }
 
 // Erzeugt für einen bestehenden Zugang ein neues Erst-Passwort (Zugangsschreiben neu drucken)
@@ -569,7 +706,7 @@ export async function regenerateAccessLetter(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   await ensureCanManageUser(actor, id);
   const user = await db.user.findUnique({ where: { id } });
-  if (!user || !user.active) redirect("/verwaltung/nutzer");
+  if (!user || !user.active) redirect(zurueckZu(formData));
 
   const tempPassword = generatePassword(10);
   // Falls weder E-Mail noch Benutzername existiert, jetzt einen Benutzernamen vergeben
@@ -580,6 +717,11 @@ export async function regenerateAccessLetter(formData: FormData) {
     data: {
       passwordHash: await bcrypt.hash(tempPassword, 12),
       mustChangePassword: true,
+      // Bestehende Anmeldungen dieses Nutzers beenden. Der Verwalter setzt das
+      // Passwort in aller Regel zurück, weil jemand nicht mehr hineinkommt —
+      // oder weil jemand hineingekommen ist, der nicht sollte. Im zweiten Fall
+      // wäre ein Zurücksetzen ohne Abmelden wirkungslos.
+      sessionsValidFrom: new Date(),
       ...(username && !user.username ? { username } : {}),
     },
   });

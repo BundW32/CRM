@@ -1,14 +1,24 @@
 import type { ReactNode } from "react";
+import { FileInput } from "@/components/file-input";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Alert,
+import { Mail, MessageSquare, Phone } from "lucide-react";
+import {
+  Alert,
   Card,
+  CollapsibleCard,
+  EmptyState,
   Field,
   PageTitle,
   StatusBadge,
   buttonClass,
+  buttonDangerClass,
+  buttonSecondaryClass,
   inputClass,
 } from "@/components/ui";
+import { Badge } from "@/components/data-display";
 import {
   canViewTicket,
   craftsmanWhereForVerwalter,
@@ -32,14 +42,17 @@ import {
 import { formatCents } from "@/lib/money";
 import { requireUser } from "@/lib/session";
 import {
+  acceptInvoice,
   addComment,
   assignCraftsman,
   confirmAppointment,
   confirmCompletion,
   declineAppointment,
+  deleteTicket,
   releaseExternalCraftsman,
   generateCertificate,
   notifyCraftsman,
+  rejectInvoice,
   reopenTicket,
   reportCompletion,
   setOwnTicketStatus,
@@ -47,6 +60,7 @@ import {
   uploadRequestedDocument,
 } from "../actions";
 import { AssignTargetPicker } from "./assign-target-picker";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +93,7 @@ export default async function TicketDetailPage({
       createdBy: true,
       assignedTo: true,
       craftsman: true,
+      invoice: true,
       attachments: { where: { commentId: null } },
       comments: {
         include: { author: true, craftsmanAuthor: true, attachments: true },
@@ -137,13 +152,16 @@ export default async function TicketDetailPage({
 
   return (
     <>
-      <PageTitle action={<StatusBadge status={ticket.status} />}>
+      <PageTitle
+        back={{ href: "/vorgaenge", label: "Vorgänge" }}
+        action={<StatusBadge status={ticket.status} />}
+      >
         #{ticket.number} · {ticket.title}
       </PageTitle>
 
       {beauftragt ? (
         <Alert variant="success" className="mb-4">
-          Der Handwerker wurde per E-Mail beauftragt (sofern SMTP konfiguriert ist).
+          Der Handwerker wurde per E-Mail beauftragt.
         </Alert>
       ) : null}
       {bereitgestellt ? (
@@ -165,7 +183,7 @@ export default async function TicketDetailPage({
       ) : null}
       {termin === "bestaetigt" ? (
         <Alert variant="success" className="mb-4">
-          Termin bestätigt. Der Handwerker wurde informiert (sofern SMTP konfiguriert ist).
+          Termin bestätigt. Der Handwerker wurde informiert.
         </Alert>
       ) : null}
       {termin === "abgelehnt" ? (
@@ -185,8 +203,7 @@ export default async function TicketDetailPage({
       ) : null}
       {abschluss === "geoeffnet" ? (
         <Alert variant="warning" className="mb-4">
-          Vorgang wieder geöffnet. Der Handwerker wurde über die Nacharbeit informiert
-          (sofern SMTP konfiguriert ist).
+          Vorgang wieder geöffnet. Der Handwerker wurde über die Nacharbeit informiert.
         </Alert>
       ) : null}
       {fehler === "freigabe" ? (
@@ -207,6 +224,21 @@ export default async function TicketDetailPage({
           {fehler === "datei"
             ? "Bitte eine gültige Datei (PDF, Bild oder Video, max. 100 MB) wählen."
             : "Bitte einen Titel für das Dokument angeben."}
+        </Alert>
+      ) : null}
+      {fehler === "vollmacht" ? (
+        <Alert variant="warning" className="mb-4">
+          Der Eigentümer hat noch keine Vollmacht erteilt. Bescheinigungen dürfen nur mit
+          seiner Ermächtigung in seinem Namen erstellt werden (§ 19 Abs. 5 BMG). Der
+          Eigentümer erteilt sie selbst im Portal unter &bdquo;Konto → Unterschrift &amp;
+          Vollmacht&ldquo;. Alternativ ein unterschriebenes Dokument hochladen.
+        </Alert>
+      ) : null}
+      {fehler === "keine_vermietung" ? (
+        <Alert variant="warning" className="mb-4">
+          Für diese Einheit ist kein aktives Mietverhältnis hinterlegt. Eine
+          Wohnungsgeber- oder Mietbescheinigung setzt eine Vermietung voraus – bitte
+          zuerst das Mietverhältnis erfassen.
         </Alert>
       ) : null}
       {fehler === "cert" ? (
@@ -236,10 +268,10 @@ export default async function TicketDetailPage({
                       />
                     </div>
                   ) : (
-                    <a
+                    <FilePreviewLink
                       key={a.id}
-                      href={`/api/files/anhang/${a.id}`}
-                      target="_blank"
+                      src={`/api/files/anhang/${a.id}`}
+                      title={a.fileName}
                       className="block overflow-hidden rounded-md border border-gray-200"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -248,7 +280,7 @@ export default async function TicketDetailPage({
                         alt={a.fileName}
                         className="h-32 w-full object-cover"
                       />
-                    </a>
+                    </FilePreviewLink>
                   )
                 )}
               </div>
@@ -257,7 +289,7 @@ export default async function TicketDetailPage({
 
           <Card title="Verlauf">
             {comments.length === 0 ? (
-              <p className="text-sm text-gray-500">Noch keine Kommentare.</p>
+              <EmptyState>Noch keine Kommentare.</EmptyState>
             ) : (
               <ul className="space-y-4">
                 {comments.map((c) => (
@@ -290,10 +322,10 @@ export default async function TicketDetailPage({
                               />
                             </div>
                           ) : (
-                            <a
+                            <FilePreviewLink
                               key={a.id}
-                              href={`/api/files/anhang/${a.id}`}
-                              target="_blank"
+                              src={`/api/files/anhang/${a.id}`}
+                              title={a.fileName}
                               className="block overflow-hidden rounded-md border border-gray-200"
                             >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -302,7 +334,7 @@ export default async function TicketDetailPage({
                                 alt={a.fileName}
                                 className="h-24 w-full object-cover"
                               />
-                            </a>
+                            </FilePreviewLink>
                           )
                         )}
                       </div>
@@ -325,12 +357,10 @@ export default async function TicketDetailPage({
                 />
               </Field>
               <Field label="Fotos / Videos anhängen (optional)">
-                <input
-                  type="file"
+                <FileInput
                   name="photos"
                   multiple
                   accept="image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime,video/webm"
-                  className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
                 />
               </Field>
               {isVerwalter ? (
@@ -339,9 +369,7 @@ export default async function TicketDetailPage({
                   Interne Notiz (für Mieter/Eigentümer nicht sichtbar)
                 </label>
               ) : null}
-              <button type="submit" className={buttonClass}>
-                Senden
-              </button>
+              <PendingButton className={buttonClass}>Senden</PendingButton>
             </form>
           </Card>
         </div>
@@ -444,7 +472,7 @@ export default async function TicketDetailPage({
           </Card>
 
           {isVerwalter ? (
-            <Card title="Bearbeiten">
+            <CollapsibleCard title="Bearbeiten">
               <form action={updateTicket} className="space-y-3">
                 <input type="hidden" name="ticketId" value={ticket.id} />
                 <Field label="Status">
@@ -507,25 +535,83 @@ export default async function TicketDetailPage({
                     className={inputClass}
                   />
                 </Field>
-                <button type="submit" className={buttonClass}>
-                  Speichern
-                </button>
+                <PendingButton className={buttonClass}>Speichern</PendingButton>
               </form>
-            </Card>
+            </CollapsibleCard>
+          ) : null}
+
+          {isVerwalter && user.isSuperAdmin ? (
+            <CollapsibleCard title="Vorgang löschen">
+              <p className="mb-2 text-xs text-gray-500">
+                Endgültiges Löschen (mit Kommentaren, Anhängen und Rechnung) – nur für Test-/
+                Fehleinträge. Der Regelweg ist „Schließen“: ein geschlossener Vorgang bleibt als
+                Beleg erhalten.
+              </p>
+              <form action={deleteTicket}>
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <ConfirmActionButton
+                  className={`${buttonDangerClass} w-full`}
+                  confirmLabel="Wirklich löschen?"
+                  pendingLabel="Wird gelöscht…"
+                >
+                  Vorgang endgültig löschen
+                </ConfirmActionButton>
+              </form>
+            </CollapsibleCard>
+          ) : null}
+
+          {isVerwalter && ticket.invoice ? (
+            <CollapsibleCard
+              title="Handwerker-Rechnung"
+              defaultOpen={ticket.invoice.status === "EINGEREICHT"}
+            >
+              <div className="space-y-2">
+                <p className="text-sm text-gray-800">
+                  <span className="font-semibold">{formatCents(ticket.invoice.amountCents)}</span>
+                  {ticket.invoice.invoiceNumber ? ` · Nr. ${ticket.invoice.invoiceNumber}` : ""}
+                  {ticket.invoice.invoiceDate ? ` · ${formatDate(ticket.invoice.invoiceDate)}` : ""}
+                </p>
+                {ticket.invoice.note ? <p className="text-xs text-gray-500">{ticket.invoice.note}</p> : null}
+                <FilePreviewLink
+                  src={`/api/files/rechnung/${ticket.invoice.id}`}
+                  title="Handwerker-Rechnung"
+                  className="inline-block text-sm text-brand-green underline"
+                >
+                  Rechnungsdatei öffnen
+                </FilePreviewLink>
+                {ticket.invoice.status === "EINGEREICHT" ? (
+                  <div className="space-y-2 border-t border-gray-100 pt-3">
+                    <form action={acceptInvoice}>
+                      <input type="hidden" name="ticketId" value={ticket.id} />
+                      <PendingButton className={`${buttonClass} w-full`}>Rechnung akzeptieren &amp; als Kosten übernehmen</PendingButton>
+                    </form>
+                    <form action={rejectInvoice} className="space-y-2">
+                      <input type="hidden" name="ticketId" value={ticket.id} />
+                      <textarea name="reason" rows={2} placeholder="Ablehnungsgrund (optional) …" className={inputClass} />
+                      <PendingButton className={`${buttonDangerClass} w-full`}>Rechnung ablehnen</PendingButton>
+                    </form>
+                  </div>
+                ) : (
+                  <Badge tone={ticket.invoice.status === "AKZEPTIERT" ? "success" : "danger"}>
+                    {ticket.invoice.status === "AKZEPTIERT"
+                      ? "akzeptiert und als Kosten übernommen"
+                      : "abgelehnt"}
+                  </Badge>
+                )}
+              </div>
+            </CollapsibleCard>
           ) : null}
 
           {isVerwalter && ticket.type !== "DOKUMENT_ANFRAGE" ? (
-            <Card title="Abschluss">
+            <CollapsibleCard
+              title="Abschluss"
+              defaultOpen={ticket.status === "ERLEDIGT" || ticket.status === "GESCHLOSSEN"}
+            >
               {ticket.status === "GESCHLOSSEN" ? (
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-                    <p className="text-xs font-semibold text-green-800">✓ Abschluss bestätigt</p>
-                    {ticket.closedAt ? (
-                      <p className="mt-0.5 text-xs text-green-700">
-                        geschlossen am {formatDate(ticket.closedAt)}
-                      </p>
-                    ) : null}
-                  </div>
+                  <Alert variant="success" title="Abschluss bestätigt">
+                    {ticket.closedAt ? `geschlossen am ${formatDate(ticket.closedAt)}` : null}
+                  </Alert>
                   <form action={reopenTicket} className="space-y-2">
                     <input type="hidden" name="ticketId" value={ticket.id} />
                     <textarea
@@ -534,32 +620,20 @@ export default async function TicketDetailPage({
                       placeholder="Grund der Wiedereröffnung (optional) …"
                       className={inputClass}
                     />
-                    <button
-                      type="submit"
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      Vorgang wieder öffnen
-                    </button>
+                    <PendingButton className={`${buttonSecondaryClass} w-full`}>Vorgang wieder öffnen</PendingButton>
                   </form>
                 </div>
               ) : ticket.status === "ERLEDIGT" ? (
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <p className="text-xs font-semibold text-amber-800">
-                      Erledigung gemeldet – bitte prüfen und abnehmen
-                    </p>
-                    <p className="mt-0.5 text-xs text-amber-700">
-                      {ticket.completionReportedVia ? `Kanal: ${ticket.completionReportedVia}` : ""}
-                      {ticket.completionReportedAt
-                        ? `${ticket.completionReportedVia ? " · " : ""}gemeldet am ${formatDate(ticket.completionReportedAt)}`
-                        : ""}
-                    </p>
-                  </div>
+                  <Alert variant="warning" title="Erledigung gemeldet – bitte prüfen und abnehmen">
+                    {ticket.completionReportedVia ? `Kanal: ${ticket.completionReportedVia}` : ""}
+                    {ticket.completionReportedAt
+                      ? `${ticket.completionReportedVia ? " · " : ""}gemeldet am ${formatDate(ticket.completionReportedAt)}`
+                      : ""}
+                  </Alert>
                   <form action={confirmCompletion}>
                     <input type="hidden" name="ticketId" value={ticket.id} />
-                    <button type="submit" className={`${buttonClass} w-full`}>
-                      Abschluss bestätigen &amp; schließen
-                    </button>
+                    <PendingButton className={`${buttonClass} w-full`}>Abschluss bestätigen &amp; schließen</PendingButton>
                   </form>
                   <form action={reopenTicket} className="space-y-2 border-t border-gray-100 pt-3">
                     <input type="hidden" name="ticketId" value={ticket.id} />
@@ -569,12 +643,7 @@ export default async function TicketDetailPage({
                       placeholder="Was muss nachgearbeitet werden? (optional) …"
                       className={inputClass}
                     />
-                    <button
-                      type="submit"
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      Nacharbeit nötig – wieder öffnen
-                    </button>
+                    <PendingButton className={`${buttonSecondaryClass} w-full`}>Nacharbeit nötig – wieder öffnen</PendingButton>
                   </form>
                 </div>
               ) : (
@@ -600,22 +669,15 @@ export default async function TicketDetailPage({
                       placeholder="Notiz zur Erledigung (optional) …"
                       className={inputClass}
                     />
-                    <button type="submit" className={`${buttonClass} w-full`}>
-                      Erledigung melden
-                    </button>
+                    <PendingButton className={`${buttonClass} w-full`}>Erledigung melden</PendingButton>
                   </form>
                   <form action={confirmCompletion} className="border-t border-gray-100 pt-3">
                     <input type="hidden" name="ticketId" value={ticket.id} />
-                    <button
-                      type="submit"
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      Direkt als erledigt abschließen
-                    </button>
+                    <PendingButton className={`${buttonSecondaryClass} w-full`}>Direkt als erledigt abschließen</PendingButton>
                   </form>
                 </div>
               )}
-            </Card>
+            </CollapsibleCard>
           ) : null}
 
           {isVerwalter && ticket.type === "DOKUMENT_ANFRAGE" ? (
@@ -624,8 +686,8 @@ export default async function TicketDetailPage({
                 <div className="mb-4 rounded-lg border border-brand-orange/40 bg-brand-orange-light p-3">
                   <p className="mb-2 text-xs text-brand-green-dark">
                     Diese Bescheinigung kann <strong>automatisch</strong> aus den hinterlegten
-                    Daten erstellt werden (Eigentümer als Wohnungsgeber, Unterschrift sofern
-                    hinterlegt).
+                    Daten erstellt werden. Voraussetzung: Der Eigentümer hat die Vollmacht
+                    erteilt und die Einheit ist vermietet.
                   </p>
                   <form action={generateCertificate}>
                     <input type="hidden" name="ticketId" value={ticket.id} />
@@ -640,7 +702,7 @@ export default async function TicketDetailPage({
               ) : null}
               <p className="mb-3 text-xs text-gray-500">
                 … oder ein vorhandenes Dokument hochladen — es wird automatisch für{" "}
-                {ticket.createdBy.name} unter „Infos → Dokumente“ sichtbar und der Vorgang
+                {ticket.createdBy.name} unter „Dokumente“ sichtbar und der Vorgang
                 als erledigt markiert.
               </p>
               <form action={uploadRequestedDocument} className="space-y-3">
@@ -667,23 +729,19 @@ export default async function TicketDetailPage({
                   </select>
                 </Field>
                 <Field label="Datei (PDF oder Bild, max. 10 MB)">
-                  <input
-                    type="file"
+                  <FileInput
                     name="file"
                     required
                     accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
-                    className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-brand-orange-light file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-orange-dark hover:file:bg-orange-100"
                   />
                 </Field>
-                <button type="submit" className={buttonClass}>
-                  Hochladen &amp; bereitstellen
-                </button>
+                <PendingButton className={buttonClass}>Hochladen &amp; bereitstellen</PendingButton>
               </form>
             </Card>
           ) : null}
 
           {isVerwalter ? (
-            <Card title="Handwerker beauftragen">
+            <CollapsibleCard title="Handwerker beauftragen" defaultOpen={!!ticket.craftsman}>
               <form action={assignCraftsman} className="space-y-3">
                 <input type="hidden" name="ticketId" value={ticket.id} />
                 <Field label="Gewerk">
@@ -748,9 +806,7 @@ export default async function TicketDetailPage({
                   <input type="checkbox" name="setBeauftragt" defaultChecked />
                   Status auf „Beauftragt“ setzen
                 </label>
-                <button type="submit" className={buttonClass}>
-                  Zuordnen
-                </button>
+                <PendingButton className={buttonClass}>Zuordnen</PendingButton>
               </form>
 
               {ticket.craftsman ? (
@@ -789,17 +845,19 @@ export default async function TicketDetailPage({
                     const enc = encodeURIComponent(text);
                     const wa = waNumber(c.phone);
                     const pill =
-                      "rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50";
+                      "inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50";
                     return (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {c.phone ? (
                           <a href={`tel:${c.phone}`} className={pill}>
-                            📞 Anrufen
+                            <Phone className="h-3.5 w-3.5" />
+                            Anrufen
                           </a>
                         ) : null}
                         {c.phone ? (
                           <a href={`sms:${c.phone}?body=${enc}`} className={pill}>
-                            💬 SMS
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            SMS
                           </a>
                         ) : null}
                         {wa ? (
@@ -818,7 +876,8 @@ export default async function TicketDetailPage({
                             )}&body=${enc}`}
                             className={pill}
                           >
-                            ✉ E-Mail
+                            <Mail className="h-3.5 w-3.5" />
+                            E-Mail
                           </a>
                         ) : null}
                       </div>
@@ -835,9 +894,7 @@ export default async function TicketDetailPage({
                       {ticket.craftsman.email ? (
                         <form action={notifyCraftsman}>
                           <input type="hidden" name="ticketId" value={ticket.id} />
-                          <button type="submit" className={`${buttonClass} w-full`}>
-                            Auftrag intern per E-Mail senden
-                          </button>
+                          <PendingButton className={`${buttonClass} w-full`}>Auftrag intern per E-Mail senden</PendingButton>
                         </form>
                       ) : null}
                     </div>
@@ -849,27 +906,21 @@ export default async function TicketDetailPage({
                       {ticket.craftsman.email ? (
                         <form action={notifyCraftsman}>
                           <input type="hidden" name="ticketId" value={ticket.id} />
-                          <button type="submit" className={`${buttonClass} w-full`}>
-                            Auftrag per E-Mail senden (mit Portal-Link)
-                          </button>
+                          <PendingButton className={`${buttonClass} w-full`}>Auftrag per E-Mail senden (mit Portal-Link)</PendingButton>
                         </form>
                       ) : null}
                     </div>
                   ) : (
-                    <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                      <p className="text-xs text-amber-800">
-                        <span className="font-semibold">Externer Handwerker.</span> Bitte zuerst
-                        prüfen, ob die Arbeit intern (Eigenleistung) erledigt werden kann. Erst
-                        nach Freigabe kann extern beauftragt werden.
-                      </p>
-                      <form action={releaseExternalCraftsman} className="mt-2">
+                    <div className="mt-3 space-y-2">
+                      <Alert variant="warning" title="Externer Handwerker.">
+                        Bitte zuerst prüfen, ob die Arbeit intern (Eigenleistung) erledigt werden
+                        kann. Erst nach Freigabe kann extern beauftragt werden.
+                      </Alert>
+                      <form action={releaseExternalCraftsman}>
                         <input type="hidden" name="ticketId" value={ticket.id} />
-                        <button
-                          type="submit"
-                          className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
-                        >
+                        <PendingButton className={`${buttonSecondaryClass} w-full`}>
                           Externe Beauftragung freigeben
-                        </button>
+                        </PendingButton>
                       </form>
                     </div>
                   )}
@@ -877,13 +928,10 @@ export default async function TicketDetailPage({
                   {/* Terminvorschlag des Handwerkers – wird erst mit Bestätigung wirksam */}
                   {ticket.appointmentNote ? (
                     ticket.appointmentConfirmedAt ? (
-                      <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3">
-                        <p className="text-xs font-semibold text-green-800">✓ Termin bestätigt</p>
-                        <p className="mt-0.5 text-sm text-green-900">{ticket.appointmentNote}</p>
-                        <p className="mt-0.5 text-xs text-green-700">
-                          bestätigt am {formatDate(ticket.appointmentConfirmedAt)}
-                        </p>
-                      </div>
+                      <Alert variant="success" title="Termin bestätigt" className="mt-4">
+                        {ticket.appointmentNote} · bestätigt am{" "}
+                        {formatDate(ticket.appointmentConfirmedAt)}
+                      </Alert>
                     ) : (
                       <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
                         <p className="text-xs font-semibold text-amber-800">
@@ -893,18 +941,11 @@ export default async function TicketDetailPage({
                         <div className="mt-2 flex flex-wrap gap-2">
                           <form action={confirmAppointment}>
                             <input type="hidden" name="ticketId" value={ticket.id} />
-                            <button type="submit" className={buttonClass}>
-                              Termin bestätigen
-                            </button>
+                            <PendingButton className={buttonClass}>Termin bestätigen</PendingButton>
                           </form>
                           <form action={declineAppointment}>
                             <input type="hidden" name="ticketId" value={ticket.id} />
-                            <button
-                              type="submit"
-                              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                            >
-                              Ablehnen / neuen Termin anfragen
-                            </button>
+                            <PendingButton className={buttonSecondaryClass}>Ablehnen / neuen Termin anfragen</PendingButton>
                           </form>
                         </div>
                       </div>
@@ -912,7 +953,7 @@ export default async function TicketDetailPage({
                   ) : null}
                 </div>
               ) : null}
-            </Card>
+            </CollapsibleCard>
           ) : null}
 
           {isAssignedHandwerker ? (
@@ -921,16 +962,12 @@ export default async function TicketDetailPage({
                 <form action={setOwnTicketStatus}>
                   <input type="hidden" name="ticketId" value={ticket.id} />
                   <input type="hidden" name="status" value="IN_BEARBEITUNG" />
-                  <button type="submit" className={`${buttonClass} w-full`}>
-                    Arbeit begonnen
-                  </button>
+                  <PendingButton className={`${buttonClass} w-full`}>Arbeit begonnen</PendingButton>
                 </form>
                 <form action={setOwnTicketStatus}>
                   <input type="hidden" name="ticketId" value={ticket.id} />
                   <input type="hidden" name="status" value="ERLEDIGT" />
-                  <button type="submit" className={`${buttonClass} w-full`}>
-                    Auftrag erledigt
-                  </button>
+                  <PendingButton className={`${buttonClass} w-full`}>Auftrag erledigt</PendingButton>
                 </form>
                 <p className="text-xs text-gray-500">
                   Bitte dokumentieren Sie die Ausführung mit Fotos über das
@@ -940,9 +977,6 @@ export default async function TicketDetailPage({
             </Card>
           ) : null}
 
-          <Link href="/vorgaenge" className="block text-sm text-gray-300 hover:text-brand-orange hover:underline">
-            ← Zurück zur Übersicht
-          </Link>
         </div>
       </div>
     </>

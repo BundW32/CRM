@@ -3,7 +3,8 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { createSession } from "@/lib/session";
+import { createSession, revokeSessions } from "@/lib/session";
+import { hashToken } from "@/lib/token-hash";
 
 export async function resetPassword(formData: FormData) {
   const token = String(formData.get("token") ?? "");
@@ -16,7 +17,14 @@ export async function resetPassword(formData: FormData) {
 
   const user = await db.user.findFirst({
     where: {
-      passwordResetToken: token,
+      // NUR gegen den Hash prüfen – nie zusätzlich gegen den Rohwert. Eine
+      // Zeit lang stand hier ein "Hash ODER Rohwert", um Links weiterhin
+      // einzulösen, die ein noch nicht umgestellter zweiter Erzeuger im
+      // Klartext gespeichert hatte. Das öffnete dieselbe Lücke wieder: Wer den
+      // gespeicherten Hash kennt (z. B. aus genau dem DB-Leck, das die
+      // Umstellung verhindern soll), reicht ihn einfach als "Rohwert" ein und
+      // träfe über die ODER-Bedingung direkt auf sich selbst.
+      passwordResetToken: hashToken(token),
       passwordResetExpiry: { gt: new Date() },
       active: true,
     },
@@ -38,6 +46,10 @@ export async function resetPassword(formData: FormData) {
     },
   });
 
+  // Ein Passwort-Reset ist der Weg zurueck in ein moeglicherweise uebernommenes
+  // Konto. Er muss den Uebernehmer aussperren – sonst hat der Reset genau die
+  // Wirkung nicht, wegen der er angefordert wurde.
+  await revokeSessions(user.id);
   await createSession(user.id);
   redirect("/dashboard");
 }

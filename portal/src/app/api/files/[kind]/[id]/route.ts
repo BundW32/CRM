@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import {
   canVerwalterAccessHandover,
   canVerwalterAccessProperty,
+  canViewProperty,
   canViewTicket,
   documentWhereForUser,
   ownsProperty,
 } from "@/lib/access";
+import { get } from "@vercel/blob";
 import { db } from "@/lib/db";
-import { readUpload } from "@/lib/storage";
+import { contentDisposition, wantsDownload } from "@/lib/documents/pdf-response";
+import { isBlobUrl, readUpload } from "@/lib/storage";
 import { getUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -85,6 +88,40 @@ export async function GET(
         };
       }
     }
+  } else if (kind === "freistellung" && user?.role === "VERWALTER") {
+    // Freistellungsbescheinigung nach § 48b EStG. Nur Verwalter der eigenen
+    // Organisation — die Bescheinigung enthält Steuernummer und Anschrift des
+    // Betriebs und geht Eigentümer und Mieter nichts an.
+    const handwerker = await db.craftsman.findUnique({
+      where: { id },
+      select: {
+        organizationId: true,
+        exemptionStoredName: true,
+        exemptionFileName: true,
+        exemptionMimeType: true,
+      },
+    });
+    if (handwerker?.exemptionStoredName && handwerker.organizationId === user.organizationId) {
+      file = {
+        storedName: handwerker.exemptionStoredName,
+        fileName: handwerker.exemptionFileName ?? `freistellungsbescheinigung-${id}.pdf`,
+        mimeType: handwerker.exemptionMimeType ?? "application/pdf",
+      };
+    }
+  } else if (kind === "rechnung") {
+    // Handwerker-Rechnung (M-L): Verwalter im Ticket-Scope ODER der Handwerker,
+    // der die Rechnung eingereicht hat (Magic-Link).
+    const invoice = await db.craftsmanInvoice.findUnique({
+      where: { id },
+      include: { ticket: true },
+    });
+    if (invoice) {
+      if (user && (await canViewTicket(user, invoice.ticket))) {
+        file = invoice;
+      } else if (craftsman && invoice.craftsmanId === craftsman.id) {
+        file = invoice;
+      }
+    }
   } else if (kind === "org-logo" && user) {
     // Logo der eigenen Organisation (Branding). Nur das Logo des eigenen
     // Mandanten wird ausgeliefert – Org-ID muss zur Session passen.
@@ -96,6 +133,66 @@ export async function GET(
       if (org?.logoStoredName) {
         file = { storedName: org.logoStoredName, fileName: "logo.png", mimeType: "image/png" };
       }
+    }
+  } else if (kind === "property-image" && user) {
+    // Titelbild eines Objekts – sichtbar für Verwalter im Scope sowie Eigentümer
+    // und aktuelle Mieter des Objekts (org- und zugriffsgesichert).
+    const prop = await db.property.findUnique({
+      where: { id },
+      select: { organizationId: true, titleImageStoredName: true },
+    });
+    if (
+      prop?.titleImageStoredName &&
+      prop.organizationId === user.organizationId &&
+      (await canViewProperty(user, id))
+    ) {
+      file = {
+        storedName: prop.titleImageStoredName,
+        fileName: `objekt-${id}.jpg`,
+        mimeType: "image/jpeg",
+      };
+    }
+  } else if (kind === "mietvertrag" && user) {
+    // Mietvertrag: Verwalter im Objekt-Scope ODER der Mieter selbst.
+    const tenancy = await db.tenancy.findUnique({
+      where: { id },
+      select: {
+        userId: true,
+        contractStoredName: true,
+        contractFileName: true,
+        contractMimeType: true,
+        unit: { select: { propertyId: true, property: { select: { organizationId: true } } } },
+      },
+    });
+    if (tenancy?.contractStoredName && tenancy.unit.property.organizationId === user.organizationId) {
+      const allowed =
+        user.id === tenancy.userId ||
+        (user.role === "VERWALTER" && (await canVerwalterAccessProperty(user, tenancy.unit.propertyId)));
+      if (allowed) {
+        file = {
+          storedName: tenancy.contractStoredName,
+          fileName: tenancy.contractFileName ?? `mietvertrag-${id}.pdf`,
+          mimeType: tenancy.contractMimeType ?? "application/pdf",
+        };
+      }
+    }
+  } else if (kind === "vote-proof" && user?.role === "VERWALTER") {
+    // Nachweis einer stellvertretend eingetragenen Stimme – nur für den Verwalter
+    // im Objekt-Scope (enthält die schriftliche Stimme eines Eigentümers).
+    const vote = await db.resolutionVote.findUnique({
+      where: { id },
+      include: { resolution: { select: { organizationId: true, propertyId: true } } },
+    });
+    if (
+      vote?.proofStoredName &&
+      vote.resolution.organizationId === user.organizationId &&
+      (await canVerwalterAccessProperty(user, vote.resolution.propertyId))
+    ) {
+      file = {
+        storedName: vote.proofStoredName,
+        fileName: vote.proofFileName ?? `nachweis-${id}`,
+        mimeType: vote.proofMimeType ?? "application/octet-stream",
+      };
     }
   } else if (kind === "handover-pdf" && user?.role === "VERWALTER") {
     const handover = await db.handover.findUnique({ where: { id } });
@@ -110,42 +207,62 @@ export async function GET(
 
   const rangeHeader = request.headers.get("range");
   // ?download=1 erzwingt das Herunterladen (Content-Disposition: attachment).
-  // Wichtig für mobile Browser, die ein PDF sonst nicht inline öffnen, sondern
-  // nur eine leere Seite/„Link" zeigen – als Download lässt es sich überall
-  // mit dem PDF-Betrachter des Geräts öffnen.
-  const forceDownload = new URL(request.url).searchParams.get("download") === "1";
-  // Content-Disposition mit ASCII-Fallback + RFC-5987-UTF-8-Variante.
-  const asciiName = file.fileName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
-  const utf8Name = encodeURIComponent(file.fileName);
-  const dispositionType = forceDownload ? "attachment" : "inline";
-  const disposition = `${dispositionType}; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`;
+  // Wichtig für mobile Browser und für die installierte PWA (display=standalone),
+  // die ein PDF sonst in einem Vollbild-Betrachter ohne Rückweg öffnen – als
+  // Download übernimmt es der PDF-Betrachter des Geräts.
+  // Aufbau der Kopfzeile (ASCII-Fallback + RFC-5987) liegt in
+  // lib/documents/pdf-response.ts, damit die Generator-Routen exakt dasselbe tun.
+  const disposition = contentDisposition(file.fileName, wantsDownload(request));
   const cacheControl = "private, max-age=300";
 
   try {
-    // Vercel Blob: Range-Header direkt weiterleiten; Bearer-Token für private Blobs
     if (file.storedName.startsWith("https://")) {
-      const blobHeaders: Record<string, string> = {};
-      const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-      if (blobToken) blobHeaders["Authorization"] = `Bearer ${blobToken}`;
-      if (rangeHeader) blobHeaders["Range"] = rangeHeader;
-      const upstream = await fetch(file.storedName, { headers: blobHeaders });
-      if (!upstream.ok && upstream.status !== 206) {
+      // Teilbereichs-Anfragen (z. B. Video-Streaming) deckt das SDK nicht ab –
+      // dafür die private Blob-URL direkt mit Bearer-Token weiterleiten.
+      if (rangeHeader) {
+        // Host prüfen, BEVOR das Zugriffs-Token mitgeschickt wird – sonst
+        // erhielte ein fremder Server das Lese- und Schreibrecht auf sämtliche
+        // Kundendateien. Dieselbe Prüfung wie in storage.ts/readUpload.
+        if (!isBlobUrl(file.storedName)) {
+          return NextResponse.json({ error: "Datei nicht abrufbar" }, { status: 404 });
+        }
+        const blobHeaders: Record<string, string> = { Range: rangeHeader };
+        const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+        if (blobToken) blobHeaders["Authorization"] = `Bearer ${blobToken}`;
+        const upstream = await fetch(file.storedName, { headers: blobHeaders });
+        if (!upstream.ok && upstream.status !== 206) {
+          return NextResponse.json({ error: "Datei nicht abrufbar" }, { status: 404 });
+        }
+        const responseHeaders: Record<string, string> = {
+          "Content-Type": file.mimeType,
+          "Content-Disposition": disposition,
+          "Cache-Control": cacheControl,
+          "Accept-Ranges": "bytes",
+        };
+        const cr = upstream.headers.get("Content-Range");
+        const cl = upstream.headers.get("Content-Length");
+        if (cr) responseHeaders["Content-Range"] = cr;
+        if (cl) responseHeaders["Content-Length"] = cl;
+
+        return new NextResponse(upstream.body, {
+          status: upstream.status,
+          headers: responseHeaders,
+        });
+      }
+
+      // Standardfall (Bilder, PDFs): private Blobs offiziell über das SDK
+      // ausliefern – authentifiziert automatisch per OIDC bzw. Token.
+      const result = await get(file.storedName, { access: "private" });
+      if (!result || result.statusCode !== 200) {
         return NextResponse.json({ error: "Datei nicht abrufbar" }, { status: 404 });
       }
-      const responseHeaders: Record<string, string> = {
-        "Content-Type": file.mimeType,
-        "Content-Disposition": disposition,
-        "Cache-Control": cacheControl,
-        "Accept-Ranges": "bytes",
-      };
-      const cr = upstream.headers.get("Content-Range");
-      const cl = upstream.headers.get("Content-Length");
-      if (cr) responseHeaders["Content-Range"] = cr;
-      if (cl) responseHeaders["Content-Length"] = cl;
-
-      return new NextResponse(upstream.body, {
-        status: upstream.status,
-        headers: responseHeaders,
+      return new NextResponse(result.stream, {
+        headers: {
+          "Content-Type": file.mimeType,
+          "Content-Disposition": disposition,
+          "Cache-Control": cacheControl,
+          "Accept-Ranges": "bytes",
+        },
       });
     }
 

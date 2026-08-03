@@ -166,8 +166,20 @@ export async function startConversation(formData: FormData) {
   const user = await requireUser();
   const subject = String(formData.get("subject") ?? "").trim().slice(0, 200);
   const body = String(formData.get("body") ?? "").trim().slice(0, 5000);
+
+  // Der Rücksprung nimmt die Empfänger mit: Ohne sie fiele man auf die
+  // Empfängerauswahl zurück und müsste sie ein zweites Mal zusammenklicken,
+  // obwohl nur der Betreff gefehlt hat.
+  const zurueck = (fehler: string) => {
+    const ids = formData.getAll("recipientId").map((v) => String(v)).filter(Boolean);
+    const p = new URLSearchParams();
+    p.set("fehler", fehler);
+    for (const id of ids) p.append("recipientId", id);
+    return `/nachrichten/neu?${p.toString()}`;
+  };
+
   if (subject.length < 2 || body.length < 1) {
-    redirect("/nachrichten?fehler=eingabe");
+    redirect(zurueck("eingabe"));
   }
 
   if (user.role === "VERWALTER") {
@@ -183,7 +195,7 @@ export async function startConversation(formData: FormData) {
       valid.push(recipient.id);
     }
     if (valid.length === 0) {
-      redirect("/nachrichten?fehler=empfaenger");
+      redirect(zurueck("empfaenger"));
     }
 
     const createdIds: string[] = [];
@@ -216,7 +228,7 @@ export async function startConversation(formData: FormData) {
   });
   const recipientIds = verwalter.map((v) => v.id).filter((id) => id !== user.id);
   if (recipientIds.length === 0) {
-    redirect("/nachrichten?fehler=empfaenger");
+    redirect(zurueck("empfaenger"));
   }
 
   const conversation = await db.conversation.create({
@@ -236,7 +248,7 @@ export async function startConversation(formData: FormData) {
   await notifyParticipants(conversation.id, user.id, subject, body);
 
   revalidatePath("/nachrichten");
-  redirect(`/nachrichten/${conversation.id}`);
+  redirect(`/nachrichten/${conversation.id}?flash=gespeichert`);
 }
 
 // Antwort in einer bestehenden Konversation senden
@@ -266,5 +278,5 @@ export async function sendMessage(formData: FormData) {
 
   revalidatePath(`/nachrichten/${conversationId}`);
   revalidatePath("/nachrichten");
-  redirect(`/nachrichten/${conversationId}`);
+  redirect(`/nachrichten/${conversationId}?flash=gesendet`);
 }

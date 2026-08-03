@@ -1,0 +1,245 @@
+"use client";
+
+import { DateField, toDateInputValue } from "@/components/fields";
+import { FileInput } from "@/components/file-input";
+import { inputClass } from "@/components/ui";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
+import { contactKindLabels, contactMethodLabels, tradeLabels } from "@/lib/labels";
+import {
+  deleteCraftsman,
+  toggleCraftsmanActive,
+  toggleCraftsmanInternal,
+  updateCraftsman,
+} from "../actions";
+
+const TRADE_ORDER = Object.keys(tradeLabels) as Array<keyof typeof tradeLabels>;
+const KIND_ORDER = Object.keys(contactKindLabels) as Array<keyof typeof contactKindLabels>;
+
+/** Was von einer Karteikarte bearbeitbar ist – identisch in Liste und Detailseite. */
+export type Karteikarte = {
+  id: string;
+  name: string;
+  company: string | null;
+  kind: string | null;
+  trade: string | null;
+  email: string | null;
+  phone: string | null;
+  preferredContact: string | null;
+  notes: string | null;
+  /** Freistellungsbescheinigung § 48b EStG (ISO-Datum). */
+  exemptionNumber: string | null;
+  exemptionValidUntil: string | null;
+  /** Ist die Bescheinigung als Datei hinterlegt? */
+  exemptionFileName: string | null;
+  active: boolean;
+  isInternal: boolean;
+};
+
+/**
+ * Bearbeitungsformular einer Karteikarte (Firma ohne Portalzugang).
+ *
+ * Bewusst eine Komponente für beide Orte: Wird sie an zwei Stellen gepflegt,
+ * laufen die Felder früher oder später auseinander.
+ */
+export function KarteikarteFormular({
+  k,
+  zurueck,
+}: {
+  k: Karteikarte;
+  /** Wohin nach dem Speichern zurück. */
+  zurueck: string;
+}) {
+  return (
+    <>
+      {/* `encType` ist Pflicht, sobald eine Datei mitgeht — ohne sie käme beim
+          Server nur der Dateiname an, nicht die Datei. */}
+      <form action={updateCraftsman} encType="multipart/form-data" className="grid gap-2 sm:grid-cols-2">
+        <input type="hidden" name="id" value={k.id} />
+        <input type="hidden" name="zurueck" value={zurueck} />
+        <label>
+          <span className="mb-1 block text-xs text-gray-500">Art</span>
+          <select
+            name="kind"
+            required
+            defaultValue={k.kind ?? "HANDWERKER"}
+            className={inputClass}
+          >
+            {KIND_ORDER.map((k) => (
+              <option key={k} value={k}>
+                {contactKindLabels[k]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span className="mb-1 block text-xs text-gray-500">Firma (optional)</span>
+          <input
+            type="text"
+            name="company"
+            defaultValue={k.company ?? ""}
+            className={inputClass}
+          />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs text-gray-500">Ansprechpartner / Name</span>
+          <input
+            type="text"
+            name="name"
+            required
+            minLength={2}
+            defaultValue={k.name}
+            className={inputClass}
+          />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs text-gray-500">Gewerk</span>
+          <select
+            name="trade"
+            required
+            defaultValue={k.trade ?? "ALLGEMEIN"}
+            className={inputClass}
+          >
+            {TRADE_ORDER.map((t) => (
+              <option key={t} value={t}>
+                {tradeLabels[t]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span className="mb-1 block text-xs text-gray-500">Bevorzugter Kontaktweg</span>
+          <select
+            name="preferredContact"
+            required
+            defaultValue={k.preferredContact ?? "TELEFON"}
+            className={inputClass}
+          >
+            {Object.entries(contactMethodLabels).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span className="mb-1 block text-xs text-gray-500">Telefon</span>
+          <input
+            type="tel"
+            name="phone"
+            defaultValue={k.phone ?? ""}
+            className={inputClass}
+          />
+        </label>
+        <label>
+          <span className="mb-1 block text-xs text-gray-500">E-Mail</span>
+          <input
+            type="email"
+            name="email"
+            defaultValue={k.email ?? ""}
+            className={inputClass}
+          />
+        </label>
+        {/* Bauabzugsteuer (§ 48 EStG). Nur für Handwerker sichtbar — eine
+            Versicherung oder Behörde erbringt keine Bauleistungen, und ein
+            Feld, das für die meisten Einträge sinnlos ist, macht das Formular
+            länger, ohne irgendwem zu helfen. */}
+        {k.kind === "HANDWERKER" ? (
+          <fieldset className="sm:col-span-2 rounded-lg border border-gray-200 p-3">
+            <legend className="px-1 text-xs font-medium text-gray-600">
+              Freistellungsbescheinigung (§ 48b EStG)
+            </legend>
+            <p className="mb-2 text-xs text-gray-500">
+              Ohne gültige Bescheinigung müssen Sie ab 5.000 € Bauleistungen im Jahr
+              15 % einbehalten und ans Finanzamt abführen — sonst haftet die
+              Gemeinschaft dafür. Die meisten Betriebe haben eine; fragen Sie einmal
+              danach, dann ist das Thema erledigt.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label>
+                <span className="mb-1 block text-xs text-gray-500">Sicherheitsnummer</span>
+                <input
+                  name="exemptionNumber"
+                  defaultValue={k.exemptionNumber ?? ""}
+                  placeholder="z. B. 12/345/67890"
+                  className={inputClass}
+                />
+              </label>
+              <DateField
+                label="Gültig bis"
+                name="exemptionValidUntil"
+                defaultValue={k.exemptionValidUntil ? toDateInputValue(new Date(k.exemptionValidUntil)) : undefined}
+              />
+              <div className="sm:col-span-2">
+                {/* Die hinterlegte Datei steht **über** dem Auswahlfeld. Darunter
+                    stand sie im Prüflauf halb hinter dem „Keine Datei gewählt"
+                    des Auswahlfelds und wurde vom Rahmen abgeschnitten — und
+                    genau diese Zeile ist die Antwort auf „ist sie schon da?". */}
+                {k.exemptionFileName ? (
+                  <p className="mb-2 text-xs text-gray-600">
+                    Hinterlegt:{" "}
+                    <a
+                      href={`/api/files/freistellung/${k.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      {k.exemptionFileName}
+                    </a>{" "}
+                    — eine neue Datei ersetzt sie.
+                  </p>
+                ) : null}
+                <label>
+                  <span className="mb-1 block text-xs text-gray-500">
+                    Bescheinigung als Datei (Foto oder PDF, optional)
+                  </span>
+                  <FileInput name="exemptionFile" accept="image/*,application/pdf" />
+                </label>
+              </div>
+            </div>
+          </fieldset>
+        ) : null}
+        <label className="sm:col-span-2">
+          <span className="mb-1 block text-xs text-gray-500">Notizen (optional)</span>
+          <textarea
+            name="notes"
+            rows={2}
+            defaultValue={k.notes ?? ""}
+            className={inputClass}
+          />
+        </label>
+        <div className="sm:col-span-2">
+          <PendingButton className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Speichern</PendingButton>
+        </div>
+      </form>
+
+      <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-gray-200 pt-3">
+        <form action={toggleCraftsmanInternal}>
+          <input type="hidden" name="id" value={k.id} />
+        <input type="hidden" name="zurueck" value={zurueck} />
+          <button type="submit" className="text-xs text-gray-500 hover:underline">
+            {k.isInternal ? "Als extern markieren" : "Als intern markieren"}
+          </button>
+        </form>
+        <form action={toggleCraftsmanActive}>
+          <input type="hidden" name="id" value={k.id} />
+        <input type="hidden" name="zurueck" value={zurueck} />
+          <button type="submit" className="text-xs text-gray-500 hover:underline">
+            {k.active ? "Deaktivieren" : "Aktivieren"}
+          </button>
+        </form>
+        <form action={deleteCraftsman}>
+          <input type="hidden" name="id" value={k.id} />
+        <input type="hidden" name="zurueck" value={zurueck} />
+          <ConfirmActionButton
+            className="text-xs text-red-600 hover:underline"
+            confirmLabel="Wirklich löschen?"
+            pendingLabel="Wird gelöscht…"
+          >
+            Löschen
+          </ConfirmActionButton>
+        </form>
+      </div>
+    </>
+  );
+}

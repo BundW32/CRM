@@ -21,8 +21,19 @@ function secret() {
   return new TextEncoder().encode(value);
 }
 
+// Beide Token-Arten werden mit demselben Schlüssel signiert. Ohne ein Merkmal,
+// das sie unterscheidet, wäre ein Impersonations-Token ein vollwertiges
+// Sitzungs-Token für die Zielperson: Der Betreiber müsste den Cookie-Inhalt nur
+// von `bw_impersonate` nach `bw_session` kopieren und arbeitete danach als der
+// Kunde – ohne Hinweisleiste, ohne dass getSession() die Stellvertretung
+// erkennt, ohne Eintrag im Protokoll. Genau die Nachvollziehbarkeit, die die
+// Support-Ansicht zusichert, wäre damit hinfällig. Deshalb trägt jedes Token
+// seinen Zweck, und geprüft wird gegen den erwarteten.
+const TYP_SESSION = "session";
+const TYP_IMPERSONATION = "impersonation";
+
 export async function createSession(userId: string) {
-  const token = await new SignJWT({ sub: userId })
+  const token = await new SignJWT({ sub: userId, typ: TYP_SESSION })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DAYS}d`)
@@ -55,11 +66,42 @@ async function loadUser(id: string, requireOrgActive = true) {
   return record;
 }
 
-function verifyToken(token: string | undefined): Promise<string | null> {
+// Ein geprüftes Token: Kennung des Nutzers und Ausstellungszeitpunkt. Letzterer
+// wird gegen `sessionsValidFrom` gehalten, damit ein Passwortwechsel bestehende
+// Anmeldungen beendet.
+type VerifiedToken = { sub: string; issuedAt: Date | null };
+
+function verifyToken(
+  token: string | undefined,
+  erwarteterTyp: string
+): Promise<VerifiedToken | null> {
   if (!token) return Promise.resolve(null);
   return jwtVerify(token, secret())
-    .then(({ payload }) => (typeof payload.sub === "string" ? payload.sub : null))
+    .then(({ payload }) => {
+      if (typeof payload.sub !== "string") return null;
+      // Token ohne `typ` stammen aus der Zeit vor der Trennung. Sie gelten
+      // nicht mehr: Ein Altbestand, der als beides durchginge, wäre genau die
+      // Lücke, die hier geschlossen wird. Die Betroffenen melden sich einmal
+      // neu an – ihre Token wären ohnehin binnen sieben Tagen abgelaufen.
+      if (payload.typ !== erwarteterTyp) return null;
+      return {
+        sub: payload.sub,
+        issuedAt: typeof payload.iat === "number" ? new Date(payload.iat * 1000) : null,
+      };
+    })
     .catch(() => null);
+}
+
+// Wurde das Token vor dem letzten Sitzungswiderruf ausgestellt?
+//
+// Eine Sekunde Nachsicht, weil `iat` im Token auf ganze Sekunden abgerundet
+// wird: Ohne sie verwürfe ein Passwortwechsel die Sitzung, die er im selben
+// Augenblick neu anlegt, und der Nutzer landete direkt nach dem Ändern wieder
+// auf der Anmeldeseite.
+function tokenWiderrufen(token: VerifiedToken, validFrom: Date | null): boolean {
+  if (!validFrom) return false;
+  if (!token.issuedAt) return true;
+  return token.issuedAt.getTime() < validFrom.getTime() - 1000;
 }
 
 export type SessionContext = {
@@ -71,16 +113,22 @@ export type SessionContext = {
 // Pro Request gecacht: echte Session + ggf. aktive Impersonation auflösen.
 export const getSession = cache(async (): Promise<SessionContext> => {
   const cookieStore = await cookies();
-  const realId = await verifyToken(cookieStore.get(COOKIE_NAME)?.value);
-  const realUser = realId ? await loadUser(realId) : null;
-  if (!realUser) return { realUser: null, user: null, impersonating: false };
+  const real = await verifyToken(cookieStore.get(COOKIE_NAME)?.value, TYP_SESSION);
+  const realUser = real ? await loadUser(real.sub) : null;
+  if (!real || !realUser) return { realUser: null, user: null, impersonating: false };
+  // Widerrufen (Passwortwechsel, „überall abmelden") → wie nicht angemeldet.
+  if (tokenWiderrufen(real, realUser.sessionsValidFrom)) {
+    return { realUser: null, user: null, impersonating: false };
+  }
 
   // Impersonation nur wirksam, wenn die ECHTE Session ein Plattform-Betreiber ist
   // (wird bei jedem Request neu geprüft – verlorene Rechte beenden sie sofort).
-  const impId = await verifyToken(cookieStore.get(IMPERSONATE_COOKIE)?.value);
-  if (impId && impId !== realUser.id && isPlatformAdminUser(realUser)) {
-    const target = await loadUser(impId, false);
-    if (target) return { realUser, user: target, impersonating: true };
+  const imp = await verifyToken(cookieStore.get(IMPERSONATE_COOKIE)?.value, TYP_IMPERSONATION);
+  if (imp && imp.sub !== realUser.id && isPlatformAdminUser(realUser)) {
+    const target = await loadUser(imp.sub, false);
+    if (target && !tokenWiderrufen(imp, target.sessionsValidFrom)) {
+      return { realUser, user: target, impersonating: true };
+    }
   }
   return { realUser, user: realUser, impersonating: false };
 });
@@ -97,7 +145,7 @@ export async function requireUser() {
 // Startet eine Impersonation: signierten Cookie mit der Ziel-User-Id setzen.
 // Der Aufrufer MUSS vorher als Plattform-Admin verifiziert sein.
 export async function setImpersonation(targetUserId: string) {
-  const token = await new SignJWT({ sub: targetUserId })
+  const token = await new SignJWT({ sub: targetUserId, typ: TYP_IMPERSONATION })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${IMPERSONATE_HOURS}h`)
@@ -126,6 +174,25 @@ export const getOrganization = cache(async () => {
   if (!user) return null;
   return db.organization.findUnique({ where: { id: user.organizationId } });
 });
+
+/**
+ * Beendet ALLE bestehenden Anmeldungen eines Nutzers – auf jedem Gerät.
+ *
+ * Nach jedem Passwortwechsel aufzurufen. Das ist die eigentliche Wirkung, die
+ * ein Nutzer von einem Passwortwechsel erwartet: Wer das alte Passwort hatte,
+ * ist danach draußen. Ohne diesen Aufruf bliebe eine erbeutete Sitzung sieben
+ * Tage lang gültig, obwohl das Passwort längst ein anderes ist.
+ *
+ * Der aufrufende Vorgang legt anschließend bei Bedarf eine neue Sitzung an
+ * (siehe `createSession`); deren Token wird nach `sessionsValidFrom`
+ * ausgestellt und gilt daher weiter.
+ */
+export async function revokeSessions(userId: string) {
+  await db.user.update({
+    where: { id: userId },
+    data: { sessionsValidFrom: new Date() },
+  });
+}
 
 export async function requireVerwalter() {
   const user = await requireUser();

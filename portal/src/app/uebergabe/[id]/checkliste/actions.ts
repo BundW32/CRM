@@ -35,5 +35,5 @@ export async function saveCheckliste(formData: FormData) {
   });
 
   if (action === "save") redirect(`/uebergabe`);
-  redirect(`/uebergabe/${id}/zaehler`);
+  redirect(`/uebergabe/${id}/zaehler?flash=gespeichert`);
 }

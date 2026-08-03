@@ -7,6 +7,7 @@ import { brandingFromOrg } from "@/lib/branding";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireUser } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { hashToken } from "@/lib/token-hash";
 
 // Sendet die Bestätigungs-E-Mail erneut (für noch nicht verifizierte Konten).
 export async function resendVerification() {
@@ -23,7 +24,8 @@ export async function resendVerification() {
   const expiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3);
   await db.user.update({
     where: { id: user.id },
-    data: { emailVerifyToken: token, emailVerifyExpiry: expiry },
+    // Nur der Hash landet in der Datenbank – der Rohwert bleibt allein im Link.
+    data: { emailVerifyToken: hashToken(token), emailVerifyExpiry: expiry },
   });
 
   const org = await db.organization.findUnique({ where: { id: user.organizationId } });

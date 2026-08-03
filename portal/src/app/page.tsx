@@ -37,6 +37,7 @@ import { Reveal } from "@/components/marketing/reveal";
 import { ScrollyBuild } from "@/components/marketing/scrolly-build";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
+import { isWegSaas } from "@/lib/app-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -177,10 +178,15 @@ const steps = [
 
 export default async function Home() {
   const user = await getUser();
+  // Eingeloggt: in beiden Modi direkt ins Portal.
   if (user) redirect("/dashboard");
 
-  // Auf Mandanten-Subdomains bleibt der gebrandete Login der Einstieg –
-  // die B&W-Startseite gehört nur auf die Hauptdomain.
+  // Verwaltungs-Variante (APP_MODE=verwaltung): Startseite ist der Login. Die
+  // öffentliche Landing-Page gehört allein zur WEG-SaaS-Variante.
+  if (!isWegSaas()) redirect("/login");
+
+  // Auch im SaaS-Modus behalten Mandanten-Subdomains ihren gebrandeten Login –
+  // die Landing-Page gehört auf die Hauptdomain.
   if (await getTenantOrg()) redirect("/login");
 
   return (

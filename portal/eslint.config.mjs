@@ -1,6 +1,11 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import {
+  oberflaecheRegeln,
+  oberflaecheBaustein,
+  oberflaecheBestand,
+} from "./eslint.oberflaeche.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -27,6 +32,11 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // Oberflächen-Regeln (Bausteine benutzen statt nachbauen) und die
+  // Ausnahmeliste für den Bestand – beides in eslint.oberflaeche.mjs erklärt.
+  oberflaecheRegeln,
+  oberflaecheBaustein,
+  oberflaecheBestand,
 ]);
 
 export default eslintConfig;

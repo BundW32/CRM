@@ -52,6 +52,7 @@
   --animate-toast-out: toastOut 0.2s ease-in forwards;
   --animate-spin-once: spinOnce 0.5s ease-in-out;
   --animate-check-pop: checkPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-drawer-in: drawerIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes pageIn {
@@ -84,6 +85,32 @@
   to   { opacity: 0; transform: translateX(16px) scale(0.96); }
 }
 
+/* Kurzmeldung oben rechts (ToastHost): Einblenden und ablaufender Balken.
+   Der Balken macht sichtbar, wie lange die Meldung noch steht – ohne ihn wirkt
+   das Verschwinden willkürlich. Bei `prefers-reduced-motion` bleibt die Meldung
+   stehen und schiebt nicht ein; die Dauer steuert weiterhin der Timer in JS. */
+.toast-einblenden {
+  animation: var(--animate-toast-in);
+}
+
+.toast-ablauf {
+  animation-name: toastAblauf;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  transform-origin: left center;
+}
+
+@keyframes toastAblauf {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-einblenden {
+    animation: var(--animate-fade-in);
+  }
+}
+
 @keyframes spinOnce {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
@@ -93,6 +120,79 @@
   0%   { transform: scale(0.5); opacity: 0; }
   60%  { transform: scale(1.2); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
+}
+
+/* Navigationsleiste: weiches Ein-/Ausklappen. Der Übergang wird erst nach dem
+   ersten Anzeigen aktiviert (data-ready), damit ein gemerkter „eingeklappt“-
+   Zustand beim Laden nicht sichtbar zusammenfährt. */
+[data-app-shell][data-ready="true"] {
+  transition: grid-template-columns 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-app-shell][data-ready="true"] {
+    transition: none;
+  }
+}
+
+/* Pflichtfelder markieren – automatisch, überall, ohne Zutun der Formulare.
+
+   Der Weg über eine Prop wäre hier der falsche: Es gibt weit über hundert
+   Formularfelder, jedes einzeln zu markieren hieße, jedes einzelne anzufassen –
+   und ein vergessenes Feld sähe danach freiwillig aus, obwohl es Pflicht ist.
+   Genau diese halbe Markierung war schon einmal da und musste zurückgenommen
+   werden.
+
+   Stattdessen liest das Stylesheet die Wahrheit direkt aus dem Formular: Trägt
+   ein `label` ein Feld mit `required`, bekommt seine Beschriftung ein Sternchen.
+   Neue Formulare sind damit von sich aus richtig markiert, und die Markierung
+   kann nicht mehr von der tatsächlichen Pflicht abweichen.
+
+   Bewusst rein visuell: Dass ein Feld Pflicht ist, sagt `required` dem
+   Screenreader ohnehin – ein zusätzlich vorgelesenes „Stern" wäre Lärm.
+
+   Absichtlich Nachfahre statt direktes Kind: Manche Felder stecken zur
+   Ausrichtung noch in einem `div`. Getroffen wird immer nur die erste
+   Beschriftungszeile des `label`. */
+label:has(input[required], select[required], textarea[required])
+  > span:first-child::after {
+  content: " *";
+  color: var(--color-brand-orange-ink);
+}
+
+/* Ausklappbare Karten (`CollapsibleCard`): weiches Auf- und Zuklappen.
+   Natives <details> springt sonst hart auf – bei einer Liste laufender
+   Abstimmungen verliert man dabei die Stelle, an der man gerade war.
+
+   `interpolate-size` erlaubt den Übergang von 0 auf `auto`; ohne die Zeile
+   ließe sich eine unbekannte Höhe nicht animieren. `content-visibility` muss
+   mitlaufen (`allow-discrete`), sonst verschwindet der Inhalt beim Zuklappen
+   sofort und nur der leere Rahmen fährt zusammen.
+
+   Kennt ein Browser `::details-content` nicht, greift schlicht nichts davon:
+   Die Karte klappt wie bisher unmittelbar auf. Kein Ausfall, nur ohne Bewegung. */
+:root {
+  interpolate-size: allow-keywords;
+}
+
+[data-collapsible]::details-content {
+  block-size: 0;
+  overflow: hidden;
+  /* Gleichmäßige Kurve, bewusst nicht die stark vorgezogene der Leiste: Gemessen
+     war die Karte nach einem Sechstel der Zeit schon zu drei Vierteln offen – das
+     liest sich als Sprung mit Nachlauf, nicht als Bewegung. */
+  transition:
+    block-size 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    content-visibility 260ms allow-discrete;
+}
+
+[data-collapsible][open]::details-content {
+  block-size: auto;
+}
+
+/* Off-Canvas-Bereichsliste (Verwaltung, mobil): von links einschieben. */
+@keyframes drawerIn {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
 }
 
 /* ── Selbst-gehostete Schriften (woff2, latin) ────────────────────────────
@@ -218,6 +318,19 @@ select:not([multiple]) {
   padding-right: 2.25rem;
 }
 
+/* Sichtbarer Fokus-Ring für Tastaturbedienung auf allen interaktiven Elementen,
+   die keinen eigenen mitbringen (Links, Buttons, Summary, Rollen-Buttons).
+   Nur bei :focus-visible → stört Maus-/Touch-Bedienung nicht. Komponenten mit
+   eigenem Ring erzeugen dieselbe Outline (kein Doppel-Ring). Formularfelder
+   haben ihren eigenen Ring (inputClass) und sind hier bewusst ausgenommen. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--color-brand-orange);
+  outline-offset: 2px;
+}
+
 /* Druckansicht: nur das Zugangsschreiben drucken */
 @media print {
   .no-print {
@@ -231,6 +344,86 @@ select:not([multiple]) {
   }
   @page {
     margin: 2cm;
+  }
+}
+
+/* Fachbegriff mit Erklärung (siehe components/begriff.tsx).
+ *
+ * Die Erklärung steht im Dokument und wird nur ein-/ausgeblendet — kein
+ * JavaScript, keine Bibliothek. Screenreader lesen sie unabhängig davon vor.
+ *
+ * `focus-within` statt `focus`: Der Fokus kann auch auf einem Kindelement
+ * landen, etwa wenn im Erklärtext später einmal ein Link steht. */
+.begriff {
+  position: relative;
+  border-bottom: 1px dotted currentColor;
+  cursor: help;
+}
+
+.begriff-erklaerung {
+  position: absolute;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 40;
+  display: none;
+  width: max-content;
+  max-width: min(22rem, 80vw);
+  border-radius: 0.5rem;
+  background-color: rgb(31 41 55); /* gray-800 */
+  padding: 0.5rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: rgb(243 244 246); /* gray-100 */
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  /* Der Erklärtext ist Beiwerk: Ein Klick soll das treffen, was darunter liegt. */
+  pointer-events: none;
+}
+
+.begriff:hover > .begriff-erklaerung,
+.begriff:focus-within > .begriff-erklaerung {
+  display: block;
+}
+
+/* Nahe am rechten Rand würde die Blase hinauslaufen — dort rechts ausrichten. */
+@media (max-width: 640px) {
+  .begriff-erklaerung {
+    left: auto;
+    right: 0;
+  }
+}
+
+/* Angesprungene Stelle kurz hervorheben.
+ *
+ * Eine Fehlermeldung verlinkt auf die Zeile, in der etwas fehlt („bei WE 03
+ * fehlt die Wohnfläche"). Ohne Markierung landet man zwar an der richtigen
+ * Stelle, sieht das aber nicht – besonders, wenn die Zeile oben am Rand klebt
+ * oder die Tabelle zwanzig gleich aussehende Zeilen hat.
+ *
+ * Bewusst kurz und ohne Farbwechsel des Textes: Der Hinweis soll den Blick
+ * führen, nicht dauerhaft etwas markieren, das gleich korrigiert wird. */
+:target {
+  animation: ziel-hervorheben 2.4s ease-out 1;
+}
+
+@keyframes ziel-hervorheben {
+  0%, 55% {
+    background-color: rgb(254 243 199); /* amber-100 */
+    box-shadow: inset 3px 0 0 rgb(245 158 11); /* amber-500 */
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 3px 0 0 transparent;
+  }
+}
+
+/* Reduzierte Bewegung: statt der Animation eine ruhige, bleibende Markierung –
+ * die Information darf nicht verlorengehen, nur weil jemand Bewegung abstellt. */
+@media (prefers-reduced-motion: reduce) {
+  :target {
+    animation: none;
+    background-color: rgb(254 243 199);
+    box-shadow: inset 3px 0 0 rgb(245 158 11);
   }
 }
 

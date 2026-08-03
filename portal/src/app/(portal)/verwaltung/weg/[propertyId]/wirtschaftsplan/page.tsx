@@ -1,14 +1,7 @@
 import Link from "next/link";
-import {
-  Alert,
-  Card,
-  EmptyState,
-  Field,
-  PageTitle,
-  buttonClass,
-  buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -22,31 +15,52 @@ export default async function WirtschaftsplanListPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{ fehler?: string; geloescht?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const { propertyId } = await params;
   const { property } = await requireWegProperty(propertyId);
   const sp = await searchParams;
+  const jahr = /^\d{4}$/.test(sp.jahr ?? "") ? Number(sp.jahr) : undefined;
 
   const plans = await db.economicPlan.findMany({
+    where: { propertyId: property.id, ...(jahr ? { year: jahr } : {}) },
+    orderBy: { year: "desc" },
+    include: {
+      items: { include: { costType: { select: { category: true } } } },
+      _count: { select: { duePostings: true } },
+    },
+  });
+
+  // Alle vorhandenen Jahrgänge für die Auswahl – unabhängig vom aktiven Filter.
+  const allYears = await db.economicPlan.findMany({
     where: { propertyId: property.id },
     orderBy: { year: "desc" },
-    include: { items: true, _count: { select: { duePostings: true } } },
+    select: { year: true },
   });
 
   const currentYear = new Date().getFullYear();
-  const suggestedYear = plans.some((p) => p.year === currentYear) ? currentYear + 1 : currentYear;
+  // Bewusst gegen ALLE Jahrgänge geprüft, nicht gegen die gefilterte Liste –
+  // sonst schlüge das Formular bei aktivem Filter ein falsches Jahr vor.
+  const suggestedYear = allYears.some((p) => p.year === currentYear) ? currentYear + 1 : currentYear;
+
+  const yearFilters: FilterConfig[] = [
+    {
+      key: "jahr",
+      label: "Jahr",
+      allLabel: "Alle Jahre",
+      primary: true,
+      options: allYears.map((p) => ({ value: String(p.year), label: String(p.year) })),
+    },
+  ];
 
   return (
     <>
       <PageTitle
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
         action={
           <div className="flex gap-2">
             <Link href={`/verwaltung/weg/${property.id}/hausgeld`} className={buttonSecondaryClass}>
               Hausgeld & offene Posten
-            </Link>
-            <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
-              ← WEG-Finanzen
             </Link>
           </div>
         }
@@ -76,6 +90,16 @@ export default async function WirtschaftsplanListPage({
             (Ausgaben je Kostenart) — anschließend anpassen, Hausgeld je Einheit
             prüfen und den Plan beschließen.
           </p>
+          {plans.length === 0 ? (
+            // Im ersten Jahr gibt es kein Vorjahr, aus dem sich schöpfen ließe.
+            // Ohne diesen Satz startet der Assistent scheinbar grundlos leer.
+            <p className="mb-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+              <strong className="font-medium">Erster Plan:</strong> Es gibt noch kein Vorjahr im
+              System, aus dem sich Werte übernehmen ließen — der Assistent startet deshalb mit
+              leeren Beträgen. Als Grundlage dienen der letzte Wirtschaftsplan oder die letzte
+              Jahresabrechnung der bisherigen Verwaltung.
+            </p>
+          ) : null}
           <form action={createPlan} className="flex flex-wrap items-end gap-2">
             <input type="hidden" name="propertyId" value={property.id} />
             <Field label="Wirtschaftsjahr (Beginn)">
@@ -89,19 +113,27 @@ export default async function WirtschaftsplanListPage({
                 required
               />
             </Field>
-            <button type="submit" className={buttonClass}>
-              Plan anlegen
-            </button>
+            <PendingButton className={buttonClass}>Plan anlegen</PendingButton>
           </form>
         </Card>
 
         <Card title="Wirtschaftspläne">
+          {allYears.length > 1 ? <FilterBar className="mb-3" filters={yearFilters} /> : null}
+
           {plans.length === 0 ? (
-            <EmptyState>Noch kein Wirtschaftsplan vorhanden.</EmptyState>
+            <EmptyState>
+              {jahr
+                ? "Für dieses Jahr liegt kein Wirtschaftsplan vor."
+                : "Noch kein Wirtschaftsplan vorhanden."}
+            </EmptyState>
           ) : (
             <div className="grid gap-3">
               {plans.map((p) => {
-                const total = p.items.reduce((sum, i) => sum + i.amountCents, 0);
+                // Vorschussbedarf: Ausgaben minus Einnahmen (§ 28 Abs. 1 WEG).
+                const total = p.items.reduce(
+                  (sum, i) => sum + (i.costType.category === "ERTRAG" ? -i.amountCents : i.amountCents),
+                  0,
+                );
                 return (
                   <Link
                     key={p.id}

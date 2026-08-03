@@ -22,6 +22,7 @@ const taskSchema = z.object({
     "HALBJAEHRLICH",
     "JAEHRLICH",
     "ZWEIJAEHRLICH",
+    "DREIJAEHRLICH",
     "EINMALIG",
   ]),
   dueDate: z.string().min(1),
@@ -70,7 +71,7 @@ export async function createMaintenanceTask(formData: FormData) {
     },
   });
   revalidatePath("/verwaltung/wartung");
-  redirect("/verwaltung/wartung");
+  redirect("/verwaltung/wartung?flash=erstellt");
 }
 
 // Als erledigt markieren: nächste Fälligkeit berechnen (oder einmalig abschließen)
@@ -101,7 +102,7 @@ export async function completeMaintenanceTask(formData: FormData) {
   }
   revalidatePath("/verwaltung/wartung");
   revalidatePath("/dashboard");
-  redirect("/verwaltung/wartung");
+  redirect("/verwaltung/wartung?flash=gespeichert");
 }
 
 export async function deleteMaintenanceTask(formData: FormData) {
@@ -118,7 +119,7 @@ export async function deleteMaintenanceTask(formData: FormData) {
     }
   }
   revalidatePath("/verwaltung/wartung");
-  redirect("/verwaltung/wartung");
+  redirect("/verwaltung/wartung?flash=geloescht");
 }
 
 // Erzeugt aus einer Wartungsaufgabe einen Vorgang (Status NEU, kein Handwerker).

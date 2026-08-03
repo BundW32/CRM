@@ -7,13 +7,15 @@ import { z } from "zod";
 import type { Trade, User } from "@/generated/prisma/client";
 import {
   canViewTicket,
+  canVerwalterAccessProperty,
   canVerwalterUseCraftsman,
   canVerwalterUseTicketTarget,
   ticketTargetsForUser,
 } from "@/lib/access";
 import { db } from "@/lib/db";
+import { hasCertMandate } from "@/lib/cert-mandate";
 import { getBrandingForOrg } from "@/lib/branding-server";
-import { ticketPriorityLabels } from "@/lib/labels";
+import { ticketPriorityLabels, unitPublicLabel } from "@/lib/labels";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import {
   notifyAssignee,
@@ -24,7 +26,7 @@ import {
 } from "@/lib/notify";
 import { computeDueAt } from "@/lib/sla";
 import { parseEuroToCents } from "@/lib/money";
-import { MEDIA_TYPES, DOCUMENT_TYPES, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
+import { MEDIA_TYPES, DOCUMENT_TYPES, deleteBlob, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { requireUser, requireVerwalter } from "@/lib/session";
 import { AUDIT, logAudit } from "@/lib/audit";
@@ -36,6 +38,7 @@ import {
   supportedCertificate,
   type SignatureImage,
 } from "@/lib/documents/bescheinigungen";
+import { briefkopfAus } from "@/lib/documents/briefkopf";
 
 const TRADES = [
   "SANITAER", "HEIZUNG", "ELEKTRO", "DACH", "MALER", "BODENLEGER",
@@ -202,7 +205,7 @@ export async function addComment(formData: FormData) {
   }
 
   revalidatePath(`/vorgaenge/${ticketId}`);
-  redirect(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?flash=erstellt`);
 }
 
 const updateTicketSchema = z.object({
@@ -310,7 +313,7 @@ export async function updateTicket(formData: FormData) {
   }
 
   revalidatePath(`/vorgaenge/${parsed.data.ticketId}`);
-  redirect(`/vorgaenge/${parsed.data.ticketId}`);
+  redirect(`/vorgaenge/${parsed.data.ticketId}?flash=aktualisiert`);
 }
 
 // Verwalter ordnet einen (z. B. per E-Mail eingegangenen) Vorgang einem Objekt/einer Einheit zu
@@ -374,7 +377,7 @@ export async function assignCraftsman(formData: FormData) {
   });
 
   revalidatePath(`/vorgaenge/${ticketId}`);
-  redirect(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?flash=zugeordnet`);
 }
 
 // Verwalter gibt die Beauftragung EXTERNER Handwerker für diesen Vorgang frei.
@@ -586,6 +589,96 @@ export async function confirmCompletion(formData: FormData) {
   redirect(`/vorgaenge/${ticketId}?abschluss=bestaetigt`);
 }
 
+// Verwalter akzeptiert die vom Handwerker eingereichte Rechnung: übernimmt Betrag
+// und Beleg-Verweis in die Kostenerfassung des Vorgangs.
+export async function acceptInvoice(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, include: { invoice: true } });
+  if (!ticket || !(await canViewTicket(verwalter, ticket))) redirect("/vorgaenge");
+  const invoice = ticket.invoice;
+  if (!invoice || invoice.status !== "EINGEREICHT") redirect(`/vorgaenge/${ticketId}`);
+
+  await db.$transaction([
+    db.craftsmanInvoice.update({
+      where: { id: invoice.id },
+      data: { status: "AKZEPTIERT", reviewedAt: new Date(), reviewedById: verwalter.id },
+    }),
+    db.ticket.update({
+      where: { id: ticketId },
+      data: {
+        costCents: invoice.amountCents,
+        costNote: [invoice.invoiceNumber ? `Rechnung ${invoice.invoiceNumber}` : "Handwerker-Rechnung", invoice.note]
+          .filter(Boolean)
+          .join(" · ")
+          .slice(0, 300),
+        updatedAt: new Date(),
+      },
+    }),
+    db.ticketComment.create({
+      data: { ticketId, authorId: verwalter.id, internal: true, body: "Rechnung akzeptiert und als Kosten übernommen." },
+    }),
+  ]);
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.HANDWERKER_INVOICE_ACCEPTED,
+    targetType: "Ticket",
+    targetId: ticketId,
+    meta: { amountCents: invoice.amountCents },
+    ip: await getClientIp(),
+  });
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?rechnung=akzeptiert`);
+}
+
+// Verwalter lehnt die Rechnung ab (mit Grund); der Handwerker kann eine neue
+// Rechnung einreichen.
+export async function rejectInvoice(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const ticketId = String(formData.get("ticketId") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500);
+  const ticket = await db.ticket.findUnique({ where: { id: ticketId }, include: { invoice: { include: { craftsman: true } } } });
+  if (!ticket || !(await canViewTicket(verwalter, ticket))) redirect("/vorgaenge");
+  const invoice = ticket.invoice;
+  if (!invoice || invoice.status !== "EINGEREICHT") redirect(`/vorgaenge/${ticketId}`);
+
+  await db.$transaction([
+    db.craftsmanInvoice.update({
+      where: { id: invoice.id },
+      data: { status: "ABGELEHNT", reviewedAt: new Date(), reviewedById: verwalter.id },
+    }),
+    db.ticketComment.create({
+      data: {
+        ticketId,
+        authorId: verwalter.id,
+        internal: true,
+        body: `Rechnung abgelehnt${reason ? `: ${reason}` : ""}.`,
+      },
+    }),
+  ]);
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.HANDWERKER_INVOICE_REJECTED,
+    targetType: "Ticket",
+    targetId: ticketId,
+    ip: await getClientIp(),
+  });
+  if (invoice.craftsman?.email) {
+    const branding = await getBrandingForOrg(ticket.organizationId);
+    await sendMail(
+      invoice.craftsman.email,
+      `Rechnung zu Auftrag #${ticket.number} abgelehnt`,
+      `Guten Tag ${invoice.craftsman.name},\n\n` +
+        `Ihre Rechnung zum Auftrag „${ticket.title}" wurde nicht akzeptiert${reason ? `:\n${reason}` : "."}\n\n` +
+        `Bitte reichen Sie ggf. eine korrigierte Rechnung ein.\n\nMit freundlichen Grüßen\n${branding.legalName}`,
+      undefined,
+      branding,
+    ).catch(() => {});
+  }
+  revalidatePath(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?rechnung=abgelehnt`);
+}
+
 // Verwalter weist die Erledigung zurück / öffnet den Vorgang für Nacharbeit wieder.
 export async function reopenTicket(formData: FormData) {
   const verwalter = await requireVerwalter();
@@ -794,7 +887,7 @@ export async function uploadRequestedDocument(formData: FormData) {
       data: {
         ticketId,
         authorId: verwalter.id,
-        body: `Dokument bereitgestellt: „${title}". Sie finden es unter „Infos → Dokumente".`,
+        body: `Dokument bereitgestellt: „${title}". Sie finden es unter „Dokumente".`,
       },
     }),
     db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } }),
@@ -802,7 +895,7 @@ export async function uploadRequestedDocument(formData: FormData) {
   await notifyCreatorNewComment(ticketId, verwalter);
 
   revalidatePath(`/vorgaenge/${ticketId}`);
-  revalidatePath("/infos");
+  revalidatePath("/dokumente");
   redirect(`/vorgaenge/${ticketId}?bereitgestellt=1`);
 }
 
@@ -842,27 +935,81 @@ export async function generateCertificate(formData: FormData) {
   });
   const owner = ownership?.user ?? null;
 
+  // ── Darf diese Bescheinigung überhaupt entstehen? ──────────────────────────
+  // Die Wohnungsgeberbestätigung nach § 19 BMG schuldet der Wohnungsgeber; ein
+  // Beauftragter darf sie nach § 19 Abs. 5 BMG ausstellen, aber nur mit
+  // belegbarer Beauftragung. Zwei Bedingungen, beide zum Zeitpunkt der
+  // Erzeugung geprüft:
+  //
+  //  1. Der Eigentümer hat die Vollmacht erteilt (unter „Konto" – nur er selbst).
+  //  2. Die Einheit ist tatsächlich vermietet. Das muss niemand pflegen: Ohne
+  //     aktives Mietverhältnis gibt es keinen Mieter, über den etwas zu
+  //     bescheinigen wäre.
+  //
+  // Gibt es gar keinen hinterlegten Eigentümer, ist die Verwaltung selbst
+  // Wohnungsgeber (Briefkopf-Fallback) – dann entfällt die Vollmacht, weil
+  // niemand in fremdem Namen handelt.
+  if (owner && !hasCertMandate(owner)) {
+    redirect(`/vorgaenge/${ticketId}?fehler=vollmacht`);
+  }
+  // Vermietung nachweisen. Ist dem Vorgang eine Einheit zugeordnet, zählt deren
+  // aktives Mietverhältnis. Fehlt die Einheit, greifen wir auf den Anfragenden
+  // zurück – er muss dann wenigstens irgendwo in diesem Objekt aktiv Mieter sein.
+  const istVermietet =
+    tenancies.length > 0 ||
+    (await db.tenancy.count({
+      where: {
+        userId: ticket.createdBy.id,
+        active: true,
+        unit: { propertyId: property.id },
+      },
+    })) > 0;
+  if (!istVermietet) {
+    redirect(`/vorgaenge/${ticketId}?fehler=keine_vermietung`);
+  }
+
   // Branding der ausstellenden Hausverwaltung (Briefkopf + Fallback-Wohnungsgeber).
   const branding = await getBrandingForOrg(ticket.organizationId);
   const brandingPlzOrt = [branding.zip, branding.city].filter(Boolean).join(" ");
 
-  const wohnungAnschrift = `${property.street}, ${unit ? unit.label + ", " : ""}${property.zip} ${property.city}`;
+  const unitPublic = unit ? unitPublicLabel(unit) : "";
+  const wohnungAnschrift = `${property.street}, ${unitPublic ? unitPublic + ", " : ""}${property.zip} ${property.city}`;
   const wohnungsgeberName = owner?.name ?? branding.legalName;
   const wohnungsgeberStrasse = owner?.street ?? branding.street ?? "";
   const wohnungsgeberPlzOrt =
     owner?.zip && owner?.city ? `${owner.zip} ${owner.city}` : brandingPlzOrt;
   const wohnungStrasse = property.street;
   const wohnungPlzOrt = `${property.zip} ${property.city}`;
-  const wohnungZusatz = unit?.label ?? "";
-  const unterzeichner = owner?.name ?? branding.legalName;
+  const wohnungZusatz = unitPublic;
   const ausstellungsOrt = branding.city ?? "";
   const issuer = {
     legalName: branding.legalName,
     contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
   };
 
-  // Unterschrift (Eigentümer bevorzugt, sonst Verwalter)
-  const sigSource = owner?.signatureStoredName ?? verwalter.signatureStoredName ?? null;
+  // ── Wer unterschreibt, und unter welchem Namen? ────────────────────────────
+  // Bisher wurde stillschweigend die Verwalter-Unterschrift eingesetzt, wenn der
+  // Eigentümer keine hinterlegt hatte – sie erschien dann unter dem NAMEN des
+  // Eigentümers. Eine fremde Unterschrift unter fremdem Namen ist genau das,
+  // was eine Bestätigung wertlos bis angreifbar macht. Deshalb jetzt getrennt:
+  //
+  //  • Eigenhändige Unterschrift des Eigentümers → unter seinem Namen.
+  //  • Sonst: Unterschrift der Verwaltung, sichtbar als „i. A." (im Auftrag).
+  //
+  // `signatureSelfSigned` ist nur gesetzt, wenn der Eigentümer selbst im Portal
+  // unterschrieben hat. Alt-Unterschriften (vom Verwalter erfasst) laufen damit
+  // bewusst über den „i. A."-Weg.
+  const eigeneUnterschrift = Boolean(owner?.signatureStoredName && owner.signatureSelfSigned);
+  const imAuftrag = Boolean(owner) && !eigeneUnterschrift;
+  const unterzeichner = owner
+    ? imAuftrag
+      ? `i. A. ${branding.legalName} für ${owner.name}`
+      : owner.name
+    : branding.legalName;
+
+  const sigSource = eigeneUnterschrift
+    ? owner!.signatureStoredName
+    : (verwalter.signatureStoredName ?? null);
   let signature: SignatureImage = null;
   if (sigSource) {
     try {
@@ -882,6 +1029,7 @@ export async function generateCertificate(formData: FormData) {
     }
   }
 
+  const kopf = await briefkopfAus(branding);
   const ausstellungsdatum = new Date();
   let pdf: Buffer;
   let title: string;
@@ -900,6 +1048,7 @@ export async function generateCertificate(formData: FormData) {
       ort: ausstellungsOrt,
       unterzeichner,
       signature,
+      brand: kopf.brand,
     });
   } else {
     title = "Mietbescheinigung";
@@ -913,6 +1062,8 @@ export async function generateCertificate(formData: FormData) {
       unterzeichner,
       issuer,
       signature,
+      brand: kopf.brand,
+      logo: kopf.logo,
     });
   }
 
@@ -935,16 +1086,34 @@ export async function generateCertificate(formData: FormData) {
       data: {
         ticketId,
         authorId: verwalter.id,
-        body: `${title} automatisch erstellt und bereitgestellt. Abrufbar unter „Infos → Dokumente".`,
+        body: `${title} automatisch erstellt und bereitgestellt. Abrufbar unter „Dokumente".`,
       },
     }),
     db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } }),
   ]);
   await notifyCreatorNewComment(ticketId, verwalter);
 
+  // Nachweis: Wer hat wann in wessen Namen auf welcher Grundlage bescheinigt?
+  // Ohne diesen Eintrag ließe sich später nicht belegen, dass eine Vollmacht
+  // vorlag – und genau darauf käme es im Streitfall an.
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.CERTIFICATE_GENERATED,
+    targetType: "Ticket",
+    targetId: ticketId,
+    meta: {
+      art: kind,
+      wohnungsgeberId: owner?.id ?? null,
+      imAuftrag,
+      vollmachtErteiltAm: owner?.certMandateGrantedAt?.toISOString() ?? null,
+      vollmachtQuelle: owner?.certMandateSource ?? null,
+    },
+    ip: await getClientIp(),
+  });
+
   revalidatePath(`/vorgaenge/${ticketId}`);
-  revalidatePath("/infos");
-  redirect(`/vorgaenge/${ticketId}?bereitgestellt=1`);
+  revalidatePath("/dokumente");
+  redirect(`/vorgaenge/${ticketId}?flash=bescheinigung-erstellt`);
   } catch (e) {
     if (isNextControlFlowError(e)) throw e; // redirect()/notFound() durchlassen
     redirect(`/vorgaenge/${ticketId}?fehler=cert&msg=${encodeURIComponent(errorMessage(e))}`);
@@ -978,5 +1147,35 @@ export async function setOwnTicketStatus(formData: FormData) {
   await notifyCreatorStatusChange(ticketId, user);
 
   revalidatePath(`/vorgaenge/${ticketId}`);
-  redirect(`/vorgaenge/${ticketId}`);
+  redirect(`/vorgaenge/${ticketId}?flash=gespeichert`);
+}
+
+// Vorgang endgültig löschen (nur SuperAdmin). Für Test-/Fehleinträge. Der
+// Regelweg ist „Schließen" (Status GESCHLOSSEN) – ein geschlossener Vorgang bleibt
+// als Beleg erhalten. Löschen entfernt Kommentare, Anhänge und Rechnung per
+// Kaskade; die zugehörigen Dateien im Storage werden aufgeräumt.
+export async function deleteTicket(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  if (!verwalter.isSuperAdmin) redirect("/vorgaenge");
+  const ticketId = String(formData.get("ticketId") ?? "").trim();
+  if (!ticketId) redirect("/vorgaenge");
+  const ticket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    select: {
+      organizationId: true,
+      propertyId: true,
+      attachments: { select: { storedName: true } },
+      invoice: { select: { storedName: true } },
+    },
+  });
+  if (!ticket || ticket.organizationId !== verwalter.organizationId) redirect("/vorgaenge");
+  if (!(await canVerwalterAccessProperty(verwalter, ticket.propertyId))) redirect("/vorgaenge");
+
+  await db.ticket.delete({ where: { id: ticketId } });
+  // Dateien nach erfolgreichem DB-Löschen entfernen (Anhänge + Handwerker-Rechnung).
+  for (const a of ticket.attachments) await deleteBlob(a.storedName);
+  if (ticket.invoice?.storedName) await deleteBlob(ticket.invoice.storedName);
+
+  revalidatePath("/vorgaenge");
+  redirect("/vorgaenge?geloescht=1");
 }

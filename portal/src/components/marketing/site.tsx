@@ -6,9 +6,9 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, ChevronDown, Mail } from "lucide-react";
 import type { ReactNode } from "react";
 import { buttonClass, buttonSecondaryClass } from "@/components/ui";
-import { BwLogoCompact } from "@/components/logo";
 import { KenBurnsBackdrop } from "./photo-hero";
 import { Reveal } from "./reveal";
+import { Wordmark } from "./wordmark";
 
 // Sekundär-Button auf Foto-/Dunkelflächen (weißer Umriss statt Orange)
 export const buttonOnPhotoClass =
@@ -34,8 +34,8 @@ export function MarketingHeader({ active }: { active?: string }) {
       </a>
       <header className="sticky top-0 z-40 border-b border-gray-200/80 bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <Link href="/" className="shrink-0" aria-label="Zur Startseite">
-            <BwLogoCompact className="h-9 w-auto" />
+          <Link href="/" className="shrink-0" aria-label="wegportal.24 – zur Startseite">
+            <Wordmark className="text-xl sm:text-2xl" />
           </Link>
           <nav
             aria-label="Hauptnavigation"
@@ -113,6 +113,7 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
     links: [
       { href: "/impressum", label: "Impressum" },
       { href: "/datenschutz", label: "Datenschutz" },
+      { href: "/ki-transparenz", label: "KI-Transparenz" },
       { href: "/agb", label: "AGB" },
       { href: "/avv", label: "Auftragsverarbeitung (AVV)" },
     ],
@@ -125,9 +126,7 @@ export function MarketingFooter() {
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
         {/* Markenblock */}
         <div>
-          <div className="inline-block rounded-xl bg-white px-2.5 py-1.5">
-            <BwLogoCompact className="h-8 w-auto" />
-          </div>
+          <Wordmark className="text-2xl" tone="light" />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/70">
             Das Portal für selbstverwaltete Wohnungseigentümergemeinschaften
             und Hausverwaltungen – von der ersten Buchung bis zur
@@ -165,7 +164,11 @@ export function MarketingFooter() {
       {/* Untere Leiste */}
       <div className="border-t border-white/10">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-white/60 sm:px-6">
-          <p>© {new Date().getFullYear()} B&amp;W Immobilien Management UG. Alle Rechte vorbehalten.</p>
+          <p>
+            © {new Date().getFullYear()}{" "}
+            wegportal.24 – ein Angebot der B&amp;W Immobilien Management UG
+            (haftungsbeschränkt).
+          </p>
           <p>Wirtschaftsplan · Jahresabrechnung · Hausgeld – nach §§ 19, 26a, 28 WEG</p>
         </div>
       </div>

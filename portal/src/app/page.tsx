@@ -19,6 +19,7 @@ import {
   PiggyBank,
   Scale,
   ShieldCheck,
+  Sparkles,
   Users,
   Vote,
   Wrench,
@@ -41,7 +42,7 @@ import { getTenantOrg } from "@/lib/tenant";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "WEG selbst verwalten – Portal für kleine Eigentümergemeinschaften",
+  title: "wegportal.24 – WEG selbst verwalten, für kleine Eigentümergemeinschaften",
   description:
     "Keine Hausverwaltung gefunden? Verwalten Sie Ihre kleine WEG einfach selbst: " +
     "Wirtschaftsplan, Jahresabrechnung, Hausgeld, Buchhaltung und Eigentümerversammlung " +
@@ -180,7 +181,7 @@ export default async function Home() {
   if (user) redirect("/dashboard");
 
   // Auf Mandanten-Subdomains bleibt der gebrandete Login der Einstieg –
-  // die B&W-Startseite gehört nur auf die Hauptdomain.
+  // die wegportal.24-Startseite gehört nur auf die Hauptdomain.
   if (await getTenantOrg()) redirect("/login");
 
   return (
@@ -352,6 +353,55 @@ export default async function Home() {
                 </p>
                 <p className="mt-3 text-xs text-gray-500">
                   Hinweis: allgemeine Information, keine Rechtsberatung.
+                </p>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ── KI-Transparenz (Art. 50 KI-VO): Vertrauen durch klare Grenzen ── */}
+      <section className="mx-auto w-full max-w-6xl px-4 pt-16 sm:px-6">
+        <Reveal>
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-e1 sm:p-8">
+            <div className="flex items-start gap-4">
+              <Sparkles className="mt-1 h-8 w-8 shrink-0 text-brand-orange-ink" />
+              <div>
+                <h2 className="text-xl font-bold text-brand-green-dark sm:text-2xl">
+                  Wo KI hilft – und wo bewusst keine ist
+                </h2>
+                <p className="mt-3 max-w-3xl leading-relaxed text-gray-700">
+                  Das Portal kann Ihnen zwei Dinge mit künstlicher Intelligenz
+                  abnehmen: Rückfragen zu Ihren eigenen Unterlagen beantworten und
+                  eingehende Schadensmeldungen vorsortieren. Beides ist optional,
+                  standardmäßig aus und jederzeit abschaltbar – und beides schlägt nur
+                  vor, entschieden wird von Menschen.
+                </p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+                    <p className="text-sm font-semibold text-gray-900">Mit KI</p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-gray-600">
+                      Assistent für Fragen zu Beschlüssen, Versammlungen und Vorgängen –
+                      immer mit Quellenangabe. Vorschlag für Gewerk und Dringlichkeit bei
+                      neuen Meldungen.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+                    <p className="text-sm font-semibold text-gray-900">Ohne KI – bewusst</p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-gray-600">
+                      Wirtschaftsplan, Jahresabrechnung, Hausgeld und Mahnwesen rechnen
+                      regelbasiert und nachvollziehbar. Keine KI bei Abstimmungen,
+                      Beschlüssen oder der Bewertung von Eigentümern.
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-4 text-sm text-gray-600">
+                  <Link
+                    href="/ki-transparenz"
+                    className="font-medium text-brand-orange-ink hover:underline"
+                  >
+                    Vollständige KI-Transparenz nach Art. 50 EU-KI-Verordnung →
+                  </Link>
                 </p>
               </div>
             </div>

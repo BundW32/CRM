@@ -13,7 +13,7 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Schäden, Dokumente & Kommunikation in der WEG | wegportal.24",
+  title: "Schäden, Dokumente & Kommunikation in der WEG | wegportal24",
   description:
     "Schäden mit Fotos melden, Handwerker beauftragen, Dokumente und Aushänge " +
     "zentral teilen: So bleibt in der selbstverwalteten WEG jeder informiert – " +

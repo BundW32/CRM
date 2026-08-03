@@ -1,13 +1,13 @@
 // Wächter der öffentlichen Marketing-Seiten (Startseite, /funktionen/*,
 // /so-funktionierts). Sie werben für die Self-Service-Registrierung und tragen
-// die Marke wegportal.24 – beides gibt es nur in der WEG-SaaS.
+// die Marke wegportal24 – beides gibt es nur in der WEG-SaaS.
 //
 // Zwei Bedingungen müssen zusammen erfüllt sein:
 //  1. APP_MODE=weg – in der B&W-Tür (portal.bundwimmobilien.de) ist der Login
 //     der einzige öffentliche Einstieg; eine Landing mit „Kostenlos starten"
 //     würde dort auf eine gesperrte Registrierung zeigen.
 //  2. Hauptdomain – auf Mandanten-Subdomains (White Label) bleibt der
-//     gebrandete Login der Einstieg, sonst überschriebe wegportal.24 die Marke
+//     gebrandete Login der Einstieg, sonst überschriebe wegportal24 die Marke
 //     des Mandanten.
 //
 // NICHT hierher gehören die Rechtsseiten (/impressum, /datenschutz, /agb,

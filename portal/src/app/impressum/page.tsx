@@ -23,11 +23,11 @@ export default function ImpressumPage() {
         <div className="space-y-4 text-sm text-gray-700">
           <Section title="Angaben gemäß § 5 TMG">
             {/* Nur in der WEG-SaaS: dort tritt dieselbe UG unter der Marke
-                wegportal.24 auf und muss sich als Betreiberin zu erkennen
+                wegportal24 auf und muss sich als Betreiberin zu erkennen
                 geben. Auf portal.bundwimmobilien.de wäre der Satz sinnlos. */}
             {isWegSaas() ? (
               <p className="mb-2 text-gray-600">
-                Betreiberin der Website und des Portals <strong>wegportal.24</strong>:
+                Betreiberin der Website und des Portals <strong>wegportal24</strong>:
               </p>
             ) : null}
             <p>

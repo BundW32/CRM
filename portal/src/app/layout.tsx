@@ -4,14 +4,14 @@ import { isWegSaas } from "@/lib/app-mode";
 import "./globals.css";
 
 // Titel und Beschreibung hängen am Deployment, nicht am Code: Die WEG-SaaS
-// tritt als wegportal.24 auf, die B&W-Tür als Kundenportal. Ohne diese Weiche
+// tritt als wegportal24 auf, die B&W-Tür als Kundenportal. Ohne diese Weiche
 // stünde „B&W Kundenportal" im Browser-Tab und in jedem Suchtreffer von
 // wegportal24.de. Seiten mit eigenem `metadata`-Export (z. B. die Landing)
 // überschreiben den Titel ohnehin – das hier ist der Rückfall für alles andere.
 export function generateMetadata(): Metadata {
   const weg = isWegSaas();
   return {
-    title: weg ? "wegportal.24" : "B&W Kundenportal",
+    title: weg ? "wegportal24" : "B&W Kundenportal",
     description: weg
       ? "Portal für selbstverwaltete Wohnungseigentümergemeinschaften – Wirtschaftsplan, " +
         "Jahresabrechnung, Hausgeld, Versammlung und Beschlüsse an einem Ort."
@@ -19,7 +19,7 @@ export function generateMetadata(): Metadata {
     manifest: "/manifest.webmanifest",
     appleWebApp: {
       capable: true,
-      title: weg ? "wegportal.24" : "B&W Portal",
+      title: weg ? "wegportal24" : "B&W Portal",
       statusBarStyle: "black-translucent",
     },
     icons: {

@@ -13,7 +13,7 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Eigentümerversammlung & Beschlüsse digital organisieren | wegportal.24",
+  title: "Eigentümerversammlung & Beschlüsse digital organisieren | wegportal24",
   description:
     "Versammlungen vorbereiten, Anwesenheit und Beschlussfähigkeit erfassen, " +
     "nach Miteigentumsanteilen abstimmen und Beschlüsse dauerhaft dokumentieren – " +

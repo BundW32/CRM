@@ -43,7 +43,7 @@ import { getTenantOrg } from "@/lib/tenant";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "wegportal.24 – WEG selbst verwalten, für kleine Eigentümergemeinschaften",
+  title: "wegportal24 – WEG selbst verwalten, für kleine Eigentümergemeinschaften",
   description:
     "Keine Hausverwaltung gefunden? Verwalten Sie Ihre kleine WEG einfach selbst: " +
     "Wirtschaftsplan, Jahresabrechnung, Hausgeld, Buchhaltung und Eigentümerversammlung " +
@@ -183,12 +183,12 @@ export default async function Home() {
   if (user) redirect("/dashboard");
 
   // B&W-Tür (APP_MODE=verwaltung, portal.bundwimmobilien.de): Startseite ist der
-  // Login. Die wegportal.24-Landing gehört ausschließlich in die WEG-SaaS – sie
+  // Login. Die wegportal24-Landing gehört ausschließlich in die WEG-SaaS – sie
   // wirbt für Self-Service-Registrierung, die dort gar nicht offen steht.
   if (!isWegSaas()) redirect("/login");
 
   // Auf Mandanten-Subdomains bleibt der gebrandete Login der Einstieg –
-  // die wegportal.24-Startseite gehört nur auf die Hauptdomain.
+  // die wegportal24-Startseite gehört nur auf die Hauptdomain.
   if (await getTenantOrg()) redirect("/login");
 
   return (

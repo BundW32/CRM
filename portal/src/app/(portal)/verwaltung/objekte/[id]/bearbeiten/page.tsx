@@ -16,6 +16,7 @@ import { DateField, toDateInputValue } from "@/components/fields";
 import { SubmitButton } from "@/components/submit-button";
 import { AddPersonForm } from "./AddPersonForm";
 import { canVerwalterAccessProperty } from "@/lib/access";
+import { belegungHinweis, belegungText, decodeBelegung } from "@/lib/belegung";
 import { db } from "@/lib/db";
 import { managementTypeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
@@ -131,8 +132,9 @@ function TenancyContract({
 const unitFehlerText: Record<string, string> = {
   objekt: "Bitte füllen Sie mindestens die Pflichtfelder (Bezeichnung und Adresse) aus.",
   einheit: "Bitte geben Sie eine (interne) Bezeichnung für die Einheit an.",
-  einheit_belegt:
-    "Die Einheit ist nicht leer (z. B. Mieter, Buchungen, Übergaben oder Vorgänge) und kann daher nicht gelöscht werden.",
+  // Fallback ohne `belegt`-Parameter: Der Wächter kennt die Belegung, aber die
+  // Fremdschlüssel-Rückfallebene beim Objekt kennt sie nicht.
+  einheit_belegt: "Die Einheit ist nicht leer und kann daher nicht gelöscht werden.",
   objekt_belegt:
     "Das Objekt ist nicht leer und kann nicht gelöscht werden. Sie können es stattdessen archivieren.",
   person: "Bitte geben Sie mindestens Vor- und Nachnamen an.",
@@ -173,11 +175,11 @@ export default async function ObjektBearbeitenPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ fehler?: string; einheit?: string; person?: string }>;
+  searchParams: Promise<{ fehler?: string; einheit?: string; person?: string; belegt?: string }>;
 }) {
   const verwalter = await requireVerwalter();
   const { id } = await params;
-  const { fehler, einheit, person } = await searchParams;
+  const { fehler, einheit, person, belegt } = await searchParams;
 
   if (!(await canVerwalterAccessProperty(verwalter, id))) redirect("/verwaltung/objekte");
   const p = await db.property.findFirst({
@@ -210,6 +212,8 @@ export default async function ObjektBearbeitenPage({
     },
   });
 
+  const jetzt = new Date();
+
   // Mietverwaltung: Eigentümer hängen am Objekt (nicht je Einheit).
   const propertyOwners = !isWeg
     ? await db.ownership.findMany({
@@ -217,6 +221,36 @@ export default async function ObjektBearbeitenPage({
         include: { user: { select: { name: true } } },
       })
     : [];
+
+  // Belegung des Objekts – nur für den SuperAdmin, der den Löschknopf sieht.
+  // Ohne diese Zahlen bliebe dort „Löschen funktioniert nur, wenn …", also die
+  // Regel statt des Grundes, warum sie gerade greift.
+  const objektBelegung = verwalter.isSuperAdmin
+    ? (
+        await db.property.findFirst({
+          where: { id, organizationId: verwalter.organizationId },
+          select: {
+            _count: {
+              select: {
+                units: true, tickets: true, documents: true, announcements: true,
+                ownerships: true, resolutions: true, ownersMeetings: true, ownerMotions: true,
+                maintenanceTasks: true, costTypes: true, ledgerAccounts: true, bookings: true,
+                bankImportBatches: true, economicPlans: true, duePostings: true,
+                annualStatements: true, hausgeldMahnungen: true, sonderumlagen: true,
+                maintenanceMeasures: true, sepaMandates: true, co2Allocations: true,
+                beiratTasks: true, meters: true,
+              },
+            },
+          },
+        })
+      )?._count ?? null
+    : null;
+
+  // Die Meldung nach einem abgewiesenen Löschversuch nennt, was belegt ist.
+  const belegtPosten = decodeBelegung(
+    fehler === "objekt_belegt" ? "objekt" : "einheit",
+    belegt,
+  );
 
   return (
     <>
@@ -239,7 +273,19 @@ export default async function ObjektBearbeitenPage({
 
       {fehler ? (
         <Alert variant="error" className="mb-4">
-          {unitFehlerText[fehler] ?? "Die Aktion konnte nicht ausgeführt werden."}
+          {belegtPosten.length > 0 ? (
+            <>
+              {fehler === "objekt_belegt" ? "Das Objekt" : "Die Einheit"} kann nicht gelöscht
+              werden. Noch verknüpft mit:{" "}
+              <strong>{belegtPosten.map((p) => p.text).join(", ")}</strong>.{" "}
+              {belegungHinweis(
+                fehler === "objekt_belegt" ? "objekt" : "einheit",
+                Object.fromEntries(belegtPosten.map((p) => [p.key, p.anzahl])),
+              )}
+            </>
+          ) : (
+            (unitFehlerText[fehler] ?? "Die Aktion konnte nicht ausgeführt werden.")
+          )}
         </Alert>
       ) : null}
       {einheit === "gespeichert" ? (
@@ -391,12 +437,18 @@ export default async function ObjektBearbeitenPage({
             <EmptyState>Noch keine Einheiten angelegt.</EmptyState>
           ) : (
             units.map((u) => {
-              const dependents =
-                u._count.tenancies + u._count.unitOwnerships + u._count.hausgeldPayments +
-                u._count.duePostings + u._count.hausgeldMahnungen + u._count.statementUnitAmounts +
-                u._count.sepaMandates + u._count.handovers + u._count.tickets +
-                u._count.documents + u._count.meters;
-              const deletable = dependents === 0;
+              const belegung = belegungText("einheit", u._count);
+              const deletable = belegung === "";
+              // Nur die heute geltenden Eigentümer zählen: Ein beendeter
+              // Voreigentümer gehört zur Geschichte, nicht zur Anteilssumme.
+              const aktuelleEigentuemer = u.unitOwnerships.filter(
+                (o) => o.validTo == null || o.validTo > jetzt,
+              );
+              const anteilSumme = aktuelleEigentuemer.reduce((s, o) => s + o.sharePercent, 0);
+              // Auf zwei Nachkommastellen, sonst meldet ⅓ + ⅓ + ⅓ einen Fehler,
+              // den niemand beheben kann.
+              const anteilStimmt =
+                aktuelleEigentuemer.length === 0 || Math.abs(anteilSumme - 100) < 0.01;
               return (
                 <Card key={u.id}>
                   <form action={updateUnit} className="space-y-3">
@@ -452,17 +504,50 @@ export default async function ObjektBearbeitenPage({
 
                   {isWeg ? (
                     <div className="mt-3 border-t border-gray-100 pt-3">
-                      <p className="text-xs font-medium text-gray-500">Eigentümer</p>
+                      <p className="text-xs font-medium text-gray-500">
+                        Eigentümer
+                        {u.mea != null ? ` · MEA ${u.mea}` : ""}
+                      </p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         {u.unitOwnerships.length === 0 ? (
                           <span className="text-xs text-gray-400">Keine</span>
                         ) : (
                           u.unitOwnerships.map((o) => (
-                            <PersonChip key={o.id} action={removeUnitOwner} idName="unitOwnershipId" idValue={o.id} name={o.user.name} />
+                            <PersonChip
+                              key={o.id}
+                              action={removeUnitOwner}
+                              idName="unitOwnershipId"
+                              idValue={o.id}
+                              name={
+                                o.sharePercent === 100
+                                  ? o.user.name
+                                  : `${o.user.name} · ${o.sharePercent} %`
+                              }
+                            />
                           ))
                         )}
                       </div>
-                      <AddPersonForm action={addUnitOwner} idName="unitId" idValue={u.id} label="+ Eigentümer" role="EIGENTUEMER" />
+                      {/* Warnung, keine Erklärung: Sie darf nicht mit den Tipps
+                          verschwinden – ohne sie zählt der MEA der Einheit
+                          doppelt, und niemand sieht, woher die Differenz kommt. */}
+                      {!anteilStimmt ? (
+                        <Alert variant="warning" className="mt-2 text-xs">
+                          Die Anteile dieser Einheit ergeben zusammen{" "}
+                          {anteilSumme.toLocaleString("de-DE", { maximumFractionDigits: 2 })} %
+                          statt 100 %. Der Miteigentumsanteil der Einheit wird dadurch bei den
+                          Stimmrechten {anteilSumme > 100 ? "zu hoch" : "zu niedrig"} angesetzt.
+                          Passen Sie die Anteile an — bei einem Ehepaar mit je der Hälfte also
+                          zweimal 50 %.
+                        </Alert>
+                      ) : null}
+                      <AddPersonForm
+                        action={addUnitOwner}
+                        idName="unitId"
+                        idValue={u.id}
+                        label="+ Eigentümer"
+                        role="EIGENTUEMER"
+                        anteil
+                      />
                     </div>
                   ) : null}
 
@@ -479,9 +564,10 @@ export default async function ObjektBearbeitenPage({
                         </ConfirmActionButton>
                       </form>
                     ) : (
-                      <p className="text-xs text-gray-400">
-                        Nicht löschbar – der Einheit sind noch Daten (Mieter, Buchungen, Übergaben,
-                        Vorgänge o. Ä.) zugeordnet.
+                      <p className="text-xs text-gray-500">
+                        Nicht löschbar – noch verknüpft mit{" "}
+                        <span className="font-medium text-gray-700">{belegung}</span>.{" "}
+                        {belegungHinweis("einheit", u._count)}
                       </p>
                     )}
                   </div>
@@ -591,10 +677,19 @@ export default async function ObjektBearbeitenPage({
                 </ConfirmActionButton>
               </form>
             </div>
-            <p className="mt-3 text-xs text-gray-400">
-              Löschen funktioniert nur, wenn dem Objekt keine Einheiten, Vorgänge, Dokumente,
-              Eigentümer oder Finanzdaten mehr zugeordnet sind.
-            </p>
+            {objektBelegung && belegungText("objekt", objektBelegung) ? (
+              <p className="mt-3 text-xs text-gray-500">
+                Löschen ist derzeit nicht möglich – das Objekt ist noch verknüpft mit{" "}
+                <span className="font-medium text-gray-700">
+                  {belegungText("objekt", objektBelegung)}
+                </span>
+                . {belegungHinweis("objekt", objektBelegung)}
+              </p>
+            ) : (
+              <p className="mt-3 text-xs text-gray-400">
+                Dem Objekt sind keine Daten mehr zugeordnet – es kann endgültig gelöscht werden.
+              </p>
+            )}
           </Card>
         </div>
       ) : null}

@@ -398,7 +398,8 @@ export async function createUser(formData: FormData) {
 export async function anonymizeUser(formData: FormData) {
   const verwalter = await requireVerwalter();
   // DSGVO-Löschung ist unwiderruflich und rechtlich sensibel: nur SuperAdmin.
-  if (!verwalter.isSuperAdmin) redirect(zurueckZurListe(formData));
+  // Mit Meldung, sonst wirkt der Knopf wie kaputt statt wie gesperrt.
+  if (!verwalter.isSuperAdmin) redirect(zurueckZurListe(formData, "?flash=keine-berechtigung"));
   const id = String(formData.get("id") ?? "");
   if (!id || id === verwalter.id) {
     redirect(zurueckZurListe(formData));

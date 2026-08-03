@@ -82,6 +82,14 @@ export const flashMessages = {
   // hier nur der Vermerk im Programm. Die Anmeldung selbst und die Überweisung
   // ans Finanzamt passieren außerhalb — wer das verwechselt, versäumt die Frist
   // und hält sie für erledigt.
+  // Der einzige Fehler-Code in dieser Liste, und das mit Grund: Ein
+  // Rechte-Wächter leitet auf eine Liste zurück, an der kein Formular hängt —
+  // ein `<Alert>` hätte dort keinen Ort. Ohne Meldung sieht die abgewiesene
+  // Aktion aus wie ein Knopf, der nichts tut, und man drückt ihn erneut.
+  "keine-berechtigung": {
+    text: "Dafür fehlt Ihnen die Berechtigung. Ein Administrator Ihrer Organisation kann das übernehmen.",
+    tone: "error",
+  },
   "bauabzug-angemeldet": {
     text: "Monat als angemeldet vermerkt. Anmeldung und Überweisung ans Finanzamt erfolgen außerhalb des Programms.",
     tone: "success",

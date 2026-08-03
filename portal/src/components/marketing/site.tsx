@@ -4,16 +4,15 @@
 // (Klasse `mk-light` auf dem <main>), die Fußzeile bleibt als dunkelgrüner
 // Marken-Anker. Farben und Knöpfe kommen aus `./brand`.
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ChevronDown, LogIn, Mail } from "lucide-react";
+import { ArrowRight, CheckCircle2, ChevronDown, Mail } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   BRAND_EMAIL,
   BRAND_NAME,
-  WegportalLogo,
   wpButtonClass,
   wpButtonOnPhotoClass,
-  wpButtonSecondaryClass,
 } from "./brand";
+import { Wordmark } from "./wordmark";
 import { KenBurnsBackdrop } from "./photo-hero";
 import { Reveal } from "./reveal";
 
@@ -39,14 +38,14 @@ export function MarketingHeader({ active }: { active?: string }) {
       >
         Zum Inhalt springen
       </a>
-      <header className="sticky top-0 z-40 border-b border-gray-200/80 bg-white/85 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-40 border-b border-wp-ink/15 bg-[#faf8f4]/92 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
           <Link href="/" className="shrink-0" aria-label={`${BRAND_NAME} – zur Startseite`}>
-            <WegportalLogo className="h-8 w-auto sm:h-9" />
+            <Wordmark className="text-lg sm:text-xl" />
           </Link>
           <nav
             aria-label="Hauptnavigation"
-            className="hidden items-center gap-6 text-sm lg:flex"
+            className="hidden items-center gap-7 text-[15px] lg:flex"
           >
             {navItems.map((item) => (
               <Link
@@ -55,26 +54,23 @@ export function MarketingHeader({ active }: { active?: string }) {
                 aria-current={active === item.href ? "page" : undefined}
                 className={
                   active === item.href
-                    ? "-mb-px border-b-2 border-wp-accent-ink pb-0.5 font-semibold text-wp-primary"
-                    : "text-gray-600 transition-colors hover:text-wp-primary"
+                    ? "font-semibold text-wp-ink underline decoration-wp-accent-ink decoration-2 underline-offset-[7px]"
+                    : "text-wp-ink/65 underline decoration-transparent decoration-2 underline-offset-[7px] transition-colors hover:text-wp-ink hover:decoration-wp-ink/25"
                 }
               >
                 {item.label}
               </Link>
             ))}
           </nav>
-          {/* Beide Zugänge stehen nebeneinander und bleiben auf dem Handy
-              sichtbar. Vorher verschwand „Registrieren" unter 640 px – genau
-              die Handlung, die die Seite auslösen soll. Auf schmalen Geräten
-              trägt „Anmelden" nur das Symbol, damit beide Platz haben. */}
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          {/* Beide Zugänge nebeneinander, beide auch auf dem Handy sichtbar.
+              „Anmelden" ist ein Textlink – zwei gleich laute Knöpfe nebeneinander
+              sagen dem Lesenden nicht, welcher der übliche Weg ist. */}
+          <div className="flex shrink-0 items-center gap-4 sm:gap-5">
             <Link
               href="/login"
-              className={`${wpButtonSecondaryClass} px-3 sm:px-4`}
-              aria-label="Anmelden"
+              className="text-[15px] font-semibold text-wp-ink underline decoration-wp-ink/30 underline-offset-[6px] transition-colors hover:decoration-wp-accent-ink"
             >
-              <LogIn className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Anmelden</span>
+              Anmelden
             </Link>
             <Link href="/registrieren" className={wpButtonClass}>
               Registrieren
@@ -84,7 +80,7 @@ export function MarketingHeader({ active }: { active?: string }) {
         {/* Mobile Navigation: horizontal scrollbar statt Umbruch */}
         <nav
           aria-label="Hauptnavigation mobil"
-          className="flex gap-5 overflow-x-auto border-t border-gray-100 px-4 py-2 text-sm whitespace-nowrap lg:hidden"
+          className="flex gap-5 overflow-x-auto border-t border-wp-ink/10 px-5 py-2 text-[15px] whitespace-nowrap lg:hidden"
         >
           {navItems.map((item) => (
             <Link
@@ -93,8 +89,8 @@ export function MarketingHeader({ active }: { active?: string }) {
               aria-current={active === item.href ? "page" : undefined}
               className={
                 active === item.href
-                  ? "font-semibold text-wp-accent-ink"
-                  : "text-gray-600"
+                  ? "font-semibold text-wp-ink"
+                  : "text-wp-ink/60"
               }
             >
               {item.label}
@@ -141,7 +137,7 @@ export function MarketingFooter() {
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
         {/* Markenblock */}
         <div>
-          <WegportalLogo className="h-9 w-auto" tone="hell" />
+          <Wordmark className="text-xl" tone="light" />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/70">
             Das Portal für selbstverwaltete Wohnungseigentümergemeinschaften –
             von der ersten Buchung über Versammlung und Beschluss bis zur

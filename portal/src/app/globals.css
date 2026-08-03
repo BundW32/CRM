@@ -52,6 +52,11 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   --font-display: "Plus Jakarta Sans", var(--font-sans);
+  /* Schrift der öffentlichen Marken-Seiten. Source Sans 3 ist die Schrift, in
+     der `lib/documents/kit/fonts.ts` Wirtschaftsplan, Jahresabrechnung und
+     Mahnungen setzt – die Seite ist damit im selben Schriftbild wie die
+     Papiere, die sie verspricht. Utility: `font-mk`. */
+  --font-mk: "Source Sans 3", var(--font-sans);
 
   /* ── Semantische Statusfarben (getrennt vom Marken-Akzent) ── */
   --color-good: #1f7a54;
@@ -234,6 +239,22 @@ label:has(input[required], select[required], textarea[required])
 
 /* ── Selbst-gehostete Schriften (woff2, latin) ────────────────────────────
    Kein Google-CDN, kein Layout-Shift beim Laden (font-display: swap). */
+@font-face {
+  font-family: "Source Sans 3";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/sourcesans-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Source Sans 3";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/sourcesans-600.woff2") format("woff2");
+}
+
 @font-face {
   font-family: "Inter";
   font-style: normal;
@@ -497,6 +518,20 @@ summary:focus-visible,
    Die öffentlichen Seiten laufen hell und einladend (Papierton mit sanften
    Marken-Tönungen), während App-Shell und Login dunkel bleiben. Die Klasse
    liegt auf dem <main> der Marketing-Seiten und deckt die dunkle Shell ab. */
+.mk-light {
+  font-family: var(--font-mk);
+}
+
+/* Auch die Überschriften: `h1, h2, h3` bekommen weiter oben global die
+   Display-Schrift zugewiesen: Eine Regel mit Element-Selektor sticht die
+   Vererbung von `.mk-light`, ohne dass man es dem Markup ansieht. Genau so
+   liefen die Überschriften der Marken-Seiten noch in Plus Jakarta Sans,
+   während der Fließtext daneben schon in Source Sans stand — sichtbar erst
+   im direkten Vergleich. */
+.mk-light :is(h1, h2, h3) {
+  font-family: var(--font-mk);
+}
+
 .mk-light {
   /* Warmer Papierton, passend zu Grün und Orange. */
   background-color: #faf8f4;

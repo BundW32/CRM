@@ -65,7 +65,11 @@ const bilder = [
     [...body.matchAll(/%2Fimages%2Fmarketing%2F([a-z-]+)\.jpg/g)].map((m) => m[1]),
   ),
 ];
-if (bilder.length === 0) throw new Error("Keine Fotos im Markup gefunden – Muster prüfen");
+// Kein harter Abbruch mehr, wenn gar kein Foto vorkommt: Seit dem Umbau
+// arbeitet die Startseite ohne Fotos. Der Wächter, der wirklich zählt, steht
+// unten je Bild – wird eines REFERENZIERT und lässt sich nicht ersetzen, ist
+// das ein Fehler im Muster und bricht ab.
+if (bilder.length === 0) process.stderr.write("Kein Foto im Markup – nichts einzubetten\n");
 for (const name of bilder) {
   const buf = await sharp(`${PORTAL}public/images/marketing/${name}.jpg`)
     .resize({ width: 1500 })
@@ -105,7 +109,7 @@ process.stdout.write(`<title>Wegportal24 – Vorschau der Startseite</title>
 ${css}
 /* Die Vorschau steht für sich: Der dunkle Grund der App-Shell gehört zum
    Portal und hätte hier nur den Rand gefärbt. */
-:root, body { background: #f6f9fc; }
+:root, body { background: #faf8f4; }
 [data-tot] { cursor: default; }
 </style>
 <div class="mk-light">

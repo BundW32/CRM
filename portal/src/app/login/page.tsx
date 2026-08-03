@@ -3,7 +3,8 @@ import { PendingButton } from "@/components/pending-button";
 import { Alert, buttonClass, inputClass, Field } from "@/components/ui";
 import { BrandTheme } from "@/components/brand-theme";
 import { BwLogo, OrgLogo } from "@/components/logo";
-import { BRAND_EMAIL, WegportalLogo } from "@/components/marketing/brand";
+import { BRAND_EMAIL } from "@/components/marketing/brand";
+import { Wordmark } from "@/components/marketing/wordmark";
 import { db } from "@/lib/db";
 import { publicOrgLogoUrl } from "@/lib/branding";
 import { getUser } from "@/lib/session";
@@ -60,7 +61,7 @@ export default async function LoginPage({
               </p>
             )
           ) : wegMarke ? (
-            <WegportalLogo className="mx-auto mb-2 h-11 w-auto" />
+            <Wordmark className="mb-3 justify-center text-2xl" />
           ) : (
             <BwLogo className="mx-auto mb-1 h-20 w-auto" />
           )}

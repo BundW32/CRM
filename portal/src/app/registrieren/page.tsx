@@ -5,7 +5,7 @@ import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { AccountTypeFields } from "./account-type-fields";
 import { registerOrganization } from "./actions";
 import { isWegSaas, registrationEnabled } from "@/lib/app-mode";
-import { WegportalLogo } from "@/components/marketing/brand";
+import { Wordmark } from "@/components/marketing/wordmark";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +35,7 @@ export default async function RegisterPage({
       <div className="flex w-full items-center justify-center bg-white px-4 py-10 sm:px-8 lg:w-[55%] lg:px-14">
         <div className="w-full max-w-md animate-page-in">
           <Link href="/" className="mb-8 inline-block" aria-label="Zur Startseite">
-            <WegportalLogo className="h-9 w-auto" />
+            <Wordmark className="text-xl" />
           </Link>
           <p className="mb-1 text-sm font-medium text-gray-400">Kostenlos registrieren</p>
           <h1 className="mb-2 text-2xl font-bold text-brand-green">Ihr eigenes WEG-Portal</h1>
@@ -140,7 +140,7 @@ export default async function RegisterPage({
         <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-brand-orange/20 blur-3xl" />
         <div className="absolute -top-16 -left-10 h-56 w-56 rounded-full bg-white/5 blur-2xl" />
         <div className="relative flex h-full flex-col justify-center px-14 text-white">
-          <WegportalLogo className="mb-8 h-10 w-auto" tone="hell" />
+          <Wordmark className="mb-8 text-2xl" tone="light" />
           <h2 className="max-w-md text-3xl font-bold leading-tight">
             Das digitale Portal für Ihre WEG
           </h2>

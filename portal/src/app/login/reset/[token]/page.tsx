@@ -2,7 +2,8 @@ import { Alert, buttonClass, Field, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { hashToken } from "@/lib/token-hash";
 import { BwLogo } from "@/components/logo";
-import { BRAND_NAME, WegportalLogo } from "@/components/marketing/brand";
+import { BRAND_NAME } from "@/components/marketing/brand";
+import { Wordmark } from "@/components/marketing/wordmark";
 import { isWegSaas } from "@/lib/app-mode";
 import { getTenantOrg } from "@/lib/tenant";
 import { resetPassword } from "./actions";
@@ -49,7 +50,7 @@ export default async function ResetPasswordPage({
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
           {wegMarke ? (
-            <WegportalLogo className="mx-auto mb-2 h-11 w-auto" />
+            <Wordmark className="mb-3 justify-center text-2xl" />
           ) : (
             <BwLogo className="mx-auto mb-1 h-20 w-auto" />
           )}

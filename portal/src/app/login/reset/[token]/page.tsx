@@ -2,6 +2,9 @@ import { Alert, buttonClass, Field, inputClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { hashToken } from "@/lib/token-hash";
 import { BwLogo } from "@/components/logo";
+import { BRAND_NAME, WegportalLogo } from "@/components/marketing/brand";
+import { isWegSaas } from "@/lib/app-mode";
+import { getTenantOrg } from "@/lib/tenant";
 import { resetPassword } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -31,15 +34,29 @@ export default async function ResetPasswordPage({
     },
   });
 
+  // Marke wie auf /login: Wer eine Einladung annimmt, soll dieselbe Marke
+  // sehen wie auf der Seite, über die er gekommen ist.
+  const wegMarke = isWegSaas() && !(await getTenantOrg());
+
   return (
-    <main className="flex flex-1 items-center justify-center p-4">
+    <main
+      className={`flex flex-1 items-center justify-center p-4 ${
+        wegMarke
+          ? "wp-brand bg-gradient-to-br from-wp-primary via-wp-primary-soft to-wp-ink"
+          : ""
+      }`}
+    >
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-          <BwLogo className="mx-auto mb-1 h-20 w-auto" />
+          {wegMarke ? (
+            <WegportalLogo className="mx-auto mb-2 h-11 w-auto" />
+          ) : (
+            <BwLogo className="mx-auto mb-1 h-20 w-auto" />
+          )}
           <p className="mb-6 text-center text-sm font-medium text-gray-400">
-            Kundenportal
+            {wegMarke ? "Portal Ihrer Eigentümergemeinschaft" : "Kundenportal"}
           </p>
-          <h1 className="mb-4 text-lg font-semibold">
+          <h1 className="mb-4 text-lg font-semibold text-gray-800">
             {isInvite ? "Zugang einrichten" : "Neues Passwort vergeben"}
           </h1>
 
@@ -71,7 +88,7 @@ export default async function ResetPasswordPage({
               ) : null}
               <p className="mb-4 text-sm text-gray-600">
                 {isInvite
-                  ? `Willkommen, ${user.name}! Vergeben Sie Ihr persönliches Passwort für das B&W Kundenportal.`
+                  ? `Willkommen, ${user.name}! Vergeben Sie Ihr persönliches Passwort für ${wegMarke ? BRAND_NAME : "das B&W Kundenportal"}.`
                   : `Hallo ${user.name}, vergeben Sie jetzt Ihr neues Passwort.`}
               </p>
               <form action={resetPassword} className="space-y-4">

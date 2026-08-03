@@ -129,8 +129,8 @@ function SceneAmbience({ progress }: { progress: number }) {
 }
 
 // ── Das Comic-Haus: baut sich Stockwerk für Stockwerk auf ─────────────────
-// Handgezeichnete SVG-Illustration im flachen Comic-Stil (dicke tiefblaue
-// Umrisse, helle Fassade, türkises Satteldach). Jede Bauphase gleitet stufenlos
+// Handgezeichnete SVG-Illustration im flachen Comic-Stil (dicke dunkelgrüne
+// Umrisse, Creme-Fassade, oranges Satteldach). Jede Bauphase gleitet stufenlos
 // mit dem Scroll-Fortschritt an ihren Platz; die Fenster gehen einzeln an.
 // Während des Baus steht ein Kran daneben, bei Fertigstellung: Fahne, Rauch,
 // Katze im Fenster und zwei Bewohner vor der Tür.
@@ -138,10 +138,10 @@ function SceneAmbience({ progress }: { progress: number }) {
 // Die vier Grundtöne stehen hier als feste Werte und nicht als CSS-Variablen:
 // Sie werden für Verläufe und Filter im SVG auch rechnerisch abgewandelt.
 // Wer die Marke umfärbt, ändert sie hier mit.
-const OUTLINE = "#0b2239"; /* wp-ink */
-const FACADE = "#f2f7fb";
-const GLASS_OFF = "#cddeed";
-const GLASS_ON = "#7fe3d4";
+const OUTLINE = "#00241f"; /* wp-ink */
+const FACADE = "#fbf3e0";
+const GLASS_OFF = "#cfe0dd";
+const GLASS_ON = "#ffd489";
 const TRIM = "var(--color-wp-primary)"; /* Kran, Tür, Blumenkasten */
 
 // Comic-Fenster mit Kreuzsprosse; `on` schaltet warmes Licht + Glühen.
@@ -152,7 +152,7 @@ function Win({ x, y, on, w = 30, h = 42, floor, idx, cnt }: { x: number; y: numb
       data-wfloor={floor}
       data-widx={idx}
       data-wcnt={cnt}
-      style={{ filter: on ? "drop-shadow(0 0 5px rgba(46,211,190,0.85))" : "none" }}
+      style={{ filter: on ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none" }}
     >
       <rect x={x} y={y} width={w} height={h} rx={4} fill={OUTLINE} />
       <rect
@@ -231,7 +231,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
 
         {/* ── Grundstück: Boden, Büsche, Baum, Fundament (Phase 0) ── */}
         <g data-part="0" style={rise(0)}>
-          <ellipse cx={160} cy={448} rx={150} ry={11} fill="rgba(11,34,57,0.10)" />
+          <ellipse cx={160} cy={448} rx={150} ry={11} fill="rgba(0,54,48,0.10)" />
           <line x1={14} y1={444} x2={306} y2={444} stroke={OUTLINE} strokeWidth={3} strokeLinecap="round" />
           {/* Busch links */}
           <circle cx={40} cy={430} r={15} fill="#3c9a6e" stroke={OUTLINE} strokeWidth={2.5} />
@@ -297,7 +297,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
           <path d="M44,150 L160,62 L276,150 Z" fill="var(--color-wp-accent)" stroke={OUTLINE} strokeWidth={3.5} strokeLinejoin="round" />
           <rect x={48} y={144} width={224} height={11} rx={4} fill="var(--color-wp-accent-dark)" stroke={OUTLINE} strokeWidth={3} />
           {/* rundes Dachfenster */}
-          <g data-atticg style={{ filter: done ? "drop-shadow(0 0 5px rgba(46,211,190,0.85))" : "none" }}>
+          <g data-atticg style={{ filter: done ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none" }}>
             <circle cx={160} cy={116} r={14} fill={OUTLINE} />
             <circle data-glass cx={160} cy={116} r={10} fill={done ? GLASS_ON : GLASS_OFF} style={{ transition: "fill 0.4s" }} />
             <line x1={160} y1={107} x2={160} y2={125} stroke={OUTLINE} strokeWidth={2.5} />

@@ -1,7 +1,7 @@
 // Gemeinsame Bausteine der öffentlichen Marketing-Seiten von Wegportal24
 // (Hauptdomain der SaaS-Variante): fixierte Kopfzeile mit Navigation,
 // Fußzeile, Foto-Hero, Zahlenleiste und CTA-Band. Die Seiten laufen hell
-// (Klasse `mk-light` auf dem <main>), die Fußzeile bleibt als tiefblauer
+// (Klasse `mk-light` auf dem <main>), die Fußzeile bleibt als dunkelgrüner
 // Marken-Anker. Farben und Knöpfe kommen aus `./brand`.
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, ChevronDown, LogIn, Mail } from "lucide-react";
@@ -9,7 +9,6 @@ import type { ReactNode } from "react";
 import {
   BRAND_EMAIL,
   BRAND_NAME,
-  OPERATOR_NAME,
   WegportalLogo,
   wpButtonClass,
   wpButtonOnPhotoClass,
@@ -180,11 +179,8 @@ export function MarketingFooter() {
       {/* Untere Leiste */}
       <div className="border-t border-white/10">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-white/60 sm:px-6">
-          {/* Die Marke tritt eigenständig auf – die Betreiberin muss trotzdem
-              erkennbar bleiben (§ 5 DDG), und im Impressum steht sie ohnehin. */}
           <p>
-            © {new Date().getFullYear()} {BRAND_NAME}.de – ein Angebot der{" "}
-            {OPERATOR_NAME}. Alle Rechte vorbehalten.
+            © {new Date().getFullYear()} {BRAND_NAME}.de. Alle Rechte vorbehalten.
           </p>
           <p>Wirtschaftsplan · Jahresabrechnung · Hausgeld – nach §§ 19, 26a, 28 WEG</p>
         </div>
@@ -370,9 +366,8 @@ const stats = [
 
 export function StatsBand() {
   return (
-    // Tiefblau statt Primärblau: Die Zahlen stehen in Türkis darauf und
-    // erreichen so 8,6:1 statt 4,2:1 – bei fünffacher Schriftgröße ist beides
-    // zulässig, aber die Zahlen sind der Grund für dieses Band.
+    // Dunkelgrün statt Grün: Die Zahlen stehen in Orange darauf und erreichen
+    // so 7,0:1 statt 5,7:1 – die Zahlen sind der Grund für dieses Band.
     <section className="relative overflow-hidden bg-wp-ink">
       {/* dezente Lichtakzente wie im CTA-Band */}
       <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-wp-accent/15 blur-3xl" />

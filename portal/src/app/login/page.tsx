@@ -36,13 +36,14 @@ export default async function LoginPage({
     tenantOrg?.email ?? (wegMarke ? BRAND_EMAIL : "info@bundwimmobilien.de");
 
   return (
-    // Der dunkle Grund des Portals ist B&W-Braun. Unter der Wegportal24-Marke
-    // deckt die Anmeldeseite ihn mit dem eigenen Blauverlauf ab – sonst käme
-    // man von einer blauen Startseite auf eine braune Anmeldung.
+    // Der dunkle Grund des Portals ist ein warmes Braun. Unter der
+    // Wegportal24-Marke deckt die Anmeldeseite ihn mit dem eigenen Grünverlauf
+    // ab – sonst käme man von einer grünen Startseite auf eine braune
+    // Anmeldung.
     <main
       className={`flex flex-1 items-center justify-center p-4 ${
         wegMarke
-          ? "wp-brand bg-gradient-to-br from-wp-primary via-wp-primary-dark to-wp-ink"
+          ? "wp-brand bg-gradient-to-br from-wp-primary via-wp-primary-soft to-wp-ink"
           : ""
       }`}
     >

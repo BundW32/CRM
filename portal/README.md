@@ -24,17 +24,27 @@ Verwaltung und Handwerker. Konzept, Wettbewerbsanalyse und Roadmap:
 | | `APP_MODE=verwaltung` (Default) | `APP_MODE=weg` |
 |---|---|---|
 | Marke | B&W Immobilien Management | **Wegportal24.de** |
-| Farben | Dunkelgrün / Orange (`--color-brand-*`) | Tiefblau / Türkis (`--color-wp-*`) |
+| Farbtokens | `--color-brand-*` | `--color-wp-*` |
 | Startseite | Weiterleitung auf `/login` | öffentliche Landing-Page |
 | Registrierung | gesperrt | offen (Self-Service) |
+
+**Beide Paletten tragen dieselben Werte (Grün/Orange) – sind aber nicht
+verbunden.** Das Farbschema wurde einmal übernommen, nicht verlinkt: Wer eine
+der beiden Seiten künftig umfärbt, färbt die andere nicht mit. Ein `var()`-
+Verweis hätte genau das getan.
+
+Auf den öffentlichen Seiten wird **kein anderes Unternehmen genannt**. Wer die
+Plattform betreibt, steht im Impressum — dort ist die Angabe gesetzlich
+vorgeschrieben (§ 5 DDG) und kann nicht entfallen.
 
 Die Wegportal24-Marke steckt in **einer** Datei
 (`src/components/marketing/brand.tsx`: Name, Domain, Kontaktadresse, Wortmarke,
 Knopf-Klassen) und **einem** Token-Block in `globals.css` (`--color-wp-*`).
-Login und Registrierung sind gemeinsame Seiten; sie tragen im SaaS-Modus die
-Klasse `wp-brand`, in der die B&W-Tokens auf die Wegportal24-Palette zeigen –
-so färbt sich auch `buttonClass` mit, ohne dass die Verwaltungs-Variante oder
-das White-Label-Branding eines Mandanten davon berührt wird.
+Login, Registrierung, „Passwort vergessen" und die Einladungsseite sind
+gemeinsame Seiten beider Varianten; sie tragen im SaaS-Modus die Klasse
+`wp-brand`, in der die allgemeinen Marken-Tokens auf die Wegportal24-Palette
+zeigen – so färbt sich auch `buttonClass` mit, ohne dass die Verwaltungs-
+Variante oder das White-Label-Branding eines Mandanten davon berührt wird.
 
 **Offen:** Das Postfach `info@wegportal24.de` (in `brand.tsx`) muss noch
 eingerichtet werden – bis dahin läuft dort keine Anfrage auf.

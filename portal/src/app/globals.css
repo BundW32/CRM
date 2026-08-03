@@ -14,31 +14,33 @@
   --color-brand-orange-ink: #8f5407;
 
   /* ── Wegportal24 ── eigene Marke der WEG-SaaS-Variante (APP_MODE=weg).
-     Bewusst getrennt von den B&W-Marken-Tokens darüber: Beide Varianten laufen
-     aus EINER Codebasis, und die Verwaltungs-Variante bleibt B&W-grün/orange.
-     Wer hier etwas ändert, färbt nur die öffentlichen Seiten und den Login der
-     SaaS-Variante um – nie das Portal einer B&W-Kundin.
+     Die Werte sind Grün und Orange – dieselben Töne, mit denen die
+     Verwaltungs-Variante läuft. Sie stehen hier als EIGENE Tokens und nicht
+     als Verweis auf die Marken-Tokens darüber: Das Farbschema ist einmal
+     übernommen worden, nicht verbunden. Wer eine der beiden Seiten künftig
+     umfärbt, färbt die andere damit nicht mit.
 
      Die Kontraste sind gerechnet, nicht geschätzt (Verhältnis nach WCAG 2.1):
-       weiß auf wp-primary ......... 7,8:1
-       wp-primary auf weiß ......... 7,8:1
-       weiß auf wp-ink ............ 16,1:1
-       wp-accent-ink auf weiß ...... 6,5:1
-       wp-ink-Tinte auf wp-accent .. 5,6:1
-       wp-accent-bright auf wp-ink . 8,6:1 */
-  --color-wp-primary: #17548c;
-  --color-wp-primary-dark: #103f6b;
-  --color-wp-primary-light: #e8f1f9;
-  --color-wp-ink: #0b2239;
-  --color-wp-accent: #12b3a0;
-  --color-wp-accent-dark: #0e9686;
-  --color-wp-accent-light: #e4f7f4;
-  /* Türkis als TEXT auf hellen Flächen – der Akzent selbst erreicht dort keine
-     4,5:1. Auf dunklem Grund und auf Fotos gehört stattdessen -bright hin. */
-  --color-wp-accent-ink: #0a6a5f;
-  --color-wp-accent-bright: #2ed3be;
-  /* Tinte AUF dem Türkis-Knopf (dunkles Petrol statt Schwarz – ruhiger). */
-  --color-wp-on-accent: #052e29;
+       weiß auf wp-primary ......... 13,4:1
+       wp-primary auf weiß ......... 13,4:1
+       weiß auf wp-ink ............ 16,5:1
+       wp-accent-ink auf weiß ...... 6,1:1
+       wp-on-accent auf wp-accent .. 7,0:1
+       wp-accent-bright auf wp-ink . 7,0:1 */
+  --color-wp-primary: #003630;
+  --color-wp-primary-soft: #0c534a; /* helleres Grün: Lichtflächen, Verläufe */
+  --color-wp-primary-light: #e8efed; /* grüne Tönung für Hover-Flächen */
+  --color-wp-ink: #00241f;
+  --color-wp-accent: #f69018;
+  --color-wp-accent-dark: #dd7d0c;
+  --color-wp-accent-light: #fef1e0;
+  /* Orange als TEXT auf hellen Flächen – der Akzent selbst erreicht dort nur
+     2,4:1. Auf dunklem Grund und auf Fotos gehört stattdessen -bright hin. */
+  --color-wp-accent-ink: #8f5407;
+  /* Auf dunklem Grund trägt das Marken-Orange selbst: 7,0:1 auf wp-ink. */
+  --color-wp-accent-bright: #f69018;
+  /* Tinte AUF dem Orange-Knopf. */
+  --color-wp-on-accent: #00241f;
 
   /* ── Dunkler Rahmen (Shell) – warmes Dunkelbraun, angelehnt an die Website ── */
   --color-shell: #1a1512;
@@ -456,22 +458,27 @@ summary:focus-visible,
 
 /* ── Marken-Bereich der SaaS-Variante ──────────────────────────────────────
    Login und Registrierung sind gemeinsame Seiten beider Varianten. Statt in
-   ihnen jede Farbklasse zu verzweigen, zeigen die B&W-Tokens INNERHALB dieses
-   Bereichs auf die Wegportal24-Palette: Ein `wp-brand` auf dem <main> färbt
-   damit auch `buttonClass` & Co. mit, ohne dass die Seiten davon wissen.
+   ihnen jede Farbklasse zu verzweigen, zeigen die allgemeinen Marken-Tokens
+   INNERHALB dieses Bereichs auf die Wegportal24-Palette: Ein `wp-brand` auf
+   dem <main> färbt damit auch `buttonClass` & Co. mit, ohne dass die Seiten
+   davon wissen müssen.
 
    Möglich ist das, weil `@theme` (ohne `inline`) Utilities erzeugt, die die
    Variable per `var()` lesen – eine Überschreibung auf einem Vorfahren wirkt
    deshalb auf alles darunter.
 
-   Genau deshalb wird der Bereich NUR ohne Mandanten-Subdomain gesetzt:
-   `BrandTheme` schreibt seine Farbe auf `:root`, also weiter außen. Läge
-   `wp-brand` gleichzeitig an, gewänne es als näherer Vorfahr – und eine
-   White-Label-Kundin bekäme statt ihrer Farbe das Türkis der Plattform. */
+   Der Block sieht derzeit wirkungslos aus, weil beide Paletten dieselben
+   Werte tragen. Er ist trotzdem die Naht, an der sie sich trennen lassen:
+   Ändert eine Seite ihre Farben, wandert die andere nicht mit.
+
+   Gesetzt wird der Bereich NUR ohne Mandanten-Subdomain: `BrandTheme`
+   schreibt seine Farbe auf `:root`, also weiter außen. Läge `wp-brand`
+   gleichzeitig an, gewänne es als näherer Vorfahr – und eine White-Label-
+   Kundin bekäme statt ihrer Farbe die der Plattform. */
 .wp-brand {
   --color-brand-green: var(--color-wp-primary);
   --color-brand-green-dark: var(--color-wp-ink);
-  --color-brand-green-light: var(--color-wp-primary-dark);
+  --color-brand-green-light: var(--color-wp-primary-soft);
   --color-brand-orange: var(--color-wp-accent);
   --color-brand-orange-dark: var(--color-wp-accent-dark);
   --color-brand-orange-light: var(--color-wp-accent-light);
@@ -483,17 +490,17 @@ summary:focus-visible,
    Marken-Tönungen), während App-Shell und Login dunkel bleiben. Die Klasse
    liegt auf dem <main> der Marketing-Seiten und deckt die dunkle Shell ab. */
 .mk-light {
-  /* Kühler Papierton statt des warmen B&W-Beiges – Wegportal24 läuft blau. */
-  background-color: #f6f9fc;
+  /* Warmer Papierton, passend zu Grün und Orange. */
+  background-color: #faf8f4;
   background-image: radial-gradient(
       90% 60% at 85% -10%,
-      rgba(18, 179, 160, 0.12) 0%,
-      rgba(18, 179, 160, 0) 55%
+      rgba(246, 144, 24, 0.1) 0%,
+      rgba(246, 144, 24, 0) 55%
     ),
     radial-gradient(
       80% 55% at 0% -5%,
-      rgba(23, 84, 140, 0.09) 0%,
-      rgba(23, 84, 140, 0) 60%
+      rgba(0, 54, 48, 0.07) 0%,
+      rgba(0, 54, 48, 0) 60%
     );
   color: #374151; /* gray-700 */
 }
@@ -614,7 +621,7 @@ summary:focus-visible,
 
 /* Feines isometrisches Punktraster als Hintergrund der Szene */
 .mk-grid {
-  background-image: radial-gradient(circle, rgba(23, 84, 140, 0.16) 1px, transparent 1.4px);
+  background-image: radial-gradient(circle, rgba(0, 54, 48, 0.14) 1px, transparent 1.4px);
   background-size: 26px 26px;
   -webkit-mask-image: radial-gradient(80% 70% at 60% 45%, #000 0%, transparent 78%);
   mask-image: radial-gradient(80% 70% at 60% 45%, #000 0%, transparent 78%);

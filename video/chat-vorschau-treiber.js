@@ -58,8 +58,8 @@
   const funkeln = track.querySelector("[data-sparkles]");
 
   // Glasfarben aus dem gerenderten Markup lesen, statt sie hier zu wiederholen.
-  const GLAS_AN = "#7fe3d4";
-  const GLAS_AUS = "#cddeed";
+  const GLAS_AN = "#ffd489";
+  const GLAS_AUS = "#cfe0dd";
 
   let letzteStufe = -1;
 
@@ -111,7 +111,7 @@
       const idx = Number(g.dataset.widx);
       const cnt = Number(g.dataset.wcnt);
       const an = Math.round(auftauchen(etage) * cnt) > idx;
-      g.style.filter = an ? "drop-shadow(0 0 5px rgba(46,211,190,0.85))" : "none";
+      g.style.filter = an ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none";
       const glas = g.querySelector("[data-glass]");
       if (glas) glas.setAttribute("fill", an ? GLAS_AN : GLAS_AUS);
     });
@@ -121,7 +121,7 @@
     if (funkeln) funkeln.style.opacity = fertig ? "1" : "0";
     if (figuren) figuren.style.opacity = stufe >= DACH_AB ? "1" : "0";
     if (dachglow) {
-      dachglow.style.filter = fertig ? "drop-shadow(0 0 5px rgba(46,211,190,0.85))" : "none";
+      dachglow.style.filter = fertig ? "drop-shadow(0 0 5px rgba(246,144,24,0.85))" : "none";
       const glas = dachglow.querySelector("[data-glass]");
       if (glas) glas.setAttribute("fill", fertig ? GLAS_AN : GLAS_AUS);
     }

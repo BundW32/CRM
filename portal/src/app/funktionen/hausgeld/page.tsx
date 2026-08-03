@@ -13,7 +13,7 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Hausgeld & Mahnwesen für selbstverwaltete WEGs | wegportal.24",
+  title: "Hausgeld & Mahnwesen für selbstverwaltete WEGs | wegportal24",
   description:
     "Hausgeld ohne Streit: automatische Sollstellungen aus dem Wirtschaftsplan, " +
     "Rückstandsliste je Einheit, Zahlungszuordnung mit Vorschlag und Mahnungen " +

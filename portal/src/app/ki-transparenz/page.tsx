@@ -1,6 +1,6 @@
 // Öffentliche KI-Transparenzseite (Art. 50 KI-VO / EU AI Act).
 // Die Verordnung (EU) 2024/1689 ist seit dem 2. August 2026 in vollem Umfang
-// anwendbar. wegportal.24 ist Anbieter der beiden KI-Funktionen (Assistent und
+// anwendbar. wegportal24 ist Anbieter der beiden KI-Funktionen (Assistent und
 // Triage), die selbstverwaltende WEG bzw. Hausverwaltung ist deren Betreiber.
 // Diese Seite legt offen, welche KI eingesetzt wird, wozu, mit welchem Modell
 // und wo die Grenzen liegen. Sie ist aus der Fußzeile jeder Marketing-Seite
@@ -12,9 +12,9 @@ import { LegalPage, LegalSection } from "@/components/legal-page";
 export const dynamic = "force-static";
 
 export const metadata: Metadata = {
-  title: "KI-Transparenz nach Art. 50 KI-Verordnung | wegportal.24",
+  title: "KI-Transparenz nach Art. 50 KI-Verordnung | wegportal24",
   description:
-    "Welche KI-Funktionen wegportal.24 einsetzt, wozu, mit welchem Modell und " +
+    "Welche KI-Funktionen wegportal24 einsetzt, wozu, mit welchem Modell und " +
     "wo die Grenzen liegen – offengelegt nach Artikel 50 der EU-KI-Verordnung.",
 };
 
@@ -28,7 +28,7 @@ export default function KiTransparenzPage() {
           Die Verordnung (EU) 2024/1689 über künstliche Intelligenz („KI-Verordnung“,
           EU AI Act) ist seit dem <strong>2. August 2026</strong> in vollem Umfang
           anwendbar. Artikel 50 verpflichtet uns, offenzulegen, wo Sie es in
-          wegportal.24 mit einem KI-System zu tun haben. Diese Seite tut das – in
+          wegportal24 mit einem KI-System zu tun haben. Diese Seite tut das – in
           verständlicher Sprache und ohne Kleingedrucktes.
         </p>
       }
@@ -36,7 +36,7 @@ export default function KiTransparenzPage() {
       <LegalSection title="1. Kurzfassung">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            wegportal.24 enthält <strong>zwei</strong> KI-Funktionen: einen Assistenten für
+            wegportal24 enthält <strong>zwei</strong> KI-Funktionen: einen Assistenten für
             Rückfragen zu Ihren eigenen Unterlagen und eine Vorsortierung eingehender
             Schadensmeldungen.
           </li>
@@ -78,7 +78,7 @@ export default function KiTransparenzPage() {
       <LegalSection title="3. Wer welche Rolle hat">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            <strong>Anbieter</strong> im Sinne der KI-Verordnung ist wegportal.24 (siehe{" "}
+            <strong>Anbieter</strong> im Sinne der KI-Verordnung ist wegportal24 (siehe{" "}
             <Link href="/impressum" className="text-brand-green hover:underline">
               Impressum
             </Link>

@@ -34,7 +34,7 @@ export function MarketingHeader({ active }: { active?: string }) {
       </a>
       <header className="sticky top-0 z-40 border-b border-gray-200/80 bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <Link href="/" className="shrink-0" aria-label="wegportal.24 – zur Startseite">
+          <Link href="/" className="shrink-0" aria-label="wegportal24 – zur Startseite">
             <Wordmark className="text-xl sm:text-2xl" />
           </Link>
           <nav
@@ -166,7 +166,7 @@ export function MarketingFooter() {
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-white/60 sm:px-6">
           <p>
             © {new Date().getFullYear()}{" "}
-            wegportal.24 – ein Angebot der B&amp;W Immobilien Management UG
+            wegportal24 – ein Angebot der B&amp;W Immobilien Management UG
             (haftungsbeschränkt).
           </p>
           <p>Wirtschaftsplan · Jahresabrechnung · Hausgeld – nach §§ 19, 26a, 28 WEG</p>

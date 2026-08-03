@@ -12,7 +12,7 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "So funktioniert die WEG-Selbstverwaltung mit dem Portal | wegportal.24",
+  title: "So funktioniert die WEG-Selbstverwaltung mit dem Portal | wegportal24",
   description:
     "Schritt für Schritt von der Registrierung zur laufenden Selbstverwaltung: " +
     "WEG anlegen, Konten und Einheiten erfassen, Wirtschaftsplan beschließen, " +

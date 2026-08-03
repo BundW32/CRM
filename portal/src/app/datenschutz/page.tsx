@@ -16,7 +16,7 @@ export default function DatenschutzPage() {
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 p-4">
       <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-        <Link href="/" className="mb-6 inline-block" aria-label="wegportal.24 – zur Startseite">
+        <Link href="/" className="mb-6 inline-block" aria-label="wegportal24 – zur Startseite">
           <Wordmark className="text-2xl" />
         </Link>
         <h1 className="mb-2 text-2xl font-bold text-gray-900">Datenschutzerklärung</h1>

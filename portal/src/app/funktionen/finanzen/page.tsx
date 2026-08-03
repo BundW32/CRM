@@ -18,7 +18,7 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "WEG-Finanzen: Wirtschaftsplan, Buchhaltung & Jahresabrechnung | wegportal.24",
+  title: "WEG-Finanzen: Wirtschaftsplan, Buchhaltung & Jahresabrechnung | wegportal24",
   description:
     "So verwaltet Ihre WEG die Finanzen selbst: Wirtschaftsplan nach § 28 WEG mit " +
     "Assistent, Buchhaltung mit CSV-Bankimport, getrennte Erhaltungsrücklage und " +

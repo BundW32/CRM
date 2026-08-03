@@ -92,7 +92,7 @@ export function PlanChartVisual() {
       </div>
       <div
         className="mk-anim mt-3 inline-flex items-center gap-1.5 rounded-lg bg-good-light px-2.5 py-1.5 text-xs font-medium text-good"
-        style={{ animation: "mkPopIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "1100ms" }}
+        style={{ animation: "mkPopIn 0.45s var(--ease-mk-out) both", animationDelay: "1100ms" }}
       >
         <CalendarCheck className="h-3.5 w-3.5" />
         Beschlossen – 12 Sollstellungen je Einheit angelegt
@@ -237,7 +237,7 @@ export function StatementVisual() {
       </ul>
       <div
         className="mk-anim mt-4 inline-block -rotate-3 rounded-md border-2 border-good px-3 py-1 text-xs font-bold uppercase tracking-widest text-good"
-        style={{ animation: "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "1300ms" }}
+        style={{ animation: "mkPopIn 0.5s var(--ease-mk-out) both", animationDelay: "1300ms" }}
       >
         Festgeschrieben
       </div>
@@ -277,7 +277,7 @@ export function ArrearsVisual() {
       </div>
       <div
         className="mk-anim mt-3 flex items-center gap-2 rounded-lg bg-wp-accent-light px-2.5 py-2 text-xs font-medium text-wp-accent-ink"
-        style={{ animation: "mkPopIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "1000ms" }}
+        style={{ animation: "mkPopIn 0.45s var(--ease-mk-out) both", animationDelay: "1000ms" }}
       >
         <HandCoins className="h-4 w-4 shrink-0" />
         Zahlungseingang „+245,00 · HAUSGELD WE 2“ → Vorschlag: Einheit 2
@@ -351,7 +351,7 @@ export function VoteVisual() {
       </div>
       <div
         className="mk-anim mt-4 inline-flex items-center gap-1.5 rounded-lg bg-good-light px-2.5 py-1.5 text-xs font-medium text-good"
-        style={{ animation: "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "1200ms" }}
+        style={{ animation: "mkPopIn 0.5s var(--ease-mk-out) both", animationDelay: "1200ms" }}
       >
         <CheckCircle2 className="h-3.5 w-3.5" />
         Angenommen – automatisch in die Beschluss-Sammlung übernommen
@@ -370,7 +370,7 @@ export function MeetingVisual() {
           <div
             key={initials}
             className="mk-anim relative"
-            style={{ animation: "mkPopIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both", ...seq(i, 140) }}
+            style={{ animation: "mkPopIn 0.4s var(--ease-mk-out) both", ...seq(i, 140) }}
           >
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-wp-primary text-xs font-bold text-white">
               {initials}
@@ -406,7 +406,7 @@ export function TicketVisual() {
           <div
             key={i}
             className="mk-anim flex h-14 w-14 items-center justify-center rounded-lg bg-gradient-to-br from-gray-200 to-gray-300"
-            style={{ animation: "mkPopIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both", ...seq(i, 150) }}
+            style={{ animation: "mkPopIn 0.4s var(--ease-mk-out) both", ...seq(i, 150) }}
           >
             <ImageIcon className="h-5 w-5 text-gray-400" />
           </div>
@@ -449,7 +449,7 @@ export function RolesVisual() {
         <div
           key={name}
           className="mk-anim rounded-xl border border-gray-200 bg-white p-4 shadow-e2"
-          style={{ animation: "mkPopIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both", ...seq(i, 150) }}
+          style={{ animation: "mkPopIn 0.45s var(--ease-mk-out) both", ...seq(i, 150) }}
         >
           <Icon className="h-6 w-6 text-wp-accent-ink" />
           <p className="mt-2 text-sm font-semibold text-gray-800">{name}</p>

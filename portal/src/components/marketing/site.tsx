@@ -245,7 +245,7 @@ export function MarketingHero({
       {badge ? (
         <div
           className="absolute bottom-10 right-6 hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-800 shadow-e3 md:flex lg:right-12"
-          style={{ animation: "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "500ms" }}
+          style={{ animation: "mkPopIn 0.5s var(--ease-mk-out) both", animationDelay: "500ms" }}
         >
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-wp-accent-light">
             {badge.icon}
@@ -256,7 +256,10 @@ export function MarketingHero({
 
       {/* Scroll-Hinweis */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70">
-        <ChevronDown className="h-6 w-6 animate-bounce" />
+        <ChevronDown
+          className="h-6 w-6"
+          style={{ animation: "mkNudge 2.2s ease-in-out infinite" }}
+        />
       </div>
     </section>
   );

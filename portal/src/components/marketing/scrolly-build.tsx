@@ -304,7 +304,7 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
             <line x1={151} y1={116} x2={169} y2={116} stroke={OUTLINE} strokeWidth={2.5} />
           </g>
           {/* Zwei Bewohner vor der Tür (die Gemeinschaft zieht ein) */}
-          <g data-figs style={{ opacity: stage >= ROOF_AT ? 1 : 0, transition: "opacity 0.5s", animation: stage >= ROOF_AT ? "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both" : "none", animationDelay: "250ms" }}>
+          <g data-figs style={{ opacity: stage >= ROOF_AT ? 1 : 0, transition: "opacity 0.5s", animation: stage >= ROOF_AT ? "mkPopIn 0.5s var(--ease-mk-out) both" : "none", animationDelay: "250ms" }}>
             <rect x={104} y={390} width={15} height={24} rx={7} fill={TRIM} stroke={OUTLINE} strokeWidth={2} />
             <circle cx={111.5} cy={383} r={7} fill="#f2c9a0" stroke={OUTLINE} strokeWidth={2} />
             <rect x={124} y={396} width={13} height={18} rx={6} fill="var(--color-wp-accent)" stroke={OUTLINE} strokeWidth={2} />

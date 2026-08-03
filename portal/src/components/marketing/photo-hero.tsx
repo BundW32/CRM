@@ -133,7 +133,7 @@ export function PhotoHero({
       {badge ? (
         <div
           className="mk-anim absolute -bottom-5 left-5 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-800 shadow-e2"
-          style={{ animation: "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "400ms" }}
+          style={{ animation: "mkPopIn 0.5s var(--ease-mk-out) both", animationDelay: "400ms" }}
         >
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-wp-accent-light">
             {badge.icon}

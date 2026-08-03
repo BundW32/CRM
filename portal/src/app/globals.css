@@ -82,6 +82,14 @@
   --animate-spin-once: spinOnce 0.5s ease-in-out;
   --animate-check-pop: checkPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   --animate-drawer-in: drawerIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── Ausklang der Marketing-Animationen ──────────────────────────────────
+     Exponentielles Auslaufen (ease-out-expo). Vorher stand an elf Stellen im
+     Markup dieselbe Kurve mit Überschwinger; sie ließ Karten und Etiketten
+     über ihre Endgröße hinausschießen und zurückfedern. Echte Gegenstände
+     bremsen ab, sie federn nicht zurück – und elf Kopien einer Zahl laufen
+     ohnehin früher oder später auseinander. */
+  --ease-mk-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes pageIn {
@@ -564,9 +572,10 @@ summary:focus-visible,
   from { opacity: 0; transform: translateX(-14px); }
   to   { opacity: 1; transform: none; }
 }
+/* Ohne Überschwinger: Der Startwert liegt näher an 1 (0,92 statt 0,6), damit
+   das Einblenden ohne den Sprung über die Endgröße trotzdem Bewegung hat. */
 @keyframes mkPopIn {
-  0%   { opacity: 0; transform: scale(0.6); }
-  70%  { transform: scale(1.08); }
+  0%   { opacity: 0; transform: scale(0.92); }
   100% { opacity: 1; transform: scale(1); }
 }
 
@@ -614,6 +623,14 @@ summary:focus-visible,
   0%, 100% { transform: skewY(0deg) scaleX(1); }
   50%      { transform: skewY(-6deg) scaleX(0.94); }
 }
+/* Scroll-Hinweis: sinkt weich ab und kehrt zurück. Tailwinds `animate-bounce`
+   nutzt eine Sprungkurve mit hartem Aufsetzen – dasselbe Muster wie der
+   Überschwinger oben, nur als Endlosschleife. */
+@keyframes mkNudge {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50%      { transform: translateY(6px); opacity: 1; }
+}
+
 @keyframes mkGridPan {
   from { background-position: 0 0; }
   to   { background-position: 34px 34px; }

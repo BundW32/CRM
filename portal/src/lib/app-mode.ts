@@ -27,3 +27,11 @@ export function isWegSaas(): boolean {
 export function registrationEnabled(): boolean {
   return isWegSaas();
 }
+
+// Produktname für Fließtext auf Seiten, die BEIDE Türen ausliefern (Rechtsseiten,
+// insbesondere /ki-transparenz). Ohne diesen Helfer stünde auf
+// portal.bundwimmobilien.de „wegportal.24 ist Anbieter der KI-Funktionen" – eine
+// Aussage über das falsche Produkt. Für das Logo gibt es <PublicBrand />.
+export function productName(): string {
+  return isWegSaas() ? "wegportal.24" : "B&W Kundenportal";
+}

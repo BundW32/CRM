@@ -8,6 +8,7 @@
 // Zustand, nie ein Abbild davon.
 
 import { db } from "@/lib/db";
+import { NOT_REVERSED } from "./booking-scope";
 import { classifyDue, type DueStatus } from "./compliance";
 import { ersterFehlenderSollmonat } from "./due-postings";
 import { oposJeEinheit } from "./opos-service";
@@ -48,7 +49,7 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
   const jahr = now.getFullYear();
   const weg = `/verwaltung/weg/${propertyId}`;
 
-  const [planKommend, planIrgendeiner, abrechnungVorjahr, versammlungImJahr, pruefpflichten, rueckstaende, fehlenderSollmonat] =
+  const [planKommend, planIrgendeiner, abrechnungVorjahr, buchungenVorjahr, versammlungImJahr, pruefpflichten, rueckstaende, fehlenderSollmonat] =
     await Promise.all([
       db.economicPlan.findFirst({
         where: { propertyId, year: jahr + 1, status: "BESCHLOSSEN" },
@@ -63,6 +64,18 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
       db.annualStatement.findFirst({
         where: { propertyId, year: jahr - 1, status: "FERTIG" },
         select: { id: true },
+      }),
+      // Gab es im Vorjahr überhaupt etwas abzurechnen? „Seit 33 Tagen
+      // überfällig" für eine Gemeinschaft, die es damals noch gar nicht gab,
+      // ist keine Mahnung, sondern ein Fehlalarm — und wer den einmal
+      // durchschaut hat, liest den nächsten Eintrag auch nicht mehr.
+      // Maßgeblich sind die Daten, nicht der Kalender.
+      db.booking.count({
+        where: {
+          propertyId,
+          bookingDate: { gte: new Date(jahr - 1, 0, 1), lt: new Date(jahr, 0, 1) },
+          ...NOT_REVERSED,
+        },
       }),
       db.ownersMeeting.findFirst({
         where: {
@@ -114,7 +127,9 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
   }
 
   // ── Jahresabrechnung fürs Vorjahr ──────────────────────────────────────────
-  if (!abrechnungVorjahr) {
+  // Nur, wenn im Vorjahr überhaupt gebucht wurde: Ohne Buchungen gibt es nichts
+  // zu verteilen, und eine Frist dafür ist frei erfunden.
+  if (!abrechnungVorjahr && buchungenVorjahr > 0) {
     // Richtwert: bis Ende Juni des Folgejahres. Das ist die gängige Praxis, kein
     // gesetzlicher Stichtag – § 28 Abs. 2 WEG nennt keinen Tag.
     items.push(
@@ -212,7 +227,58 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
     });
   }
 
-  // Vorrang zuerst, dann nach Stichtag; Fristloses ans Ende.
+  return sortiere(items);
+}
+
+/** Ein Fahrplan-Eintrag mit dem Objekt, zu dem er gehört. */
+export type RoadmapEintrag = RoadmapItem & { propertyId: string; propertyName: string };
+
+/**
+ * Der Fahrplan über **alle** Objekte einer Gemeinschaft, in einer Liste.
+ *
+ * Vorher lief das über `propIds[0]` — das erste Objekt in beliebiger
+ * Datenbankreihenfolge. Eine WEG mit Wohnhaus und Tiefgarage als eigenem
+ * Grundbuch sah damit die Fristen nur eines der beiden, und nicht verlässlich
+ * desselben. Der stillste Ausgang davon: Eine Frist läuft ab, und im Programm
+ * stand nie etwas davon.
+ *
+ * Zusammengefasst statt umschaltbar: Eine Frist, die man erst nach einem Klick
+ * sieht, ist keine Frist. Das Objekt steht am Eintrag, wenn es mehrere gibt.
+ */
+export async function loadRoadmapAlle(
+  properties: readonly { id: string; name: string }[],
+  now: Date = new Date(),
+): Promise<RoadmapEintrag[]> {
+  const listen = await Promise.all(properties.map((p) => loadRoadmap(p.id, now)));
+  return mischeFahrplaene(properties, listen);
+}
+
+/**
+ * Der reine Teil von `loadRoadmapAlle` – ohne Datenbank und damit prüfbar.
+ *
+ * Zwei Dinge müssen hier stimmen, und beide fallen sonst erst in der
+ * Oberfläche auf: Die Schlüssel müssen über Objektgrenzen hinweg eindeutig
+ * bleiben (`abrechnung` gibt es sonst mehrfach, und React verliert die
+ * Zuordnung der Zeilen), und die Dringlichkeit muss über **alle** Objekte
+ * hinweg sortieren – nicht objektweise hintereinander.
+ */
+export function mischeFahrplaene(
+  properties: readonly { id: string; name: string }[],
+  listen: readonly RoadmapItem[][],
+): RoadmapEintrag[] {
+  const alle = listen.flatMap((items, i) =>
+    items.map((item) => ({
+      ...item,
+      key: `${properties[i].id}:${item.key}`,
+      propertyId: properties[i].id,
+      propertyName: properties[i].name,
+    })),
+  );
+  return sortiere(alle);
+}
+
+/** Vorrang zuerst, dann nach Stichtag; Fristloses ans Ende. */
+function sortiere<T extends RoadmapItem>(items: T[]): T[] {
   return items.sort((a, b) => {
     if (a.vorrang !== b.vorrang) return a.vorrang ? -1 : 1;
     if (!a.due && !b.due) return 0;

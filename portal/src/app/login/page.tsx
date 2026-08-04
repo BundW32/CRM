@@ -2,11 +2,11 @@ import { redirect } from "next/navigation";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, buttonClass, inputClass, Field } from "@/components/ui";
 import { BrandTheme } from "@/components/brand-theme";
-import { BwLogo, OrgLogo } from "@/components/logo";
-import { BRAND_EMAIL } from "@/components/marketing/brand";
-import { Wordmark } from "@/components/marketing/wordmark";
+import { OrgLogo } from "@/components/logo";
+import { PublicBrand } from "@/components/public-brand";
 import { db } from "@/lib/db";
 import { publicOrgLogoUrl } from "@/lib/branding";
+import { fallbackBranding } from "@/lib/branding-server";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
 import { isWegSaas, registrationEnabled } from "@/lib/app-mode";
@@ -32,9 +32,9 @@ export default async function LoginPage({
   // Auf einer Mandanten-Subdomain gilt weiterhin deren eigenes Branding.
   const wegMarke = isWegSaas() && !tenantOrg;
   // Anlaufstelle für Menschen ohne Zugang: die Verwaltung des Mandanten, sonst
-  // die Marke, unter der die Seite gerade läuft.
+  // die Adresse des Deployments (fallbackBranding folgt APP_MODE).
   const kontaktMail =
-    tenantOrg?.email ?? (wegMarke ? BRAND_EMAIL : "info@bundwimmobilien.de");
+    tenantOrg?.email ?? fallbackBranding().email ?? "info@bundwimmobilien.de";
 
   return (
     // Der dunkle Grund des Portals ist ein warmes Braun. Unter der
@@ -60,10 +60,10 @@ export default async function LoginPage({
                 {tenantOrg.name}
               </p>
             )
-          ) : wegMarke ? (
-            <Wordmark className="mb-3 justify-center text-2xl" />
           ) : (
-            <BwLogo className="mx-auto mb-1 h-20 w-auto" />
+            // Hauptdomain: je Deployment die eigene Marke – B&W-Logo auf
+            // portal.bundwimmobilien.de, Wortmarke auf wegportal24.de.
+            <PublicBrand variant="login" />
           )}
           <p className="mb-4 text-center text-sm font-medium text-gray-500">
             {wegMarke ? "Portal Ihrer Eigentümergemeinschaft" : "Kundenportal"}

@@ -59,6 +59,31 @@ export type SetupStatus = {
  */
 export async function loadSetupStatus(propertyId: string | null): Promise<SetupStatus> {
   if (!propertyId) return baueStatus(null, leereBefunde());
+  return ladeEinen(propertyId);
+}
+
+/**
+ * Der Einrichtungsstand **jedes** Objekts, in der übergebenen Reihenfolge.
+ *
+ * Der Grund für diese Funktion: Bisher fragte die Übersicht `propIds[0]` ab —
+ * das erste Objekt in beliebiger Datenbankreihenfolge. War davon eines fertig
+ * eingerichtet, galt die Einrichtung als erledigt, und ein danach angelegtes
+ * zweites Objekt bekam nie einen Assistenten. Genau so ist es beim Anlegen
+ * einer Muster-WEG passiert: Die Führung existierte und war unerreichbar.
+ *
+ * Bewusst **nicht** für professionelle Verwaltungen gedacht: Jeder Aufruf
+ * kostet sieben Abfragen, und bei achtzig Objekten liefe das in jeder
+ * Seitenauslieferung. Dort steht der Assistent im Arbeitsbereich des Objekts,
+ * das man gerade ansieht — dann ist es genau einer.
+ */
+export async function loadSetupStatusAlle(
+  propertyIds: readonly string[],
+): Promise<SetupStatus[]> {
+  if (propertyIds.length === 0) return [];
+  return Promise.all(propertyIds.map((id) => ladeEinen(id)));
+}
+
+async function ladeEinen(propertyId: string): Promise<SetupStatus> {
 
   const [property, unitAgg, unitCount, ownedUnits, konten, kostenarten, manuell] =
     await Promise.all([

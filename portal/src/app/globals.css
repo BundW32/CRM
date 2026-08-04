@@ -691,3 +691,150 @@ summary:focus-visible,
     transform: none;
   }
 }
+
+/* ── Marketing-Seiten: heller, warmer Seitengrund ──────────────────────────
+   Die öffentlichen Seiten laufen hell und einladend (Papierton mit sanften
+   Marken-Tönungen), während App-Shell und Login dunkel bleiben. Die Klasse
+   liegt auf dem <main> der Marketing-Seiten und deckt die dunkle Shell ab. */
+.mk-light {
+  background-color: #faf8f4;
+  background-image: radial-gradient(
+      90% 60% at 85% -10%,
+      rgba(246, 144, 24, 0.1) 0%,
+      rgba(246, 144, 24, 0) 55%
+    ),
+    radial-gradient(
+      80% 55% at 0% -5%,
+      rgba(0, 54, 48, 0.07) 0%,
+      rgba(0, 54, 48, 0) 60%
+    );
+  color: #374151; /* gray-700 */
+}
+
+/* ── Marketing-Seiten: Scroll-Reveals & bewegte Illustrationen ─────────────
+   `.mk-reveal` blendet Abschnitte beim Scrollen ein (Klasse `is-visible` setzt
+   der Reveal-Client-Component per IntersectionObserver). Kind-Animationen mit
+   `.mk-anim` starten pausiert und laufen erst an, wenn der Abschnitt sichtbar
+   wird – so spielen Sequenzen genau einmal beim Hereinscrollen. */
+.mk-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.6s ease-out, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.mk-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+.mk-reveal .mk-anim {
+  animation-play-state: paused;
+}
+.mk-reveal.is-visible .mk-anim {
+  animation-play-state: running;
+}
+
+/* Ruhige Dauer-Animationen (Hero-Illustrationen) */
+@keyframes mkFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+/* Ken-Burns-Zoom für Foto-Heros: sehr langsam, alternierend, kaum merklich
+   ruckartig – der Container ist etwas größer als der sichtbare Ausschnitt
+   (siehe -inset-3 am Aufrufer), damit beim Zoomen keine Kanten sichtbar werden. */
+@keyframes mkKenBurns {
+  0%   { transform: scale(1) translate(0, 0); }
+  100% { transform: scale(1.09) translate(-1%, 1%); }
+}
+@keyframes mkOrbit {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes mkOrbitCounter {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+@keyframes mkPulseSoft {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+
+/* Einmalige Einblend-Sequenzen (mit animation-delay gestaffelt) */
+@keyframes mkGrowY {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+@keyframes mkGrowX {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@keyframes mkRowIn {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes mkPopIn {
+  0%   { opacity: 0; transform: scale(0.6); }
+  70%  { transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Pendelnde Bewegungen (Endlosschleife) */
+@keyframes mkShuttle {
+  0%, 12%  { transform: translateX(0); opacity: 0; }
+  22%      { opacity: 1; }
+  78%      { opacity: 1; }
+  88%, 100% { transform: translateX(var(--mk-shuttle-x, 9rem)); opacity: 0; }
+}
+@keyframes mkLetterOut {
+  0%, 20%   { transform: translateY(42%); }
+  60%, 100% { transform: translateY(0); }
+}
+/* Drei gestapelte Status-Chips wechseln sich durch (je 1/3 der Zeit sichtbar) */
+@keyframes mkCycle3 {
+  0%, 27%   { opacity: 1; }
+  33%, 94%  { opacity: 0; }
+  100%      { opacity: 1; }
+}
+
+/* ── Cineastische Szene (Scrollytelling-Hero) ──────────────────────────────
+   Ambiente Ebenen: aufsteigende Partikel, driftende Lichtflächen, mitwachsende
+   Energie-Leiste, pulsende Knoten, wehende Fahne und Funkeln bei Fertigstellung. */
+@keyframes mkRise {
+  0%   { transform: translateY(24px) scale(0.9); opacity: 0; }
+  12%  { opacity: var(--mk-op, 0.5); }
+  85%  { opacity: var(--mk-op, 0.5); }
+  100% { transform: translateY(-160px) scale(1); opacity: 0; }
+}
+@keyframes mkDrift {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(var(--mk-dx, 18px), var(--mk-dy, -14px)); }
+}
+@keyframes mkBeam {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+@keyframes mkSparkle {
+  0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 0; }
+  40%  { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.5) rotate(120deg); opacity: 0; }
+}
+@keyframes mkFlag {
+  0%, 100% { transform: skewY(0deg) scaleX(1); }
+  50%      { transform: skewY(-6deg) scaleX(0.94); }
+}
+@keyframes mkGridPan {
+  from { background-position: 0 0; }
+  to   { background-position: 34px 34px; }
+}
+
+/* Feines isometrisches Punktraster als Hintergrund der Szene */
+.mk-grid {
+  background-image: radial-gradient(circle, rgba(0, 54, 48, 0.14) 1px, transparent 1.4px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(80% 70% at 60% 45%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(80% 70% at 60% 45%, #000 0%, transparent 78%);
+}
+
+  /* Reveals ohne Bewegung sofort zeigen */
+  .mk-reveal {
+    opacity: 1;
+    transform: none;
+  }

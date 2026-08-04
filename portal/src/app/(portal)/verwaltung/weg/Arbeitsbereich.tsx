@@ -5,7 +5,9 @@ import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { loadRoadmap } from "@/lib/weg/roadmap";
+import { loadSetupStatus } from "@/lib/weg/setup-status";
 import { Roadmap } from "@/app/(portal)/dashboard/Roadmap";
+import { SetupGuide } from "@/app/(portal)/dashboard/SetupGuide";
 
 /**
  * Finanz-Arbeitsbereich eines WEG-Objekts.
@@ -61,6 +63,8 @@ export async function WegArbeitsbereich({
     }),
     selfManaged ? Promise.resolve(null) : loadRoadmap(property.id),
   ]);
+
+  const setup = await loadSetupStatus(property.id);
 
   const saldo = (accountId: string, opening: number) => {
     let b = opening;
@@ -167,9 +171,18 @@ export async function WegArbeitsbereich({
         </Card>
       ) : null}
 
+      {/* Die Einrichtung dieses Objekts, solange sie läuft.
+          Hier steht sie richtig: Der Assistent hing bisher am Dashboard der
+          Selbstverwaltung und erreichte professionelle Verwaltungen deshalb
+          nie — obwohl auch B&W neue WEGs aufnimmt und dieselbe fachlich
+          zwingende Reihenfolge einhalten muss. Der Arbeitsbereich gehört
+          ohnehin zu genau einem Objekt; damit ist auch die Frage erledigt,
+          welches gemeint ist. */}
+      {!setup.fertig ? <SetupGuide status={setup} isAdmin objektName={property.name} /> : null}
+
       {/* Was ansteht — dieselbe Ableitung wie im Dashboard. */}
       {roadmap ? (
-        <Roadmap items={roadmap} propertyId={property.id} />
+        <Roadmap items={roadmap} properties={[property]} />
       ) : (
         <Tipp className="px-1">
           Was in diesem Jahr ansteht, steht auf Ihrer{" "}

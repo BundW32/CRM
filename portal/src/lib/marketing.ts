@@ -1,14 +1,22 @@
-// Die öffentlichen Marketing-Seiten gehören allein zur WEG-SaaS-Variante
-// (APP_MODE=weg) und dort nur auf die Hauptdomain. In der Verwaltungs-Variante
-// und auf Mandanten-Subdomains (White-Label) bleibt der gebrandete Login der
-// einzige öffentliche Einstieg – dorthin wird umgeleitet.
+// Wächter der öffentlichen Marketing-Seiten (Startseite, /funktionen/*,
+// /so-funktionierts). Sie werben für die Self-Service-Registrierung und tragen
+// die Marke wegportal24 – beides gibt es nur in der WEG-SaaS.
 //
-// Ein Wächter für alle Unterseiten, damit das Gating nicht auf fünf Seiten
-// getrennt gepflegt werden muss; `src/app/page.tsx` prüft dasselbe inline,
-// weil es davor noch den eingeloggten Nutzer ins Portal schickt.
+// Zwei Bedingungen müssen zusammen erfüllt sein:
+//  1. APP_MODE=weg – in der B&W-Tür (portal.bundwimmobilien.de) ist der Login
+//     der einzige öffentliche Einstieg; eine Landing mit „Kostenlos starten"
+//     würde dort auf eine gesperrte Registrierung zeigen.
+//  2. Hauptdomain – auf Mandanten-Subdomains (White Label) bleibt der
+//     gebrandete Login der Einstieg, sonst überschriebe wegportal24 die Marke
+//     des Mandanten.
+//
+// NICHT hierher gehören die Rechtsseiten (/impressum, /datenschutz, /agb,
+// /avv, /ki-transparenz): Die müssen in beiden Türen erreichbar bleiben –
+// /ki-transparenz insbesondere, weil Art. 50 EU-KI-VO auch für B&W gilt. Sie
+// laufen über `LegalPage` und holen sich ihr Logo modusabhängig.
 import { redirect } from "next/navigation";
-import { getTenantOrg } from "./tenant";
 import { isWegSaas } from "./app-mode";
+import { getTenantOrg } from "./tenant";
 
 export async function assertMainDomain() {
   if (!isWegSaas()) redirect("/login");

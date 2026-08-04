@@ -3,6 +3,7 @@ import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { notFound } from "next/navigation";
 import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Badge } from "@/components/data-display";
 import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
@@ -180,7 +181,15 @@ Muster — ersetzt keine Rechtsberatung.`;
           </div>
         }
       >
-        Wirtschaftsplan {plan.year} · {property.name}
+        Wirtschaftsplan {plan.year} · {property.name}{" "}
+        {/* Der Unterschied zwischen „gespeichert" und „beschlossen" ist der
+            zwischen einer Tabelle und einer Zahlungspflicht. Er stand bisher
+            nur im Hinweistext unter dem Knopf — und der ist abschaltbar. */}
+        <Badge tone={isDraft ? "warning" : "success"}>
+          {isDraft
+            ? "Entwurf — noch nicht bindend"
+            : `Beschlossen${plan.resolvedAt ? ` am ${formatDateOnly(plan.resolvedAt)}` : ""}`}
+        </Badge>
       </PageTitle>
 
       {sp.gespeichert ? (
@@ -427,9 +436,21 @@ Muster — ersetzt keine Rechtsberatung.`;
                   className="w-auto"
                   hint="Muss ein Monatserster sein. Leer = Beginn des Wirtschaftsjahres."
                 />
-                <PendingButton className={buttonClass} disabled={Boolean(advanceError)}>
-                  Als beschlossen markieren &amp; Sollstellungen erzeugen
-                </PendingButton>
+                {/* Rückfrage, weil der Klick echte Forderungen an jeden
+                    Eigentümer erzeugt und sich nicht zurücknehmen lässt. */}
+                {advanceError ? (
+                  <PendingButton className={buttonClass} disabled>
+                    Als beschlossen markieren &amp; Sollstellungen erzeugen
+                  </PendingButton>
+                ) : (
+                  <ConfirmActionButton
+                    className={buttonClass}
+                    confirmLabel="Wurde der Plan in der Versammlung beschlossen? Dies erzeugt Zahlungsforderungen an alle Eigentümer."
+                    pendingLabel="Wird eingetragen…"
+                  >
+                    Als beschlossen markieren &amp; Sollstellungen erzeugen
+                  </ConfirmActionButton>
+                )}
               </form>
             </>
           ) : null}

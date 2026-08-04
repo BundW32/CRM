@@ -116,6 +116,30 @@ npm run db:seed             # Demo-Zugänge anlegen (nur für Entwicklung!)
 npm run dev                 # http://localhost:3000
 ```
 
+### Prüfungen mit Datenbank
+
+`npm run pruefung` (Typen, ESLint, Vitest) läuft ohne Datenbank — bewusst, denn
+es läuft auch im Vercel-Build. Die Prüfungen der Zugriffskontrolle und der
+WEG-Ableitungen (`*.dbtest.ts`) brauchen dagegen eine echte Datenbank und
+hängen an `npm run test:db`.
+
+Wer keine zur Hand hat, startet in einer Minute eine eigene:
+
+```bash
+PGDATA=/var/lib/postgresql/testdata
+initdb -D $PGDATA -U postgres --auth=trust -E UTF8      # als Nutzer „postgres"
+pg_ctl -D $PGDATA -l /tmp/pg.log start
+createdb -U postgres portal_test
+
+export DATABASE_URL="postgresql://postgres@127.0.0.1:5432/portal_test"
+npx prisma migrate deploy
+npm run test:db
+```
+
+Die Binaries liegen unter `/usr/lib/postgresql/<version>/bin`, falls sie nicht
+im `PATH` stehen. Der Harnisch (`src/test/harness.ts`) leert die Tabellen vor
+jedem Lauf selbst — die Datenbank darf also getrost eine Wegwerf-Instanz sein.
+
 Demo-Zugänge aus dem Seed (nicht in Produktion einspielen):
 
 | Rolle      | E-Mail                     | Passwort          |

@@ -139,6 +139,19 @@ trägt — bei einem einzelnen Formular oben ist der Sprung nach oben kein Verlu
   Ende der Funktion — niemals an ein frühes `if (!erlaubt) redirect(…)`. Ein
   Rechte-Fehler, der „Gespeichert." meldet, ist schlimmer als gar keine
   Rückmeldung.
+- **Wächter schweigen aber auch nicht.** Der umgekehrte Fall ist genauso
+  schlecht: `if (!actor.isSuperAdmin) redirect(zurueckZurListe(formData))` führt
+  kommentarlos in die Liste zurück, der Eintrag steht noch da, und der Knopf
+  wirkt kaputt statt gesperrt. Dafür gibt es `?flash=keine-berechtigung` — den
+  einzigen Fehler-Code in `flash.ts`, weil an einer Liste kein Formular hängt,
+  an das ein `<Alert>` gehören könnte. Formularfehler bleiben Banner.
+
+**Und eine Sperre nennt, was sie sperrt.** Wer elf gezählte Beziehungen zu einer
+Summe addiert und dann „z. B. Mieter, Buchungen oder Vorgänge" schreibt, hat die
+Antwort in der Hand und gibt sie nicht heraus. `src/lib/belegung.ts` übersetzt
+die `_count`-Schlüssel in Klartext; `belegung.test.ts` hält fest, dass jede vom
+Wächter abgefragte Beziehung dort einen Namen hat — sonst fällt eine neu
+hinzugefügte still aus der Meldung und sperrt weiter, ohne sich zu nennen.
 
 Zwei Tests halten das fest: `src/lib/flash.test.ts` (jeder verwendete Code
 existiert — ein fehlender schaltet die Meldung **still** ab, ohne dass

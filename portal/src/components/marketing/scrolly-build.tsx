@@ -184,7 +184,22 @@ function FlowerBox({ x, y, w = 34 }: { x: number; y: number; w?: number }) {
   );
 }
 
-function Building({ stage, progress }: { stage: number; progress: number }) {
+// `className` bestimmt die Größe des Hauses — die Zeichnung selbst ist ein
+// SVG mit `inset-0` und skaliert mit. Die kleinen Ausgaben in der gestapelten
+// Liste (Mobil, reduzierte Bewegung) sind Deko neben dem Schritt-Text und
+// bekommen deshalb `dekorativ`, damit Screenreader die Bauphase nicht
+// sechsmal vorlesen.
+function Building({
+  stage,
+  progress,
+  className = "h-[430px] w-[300px]",
+  dekorativ = false,
+}: {
+  stage: number;
+  progress: number;
+  className?: string;
+  dekorativ?: boolean;
+}) {
   const N = STAGES.length; // 6
   const done = stage >= DONE_AT;
   const subDone = clamp01(progress * N - DONE_AT);
@@ -200,15 +215,21 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
   const lit = (s: number, count: number, index: number) => Math.round(appear(s) * count) > index;
 
   return (
-    <div className="relative mx-auto h-[430px] w-[300px]">
-      {/* Glühen bei Fertigstellung */}
+    <div className={`relative mx-auto ${className}`}>
+      {/* Glühen bei Fertigstellung — in Prozent, damit es jede Größe mitgeht. */}
       <div
         data-glow
-        className="pointer-events-none absolute left-1/2 top-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-wp-accent/30 blur-3xl transition-opacity duration-700"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[74%] w-[107%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-wp-accent/30 blur-3xl transition-opacity duration-700"
         style={{ opacity: done ? 0.55 + 0.45 * subDone : 0 }}
       />
 
-      <svg viewBox="0 0 320 470" className="absolute inset-0 h-full w-full" role="img" aria-label="Ein Haus baut sich Stockwerk für Stockwerk auf">
+      <svg
+        viewBox="0 0 320 470"
+        className="absolute inset-0 h-full w-full"
+        {...(dekorativ
+          ? { "aria-hidden": true as const }
+          : { role: "img", "aria-label": "Ein Haus baut sich Stockwerk für Stockwerk auf" })}
+      >
         {/* ── Baukran (hinter dem Haus, verschwindet bei Fertigstellung) ── */}
         <g data-crane style={{ ...rise(0), opacity: done ? 0 : appear(0), transition: "opacity 0.7s" }}>
           <rect x={297} y={104} width={8} height={330} fill={TRIM} />
@@ -334,11 +355,15 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
         </g>
       </svg>
 
-      {/* Info-Chip am Fundament */}
-      <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-medium text-gray-600 shadow-e2">
-        <Users className="h-3.5 w-3.5 text-wp-accent-ink" />
-        Einheiten · Miteigentumsanteile · Konten
-      </div>
+      {/* Info-Chip am Fundament. In der kleinen Ausgabe entfällt er: Seine
+          Breite hängt am Text, nicht an der Zeichnung – neben einer 88 px
+          breiten Karte ragte er aus dem Bildschirm heraus. */}
+      {dekorativ ? null : (
+        <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-medium text-gray-600 shadow-e2">
+          <Users className="h-3.5 w-3.5 text-wp-accent-ink" />
+          Einheiten · Miteigentumsanteile · Konten
+        </div>
+      )}
 
       {/* Funkeln bei Fertigstellung */}
       <div data-sparkles className="pointer-events-none absolute inset-0 transition-opacity duration-500" style={{ opacity: done ? 1 : 0 }}>
@@ -377,8 +402,15 @@ function Building({ stage, progress }: { stage: number; progress: number }) {
   );
 }
 
-// ── Fallback ohne Animation (prefers-reduced-motion) ──────────────────────
+// ── Gestapelte Liste: auf dem Handy und bei reduzierter Bewegung ──────────
+//
+// Ohne Scroll-Pinning (das gilt erst ab `lg`) kann das Haus nicht stehen
+// bleiben, während der Text daran vorbeizieht. Statt es ganz wegzulassen –
+// dann fehlte auf dem Handy genau das Bild, um das es geht – trägt jede Stufe
+// ihr eigenes Haus in genau dem Bauzustand, den sie beschreibt. Beim Scrollen
+// durch die Karten wächst es damit von Stufe zu Stufe, ganz ohne Skript.
 function ReducedFallback() {
+  const N = STAGES.length;
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
       <h2 className="text-2xl font-bold text-wp-ink sm:text-3xl">
@@ -386,15 +418,30 @@ function ReducedFallback() {
       </h2>
       <ol className="mt-8 space-y-4">
         {STAGES.map((s, i) => (
-          <li key={s.title} className="flex gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-e1">
+          <li
+            key={s.title}
+            className="flex flex-wrap items-start gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-e1"
+          >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-wp-accent font-display text-base font-bold text-wp-on-accent">
               {i + 1}
             </span>
-            <div>
+            {/* `basis` hält den Text mindestens 12 rem breit – darunter umbricht
+                die Zeile lieber, als den Satz in Zwei-Wort-Zeilen zu pressen.
+                Genau dann rutscht das Haus in die nächste Reihe und steht dort
+                mittig unter dem Schritt. */}
+            <div className="min-w-0 flex-1 basis-48">
               <p className="text-xs font-semibold uppercase tracking-wider text-wp-accent-ink">{s.step}</p>
               <h3 className="mt-1 text-lg font-semibold text-gray-900">{s.title}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{s.text}</p>
             </div>
+            {/* `progress` so gewählt, dass die Bauteile dieser Stufe voll
+                dastehen: appear(i) = 1 bei progress · N − i ≥ 1. */}
+            <Building
+              stage={i}
+              progress={(i + 1) / N}
+              className="mx-auto h-[168px] w-[118px] shrink-0"
+              dekorativ
+            />
           </li>
         ))}
       </ol>

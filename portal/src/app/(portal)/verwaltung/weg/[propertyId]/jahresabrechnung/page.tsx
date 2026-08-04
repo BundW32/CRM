@@ -33,10 +33,37 @@ export default async function JahresabrechnungListPage({
     select: { year: true },
   });
 
-  const lastYear = new Date().getFullYear() - 1;
+  const thisYear = new Date().getFullYear();
+  const lastYear = thisYear - 1;
   // Bewusst gegen ALLE Jahrgänge geprüft, nicht gegen die gefilterte Liste –
   // sonst schlüge das Formular bei aktivem Filter ein falsches Jahr vor.
-  const suggestedYear = allYears.some((s) => s.year === lastYear) ? lastYear + 1 : lastYear;
+  const vorschlag = allYears.some((s) => s.year === lastYear) ? lastYear + 1 : lastYear;
+
+  // Das Vorjahr ist nur dann der richtige Vorschlag, wenn es die Gemeinschaft
+  // damals schon gab. Eine 2026 gegründete WEG bekam sonst „2025" vorgeschlagen
+  // — ein Jahr, für das es nichts abzurechnen gibt und nie geben wird. Der
+  // Kalender allein weiß das nicht; die Daten wissen es.
+  const [ersterPlan, ersteBuchung] = await Promise.all([
+    db.economicPlan.findFirst({
+      where: { propertyId: property.id },
+      orderBy: { year: "asc" },
+      select: { year: true },
+    }),
+    db.booking.findFirst({
+      where: { propertyId: property.id },
+      orderBy: { bookingDate: "asc" },
+      select: { bookingDate: true },
+    }),
+  ]);
+  const datenAb = Math.min(
+    ersterPlan?.year ?? Number.POSITIVE_INFINITY,
+    ersteBuchung?.bookingDate.getFullYear() ?? Number.POSITIVE_INFINITY,
+  );
+  // Ohne jede Datenspur bleibt es beim bisherigen Vorschlag – dann ist nichts
+  // Besseres bekannt. Nie über das laufende Jahr hinaus.
+  const suggestedYear = Number.isFinite(datenAb)
+    ? Math.min(Math.max(vorschlag, datenAb), thisYear)
+    : vorschlag;
 
   const yearFilters: FilterConfig[] = [
     {

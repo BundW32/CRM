@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Tipp } from "@/components/tipp";
 import { redirect } from "next/navigation";
 import {
   HardDriveDownload,
@@ -62,6 +63,12 @@ export default async function EinstellungenPage() {
                 <span className="text-gray-300 transition group-hover:text-brand-orange">→</span>
               </div>
               {item.desc ? <p className="mt-2 text-sm text-gray-600">{item.desc}</p> : null}
+              {/* Ein Laie liest fünf Kacheln mit Paragraphen im Untertitel und
+                  schließt daraus, dass er etwas versäumt, wenn er sie nicht
+                  versteht. Die meisten betreffen ihn schlicht nie. */}
+              {item.nurWenn ? (
+                <Tipp className="mt-1">Nur relevant, wenn {item.nurWenn}.</Tipp>
+              ) : null}
             </Link>
           );
         })}

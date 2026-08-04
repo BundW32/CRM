@@ -52,7 +52,7 @@ export const GLOSSAR = {
   },
   erhaltungsruecklage: {
     erklaerung:
-      "Das Gespartes für größere Reparaturen, streng getrennt vom laufenden Konto. Früher „Instandhaltungsrücklage“ genannt.",
+      "Das Ersparte für größere Reparaturen, streng getrennt vom laufenden Konto. Früher „Instandhaltungsrücklage“ genannt.",
     paragraph: "§ 19 Abs. 2 Nr. 4 WEG",
   },
   umlageschluessel: {
@@ -81,6 +81,10 @@ export const GLOSSAR = {
     erklaerung:
       "Von der Versammlung gewählte Eigentümer, die die Verwaltung unterstützen und die Jahresabrechnung vor der Beschlussfassung prüfen.",
     paragraph: "§ 29 WEG",
+  },
+  reinvermoegen: {
+    erklaerung:
+      "Was der Gemeinschaft nach Abzug ihrer Schulden bleibt: Kontostände und Forderungen minus offener Rechnungen und Darlehen.",
   },
   vermoegensbericht: {
     erklaerung:

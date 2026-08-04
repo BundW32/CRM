@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { hinweiseVoreinstellung } from "@/lib/access";
 import { brandingFromOrg } from "@/lib/branding";
 import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { createSession } from "@/lib/session";
@@ -145,6 +146,9 @@ export async function registerOrganization(formData: FormData) {
         passwordHash,
         organizationId: org.id,
         isSuperAdmin: true,
+        // Erklärende Hinweise für Selbstverwaltungen an, für professionelle
+        // Verwaltungen aus – umschaltbar unter „Konto".
+        showHints: hinweiseVoreinstellung("VERWALTER", { accountType }),
         // Nur der Hash landet in der Datenbank – der Rohwert bleibt allein im
         // Bestätigungslink.
         emailVerifyToken: hashToken(verifyToken),

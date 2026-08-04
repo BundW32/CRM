@@ -33,8 +33,60 @@ export type AssistantResult = {
   sources: AssistantSource[];
 };
 
+/**
+ * Normalisiert einen Schalter aus der Umgebung.
+ *
+ * In einer `.env`-Datei schreibt man `AI_ASSISTANT_ENABLED="true"`, und die
+ * Anführungszeichen fallen beim Einlesen weg. In der Vercel-Oberfläche trägt man
+ * den Wert dagegen in ein Formularfeld ein — wer die Zeichen aus der Vorlage
+ * mitkopiert, bekommt buchstäblich `"true"` gespeichert. Der Vergleich schlug
+ * dann fehl, und der Assistent blieb ohne jede Meldung aus.
+ *
+ * Bewusst nur Rand und Anführungszeichen abschneiden: Ein anderer Wert
+ * aktiviert weiterhin nichts.
+ */
+function schalter(raw: string | undefined): boolean {
+  return (raw ?? "").trim().replace(/^["']|["']$/g, "").toLowerCase() === "true";
+}
+
 export function isAssistantEnabled(): boolean {
-  return process.env.AI_ASSISTANT_ENABLED === "true" && Boolean(process.env.GEMINI_API_KEY);
+  return schalter(process.env.AI_ASSISTANT_ENABLED) && Boolean(schluessel());
+}
+
+/** Der API-Schlüssel, um Rand und mitkopierte Anführungszeichen bereinigt. */
+function schluessel(): string {
+  return (process.env.GEMINI_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
+}
+
+export type AssistentStatus = {
+  aktiv: boolean;
+  schalterGesetzt: boolean;
+  /** Der Rohwert ist gesetzt, ergibt aber kein „true" — meist ein Tippfehler. */
+  schalterUnverstanden: string | null;
+  schluesselGesetzt: boolean;
+  modell: string;
+};
+
+/**
+ * Warum der Assistent (nicht) erscheint — für die Einstellungsseite.
+ *
+ * Ohne diese Auskunft gab es keine: Fehlt eine der beiden Variablen, rendert
+ * das Layout die Sprechblase kommentarlos nicht. Keine Fehlermeldung, kein
+ * Protokolleintrag, nichts. Wer das nicht im Quelltext nachliest, sucht lange —
+ * und genau das ist passiert.
+ *
+ * Gibt **nie** den Schlüssel selbst heraus, nur ob einer da ist.
+ */
+export function assistentStatus(): AssistentStatus {
+  const roh = (process.env.AI_ASSISTANT_ENABLED ?? "").trim();
+  const an = schalter(process.env.AI_ASSISTANT_ENABLED);
+  return {
+    aktiv: isAssistantEnabled(),
+    schalterGesetzt: an,
+    schalterUnverstanden: roh && !an ? roh.slice(0, 40) : null,
+    schluesselGesetzt: Boolean(schluessel()),
+    modell: process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash",
+  };
 }
 
 // Rollen, die den Assistenten sehen (WEG-Inhalte sind Eigentümer-/Verwalter-Sache).
@@ -311,8 +363,9 @@ export async function askAssistant(user: User, question: string): Promise<Assist
     `Gib in "used" die Nummern der tatsächlich genutzten Quellen an (leer, wenn keine passt).\n\n` +
     `QUELLEN:\n${context}\n\nFRAGE: ${q}`;
 
-  const key = process.env.GEMINI_API_KEY!;
-  const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+  // Bereinigt, damit mitkopierte Anführungszeichen nicht in die URL wandern.
+  const key = schluessel();
+  const model = process.env.GEMINI_MODEL?.trim().replace(/^["']|["']$/g, "") || "gemini-2.0-flash";
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 12000);

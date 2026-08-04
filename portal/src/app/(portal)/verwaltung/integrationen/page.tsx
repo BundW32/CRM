@@ -5,6 +5,7 @@ import { maskSecret } from "@/lib/crypto";
 import { decryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { INTEGRATION_AREAS } from "@/lib/integrations";
+import { assistentStatus } from "@/lib/assistant";
 import { requireVerwalter } from "@/lib/session";
 import { clearIntegration, saveIntegration } from "./actions";
 
@@ -22,6 +23,7 @@ export default async function IntegrationenPage({
 }) {
   const verwalter = await requireVerwalter();
   const sp = await searchParams;
+  const assistent = assistentStatus();
 
   const settings = await db.integrationSetting.findMany({
     where: { organizationId: verwalter.organizationId },
@@ -61,6 +63,54 @@ export default async function IntegrationenPage({
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">{FEHLER[sp.fehler] ?? "Eingabe konnte nicht verarbeitet werden."}</Alert>
       ) : null}
+
+      {/* Der KI-Assistent hängt nicht an einem hier hinterlegten Schlüssel,
+          sondern an zwei Server-Variablen. Fehlt eine, rendert das Layout die
+          Sprechblase kommentarlos nicht — ohne Fehlermeldung und ohne
+          Protokolleintrag. Diese Karte sagt, woran es liegt; sie ist der
+          einzige Ort im Programm, an dem das überhaupt sichtbar wird. */}
+      <div className="mb-4">
+      <Card title="KI-Assistent">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <Badge tone={assistent.aktiv ? "success" : "neutral"}>
+            {assistent.aktiv ? "Aktiv" : "Nicht aktiv"}
+          </Badge>
+          <span className="text-xs text-gray-400">
+            Sprechblase unten rechts · Modell {assistent.modell}
+          </span>
+        </div>
+        {assistent.aktiv ? (
+          <p className="text-sm text-gray-600">
+            Der Assistent antwortet ausschließlich aus Unterlagen, die der Fragende ohnehin
+            sehen darf. Sichtbar ist er für Verwalter und Eigentümer, nicht für Mieter.
+          </p>
+        ) : (
+          <div className="text-sm text-gray-600">
+            <p className="mb-2">Es fehlt in den Umgebungsvariablen des Deployments:</p>
+            <ul className="mb-2 list-disc pl-5">
+              {!assistent.schalterGesetzt ? (
+                <li>
+                  <code>AI_ASSISTANT_ENABLED</code> —{" "}
+                  {assistent.schalterUnverstanden
+                    ? `steht auf „${assistent.schalterUnverstanden}“ und muss genau true lauten (ohne Anführungszeichen)`
+                    : "muss auf true stehen"}
+                </li>
+              ) : null}
+              {!assistent.schluesselGesetzt ? (
+                <li>
+                  <code>GEMINI_API_KEY</code> — noch kein Schlüssel hinterlegt
+                </li>
+              ) : null}
+            </ul>
+            <p className="text-xs text-gray-500">
+              Änderungen an Umgebungsvariablen greifen erst nach einem neuen Deployment —
+              und sie müssen für die Umgebung <em>Production</em> gesetzt sein, nicht nur
+              für Preview.
+            </p>
+          </div>
+        )}
+      </Card>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         {INTEGRATION_AREAS.map((area) => {

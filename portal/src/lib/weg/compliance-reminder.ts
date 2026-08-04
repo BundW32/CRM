@@ -2,6 +2,7 @@
 // Ohne konfigurierten SMTP-Adapter (isMailEnabled === false) passiert nichts —
 // die Fälligkeiten stehen ohnehin im Dashboard. Wird per Cron täglich angestoßen.
 import { getBrandingForOrg } from "@/lib/branding-server";
+import { signOffName } from "@/lib/branding";
 import { db } from "@/lib/db";
 import { formatDateOnly, maintenanceIntervalLabels } from "@/lib/labels";
 import { isMailEnabled, portalUrl, sendMail } from "@/lib/mailer";
@@ -80,7 +81,7 @@ export async function runComplianceReminders(now: Date = new Date()): Promise<Re
       await sendMail(
         v.email,
         "Fällige Prüfpflichten Ihrer WEG",
-        `Guten Tag ${v.name},\n\n${body}\n\nMit freundlichen Grüßen\n${branding.legalName}`,
+        `Guten Tag ${v.name},\n\n${body}\n\nMit freundlichen Grüßen\n${signOffName(branding)}`,
         undefined,
         branding,
       ).catch(() => {});

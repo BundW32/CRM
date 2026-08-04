@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { signOffName } from "@/lib/branding";
 import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
@@ -181,7 +182,7 @@ export async function registerOrganization(formData: FormData) {
       `Bitte bestätigen Sie Ihre E-Mail-Adresse über diesen Link (gültig 3 Tage):\n` +
       `${verifyLink}\n\n` +
       nextStepLine +
-      `Mit freundlichen Grüßen\n${branding.legalName}`,
+      `Mit freundlichen Grüßen\n${signOffName(branding)}`,
     undefined,
     branding
   );

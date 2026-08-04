@@ -3,7 +3,7 @@
 import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { brandingFromOrg } from "@/lib/branding";
+import { brandingFromOrg, signOffName } from "@/lib/branding";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireUser } from "@/lib/session";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -37,7 +37,7 @@ export async function resendVerification() {
     `Guten Tag ${user.name},\n\n` +
       `bitte bestätigen Sie Ihre E-Mail-Adresse über diesen Link (gültig 3 Tage):\n` +
       `${link}\n\n` +
-      `Mit freundlichen Grüßen\n${branding.legalName}`,
+      `Mit freundlichen Grüßen\n${signOffName(branding)}`,
     undefined,
     branding
   );

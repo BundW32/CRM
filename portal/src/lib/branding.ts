@@ -91,6 +91,13 @@ export type OrgBranding = {
   primaryColor: string;
   logoStoredName: string | null;
   isDefault: boolean; // true = Fallback (kein konkreter Mandant aufgelöst)
+  // Unterschrift unter „Mit freundlichen Grüßen". Ohne Angabe der `legalName` —
+  // bei einer Hausverwaltung oder WEG ist die Firmierung dort genau richtig.
+  // Ein Produkt unterschreibt dagegen nicht mit seiner Rechtsform: „B&W
+  // Immobilien Management UG (haftungsbeschränkt)" unter einer
+  // wegportal24-Mail liest sich wie ein Versehen. Der Rechtsträger steht
+  // ohnehin im Fußzeilenblock jeder Mail.
+  signOff?: string;
 };
 
 // Fallback-Branding (entspricht den bisherigen, fest verdrahteten B&W-Daten).
@@ -204,7 +211,14 @@ export const WEG_SAAS_BRANDING: OrgBranding = {
   displayName: "wegportal24",
   email: "info@wegportal24.de",
   website: "www.wegportal24.de",
+  signOff: "Ihr Team von wegportal24",
 };
+
+// Unterschrift für „Mit freundlichen Grüßen". Der Rechtsträger bleibt davon
+// unberührt — der steht im Fußzeilenblock, den `renderHtml` aus `legalName` baut.
+export function signOffName(b: OrgBranding): string {
+  return b.signOff ?? b.legalName;
+}
 
 // Logo-URL für E-Mails/externe Kontexte (absolute URL nötig). Eigenes Logo des
 // Mandanten über die öffentliche Branding-Route; für das B&W-Standard-Branding

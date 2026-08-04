@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { signOffName } from "@/lib/branding";
 import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -368,7 +369,7 @@ export async function createUser(formData: FormData) {
         `Klicken Sie auf folgenden Link, um Ihren Zugang einzurichten (gültig 7 Tage):\n` +
         `${link}\n\n` +
         `Nach der Einrichtung können Sie sich jederzeit unter ${loginLink} anmelden.\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+        `Mit freundlichen Grüßen\n${signOffName(branding)}`,
       undefined,
       branding
     );
@@ -559,7 +560,7 @@ export async function resendInvite(formData: FormData) {
     `Guten Tag ${user.name},\n\n` +
       `Hier ist Ihr Einladungslink zum Kundenportal (gültig 7 Tage):\n` +
       `${link}\n\n` +
-      `Mit freundlichen Grüßen\n${branding.legalName}`,
+      `Mit freundlichen Grüßen\n${signOffName(branding)}`,
     undefined,
     branding
   );

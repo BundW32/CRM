@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Users } from "lucide-react";
 import {
   CtaBand,
   FeatureSection,
@@ -45,7 +44,6 @@ export default async function VersammlungPage() {
           src: "/images/marketing/versammlung.jpg",
           alt: "Eigentümerversammlung am Tisch mit Protokoll und Tagesordnung",
         }}
-        badge={{ icon: <Users className="h-4 w-4 text-brand-orange-ink" />, text: "Beschlussfähig – Anwesenheit erfasst" }}
       />
 
       <FeatureSection

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { CalendarCheck } from "lucide-react";
 import {
   CtaBand,
   FeatureSection,
@@ -50,7 +49,6 @@ export default async function FinanzenPage() {
           src: "/images/marketing/finanzen.jpg",
           alt: "Eigentümer plant den Wirtschaftsplan am Laptop",
         }}
-        badge={{ icon: <CalendarCheck className="h-4 w-4 text-brand-orange-ink" />, text: "Wirtschaftsplan & Jahresabrechnung centgenau" }}
       />
 
       <FeatureSection

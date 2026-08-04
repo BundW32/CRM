@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CheckCircle2, Scale } from "lucide-react";
+import { Scale } from "lucide-react";
 import {
   CtaBand,
   MarketingFooter,
@@ -132,7 +132,6 @@ export default async function SoFunktioniertsPage() {
           src: "/images/marketing/so-funktionierts.jpg",
           alt: "Eigentümerin richtet das Portal zuhause am Laptop ein",
         }}
-        badge={{ icon: <CheckCircle2 className="h-4 w-4 text-brand-orange-ink" />, text: "In wenigen Minuten eingerichtet" }}
         showSecondaryCta={false}
       />
 

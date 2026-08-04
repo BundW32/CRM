@@ -285,9 +285,11 @@ export default async function WegStammdatenPage({
         {/* Einheiten */}
         <Card id="einheiten" title="Einheiten (MEA, Fläche, Personen)">
           <Tipp className="mb-3">
-            Der MEA-Zähler je Einheit ist die zentrale Angabe: Er steuert die Kostenverteilung in
-            Abrechnung und Wirtschaftsplan und bestimmt zugleich das Stimmgewicht der Eigentümer
-            (Wertprinzip). Er muss also nur hier gepflegt werden.
+            Der MEA-Zähler je Einheit ist die zentrale Angabe: Er bestimmt das Stimmgewicht der
+            Eigentümer (Wertprinzip) und ist der Standard-Umlageschlüssel in Abrechnung und
+            Wirtschaftsplan – welcher Schlüssel tatsächlich gilt (MEA, Fläche, Personenzahl,
+            Verbrauch, …), legen Sie je Kostenart unter „Kostenarten&rdquo; fest. Er muss also nur
+            hier gepflegt werden.
           </Tipp>
           {units.length === 0 ? (
             <EmptyState>Dieses Objekt hat noch keine Einheiten.</EmptyState>

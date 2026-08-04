@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { HandCoins } from "lucide-react";
 import {
   CtaBand,
   FeatureSection,
@@ -45,7 +44,6 @@ export default async function HausgeldPage() {
           src: "/images/marketing/hausgeld.jpg",
           alt: "Kontoauszug und Umschlag am Briefkasten einer WEG",
         }}
-        badge={{ icon: <HandCoins className="h-4 w-4 text-brand-orange-ink" />, text: "Soll / Ist / Saldo je Einheit" }}
       />
 
       <FeatureSection

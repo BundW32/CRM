@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Wrench } from "lucide-react";
 import {
   CtaBand,
   FeatureSection,
@@ -44,7 +43,6 @@ export default async function KommunikationPage() {
           src: "/images/marketing/kommunikation.jpg",
           alt: "Schaden wird mit dem Smartphone im Treppenhaus fotografiert",
         }}
-        badge={{ icon: <Wrench className="h-4 w-4 text-brand-orange-ink" />, text: "Schaden gemeldet – in Sekunden" }}
       />
 
       <FeatureSection

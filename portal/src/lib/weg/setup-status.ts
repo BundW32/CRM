@@ -172,8 +172,10 @@ function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
       key: "einheiten",
       title: "Einheiten mit Miteigentumsanteilen erfassen",
       why:
-        "Die Miteigentumsanteile stehen in der Teilungserklärung. Nach ihnen werden " +
-        "später die Kosten verteilt – ableiten aus der Wohnfläche lassen sie sich nicht.",
+        "Die Miteigentumsanteile stehen in der Teilungserklärung. Sie bestimmen das " +
+        "Stimmgewicht der Eigentümer (Wertprinzip) und sind der häufigste Umlageschlüssel " +
+        "bei den Kostenarten – welcher Schlüssel dort je Kostenart tatsächlich gilt, legen " +
+        "Sie im nächsten Schritt fest. Ableiten aus der Wohnfläche lassen sich die Anteile nicht.",
       done: b.unitCount > 0 && meaStimmt,
       warnung:
         b.unitCount > 0 && !meaStimmt

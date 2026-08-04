@@ -185,15 +185,12 @@ export function MarketingHero({
   title,
   intro,
   image,
-  badge,
   showSecondaryCta = true,
 }: {
   eyebrow: string;
   title: ReactNode;
   intro: string;
   image: { src: string; alt: string };
-  // Icon bereits als gerendertes Element übergeben (Server → Client Grenze)
-  badge?: { icon: ReactNode; text: string };
   // Ausblenden, wenn die Seite selbst /so-funktionierts ist
   showSecondaryCta?: boolean;
 }) {
@@ -228,18 +225,6 @@ export function MarketingHero({
           </div>
         </div>
       </div>
-
-      {badge ? (
-        <div
-          className="absolute bottom-10 right-6 hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-800 shadow-e3 md:flex lg:right-12"
-          style={{ animation: "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "500ms" }}
-        >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-orange-light">
-            {badge.icon}
-          </span>
-          {badge.text}
-        </div>
-      ) : null}
 
       {/* Scroll-Hinweis */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70">

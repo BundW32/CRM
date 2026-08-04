@@ -244,17 +244,6 @@ export default async function Home() {
             </ul>
           </div>
         </div>
-
-        {/* Schwebende Kennzahl-Karte als Brücke zum Produkt */}
-        <div
-          className="absolute bottom-10 right-6 hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-800 shadow-e3 md:flex lg:right-12"
-          style={{ animation: "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "600ms" }}
-        >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-orange-light">
-            <Building2 className="h-4 w-4 text-brand-orange-ink" />
-          </span>
-          6 Einheiten · MEA 1000/1000 ✓
-        </div>
       </section>
 
       {/* ── Scrollytelling: Selbstverwaltung Stockwerk für Stockwerk aufbauen ── */}

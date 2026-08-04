@@ -291,6 +291,40 @@ Die Sperre steht **serverseitig** in `beschluesse/actions.ts` (`istVersammlungsB
 in `castVote` **und** `castVoteForOwner`); das Ausblenden des Formulars allein genügt
 nicht. `src/lib/versammlungsbeschluss.test.ts` hält beide Aufrufe fest.
 
+## Zwei Türen, zwei Marken
+
+Eine Codebasis bedient zwei Produkte: **B&W Kundenportal**
+(portal.bundwimmobilien.de) und **wegportal24** (wegportal24.de). Unterschieden
+allein über `APP_MODE` (`src/lib/app-mode.ts`).
+
+**Wer ein Logo, einen Produktnamen oder ein Icon fest verdrahtet, baut die
+falsche Marke in die andere Tür ein.** Genau das war der Zustand: Titel und
+Beschreibung schalteten um, aber Favicon, Web-Manifest, die Logos der
+Anmeldeseiten und der Briefkopf **jedes** erzeugten PDFs zeigten B&W — auch auf
+wegportal24.de, wo es die Marke eines fremden Unternehmens ist.
+
+| Wofür | Was zu benutzen ist |
+|---|---|
+| Marke auf öffentlichen Seiten (Login, Rechtsseiten, Einrichtung) | `<PublicBrand>` |
+| Logo-Pfad (Portal-Kopf, Zugangsschreiben, PDF) | `defaultLogoPath()` (`lib/branding.ts`) |
+| Produktname im Fließtext | `productName()` (`lib/app-mode.ts`) |
+| Favicon / Push-Icon | Weiche in `src/proxy.ts` (`ICONS`) |
+
+Zwei Fallen:
+
+- **`defaultLogoPath()` und `isWegSaas()` lesen `APP_MODE` — eine
+  Server-Variable.** Aus einer Client-Komponente aufgerufen fallen sie still
+  auf die B&W-Tür zurück. Alle heutigen Aufrufer sind Server-Komponenten; das
+  muss so bleiben.
+- **Die Weiche gehört nicht in `rewrites()`.** Jene werden zur Bauzeit
+  festgeschrieben, alles andere liest `APP_MODE` zur Laufzeit — eine Weiche,
+  die als Einzige am Build hängt, läuft früher oder später auseinander. Deshalb
+  steht sie im Proxy.
+
+Bewusst B&W bleibt die **Plattform-Rechnung**
+(`lib/platform-invoice-service.ts`): Dort tritt der Betreiber als
+Rechnungssteller auf, nicht das Produkt.
+
 ## Prüfung: ein Skript, zwei Aufrufer
 
 `npm run pruefung` = `tsc --noEmit && eslint && vitest run`. **Genau dieser

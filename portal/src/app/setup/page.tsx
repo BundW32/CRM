@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
-import { BwLogo } from "@/components/logo";
+import { PublicBrand } from "@/components/public-brand";
 import { db } from "@/lib/db";
 import { createFirstAdmin } from "./actions";
 
@@ -20,7 +20,7 @@ export default async function SetupPage({
     <main className="flex flex-1 items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-          <BwLogo className="mx-auto mb-1 h-20 w-auto" />
+          <PublicBrand variant="login" />
           <p className="mb-6 text-center text-sm font-medium text-gray-400">
             Ersteinrichtung
           </p>

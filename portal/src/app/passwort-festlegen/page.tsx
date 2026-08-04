@@ -1,6 +1,6 @@
 import { Alert, buttonClass, Field, inputClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
-import { BwLogo } from "@/components/logo";
+import { PublicBrand } from "@/components/public-brand";
 import { requireUser } from "@/lib/session";
 import { setInitialPassword } from "./actions";
 
@@ -18,7 +18,7 @@ export default async function PasswortFestlegenPage({
     <main className="flex flex-1 items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-          <BwLogo className="mx-auto mb-6 h-16 w-auto" />
+          <PublicBrand />
           <h1 className="mb-2 text-lg font-semibold text-brand-green">
             Neues Passwort festlegen
           </h1>

@@ -36,6 +36,7 @@ import {
   PhotoBand,
   StatsBand,
 } from "@/components/marketing/site";
+import { MobileCtaBar } from "@/components/marketing/mobile-cta-bar";
 import { KenBurnsBackdrop } from "@/components/marketing/photo-hero";
 import { Reveal } from "@/components/marketing/reveal";
 import { ScrollyBuild } from "@/components/marketing/scrolly-build";
@@ -198,12 +199,29 @@ const FAQ = [
       "Jede Rolle sieht nur das, was sie betrifft.",
   },
   {
-    f: "Sind unsere Daten sicher?",
+    f: "Wo liegen unsere Daten – und sind sie sicher?",
     a:
-      "Jede Gemeinschaft ist strikt von allen anderen getrennt; die Trennung " +
-      "wird automatisiert gegen die Datenbank getestet. Dateien werden " +
-      "ausschließlich über rechtegeprüfte Wege ausgeliefert, Passwörter " +
+      "Datenbank und Anwendung laufen in Frankfurt am Main (EU-Region), " +
+      "DSGVO-konform. Jede Gemeinschaft ist strikt von allen anderen getrennt; " +
+      "diese Trennung wird automatisiert gegen die Datenbank getestet. Dateien " +
+      "werden ausschließlich über rechtegeprüfte Wege ausgeliefert, Passwörter " +
       "verschlüsselt gespeichert. Details stehen in der Datenschutzerklärung.",
+  },
+  {
+    f: "Rechnet hier eine KI unsere Abrechnung?",
+    a:
+      "Nein. Wirtschaftsplan, Verteilung und Jahresabrechnung entstehen " +
+      "regelbasiert und nachvollziehbar – jede Zahl lässt sich bis zur Buchung " +
+      "zurückverfolgen. KI gibt es nur als optionale Zusatzfunktion (etwa einen " +
+      "Frage-Assistenten), standardmäßig abgeschaltet.",
+  },
+  {
+    f: "Wer steht hinter wegportal24?",
+    a:
+      "Ein Team aus der Praxis der Immobilienverwaltung – das Portal ist aus " +
+      "der täglichen Arbeit mit Wirtschaftsplänen, Abrechnungen und " +
+      "Versammlungen entstanden, nicht am Reißbrett. Die Betreiberin steht im " +
+      "Impressum.",
   },
   {
     f: "Was passiert, wenn wir später doch eine Verwaltung finden?",
@@ -233,7 +251,7 @@ export default async function Home() {
       <MarketingHeader />
 
       {/* ── Elemente 3–5: Titel, Haupt-CTA, Vertrauens-Fakten – auf dem Foto ── */}
-      <section id="inhalt" className="relative flex min-h-[82vh] items-center overflow-hidden">
+      <section id="inhalt" className="relative flex min-h-[82svh] items-center overflow-hidden">
         <KenBurnsBackdrop
           src="/images/marketing/hero-building.jpg"
           alt="Mehrfamilienhaus einer Wohnungseigentümergemeinschaft"
@@ -256,17 +274,25 @@ export default async function Home() {
             </h1>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-white/85 sm:text-lg">
               Immer mehr kleine Gemeinschaften bekommen schlicht keinen Verwalter
-              mehr – die Pflichten aus dem WEG-Gesetz bleiben trotzdem.
-              wegportal24 gibt Ihnen alles an die Hand, um Ihre Gemeinschaft
-              einfach, gemeinsam und rechtssicher selbst zu verwalten.
+              mehr – die Pflichten aus dem WEG-Gesetz bleiben trotzdem.{" "}
+              <span className="hidden sm:inline">
+                wegportal24 gibt Ihnen alles an die Hand, um Ihre Gemeinschaft
+                einfach, gemeinsam und rechtssicher selbst zu verwalten.
+              </span>
             </p>
             {/* Element 4: Haupt-CTA */}
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link href="/registrieren" className={`${wpButtonClass} px-6 py-3 text-base`}>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <Link
+                href="/registrieren"
+                className={`${wpButtonClass} w-full px-6 py-3 text-base sm:w-auto`}
+              >
                 Portal kostenlos einrichten
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link href="/login" className={`${buttonOnPhotoClass} px-6 py-3 text-base`}>
+              <Link
+                href="/login"
+                className={`${buttonOnPhotoClass} w-full px-6 py-3 text-base sm:w-auto`}
+              >
                 Ich habe schon einen Zugang
               </Link>
             </div>
@@ -294,11 +320,11 @@ export default async function Home() {
       <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
         <Reveal>
           <h2 className="text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
-            Alles, was Ihre WEG braucht – nichts, was Sie überfordert
+            Gebaut für Eigentümer, nicht für Verwaltungsprofis
           </h2>
           <p className="mt-3 max-w-2xl text-wp-ink/70">
-            Gebaut für Eigentümer, nicht für Verwaltungsprofis. Jede Funktion hat
-            eine eigene Seite mit ausführlicher Erklärung.
+            Alles, was Ihre WEG braucht – nichts, was Sie überfordert. Jede
+            Funktion hat eine eigene Seite mit ausführlicher Erklärung.
           </p>
         </Reveal>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -332,6 +358,93 @@ export default async function Home() {
           sub="Ihre Gemeinschaft kennt ihr Haus besser als jeder externe Verwalter – wegportal24 gibt ihr das Handwerkszeug dazu."
         />
       </div>
+
+      {/* ── Das Produkt-Artefakt: eine Einzelabrechnung, die aufgeht ──────
+          Kein Dashboard-Mockup, sondern das Papier, auf das es am Jahresende
+          ankommt — Beispiel aus der Demo-Gemeinschaft, Einheit 3 mit 137/1000
+          Miteigentumsanteilen. */}
+      <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
+        <div className="grid items-start gap-8 lg:grid-cols-[1fr_1.3fr] lg:gap-12">
+          <Reveal>
+            <h2 className="text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
+              Das Ergebnis zählt: eine Abrechnung, die aufgeht
+            </h2>
+            <p className="mt-3 leading-relaxed text-wp-ink/70">
+              So sieht eine Einzelabrechnung aus wegportal24 aus – hier für
+              Einheit 3 der Demo-Gemeinschaft (137/1000 Miteigentumsanteile).
+              Jede Zeile kommt aus den Buchungen des Jahres, jeder Schlüssel aus
+              Ihrer Teilungserklärung.
+            </p>
+            <p className="mt-3 leading-relaxed text-wp-ink/70">
+              Festschreiben lässt sich die Abrechnung erst, wenn der Endbestand
+              laut Kontoauszug aufgeht – danach ist sie eingefroren und hält
+              einer Prüfung stand.
+            </p>
+          </Reveal>
+          <Reveal delay={120}>
+            <figure className="overflow-hidden rounded-2xl border border-wp-ink/10 bg-white shadow-e2">
+              <figcaption className="border-b border-wp-ink/10 bg-wp-accent-light/50 px-5 py-3 text-sm font-semibold text-wp-ink">
+                Einzelabrechnung 2025 · WE 3 · 137/1000 MEA
+              </figcaption>
+              <div className="overflow-x-auto px-5 pb-5">
+                <table className="w-full min-w-[30rem] text-[14px] tabular-nums">
+                  <thead>
+                    <tr className="border-b border-wp-ink/15 text-left text-[11px] font-semibold uppercase tracking-wider text-wp-ink/50">
+                      <th scope="col" className="py-2.5 pr-3 font-semibold">Kostenart</th>
+                      <th scope="col" className="py-2.5 pr-3 text-right font-semibold">Gesamt €</th>
+                      <th scope="col" className="py-2.5 pr-3 font-semibold">Schlüssel</th>
+                      <th scope="col" className="py-2.5 text-right font-semibold">Anteil €</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ["Heizung & Warmwasser", "14.820,00", "Verbrauch", "1.964,15"],
+                      ["Wasser & Abwasser", "3.240,00", "Personen", "540,00"],
+                      ["Hausstrom", "1.180,00", "MEA", "161,66"],
+                      ["Versicherungen", "2.960,00", "MEA", "405,52"],
+                      ["Hausmeister & Reinigung", "5.400,00", "MEA", "739,80"],
+                      ["Kontoführung", "480,00", "MEA", "65,76"],
+                    ].map(([art, gesamt, schluessel, anteil]) => (
+                      <tr key={art} className="border-b border-wp-ink/8">
+                        <td className="py-1.5 pr-3 text-wp-ink/85">{art}</td>
+                        <td className="py-1.5 pr-3 text-right text-wp-ink/55">{gesamt}</td>
+                        <td className="py-1.5 pr-3 text-wp-ink/50">{schluessel}</td>
+                        <td className="py-1.5 text-right text-wp-ink/85">{anteil}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-b border-wp-ink/15 font-semibold text-wp-ink">
+                      <td className="py-2 pr-3">Summe Kosten</td>
+                      <td className="py-2 pr-3 text-right">28.080,00</td>
+                      <td className="py-2 pr-3" />
+                      <td className="py-2 text-right">3.876,89</td>
+                    </tr>
+                    <tr className="border-b border-wp-ink/8">
+                      <td className="py-1.5 pr-3 text-wp-ink/85">Zuführung Erhaltungsrücklage</td>
+                      <td className="py-1.5 pr-3 text-right text-wp-ink/55">6.000,00</td>
+                      <td className="py-1.5 pr-3 text-wp-ink/50">MEA</td>
+                      <td className="py-1.5 text-right text-wp-ink/85">822,00</td>
+                    </tr>
+                    <tr className="border-b border-wp-ink/8">
+                      <td className="py-1.5 pr-3 text-wp-ink/85" colSpan={3}>
+                        Hausgeld-Vorauszahlungen 12 × 372,00
+                      </td>
+                      <td className="py-1.5 text-right text-wp-ink/85">−4.464,00</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 pr-3 font-semibold text-wp-ink" colSpan={3}>
+                        Abrechnungsspitze – Nachzahlung
+                      </td>
+                      <td className="py-2.5 text-right text-lg font-semibold text-wp-accent-ink">
+                        234,89
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </figure>
+          </Reveal>
+        </div>
+      </section>
 
       {/* ── Element 8: Stimmen – drei Situationen, als solche benannt ─────── */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
@@ -386,13 +499,19 @@ export default async function Home() {
       </section>
 
       {/* ── Element 10: Abschluss-CTA ─────────────────────────────────────── */}
+      <div id="schluss-cta">
       <CtaBand
         title="Bereit, Ihre WEG selbst in die Hand zu nehmen?"
         text="Richten Sie wegportal24 für Ihre Gemeinschaft ein und laden Sie Ihre Miteigentümer ein – kostenlos und unverbindlich."
       />
 
-      {/* Element 11: Fußzeile mit Kontakt und Rechtlichem */}
+      {/* Element 11: Fußzeile mit Kontakt und Rechtlichem. Sie bleibt im
+          Ausblende-Bereich der Sticky-Leiste — sonst täuchte die Leiste am
+          Seitenende wieder auf, sobald nur noch die Fußzeile im Bild ist. */}
       <MarketingFooter />
+      </div>
+      {/* A7: dauerhaft erreichbarer Registrieren-Weg auf Mobil */}
+      <MobileCtaBar />
     </main>
   );
 }

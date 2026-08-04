@@ -451,17 +451,26 @@ export function ScrollyBuild() {
   const isLast = stage === STAGES.length - 1;
 
   return (
+    <>
+    {/* Unter lg: dieselben sechs Schritte kompakt gestapelt (~1.100 px statt
+        ~7.000 px Pin-Strecke). Per CSS geschaltet, nicht per Client-Weiche —
+        der Server kennt die Breite nicht, und ein Umschalten nach der
+        Hydratation würde sichtbar springen. Der Pin kollidierte auf iOS
+        zudem mit dem Momentum-Scrolling („die Seite hängt"). */}
+    <div className="lg:hidden">
+      <ReducedFallback />
+    </div>
     <section
       ref={trackRef}
       aria-label="So bauen Sie Ihre Selbstverwaltung auf"
       // 120vh Scroll-Strecke je Stufe: ruhigeres Tempo, jede Stufe bekommt
       // genug Verweildauer für einen sauberen Durchlauf.
       style={{ height: `${STAGES.length * 120}vh` }}
-      className="relative"
+      className="relative hidden lg:block"
     >
       {/* h-svh statt h-screen (korrekt bei mobiler Browserleiste); das obere
           Padding hält den Inhalt unter der fixierten Kopfzeile frei. */}
-      <div className="sticky top-0 flex h-svh items-center overflow-hidden pb-4 pt-32 lg:pt-16">
+      <div className="sticky top-0 flex h-svh items-center overflow-hidden pb-4 pt-16">
         <SceneAmbience progress={progress} />
         {/* feine Rahmenlinien: die Szene liest sich als eigene „Leinwand" */}
         <div className="absolute inset-x-0 top-0 h-px bg-gray-200/80" />
@@ -557,5 +566,6 @@ export function ScrollyBuild() {
         </div>
       </div>
     </section>
+    </>
   );
 }

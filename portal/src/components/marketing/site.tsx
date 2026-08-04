@@ -12,6 +12,7 @@ import {
   wpButtonClass,
   wpButtonOnPhotoClass,
 } from "./brand";
+import { MobileMenu } from "./mobile-menu";
 import { Wordmark } from "./wordmark";
 import { KenBurnsBackdrop } from "./photo-hero";
 import { Reveal } from "./reveal";
@@ -20,12 +21,15 @@ import { Reveal } from "./reveal";
 // ihn unverändert importieren können.
 export const buttonOnPhotoClass = wpButtonOnPhotoClass;
 
+// „So funktioniert's" zuerst: für den unsicheren Erstbesucher ist das der
+// wichtigste Link — im alten Scroll-Band lag er bei 390 px außerhalb des
+// Bildschirms.
 const navItems = [
+  { href: "/so-funktionierts", label: "So funktioniert’s" },
   { href: "/funktionen/finanzen", label: "Finanzen" },
   { href: "/funktionen/hausgeld", label: "Hausgeld" },
   { href: "/funktionen/versammlung", label: "Versammlung" },
   { href: "/funktionen/kommunikation", label: "Kommunikation" },
-  { href: "/so-funktionierts", label: "So funktioniert’s" },
 ] as const;
 
 export function MarketingHeader({ active }: { active?: string }) {
@@ -62,41 +66,26 @@ export function MarketingHeader({ active }: { active?: string }) {
               </Link>
             ))}
           </nav>
-          {/* Beide Zugänge nebeneinander, beide auch auf dem Handy sichtbar.
-              „Anmelden" ist ein Textlink – zwei gleich laute Knöpfe nebeneinander
-              sagen dem Lesenden nicht, welcher der übliche Weg ist. */}
-          <div className="flex shrink-0 items-center gap-4 sm:gap-5">
+          {/* Eine Kopfzeile für alle Größen. Auf Mobil: Logo, Registrieren,
+              Hamburger — das zweizeilige Scroll-Band davor fraß dauerhaft
+              ~90 px des Viewports, hatte 36-px-Tap-Ziele und versteckte den
+              wichtigsten Link außerhalb des Bildschirms. „Anmelden" wandert
+              auf Mobil ins Overlay; der Registrieren-Knopf bleibt auf JEDER
+              Breite sichtbar — er ist die eine Handlung dieser Seiten. */}
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4">
             <Link
               href="/login"
-              className="text-[15px] font-semibold text-wp-ink underline decoration-wp-ink/30 underline-offset-[6px] transition-colors hover:decoration-wp-accent-ink"
+              className="hidden text-[15px] font-semibold text-wp-ink underline decoration-wp-ink/30 underline-offset-[6px] transition-colors hover:decoration-wp-accent-ink sm:inline"
             >
               Anmelden
             </Link>
-            <Link href="/registrieren" className={wpButtonClass}>
-              Registrieren
+            <Link href="/registrieren" className={`${wpButtonClass} min-h-11`}>
+              <span className="sm:hidden">Starten</span>
+              <span className="hidden sm:inline">Registrieren</span>
             </Link>
+            <MobileMenu items={navItems} />
           </div>
         </div>
-        {/* Mobile Navigation: horizontal scrollbar statt Umbruch */}
-        <nav
-          aria-label="Hauptnavigation mobil"
-          className="flex gap-5 overflow-x-auto border-t border-wp-ink/10 px-5 py-2 text-[15px] whitespace-nowrap lg:hidden"
-        >
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active === item.href ? "page" : undefined}
-              className={
-                active === item.href
-                  ? "font-semibold text-wp-ink"
-                  : "text-wp-ink/60"
-              }
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
       </header>
     </>
   );
@@ -357,10 +346,9 @@ export function FeatureSection({
 // Zahlenleiste „Auf einen Blick" – nüchterne Produkt-Fakten im Stil großer
 // Unternehmensseiten. Bewusst nur belegbare Werte, keine Marketing-Zahlen.
 const stats = [
-  { value: "0 €", label: "Start ohne Zahlungsdaten – Registrierung in wenigen Minuten" },
-  { value: "12", label: "monatliche Sollstellungen je Einheit, automatisch aus dem Beschluss" },
-  { value: "< 9", label: "Einheiten: keine Zertifizierungspflicht für den Eigentümer-Verwalter" },
-  { value: "4", label: "Rollen mit eigenem Zugang: Eigentümer, Beirat, Mieter, Handwerker" },
+  { value: "0 €", label: "Der Start: kostenlos einrichten, ohne Zahlungsdaten" },
+  { value: "< 9", label: "Einheiten: keine Zertifizierungspflicht für den Eigentümer-Verwalter (§ 19 WEG)" },
+  { value: "100 %", label: "Ihrer Daten exportierbar – Journal und Kontoblatt als CSV, kein Lock-in" },
 ];
 
 export function StatsBand() {
@@ -371,7 +359,7 @@ export function StatsBand() {
       {/* dezente Lichtakzente wie im CTA-Band */}
       <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-wp-accent/15 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-wp-primary/50 blur-3xl" />
-      <div className="relative mx-auto grid w-full max-w-6xl gap-8 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+      <div className="relative mx-auto grid w-full max-w-6xl gap-8 px-4 py-14 sm:grid-cols-3 sm:px-6">
         {stats.map((stat, i) => (
           <Reveal key={stat.value} delay={i * 90}>
             <div>

@@ -13,6 +13,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+// Die Fundstellen sind die aktuellen: Das Telemediengesetz wurde im Mai 2024
+// vom **Digitale-Dienste-Gesetz** abgelöst (§ 5 TMG → § 5 DDG, § 7 TMG →
+// § 7 DDG), der Rundfunkstaatsvertrag im November 2020 vom
+// **Medienstaatsvertrag** (§ 55 Abs. 2 RStV → § 18 Abs. 2 MStV). Hier standen
+// bis zum 04.08.2026 die aufgehobenen Normen — inhaltlich richtig, aber unter
+// falscher Überschrift, und ein Impressum lebt von der richtigen Fundstelle.
 export default function ImpressumPage() {
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 p-4">
@@ -21,7 +27,7 @@ export default function ImpressumPage() {
         <h1 className="mb-4 text-2xl font-bold text-gray-900">Impressum</h1>
 
         <div className="space-y-4 text-sm text-gray-700">
-          <Section title="Angaben gemäß § 5 TMG">
+          <Section title="Angaben gemäß § 5 DDG">
             {/* Nur in der WEG-SaaS: dort tritt dieselbe UG unter der Marke
                 wegportal24 auf und muss sich als Betreiberin zu erkennen
                 geben. Auf portal.bundwimmobilien.de wäre der Satz sinnlos. */}
@@ -106,7 +112,7 @@ export default function ImpressumPage() {
             </p>
           </Section>
 
-          <Section title="Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV">
+          <Section title="Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV">
             <p>
               Franz-Josef Barth
               <br />
@@ -118,7 +124,7 @@ export default function ImpressumPage() {
 
           <Section title="Haftung für Inhalte und Ratgeber-Texte">
             <p>
-              Als Diensteanbieter sind wir gemäß § 7 Abs. 1 TMG für eigene Inhalte auf diesen
+              Als Diensteanbieter sind wir gemäß § 7 Abs. 1 DDG für eigene Inhalte auf diesen
               Seiten nach den allgemeinen Gesetzen verantwortlich. Die auf unserer Website
               (insbesondere im Bereich „Ratgeber“) veröffentlichten Inhalte und Artikel wurden mit
               größter Sorgfalt und nach bestem Wissen erstellt. Sie dienen jedoch ausschließlich der

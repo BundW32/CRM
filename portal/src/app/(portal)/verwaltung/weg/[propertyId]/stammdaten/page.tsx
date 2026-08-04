@@ -479,6 +479,26 @@ export default async function WegStammdatenPage({
                         steht. Als aufklappbarer Block bleibt beides wahr: Der Bestand
                         ist sichtbar, der Wechsel bleibt einen Klick entfernt.
                         Ist noch niemand erfasst, ist der Block offen. */}
+                    {/* Ohne eine einzige erfasste Person ist das Auswahlfeld leer,
+                        und der Einrichtungs-Assistent führt genau hierher: „Eigentümer
+                        je Einheit zuordnen". Eine frisch registrierte Gemeinschaft
+                        stand damit bei Schritt 3 von 8 vor einem Feld ohne Inhalt und
+                        ohne Hinweis, wo Personen entstehen. Angelegt werden sie dort,
+                        wo sie zugleich der Einheit zugeordnet werden — im
+                        Objektformular. */}
+                    {ownerCandidates.length === 0 ? (
+                      <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        Es ist noch keine Person erfasst.{" "}
+                        <Link
+                          href={`/verwaltung/objekte/${property.id}/bearbeiten#einheiten`}
+                          className="font-medium underline"
+                        >
+                          Eigentümer anlegen und der Einheit zuordnen
+                        </Link>{" "}
+                        — dort legen Sie die Person mit Name und Anteil in einem Schritt
+                        an. Danach steht sie hier für Wechsel und Stichtage zur Auswahl.
+                      </p>
+                    ) : (
                     <details className="mt-3 group" open={list.length === 0}>
                       <summary className="cursor-pointer list-none text-sm font-medium text-brand-green hover:underline">
                         {list.length === 0
@@ -521,6 +541,7 @@ export default async function WegStammdatenPage({
                       <PendingButton className={buttonSecondaryClass}>Eintragen</PendingButton>
                     </form>
                     </details>
+                    )}
                   </div>
                 );
               })}

@@ -177,6 +177,27 @@ export async function createObjekt(formData: FormData) {
       select: { id: true, label: true },
     });
     created.forEach((u) => unitLabelToId.set(u.label, u.id));
+
+    // ── MEA-Nenner aus den erfassten Anteilen ableiten ──────────────────
+    // Der Nenner ist ein zweites Feld neben der Summe der Einheiten-Anteile,
+    // und dieses Formular fragte ihn nie ab. Wer hier 300 + 250 + 450 einträgt,
+    // hat die 1.000 der Teilungserklärung bereits vollständig genannt — sah
+    // danach aber auf den Stammdaten „MEA-Nenner fehlt". Eine Warnung direkt
+    // nach einer fehlerfrei ausgefüllten Einrichtung, und zwar bei jedem
+    // Neukunden.
+    //
+    // Übernommen wird die Summe nur, wenn **jede** Einheit einen Anteil trägt:
+    // Bei einer Lücke wäre die Summe kleiner als der wirkliche Nenner, und ein
+    // zu kleiner Nenner ist schlimmer als gar keiner — er lässt die Prüfung
+    // aufgehen, obwohl Einheiten fehlen. Abweichende Nenner (die
+    // Teilungserklärung nennt gelegentlich 10.000) bleiben in den Stammdaten
+    // änderbar.
+    if (managementType === "WEG" && unitsToCreate.every((u) => u.mea != null)) {
+      const summe = unitsToCreate.reduce((s, u) => s + (u.mea ?? 0), 0);
+      if (summe > 0) {
+        await db.property.update({ where: { id: property.id }, data: { meaTotal: summe } });
+      }
+    }
   }
 
   // Sammlung aller Zugangsschreiben-Nutzer: [{id, pw}]

@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Eigentümerversammlung & Beschlüsse digital organisieren",
   description:
-    "Versammlungen vorbereiten, Anwesenheit und Beschlussfähigkeit erfassen, " +
+    "Versammlungen mit Ladefrist einberufen, Anwesenheit und Vertretung erfassen, " +
     "nach Miteigentumsanteilen abstimmen und Beschlüsse dauerhaft dokumentieren – " +
     "für selbstverwaltete WEGs.",
 };
@@ -36,16 +36,24 @@ export default async function VersammlungPage() {
           </>
         }
         intro={
+          // Kein Wort mehr zur Beschlussfähigkeit: Das Quorum des § 25 Abs. 3
+          // WEG a. F. ist mit dem WEMoG zum 01.12.2020 entfallen — seither ist
+          // jede ordnungsgemäß einberufene Versammlung beschlussfähig, gleich
+          // wie viele kommen. Es als Fehlerquelle zu nennen, verunsichert
+          // gerade die Laien, für die diese Seite geschrieben ist: Sie könnten
+          // eine Versammlung mangels Beteiligung absagen, die längst
+          // beschließen dürfte.
           "Die Eigentümerversammlung ist das Herz jeder WEG – und ihre größte " +
-          "Fehlerquelle. Formfehler bei Einladung, Beschlussfähigkeit oder " +
-          "Protokoll machen Beschlüsse angreifbar. Das Portal führt Sie so durch " +
-          "die Versammlung, dass am Ende alles sauber dokumentiert ist."
+          "Fehlerquelle. Angreifbar wird ein Beschluss vor allem durch die " +
+          "Einladung: Textform, drei Wochen Frist, vollständige Tagesordnung " +
+          "(§ 24 Abs. 4 WEG). Das Portal führt Sie so durch die Versammlung, " +
+          "dass am Ende alles sauber dokumentiert ist."
         }
         image={{
           src: "/images/marketing/versammlung.jpg",
           alt: "Eigentümerversammlung am Tisch mit Protokoll und Tagesordnung",
         }}
-        badge={{ icon: <Users className="h-4 w-4 text-wp-accent-ink" />, text: "Beschlussfähig – Anwesenheit erfasst" }}
+        badge={{ icon: <Users className="h-4 w-4 text-wp-accent-ink" />, text: "Anwesenheit und Vertretung erfasst" }}
       />
 
       <FeatureSection
@@ -77,7 +85,7 @@ export default async function VersammlungPage() {
       <FeatureSection
         id="abstimmung"
         eyebrow="Durchführung"
-        title="Anwesenheit, Beschlussfähigkeit und Abstimmung nach MEA"
+        title="Anwesenheit, Vertretung und Abstimmung nach MEA"
         reverse
         visual={<VoteVisual />}
         points={[

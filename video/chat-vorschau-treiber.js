@@ -38,6 +38,37 @@
     reveals.forEach((el) => io.observe(el));
   }
 
+  // ── Preis-Rechner (nur /preise) ──────────────────────────────────────────
+  // Die Vorschau trägt kein React; die Zähler-Knöpfe wären tot. Dieser Zweig
+  // liest die Faktoren aus dem SICHTBAREN Markup („8 Nutzer × 10,00 €") statt
+  // die Preise zu wiederholen — ändert sich ein Preis, stimmt die Vorschau
+  // ohne Anfassen weiter.
+  const zahl = (t) => parseFloat(t.replace(/\./g, "").replace(",", "."));
+  const euro = (n) => n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  document.querySelectorAll('button[aria-label$="erh\u00f6hen"], button[aria-label$="verringern"]').forEach((knopf) => {
+    knopf.addEventListener("click", () => {
+      const zeile = knopf.closest("div").parentElement;
+      const anzeige = zeile.querySelector("span.tabular-nums, span[class*='w-10']");
+      if (!anzeige) return;
+      const label = knopf.getAttribute("aria-label");
+      const einheiten = label.startsWith("Einheiten");
+      const min = einheiten ? 2 : 1, max = einheiten ? 30 : 60;
+      let wert = parseInt(anzeige.textContent, 10) + (label.endsWith("erh\u00f6hen") ? 1 : -1);
+      wert = Math.max(min, Math.min(max, wert));
+      anzeige.textContent = String(wert);
+      // Zugehörige Ergebnisbox: Basic hängt an Nutzern, Plus an Einheiten.
+      const karte = knopf.closest(".rounded-2xl");
+      // Nur die Ergebnis-DIVs — die Zähler-Knöpfe tragen selbst `rounded-xl`
+      // und wären sonst boxen[0] und boxen[1].
+      const boxen = karte.querySelectorAll("div.rounded-xl");
+      const box = einheiten ? boxen[1] : boxen[0];
+      const detail = box.querySelector("p:last-child");
+      const faktor = zahl(detail.textContent.split("\u00d7")[1]);
+      box.querySelector(".tabular-nums").childNodes[0].textContent = `${euro(wert * faktor)} \u20ac`;
+      detail.textContent = `${wert} ${einheiten ? "Einheiten" : "Nutzer"} \u00d7 ${euro(faktor)} \u20ac`;
+    });
+  });
+
   // ── Bau-Szene ────────────────────────────────────────────────────────────
   const track = document.querySelector('[aria-label="So bauen Sie Ihre Selbstverwaltung auf"]');
   if (!track || reduziert) return;

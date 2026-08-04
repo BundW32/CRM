@@ -22,7 +22,9 @@ const holen = async (pfad) => {
   return r.text();
 };
 
-const roh = await holen("/");
+// PREVIEW_PFAD erlaubt eine Vorschau auch für Unterseiten (z. B. /preise).
+const PFAD = process.env.PREVIEW_PFAD ?? "/";
+const roh = await holen(PFAD);
 
 // ── CSS einbetten ──────────────────────────────────────────────────────────
 const cssPfade = [...roh.matchAll(/href="(\/_next\/[^"]+\.css)"/g)].map((m) => m[1]);
@@ -104,7 +106,8 @@ body = body.replace(/[^\x00-\x7F]/g, (c) => `&#${c.codePointAt(0)};`);
 
 const treiber = readFileSync(new URL("./chat-vorschau-treiber.js", import.meta.url), "utf8");
 
-process.stdout.write(`<title>Wegportal24 – Vorschau der Startseite</title>
+const TITEL = PFAD === "/" ? "wegportal24 – Vorschau der Startseite" : `wegportal24 – Vorschau ${PFAD}`;
+process.stdout.write(`<title>${TITEL}</title>
 <style>
 ${css}
 /* Die Vorschau steht für sich: Der dunkle Grund der App-Shell gehört zum

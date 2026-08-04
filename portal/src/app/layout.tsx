@@ -1,26 +1,39 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegister } from "@/components/sw-register";
+import { isWegSaas } from "@/lib/app-mode";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "B&W Kundenportal",
-  description:
-    "Kundenportal der B&W Immobilien Management UG – für Mieter, Eigentümer und Verwaltung.",
-  manifest: "/manifest.webmanifest",
-  appleWebApp: {
-    capable: true,
-    title: "B&W Portal",
-    statusBarStyle: "black-translucent",
-  },
-  icons: {
-    icon: "/icon-192.png",
-    apple: "/apple-touch-icon.png",
-  },
-};
+// Eine Codebasis, zwei Marken: Der Titel im Browser-Tab, der Name auf dem
+// Startbildschirm und die Farbe der Statusleiste hängen am App-Modus. Ein
+// festes `metadata`-Objekt hier hätte die SaaS-Variante dauerhaft „B&W
+// Kundenportal" genannt – bis in den Tab-Titel und die installierte App.
+// Seiten mit eigenem `metadata`-Export (etwa die Landing) überschreiben den
+// Titel ohnehin; das hier ist der Rückfall für alles andere. Die Marke wird
+// klein geschrieben – so, wie die Wortmarke sie zeigt.
+export function generateMetadata(): Metadata {
+  const weg = isWegSaas();
+  return {
+    title: weg ? "wegportal24 – WEG selbst verwalten" : "B&W Kundenportal",
+    description: weg
+      ? "Portal für selbstverwaltete Wohnungseigentümergemeinschaften – " +
+        "Wirtschaftsplan, Jahresabrechnung, Hausgeld, Versammlung und Beschlüsse an einem Ort."
+      : "Kundenportal der B&W Immobilien Management UG – für Mieter, Eigentümer und Verwaltung.",
+    manifest: "/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      title: weg ? "wegportal24" : "B&W Portal",
+      statusBarStyle: "black-translucent",
+    },
+    icons: {
+      icon: "/icon-192.png",
+      apple: "/apple-touch-icon.png",
+    },
+  };
+}
 
-export const viewport: Viewport = {
-  themeColor: "#1a1512",
-};
+export function generateViewport(): Viewport {
+  return { themeColor: isWegSaas() ? "#0b2239" : "#1a1512" };
+}
 
 export default function RootLayout({
   children,

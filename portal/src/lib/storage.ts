@@ -5,7 +5,7 @@
 import crypto from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
-import { del, put } from "@vercel/blob";
+import { del, get, put } from "@vercel/blob";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 // Ohne Blob werden Dateien als Data-URL in der DB gespeichert – Limit: 5 MB
@@ -35,6 +35,24 @@ function blobEnabled() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
+// Legt einen Upload privat im Vercel-Blob-Store ab. Private Uploads funktionieren
+// NUR mit einem als „Private" angelegten Blob-Store – ein öffentlicher Store weist
+// `access: "private"` ab. Diese Fehlermeldung macht die Fehlkonfiguration sichtbar,
+// statt dass der Upload stillschweigend scheitert (früher: „Fotos gehen gar nicht").
+async function putPrivate(pathname: string, body: File | Buffer, contentType: string) {
+  try {
+    return await put(pathname, body, { access: "private", contentType });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      "Datei konnte nicht gespeichert werden. Der Vercel-Blob-Store muss als " +
+        "PRIVAT angelegt sein (Dashboard → Storage → Blob → Access: Private, oder " +
+        "`vercel blob create-store --access private`). Details: " +
+        message,
+    );
+  }
+}
+
 function uploadDir() {
   return path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? "./uploads");
 }
@@ -56,10 +74,7 @@ export async function saveUpload(file: File, allowedTypes: string[]) {
   const meta = { fileName: file.name, mimeType: file.type, size: file.size };
 
   if (blobEnabled()) {
-    const blob = await put(`uploads/${fileId}`, file, {
-      access: "private",
-      contentType: file.type,
-    });
+    const blob = await putPrivate(`uploads/${fileId}`, file, file.type);
     return { storedName: blob.url, ...meta };
   }
 
@@ -105,10 +120,7 @@ export async function saveBuffer(
   const meta = { fileName, mimeType, size };
 
   if (blobEnabled()) {
-    const blob = await put(`uploads/${fileId}`, buffer, {
-      access: "private",
-      contentType: mimeType,
-    });
+    const blob = await putPrivate(`uploads/${fileId}`, buffer, mimeType);
     return { storedName: blob.url, ...meta };
   }
 
@@ -129,6 +141,28 @@ export async function saveBuffer(
   return { storedName: fileId, ...meta };
 }
 
+/**
+ * Ist das eine URL unseres Blob-Speichers?
+ *
+ * Muss vor JEDEM Abruf geprüft werden, der ein Zugriffs-Token mitschickt.
+ * `storedName` kommt aus der Datenbank; gelangte dort je eine fremde URL hinein
+ * (Import, Migration, Manipulation), ginge das Token — Lese- UND Schreibrecht
+ * auf sämtliche Kundendateien aller Mandanten — an einen beliebigen fremden
+ * Server. Deshalb liegt die Prüfung hier und nicht als Kopie an jeder
+ * Abrufstelle: Die zweite Abrufstelle (Teilbereichsanfragen in
+ * api/files/[kind]/[id]) hatte sie genau darum lange nicht.
+ */
+export function isBlobUrl(storedName: string): boolean {
+  if (!storedName.startsWith("https://")) return false;
+  let host: string;
+  try {
+    host = new URL(storedName).hostname;
+  } catch {
+    return false;
+  }
+  return host === "blob.vercel-storage.com" || host.endsWith(".blob.vercel-storage.com");
+}
+
 export async function readUpload(storedName: string): Promise<Buffer> {
   // Data-URL (in DB gespeicherter Fallback)
   if (storedName.startsWith("data:")) {
@@ -136,25 +170,16 @@ export async function readUpload(storedName: string): Promise<Buffer> {
     if (commaIdx === -1) throw new Error("Ungültiger Data-URL.");
     return Buffer.from(storedName.slice(commaIdx + 1), "base64");
   }
-  // Vercel Blob (https://) – private blobs benötigen den Bearer-Token
+  // Vercel Blob (https://) – private Blobs offiziell über das SDK abrufen
+  // (get() authentifiziert automatisch per OIDC bzw. BLOB_READ_WRITE_TOKEN).
   if (storedName.startsWith("https://")) {
-    // Den Lese-/Schreib-Token NUR an Vercel-Blob-Hosts senden. Sollte je eine
-    // fremde URL in storedName gelangen (Import/DB-Manipulation), würde er sonst
-    // an einen beliebigen Host geleakt (SSRF + Credential-Exfiltration).
-    let host: string;
-    try {
-      host = new URL(storedName).hostname;
-    } catch {
-      throw new Error("Ungültige Datei-URL.");
-    }
-    const isBlobHost = host === "blob.vercel-storage.com" || host.endsWith(".blob.vercel-storage.com");
-    if (!isBlobHost) throw new Error("Nicht erlaubter Speicher-Host.");
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    const res = await fetch(storedName, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) throw new Error("Datei nicht abrufbar.");
-    return Buffer.from(await res.arrayBuffer());
+    // Zugriff NUR auf Vercel-Blob-Hosts. Sollte je eine fremde URL in storedName
+    // gelangen (Import/DB-Manipulation), würde das Zugriffs-Token sonst an einen
+    // beliebigen Host geleakt (SSRF + Credential-Exfiltration).
+    if (!isBlobUrl(storedName)) throw new Error("Nicht erlaubter Speicher-Host.");
+    const result = await get(storedName, { access: "private" });
+    if (!result || result.statusCode !== 200) throw new Error("Datei nicht abrufbar.");
+    return Buffer.from(await new Response(result.stream).arrayBuffer());
   }
   // Legacy-Dateiname (lokale Entwicklung / Altdaten)
   if (!/^[a-f0-9-]+(\.[a-z0-9]+)?$/.test(storedName)) {

@@ -1,9 +1,27 @@
+import type { Prisma } from "@/generated/prisma/client";
+import { Check } from "lucide-react";
+import { Badge } from "@/components/data-display";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
-import { buttonClass } from "@/components/ui";
+import { Pagination, buttonClass, cardSurfaceClass } from "@/components/ui";
+import { FilterBar, SortControl } from "@/components/filter-bar";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 25;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+// Gilt nur für die abgeschlossenen Protokolle – die Entwürfe stehen bewusst
+// weiter nach letzter Bearbeitung, das ist dort die Arbeitsreihenfolge.
+const SORT_FIELDS = { bearbeitet: "updatedAt", uebergabe: "handoverDate", art: "type" } as const;
+
+const sortOptions = [
+  { value: "bearbeitet", label: "Zuletzt bearbeitet" },
+  { value: "uebergabe", label: "Übergabedatum" },
+  { value: "art", label: "Art (Ein-/Auszug)" },
+];
 
 const typeLabels: Record<string, string> = {
   EINZUG: "Einzug",
@@ -22,11 +40,15 @@ function resumeHref(h: {
   rooms: { id: string }[];
   checklist: unknown;
   meters: { reading: string | null }[];
-  tenantSignature: string | null;
-  managerSignature: string | null;
+  /**
+   * Nur ob unterschrieben wurde, nicht die Unterschrift selbst: Die Bilder
+   * liegen als Data-URL in der Zeile und wären allein für dieses `if` ein
+   * Vielfaches der übrigen Listendaten.
+   */
+  hatUnterschrift: boolean;
 }): string {
   const cl = h.checklist as Record<string, string> | null;
-  if (h.tenantSignature || h.managerSignature) return `/uebergabe/${h.id}/unterschriften`;
+  if (h.hatUnterschrift) return `/uebergabe/${h.id}/unterschriften`;
   if (h.meters.some((m) => m.reading !== null)) return `/uebergabe/${h.id}/unterschriften`;
   if (cl && Object.keys(cl).some((k) => !k.startsWith("note_"))) return `/uebergabe/${h.id}/zaehler`;
   if (h.rooms.length > 0) return `/uebergabe/${h.id}/checkliste`;
@@ -42,22 +64,83 @@ function stepInfo(h: Parameters<typeof resumeHref>[0]): { step: number; label: s
   return { step: 1, label: "Stammdaten" };
 }
 
-export default async function UebergabeOverviewPage() {
+export default async function UebergabeOverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const verwalter = await requireVerwalter();
   const propWhere = await propertyWhereForVerwalter(verwalter);
+  const sp = await searchParams;
+  const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "bearbeitet", "desc");
+  const q = normalizeSearch(sp.q);
 
-  const handovers = await db.handover.findMany({
-    where: { unit: { property: propWhere } },
-    include: {
-      unit: { include: { property: { select: { name: true } } } },
-      rooms: { select: { id: true } },
-      meters: { select: { reading: true } },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
+  // Bisher wurden ALLE Protokolle geladen und erst im Speicher getrennt. Die
+  // abgeschlossenen wachsen mit jedem Ein-/Auszug dauerhaft – daher eigene,
+  // paginierte Abfrage. Entwürfe sind der offene Arbeitsvorrat und bleiben
+  // vollständig sichtbar.
+  const include = {
+    unit: { include: { property: { select: { name: true } } } },
+    rooms: { select: { id: true } },
+    meters: { select: { reading: true } },
+  } as const;
 
-  const entwurf = handovers.filter((h) => h.status === "ENTWURF");
-  const abgeschlossen = handovers.filter((h) => h.status === "ABGESCHLOSSEN");
+  // Die drei Unterschriftsspalten tragen PNG-Data-URLs. `include` liefert alle
+  // Skalarfelder mit — die Liste zog damit für JEDE Zeile bis zu drei Bilder
+  // mit, nur damit `resumeHref` weiß, ob überhaupt unterschrieben wurde.
+  const omit = {
+    tenantSignature: true,
+    tenant2Signature: true,
+    managerSignature: true,
+  } as const;
+
+  const doneWhere: Prisma.HandoverWhereInput = {
+    AND: [
+      { unit: { property: propWhere }, status: "ABGESCHLOSSEN" },
+      ...(q
+        ? [
+            {
+              unit: {
+                OR: [
+                  { label: { contains: q, mode: "insensitive" as const } },
+                  { property: { name: { contains: q, mode: "insensitive" as const } } },
+                ],
+              },
+            },
+          ]
+        : []),
+    ],
+  };
+
+  const [entwurf, abgeschlossen, doneTotal, unterschrieben] = await Promise.all([
+    db.handover.findMany({
+      where: { unit: { property: propWhere }, status: "ENTWURF" },
+      include,
+      omit,
+      orderBy: { updatedAt: "desc" },
+    }),
+    db.handover.findMany({
+      where: doneWhere,
+      include,
+      omit,
+      orderBy: toOrderBy(sort.field, sort.dir),
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+    db.handover.count({ where: doneWhere }),
+    // Statt der Bilder nur die IDs: eine Zeile je unterschriebener Übergabe.
+    db.handover.findMany({
+      where: {
+        unit: { property: propWhere },
+        OR: [{ tenantSignature: { not: null } }, { managerSignature: { not: null } }],
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  const hatUnterschrift = new Set(unterschrieben.map((h) => h.id));
+  const pageHref = pageHrefFor(`/uebergabe`, sp);
 
   return (
     <div className="min-h-screen bw-shell-bg px-4 py-8">
@@ -75,7 +158,7 @@ export default async function UebergabeOverviewPage() {
               </svg>
               Verwaltung
             </a>
-            <h1 className="text-2xl font-bold text-white">Wohnungsübergaben</h1>
+            <h1 className="text-xl font-bold text-white sm:text-2xl">Wohnungsübergaben</h1>
           </div>
           <a href="/uebergabe/neu" className={buttonClass}>
             <svg viewBox="0 0 24 24" className="mr-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -109,7 +192,7 @@ export default async function UebergabeOverviewPage() {
           ) : (
             <div className="space-y-3">
               {entwurf.map((h) => {
-                const { step, label } = stepInfo(h);
+                const { step, label } = stepInfo({ ...h, hatUnterschrift: hatUnterschrift.has(h.id) });
                 const date = h.handoverDate.toLocaleDateString("de-DE", {
                   day: "2-digit",
                   month: "2-digit",
@@ -119,7 +202,7 @@ export default async function UebergabeOverviewPage() {
                 return (
                   <div
                     key={h.id}
-                    className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden"
+                    className={`overflow-hidden ${cardSurfaceClass}`}
                   >
                     <div className="px-4 pt-4 pb-3 flex items-start gap-3">
                       <div className="flex-1 min-w-0">
@@ -157,7 +240,7 @@ export default async function UebergabeOverviewPage() {
                         Bearbeitet: {h.updatedAt.toLocaleDateString("de-DE")}
                       </span>
                       <a
-                        href={resumeHref(h)}
+                        href={resumeHref({ ...h, hatUnterschrift: hatUnterschrift.has(h.id) })}
                         className="inline-flex items-center justify-center rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-green-dark shadow-sm transition-all hover:bg-brand-orange-dark active:scale-[0.98]"
                       >
                         Fortsetzen →
@@ -171,14 +254,28 @@ export default async function UebergabeOverviewPage() {
         </section>
 
         {/* Completed */}
-        {abgeschlossen.length > 0 && (
+        {doneTotal > 0 || q ? (
           <section>
             <h2 className="text-xs font-semibold text-white/50 uppercase tracking-widest mb-3 flex items-center gap-2">
               Abgeschlossen
-              <span className="inline-flex items-center justify-center rounded-full bg-white/10 text-white/60 text-xs font-bold w-5 h-5">
-                {abgeschlossen.length}
+              <span className="inline-flex items-center justify-center rounded-full bg-white/10 text-white/60 px-1.5 text-xs font-bold min-w-5 h-5">
+                {doneTotal}
               </span>
             </h2>
+
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <FilterBar
+                className="flex-1"
+                searchPlaceholder="Suchen"
+                searchHint="Nach Objekt oder Einheit suchen"
+              />
+              <SortControl sortOptions={sortOptions} defaultSort="bearbeitet" total={doneTotal} />
+            </div>
+
+            {abgeschlossen.length === 0 ? (
+              <p className="text-sm text-white/50">Keine Protokolle gefunden.</p>
+            ) : null}
+
             <div className="space-y-2">
               {abgeschlossen.map((h) => {
                 const date = h.handoverDate.toLocaleDateString("de-DE", {
@@ -189,7 +286,7 @@ export default async function UebergabeOverviewPage() {
                 return (
                   <div
                     key={h.id}
-                    className="rounded-2xl border border-gray-200 bg-white shadow-sm px-4 py-3 flex items-center gap-3"
+                    className={`px-4 py-3 flex items-center gap-3 ${cardSurfaceClass}`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-0.5">
@@ -199,12 +296,10 @@ export default async function UebergabeOverviewPage() {
                           {typeLabels[h.type] ?? h.type}
                         </span>
                         <span className="text-xs text-gray-400">{date}</span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                          <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
+                        <Badge tone="success">
+                          <Check className="h-3 w-3" strokeWidth={2.5} />
                           Fertig
-                        </span>
+                        </Badge>
                       </div>
                       <p className="text-sm font-semibold text-gray-900 truncate">
                         {h.unit.property.name} · {h.unit.label}
@@ -217,8 +312,6 @@ export default async function UebergabeOverviewPage() {
                       {h.pdfStoredName && (
                         <a
                           href={`/api/files/handover-pdf/${h.id}?download=1`}
-                          target="_blank"
-                          rel="noopener noreferrer"
                           className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.98]"
                         >
                           <svg viewBox="0 0 24 24" className="mr-1 h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -238,8 +331,16 @@ export default async function UebergabeOverviewPage() {
                 );
               })}
             </div>
+
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.max(1, Math.ceil(doneTotal / PAGE_SIZE))}
+              total={doneTotal}
+              itemLabel="Protokolle"
+              hrefFor={pageHref}
+            />
           </section>
-        )}
+        ) : null}
       </div>
     </div>
   );

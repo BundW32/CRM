@@ -29,12 +29,20 @@ describe("parseAdminAllowlist", () => {
 describe("isPlatformAdminUser", () => {
   it("erlaubt nur E-Mails aus der Allowlist (case-insensitiv)", () => {
     vi.stubEnv("PLATFORM_ADMIN_EMAILS", "chef@bw.de");
-    expect(isPlatformAdminUser({ email: "Chef@BW.de" })).toBe(true);
-    expect(isPlatformAdminUser({ email: "andere@bw.de" })).toBe(false);
-    expect(isPlatformAdminUser({ email: null })).toBe(false);
+    expect(isPlatformAdminUser({ email: "Chef@BW.de", isPlatformAdmin: true })).toBe(true);
+    expect(isPlatformAdminUser({ email: "andere@bw.de", isPlatformAdmin: true })).toBe(false);
+    expect(isPlatformAdminUser({ email: null, isPlatformAdmin: true })).toBe(false);
   });
   it("ohne Env-Allowlist immer false", () => {
     vi.stubEnv("PLATFORM_ADMIN_EMAILS", "");
+    expect(isPlatformAdminUser({ email: "chef@bw.de", isPlatformAdmin: true })).toBe(false);
+  });
+  it("ohne Datenbank-Flag immer false – auch mit passender Adresse", () => {
+    // Der Angriff, den diese Wand abwehrt: Ein Verwalter legt in seiner eigenen
+    // Organisation einen Nutzer auf eine Betreiber-Adresse an und vergibt das
+    // Passwort selbst. Das Flag kann er dabei nicht setzen.
+    vi.stubEnv("PLATFORM_ADMIN_EMAILS", "chef@bw.de");
+    expect(isPlatformAdminUser({ email: "chef@bw.de", isPlatformAdmin: false })).toBe(false);
     expect(isPlatformAdminUser({ email: "chef@bw.de" })).toBe(false);
   });
 });

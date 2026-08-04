@@ -16,7 +16,10 @@ import {
   propertyIdsForVerwalter,
   ticketWhereForUser,
 } from "./access";
-import { documentCategoryLabels, ticketStatusLabels } from "./labels";
+import { documentCategoryLabels, roleLabels, ticketStatusLabels } from "./labels";
+import { helpForUser } from "./assistant-help";
+import { finanzQuellen } from "./assistant-finanzen";
+import { GLOSSAR, type Begriffsname, type Glossareintrag } from "./glossar";
 
 export type AssistantSource = {
   type: string; // z. B. "Beschluss", "Aushang", "Vorgang"
@@ -130,11 +133,11 @@ export async function retrieveContext(user: User, question: string, limit = 14):
   ]);
 
   for (const a of announcements) {
-    out.push(cand("Aushang", a.title, "/infos", `${objTag(a.property?.name)}${a.body}`, a.createdAt, ts));
+    out.push(cand("Aushang", a.title, "/aushaenge", `${objTag(a.property?.name)}${a.body}`, a.createdAt, ts));
   }
   for (const d of documents) {
     out.push(
-      cand("Dokument", d.title, "/infos", `${objTag(d.property?.name)}${documentCategoryLabels[d.category]}`, d.createdAt, ts),
+      cand("Dokument", d.title, "/dokumente", `${objTag(d.property?.name)}${documentCategoryLabels[d.category]}`, d.createdAt, ts),
     );
   }
   for (const t of tickets) {
@@ -206,6 +209,43 @@ export async function retrieveContext(user: User, question: string, limit = 14):
     }
   }
 
+  // Bedienhilfe-Themen der Rolle als zusätzliche Quellen (nur wenn Begriffe der
+  // Frage treffen – Datum epoch 0, damit sie nicht als Füllmaterial hochkommen).
+  for (const h of helpForUser(user.role)) {
+    out.push(cand("Bedienhilfe", h.title, h.href, h.body, new Date(0), ts));
+  }
+
+  // Fachbegriffe aus dem Glossar (LP3). Dieselbe Erklärung, die im Programm an
+  // den Begriffen hängt — nicht eine zweite, die daneben altert. „Was ist eine
+  // Abrechnungsspitze?" ist die häufigste Frage eines Eigentümers, und sie ist
+  // ohne diese Quelle nicht beantwortbar gewesen.
+  for (const name of Object.keys(GLOSSAR) as Begriffsname[]) {
+    // Über den erklärten Typ, nicht über die abgeleitete Union: `paragraph`
+    // ist optional, und ohne diese Annotation verengt TypeScript jeden
+    // Eintrag auf seine eigene Literalform.
+    const eintrag: Glossareintrag = GLOSSAR[name];
+    out.push(
+      cand(
+        "Fachbegriff",
+        name,
+        "",
+        `${eintrag.erklaerung}${eintrag.paragraph ? ` (${eintrag.paragraph})` : ""}`,
+        new Date(0),
+        ts,
+      ),
+    );
+  }
+
+  // Finanzen: Kontostände, Rückstände, Stand des Jahreslaufs. Die
+  // Rechte-Grenze steckt in `finanzQuellen` — insbesondere, dass ein
+  // Eigentümer die Summe der Rückstände sieht, aber nicht, wer sie schuldet.
+  for (const f of await finanzQuellen(user)) {
+    // Datum „jetzt", weil diese Angaben tagesaktuell sind: Fragt jemand nach
+    // dem Kontostand, ist die heutige Zahl die Antwort — nicht ein Beschluss
+    // von 2024, der zufällig dieselben Wörter enthält.
+    out.push(cand(f.type, f.title, f.href, f.snippet, new Date(), ts));
+  }
+
   // Beste zuerst: höhere Trefferzahl, bei Gleichstand aktueller. Ohne jeden
   // Treffer greifen wir auf die jüngsten Einträge zurück (Kontext statt Leere).
   out.sort((a, b) => b._score - a._score || b.updatedAt - a.updatedAt);
@@ -251,9 +291,23 @@ export async function askAssistant(user: User, question: string): Promise<Assist
 
   const prompt =
     `Du bist der Assistent des Kundenportals einer deutschen Hausverwaltung. ` +
-    `Beantworte die Frage AUSSCHLIESSLICH anhand der nummerierten Quellen. ` +
-    `Steht die Antwort nicht in den Quellen, sage wörtlich: "Dazu finde ich in Ihren Unterlagen nichts." ` +
-    `Erfinde nichts, spekuliere nicht. Antworte knapp und sachlich auf Deutsch. ` +
+    `Der fragende Nutzer hat die Rolle „${roleLabels[user.role]}" – richte Antwort und ` +
+    `Hilfestellung darauf aus. ` +
+    `Beantworte die Frage anhand der nummerierten Quellen. Quellen vom Typ „Bedienhilfe" ` +
+    `erklären, wie das Portal bedient wird – nutze sie für Fragen zur Nutzung („wie/wo mache ich …"). ` +
+    `Quellen vom Typ „Fachbegriff" erklären Fachwörter des Wohnungseigentumsrechts. ` +
+    `Quellen vom Typ „Kontostand", „Rückstände", „Ihr Hausgeld" und „Jahreslauf" ` +
+    `enthalten den heutigen Stand der Finanzen — nenne Beträge nur aus ihnen und ` +
+    `rechne selbst nichts aus. ` +
+    `Steht die Antwort weder in den Inhalten noch in der Bedienhilfe, sage wörtlich: ` +
+    `"Dazu finde ich in Ihren Unterlagen nichts." Erfinde nichts, spekuliere nicht. ` +
+    // Der Assistent erklärt Recht, er wendet es nicht an. Ohne diesen Satz
+    // klingt eine Auskunft zu einem Paragraphen wie eine Rechtsberatung — und
+    // genau als solche wird sie dann auch verstanden.
+    `Du gibst allgemeine Auskunft, keine Rechtsberatung: Bei Fragen mit rechtlicher ` +
+    `oder steuerlicher Tragweite nenne die Regel und weise darauf hin, dass die ` +
+    `Beurteilung des Einzelfalls zum Anwalt oder Steuerberater gehört. ` +
+    `Antworte knapp und sachlich auf Deutsch. ` +
     `Gib in "used" die Nummern der tatsächlich genutzten Quellen an (leer, wenn keine passt).\n\n` +
     `QUELLEN:\n${context}\n\nFRAGE: ${q}`;
 

@@ -28,9 +28,12 @@ function AssignSubmit({ count }: { count: number }) {
 // Statt einzeln zuzuweisen, mehrere ankreuzen und in einem Rutsch speichern.
 export function PropertyAssignPicker({
   userId,
+  zurueck,
   available,
 }: {
   userId: string;
+  /** Rücksprungpfad nach dem Speichern. */
+  zurueck: string;
   available: Prop[];
 }) {
   const [q, setQ] = useState("");
@@ -74,6 +77,7 @@ export function PropertyAssignPicker({
   return (
     <form action={addPropertyAssignment} className="mt-2 space-y-2">
       <input type="hidden" name="userId" value={userId} />
+      <input type="hidden" name="zurueck" value={zurueck} />
       {hiddenSelected.map((id) => (
         <input key={id} type="hidden" name="propertyId" value={id} />
       ))}

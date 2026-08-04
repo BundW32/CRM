@@ -46,16 +46,18 @@ export function UserRow({
         >
           <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
+        {/* Name links, Badges rechtsbündig: so bilden die Badges über alle Zeilen
+            hinweg eine ruhige Spalte, statt je nach Namenslänge zu springen. */}
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-gray-900">
-              {salutation ? `${salutation} ` : ""}
-              {name}
-            </span>
-            {roleBadge}
-            {statusBadges}
+          <span className="block truncate text-sm font-medium text-gray-900">
+            {salutation ? `${salutation} ` : ""}
+            {name}
           </span>
           <span className="mt-0.5 block truncate text-xs text-gray-500">{subtitle}</span>
+        </span>
+        <span className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2">
+          {roleBadge}
+          {statusBadges}
         </span>
       </button>
 

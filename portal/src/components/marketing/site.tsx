@@ -1,25 +1,36 @@
-// Gemeinsame Bausteine der öffentlichen Marketing-Seiten (Hauptdomain):
-// fixierte Kopfzeile mit Navigation, Corporate-Footer, Abschnitts-Raster,
-// Zahlenleiste und CTA-Band. Die Seiten laufen hell (Klasse `mk-light` auf
-// dem <main>), der Footer bleibt als dunkelgrüner Marken-Anker.
+// Gemeinsame Bausteine der öffentlichen Marketing-Seiten von Wegportal24
+// (Hauptdomain der SaaS-Variante): fixierte Kopfzeile mit Navigation,
+// Fußzeile, Foto-Hero, Zahlenleiste und CTA-Band. Die Seiten laufen hell
+// (Klasse `mk-light` auf dem <main>), die Fußzeile bleibt als dunkelgrüner
+// Marken-Anker. Farben und Knöpfe kommen aus `./brand`.
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, ChevronDown, Mail } from "lucide-react";
 import type { ReactNode } from "react";
-import { buttonClass, buttonSecondaryClass } from "@/components/ui";
-import { BwLogoCompact } from "@/components/logo";
+import {
+  BRAND_EMAIL,
+  BRAND_NAME,
+  wpButtonClass,
+  wpButtonOnPhotoClass,
+} from "./brand";
+import { MobileMenu } from "./mobile-menu";
+import { Wordmark } from "./wordmark";
 import { KenBurnsBackdrop } from "./photo-hero";
 import { Reveal } from "./reveal";
 
-// Sekundär-Button auf Foto-/Dunkelflächen (weißer Umriss statt Orange)
-export const buttonOnPhotoClass =
-  "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/40 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20 active:scale-[0.98]";
+// Bisheriger Name des Foto-Knopfes – bleibt als Re-Export, damit die Seiten
+// ihn unverändert importieren können.
+export const buttonOnPhotoClass = wpButtonOnPhotoClass;
 
+// „So funktioniert's" zuerst: für den unsicheren Erstbesucher ist das der
+// wichtigste Link — im alten Scroll-Band lag er bei 390 px außerhalb des
+// Bildschirms.
 const navItems = [
+  { href: "/so-funktionierts", label: "So funktioniert’s" },
   { href: "/funktionen/finanzen", label: "Finanzen" },
   { href: "/funktionen/hausgeld", label: "Hausgeld" },
   { href: "/funktionen/versammlung", label: "Versammlung" },
   { href: "/funktionen/kommunikation", label: "Kommunikation" },
-  { href: "/so-funktionierts", label: "So funktioniert’s" },
+  { href: "/preise", label: "Preise" },
 ] as const;
 
 export function MarketingHeader({ active }: { active?: string }) {
@@ -28,18 +39,18 @@ export function MarketingHeader({ active }: { active?: string }) {
       {/* Tastatur-Nutzer springen direkt zum Inhalt */}
       <a
         href="#inhalt"
-        className="sr-only z-50 rounded-md bg-brand-orange px-3 py-2 text-sm font-semibold text-brand-green-dark focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
+        className="sr-only z-50 rounded-md bg-wp-accent px-3 py-2 text-sm font-semibold text-wp-on-accent focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
       >
         Zum Inhalt springen
       </a>
-      <header className="sticky top-0 z-40 border-b border-gray-200/80 bg-white/85 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <Link href="/" className="shrink-0" aria-label="Zur Startseite">
-            <BwLogoCompact className="h-9 w-auto" />
+      <header className="sticky top-0 z-40 border-b border-wp-ink/15 bg-[#faf8f4]/92 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
+          <Link href="/" className="shrink-0" aria-label={`${BRAND_NAME} – zur Startseite`}>
+            <Wordmark className="text-lg sm:text-xl" />
           </Link>
           <nav
             aria-label="Hauptnavigation"
-            className="hidden items-center gap-6 text-sm lg:flex"
+            className="hidden items-center gap-7 text-[15px] lg:flex"
           >
             {navItems.map((item) => (
               <Link
@@ -48,43 +59,34 @@ export function MarketingHeader({ active }: { active?: string }) {
                 aria-current={active === item.href ? "page" : undefined}
                 className={
                   active === item.href
-                    ? "-mb-px border-b-2 border-brand-orange pb-0.5 font-semibold text-brand-green"
-                    : "text-gray-600 transition-colors hover:text-brand-green"
+                    ? "font-semibold text-wp-ink underline decoration-wp-accent-ink decoration-2 underline-offset-[7px]"
+                    : "text-wp-ink/65 underline decoration-transparent decoration-2 underline-offset-[7px] transition-colors hover:text-wp-ink hover:decoration-wp-ink/25"
                 }
               >
                 {item.label}
               </Link>
             ))}
           </nav>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <Link href="/login" className={buttonSecondaryClass}>
+          {/* Eine Kopfzeile für alle Größen. Auf Mobil: Logo, Registrieren,
+              Hamburger — das zweizeilige Scroll-Band davor fraß dauerhaft
+              ~90 px des Viewports, hatte 36-px-Tap-Ziele und versteckte den
+              wichtigsten Link außerhalb des Bildschirms. „Anmelden" wandert
+              auf Mobil ins Overlay; der Registrieren-Knopf bleibt auf JEDER
+              Breite sichtbar — er ist die eine Handlung dieser Seiten. */}
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <Link
+              href="/login"
+              className="hidden text-[15px] font-semibold text-wp-ink underline decoration-wp-ink/30 underline-offset-[6px] transition-colors hover:decoration-wp-accent-ink sm:inline"
+            >
               Anmelden
             </Link>
-            <Link href="/registrieren" className={`${buttonClass} hidden sm:inline-flex`}>
-              Kostenlos starten
+            <Link href="/registrieren" className={`${wpButtonClass} min-h-11`}>
+              <span className="sm:hidden">Starten</span>
+              <span className="hidden sm:inline">Registrieren</span>
             </Link>
+            <MobileMenu items={navItems} />
           </div>
         </div>
-        {/* Mobile Navigation: horizontal scrollbar statt Umbruch */}
-        <nav
-          aria-label="Hauptnavigation mobil"
-          className="flex gap-5 overflow-x-auto border-t border-gray-100 px-4 py-2 text-sm whitespace-nowrap lg:hidden"
-        >
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active === item.href ? "page" : undefined}
-              className={
-                active === item.href
-                  ? "font-semibold text-brand-orange-ink"
-                  : "text-gray-600"
-              }
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
       </header>
     </>
   );
@@ -104,6 +106,7 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
     title: "Einstieg",
     links: [
       { href: "/so-funktionierts", label: "So funktioniert’s" },
+      { href: "/preise", label: "Preise" },
       { href: "/registrieren", label: "Kostenlos registrieren" },
       { href: "/login", label: "Anmelden" },
     ],
@@ -115,30 +118,30 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
       { href: "/datenschutz", label: "Datenschutz" },
       { href: "/agb", label: "AGB" },
       { href: "/avv", label: "Auftragsverarbeitung (AVV)" },
+      // Pflichtangabe nach Art. 50 EU-KI-VO – seit dem 2.8.2026 in Kraft.
+      { href: "/ki-transparenz", label: "KI-Transparenz" },
     ],
   },
 ];
 
 export function MarketingFooter() {
   return (
-    <footer className="mt-4 bg-brand-green">
+    <footer className="mt-4 bg-wp-ink">
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
         {/* Markenblock */}
         <div>
-          <div className="inline-block rounded-xl bg-white px-2.5 py-1.5">
-            <BwLogoCompact className="h-8 w-auto" />
-          </div>
+          <Wordmark className="text-xl" tone="light" />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/70">
-            Das Portal für selbstverwaltete Wohnungseigentümergemeinschaften
-            und Hausverwaltungen – von der ersten Buchung bis zur
+            Das Portal für selbstverwaltete Wohnungseigentümergemeinschaften –
+            von der ersten Buchung über Versammlung und Beschluss bis zur
             revisionssicheren Jahresabrechnung.
           </p>
           <a
-            href="mailto:info@bundwimmobilien.de"
-            className="mt-4 inline-flex items-center gap-2 text-sm text-white/80 transition-colors hover:text-brand-orange"
+            href={`mailto:${BRAND_EMAIL}`}
+            className="mt-4 inline-flex items-center gap-2 text-sm text-white/80 transition-colors hover:text-wp-accent-bright"
           >
             <Mail className="h-4 w-4" />
-            info@bundwimmobilien.de
+            {BRAND_EMAIL}
           </a>
         </div>
         {/* Linkspalten */}
@@ -165,7 +168,9 @@ export function MarketingFooter() {
       {/* Untere Leiste */}
       <div className="border-t border-white/10">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-white/60 sm:px-6">
-          <p>© {new Date().getFullYear()} B&amp;W Immobilien Management UG. Alle Rechte vorbehalten.</p>
+          <p>
+            © {new Date().getFullYear()} {BRAND_NAME}.de. Alle Rechte vorbehalten.
+          </p>
           <p>Wirtschaftsplan · Jahresabrechnung · Hausgeld – nach §§ 19, 26a, 28 WEG</p>
         </div>
       </div>
@@ -198,8 +203,8 @@ export function MarketingHero({
     <section id="inhalt" className="relative flex min-h-[78vh] items-center overflow-hidden">
       <KenBurnsBackdrop src={image.src} alt={image.alt} preload />
       {/* Lesbarkeits-Verlauf: links dicht, rechts gibt er das Foto frei */}
-      <div className="absolute inset-0 bg-gradient-to-r from-brand-green-dark/95 via-brand-green-dark/70 to-brand-green-dark/20" />
-      <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-brand-green-dark/60 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-wp-ink/95 via-wp-ink/70 to-wp-ink/20" />
+      <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-wp-ink/60 to-transparent" />
 
       <div className="relative mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
         <div className="max-w-2xl animate-page-in">
@@ -213,7 +218,7 @@ export function MarketingHero({
             {intro}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/registrieren" className={`${buttonClass} px-5 py-2.5`}>
+            <Link href="/registrieren" className={`${wpButtonClass} px-5 py-2.5`}>
               Kostenlos starten
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -229,9 +234,9 @@ export function MarketingHero({
       {badge ? (
         <div
           className="absolute bottom-10 right-6 hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-800 shadow-e3 md:flex lg:right-12"
-          style={{ animation: "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "500ms" }}
+          style={{ animation: "mkPopIn 0.5s var(--ease-mk-out) both", animationDelay: "500ms" }}
         >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-orange-light">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-wp-accent-light">
             {badge.icon}
           </span>
           {badge.text}
@@ -240,7 +245,10 @@ export function MarketingHero({
 
       {/* Scroll-Hinweis */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70">
-        <ChevronDown className="h-6 w-6 animate-bounce" />
+        <ChevronDown
+          className="h-6 w-6"
+          style={{ animation: "mkNudge 2.2s ease-in-out infinite" }}
+        />
       </div>
     </section>
   );
@@ -262,7 +270,7 @@ export function PhotoBand({
   return (
     <section className="relative mt-20 flex min-h-[46vh] items-center justify-center overflow-hidden">
       <KenBurnsBackdrop src={src} alt={alt} />
-      <div className="absolute inset-0 bg-brand-green-dark/60" />
+      <div className="absolute inset-0 bg-wp-ink/60" />
       <Reveal className="relative">
         <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
           <h2 className="text-balance text-3xl font-extrabold leading-tight text-white sm:text-4xl">
@@ -304,18 +312,18 @@ export function FeatureSection({
         }`}
       >
         <Reveal>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-orange-ink">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-wp-accent-ink">
             {eyebrow}
           </p>
-          <h2 className="mt-3 text-balance text-2xl font-bold text-brand-green-dark sm:text-3xl">
+          <h2 className="mt-3 text-balance text-2xl font-bold text-wp-ink sm:text-3xl">
             {title}
           </h2>
           <div className="mt-4 space-y-4 leading-relaxed text-gray-600">{children}</div>
           {points ? (
-            <ul className="mt-6 space-y-2.5 border-l-2 border-brand-orange/40 pl-5">
+            <ul className="mt-6 space-y-2.5 border-l-2 border-wp-accent-ink/30 pl-5">
               {points.map((point) => (
                 <li key={point} className="flex items-start gap-2.5 text-sm text-gray-700">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-orange-ink" />
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-wp-accent-ink" />
                   {point}
                 </li>
               ))}
@@ -325,9 +333,9 @@ export function FeatureSection({
         <Reveal delay={120}>
           <div className="relative">
             {/* weiches Licht hinter der Illustration */}
-            <div className="pointer-events-none absolute -inset-5 rounded-[2rem] bg-brand-orange/10 blur-2xl" />
+            <div className="pointer-events-none absolute -inset-5 rounded-[2rem] bg-wp-accent/10 blur-2xl" />
             <div
-              className="relative rounded-2xl border border-brand-orange-light bg-gradient-to-b from-brand-orange-light/60 to-white p-6 shadow-e2 sm:p-8"
+              className="relative rounded-2xl border border-wp-accent-light bg-gradient-to-b from-wp-accent-light/60 to-white p-6 shadow-e2 sm:p-8"
               style={{ animation: "mkFloat 8s ease-in-out infinite" }}
             >
               {visual}
@@ -342,23 +350,24 @@ export function FeatureSection({
 // Zahlenleiste „Auf einen Blick" – nüchterne Produkt-Fakten im Stil großer
 // Unternehmensseiten. Bewusst nur belegbare Werte, keine Marketing-Zahlen.
 const stats = [
-  { value: "0 €", label: "Start ohne Zahlungsdaten – Registrierung in wenigen Minuten" },
-  { value: "12", label: "monatliche Sollstellungen je Einheit, automatisch aus dem Beschluss" },
-  { value: "< 9", label: "Einheiten: keine Zertifizierungspflicht für den Eigentümer-Verwalter" },
-  { value: "4", label: "Rollen mit eigenem Zugang: Eigentümer, Beirat, Mieter, Handwerker" },
+  { value: "0 €", label: "Der Start: kostenlos einrichten, ohne Zahlungsdaten" },
+  { value: "< 9", label: "Einheiten: keine Zertifizierungspflicht für den Eigentümer-Verwalter (§ 19 WEG)" },
+  { value: "100 %", label: "Ihrer Daten exportierbar – Journal und Kontoblatt als CSV, kein Lock-in" },
 ];
 
 export function StatsBand() {
   return (
-    <section className="relative overflow-hidden bg-brand-green">
+    // Dunkelgrün statt Grün: Die Zahlen stehen in Orange darauf und erreichen
+    // so 7,0:1 statt 5,7:1 – die Zahlen sind der Grund für dieses Band.
+    <section className="relative overflow-hidden bg-wp-ink">
       {/* dezente Lichtakzente wie im CTA-Band */}
-      <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-orange/15 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-brand-green-light/40 blur-3xl" />
-      <div className="relative mx-auto grid w-full max-w-6xl gap-8 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+      <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-wp-accent/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-wp-primary/50 blur-3xl" />
+      <div className="relative mx-auto grid w-full max-w-6xl gap-8 px-4 py-14 sm:grid-cols-3 sm:px-6">
         {stats.map((stat, i) => (
           <Reveal key={stat.value} delay={i * 90}>
             <div>
-              <p className="font-display text-5xl font-extrabold tracking-tight text-brand-orange">
+              <p className="font-display text-5xl font-extrabold tracking-tight text-wp-accent-bright">
                 {stat.value}
               </p>
               <p className="mt-2 text-sm leading-relaxed text-white/80">{stat.label}</p>
@@ -381,15 +390,15 @@ export function CtaBand({
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
       <Reveal>
-        <div className="relative overflow-hidden rounded-2xl bg-brand-green p-8 text-center shadow-e3 sm:p-14">
+        <div className="relative overflow-hidden rounded-2xl bg-wp-primary p-8 text-center shadow-e3 sm:p-14">
           {/* Dezenter Akzent statt lauter Verläufe */}
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-orange/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-brand-green-light/50 blur-3xl" />
+          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-wp-accent/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-wp-primary/50 blur-3xl" />
           <div className="relative">
             <h2 className="text-balance text-2xl font-bold text-white sm:text-3xl">{title}</h2>
             <p className="mx-auto mt-3 max-w-xl text-balance text-white/80">{text}</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link href="/registrieren" className={`${buttonClass} px-6 py-3 text-base`}>
+              <Link href="/registrieren" className={`${wpButtonClass} px-6 py-3 text-base`}>
                 Jetzt kostenlos starten
                 <ArrowRight className="h-4 w-4" />
               </Link>
@@ -397,10 +406,10 @@ export function CtaBand({
             <p className="mt-6 text-sm text-white/60">
               Fragen vorab?{" "}
               <a
-                href="mailto:info@bundwimmobilien.de"
-                className="font-medium text-brand-orange hover:underline"
+                href={`mailto:${BRAND_EMAIL}`}
+                className="font-medium text-wp-accent-bright hover:underline"
               >
-                info@bundwimmobilien.de
+                {BRAND_EMAIL}
               </a>
             </p>
           </div>

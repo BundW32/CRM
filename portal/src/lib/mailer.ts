@@ -1,8 +1,10 @@
 // E-Mail-Versand über SMTP. Ohne SMTP_HOST ist der Versand deaktiviert —
 // alle Aufrufer dürfen den Versand daher nie als gegeben voraussetzen.
 import nodemailer from "nodemailer";
-import { DEFAULT_BRANDING, emailLogoUrl, type OrgBranding } from "./branding";
+import { emailLogoUrl, type OrgBranding } from "./branding";
+import { fallbackBranding } from "./branding-server";
 export { portalUrl } from "./url";
+export { portalUrlFromRequest } from "./url-server";
 
 // Ist der E-Mail-Versand konfiguriert? (Ohne SMTP_HOST ein kontrollierter No-Op –
 // die UI kann so einen Hinweis zeigen, statt einen stillen „Versand" vorzugaukeln.)
@@ -39,7 +41,7 @@ function linkify(escaped: string) {
 
 // Markenkonformes HTML-Layout mit Logo und Signatur (Kontaktdaten). Das
 // Branding bestimmt Logo, Akzentfarbe und Fußzeile (Mandanten-spezifisch).
-export function renderHtml(subject: string, text: string, branding: OrgBranding = DEFAULT_BRANDING) {
+export function renderHtml(subject: string, text: string, branding: OrgBranding = fallbackBranding()) {
   const base = (process.env.PORTAL_BASE_URL ?? "").replace(/\/$/, "");
   const logo = emailLogoUrl(branding, base);
   const bodyHtml = linkify(escapeHtml(text)).replace(/\r?\n/g, "<br>");
@@ -108,12 +110,22 @@ export type MailAttachment = {
   contentType?: string;
 };
 
+// Absender, wenn MAIL_FROM nicht gesetzt ist. Bewusst aus dem Rückfall-Branding
+// des Deployments – die Adresse muss zur SPF/DKIM-authentifizierten Domain
+// passen, nicht zum Mandanten.
+function fallbackFrom(): string {
+  const b = fallbackBranding();
+  return `${b.displayName} <${b.email ?? "no-reply@bundwimmobilien.de"}>`;
+}
+
 export async function sendMail(
   to: string | null | undefined,
   subject: string,
   text: string,
   attachments?: MailAttachment[],
-  branding: OrgBranding = DEFAULT_BRANDING
+  // Rückfall je Deployment: B&W bzw. wegportal24. Aufrufer mit Org-Bezug
+  // übergeben ihr eigenes Branding und sind davon unberührt.
+  branding: OrgBranding = fallbackBranding()
 ) {
   if (!to) {
     // Zugänge ohne E-Mail-Adresse (Zugangsschreiben) erhalten keine Mails
@@ -128,7 +140,9 @@ export async function sendMail(
     await t.sendMail({
       // Absender bleibt env-/SMTP-gebunden (Domain muss SPF/DKIM-authentifiziert
       // sein – pro-Mandant-Absender wäre ein separates Zustellungs-Thema).
-      from: process.env.MAIL_FROM ?? "Kundenportal <no-reply@bundwimmobilien.de>",
+      // Der Rückfall folgt dem DEPLOYMENT, nicht dem Mandanten: Sonst verschickte
+      // wegportal24 ohne gesetztes MAIL_FROM still unter der B&W-Adresse.
+      from: process.env.MAIL_FROM ?? fallbackFrom(),
       to,
       subject,
       text,

@@ -13,6 +13,35 @@
      weiß/hell verwenden – auf dunklem Shell weiterhin --color-brand-orange. */
   --color-brand-orange-ink: #8f5407;
 
+  /* ── Wegportal24 ── eigene Marke der WEG-SaaS-Variante (APP_MODE=weg).
+     Die Werte sind Grün und Orange – dieselben Töne, mit denen die
+     Verwaltungs-Variante läuft. Sie stehen hier als EIGENE Tokens und nicht
+     als Verweis auf die Marken-Tokens darüber: Das Farbschema ist einmal
+     übernommen worden, nicht verbunden. Wer eine der beiden Seiten künftig
+     umfärbt, färbt die andere damit nicht mit.
+
+     Die Kontraste sind gerechnet, nicht geschätzt (Verhältnis nach WCAG 2.1):
+       weiß auf wp-primary ......... 13,4:1
+       wp-primary auf weiß ......... 13,4:1
+       weiß auf wp-ink ............ 16,5:1
+       wp-accent-ink auf weiß ...... 6,1:1
+       wp-on-accent auf wp-accent .. 7,0:1
+       wp-accent-bright auf wp-ink . 7,0:1 */
+  --color-wp-primary: #003630;
+  --color-wp-primary-soft: #0c534a; /* helleres Grün: Lichtflächen, Verläufe */
+  --color-wp-primary-light: #e8efed; /* grüne Tönung für Hover-Flächen */
+  --color-wp-ink: #00241f;
+  --color-wp-accent: #f69018;
+  --color-wp-accent-dark: #dd7d0c;
+  --color-wp-accent-light: #fef1e0;
+  /* Orange als TEXT auf hellen Flächen – der Akzent selbst erreicht dort nur
+     2,4:1. Auf dunklem Grund und auf Fotos gehört stattdessen -bright hin. */
+  --color-wp-accent-ink: #8f5407;
+  /* Auf dunklem Grund trägt das Marken-Orange selbst: 7,0:1 auf wp-ink. */
+  --color-wp-accent-bright: #f69018;
+  /* Tinte AUF dem Orange-Knopf. */
+  --color-wp-on-accent: #00241f;
+
   /* ── Dunkler Rahmen (Shell) – warmes Dunkelbraun, angelehnt an die Website ── */
   --color-shell: #1a1512;
   --color-shell-2: #241d18;
@@ -23,6 +52,11 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   --font-display: "Plus Jakarta Sans", var(--font-sans);
+  /* Schrift der öffentlichen Marken-Seiten. Source Sans 3 ist die Schrift, in
+     der `lib/documents/kit/fonts.ts` Wirtschaftsplan, Jahresabrechnung und
+     Mahnungen setzt – die Seite ist damit im selben Schriftbild wie die
+     Papiere, die sie verspricht. Utility: `font-mk`. */
+  --font-mk: "Source Sans 3", var(--font-sans);
 
   /* ── Semantische Statusfarben (getrennt vom Marken-Akzent) ── */
   --color-good: #1f7a54;
@@ -52,6 +86,15 @@
   --animate-toast-out: toastOut 0.2s ease-in forwards;
   --animate-spin-once: spinOnce 0.5s ease-in-out;
   --animate-check-pop: checkPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-drawer-in: drawerIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── Ausklang der Marketing-Animationen ──────────────────────────────────
+     Exponentielles Auslaufen (ease-out-expo). Vorher stand an elf Stellen im
+     Markup dieselbe Kurve mit Überschwinger; sie ließ Karten und Etiketten
+     über ihre Endgröße hinausschießen und zurückfedern. Echte Gegenstände
+     bremsen ab, sie federn nicht zurück – und elf Kopien einer Zahl laufen
+     ohnehin früher oder später auseinander. */
+  --ease-mk-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes pageIn {
@@ -84,6 +127,32 @@
   to   { opacity: 0; transform: translateX(16px) scale(0.96); }
 }
 
+/* Kurzmeldung oben rechts (ToastHost): Einblenden und ablaufender Balken.
+   Der Balken macht sichtbar, wie lange die Meldung noch steht – ohne ihn wirkt
+   das Verschwinden willkürlich. Bei `prefers-reduced-motion` bleibt die Meldung
+   stehen und schiebt nicht ein; die Dauer steuert weiterhin der Timer in JS. */
+.toast-einblenden {
+  animation: var(--animate-toast-in);
+}
+
+.toast-ablauf {
+  animation-name: toastAblauf;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  transform-origin: left center;
+}
+
+@keyframes toastAblauf {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-einblenden {
+    animation: var(--animate-fade-in);
+  }
+}
+
 @keyframes spinOnce {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
@@ -95,8 +164,97 @@
   100% { transform: scale(1); opacity: 1; }
 }
 
+/* Navigationsleiste: weiches Ein-/Ausklappen. Der Übergang wird erst nach dem
+   ersten Anzeigen aktiviert (data-ready), damit ein gemerkter „eingeklappt“-
+   Zustand beim Laden nicht sichtbar zusammenfährt. */
+[data-app-shell][data-ready="true"] {
+  transition: grid-template-columns 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-app-shell][data-ready="true"] {
+    transition: none;
+  }
+}
+
+/* Pflichtfelder markieren – automatisch, überall, ohne Zutun der Formulare.
+
+   Der Weg über eine Prop wäre hier der falsche: Es gibt weit über hundert
+   Formularfelder, jedes einzeln zu markieren hieße, jedes einzelne anzufassen –
+   und ein vergessenes Feld sähe danach freiwillig aus, obwohl es Pflicht ist.
+   Genau diese halbe Markierung war schon einmal da und musste zurückgenommen
+   werden.
+
+   Stattdessen liest das Stylesheet die Wahrheit direkt aus dem Formular: Trägt
+   ein `label` ein Feld mit `required`, bekommt seine Beschriftung ein Sternchen.
+   Neue Formulare sind damit von sich aus richtig markiert, und die Markierung
+   kann nicht mehr von der tatsächlichen Pflicht abweichen.
+
+   Bewusst rein visuell: Dass ein Feld Pflicht ist, sagt `required` dem
+   Screenreader ohnehin – ein zusätzlich vorgelesenes „Stern" wäre Lärm.
+
+   Absichtlich Nachfahre statt direktes Kind: Manche Felder stecken zur
+   Ausrichtung noch in einem `div`. Getroffen wird immer nur die erste
+   Beschriftungszeile des `label`. */
+label:has(input[required], select[required], textarea[required])
+  > span:first-child::after {
+  content: " *";
+  color: var(--color-brand-orange-ink);
+}
+
+/* Ausklappbare Karten (`CollapsibleCard`): weiches Auf- und Zuklappen.
+   Natives <details> springt sonst hart auf – bei einer Liste laufender
+   Abstimmungen verliert man dabei die Stelle, an der man gerade war.
+
+   `interpolate-size` erlaubt den Übergang von 0 auf `auto`; ohne die Zeile
+   ließe sich eine unbekannte Höhe nicht animieren. `content-visibility` muss
+   mitlaufen (`allow-discrete`), sonst verschwindet der Inhalt beim Zuklappen
+   sofort und nur der leere Rahmen fährt zusammen.
+
+   Kennt ein Browser `::details-content` nicht, greift schlicht nichts davon:
+   Die Karte klappt wie bisher unmittelbar auf. Kein Ausfall, nur ohne Bewegung. */
+:root {
+  interpolate-size: allow-keywords;
+}
+
+[data-collapsible]::details-content {
+  block-size: 0;
+  overflow: hidden;
+  /* Gleichmäßige Kurve, bewusst nicht die stark vorgezogene der Leiste: Gemessen
+     war die Karte nach einem Sechstel der Zeit schon zu drei Vierteln offen – das
+     liest sich als Sprung mit Nachlauf, nicht als Bewegung. */
+  transition:
+    block-size 260ms cubic-bezier(0.4, 0, 0.2, 1),
+    content-visibility 260ms allow-discrete;
+}
+
+[data-collapsible][open]::details-content {
+  block-size: auto;
+}
+
+/* Off-Canvas-Bereichsliste (Verwaltung, mobil): von links einschieben. */
+@keyframes drawerIn {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
 /* ── Selbst-gehostete Schriften (woff2, latin) ────────────────────────────
    Kein Google-CDN, kein Layout-Shift beim Laden (font-display: swap). */
+@font-face {
+  font-family: "Source Sans 3";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/sourcesans-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Source Sans 3";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/sourcesans-600.woff2") format("woff2");
+}
+
 @font-face {
   font-family: "Inter";
   font-style: normal;
@@ -218,6 +376,19 @@ select:not([multiple]) {
   padding-right: 2.25rem;
 }
 
+/* Sichtbarer Fokus-Ring für Tastaturbedienung auf allen interaktiven Elementen,
+   die keinen eigenen mitbringen (Links, Buttons, Summary, Rollen-Buttons).
+   Nur bei :focus-visible → stört Maus-/Touch-Bedienung nicht. Komponenten mit
+   eigenem Ring erzeugen dieselbe Outline (kein Doppel-Ring). Formularfelder
+   haben ihren eigenen Ring (inputClass) und sind hier bewusst ausgenommen. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--color-brand-orange);
+  outline-offset: 2px;
+}
+
 /* Druckansicht: nur das Zugangsschreiben drucken */
 @media print {
   .no-print {
@@ -231,6 +402,293 @@ select:not([multiple]) {
   }
   @page {
     margin: 2cm;
+  }
+}
+
+/* Fachbegriff mit Erklärung (siehe components/begriff.tsx).
+ *
+ * Die Erklärung steht im Dokument und wird nur ein-/ausgeblendet — kein
+ * JavaScript, keine Bibliothek. Screenreader lesen sie unabhängig davon vor.
+ *
+ * `focus-within` statt `focus`: Der Fokus kann auch auf einem Kindelement
+ * landen, etwa wenn im Erklärtext später einmal ein Link steht. */
+.begriff {
+  position: relative;
+  border-bottom: 1px dotted currentColor;
+  cursor: help;
+}
+
+.begriff-erklaerung {
+  position: absolute;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 40;
+  display: none;
+  width: max-content;
+  max-width: min(22rem, 80vw);
+  border-radius: 0.5rem;
+  background-color: rgb(31 41 55); /* gray-800 */
+  padding: 0.5rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: rgb(243 244 246); /* gray-100 */
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  /* Der Erklärtext ist Beiwerk: Ein Klick soll das treffen, was darunter liegt. */
+  pointer-events: none;
+}
+
+.begriff:hover > .begriff-erklaerung,
+.begriff:focus-within > .begriff-erklaerung {
+  display: block;
+}
+
+/* Nahe am rechten Rand würde die Blase hinauslaufen — dort rechts ausrichten. */
+@media (max-width: 640px) {
+  .begriff-erklaerung {
+    left: auto;
+    right: 0;
+  }
+}
+
+/* Angesprungene Stelle kurz hervorheben.
+ *
+ * Eine Fehlermeldung verlinkt auf die Zeile, in der etwas fehlt („bei WE 03
+ * fehlt die Wohnfläche"). Ohne Markierung landet man zwar an der richtigen
+ * Stelle, sieht das aber nicht – besonders, wenn die Zeile oben am Rand klebt
+ * oder die Tabelle zwanzig gleich aussehende Zeilen hat.
+ *
+ * Bewusst kurz und ohne Farbwechsel des Textes: Der Hinweis soll den Blick
+ * führen, nicht dauerhaft etwas markieren, das gleich korrigiert wird. */
+:target {
+  animation: ziel-hervorheben 2.4s ease-out 1;
+}
+
+@keyframes ziel-hervorheben {
+  0%, 55% {
+    background-color: rgb(254 243 199); /* amber-100 */
+    box-shadow: inset 3px 0 0 rgb(245 158 11); /* amber-500 */
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 3px 0 0 transparent;
+  }
+}
+
+/* Reduzierte Bewegung: statt der Animation eine ruhige, bleibende Markierung –
+ * die Information darf nicht verlorengehen, nur weil jemand Bewegung abstellt. */
+@media (prefers-reduced-motion: reduce) {
+  :target {
+    animation: none;
+    background-color: rgb(254 243 199);
+    box-shadow: inset 3px 0 0 rgb(245 158 11);
+  }
+}
+
+/* ── Marken-Bereich der SaaS-Variante ──────────────────────────────────────
+   Login und Registrierung sind gemeinsame Seiten beider Varianten. Statt in
+   ihnen jede Farbklasse zu verzweigen, zeigen die allgemeinen Marken-Tokens
+   INNERHALB dieses Bereichs auf die Wegportal24-Palette: Ein `wp-brand` auf
+   dem <main> färbt damit auch `buttonClass` & Co. mit, ohne dass die Seiten
+   davon wissen müssen.
+
+   Möglich ist das, weil `@theme` (ohne `inline`) Utilities erzeugt, die die
+   Variable per `var()` lesen – eine Überschreibung auf einem Vorfahren wirkt
+   deshalb auf alles darunter.
+
+   Der Block sieht derzeit wirkungslos aus, weil beide Paletten dieselben
+   Werte tragen. Er ist trotzdem die Naht, an der sie sich trennen lassen:
+   Ändert eine Seite ihre Farben, wandert die andere nicht mit.
+
+   Gesetzt wird der Bereich NUR ohne Mandanten-Subdomain: `BrandTheme`
+   schreibt seine Farbe auf `:root`, also weiter außen. Läge `wp-brand`
+   gleichzeitig an, gewänne es als näherer Vorfahr – und eine White-Label-
+   Kundin bekäme statt ihrer Farbe die der Plattform. */
+.wp-brand {
+  --color-brand-green: var(--color-wp-primary);
+  --color-brand-green-dark: var(--color-wp-ink);
+  --color-brand-green-light: var(--color-wp-primary-soft);
+  --color-brand-orange: var(--color-wp-accent);
+  --color-brand-orange-dark: var(--color-wp-accent-dark);
+  --color-brand-orange-light: var(--color-wp-accent-light);
+  --color-brand-orange-ink: var(--color-wp-accent-ink);
+}
+
+/* ── Marketing-Seiten: heller, warmer Seitengrund ──────────────────────────
+   Die öffentlichen Seiten laufen hell und einladend (Papierton mit sanften
+   Marken-Tönungen), während App-Shell und Login dunkel bleiben. Die Klasse
+   liegt auf dem <main> der Marketing-Seiten und deckt die dunkle Shell ab. */
+.mk-light {
+  font-family: var(--font-mk);
+}
+
+/* Auch die Überschriften: `h1, h2, h3` bekommen weiter oben global die
+   Display-Schrift zugewiesen: Eine Regel mit Element-Selektor sticht die
+   Vererbung von `.mk-light`, ohne dass man es dem Markup ansieht. Genau so
+   liefen die Überschriften der Marken-Seiten noch in Plus Jakarta Sans,
+   während der Fließtext daneben schon in Source Sans stand — sichtbar erst
+   im direkten Vergleich. */
+.mk-light :is(h1, h2, h3) {
+  font-family: var(--font-mk);
+}
+
+.mk-light {
+  /* Warmer Papierton, passend zu Grün und Orange. */
+  background-color: #faf8f4;
+  background-image: radial-gradient(
+      90% 60% at 85% -10%,
+      rgba(246, 144, 24, 0.1) 0%,
+      rgba(246, 144, 24, 0) 55%
+    ),
+    radial-gradient(
+      80% 55% at 0% -5%,
+      rgba(0, 54, 48, 0.07) 0%,
+      rgba(0, 54, 48, 0) 60%
+    );
+  color: #374151; /* gray-700 */
+}
+
+/* ── Marketing-Seiten: Scroll-Reveals & bewegte Illustrationen ─────────────
+   `.mk-reveal` blendet Abschnitte beim Scrollen ein (Klasse `is-visible` setzt
+   der Reveal-Client-Component per IntersectionObserver). Kind-Animationen mit
+   `.mk-anim` starten pausiert und laufen erst an, wenn der Abschnitt sichtbar
+   wird – so spielen Sequenzen genau einmal beim Hereinscrollen. */
+.mk-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.6s ease-out, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.mk-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+.mk-reveal .mk-anim {
+  animation-play-state: paused;
+}
+.mk-reveal.is-visible .mk-anim {
+  animation-play-state: running;
+}
+
+/* Ruhige Dauer-Animationen (Hero-Illustrationen) */
+@keyframes mkFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+/* Ken-Burns-Zoom für Foto-Heros: sehr langsam, alternierend, kaum merklich
+   ruckartig – der Container ist etwas größer als der sichtbare Ausschnitt
+   (siehe -inset-3 am Aufrufer), damit beim Zoomen keine Kanten sichtbar werden. */
+@keyframes mkKenBurns {
+  0%   { transform: scale(1) translate(0, 0); }
+  100% { transform: scale(1.09) translate(-1%, 1%); }
+}
+@keyframes mkOrbit {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes mkOrbitCounter {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+@keyframes mkPulseSoft {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 1; }
+}
+
+/* Einmalige Einblend-Sequenzen (mit animation-delay gestaffelt) */
+@keyframes mkGrowY {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+@keyframes mkGrowX {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@keyframes mkRowIn {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: none; }
+}
+/* Ohne Überschwinger: Der Startwert liegt näher an 1 (0,92 statt 0,6), damit
+   das Einblenden ohne den Sprung über die Endgröße trotzdem Bewegung hat. */
+@keyframes mkPopIn {
+  0%   { opacity: 0; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Pendelnde Bewegungen (Endlosschleife) */
+@keyframes mkShuttle {
+  0%, 12%  { transform: translateX(0); opacity: 0; }
+  22%      { opacity: 1; }
+  78%      { opacity: 1; }
+  88%, 100% { transform: translateX(var(--mk-shuttle-x, 9rem)); opacity: 0; }
+}
+@keyframes mkLetterOut {
+  0%, 20%   { transform: translateY(42%); }
+  60%, 100% { transform: translateY(0); }
+}
+/* Drei gestapelte Status-Chips wechseln sich durch (je 1/3 der Zeit sichtbar) */
+@keyframes mkCycle3 {
+  0%, 27%   { opacity: 1; }
+  33%, 94%  { opacity: 0; }
+  100%      { opacity: 1; }
+}
+
+/* ── Cineastische Szene (Scrollytelling-Hero) ──────────────────────────────
+   Ambiente Ebenen: aufsteigende Partikel, driftende Lichtflächen, mitwachsende
+   Energie-Leiste, pulsende Knoten, wehende Fahne und Funkeln bei Fertigstellung. */
+@keyframes mkRise {
+  0%   { transform: translateY(24px) scale(0.9); opacity: 0; }
+  12%  { opacity: var(--mk-op, 0.5); }
+  85%  { opacity: var(--mk-op, 0.5); }
+  100% { transform: translateY(-160px) scale(1); opacity: 0; }
+}
+@keyframes mkDrift {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(var(--mk-dx, 18px), var(--mk-dy, -14px)); }
+}
+@keyframes mkBeam {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+@keyframes mkSparkle {
+  0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 0; }
+  40%  { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.5) rotate(120deg); opacity: 0; }
+}
+@keyframes mkFlag {
+  0%, 100% { transform: skewY(0deg) scaleX(1); }
+  50%      { transform: skewY(-6deg) scaleX(0.94); }
+}
+/* Scroll-Hinweis: sinkt weich ab und kehrt zurück. Tailwinds `animate-bounce`
+   nutzt eine Sprungkurve mit hartem Aufsetzen – dasselbe Muster wie der
+   Überschwinger oben, nur als Endlosschleife. */
+@keyframes mkNudge {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50%      { transform: translateY(6px); opacity: 1; }
+}
+
+@keyframes mkGridPan {
+  from { background-position: 0 0; }
+  to   { background-position: 34px 34px; }
+}
+
+/* Feines isometrisches Punktraster als Hintergrund der Szene */
+.mk-grid {
+  background-image: radial-gradient(circle, rgba(0, 54, 48, 0.14) 1px, transparent 1.4px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(80% 70% at 60% 45%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(80% 70% at 60% 45%, #000 0%, transparent 78%);
+}
+
+/* Reduzierte Bewegung – Animationen respektvoll deaktivieren */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  /* Reveals ohne Bewegung sofort zeigen */
+  .mk-reveal {
+    opacity: 1;
+    transform: none;
   }
 }
 
@@ -375,15 +833,8 @@ select:not([multiple]) {
   mask-image: radial-gradient(80% 70% at 60% 45%, #000 0%, transparent 78%);
 }
 
-/* Reduzierte Bewegung – Animationen respektvoll deaktivieren */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
   /* Reveals ohne Bewegung sofort zeigen */
   .mk-reveal {
     opacity: 1;
     transform: none;
   }
-}

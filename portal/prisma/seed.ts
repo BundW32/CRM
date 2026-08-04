@@ -5,7 +5,9 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { WEG_COST_CATALOG } from "../src/lib/weg/cost-catalog";
+import { WEG_COST_CATALOG, costTypeFieldsFrom } from "../src/lib/weg/cost-catalog";
+import { WEG_COMPLIANCE_CATALOG } from "../src/lib/weg/compliance-catalog";
+import { addMonths } from "../src/lib/weg/compliance";
 import {
   computeUnitAdvances,
   fiscalYearMonths,
@@ -148,11 +150,7 @@ async function main() {
       data: WEG_COST_CATALOG.map((e, i) => ({
         organizationId: org.id,
         propertyId: weg.id,
-        name: e.name,
-        category: e.category,
-        distributionKey: e.distributionKey,
-        laborShareType: e.laborShareType,
-        recoverableBetrKV: e.recoverableBetrKV,
+        ...costTypeFieldsFrom(e),
         orderIndex: i,
       })),
     });
@@ -380,6 +378,189 @@ async function main() {
         where: { userId, propertyId: weg.id },
         data: { mea: a.mea, voteUnits: a.count },
       });
+    }
+  }
+
+  // Prüfpflichten-Katalog für die Demo-WEG übernehmen (idempotent über catalogKey).
+  // Zwei Fälligkeiten werden bewusst in die Vergangenheit/nahe Zukunft gelegt,
+  // damit das Dashboard „fällige/überfällige Prüfpflichten" demonstriert.
+  {
+    const existing = await db.maintenanceTask.findMany({
+      where: { propertyId: weg.id, catalogKey: { not: null } },
+      select: { catalogKey: true },
+    });
+    const have = new Set(existing.map((t) => t.catalogKey));
+    const now = new Date();
+    const overrides: Record<string, Date> = {
+      // überfällig
+      RAUCHWARNMELDER: addMonths(now, -1),
+      // in den nächsten Tagen fällig
+      VERSAMMLUNG_PLANEN: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000),
+    };
+    const toCreate = WEG_COMPLIANCE_CATALOG.filter((d) => !have.has(d.key));
+    if (toCreate.length > 0) {
+      await db.maintenanceTask.createMany({
+        data: toCreate.map((d) => ({
+          organizationId: org.id,
+          propertyId: weg.id,
+          title: d.title,
+          description: d.description,
+          interval: d.interval,
+          dueDate: overrides[d.key] ?? addMonths(now, d.initialDueMonths),
+          catalogKey: d.key,
+        })),
+      });
+    }
+  }
+
+  // Demo-Eigentümerversammlung mit Tagesordnung (Einladungs-Assistent). Termin
+  // bewusst knapp (< 3 Wochen), damit der Fristenrechner die Warnung zeigt.
+  {
+    const existing = await db.ownersMeeting.findFirst({
+      where: { propertyId: weg.id },
+      select: { id: true },
+    });
+    if (!existing) {
+      const admin = await db.user.findUniqueOrThrow({ where: { email: "admin@bundwimmobilien.de" } });
+      const scheduledAt = new Date();
+      scheduledAt.setDate(scheduledAt.getDate() + 12);
+      scheduledAt.setHours(18, 30, 0, 0);
+      await db.ownersMeeting.create({
+        data: {
+          organizationId: org.id,
+          propertyId: weg.id,
+          title: "Ordentliche Eigentümerversammlung 2026",
+          scheduledAt,
+          location: "Gemeindesaal, Musterstraße 1, 45964 Gladbeck",
+          videoLink: "https://meet.example.org/weg-musterstrasse-12",
+          createdById: admin.id,
+          agendaItems: {
+            create: [
+              { sortOrder: 0, title: "Begrüßung und Feststellung der Beschlussfähigkeit", type: "INFO" },
+              { sortOrder: 1, title: "Beschluss über die Jahresabrechnung (Abrechnungsspitze)", description: "Die Eigentümer beschließen die Einforderung der Nachschüsse aus der vorgelegten Jahresabrechnung (§ 28 Abs. 2 WEG).", type: "INFO" },
+              { sortOrder: 2, title: "Verschiedenes", type: "INFO" },
+            ],
+          },
+        },
+      });
+    }
+  }
+
+  // Demo-Erhaltungsmaßnahmen (Erhaltungsplanung). Bewusst so dimensioniert, dass
+  // der geplante Bedarf den Rücklagenstand übersteigt (Unterdeckung sichtbar).
+  {
+    const existing = await db.maintenanceMeasure.count({ where: { propertyId: weg.id } });
+    if (existing === 0) {
+      const admin = await db.user.findUniqueOrThrow({ where: { email: "admin@bundwimmobilien.de" } });
+      const y = new Date().getFullYear();
+      await db.maintenanceMeasure.createMany({
+        data: [
+          { organizationId: org.id, propertyId: weg.id, title: "Fassadenanstrich", trade: "Fassade", targetYear: y + 1, estimatedCents: 1_800_000, createdById: admin.id },
+          { organizationId: org.id, propertyId: weg.id, title: "Dachrinnen erneuern", trade: "Dach", targetYear: y + 2, estimatedCents: 650_000, createdById: admin.id },
+          { organizationId: org.id, propertyId: weg.id, title: "Heizungsanlage austauschen", trade: "Heizung", targetYear: y + 4, estimatedCents: 3_200_000, createdById: admin.id },
+        ],
+      });
+    }
+  }
+
+  // Demo-Zähler (fernablesbar) mit monatlichen Ständen über gut ein Jahr, damit
+  // die unterjährige Verbrauchsinformation Vorperioden- und Vorjahresvergleich zeigt.
+  {
+    const existing = await db.meter.findFirst({ where: { propertyId: weg.id }, select: { id: true } });
+    if (!existing) {
+      const admin = await db.user.findUniqueOrThrow({ where: { email: "admin@bundwimmobilien.de" } });
+      const meter = await db.meter.create({
+        data: {
+          propertyId: weg.id,
+          type: "HEIZUNG",
+          meterNumber: "WMZ-2024-0001",
+          location: "Heizungskeller",
+          remoteReadable: true,
+        },
+      });
+      // 15 monatliche Stände (kumulativ), Verbrauch im Winter höher.
+      const monthly = [0, 40, 110, 210, 320, 400, 450, 480, 500, 540, 620, 740, 880, 1000, 1090];
+      const now = new Date();
+      const base = new Date(now.getFullYear(), now.getMonth(), 1);
+      base.setMonth(base.getMonth() - (monthly.length - 1));
+      await db.meterReading.createMany({
+        data: monthly.map((value, i) => {
+          const dt = new Date(base);
+          dt.setMonth(base.getMonth() + i);
+          return { meterId: meter.id, value, readingDate: dt, createdById: admin.id };
+        }),
+      });
+    }
+  }
+
+  // SEPA-Demo: Gläubiger-ID am Objekt + ein Beispiel-Mandat für die erste Einheit.
+  {
+    if (!weg.sepaCreditorId) {
+      await db.property.update({
+        where: { id: weg.id },
+        data: { sepaCreditorId: "DE98ZZZ09999999999" },
+      });
+    }
+    const existingMandate = await db.sepaMandate.findFirst({ where: { propertyId: weg.id }, select: { id: true } });
+    if (!existingMandate) {
+      const admin = await db.user.findUniqueOrThrow({ where: { email: "admin@bundwimmobilien.de" } });
+      const firstUnit = await db.unit.findFirst({ where: { propertyId: weg.id }, orderBy: { orderIndex: "asc" } });
+      if (firstUnit) {
+        await db.sepaMandate.create({
+          data: {
+            organizationId: org.id,
+            propertyId: weg.id,
+            unitId: firstUnit.id,
+            mandateRef: "HG-DEMO-001",
+            debtorName: "Erika Eigentümerin",
+            iban: "DE02120300000000202051",
+            signedDate: new Date(Date.UTC(2026, 0, 15)),
+            sequence: "FRST",
+            createdById: admin.id,
+          },
+        });
+      }
+    }
+  }
+
+  // Demo-CO2-Aufteilung (CO2KostAufG): Vorjahr, mittlerer Ausstoß (→ 50/50-Stufe).
+  {
+    const y = new Date().getFullYear() - 1;
+    const existing = await db.co2Allocation.findFirst({ where: { propertyId: weg.id, year: y }, select: { id: true } });
+    if (!existing) {
+      const admin = await db.user.findUniqueOrThrow({ where: { email: "admin@bundwimmobilien.de" } });
+      // Gesamtwohnfläche der Demo-WEG ≈ 381,8 m²; 12.600 kg → ~33 kg/m²·a (Stufe 32–37 = 50/50).
+      await db.co2Allocation.create({
+        data: {
+          organizationId: org.id,
+          propertyId: weg.id,
+          year: y,
+          totalCo2Cents: 62_000, // 620,00 € CO2-Kostenanteil
+          emissionsKg: 12_600,
+          note: "Aus der Brennstoffrechnung (Demo).",
+          createdById: admin.id,
+        },
+      });
+    }
+  }
+
+  // Demo-Mietverhältnis: eine WEG-Einheit ist vermietet (für die Betriebskosten-
+  // abrechnung des vermietenden Eigentümers, M-K), inkl. Vorauszahlung.
+  {
+    const we02 = await db.unit.findFirst({ where: { propertyId: weg.id, label: { startsWith: "WE 02" } } });
+    if (we02) {
+      const existing = await db.tenancy.findFirst({ where: { unitId: we02.id }, select: { id: true } });
+      if (!existing) {
+        await db.tenancy.create({
+          data: {
+            userId: mieter.id,
+            unitId: we02.id,
+            active: true,
+            startDate: new Date(Date.UTC(new Date().getFullYear() - 1, 0, 1)),
+            bkPrepaymentMonthlyCents: 15_000, // 150,00 €/Monat
+          },
+        });
+      }
     }
   }
 

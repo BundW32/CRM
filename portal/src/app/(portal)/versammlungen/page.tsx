@@ -1,13 +1,27 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import type { Prisma } from "@/generated/prisma/client";
+import { Alert, Card, EmptyState, PageTitle, Pagination, buttonClass, cardSurfaceClass } from "@/components/ui";
+import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
+import { propertyScopeFilters } from "@/lib/list-filters";
+import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
-import { createMeeting } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 25;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { termin: "scheduledAt", titel: "title", objekt: "property.name" } as const;
+
+const sortOptions = [
+  { value: "termin", label: "Termin" },
+  { value: "titel", label: "Titel" },
+  { value: "objekt", label: "Objekt" },
+];
 
 const statusTone: Record<string, string> = {
   GEPLANT: "bg-blue-100 text-blue-800",
@@ -25,12 +39,15 @@ const statusLabel: Record<string, string> = {
 export default async function VersammlungenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
   if (user.role !== "VERWALTER" && user.role !== "EIGENTUEMER") redirect("/dashboard");
-  const { fehler } = await searchParams;
+  const sp = await searchParams;
+  const { fehler } = sp;
   const isVerwalter = user.role === "VERWALTER";
+  const currentPage = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "termin", "desc");
 
   // Zugängliche WEG-Objekte.
   let propWhere;
@@ -49,15 +66,49 @@ export default async function VersammlungenPage({
   });
   const propIds = properties.map((p) => p.id);
 
-  const meetings = await db.ownersMeeting.findMany({
-    where: { propertyId: { in: propIds } },
-    orderBy: { scheduledAt: "desc" },
-    include: { property: { select: { name: true } }, _count: { select: { agendaItems: true } } },
-  });
+  // Versammlungen sammeln sich über die Jahre – paginiert statt vollständig.
+  const scope = await propertyScopeFilters(user, sp, { withUnit: false });
+  const q = normalizeSearch(sp.q);
+
+  const meetingAnd: Prisma.OwnersMeetingWhereInput[] = [{ propertyId: { in: propIds } }];
+  if (q) {
+    meetingAnd.push({
+      OR: [
+        { title: { contains: q, mode: "insensitive" } },
+        { location: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (scope.objektId) meetingAnd.push({ propertyId: scope.objektId });
+  const meetingWhere: Prisma.OwnersMeetingWhereInput = { AND: meetingAnd };
+  const hasFilter = Boolean(q || scope.active);
+
+  const [meetings, meetingTotal] = await Promise.all([
+    db.ownersMeeting.findMany({
+      where: meetingWhere,
+      orderBy: toOrderBy(sort.field, sort.dir),
+      skip: (currentPage - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+      include: { property: { select: { name: true } }, _count: { select: { agendaItems: true } } },
+    }),
+    db.ownersMeeting.count({ where: meetingWhere }),
+  ]);
+
+  const pageHref = pageHrefFor(`/versammlungen`, sp);
 
   return (
     <>
-      <PageTitle>Eigentümerversammlungen</PageTitle>
+      <PageTitle
+        action={
+          isVerwalter ? (
+            <Link href="/versammlungen/neu" className={buttonClass}>
+              Versammlung anlegen
+            </Link>
+          ) : null
+        }
+      >
+        Eigentümerversammlungen
+      </PageTitle>
 
       {fehler ? (
         <Alert variant="error" className="mb-4">
@@ -67,16 +118,35 @@ export default async function VersammlungenPage({
         </Alert>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
+      <div className="space-y-4">
+        <div className="space-y-4">
+          <FilterBar
+            className="mb-3"
+            searchPlaceholder="Suchen"
+            searchHint="Nach Titel oder Ort suchen"
+            comboboxes={scope.comboboxes}
+          />
+          {/* Sortiermenü nur für den Verwalter: er sieht Versammlungen über
+              viele Objekte hinweg. Für Eigentümer ist die Terminfolge die
+              natürliche und einzige sinnvolle Ordnung. */}
+          <div className="mb-2 flex items-center justify-between gap-3 px-1">
+            <p className="text-xs text-gray-400">
+              {meetingTotal} {meetingTotal === 1 ? "Versammlung" : "Versammlungen"}
+              {hasFilter ? " (gefiltert)" : ""}
+            </p>
+            <SortControl sortOptions={sortOptions} defaultSort="termin" total={meetingTotal} />
+          </div>
+
           {meetings.length === 0 ? (
-            <EmptyState>Noch keine Versammlungen angelegt.</EmptyState>
+            <EmptyState>
+              {hasFilter ? "Keine Versammlungen gefunden." : "Noch keine Versammlungen angelegt."}
+            </EmptyState>
           ) : (
             meetings.map((m) => (
               <Link
                 key={m.id}
                 href={`/versammlungen/${m.id}`}
-                className="block rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+                className={`block p-5 transition hover:shadow-md ${cardSurfaceClass}`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
@@ -92,55 +162,24 @@ export default async function VersammlungenPage({
               </Link>
             ))
           )}
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.max(1, Math.ceil(meetingTotal / PAGE_SIZE))}
+            total={meetingTotal}
+            itemLabel="Versammlungen"
+            hrefFor={pageHref}
+          />
         </div>
 
-        {isVerwalter ? (
-          <Card title="Versammlung anlegen">
-            {properties.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Keine WEG-Objekte vorhanden. Legen Sie ein Objekt mit Verwaltungsart WEG an.
-              </p>
-            ) : (
-              <form action={createMeeting} className="space-y-3">
-                <Field label="Objekt (WEG)">
-                  <select name="propertyId" required className={inputClass}>
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Titel">
-                  <input
-                    type="text"
-                    name="title"
-                    required
-                    minLength={3}
-                    placeholder="z. B. Ordentliche Eigentümerversammlung 2026"
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Termin">
-                  <input type="datetime-local" name="scheduledAt" required className={inputClass} />
-                </Field>
-                <Field label="Ort (optional)">
-                  <input type="text" name="location" className={inputClass} />
-                </Field>
-                <button type="submit" className={buttonClass}>
-                  Versammlung anlegen
-                </button>
-              </form>
-            )}
-          </Card>
-        ) : (
+        {!isVerwalter ? (
           <Card title="Hinweis">
             <p className="text-sm text-gray-600">
               Hier sehen Sie die Einladungen, Tagesordnungen und Protokolle der Versammlungen
               Ihrer Eigentümergemeinschaft.
             </p>
           </Card>
-        )}
+        ) : null}
       </div>
     </>
   );

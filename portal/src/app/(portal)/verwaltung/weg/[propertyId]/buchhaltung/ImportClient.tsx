@@ -5,6 +5,7 @@
 // Der Dateiinhalt reist als Base64 im Formular mit — nichts wird serverseitig
 // zwischengespeichert.
 import { useActionState } from "react";
+import { FileInput } from "@/components/file-input";
 import { buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { analyzeCsvAction, importCsvAction, type ImportAnalysis } from "./actions";
 
@@ -47,7 +48,11 @@ export function ImportClient({
           <span className="mb-1 block text-sm font-medium text-gray-700">
             CSV-Datei (Sparkasse, Volksbank, generisch)
           </span>
-          <input type="file" name="csv" accept=".csv,text/csv" className={inputClass} required />
+          <FileInput
+            name="csv"
+            accept=".csv,text/csv"
+            required
+          />
         </label>
         <button type="submit" className={buttonClass} disabled={analyzing}>
           {analyzing ? "Wird analysiert…" : "Datei analysieren"}

@@ -7,7 +7,12 @@ import {
   MarketingHeader,
   MarketingHero,
 } from "@/components/marketing/site";
-import { ArrearsVisual, DunningVisual, UnitPlanVisual } from "@/components/marketing/visuals";
+import {
+  ArrearsVisual,
+  BankImportVisual,
+  DunningVisual,
+  UnitPlanVisual,
+} from "@/components/marketing/visuals";
 import { assertMainDomain } from "@/lib/marketing";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +37,7 @@ export default async function HausgeldPage() {
         title={
           <>
             Hausgeld im Griff –{" "}
-            <span className="underline decoration-brand-orange decoration-4 underline-offset-8">ohne Zettelwirtschaft, ohne Streit.</span>
+            <span className="underline decoration-wp-accent-bright decoration-4 underline-offset-8">ohne Zettelwirtschaft, ohne Streit.</span>
           </>
         }
         intro={
@@ -45,7 +50,7 @@ export default async function HausgeldPage() {
           src: "/images/marketing/hausgeld.jpg",
           alt: "Kontoauszug und Umschlag am Briefkasten einer WEG",
         }}
-        badge={{ icon: <HandCoins className="h-4 w-4 text-brand-orange-ink" />, text: "Soll / Ist / Saldo je Einheit" }}
+        badge={{ icon: <HandCoins className="h-4 w-4 text-wp-accent-ink" />, text: "Soll / Ist / Saldo je Einheit" }}
       />
 
       <FeatureSection
@@ -105,6 +110,7 @@ export default async function HausgeldPage() {
           "Fertiger DIN-A4-Brief mit Adressfeld für Fensterumschläge",
           "Eskalation nur über tatsächlich versendete Schreiben („als versendet markieren“)",
           "Keine automatischen Mahngebühren – die Gemeinschaft entscheidet selbst",
+          "Verzugszinsen auf Basis des amtlichen Basiszinssatzes (§ 247 BGB), halbjährlich gepflegt",
         ]}
       >
         <p>
@@ -118,6 +124,32 @@ export default async function HausgeldPage() {
           Erst wenn ein Schreiben wirklich versendet wurde, lässt sich die
           nächste Stufe erzeugen. So ist der Ablauf später lückenlos belegbar –
           wichtig, falls ein Rückstand doch einmal vor Gericht landet.
+        </p>
+      </FeatureSection>
+
+      <FeatureSection
+        id="lastschrift"
+        eyebrow="SEPA-Lastschrift"
+        title="Hausgeld einziehen, statt auf Überweisungen zu warten"
+        reverse
+        visual={<BankImportVisual />}
+        points={[
+          "Mandate je Einheit erfassen, mit Referenz und Unterschriftsdatum",
+          "Einzugsdatei im Format pain.008 – im Online-Banking hochladen, fertig",
+          "Erst- und Folgelastschriften werden getrennt gruppiert, wie es die Banken verlangen",
+          "Kein Bank-API-Zugang, keine Kontofreigabe an Dritte",
+        ]}
+      >
+        <p>
+          Die meisten Rückstände entstehen nicht aus Unwillen, sondern weil eine
+          Überweisung vergessen wird. Mit einem SEPA-Lastschriftmandat holt die
+          Gemeinschaft das Hausgeld selbst ab – und das Portal erzeugt dafür die
+          Einzugsdatei.
+        </p>
+        <p>
+          Bewusst ohne Anbindung an Ihr Konto: Die Datei wird im Portal erzeugt
+          und von Ihnen im Online-Banking hochgeladen. Niemand außer Ihnen
+          bekommt Zugriff auf das Gemeinschaftskonto.
         </p>
       </FeatureSection>
 

@@ -1,14 +1,9 @@
 import Link from "next/link";
-import {
-  Alert,
-  Card,
-  EmptyState,
-  Field,
-  PageTitle,
-  buttonClass,
-  buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Begriff } from "@/components/begriff";
+import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import {
   costCategoryLabels,
@@ -17,7 +12,9 @@ import {
   ledgerAccountKindLabels,
   unitTypeLabels,
 } from "@/lib/labels";
+import { DateField, SelectField, toDateInputValue } from "@/components/fields";
 import { formatCents } from "@/lib/money";
+import { WEG_COST_CATALOG } from "@/lib/weg/cost-catalog";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { formatDateOnly } from "@/lib/labels";
 import {
@@ -28,6 +25,8 @@ import {
   saveCostType,
   saveFinanceSettings,
   saveUnitFinanceData,
+  updateOwnershipStart,
+  deleteCostType,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +79,13 @@ export default async function WegStammdatenPage({
     ownershipsByUnit.set(o.unitId, list);
   }
 
+  // Wie viele Standard-Kostenarten fehlen noch? Entscheidet, ob der
+  // Abgleich-Knopf überhaupt erscheint — im Normalfall gibt es nichts zu tun.
+  const vorhandeneNamen = new Set(costTypes.map((c) => c.name.toLowerCase()));
+  const fehlendeStandardarten = WEG_COST_CATALOG.filter(
+    (e) => !vorhandeneNamen.has(e.name.toLowerCase()),
+  ).length;
+
   // MEA-Summenprüfung: Σ Zähler der Einheiten muss den Nenner ergeben.
   const meaSum = units.reduce((sum, u) => sum + (u.mea ?? 0), 0);
   const unitsWithoutMea = units.filter((u) => u.mea == null).length;
@@ -88,13 +94,11 @@ export default async function WegStammdatenPage({
   return (
     <>
       <PageTitle
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
         action={
           <div className="flex gap-2">
             <Link href={`/verwaltung/weg/${property.id}/buchhaltung`} className={buttonSecondaryClass}>
               Buchhaltung
-            </Link>
-            <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
-              ← WEG-Finanzen
             </Link>
           </div>
         }
@@ -103,34 +107,76 @@ export default async function WegStammdatenPage({
       </PageTitle>
 
       {sp.gespeichert ? (
-        <Alert variant="success" className="mb-4">
-          Änderungen gespeichert.
+        // „deaktiviert" ist ein Erfolg mit Einschränkung: Die Kostenart ließ sich
+        // nicht löschen, weil Buchungen oder Abrechnungen daran hängen. Das
+        // stillschweigend als „gespeichert" zu melden, verschwiege den Grund.
+        <Alert
+          variant={sp.gespeichert === "deaktiviert" ? "warning" : "success"}
+          className="mb-4"
+        >
+          {sp.gespeichert === "deaktiviert"
+            ? "Die Kostenart wird bereits verwendet und wurde deshalb nur deaktiviert, nicht gelöscht — sonst verlören Buchungen und Abrechnungen ihre Zuordnung. Sie erscheint in neuen Plänen nicht mehr."
+            : "Änderungen gespeichert."}
         </Alert>
       ) : null}
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">
           {sp.fehler === "betrag"
             ? "Der Betrag konnte nicht gelesen werden (Format: 1.234,56)."
-            : "Die Eingabe konnte nicht gespeichert werden."}
+            : sp.fehler === "bestand"
+              ? "Bitte den Anfangsbestand angeben. Ein neu eröffnetes Konto trägt „0,00“ — leer lassen geht nicht, sonst rechnet die Buchhaltung mit einem Stand, den niemand geprüft hat."
+              : sp.fehler === "stichtag"
+                ? "Bitte den Stichtag des Anfangsbestands angeben. Ohne ihn sagt der Betrag nicht, wann er galt — und die Buchhaltung weiß nicht, ab wann sie mitrechnet."
+                : sp.fehler === "zeitraum"
+                  ? "Der Beginn darf nicht nach dem Ende der Eigentümerschaft liegen."
+                  : sp.fehler === "datum"
+                    ? "Das Datum konnte nicht gelesen werden."
+                    : sp.fehler === "mahnkosten"
+                      ? "Die Mahnkosten konnten nicht gelesen werden (Format: 2,50). Leer lassen bedeutet: keine Mahnkosten."
+                      : "Die Eingabe konnte nicht gespeichert werden."}
         </Alert>
       ) : null}
 
       <div className="grid gap-4">
         {/* Objekt-Finanzeinstellungen */}
-        <Card title="Objekt-Einstellungen">
+        <Card id="objekt-einstellungen" title="Objekt-Einstellungen">
           <form action={saveFinanceSettings} className="grid gap-4 sm:grid-cols-3">
             <input type="hidden" name="propertyId" value={property.id} />
-            <Field label="MEA-Nenner (Summe aller Anteile, z. B. 1000)">
+            <Field
+              label={
+                <>
+                  <Begriff name="miteigentumsanteil">MEA</Begriff>-Nenner (Summe aller
+                  Anteile, z. B. 1000)
+                </>
+              }
+            >
               <input
                 name="meaTotal"
                 type="number"
                 min={1}
                 defaultValue={property.meaTotal ?? ""}
                 className={inputClass}
-                placeholder="1000"
+                placeholder={meaSum > 0 ? String(meaSum) : "1000"}
               />
+              {/* Der Nenner ist ein zweites, von Hand gepflegtes Feld neben der
+                  Summe der Einheiten-Anteile. Das lässt sich nicht auflösen —
+                  die Teilungserklärung darf einen anderen Nenner nennen als die
+                  bisher erfassten Einheiten ergeben, und genau diese Abweichung
+                  soll auffallen. Was ging: die Summe danebenschreiben, statt
+                  sie den Verwalter selbst ausrechnen zu lassen. */}
+              {meaSum > 0 && property.meaTotal !== meaSum ? (
+                <p className="mt-1 text-xs text-gray-500">
+                  Summe der erfassten Einheiten: {meaSum.toLocaleString("de-DE")}
+                </p>
+              ) : null}
             </Field>
-            <Field label="Beginn des Wirtschaftsjahres">
+            <Field
+              label={
+                <>
+                  Beginn des <Begriff name="wirtschaftsjahr">Wirtschaftsjahres</Begriff>
+                </>
+              }
+            >
               <select
                 name="fiscalYearStartMonth"
                 defaultValue={property.fiscalYearStartMonth}
@@ -143,20 +189,82 @@ export default async function WegStammdatenPage({
                 ))}
               </select>
             </Field>
+            {/* Fälligkeit der Vorschüsse. Steuert die Sollstellungen UND den
+                Wortlaut der Beschlussvorlage — beides muss dasselbe sagen,
+                sonst mahnt die Verwaltung zu einem Termin, den der Beschluss
+                nicht nennt. */}
+            <SelectField
+              label="Hausgeld fällig"
+              name="dueDayRule"
+              defaultValue={property.dueDayRule}
+              options={[
+                { value: "MONATSERSTER", label: "zum Ersten des Monats" },
+                { value: "DRITTER_WERKTAG", label: "zum dritten Werktag" },
+                { value: "FREIER_TAG", label: "zu einem festen Tag im Monat" },
+              ]}
+            />
+            <Field label="Fester Tag (1–28, nur bei fester Wahl)">
+              <input
+                name="dueDayOfMonth"
+                type="number"
+                min={1}
+                max={28}
+                defaultValue={property.dueDayOfMonth ?? ""}
+                className={inputClass}
+                placeholder="z. B. 15"
+              />
+            </Field>
+            {/* Mahnkosten. Bewusst ein freies Feld statt einer Pauschale: Die
+                40 € des § 288 Abs. 5 BGB gelten nur zwischen Unternehmern, der
+                Wohnungseigentümer ist regelmäßig Verbraucher. Ersetzt wird, was
+                wirklich angefallen ist. */}
+            <Field label="Mahnkosten je Mahnung (€)">
+              <input
+                name="mahnkosten"
+                inputMode="decimal"
+                // Ohne Währungszeichen: Das Label sagt bereits „(€)", und
+                // `formatCents` hängt ein geschütztes Leerzeichen davor, das
+                // beim erneuten Speichern niemand sehen will.
+                defaultValue={
+                  property.mahnkostenCents
+                    ? (property.mahnkostenCents / 100).toFixed(2).replace(".", ",")
+                    : ""
+                }
+                className={inputClass}
+                placeholder="z. B. 2,50"
+              />
+            </Field>
             <div className="flex items-end">
-              <button type="submit" className={buttonClass}>
-                Speichern
-              </button>
+              <PendingButton className={buttonClass}>Speichern</PendingButton>
             </div>
           </form>
+          <Tipp className="mt-3">
+            <strong>Mahnkosten</strong> ersetzen nur, was tatsächlich anfällt — Porto und
+            Material. Eine Pauschale von 40 € gilt nur unter Unternehmern, nicht gegenüber
+            einem Eigentümer. Die erste Mahnung bleibt kostenfrei: Vorher wusste der Schuldner
+            nicht, dass Kosten entstehen.
+          </Tipp>
+          <Tipp className="mt-3">
+            Die Fälligkeit bestimmt, ab wann ein Hausgeld als Rückstand gilt und wann Verzug
+            eintritt (§ 286 BGB). Sie erscheint zugleich im Text der Beschlussvorlage zum
+            Wirtschaftsplan — damit die Gemeinschaft genau das beschließt, wonach später
+            gemahnt wird.
+          </Tipp>
         </Card>
 
         {/* MEA-Summenprüfung */}
         {property.meaTotal == null ? (
           <Alert variant="warning" title="MEA-Nenner fehlt">
+            {/* Vorher stand hier „ohne ihn ist keine Kostenverteilung nach MEA
+                möglich". Das stimmt nicht: Der Wirtschaftsplan verteilt längst
+                nach den Anteilen der Einheiten. Der Nenner ist die Gegenprobe,
+                nicht die Voraussetzung — eine Warnung, die mehr behauptet, als
+                sie belegen kann, verliert ihre Wirkung. */}
             Bitte den MEA-Nenner des Objekts eintragen (steht in der Teilungserklärung,
-            häufig 1.000 oder 10.000). Ohne ihn ist keine Kostenverteilung nach
-            Miteigentumsanteilen möglich.
+            häufig 1.000 oder 10.000). Die Verteilung nach{" "}
+            <Begriff name="miteigentumsanteil">Miteigentumsanteilen</Begriff> läuft auch
+            ohne ihn — aber ohne Nenner lässt sich nicht prüfen, ob alle Einheiten erfasst
+            sind{meaSum > 0 ? ` (Summe bisher: ${meaSum.toLocaleString("de-DE")})` : ""}.
           </Alert>
         ) : !meaOk ? (
           <Alert variant="warning" title="Miteigentumsanteile unvollständig">
@@ -175,12 +283,12 @@ export default async function WegStammdatenPage({
         )}
 
         {/* Einheiten */}
-        <Card title="Einheiten (MEA, Fläche, Personen)">
-          <p className="mb-3 text-xs text-gray-500">
+        <Card id="einheiten" title="Einheiten (MEA, Fläche, Personen)">
+          <Tipp className="mb-3">
             Der MEA-Zähler je Einheit ist die zentrale Angabe: Er steuert die Kostenverteilung in
             Abrechnung und Wirtschaftsplan und bestimmt zugleich das Stimmgewicht der Eigentümer
             (Wertprinzip). Er muss also nur hier gepflegt werden.
-          </p>
+          </Tipp>
           {units.length === 0 ? (
             <EmptyState>Dieses Objekt hat noch keine Einheiten.</EmptyState>
           ) : (
@@ -197,17 +305,31 @@ export default async function WegStammdatenPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {units.map((u) => (
-                    <tr key={u.id} className="border-b border-gray-100 align-top">
-                      <td className="py-2 pr-3 font-medium text-gray-900">{u.label}</td>
-                      <td className="py-2 pr-3" colSpan={5}>
-                        <form
-                          action={saveUnitFinanceData}
-                          className="flex flex-wrap items-center gap-2"
-                        >
-                          <input type="hidden" name="propertyId" value={property.id} />
-                          <input type="hidden" name="unitId" value={u.id} />
+                  {/* Ein Feld je Spalte, damit die Kopfzeile auch beschriftet, was
+                      darunter steht. Zuvor lagen alle Felder in EINER Zelle
+                      (`colSpan={5}`) als umbrechende Reihe – die Überschriften
+                      zeigten damit ins Leere, sobald es eng wurde.
+
+                      Das Formular steht in der letzten Zelle; die Felder gehören
+                      über das `form`-Attribut dazu. Ein <form> darf in einer
+                      Tabelle keine Zellen umspannen – so bleibt beides gültig:
+                      ausgerichtete Spalten und ein Formular je Zeile. */}
+                  {units.map((u) => {
+                    const formId = `einheit-${u.id}`;
+                    return (
+                      <tr
+                        key={u.id}
+                        // Sprungziel für Fehlermeldungen („bei WE 03 fehlt die
+                        // Wohnfläche"). Eigener Name, weil `einheit-…` schon
+                        // die Formular-ID dieser Zeile ist — zwei gleiche IDs
+                        // machen den `form`-Verweis mehrdeutig.
+                        id={`zeile-${u.id}`}
+                        className="scroll-mt-24 border-b border-gray-100 align-middle"
+                      >
+                        <td className="py-2 pr-3 font-medium text-gray-900">{u.label}</td>
+                        <td className="py-2 pr-3">
                           <select
+                            form={formId}
                             name="unitType"
                             defaultValue={u.unitType}
                             className={`${inputClass} w-auto`}
@@ -219,39 +341,49 @@ export default async function WegStammdatenPage({
                               </option>
                             ))}
                           </select>
+                        </td>
+                        <td className="py-2 pr-3">
                           <input
+                            form={formId}
                             name="mea"
                             type="number"
                             min={0}
                             defaultValue={u.mea ?? ""}
-                            placeholder="MEA"
                             className={`${inputClass} w-24`}
                             aria-label={`MEA-Zähler der Einheit ${u.label}`}
                           />
+                        </td>
+                        <td className="py-2 pr-3">
                           <input
+                            form={formId}
                             name="livingArea"
                             defaultValue={u.livingArea ?? ""}
-                            placeholder="m²"
                             inputMode="decimal"
                             className={`${inputClass} w-24`}
                             aria-label={`Wohnfläche der Einheit ${u.label}`}
                           />
+                        </td>
+                        <td className="py-2 pr-3">
                           <input
+                            form={formId}
                             name="personCount"
                             type="number"
                             min={0}
                             defaultValue={u.personCount ?? ""}
-                            placeholder="Pers."
                             className={`${inputClass} w-20`}
                             aria-label={`Personenzahl der Einheit ${u.label}`}
                           />
-                          <button type="submit" className={buttonSecondaryClass}>
-                            Speichern
-                          </button>
-                        </form>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-2">
+                          <form id={formId} action={saveUnitFinanceData}>
+                            <input type="hidden" name="propertyId" value={property.id} />
+                            <input type="hidden" name="unitId" value={u.id} />
+                            <PendingButton className={buttonSecondaryClass}>Speichern</PendingButton>
+                          </form>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -259,7 +391,7 @@ export default async function WegStammdatenPage({
         </Card>
 
         {/* Eigentümerschaft je Einheit (tagesgenau) */}
-        <Card title="Eigentümer je Einheit (tagesgenau — Grundlage der Jahresabrechnung)">
+        <Card id="eigentuemer" title="Eigentümer je Einheit (tagesgenau — Grundlage der Jahresabrechnung)">
           {units.length === 0 ? (
             <EmptyState>Dieses Objekt hat noch keine Einheiten.</EmptyState>
           ) : (
@@ -267,7 +399,11 @@ export default async function WegStammdatenPage({
               {units.map((u) => {
                 const list = ownershipsByUnit.get(u.id) ?? [];
                 return (
-                  <div key={u.id} className="rounded-xl border border-gray-200 p-3">
+                  <div
+                    key={u.id}
+                    id={`eigentuemer-${u.id}`}
+                    className="scroll-mt-24 rounded-xl border border-gray-200 p-3"
+                  >
                     <h3 className="text-sm font-semibold text-gray-900">{u.label}</h3>
                     {list.length === 0 ? (
                       <p className="mt-1 text-sm text-amber-700">
@@ -280,31 +416,75 @@ export default async function WegStammdatenPage({
                             key={o.id}
                             className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-700"
                           >
-                            <span>
-                              {o.user.name}
-                              {o.sharePercent !== 100 ? ` (${o.sharePercent} %)` : ""} · seit{" "}
-                              {formatDateOnly(o.validFrom)}
-                              {o.validTo ? ` bis ${formatDateOnly(o.validTo)}` : " (laufend)"}
-                            </span>
+                            {/* „seit" ist änderbar: Beim Anlegen des Objekts stand
+                                hier zwangsläufig das Anlagedatum, und der Stichtag
+                                entscheidet, wer bei einem Verkauf welchen Teil der
+                                Jahresabrechnung trägt. */}
+                            <form
+                              action={updateOwnershipStart}
+                              className="flex flex-wrap items-center gap-1.5"
+                            >
+                              <input type="hidden" name="propertyId" value={property.id} />
+                              <input type="hidden" name="ownershipId" value={o.id} />
+                              <span className="font-medium text-gray-900">
+                                {o.user.name}
+                                {o.sharePercent !== 100 ? ` (${o.sharePercent} %)` : ""}
+                              </span>
+                              <span className="text-xs text-gray-500">seit</span>
+                              <DateField
+                                name="validFrom"
+                                required
+                                defaultValue={toDateInputValue(o.validFrom)}
+                                aria-label={`Beginn der Eigentümerschaft von ${o.user.name}`}
+                                className="w-auto py-1 text-xs"
+                              />
+                              <PendingButton className="text-xs text-brand-green underline">
+                                übernehmen
+                              </PendingButton>
+                              <span className="text-xs text-gray-400">
+                                {o.validTo ? `bis ${formatDateOnly(o.validTo)}` : "(laufend)"}
+                              </span>
+                            </form>
                             {!o.validTo ? (
                               <form action={endUnitOwnership} className="flex items-center gap-1.5">
                                 <input type="hidden" name="propertyId" value={property.id} />
                                 <input type="hidden" name="ownershipId" value={o.id} />
-                                <input
-                                  type="date"
+                                {/* Sichtbare Beschriftung: In dieser Karte stehen
+                                    zwei Datumsfelder – eines beendet die laufende
+                                    Eigentümerschaft, eines beginnt eine neue.
+                                    Ohne Beschriftung sagt keines, welches was tut. */}
+                                <span className="text-xs text-gray-500">beenden zum</span>
+                                <DateField
                                   name="validTo"
-                                  className={`${inputClass} w-auto py-1 text-xs`}
                                   aria-label={`Eigentümerschaft von ${o.user.name} beenden zum`}
+                                  title={`Eigentümerschaft von ${o.user.name} zu diesem Tag beenden`}
+                                  className="w-auto py-1 text-xs"
                                 />
-                                <button type="submit" className="text-xs text-red-600 underline">
+                                <ConfirmActionButton
+                                  className="text-xs text-red-600 underline"
+                                  confirmLabel="Wirklich löschen?"
+                                  pendingLabel="Wird gelöscht…"
+                                >
                                   beenden / löschen
-                                </button>
+                                </ConfirmActionButton>
                               </form>
                             ) : null}
                           </li>
                         ))}
                       </ul>
                     )}
+                    {/* Steht ein Eigentümer, ist das Eintragen die Ausnahme (Verkauf,
+                        Miteigentum) – ein immer offenes Formular liest sich dann wie
+                        eine Pflicht, obwohl die Zuordnung längst da ist und darüber
+                        steht. Als aufklappbarer Block bleibt beides wahr: Der Bestand
+                        ist sichtbar, der Wechsel bleibt einen Klick entfernt.
+                        Ist noch niemand erfasst, ist der Block offen. */}
+                    <details className="mt-3 group" open={list.length === 0}>
+                      <summary className="cursor-pointer list-none text-sm font-medium text-brand-green hover:underline">
+                        {list.length === 0
+                          ? "Eigentümer eintragen"
+                          : "+ Eigentümerwechsel oder Miteigentümer eintragen"}
+                      </summary>
                     <form action={addUnitOwnership} className="mt-3 flex flex-wrap items-end gap-2">
                       <input type="hidden" name="propertyId" value={property.id} />
                       <input type="hidden" name="unitId" value={u.id} />
@@ -318,9 +498,12 @@ export default async function WegStammdatenPage({
                           ))}
                         </select>
                       </Field>
-                      <Field label="Gültig ab">
-                        <input type="date" name="validFrom" className={`${inputClass} w-auto`} required />
-                      </Field>
+                      <DateField
+                        label="Eigentümer seit"
+                        name="validFrom"
+                        required
+                        className="w-auto"
+                      />
                       <Field label="Anteil (%)">
                         <input
                           name="sharePercent"
@@ -335,10 +518,9 @@ export default async function WegStammdatenPage({
                         <input type="checkbox" name="endPrevious" />
                         Wechsel (Vor-Eigentümer zum Stichtag beenden)
                       </label>
-                      <button type="submit" className={buttonSecondaryClass}>
-                        Eintragen
-                      </button>
+                      <PendingButton className={buttonSecondaryClass}>Eintragen</PendingButton>
                     </form>
+                    </details>
                   </div>
                 );
               })}
@@ -347,15 +529,21 @@ export default async function WegStammdatenPage({
         </Card>
 
         {/* Kostenarten */}
-        <Card title="Kostenarten & Umlageschlüssel">
+        <Card
+          id="kostenarten"
+          title={
+            <>
+              Kostenarten &amp;{" "}
+              <Begriff name="umlageschluessel">Umlageschlüssel</Begriff>
+            </>
+          }
+        >
           {costTypes.length === 0 ? (
             <EmptyState
               action={
                 <form action={adoptCostCatalog}>
                   <input type="hidden" name="propertyId" value={property.id} />
-                  <button type="submit" className={buttonClass}>
-                    WEG-Standardkatalog übernehmen
-                  </button>
+                  <PendingButton className={buttonClass}>WEG-Standardkatalog übernehmen</PendingButton>
                 </form>
               }
             >
@@ -364,23 +552,39 @@ export default async function WegStammdatenPage({
             </EmptyState>
           ) : (
             <>
-              <div className="mb-4">
-                <form action={adoptCostCatalog}>
-                  <input type="hidden" name="propertyId" value={property.id} />
-                  <button type="submit" className={buttonSecondaryClass}>
-                    Fehlende Standard-Kostenarten ergänzen
-                  </button>
-                </form>
-              </div>
+              {/* Nur zeigen, wenn tatsächlich etwas fehlt. Zuvor stand der Knopf
+                  dauerhaft und prominent da, obwohl er im Normalfall nichts tun
+                  konnte – das war der Grund, warum sein Sinn sich niemandem
+                  erschloss. Jetzt erscheint er genau dann, wenn er etwas
+                  bewirkt, und sagt auch was. */}
+              {fehlendeStandardarten > 0 ? (
+                <div className="mb-4">
+                  <form action={adoptCostCatalog}>
+                    <input type="hidden" name="propertyId" value={property.id} />
+                    <PendingButton className={buttonSecondaryClass}>
+                      {fehlendeStandardarten} fehlende Standard-Kostenart
+                      {fehlendeStandardarten === 1 ? "" : "en"} ergänzen
+                    </PendingButton>
+                  </form>
+                  <Tipp className="mt-1.5">
+                    Vorhandene Einträge bleiben unverändert – auch umbenannte.
+                  </Tipp>
+                </div>
+              ) : null}
               <div className="grid gap-3">
                 {costTypes.map((c) => (
-                  <form
+                  // Zwei Formulare je Kostenart – bearbeiten und entfernen –,
+                  // deshalb ein umschließender Block: Ein <form> darf kein
+                  // zweites enthalten, und das Entfernen darf die Felder des
+                  // Bearbeitens nicht mitschicken.
+                  <div
                     key={c.id}
-                    action={saveCostType}
-                    className={`flex flex-wrap items-center gap-2 rounded-xl border p-3 ${
+                    id={`kostenart-${c.id}`}
+                    className={`scroll-mt-24 rounded-xl border p-3 ${
                       c.active ? "border-gray-200" : "border-gray-100 bg-gray-50 opacity-70"
                     }`}
                   >
+                  <form action={saveCostType} className="flex flex-wrap items-center gap-2">
                     <input type="hidden" name="propertyId" value={property.id} />
                     <input type="hidden" name="costTypeId" value={c.id} />
                     <input
@@ -426,6 +630,29 @@ export default async function WegStammdatenPage({
                         </option>
                       ))}
                     </select>
+                    {/* Erfahrungswert für den Lohnanteil. Leer lassen ist die
+                        ehrlichere Wahl: Ohne Angabe weist die Abrechnung die
+                        Lücke aus, statt eine Zahl zu erfinden. */}
+                    <input
+                      name="laborSharePercent"
+                      type="number"
+                      min={0}
+                      max={100}
+                      defaultValue={c.laborSharePercent ?? ""}
+                      placeholder="Lohn %"
+                      className={`${inputClass} w-24`}
+                      aria-label="Lohnanteil in Prozent (Schätzwert)"
+                      title="Erfahrungswert für den Lohn-/Fahrt-/Maschinenkostenanteil. Greift nur, wenn an der Buchung nichts erfasst ist."
+                    />
+                    {/* Erzwingt bei der Zählerverteilung den Grundkostenanteil
+                        (§§ 7, 8 HeizkostenV). */}
+                    <label
+                      className="flex items-center gap-1.5 text-sm text-gray-700"
+                      title="Heiz- und Warmwasserkosten: 50–70 % nach Verbrauch, der Rest nach Wohnfläche."
+                    >
+                      <input type="checkbox" name="heatingCost" defaultChecked={c.heatingCost} />
+                      HeizkostenV
+                    </label>
                     <label className="flex items-center gap-1.5 text-sm text-gray-700">
                       <input
                         type="checkbox"
@@ -438,10 +665,26 @@ export default async function WegStammdatenPage({
                       <input type="checkbox" name="active" defaultChecked={c.active} />
                       aktiv
                     </label>
-                    <button type="submit" className={buttonSecondaryClass}>
-                      Speichern
-                    </button>
+                    <PendingButton className={buttonSecondaryClass}>Speichern</PendingButton>
                   </form>
+
+                  {/* Entfernen als eigenes Formular: Es darf nicht die Felder des
+                      Bearbeiten-Formulars mitschicken. Gelöscht wird nur, was
+                      unbenutzt ist — hängt eine Buchung, ein Planwert oder eine
+                      Abrechnungsposition daran, wird stattdessen deaktiviert und
+                      die Meldung sagt warum. */}
+                  <form action={deleteCostType} className="mt-2">
+                    <input type="hidden" name="propertyId" value={property.id} />
+                    <input type="hidden" name="costTypeId" value={c.id} />
+                    <ConfirmActionButton
+                      className="text-xs text-red-600 underline"
+                      confirmLabel="Wirklich entfernen?"
+                      pendingLabel="Wird entfernt…"
+                    >
+                      entfernen
+                    </ConfirmActionButton>
+                  </form>
+                  </div>
                 ))}
               </div>
             </>
@@ -466,7 +709,7 @@ export default async function WegStammdatenPage({
                   ))}
                 </select>
               </Field>
-              <Field label="Umlageschlüssel">
+              <Field label={<Begriff name="umlageschluessel">Umlageschlüssel</Begriff>}>
                 <select name="distributionKey" className={`${inputClass} w-auto`} defaultValue="MEA">
                   {Object.entries(distributionKeyLabels).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -484,20 +727,32 @@ export default async function WegStammdatenPage({
                   ))}
                 </select>
               </Field>
+              <Field label="Lohnanteil %">
+                <input
+                  name="laborSharePercent"
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="leer"
+                  className={`${inputClass} w-24`}
+                />
+              </Field>
+              <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700">
+                <input type="checkbox" name="heatingCost" />
+                HeizkostenV
+              </label>
               <label className="flex items-center gap-1.5 pb-2 text-sm text-gray-700">
                 <input type="checkbox" name="recoverableBetrKV" />
                 umlagefähig (BetrKV)
               </label>
               <input type="hidden" name="active" value="on" />
-              <button type="submit" className={buttonClass}>
-                Anlegen
-              </button>
+              <PendingButton className={buttonClass}>Anlegen</PendingButton>
             </form>
           </details>
         </Card>
 
         {/* Konten */}
-        <Card title="Konten (Girokonto & Erhaltungsrücklage)">
+        <Card id="konten" title="Konten (Girokonto & Erhaltungsrücklage)">
           {accounts.length === 0 ? (
             <EmptyState>
               Noch keine Konten. Legen Sie das Girokonto der Gemeinschaft und das
@@ -509,8 +764,9 @@ export default async function WegStammdatenPage({
               {accounts.map((a) => (
                 <form
                   key={a.id}
+                  id={`konto-${a.id}`}
                   action={saveAccount}
-                  className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 p-3"
+                  className="scroll-mt-24 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 p-3"
                 >
                   <input type="hidden" name="propertyId" value={property.id} />
                   <input type="hidden" name="accountId" value={a.id} />
@@ -544,22 +800,21 @@ export default async function WegStammdatenPage({
                     name="openingBalance"
                     defaultValue={(a.openingBalanceCents / 100).toFixed(2).replace(".", ",")}
                     inputMode="decimal"
+                    required
                     className={`${inputClass} w-28`}
                     aria-label="Anfangsbestand in Euro"
                   />
-                  <input
+                  <DateField
                     name="openingBalanceDate"
-                    type="date"
-                    defaultValue={a.openingBalanceDate?.toISOString().slice(0, 10) ?? ""}
-                    className={`${inputClass} w-auto`}
+                    defaultValue={toDateInputValue(a.openingBalanceDate)}
+                    required
                     aria-label="Stichtag des Anfangsbestands"
+                    className="w-auto"
                   />
                   <span className="text-sm text-gray-500">
                     Anfangsbestand: {formatCents(a.openingBalanceCents)}
                   </span>
-                  <button type="submit" className={buttonSecondaryClass}>
-                    Speichern
-                  </button>
+                  <PendingButton className={buttonSecondaryClass}>Speichern</PendingButton>
                 </form>
               ))}
             </div>
@@ -596,16 +851,18 @@ export default async function WegStammdatenPage({
                 <input
                   name="openingBalance"
                   inputMode="decimal"
+                  required
                   className={`${inputClass} w-28`}
                   placeholder="0,00"
                 />
               </Field>
-              <Field label="Stichtag">
-                <input name="openingBalanceDate" type="date" className={`${inputClass} w-auto`} />
-              </Field>
-              <button type="submit" className={buttonClass}>
-                Anlegen
-              </button>
+              <DateField
+                label="Stichtag"
+                name="openingBalanceDate"
+                required
+                className="w-auto"
+              />
+              <PendingButton className={buttonClass}>Anlegen</PendingButton>
             </form>
           </details>
         </Card>

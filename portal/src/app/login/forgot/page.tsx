@@ -1,5 +1,9 @@
 import { Alert, buttonClass, Field, inputClass } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
 import { BwLogo } from "@/components/logo";
+import { Wordmark } from "@/components/marketing/wordmark";
+import { isWegSaas } from "@/lib/app-mode";
+import { getTenantOrg } from "@/lib/tenant";
 import { requestPasswordReset } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -10,13 +14,26 @@ export default async function ForgotPasswordPage({
   searchParams: Promise<{ fehler?: string; gesendet?: string }>;
 }) {
   const { fehler, gesendet } = await searchParams;
+  // Dieselbe Marken-Entscheidung wie auf /login – der Weg über „Passwort
+  // vergessen" führte sonst mitten im Vorgang zu einer fremden Marke.
+  const wegMarke = isWegSaas() && !(await getTenantOrg());
 
   return (
-    <main className="flex flex-1 items-center justify-center p-4">
+    <main
+      className={`flex flex-1 items-center justify-center p-4 ${
+        wegMarke
+          ? "wp-brand bg-gradient-to-br from-wp-primary via-wp-primary-soft to-wp-ink"
+          : ""
+      }`}
+    >
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-          <BwLogo className="mx-auto mb-6 h-16 w-auto" />
-          <h1 className="mb-4 text-lg font-semibold">Passwort zurücksetzen</h1>
+          {wegMarke ? (
+            <Wordmark className="mb-6 justify-center text-xl" />
+          ) : (
+            <BwLogo className="mx-auto mb-6 h-16 w-auto" />
+          )}
+          <h1 className="mb-4 text-lg font-semibold text-gray-800">Passwort zurücksetzen</h1>
 
           {gesendet ? (
             <div className="space-y-4">
@@ -50,9 +67,7 @@ export default async function ForgotPasswordPage({
                     className={inputClass}
                   />
                 </Field>
-                <button type="submit" className={`${buttonClass} w-full`}>
-                  Reset-Link anfordern
-                </button>
+                <PendingButton className={`${buttonClass} w-full`}>Reset-Link anfordern</PendingButton>
               </form>
               <p className="mt-4 text-center text-sm">
                 <a href="/login" className="text-brand-green hover:underline">

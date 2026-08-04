@@ -1,4 +1,5 @@
 import { stopImpersonation } from "@/app/(portal)/impersonation-actions";
+import { PendingButton } from "@/components/pending-button";
 
 // Deutlich sichtbares Banner, während ein Betreiber „als Kunde" unterwegs ist.
 export function ImpersonationBanner({
@@ -14,12 +15,7 @@ export function ImpersonationBanner({
         Support-Modus: Sie sehen das Portal als <strong>{customerName}</strong> ({adminName}).
       </span>
       <form action={stopImpersonation}>
-        <button
-          type="submit"
-          className="rounded bg-amber-950 px-3 py-0.5 text-xs font-semibold text-amber-50 hover:bg-amber-900"
-        >
-          Support-Modus beenden
-        </button>
+        <PendingButton className="rounded bg-amber-950 px-3 py-0.5 text-xs font-semibold text-amber-50 hover:bg-amber-900">Support-Modus beenden</PendingButton>
       </form>
     </div>
   );

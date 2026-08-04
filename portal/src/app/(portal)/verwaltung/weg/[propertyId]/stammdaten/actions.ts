@@ -7,18 +7,54 @@ import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
-import { WEG_COST_CATALOG } from "@/lib/weg/cost-catalog";
+import type { CostCategory } from "@/generated/prisma/client";
+import { costCategoryLabels } from "@/lib/labels";
+import { WEG_COST_CATALOG, costTypeFieldsFrom } from "@/lib/weg/cost-catalog";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 import { loadWegProperty } from "@/lib/weg/scope";
 
 const UNIT_TYPES = ["WOHNUNG", "TEILEIGENTUM", "STELLPLATZ", "SONSTIGES"] as const;
 const DISTRIBUTION_KEYS = ["MEA", "FLAECHE", "EINHEITEN", "PERSONEN", "VERBRAUCH", "FESTBETRAG", "INDIVIDUELL"] as const;
-const COST_CATEGORIES = ["BETRIEBSKOSTEN", "INSTANDHALTUNG", "VERWALTUNG", "RUECKLAGENZUFUEHRUNG", "SONSTIGES"] as const;
+// Aus dem Label-Verzeichnis abgeleitet, nicht abgeschrieben: Das Auswahlfeld der
+// Seite baut sich aus derselben Quelle. Eine handgepflegte zweite Liste hätte
+// beim Ergänzen von ERTRAG dazu geführt, dass die Oberfläche eine Kategorie
+// anbietet, die diese Action stillschweigend ablehnt.
+const COST_CATEGORIES = Object.keys(costCategoryLabels) as [CostCategory, ...CostCategory[]];
 const LABOR_SHARE_TYPES = ["KEINE", "HAUSHALTSNAHE_DIENSTLEISTUNG", "HANDWERKERLEISTUNG"] as const;
 const ACCOUNT_KINDS = ["GIRO", "RUECKLAGE"] as const;
 
+// Anker je Rückmeldung: Nach welchem Abschnitt der Seite geht es weiter?
+//
+// Server-Actions enden mit einer Weiterleitung, und die setzt den Browser an
+// den Seitenanfang zurück. Auf einer langen Seite wie den Stammdaten heißt das:
+// Man speichert eine Einheit weit unten und findet sich oben bei den
+// Objekt-Einstellungen wieder – nach jedem einzelnen Speichern.
+//
+// Der Anker im Ziel-Pfad behebt das, ohne die Rückmeldungs-Konvention
+// anzutasten: Der Flash-/Fehler-Parameter bleibt, das Fragment führt nur
+// zusätzlich an die Stelle zurück, an der gearbeitet wurde.
+const ANKER: Record<string, string> = {
+  einstellungen: "objekt-einstellungen",
+  einheit: "einheiten",
+  eigentuemer: "eigentuemer",
+  datum: "eigentuemer",
+  katalog: "kostenarten",
+  kostenart: "kostenarten",
+  konto: "konten",
+  betrag: "konten",
+  bestand: "konten",
+  stichtag: "konten",
+  zeitraum: "eigentuemer",
+};
+
 function back(propertyId: string, param?: string): never {
-  redirect(`/verwaltung/weg/${propertyId}/stammdaten${param ? `?${param}` : ""}`);
+  const wert = param?.split("=")[1];
+  const anker = wert ? ANKER[wert] : undefined;
+  redirect(
+    `/verwaltung/weg/${propertyId}/stammdaten` +
+      (param ? `?${param}` : "") +
+      (anker ? `#${anker}` : ""),
+  );
 }
 
 // Optionale Ganzzahl/Dezimalzahl aus deutschem Formular-Input ("76,38" → 76.38)
@@ -37,6 +73,14 @@ const settingsSchema = z.object({
   propertyId: z.string().min(1),
   meaTotal: optionalInt,
   fiscalYearStartMonth: z.coerce.number().int().min(1).max(12),
+  dueDayRule: z.enum(["MONATSERSTER", "DRITTER_WERKTAG", "FREIER_TAG"]),
+  // Auf den 28. begrenzt, damit es den Termin in jedem Monat gibt.
+  dueDayOfMonth: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() !== "" ? Number(v.trim()) : null),
+    z.number().int().min(1).max(28).nullable(),
+  ),
+  /** Tatsächliche Mahnkosten je Mahnung, als Euro-Zeichenkette. */
+  mahnkosten: z.string().optional(),
 });
 
 export async function saveFinanceSettings(formData: FormData) {
@@ -45,16 +89,34 @@ export async function saveFinanceSettings(formData: FormData) {
     propertyId: formData.get("propertyId"),
     meaTotal: formData.get("meaTotal"),
     fiscalYearStartMonth: formData.get("fiscalYearStartMonth"),
+    dueDayRule: formData.get("dueDayRule"),
+    dueDayOfMonth: formData.get("dueDayOfMonth"),
+    mahnkosten: String(formData.get("mahnkosten") ?? "") || undefined,
   });
   if (!parsed.success) redirect("/verwaltung/weg");
   const property = await loadWegProperty(verwalter, parsed.data.propertyId);
   if (!property) redirect("/verwaltung/weg");
+
+  // Leeres Feld = 0, nicht „unverändert": Wer die Mahnkosten löscht, will sie
+  // los sein. Ein unlesbarer Wert bricht dagegen ab, statt still auf 0 zu
+  // fallen — sonst verschwänden Kosten durch einen Tippfehler.
+  let mahnkostenCents = 0;
+  if (parsed.data.mahnkosten && parsed.data.mahnkosten.trim() !== "") {
+    const wert = parseEuroToCents(parsed.data.mahnkosten);
+    if (wert === null || wert < 0) back(property.id, "fehler=mahnkosten");
+    mahnkostenCents = wert;
+  }
 
   await db.property.update({
     where: { id: property.id },
     data: {
       meaTotal: parsed.data.meaTotal,
       fiscalYearStartMonth: parsed.data.fiscalYearStartMonth,
+      dueDayRule: parsed.data.dueDayRule,
+      // Ein fester Tag ohne die passende Regel wäre ein stiller Blindgänger:
+      // Er stünde im Feld, wirkte aber nirgends.
+      dueDayOfMonth: parsed.data.dueDayRule === "FREIER_TAG" ? parsed.data.dueDayOfMonth : null,
+      mahnkostenCents,
     },
   });
   await logAudit({
@@ -144,11 +206,7 @@ export async function adoptCostCatalog(formData: FormData) {
       data: toCreate.map((e, i) => ({
         organizationId: verwalter.organizationId,
         propertyId: property.id,
-        name: e.name,
-        category: e.category,
-        distributionKey: e.distributionKey,
-        laborShareType: e.laborShareType,
-        recoverableBetrKV: e.recoverableBetrKV,
+        ...costTypeFieldsFrom(e),
         orderIndex: existing.length + i,
       })),
     });
@@ -171,6 +229,18 @@ const costTypeSchema = z.object({
   category: z.enum(COST_CATEGORIES),
   distributionKey: z.enum(DISTRIBUTION_KEYS),
   laborShareType: z.enum(LABOR_SHARE_TYPES),
+  // Erfahrungswert für den §35a-Lohnanteil. Leer bleibt leer: Ohne Angabe wird
+  // die Position als „Lohnanteil nicht erfasst" ausgewiesen statt geschätzt.
+  laborSharePercent: z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? null : Number(v)))
+    .refine((v) => v === null || (Number.isInteger(v) && v >= 0 && v <= 100), {
+      message: "Der Lohnanteil muss zwischen 0 und 100 Prozent liegen.",
+    }),
+  // HeizkostenV-Kennzeichnung: erzwingt bei der Zählerverteilung den
+  // Grundkostenanteil (§§ 7, 8 HeizkostenV).
+  heatingCost: z.coerce.boolean(),
   recoverableBetrKV: z.coerce.boolean(),
   active: z.coerce.boolean(),
 });
@@ -184,6 +254,8 @@ export async function saveCostType(formData: FormData) {
     category: formData.get("category"),
     distributionKey: formData.get("distributionKey"),
     laborShareType: formData.get("laborShareType"),
+    laborSharePercent: String(formData.get("laborSharePercent") ?? ""),
+    heatingCost: formData.get("heatingCost") === "on",
     recoverableBetrKV: formData.get("recoverableBetrKV") === "on",
     active: formData.get("active") === "on",
   });
@@ -196,6 +268,11 @@ export async function saveCostType(formData: FormData) {
     category: parsed.data.category,
     distributionKey: parsed.data.distributionKey,
     laborShareType: parsed.data.laborShareType,
+    // Ohne §35a-Einstufung ist ein Prozentsatz gegenstandslos — er würde sonst
+    // stumm weiterleben, wenn die Kostenart später wieder eingestuft wird.
+    laborSharePercent:
+      parsed.data.laborShareType === "KEINE" ? null : parsed.data.laborSharePercent,
+    heatingCost: parsed.data.heatingCost,
     recoverableBetrKV: parsed.data.recoverableBetrKV,
     active: parsed.data.active,
   };
@@ -368,23 +445,34 @@ export async function saveAccount(formData: FormData) {
   const property = await loadWegProperty(verwalter, parsed.data.propertyId);
   if (!property) redirect("/verwaltung/weg");
 
-  // Anfangsbestand: deutsches Format, darf negativ sein (Konto im Soll)
+  // Anfangsbestand und Stichtag sind Pflicht – anders als die IBAN.
+  //
+  // Ein Konto ohne beides ließ sich bisher anlegen, und das Ergebnis war ein
+  // Konto mit Bestand 0 € zu keinem Zeitpunkt: Die Buchhaltung rechnet ab dem
+  // Stichtag, also ab nirgendwo. Die Einrichtung meldete den Schritt danach als
+  // unfertig, ohne dass beim Speichern etwas darauf hingedeutet hätte.
+  //
+  // Null Euro bleibt ein zulässiger Bestand – ein neu eröffnetes Konto der
+  // Gemeinschaft steht tatsächlich auf null. Leer ist keine Angabe, „0,00" ist
+  // eine.
   const raw = (parsed.data.openingBalance ?? "").trim();
-  let openingBalanceCents = 0;
-  if (raw !== "") {
-    const negative = raw.startsWith("-");
-    const cents = parseEuroToCents(negative ? raw.slice(1) : raw);
-    if (cents === null) back(property.id, "fehler=betrag");
-    openingBalanceCents = negative ? -cents : cents;
-  }
-  const openingBalanceDate = parsed.data.openingBalanceDate ? new Date(parsed.data.openingBalanceDate) : null;
+  if (raw === "") back(property.id, "fehler=bestand");
+  const negative = raw.startsWith("-");
+  const cents = parseEuroToCents(negative ? raw.slice(1) : raw);
+  if (cents === null) back(property.id, "fehler=betrag");
+  const openingBalanceCents = negative ? -cents : cents;
+
+  const stichtagRoh = (parsed.data.openingBalanceDate ?? "").trim();
+  if (stichtagRoh === "") back(property.id, "fehler=stichtag");
+  const openingBalanceDate = new Date(stichtagRoh);
+  if (Number.isNaN(openingBalanceDate.getTime())) back(property.id, "fehler=stichtag");
 
   const data = {
     name: parsed.data.name,
     kind: parsed.data.kind,
     iban: parsed.data.iban || null,
     openingBalanceCents,
-    openingBalanceDate: openingBalanceDate && !isNaN(openingBalanceDate.getTime()) ? openingBalanceDate : null,
+    openingBalanceDate,
   };
   let targetId = parsed.data.accountId;
   if (targetId) {
@@ -409,4 +497,109 @@ export async function saveAccount(formData: FormData) {
   });
   revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
   back(property.id, "gespeichert=konto");
+}
+
+/**
+ * Korrigiert den Beginn einer bestehenden Eigentümerschaft.
+ *
+ * Bis hierher war das Datum nach dem Anlegen unveränderlich: Wer beim Anlegen
+ * des Objekts keinen Stichtag angeben konnte, bekam das Anlagedatum — und
+ * musste, um es zu berichtigen, dieselbe Person neu eintragen und die alte
+ * löschen. Der Stichtag entscheidet aber, wer bei einem Verkauf welchen Teil
+ * der Jahresabrechnung trägt; ihn nicht korrigieren zu können, hieß mit einem
+ * falschen Wert weiterzurechnen.
+ */
+export async function updateOwnershipStart(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const ownershipId = String(formData.get("ownershipId") ?? "");
+  const validFromRaw = String(formData.get("validFrom") ?? "").trim();
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const ownership = await db.unitOwnership.findFirst({
+    where: {
+      id: ownershipId,
+      organizationId: verwalter.organizationId,
+      unit: { propertyId: property.id },
+    },
+    select: { id: true, unitId: true, validTo: true },
+  });
+  if (!ownership) back(property.id, "fehler=eigentuemer");
+
+  const validFrom = new Date(validFromRaw);
+  if (!validFromRaw || isNaN(validFrom.getTime())) back(property.id, "fehler=datum");
+  // Ein Beginn nach dem Ende ergäbe einen Zeitraum, den es nicht gibt — und die
+  // zeitanteilige Abrechnung würde daran stillschweigend falsch rechnen.
+  if (ownership.validTo && validFrom > ownership.validTo) back(property.id, "fehler=zeitraum");
+
+  await db.unitOwnership.update({ where: { id: ownership.id }, data: { validFrom } });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_UNIT_OWNERSHIP_SAVED,
+    targetType: "Unit",
+    targetId: ownership.unitId,
+    meta: { ownershipId: ownership.id, validFrom: validFromRaw },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+  back(property.id, "gespeichert=eigentuemer");
+}
+
+/**
+ * Entfernt eine Kostenart — aber nur, solange nichts daran hängt.
+ *
+ * Bis hierher ließ sich eine Kostenart gar nicht loswerden; es gab nur das
+ * Häkchen „aktiv". Das war der Grund, warum „Standardkatalog abgleichen"
+ * sinnlos wirkte: Fehlen konnte nie etwas, weil sich nichts entfernen ließ.
+ *
+ * Gelöscht wird deshalb nur, was **unbenutzt** ist. Sobald eine Buchung, ein
+ * Planwert oder eine Abrechnungsposition darauf verweist, wird stattdessen
+ * deaktiviert — und das ist keine Bequemlichkeit, sondern Pflicht: Das Schema
+ * würde Planwerte und Abrechnungspositionen mitlöschen (`onDelete: Cascade`).
+ * Eine beschlossene Jahresabrechnung nachträglich um eine Position zu
+ * erleichtern, wäre Geschichtsfälschung.
+ */
+export async function deleteCostType(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const costTypeId = String(formData.get("costTypeId") ?? "");
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const costType = await db.costType.findFirst({
+    where: { id: costTypeId, propertyId: property.id },
+    select: { id: true, name: true },
+  });
+  if (!costType) back(property.id, "fehler=kostenart");
+
+  const [buchungen, planwerte, abrechnungen] = await Promise.all([
+    db.booking.count({ where: { costTypeId: costType.id } }),
+    db.economicPlanItem.count({ where: { costTypeId: costType.id } }),
+    db.statementUnitAmount.count({ where: { costTypeId: costType.id } }),
+  ]);
+  const benutzt = buchungen + planwerte + abrechnungen;
+
+  if (benutzt > 0) {
+    await db.costType.update({ where: { id: costType.id }, data: { active: false } });
+    await logAudit({
+      actorId: verwalter.id,
+      action: AUDIT.WEG_COSTTYPE_SAVED,
+      targetType: "CostType",
+      targetId: costType.id,
+      meta: { deaktiviert: true, buchungen, planwerte, abrechnungen },
+    });
+    revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+    back(property.id, "gespeichert=deaktiviert");
+  }
+
+  await db.costType.delete({ where: { id: costType.id } });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_COSTTYPE_SAVED,
+    targetType: "CostType",
+    targetId: costType.id,
+    meta: { geloescht: true, name: costType.name },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+  back(property.id, "gespeichert=kostenart");
 }

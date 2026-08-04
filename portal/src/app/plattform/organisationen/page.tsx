@@ -1,14 +1,28 @@
 import Link from "next/link";
-import { PageTitle, inputClass } from "@/components/ui";
+import { PageTitle, Pagination, cardSurfaceClass } from "@/components/ui";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
+import { normalizeSearch, parsePage, resolveSort, toOrderBy, pageHrefFor } from "@/lib/list-query";
 import { requirePlatformAdmin } from "@/lib/platform";
 import type { Prisma } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
+
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { registriert: "createdAt", name: "name", tarif: "plan" } as const;
+
+const sortOptions = [
+  { value: "registriert", label: "Registriert" },
+  { value: "name", label: "Name" },
+  { value: "tarif", label: "Tarif" },
+];
+
+const STATUS_VALUES = ["active", "trialing", "past_due", "canceled"];
+const TYP_VALUES = ["verwaltung", "selbstverwalter"];
 
 // Farbliche Einordnung des Abo-Status.
 function statusTone(status: string): string {
@@ -29,12 +43,13 @@ function statusTone(status: string): string {
 export default async function OrganisationenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; typ?: string; aktiv?: string; page?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   await requirePlatformAdmin();
   const sp = await searchParams;
-  const q = (sp.q ?? "").trim();
-  const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
+  const q = normalizeSearch(sp.q);
+  const page = parsePage(sp.page);
+  const sort = resolveSort(sp.sort, sp.dir, SORT_FIELDS, "registriert", "desc");
 
   const where: Prisma.OrganizationWhereInput = {};
   if (q) {
@@ -43,16 +58,17 @@ export default async function OrganisationenPage({
       { slug: { contains: q, mode: "insensitive" } },
     ];
   }
-  if (sp.status) where.subscriptionStatus = sp.status;
-  if (sp.typ) where.accountType = sp.typ;
+  if (sp.status && STATUS_VALUES.includes(sp.status)) where.subscriptionStatus = sp.status;
+  if (sp.typ && TYP_VALUES.includes(sp.typ)) where.accountType = sp.typ;
   if (sp.aktiv === "1") where.active = true;
   if (sp.aktiv === "0") where.active = false;
+  const hasFilter = Boolean(q || sp.status || sp.typ || sp.aktiv);
 
   const [total, orgs] = await Promise.all([
     db.organization.count({ where }),
     db.organization.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: toOrderBy(sort.field, sort.dir) as Prisma.OrganizationOrderByWithRelationInput,
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       select: {
@@ -71,50 +87,52 @@ export default async function OrganisationenPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  // Filter-Chip: baut die aktuelle Query mit einem geänderten Parameter.
-  function chipHref(param: string, value: string | null) {
-    const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (sp.status) params.set("status", sp.status);
-    if (sp.typ) params.set("typ", sp.typ);
-    if (sp.aktiv) params.set("aktiv", sp.aktiv);
-    if (value === null) params.delete(param);
-    else params.set(param, value);
-    const s = params.toString();
-    return `/plattform/organisationen${s ? `?${s}` : ""}`;
-  }
+  const orgFilters: FilterConfig[] = [
+    {
+      key: "aktiv",
+      label: "Zustand",
+      allLabel: "Alle",
+      primary: true,
+      options: [
+        { value: "1", label: "Aktiv" },
+        { value: "0", label: "Inaktiv" },
+      ],
+    },
+    {
+      key: "typ",
+      label: "Typ",
+      allLabel: "Alle Typen",
+      options: [
+        { value: "verwaltung", label: "Hausverwaltung" },
+        { value: "selbstverwalter", label: "Selbstverwaltung" },
+      ],
+    },
+    {
+      key: "status",
+      label: "Abo-Status",
+      allLabel: "Alle Status",
+      options: STATUS_VALUES.map((s) => ({ value: s, label: subscriptionStatusLabel(s) })),
+    },
+  ];
 
   return (
     <>
       <PageTitle>Verwaltungen ({total})</PageTitle>
 
-      <form method="get" className="mb-4 flex flex-wrap gap-2">
-        <input
-          type="search"
-          name="q"
-          defaultValue={q}
-          placeholder="Name oder Slug suchen…"
-          className={`${inputClass} max-w-xs`}
-        />
-        {sp.status ? <input type="hidden" name="status" value={sp.status} /> : null}
-        {sp.typ ? <input type="hidden" name="typ" value={sp.typ} /> : null}
-        {sp.aktiv ? <input type="hidden" name="aktiv" value={sp.aktiv} /> : null}
-        <button type="submit" className="rounded-lg bg-shell-2 px-4 py-2 text-sm text-white">
-          Suchen
-        </button>
-      </form>
-
-      <div className="mb-4 flex flex-wrap gap-2 text-xs">
-        <Link href={chipHref("aktiv", null)} className={`rounded-full border px-3 py-1 ${!sp.aktiv ? "border-brand-orange bg-brand-orange text-white" : "border-gray-300 bg-white text-gray-600"}`}>Alle</Link>
-        <Link href={chipHref("aktiv", "1")} className={`rounded-full border px-3 py-1 ${sp.aktiv === "1" ? "border-brand-orange bg-brand-orange text-white" : "border-gray-300 bg-white text-gray-600"}`}>Aktiv</Link>
-        <Link href={chipHref("aktiv", "0")} className={`rounded-full border px-3 py-1 ${sp.aktiv === "0" ? "border-brand-orange bg-brand-orange text-white" : "border-gray-300 bg-white text-gray-600"}`}>Inaktiv</Link>
-        <span className="mx-1 text-gray-300">·</span>
-        <Link href={chipHref("typ", null)} className={`rounded-full border px-3 py-1 ${!sp.typ ? "border-gray-400 bg-gray-100 text-gray-700" : "border-gray-300 bg-white text-gray-600"}`}>Alle Typen</Link>
-        <Link href={chipHref("typ", "verwaltung")} className={`rounded-full border px-3 py-1 ${sp.typ === "verwaltung" ? "border-gray-400 bg-gray-100 text-gray-700" : "border-gray-300 bg-white text-gray-600"}`}>Hausverwaltung</Link>
-        <Link href={chipHref("typ", "selbstverwalter")} className={`rounded-full border px-3 py-1 ${sp.typ === "selbstverwalter" ? "border-gray-400 bg-gray-100 text-gray-700" : "border-gray-300 bg-white text-gray-600"}`}>Selbstverwaltung</Link>
+      <FilterBar
+        searchPlaceholder="Suchen"
+        searchHint="Nach Name oder Slug suchen"
+        filters={orgFilters}
+      />
+      <div className="mb-3 mt-2 flex items-center justify-between gap-3 px-1">
+        <p className="text-xs text-gray-400">
+          {total} {total === 1 ? "Verwaltung" : "Verwaltungen"}
+          {hasFilter ? " (gefiltert)" : ""}
+        </p>
+        <SortControl sortOptions={sortOptions} defaultSort="registriert" total={total} />
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className={`overflow-x-auto ${cardSurfaceClass}`}>
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">
@@ -169,17 +187,13 @@ export default async function OrganisationenPage({
         </table>
       </div>
 
-      {totalPages > 1 ? (
-        <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-          {page > 1 ? (
-            <Link href={chipHref("page", String(page - 1))} className="hover:text-brand-orange">← Zurück</Link>
-          ) : <span />}
-          <span>Seite {page} von {totalPages}</span>
-          {page < totalPages ? (
-            <Link href={chipHref("page", String(page + 1))} className="hover:text-brand-orange">Weiter →</Link>
-          ) : <span />}
-        </div>
-      ) : null}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        total={total}
+        itemLabel="Verwaltungen"
+        hrefFor={pageHrefFor("/plattform/organisationen", sp)}
+      />
     </>
   );
 }

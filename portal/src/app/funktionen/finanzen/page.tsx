@@ -37,7 +37,7 @@ export default async function FinanzenPage() {
         title={
           <>
             Vom ersten Hausgeld bis zur{" "}
-            <span className="underline decoration-brand-orange decoration-4 underline-offset-8">fertigen Jahresabrechnung.</span>
+            <span className="underline decoration-wp-accent-bright decoration-4 underline-offset-8">fertigen Jahresabrechnung.</span>
           </>
         }
         intro={
@@ -50,7 +50,7 @@ export default async function FinanzenPage() {
           src: "/images/marketing/finanzen.jpg",
           alt: "Eigentümer plant den Wirtschaftsplan am Laptop",
         }}
-        badge={{ icon: <CalendarCheck className="h-4 w-4 text-brand-orange-ink" />, text: "Wirtschaftsplan & Jahresabrechnung centgenau" }}
+        badge={{ icon: <CalendarCheck className="h-4 w-4 text-wp-accent-ink" />, text: "Wirtschaftsplan & Jahresabrechnung centgenau" }}
       />
 
       <FeatureSection
@@ -111,13 +111,15 @@ export default async function FinanzenPage() {
 
       <FeatureSection
         id="ruecklage"
-        eyebrow="Erhaltungsrücklage"
+        eyebrow="Erhaltungsrücklage & Sonderumlage"
         title="Die Rücklage bleibt unantastbar – und sichtbar"
         visual={<ReserveVisual />}
         points={[
           "Girokonto und Rücklagenkonto strikt getrennt geführt",
           "Umbuchungen Giro ↔ Rücklage mit einem Klick, sauber dokumentiert",
           "Kontensalden jederzeit für alle berechtigten Eigentümer einsehbar",
+          "Erhaltungsplanung: anstehende Maßnahmen mit Kosten und Finanzierungsbedarf",
+          "Sonderumlage: nach Beschluss centgenau auf die Einheiten verteilt",
         ]}
       >
         <p>
@@ -131,6 +133,13 @@ export default async function FinanzenPage() {
           festgehalten. So sieht jeder Eigentümer schwarz auf weiß, wie die
           Rücklage wächst – und dass niemand daraus stillschweigend laufende
           Kosten bezahlt.
+        </p>
+        <p>
+          Reicht die Rücklage für eine anstehende Maßnahme nicht, beschließt die
+          Gemeinschaft eine Sonderumlage. Das Portal behandelt sie wie einen
+          kleinen Wirtschaftsplan: Der Betrag wird nach dem gewählten Schlüssel
+          auf die Einheiten verteilt, wird zur Zahlungspflicht je Einheit und
+          taucht anschließend in der Rückstandsliste auf wie das Hausgeld.
         </p>
       </FeatureSection>
 

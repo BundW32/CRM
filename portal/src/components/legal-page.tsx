@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { BwLogo } from "@/components/logo";
+import { PublicBrand } from "@/components/public-brand";
+import { isWegSaas } from "@/lib/app-mode";
 
 // Gemeinsames Layout für Rechtsseiten (Impressum-Stil: weiße Karte auf dunklem
 // Shell). Optionaler Entwurfs-Hinweis, einheitliche Fußzeilen-Links.
@@ -26,8 +27,8 @@ export function LegalPage({
 }) {
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 p-4">
-      <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-        <BwLogo className="mb-6 h-14 w-auto" />
+      <div className={`rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30 ${isWegSaas() ? "wp-brand" : ""}`}>
+        <PublicBrand />
         <h1 className="mb-4 text-2xl font-bold text-gray-900">{title}</h1>
 
         {draft ? (
@@ -50,6 +51,9 @@ export function LegalPage({
           </Link>
           <Link href="/datenschutz" className="text-brand-green hover:underline">
             Datenschutz
+          </Link>
+          <Link href="/ki-transparenz" className="text-brand-green hover:underline">
+            KI-Transparenz
           </Link>
           <Link href="/agb" className="text-brand-green hover:underline">
             AGB

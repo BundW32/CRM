@@ -1,20 +1,32 @@
 import Link from "next/link";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { notFound } from "next/navigation";
-import {
-  Alert,
-  Card,
-  Field,
-  PageTitle,
-  buttonClass,
-  buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Badge } from "@/components/data-display";
+import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
-import { computeUnitAdvances, monthlyInstallments } from "@/lib/weg/economic-plan";
+import {
+  computeUnitAdvances,
+  einheitenOhneFeld,
+  monthlyInstallments,
+  PositionNichtVerteilbar,
+} from "@/lib/weg/economic-plan";
+
+// Wie das fehlende Feld in der Oberfläche heißt — dieselben Worte wie im
+// Stammdaten-Formular, damit man beim Hinspringen wiedererkennt, was gemeint ist.
+const FELD_TEXT: Record<"flaeche" | "personen" | "mea", string> = {
+  flaeche: "Die Wohn-/Nutzfläche",
+  personen: "Die Personenzahl",
+  mea: "Der Miteigentumsanteil (MEA)",
+};
 import { requireWegProperty } from "@/lib/weg/scope";
-import { deletePlan, resolvePlan, updatePlanItems } from "../actions";
+import { DateField } from "@/components/fields";
+import { faelligkeitsText } from "@/lib/weg/plan-validity";
+import { deletePlan, planZurAbstimmung, resolvePlan, updatePlanItems } from "../actions";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +38,12 @@ const FEHLER_TEXTE: Record<string, string> = {
   stammdaten:
     "Die Verteilung ist nicht möglich — bitte in den Stammdaten die Miteigentumsanteile (MEA) aller Einheiten vervollständigen.",
   leer: "Alle Planwerte sind 0 € — es gibt nichts zu beschließen.",
+  versammlung:
+    "Diese Versammlung gehört nicht zum Objekt oder ist bereits abgeschlossen — bitte erneut auswählen.",
+  geltungsbeginn:
+    "Der Geltungsbeginn muss auf einen Monatsersten fallen — das Hausgeld wird in Monatsraten geschuldet, ein Wechsel mitten im Monat hätte keine.",
+  rueckwirkend:
+    "Für diesen Zeitraum gilt bereits ein beschlossener Wirtschaftsplan. Ein geänderter Plan kann frühestens ab dem laufenden Monat greifen: Was ein Eigentümer in der Vergangenheit schuldete, lässt sich nicht rückwirkend ändern — es kann längst bezahlt oder gemahnt sein.",
 };
 
 export default async function WirtschaftsplanDetailPage({
@@ -33,7 +51,14 @@ export default async function WirtschaftsplanDetailPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string; planId: string }>;
-  searchParams: Promise<{ gespeichert?: string; beschlossen?: string; fehler?: string }>;
+  searchParams: Promise<{
+    gespeichert?: string;
+    beschlossen?: string;
+    fehler?: string;
+    abgelegt?: string;
+    ablage?: string;
+    ohne?: string;
+  }>;
 }) {
   const { propertyId, planId } = await params;
   const { property } = await requireWegProperty(propertyId);
@@ -54,24 +79,68 @@ export default async function WirtschaftsplanDetailPage({
   ]);
   if (!plan) notFound();
 
-  const isDraft = plan.status === "ENTWURF";
-  const totalCents = plan.items.reduce((sum, i) => sum + i.amountCents, 0);
+  // Versammlungen, in die sich der Plan noch als TOP eintragen lässt.
+  const offeneVersammlungen =
+    plan.status === "ENTWURF"
+      ? await db.ownersMeeting.findMany({
+          where: { propertyId: property.id, status: { in: ["GEPLANT", "EINBERUFEN"] } },
+          orderBy: { scheduledAt: "asc" },
+          select: { id: true, title: true, scheduledAt: true },
+        })
+      : [];
 
-  // Einzelwirtschaftspläne (Vorschau) — Fehler (z. B. MEA unvollständig) abfangen
+  const isDraft = plan.status === "ENTWURF";
+  // Vorschussbedarf = geplante Ausgaben − geplante Einnahmen (§ 28 Abs. 1 WEG).
+  // Die rohe Summe aller Positionen wäre falsch, sobald es Erträge gibt.
+  const ausgabenCents = plan.items
+    .filter((i) => i.costType.category !== "ERTRAG")
+    .reduce((sum, i) => sum + i.amountCents, 0);
+  const einnahmenCents = plan.items
+    .filter((i) => i.costType.category === "ERTRAG")
+    .reduce((sum, i) => sum + i.amountCents, 0);
+  const totalCents = ausgabenCents - einnahmenCents;
+
+  // Einzelwirtschaftspläne (Vorschau) — schlägt die Verteilung fehl, muss die
+  // Meldung sagen, WELCHE Kostenart es ist und WAS fehlt. Ein „Verteilung nicht
+  // möglich" allein schickt eine Gemeinschaft auf die Suche durch fünfzehn
+  // Positionen.
   let advances: ReturnType<typeof computeUnitAdvances> | null = null;
-  let advanceError: string | null = null;
+  let advanceError: { titel: string; grund: string; anker: string } | null = null;
   try {
     advances = computeUnitAdvances(
       plan.items.map((i) => ({
         costTypeId: i.costTypeId,
         distributionKey: i.costType.distributionKey,
         amountCents: i.amountCents,
+        category: i.costType.category,
       })),
       units,
     );
   } catch (e) {
-    advanceError = e instanceof Error ? e.message : "Verteilung nicht möglich.";
+    if (e instanceof PositionNichtVerteilbar) {
+      const kostenart = plan.items.find((i) => i.costTypeId === e.costTypeId)?.costType.name;
+      // Nicht nur *was* fehlt, sondern *bei wem*: Das ist der Unterschied
+      // zwischen Suchen und Hingehen. Der Anker führt auf die erste betroffene
+      // Zeile, nicht bloß auf die Tabelle.
+      const betroffen = e.fehlendesFeld ? einheitenOhneFeld(units, e.fehlendesFeld) : [];
+      const namen = betroffen.map((b) => b.label);
+      advanceError = {
+        titel: `„${kostenart ?? "Eine Position"}“ lässt sich noch nicht verteilen`,
+        grund:
+          namen.length > 0
+            ? `${FELD_TEXT[e.fehlendesFeld!]} fehlt bei ${namen.length === 1 ? "" : `${namen.length} Einheiten: `}${namen.join(", ")}. Diese Kostenart wird nach ${distributionKeyLabels[e.distributionKey]} verteilt.`
+            : `${e.message} Diese Kostenart wird nach ${distributionKeyLabels[e.distributionKey]} verteilt.`,
+        anker: betroffen[0] ? `zeile-${betroffen[0].id}` : "einheiten",
+      };
+    } else {
+      advanceError = {
+        titel: "Verteilung noch nicht möglich",
+        grund: e instanceof Error ? e.message : "Verteilung nicht möglich.",
+        anker: "einheiten",
+      };
+    }
   }
+  const stammdatenHref = `/verwaltung/weg/${property.id}/stammdaten#${advanceError?.anker ?? "einheiten"}`;
 
   // Beschlussvorlage (Mustertext)
   const vorlage = `Beschlussvorschlag (TOP): Wirtschaftsplan ${plan.year}
@@ -88,25 +157,39 @@ Muster — ersetzt keine Rechtsberatung.`;
   return (
     <>
       <PageTitle
+        back={{ href: `/verwaltung/weg/${property.id}/wirtschaftsplan`, label: "Wirtschaftspläne" }}
         action={
           <div className="flex gap-2">
             {!advanceError ? (
-              <a
-                href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf`}
-                target="_blank"
-                rel="noreferrer"
-                className={buttonSecondaryClass}
-              >
-                Als PDF
-              </a>
+              <>
+                <FilePreviewLink
+                  src={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf`}
+                  title={`Wirtschaftsplan ${plan.year} — ${property.name}`}
+                  className={buttonSecondaryClass}
+                >
+                  Gesamtplan als PDF
+                </FilePreviewLink>
+                <FilePreviewLink
+                  src={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf?dokument=einzelplan`}
+                  title={`Einzelwirtschaftspläne ${plan.year} — ${property.name}`}
+                  className={buttonSecondaryClass}
+                >
+                  Einzelpläne (alle)
+                </FilePreviewLink>
+              </>
             ) : null}
-            <Link href={`/verwaltung/weg/${property.id}/wirtschaftsplan`} className={buttonSecondaryClass}>
-              ← Wirtschaftspläne
-            </Link>
           </div>
         }
       >
-        Wirtschaftsplan {plan.year} · {property.name}
+        Wirtschaftsplan {plan.year} · {property.name}{" "}
+        {/* Der Unterschied zwischen „gespeichert" und „beschlossen" ist der
+            zwischen einer Tabelle und einer Zahlungspflicht. Er stand bisher
+            nur im Hinweistext unter dem Knopf — und der ist abschaltbar. */}
+        <Badge tone={isDraft ? "warning" : "success"}>
+          {isDraft
+            ? "Entwurf — noch nicht bindend"
+            : `Beschlossen${plan.resolvedAt ? ` am ${formatDateOnly(plan.resolvedAt)}` : ""}`}
+        </Badge>
       </PageTitle>
 
       {sp.gespeichert ? (
@@ -114,10 +197,19 @@ Muster — ersetzt keine Rechtsberatung.`;
           Planwerte gespeichert.
         </Alert>
       ) : null}
+      {sp.ablage === "fehler" ? (
+        <Alert variant="warning" title="Dokumente nicht abgelegt" className="mb-4">
+          Der Plan ist beschlossen und die Sollstellungen sind erzeugt, aber die
+          Einzelwirtschaftspläne konnten nicht in den Dokumenten abgelegt werden.
+        </Alert>
+      ) : null}
       {sp.beschlossen ? (
         <Alert variant="success" className="mb-4">
           Wirtschaftsplan beschlossen — {plan._count.duePostings} monatliche Sollstellungen wurden
-          erzeugt. Die offenen Posten finden Sie unter{" "}
+          erzeugt{sp.abgelegt ? `, ${sp.abgelegt} Einzelwirtschaftspläne für die Eigentümer abgelegt` : ""}.
+          {sp.ohne && sp.ohne !== "0"
+            ? ` Für ${sp.ohne} ${sp.ohne === "1" ? "Einheit" : "Einheiten"} ist kein Eigentümer erfasst — dort wurde nichts abgelegt.`
+            : ""} Die offenen Posten finden Sie unter{" "}
           <Link href={`/verwaltung/weg/${property.id}/hausgeld`} className="underline">
             Hausgeld
           </Link>
@@ -130,17 +222,38 @@ Muster — ersetzt keine Rechtsberatung.`;
         </Alert>
       ) : null}
 
+      {plan.beiratReviewStatus ? (
+        <Alert
+          variant={plan.beiratReviewStatus === "GEPRUEFT" ? "success" : "warning"}
+          title={`Beirat: ${plan.beiratReviewStatus === "GEPRUEFT" ? "geprüft" : "mit Anmerkungen"}`}
+          className="mb-4"
+        >
+          {plan.beiratReviewNote ?? "Prüfvermerk des Verwaltungsbeirats (§ 29 III WEG)."}
+        </Alert>
+      ) : null}
+
       {!isDraft ? (
         <Alert variant="info" className="mb-4">
           Beschlossen am {plan.resolvedAt ? formatDateOnly(plan.resolvedAt) : "—"}
           {plan.resolutionNote ? ` (${plan.resolutionNote})` : ""} — der Plan ist unveränderlich;{" "}
-          {plan._count.duePostings} Sollstellungen aktiv.
+          {plan._count.duePostings} Sollstellungen aktiv. Geltung ab{" "}
+          {plan.validFrom ? formatDateOnly(plan.validFrom) : "—"}
+          {plan.validUntil
+            ? ` bis ${formatDateOnly(new Date(plan.validUntil.getTime() - 86400000))}`
+            : ", fortgeltend bis ein neuer Plan beschlossen ist (§ 28 Abs. 1 Satz 2 WEG)"}
+          .
         </Alert>
       ) : null}
 
       <div className="grid gap-4">
         {/* Planwerte */}
-        <Card title={`Planwerte (Jahresbeträge) — gesamt ${formatCents(totalCents)}`}>
+        <Card
+          title={
+            einnahmenCents > 0
+              ? `Planwerte (Jahresbeträge) — ${formatCents(ausgabenCents)} Ausgaben − ${formatCents(einnahmenCents)} Einnahmen = ${formatCents(totalCents)} Vorschussbedarf`
+              : `Planwerte (Jahresbeträge) — gesamt ${formatCents(totalCents)}`
+          }
+        >
           <form action={updatePlanItems}>
             <input type="hidden" name="propertyId" value={property.id} />
             <input type="hidden" name="planId" value={plan.id} />
@@ -182,6 +295,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                           />
                         ) : (
                           <span className="font-medium text-gray-900">
+                            {item.costType.category === "ERTRAG" ? "− " : ""}
                             {formatCents(item.amountCents)}
                           </span>
                         )}
@@ -193,9 +307,7 @@ Muster — ersetzt keine Rechtsberatung.`;
             </div>
             {isDraft ? (
               <div className="mt-4 flex flex-wrap gap-2">
-                <button type="submit" className={buttonClass}>
-                  Planwerte speichern
-                </button>
+                <PendingButton className={buttonClass}>Planwerte speichern</PendingButton>
               </div>
             ) : null}
           </form>
@@ -206,9 +318,13 @@ Muster — ersetzt keine Rechtsberatung.`;
             >
               <input type="hidden" name="propertyId" value={property.id} />
               <input type="hidden" name="planId" value={plan.id} />
-              <button type="submit" className="text-sm text-red-600 underline">
+              <ConfirmActionButton
+                className="text-sm text-red-600 underline"
+                confirmLabel="Wirklich löschen?"
+                pendingLabel="Wird gelöscht…"
+              >
                 Entwurf löschen
-              </button>
+              </ConfirmActionButton>
             </form>
           ) : null}
         </Card>
@@ -216,12 +332,12 @@ Muster — ersetzt keine Rechtsberatung.`;
         {/* Einzelwirtschaftspläne / Hausgeld-Tabelle */}
         <Card title="Hausgeld je Einheit (Einzelwirtschaftspläne)">
           {advanceError ? (
-            <Alert variant="warning" title="Verteilung noch nicht möglich">
-              {advanceError} — bitte die{" "}
-              <Link href={`/verwaltung/weg/${property.id}/stammdaten`} className="underline">
-                Stammdaten
-              </Link>{" "}
-              vervollständigen.
+            <Alert variant="warning" title={advanceError.titel}>
+              {advanceError.grund}{" "}
+              <Link href={stammdatenHref} className="underline">
+                Bei den Einheiten nachtragen
+              </Link>
+              .
             </Alert>
           ) : advances ? (
             <div className="overflow-x-auto">
@@ -231,6 +347,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                     <th className="py-2 pr-3">Einheit</th>
                     <th className="py-2 pr-3 text-right">Jahres-Vorschuss</th>
                     <th className="py-2 pr-3 text-right">monatliches Hausgeld</th>
+                    <th className="py-2" />
                   </tr>
                 </thead>
                 <tbody>
@@ -250,6 +367,16 @@ Muster — ersetzt keine Rechtsberatung.`;
                           <span className="block text-xs text-gray-400">
                             12 Raten, centgenau
                           </span>
+                        </td>
+                        <td className="py-2 text-right whitespace-nowrap">
+                          <a
+                            href={`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}/pdf?dokument=einzelplan&einheit=${u.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm underline"
+                          >
+                            Einzelplan
+                          </a>
                         </td>
                       </tr>
                     );
@@ -273,34 +400,149 @@ Muster — ersetzt keine Rechtsberatung.`;
             {vorlage}
           </pre>
           {isDraft ? (
-            <form action={resolvePlan} className="mt-4 flex flex-wrap items-end gap-2">
-              <input type="hidden" name="propertyId" value={property.id} />
-              <input type="hidden" name="planId" value={plan.id} />
-              <Field label="Beschlossen am">
-                <input name="resolvedAt" type="date" className={`${inputClass} w-auto`} required />
-              </Field>
-              <Field label="Verweis (optional, z. B. „ETV 12.03.2026, TOP 4“)">
-                <input name="resolutionNote" className={`${inputClass} w-72`} maxLength={300} />
-              </Field>
-              <button type="submit" className={buttonClass} disabled={Boolean(advanceError)}>
-                Als beschlossen markieren & Sollstellungen erzeugen
-              </button>
-            </form>
+            <>
+              {/* Der Grund für einen gesperrten Knopf gehört an den Knopf. Er stand
+                  bisher nur oben in der Karte „Hausgeld je Einheit" – zwei
+                  Bildschirmhöhen entfernt. Wer hier unten klickte, sah nur, dass
+                  nichts geschieht. */}
+              {advanceError ? (
+                <Alert variant="warning" title={advanceError.titel} className="mt-4">
+                  {advanceError.grund} Solange das offen ist, lässt sich der Plan weder
+                  beschließen noch zur Abstimmung stellen —{" "}
+                  <Link href={stammdatenHref} className="underline">
+                    bei den Einheiten nachtragen
+                  </Link>
+                  .
+                </Alert>
+              ) : null}
+              <form action={resolvePlan} className="mt-4 flex flex-wrap items-end gap-2">
+                <input type="hidden" name="propertyId" value={property.id} />
+                <input type="hidden" name="planId" value={plan.id} />
+                <DateField
+                  label="Beschlossen am"
+                  name="resolvedAt"
+                  required
+                  className="w-auto"
+                />
+                <Field label="Verweis (optional, z. B. „ETV 12.03.2026, TOP 4“)">
+                  <input name="resolutionNote" className={`${inputClass} w-72`} maxLength={300} />
+                </Field>
+                {/* Nur für den unterjährig geänderten Wirtschaftsplan. Leer
+                    lassen heißt: ab Beginn des Wirtschaftsjahres — der
+                    Normalfall, auch wenn die Versammlung erst im April tagt. */}
+                <DateField
+                  label="Gilt ab (optional, nur bei geändertem Plan)"
+                  name="validFrom"
+                  className="w-auto"
+                  hint="Muss ein Monatserster sein. Leer = Beginn des Wirtschaftsjahres."
+                />
+                {/* Rückfrage, weil der Klick echte Forderungen an jeden
+                    Eigentümer erzeugt und sich nicht zurücknehmen lässt. */}
+                {advanceError ? (
+                  <PendingButton className={buttonClass} disabled>
+                    Als beschlossen markieren &amp; Sollstellungen erzeugen
+                  </PendingButton>
+                ) : (
+                  <ConfirmActionButton
+                    className={buttonClass}
+                    confirmLabel="Wurde der Plan in der Versammlung beschlossen? Dies erzeugt Zahlungsforderungen an alle Eigentümer."
+                    pendingLabel="Wird eingetragen…"
+                  >
+                    Als beschlossen markieren &amp; Sollstellungen erzeugen
+                  </ConfirmActionButton>
+                )}
+              </form>
+            </>
           ) : null}
-          <p className="mt-3 text-xs text-gray-400">
-            Der Beschluss erzeugt für jede Einheit 12 monatliche Sollstellungen (fällig zum 1. des
-            Monats). Den Beschluss selbst fassen Sie in der Versammlung oder im Umlaufverfahren —
-            z. B. über{" "}
-            <Link href="/versammlungen" className="underline">
-              Versammlungen
-            </Link>{" "}
-            oder{" "}
-            <Link href="/beschluesse" className="underline">
-              Beschlüsse
-            </Link>
-            .
-          </p>
+          <Tipp className="mt-3">
+            „Als beschlossen markieren“ trägt einen Beschluss nach, der bereits gefasst wurde, und
+            erzeugt für jede Einheit die monatlichen Sollstellungen — fällig{" "}
+            {faelligkeitsText(property.dueDayRule, property.dueDayOfMonth)} (änderbar in den
+            Stammdaten). Tagt die Versammlung erst im Laufe des Jahres, entstehen die Forderungen
+            der zurückliegenden Monate mit: Der Plan gilt ab Beginn des Wirtschaftsjahres. Soll
+            erst noch abgestimmt werden, nutzen Sie die Wege darunter.
+          </Tipp>
         </Card>
+
+        {/* Weg nach vorn: abstimmen lassen, statt nur nachzutragen. Bisher gab es
+            hier ausschließlich „beschlossen am …" — wer den Plan erst noch zur
+            Abstimmung bringen wollte, musste den Text von Hand in eine Versammlung
+            oder einen Umlaufbeschluss übertragen. */}
+        {isDraft ? (
+          <Card title="Zur Abstimmung bringen">
+            {/* Auch hier sperren: Ein Plan, dessen Einzelwirtschaftspläne sich
+                nicht rechnen lassen, ergäbe einen Beschluss über Beträge, die es
+                nicht gibt. Beim Durchlauf ließ er sich genau so zur
+                Umlaufabstimmung stellen. */}
+            {advanceError ? (
+              <Alert variant="warning" title={advanceError.titel} className="mb-4">
+                {advanceError.grund} Erst danach lässt sich der Plan zur Abstimmung
+                stellen —{" "}
+                <Link href={stammdatenHref} className="underline">
+                  bei den Einheiten nachtragen
+                </Link>
+                .
+              </Alert>
+            ) : null}
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Als Tagesordnungspunkt einer Versammlung
+                </h3>
+                <p className="mt-1 text-xs text-gray-600">
+                  Der übliche Weg. In der Versammlung genügt die einfache Mehrheit
+                  (§ 28 Abs. 1 WEG). Der Punkt erscheint mit fertigem Beschlusstext in der
+                  Tagesordnung.
+                </p>
+                {offeneVersammlungen.length === 0 ? (
+                  <Tipp className="mt-3">
+                    Keine geplante Versammlung vorhanden —{" "}
+                    <Link href="/versammlungen" className="underline">
+                      zuerst eine Versammlung anlegen
+                    </Link>
+                    .
+                  </Tipp>
+                ) : (
+                  <form action={planZurAbstimmung} className="mt-3 flex flex-wrap items-end gap-2">
+                    <input type="hidden" name="propertyId" value={property.id} />
+                    <input type="hidden" name="planId" value={plan.id} />
+                    <input type="hidden" name="modus" value="versammlung" />
+                    <Field label="Versammlung">
+                      <select name="meetingId" required className={`${inputClass} w-auto`}>
+                        {offeneVersammlungen.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.title} · {formatDateOnly(m.scheduledAt)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <PendingButton className={buttonSecondaryClass} disabled={Boolean(advanceError)}>
+                      Als TOP eintragen
+                    </PendingButton>
+                  </form>
+                )}
+              </div>
+
+              <div className="sm:border-l sm:border-gray-100 sm:pl-5">
+                <h3 className="text-sm font-semibold text-gray-900">Als Umlaufbeschluss</h3>
+                <p className="mt-1 text-xs text-gray-600">
+                  Ohne Versammlung, in Textform. Dafür müssen{" "}
+                  <strong className="font-semibold">alle</strong> Eigentümer zustimmen
+                  (§ 23 Abs. 3 Satz 1 WEG) — wer nicht antwortet, blockiert. In kleinen
+                  Gemeinschaften oft der schnellere Weg.
+                </p>
+                <form action={planZurAbstimmung} className="mt-3">
+                  <input type="hidden" name="propertyId" value={property.id} />
+                  <input type="hidden" name="planId" value={plan.id} />
+                  <input type="hidden" name="modus" value="umlauf" />
+                  <PendingButton className={buttonSecondaryClass} disabled={Boolean(advanceError)}>
+                    Umlaufabstimmung starten
+                  </PendingButton>
+                </form>
+              </div>
+            </div>
+          </Card>
+        ) : null}
       </div>
     </>
   );

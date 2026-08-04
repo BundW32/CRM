@@ -1,42 +1,27 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Alert, buttonSecondaryClass } from "@/components/ui";
+import { BackLink, Alert } from "@/components/ui";
 import { LetterHead, letterFooterLine } from "@/components/letter-branding";
 import { db } from "@/lib/db";
 import { brandingFromOrg, orgLogoUrl } from "@/lib/branding";
 import { portalUrl } from "@/lib/mailer";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
+import { liesErstzugaenge } from "@/lib/zugangsschreiben";
 import { PrintButton } from "../[id]/print-button";
 
 export const dynamic = "force-dynamic";
 
-// URL format: ?u=id1~pw1~id2~pw2~...
-function parseParam(raw: string | undefined): Array<{ id: string; pw: string }> {
-  if (!raw) return [];
-  const parts = raw.split("~");
-  const result: Array<{ id: string; pw: string }> = [];
-  for (let i = 0; i + 1 < parts.length; i += 2) {
-    const id = parts[i];
-    const pw = parts[i + 1];
-    if (id && pw) result.push({ id, pw });
-  }
-  return result;
-}
-
-export default async function BatchZugangsschreibenPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ u?: string }>;
-}) {
+export default async function BatchZugangsschreibenPage() {
   const verwalter = await requireVerwalter();
-  const { u } = await searchParams;
-  const entries = parseParam(u);
-  if (entries.length === 0) notFound();
+  // Früher `?u=id~pw~id~pw~…`: ein ganzes Objekt voller Klartext-Passwörter in
+  // der Adresszeile, und damit in jedem Zugriffsprotokoll auf dem Weg dorthin.
+  // Jetzt aus dem kurzlebigen Cookie — siehe `lib/zugangsschreiben.ts`.
+  const zugaenge = await liesErstzugaenge();
+  if (zugaenge.size === 0) notFound();
 
   const users = await db.user.findMany({
     // Org-Wand: nur Zugangsschreiben für Nutzer der eigenen Org drucken.
-    where: { id: { in: entries.map((e) => e.id) }, organizationId: verwalter.organizationId },
+    where: { id: { in: [...zugaenge.keys()] }, organizationId: verwalter.organizationId },
     include: {
       tenancies: {
         where: { active: true },
@@ -46,11 +31,9 @@ export default async function BatchZugangsschreibenPage({
     },
   });
 
-  // Restore password for each user from URL
-  const userMap = new Map(users.map((u) => [u.id, u]));
-  const letters = entries
-    .map((e) => ({ user: userMap.get(e.id)!, pw: e.pw }))
-    .filter((l) => l.user != null);
+  // Die Organisations-Wand oben entscheidet, wer gedruckt wird — das Cookie ist
+  // ein Transportmittel, keine Berechtigung.
+  const letters = users.map((user) => ({ user, pw: zugaenge.get(user.id)! }));
 
   if (letters.length === 0) notFound();
 
@@ -63,9 +46,7 @@ export default async function BatchZugangsschreibenPage({
   return (
     <main className="min-h-screen bg-gray-100 py-8 print:bg-white print:py-0">
       <div className="no-print mx-auto mb-4 flex max-w-3xl items-center justify-between px-6">
-        <Link href="/verwaltung/nutzer" className={buttonSecondaryClass}>
-          ← Zurück zu Nutzer
-        </Link>
+        <BackLink href="/verwaltung/nutzer" tone="onLight">Zurück zu Nutzer</BackLink>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-600">{letters.length} Schreiben</span>
           <PrintButton />

@@ -1,7 +1,10 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 
-// Reine Node-Unit-Tests (pure functions, PDF-Helfer). Kein jsdom nötig.
+// Node-Unit-Tests (reine Funktionen, PDF-Helfer) — und Serverrendern von
+// Komponenten. Kein jsdom: Das Fehlen von `window` ist hier kein Mangel, sondern
+// genau der Zustand, den ein Server vorfindet. Ein Test, der `window` bekommt,
+// hätte den 500er der Tour nicht gefunden.
 export default defineConfig({
   resolve: {
     alias: {
@@ -9,7 +12,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     environment: "node",
   },
 });

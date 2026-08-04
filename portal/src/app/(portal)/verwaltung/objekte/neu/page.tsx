@@ -1,7 +1,7 @@
-import Link from "next/link";
-import { Alert, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import { Alert, PageTitle } from "@/components/ui";
 import { isSelfManaged } from "@/lib/access";
 import { db } from "@/lib/db";
+import { isObjektImportEnabled } from "@/lib/objekt-extraction";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { ObjektForm } from "./ObjektForm";
 
@@ -14,7 +14,8 @@ export default async function NeuesObjektPage({
 }) {
   const verwalter = await requireVerwalter();
   const { fehler } = await searchParams;
-  const selfManaged = isSelfManaged(await getOrganization());
+  const org = await getOrganization();
+  const selfManaged = isSelfManaged(org);
 
   // Bestehende Objekte der Org – dient der Dubletten-Warnung im Formular.
   const existing = await db.property.findMany({
@@ -23,14 +24,14 @@ export default async function NeuesObjektPage({
     orderBy: { name: "asc" },
   });
 
+  // Selbstverwalter haben bei der Registrierung schon einen WEG-Namen vergeben –
+  // beim ersten Objekt die Bezeichnung damit vorbelegen (spart Doppeleingabe).
+  const defaultName = selfManaged && existing.length === 0 ? (org?.name ?? "") : "";
+
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
-        }
+        back={{ href: "/verwaltung/objekte", label: "Objekte" }}
       >
         Objekt anlegen
       </PageTitle>
@@ -48,6 +49,9 @@ export default async function NeuesObjektPage({
 
       <ObjektForm
         defaultManagementType={selfManaged ? "WEG" : "MIETVERWALTUNG"}
+        lockWeg={selfManaged}
+        aiImportEnabled={isObjektImportEnabled()}
+        defaultName={defaultName}
         existing={existing}
       />
     </>

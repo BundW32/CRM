@@ -6,12 +6,15 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { hinweiseVoreinstellung } from "@/lib/access";
 import { brandingFromOrg } from "@/lib/branding";
-import { portalUrl, sendMail } from "@/lib/mailer";
+import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { createSession } from "@/lib/session";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { isReservedSlug } from "@/lib/slug";
 import { trialDays } from "@/lib/platform";
+import { registrationEnabled } from "@/lib/app-mode";
+import { hashToken } from "@/lib/token-hash";
 
 // Version der bei der Registrierung akzeptierten Rechtsdokumente (AGB/AVV).
 // Bei inhaltlichen Änderungen hochzählen → erneute Zustimmung einholbar.
@@ -19,7 +22,9 @@ const TERMS_VERSION = "2026-06-28";
 
 const registerSchema = z.object({
   company: z.string().trim().min(2).max(200),
-  name: z.string().trim().min(2).max(200),
+  firstName: z.string().trim().min(2).max(100),
+  lastName: z.string().trim().min(2).max(100),
+  salutation: z.enum(["Herr", "Frau"]).optional(),
   email: z.email(),
   password: z.string().min(10).max(200),
 });
@@ -54,6 +59,12 @@ async function uniqueSlug(base: string): Promise<string> {
 // erstem SuperAdmin an und meldet ihn direkt an. Danach geht es in den
 // Onboarding-Assistenten (Logo, Farbe, Impressum).
 export async function registerOrganization(formData: FormData) {
+  // Harte Sperre: Registrierung nur in der WEG-SaaS-Variante (APP_MODE=weg).
+  // Schützt die Server-Action unabhängig davon, ob die Seite erreichbar war.
+  if (!registrationEnabled()) {
+    redirect("/login");
+  }
+
   // Honeypot: ein für Menschen unsichtbares Feld. Füllt es ein Bot aus, tun wir
   // so, als sei alles gut (kein Hinweis auf die Erkennung), legen aber nichts an.
   if (String(formData.get("hp_url") ?? "").trim()) {
@@ -72,15 +83,19 @@ export async function registerOrganization(formData: FormData) {
     redirect("/registrieren?fehler=limit");
   }
 
+  const salutationRaw = String(formData.get("salutation") ?? "");
   const parsed = registerSchema.safeParse({
     company: formData.get("company"),
-    name: formData.get("name"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    salutation: salutationRaw === "Herr" || salutationRaw === "Frau" ? salutationRaw : undefined,
     email: formData.get("email"),
     password: formData.get("password"),
   });
   if (!parsed.success) {
     redirect("/registrieren?fehler=eingabe");
   }
+  const fullName = `${parsed.data.firstName} ${parsed.data.lastName}`.trim();
 
   const email = parsed.data.email.toLowerCase();
   const existing = await db.user.findUnique({ where: { email }, select: { id: true } });
@@ -98,11 +113,9 @@ export async function registerOrganization(formData: FormData) {
       .toLowerCase()
       .replace(/[^a-z0-9_-]/g, "")
       .slice(0, 40) || null;
-  // Kontotyp: nur die zwei erlaubten Werte, sonst Standard „verwaltung".
-  const accountType =
-    String(formData.get("accountType") ?? "") === "selbstverwalter"
-      ? "selbstverwalter"
-      : "verwaltung";
+  // WEG-SaaS: Kontotyp IMMER "selbstverwalter" – unabhängig vom Formular.
+  // (Die B&W-Variante erreicht diese Action ohnehin nicht, s. Sperre oben.)
+  const accountType = "selbstverwalter";
 
   // Testphase: 30 Tage, über HausMatch 90 Tage ("drei Monate gratis").
   const trialEndsAt = new Date(Date.now() + trialDays(referralSource) * 86_400_000);
@@ -124,13 +137,21 @@ export async function registerOrganization(formData: FormData) {
     });
     const user = await tx.user.create({
       data: {
-        name: parsed.data.name,
+        name: fullName,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        salutation: parsed.data.salutation ?? null,
         email,
         role: "VERWALTER",
         passwordHash,
         organizationId: org.id,
         isSuperAdmin: true,
-        emailVerifyToken: verifyToken,
+        // Erklärende Hinweise für Selbstverwaltungen an, für professionelle
+        // Verwaltungen aus – umschaltbar unter „Konto".
+        showHints: hinweiseVoreinstellung("VERWALTER", { accountType }),
+        // Nur der Hash landet in der Datenbank – der Rohwert bleibt allein im
+        // Bestätigungslink.
+        emailVerifyToken: hashToken(verifyToken),
         emailVerifyExpiry: verifyExpiry,
       },
     });
@@ -139,7 +160,7 @@ export async function registerOrganization(formData: FormData) {
 
   // Willkommens- + Bestätigungs-E-Mail (Branding aus der frischen Org).
   const branding = brandingFromOrg(org);
-  const verifyLink = portalUrl(`/registrieren/bestaetigen/${verifyToken}`);
+  const verifyLink = await portalUrlFromRequest(`/registrieren/bestaetigen/${verifyToken}`);
   const selfManaged = accountType === "selbstverwalter";
   const introLine = selfManaged
     ? `willkommen! Für Ihre WEG „${parsed.data.company}" wurde ein Selbstverwaltungs-Zugang angelegt.\n\n`
@@ -150,7 +171,7 @@ export async function registerOrganization(formData: FormData) {
   await sendMail(
     email,
     "Willkommen – bitte bestätigen Sie Ihre E-Mail-Adresse",
-    `Guten Tag ${parsed.data.name},\n\n` +
+    `Guten Tag ${fullName},\n\n` +
       introLine +
       `Bitte bestätigen Sie Ihre E-Mail-Adresse über diesen Link (gültig 3 Tage):\n` +
       `${verifyLink}\n\n` +

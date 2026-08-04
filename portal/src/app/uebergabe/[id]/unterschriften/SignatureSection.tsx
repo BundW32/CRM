@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Card } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
 import { SignaturePad } from "@/app/uebergabe/_components/SignaturePad";
 import { finalizeHandover } from "./actions";
 
@@ -44,42 +46,37 @@ export function SignatureSection({
         <input type="hidden" name="tenant2Signature" value={tenant2Sig ?? ""} />
         <input type="hidden" name="managerSignature" value={managerSig ?? ""} />
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <Card>
           <SignaturePad
             label="Unterschrift Mieter"
             signerName={tenantName ?? undefined}
             onChange={setTenantSig}
             initialValue={initialTenantSig}
           />
-        </div>
+        </Card>
 
         {tenant2Name && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <Card>
             <SignaturePad
               label="Unterschrift 2. Mieter"
               signerName={tenant2Name}
               onChange={setTenant2Sig}
               initialValue={initialTenant2Sig}
             />
-          </div>
+          </Card>
         )}
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <Card>
           <SignaturePad
             label={managerLabel}
             signerName={managerName ?? undefined}
             onChange={setManagerSig}
             initialValue={initialManagerSig}
           />
-        </div>
+        </Card>
 
         <div className="flex justify-end">
-          <button
-            type="submit"
-            className="inline-flex items-center justify-center rounded-lg bg-brand-green px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-green-dark active:scale-[0.98] active:shadow-none"
-          >
-            Abschließen und PDF erstellen →
-          </button>
+          <PendingButton className="inline-flex items-center justify-center rounded-lg bg-brand-green px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-green-dark active:scale-[0.98] active:shadow-none">Abschließen und PDF erstellen →</PendingButton>
         </div>
       </form>
     </div>

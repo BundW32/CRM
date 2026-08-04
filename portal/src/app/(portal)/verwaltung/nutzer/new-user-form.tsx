@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { Combobox } from "@/components/combobox";
 import { loadUnitsForProperty, type UnitOption } from "@/app/(portal)/unit-options";
 import { Field, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
@@ -15,12 +16,25 @@ export function NewUserForm({
   properties,
   isSuperAdmin,
   selfManaged = false,
+  zurueck = "/verwaltung/nutzer",
+  presetRole,
 }: {
   properties: Property[];
   isSuperAdmin: boolean;
   selfManaged?: boolean;
+  /** Rücksprungpfad nach dem Anlegen. */
+  zurueck?: string;
+  /**
+   * Rolle von außen vorgegeben (Kontakte-Seite): Dort wählt man die Art des
+   * Kontakts ganz oben, und daraus folgt erst, ob überhaupt ein Zugang entsteht.
+   * Die eigene Rollenauswahl entfällt dann – sie stünde sonst doppelt da.
+   */
+  presetRole?: string;
 }) {
-  const [role, setRole] = useState(selfManaged ? "EIGENTUEMER" : "MIETER");
+  const [role, setRole] = useState(presetRole ?? (selfManaged ? "EIGENTUEMER" : "MIETER"));
+
+  // Vorgabe von außen gewinnt: Wechselt die Art oben, wechselt hier die Rolle mit.
+  const effectiveRole = presetRole ?? role;
   const [propertyId, setPropertyId] = useState("");
   const [unitId, setUnitId] = useState("");
   const [units, setUnits] = useState<UnitOption[]>([]);
@@ -41,6 +55,7 @@ export function NewUserForm({
 
   return (
     <form action={createUser} className="space-y-3">
+      <input type="hidden" name="zurueck" value={zurueck} />
       <Field label="Name">
         <div className="flex flex-wrap gap-2">
           <select name="salutation" className={`${inputClass} w-24`} defaultValue="">
@@ -73,75 +88,77 @@ export function NewUserForm({
           <option value="POST">Post</option>
         </select>
       </Field>
-      <Field label="Rolle">
-        <select
-          name="role"
-          required
-          className={inputClass}
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-        >
-          {/* Selbstverwaltung: keine Mieter/Handwerker-Konten (kein professionelles
-              Mietverhältnis) – nur Eigentümer und (für den internen Admin) Verwalter. */}
-          {!selfManaged ? <option value="MIETER">Mieter</option> : null}
-          <option value="EIGENTUEMER">Eigentümer</option>
-          {isSuperAdmin ? (
-            <>
-              <option value="VERWALTER">Verwalter</option>
-              {!selfManaged ? <option value="HANDWERKER">Handwerker</option> : null}
-            </>
-          ) : null}
-        </select>
-      </Field>
+      {presetRole ? (
+        <input type="hidden" name="role" value={presetRole} />
+      ) : (
+        <Field label="Rolle">
+          <select
+            name="role"
+            required
+            className={inputClass}
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+          >
+            {/* Mieter gibt es auch in der Selbstverwaltung: Ein Eigentümer kann
+                seine Einheit vermieten. Der Objekt-Weg (`objekte/neu`) legt dort
+                längst Mieter an – das Dropdown hatte sie ohne fachlichen Grund
+                verborgen. In der Selbstverwaltung steht nur der Eigentümer vorn. */}
+            <option value="MIETER">Mieter</option>
+            <option value="EIGENTUEMER">Eigentümer</option>
+            {/* Handwerker bekommen bewusst kein Portalkonto – sie werden unter
+                „Kontakte" gepflegt und erhalten ihre Aufträge per E-Mail-Link. */}
+            {isSuperAdmin ? <option value="VERWALTER">Verwalter</option> : null}
+          </select>
+        </Field>
+      )}
 
       {/* Mieter: Objekt → Wohnung gekoppelt */}
-      {role === "MIETER" ? (
+      {effectiveRole === "MIETER" ? (
         <>
+          <input type="hidden" name="unitId" value={unitId} />
           <Field label="Objekt (bei Rolle Mieter)">
-            <select
-              value={propertyId}
-              onChange={(e) => handlePropertyChange(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">– Objekt wählen –</option>
-              {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <Combobox
+              label="Objekt"
+              placeholder="Objekt suchen …"
+              options={properties.map((p) => ({ value: p.id, label: p.name }))}
+              value={propertyId || undefined}
+              onSelect={handlePropertyChange}
+              onClear={() => handlePropertyChange("")}
+              clearOption="– Objekt wählen –"
+            />
           </Field>
           <Field label="Wohnung">
-            <select
-              name="unitId"
-              value={unitId}
-              onChange={(e) => setUnitId(e.target.value)}
+            <Combobox
+              label="Wohnung"
+              placeholder={pending ? "Wohnungen werden geladen …" : "Wohnung suchen …"}
+              options={units.map((u) => ({ value: u.id, label: u.label }))}
+              value={unitId || undefined}
+              onSelect={setUnitId}
+              onClear={() => setUnitId("")}
+              clearOption="– Keine –"
               disabled={!propertyId || pending}
-              className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-50`}
-            >
-              <option value="">{pending ? "wird geladen …" : "– Keine –"}</option>
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
+              disabledHint={propertyId ? "wird geladen …" : "zuerst Objekt wählen"}
+            />
           </Field>
         </>
       ) : null}
 
       {/* Eigentümer: nur Objekt */}
-      {role === "EIGENTUEMER" ? (
-        <Field label="Objekt (bei Rolle Eigentümer)">
-          <select name="propertyId" className={inputClass} defaultValue="">
-            <option value="">– Keins –</option>
-            {properties.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+      {effectiveRole === "EIGENTUEMER" ? (
+        <>
+          <input type="hidden" name="propertyId" value={propertyId} />
+          <Field label="Objekt (bei Rolle Eigentümer)">
+            <Combobox
+              label="Objekt"
+              placeholder="Objekt suchen …"
+              options={properties.map((p) => ({ value: p.id, label: p.name }))}
+              value={propertyId || undefined}
+              onSelect={setPropertyId}
+              onClear={() => setPropertyId("")}
+              clearOption="– Keins –"
+            />
+          </Field>
+        </>
       ) : null}
 
       <SubmitButton pendingLabel="Wird angelegt…">Anlegen</SubmitButton>

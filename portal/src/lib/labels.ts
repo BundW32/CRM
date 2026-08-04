@@ -1,6 +1,7 @@
 import type {
   Audience,
   BookingKind,
+  ContactKind,
   ContactMethod,
   CostCategory,
   DistributionKey,
@@ -39,6 +40,13 @@ export const accountTypeLabels: Record<AccountType, string> = {
 // Bezeichnung der „Einheit", die die Organisation verwaltet – für Ansprache.
 export function orgNounFor(accountType: string): string {
   return accountType === "selbstverwalter" ? "WEG / Ihr Objekt" : "Hausverwaltung";
+}
+
+// Öffentliche (externe) Bezeichnung einer Einheit: bevorzugt die externe
+// Bezeichnung/Lage, sonst die interne label. Für Dokumente und Mieter-/
+// Eigentümer-Ansichten (der Verwalter sieht weiterhin die interne label).
+export function unitPublicLabel(unit: { label: string; externalLabel?: string | null }): string {
+  return unit.externalLabel?.trim() || unit.label;
 }
 
 // Stimmprinzip einer WEG.
@@ -100,6 +108,7 @@ export const audienceLabels: Record<Audience, string> = {
   MIETER: "Mieter",
   EIGENTUEMER: "Eigentümer",
   ALLE: "Alle",
+  BEIRAT: "Beirat",
 };
 
 export const tradeLabels: Record<Trade, string> = {
@@ -118,6 +127,21 @@ export const tradeLabels: Record<Trade, string> = {
   ALLGEMEIN: "Hausmeister / Allgemein",
   SONSTIGES: "Sonstiges",
 };
+
+// Art eines Kontakteintrags im Adressbuch. „Handwerker“ ist der historische Fall;
+// die übrigen Kategorien nehmen auf, was sonst nirgends hingehörte.
+export const contactKindLabels: Record<ContactKind, string> = {
+  HANDWERKER: "Handwerker",
+  DIENSTLEISTER: "Dienstleister",
+  VERSORGER: "Versorger",
+  BEHOERDE: "Behörde",
+  SONSTIGES: "Sonstige",
+};
+
+// Nur Handwerker führen ein Gewerk – bei allen anderen Arten wäre es sinnlos.
+export function kindUsesTrade(kind: ContactKind): boolean {
+  return kind === "HANDWERKER";
+}
 
 export const contactMethodLabels: Record<ContactMethod, string> = {
   EMAIL: "E-Mail",
@@ -141,6 +165,7 @@ export const maintenanceIntervalLabels: Record<MaintenanceInterval, string> = {
   HALBJAEHRLICH: "Halbjährlich",
   JAEHRLICH: "Jährlich",
   ZWEIJAEHRLICH: "Alle 2 Jahre",
+  DREIJAEHRLICH: "Alle 3 Jahre",
   EINMALIG: "Einmalig",
 };
 
@@ -180,6 +205,7 @@ export const maintenanceIntervalMonths: Record<MaintenanceInterval, number | nul
   HALBJAEHRLICH: 6,
   JAEHRLICH: 12,
   ZWEIJAEHRLICH: 24,
+  DREIJAEHRLICH: 36,
   EINMALIG: null,
 };
 
@@ -208,6 +234,7 @@ export const costCategoryLabels: Record<CostCategory, string> = {
   VERWALTUNG: "Verwaltung",
   RUECKLAGENZUFUEHRUNG: "Rücklagenzuführung",
   SONSTIGES: "Sonstiges",
+  ERTRAG: "Einnahme (mindert das Hausgeld)",
 };
 
 export const laborShareTypeLabels: Record<LaborShareType, string> = {

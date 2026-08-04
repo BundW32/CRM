@@ -29,5 +29,5 @@ export async function finalizeHandover(formData: FormData) {
   // PDF direkt beim Abschließen erzeugen (mit eingebetteten Unterschriften).
   await createHandoverPdf(id);
 
-  redirect(`/uebergabe/${id}/abschluss`);
+  redirect(`/uebergabe/${id}/abschluss?flash=gespeichert`);
 }

@@ -12,6 +12,7 @@ const meterSchema = z.object({
   type: z.enum(["STROM", "GAS", "WASSER_KALT", "WASSER_WARM", "HEIZUNG", "SONSTIGES"]),
   meterNumber: z.string().trim().max(100).optional(),
   location: z.string().trim().max(200).optional(),
+  remoteReadable: z.boolean().optional(),
 });
 
 export async function createMeter(formData: FormData) {
@@ -21,6 +22,7 @@ export async function createMeter(formData: FormData) {
     type: formData.get("type"),
     meterNumber: formData.get("meterNumber") || undefined,
     location: formData.get("location") || undefined,
+    remoteReadable: formData.get("remoteReadable") === "on",
   });
   if (!parsed.success) {
     redirect("/zaehler?fehler=eingabe");
@@ -37,10 +39,11 @@ export async function createMeter(formData: FormData) {
       type: parsed.data.type,
       meterNumber: parsed.data.meterNumber || null,
       location: parsed.data.location || null,
+      remoteReadable: parsed.data.remoteReadable ?? false,
     },
   });
   revalidatePath("/zaehler");
-  redirect("/zaehler");
+  redirect("/zaehler?flash=erstellt");
 }
 
 export async function deleteMeter(formData: FormData) {
@@ -50,7 +53,7 @@ export async function deleteMeter(formData: FormData) {
     await db.meter.delete({ where: { id } }).catch(() => {});
   }
   revalidatePath("/zaehler");
-  redirect("/zaehler");
+  redirect("/zaehler?flash=geloescht");
 }
 
 export async function submitReading(formData: FormData) {

@@ -4,12 +4,15 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { User } from "@/generated/prisma/client";
 import { canVerwalterAccessProperty } from "@/lib/access";
+import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
+import { briefkopfAus } from "@/lib/documents/briefkopf";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { deleteBlob, saveBuffer } from "@/lib/storage";
 import { requireVerwalter } from "@/lib/session";
 import { generateMeetingProtocol } from "@/lib/documents/meeting-protocol";
+import { MEETING_AGENDA_TEMPLATES } from "@/lib/weg/meeting-agenda-templates";
 
 // Lädt eine Versammlung und prüft, dass das Objekt im Scope des Verwalters liegt.
 async function meetingInScope(verwalter: User, meetingId: string) {
@@ -34,15 +37,29 @@ export async function createMeeting(formData: FormData) {
   const propertyId = String(formData.get("propertyId") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim().slice(0, 200);
   const scheduledStr = String(formData.get("scheduledAt") ?? "");
-  const location = String(formData.get("location") ?? "").trim().slice(0, 200) || null;
-  if (!propertyId || !title || !scheduledStr) redirect("/versammlungen?fehler=eingabe");
+  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
+  const videoLinkInput = String(formData.get("videoLink") ?? "").trim().slice(0, 500) || null;
+  const saveVideoDefault = formData.get("saveVideoDefault") === "on";
+  // Ort ist Pflicht (§24 WEG: die Einladung muss den Versammlungsort nennen). Bei
+  // reiner Video-Versammlung hier z. B. „Online / Videokonferenz" eintragen.
+  if (!propertyId || !title || !scheduledStr || !location) redirect("/versammlungen/neu?fehler=eingabe");
 
   if (!(await canVerwalterAccessProperty(verwalter, propertyId))) redirect("/versammlungen");
-  const property = await db.property.findUnique({ where: { id: propertyId }, select: { managementType: true } });
-  if (!property || property.managementType !== "WEG") redirect("/versammlungen?fehler=keinweg");
+  const property = await db.property.findUnique({
+    where: { id: propertyId },
+    select: { managementType: true, defaultVideoLink: true },
+  });
+  if (!property || property.managementType !== "WEG") redirect("/versammlungen/neu?fehler=keinweg");
 
   const scheduledAt = new Date(scheduledStr);
-  if (Number.isNaN(scheduledAt.getTime())) redirect("/versammlungen?fehler=eingabe");
+  if (Number.isNaN(scheduledAt.getTime())) redirect("/versammlungen/neu?fehler=eingabe");
+
+  // Leer gelassen → Standard-Videolink des Objekts (falls hinterlegt). Auf Wunsch
+  // wird der eingegebene Link als neuer Standard des Objekts gespeichert.
+  const videoLink = videoLinkInput ?? property.defaultVideoLink;
+  if (saveVideoDefault && videoLinkInput && videoLinkInput !== property.defaultVideoLink) {
+    await db.property.update({ where: { id: propertyId }, data: { defaultVideoLink: videoLinkInput } });
+  }
 
   const meeting = await db.ownersMeeting.create({
     data: {
@@ -51,6 +68,7 @@ export async function createMeeting(formData: FormData) {
       title,
       scheduledAt,
       location,
+      videoLink,
       createdById: verwalter.id,
     },
   });
@@ -98,7 +116,7 @@ export async function addAgendaItem(formData: FormData) {
     });
   });
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=erstellt`);
 }
 
 export async function deleteAgendaItem(formData: FormData) {
@@ -133,7 +151,7 @@ export async function deleteAgendaItem(formData: FormData) {
     });
   }
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=geloescht`);
 }
 
 export async function updateAgendaItem(formData: FormData) {
@@ -167,7 +185,7 @@ export async function updateAgendaItem(formData: FormData) {
     });
   }
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=aktualisiert`);
 }
 
 // TOP nach oben/unten verschieben (sortOrder mit Nachbarn tauschen).
@@ -201,7 +219,7 @@ export async function moveAgendaItem(formData: FormData) {
     ),
   );
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=aktualisiert`);
 }
 
 // Versammlung absagen (Status ABGESAGT).
@@ -253,7 +271,7 @@ export async function cancelMeeting(formData: FormData) {
     );
   }
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=gespeichert`);
 }
 
 // Eckdaten ändern (Titel/Termin/Ort). Eine abgesagte Versammlung wird dabei
@@ -268,10 +286,21 @@ export async function updateMeeting(formData: FormData) {
 
   const title = String(formData.get("title") ?? "").trim().slice(0, 200);
   const scheduledStr = String(formData.get("scheduledAt") ?? "");
-  const location = String(formData.get("location") ?? "").trim().slice(0, 200) || null;
-  if (!title || !scheduledStr) redirect(`/versammlungen/${meetingId}?fehler=eingabe`);
+  const location = String(formData.get("location") ?? "").trim().slice(0, 200);
+  const videoLink = String(formData.get("videoLink") ?? "").trim().slice(0, 500) || null;
+  const saveVideoDefault = formData.get("saveVideoDefault") === "on";
+  // Ort bleibt auch bei Änderung Pflicht (siehe createMeeting).
+  if (!title || !scheduledStr || !location) redirect(`/versammlungen/${meetingId}?fehler=eingabe`);
   const scheduledAt = new Date(scheduledStr);
   if (Number.isNaN(scheduledAt.getTime())) redirect(`/versammlungen/${meetingId}?fehler=eingabe`);
+
+  // Auf Wunsch den Link als Standard des Objekts übernehmen (für künftige Termine).
+  if (saveVideoDefault && videoLink) {
+    await db.property.update({
+      where: { id: meeting.propertyId },
+      data: { defaultVideoLink: videoLink },
+    });
+  }
 
   await db.ownersMeeting.update({
     where: { id: meetingId },
@@ -279,6 +308,7 @@ export async function updateMeeting(formData: FormData) {
       title,
       scheduledAt,
       location,
+      videoLink,
       ...(meeting.status === "ABGESAGT" ? { status: "GEPLANT" as const } : {}),
     },
   });
@@ -286,7 +316,11 @@ export async function updateMeeting(formData: FormData) {
   const rescheduled =
     meeting.status === "EINBERUFEN" && scheduledAt.getTime() !== meeting.scheduledAt.getTime();
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}${rescheduled ? "?hinweis=neuterminieren" : ""}`);
+  // Der Hinweis auf die Neuterminierung ist bedingt – der Flash-Parameter darf
+  // ihm nicht mit „&" folgen, wenn gar kein Querystring entstanden ist.
+  redirect(
+    `/versammlungen/${meetingId}?flash=aktualisiert${rescheduled ? "&hinweis=neuterminieren" : ""}`,
+  );
 }
 
 // Anwesenheits-/Vertretungsvermerk speichern (fürs Protokoll).
@@ -298,7 +332,7 @@ export async function updateAttendance(formData: FormData) {
   const note = String(formData.get("attendanceNote") ?? "").trim().slice(0, 1000) || null;
   await db.ownersMeeting.update({ where: { id: meetingId }, data: { attendanceNote: note } });
   revalidatePath(`/versammlungen/${meetingId}`);
-  redirect(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=aktualisiert`);
 }
 
 export async function sendInvitation(formData: FormData) {
@@ -364,8 +398,102 @@ export async function sendInvitation(formData: FormData) {
       data: { status: "EINBERUFEN" },
     });
   }
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_MEETING_INVITE_SENT,
+    targetType: "OwnersMeeting",
+    targetId: meetingId,
+    meta: { recipients: owners.length },
+  });
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}?eingeladen=${owners.length}`);
+}
+
+// Zero-Key-Fallback zum E-Mail-Versand: „Als versendet markieren". Der Verwalter
+// druckt die Einladungs-PDFs selbst aus und verschickt sie postalisch; dieser
+// Schritt setzt das Versanddatum, ab dem der Fristenrechner rechnet, ohne eine
+// einzige E-Mail zu senden. Gleicher atomarer Doppelklick-Schutz wie beim Versand.
+export async function markInvitationSent(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const meetingId = String(formData.get("meetingId") ?? "").trim();
+  const meeting = await meetingInScope(verwalter, meetingId);
+  if (!meeting) redirect("/versammlungen");
+  if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
+
+  const claimed = await db.ownersMeeting.updateMany({
+    where: {
+      id: meetingId,
+      OR: [
+        { invitationSentAt: null },
+        { invitationSentAt: { lt: new Date(Date.now() - 2 * 60 * 1000) } },
+      ],
+    },
+    data: { invitationSentAt: new Date() },
+  });
+  if (claimed.count !== 1) redirect(`/versammlungen/${meetingId}?fehler=gerade_versendet`);
+
+  if (meeting.status === "GEPLANT") {
+    await db.ownersMeeting.updateMany({
+      where: { id: meetingId, status: "GEPLANT" },
+      data: { status: "EINBERUFEN" },
+    });
+  }
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_MEETING_INVITE_MARKED,
+    targetType: "OwnersMeeting",
+    targetId: meetingId,
+  });
+  revalidatePath(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?markiert=1`);
+}
+
+// Fügt einen Tagesordnungspunkt aus dem Vorlagenkatalog hinzu. Beschluss-Vorlagen
+// erzeugen — wie ein manueller Beschluss-TOP — automatisch eine Abstimmung.
+export async function addAgendaFromTemplate(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const meetingId = String(formData.get("meetingId") ?? "").trim();
+  const key = String(formData.get("templateKey") ?? "").trim();
+  const meeting = await meetingInScope(verwalter, meetingId);
+  if (!meeting) redirect("/versammlungen");
+  if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
+
+  const tpl = MEETING_AGENDA_TEMPLATES.find((t) => t.key === key);
+  if (!tpl) redirect(`/versammlungen/${meetingId}`);
+
+  let resolutionId: string | null = null;
+  if (tpl.type === "BESCHLUSS") {
+    const resolution = await db.resolution.create({
+      data: {
+        propertyId: meeting.propertyId,
+        title: tpl.title,
+        description: tpl.description,
+        createdById: verwalter.id,
+        organizationId: verwalter.organizationId,
+      },
+    });
+    resolutionId = resolution.id;
+  }
+
+  await db.$transaction(async (tx) => {
+    const max = await tx.meetingAgendaItem.aggregate({
+      where: { meetingId },
+      _max: { sortOrder: true },
+    });
+    const nextSort = (max._max.sortOrder ?? -1) + 1;
+    await tx.meetingAgendaItem.create({
+      data: {
+        meetingId,
+        sortOrder: nextSort,
+        title: tpl.title,
+        description: tpl.description,
+        type: tpl.type,
+        resolutionId,
+      },
+    });
+  });
+  revalidatePath(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=erstellt`);
 }
 
 export async function generateProtocol(formData: FormData) {
@@ -392,7 +520,7 @@ export async function generateProtocol(formData: FormData) {
 // wieder entfernt, damit kein verwaistes Protokoll zurückbleibt.
 async function buildAndStoreProtocol(
   verwalter: User,
-  meeting: { id: string; propertyId: string; title: string; scheduledAt: Date; location: string | null; attendanceNote: string | null; protocolDocumentId: string | null },
+  meeting: { id: string; propertyId: string; title: string; scheduledAt: Date; location: string | null; videoLink: string | null; attendanceNote: string | null; protocolDocumentId: string | null },
 ) {
   const meetingId = meeting.id;
   const [property, items, branding, board] = await Promise.all([
@@ -418,15 +546,16 @@ async function buildAndStoreProtocol(
     OFFEN: "offen",
   };
 
+  const kopf = await briefkopfAus(branding);
   const pdf = await generateMeetingProtocol({
     propertyName: property?.name ?? "",
-    issuer: {
-      legalName: branding.legalName,
-      contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-    },
+    issuer: kopf.issuer,
+    brand: kopf.brand,
+    logo: kopf.logo,
     meetingTitle: meeting.title,
     scheduledAt: meeting.scheduledAt,
     location: meeting.location,
+    videoLink: meeting.videoLink,
     attendance: meeting.attendanceNote,
     boardMembers,
     items: items.map((it, i) => {
@@ -531,5 +660,52 @@ export async function deleteMeeting(formData: FormData) {
   if (protocolBlob) await deleteBlob(protocolBlob).catch(() => {});
 
   revalidatePath("/versammlungen");
-  redirect("/versammlungen");
+  redirect("/versammlungen?flash=geloescht");
+}
+
+/**
+ * Setzt die Reihenfolge der Tagesordnung in einem Zug.
+ *
+ * `moveAgendaItem` tauscht zwei Nachbarn und lädt danach die Seite neu — bei
+ * fünf TOPs wird das zur Klickerei, und jede Bewegung kostet einen
+ * Seitenaufbau. Diese Aktion nimmt die fertige Reihenfolge entgegen, wie sie im
+ * Sortier-Editor zusammengezogen wurde, und schreibt sie einmal.
+ *
+ * Es werden ALLE Positionen lückenlos neu vergeben (0..n-1) statt einzelne
+ * Werte zu setzen — das heilt zugleich Duplikate und Lücken aus der Zeit
+ * paralleler Einfügungen.
+ */
+export async function reorderAgendaItems(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const meetingId = String(formData.get("meetingId") ?? "").trim();
+  const meeting = await meetingInScope(verwalter, meetingId);
+  if (!meeting) redirect("/versammlungen");
+  if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
+
+  const gewuenscht = String(formData.get("order") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const vorhanden = await db.meetingAgendaItem.findMany({
+    where: { meetingId },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+    select: { id: true },
+  });
+  const erlaubt = new Set(vorhanden.map((i) => i.id));
+
+  // Nur bekannte IDs übernehmen und fehlende hinten anhängen: Wer die Seite
+  // offen liegen lässt, während anderswo ein TOP entsteht, darf ihn mit einem
+  // veralteten Formular nicht verschwinden lassen.
+  const gefiltert = gewuenscht.filter((id) => erlaubt.has(id));
+  const fehlende = vorhanden.map((i) => i.id).filter((id) => !gefiltert.includes(id));
+  const endgueltig = [...gefiltert, ...fehlende];
+
+  await db.$transaction(
+    endgueltig.map((id, index) =>
+      db.meetingAgendaItem.update({ where: { id }, data: { sortOrder: index } }),
+    ),
+  );
+  revalidatePath(`/versammlungen/${meetingId}`);
+  redirect(`/versammlungen/${meetingId}?flash=gespeichert`);
 }

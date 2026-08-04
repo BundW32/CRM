@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { db } from "@/lib/db";
@@ -8,6 +7,7 @@ import { isMailEnabled } from "@/lib/mailer";
 import { canRemindAgain, isOverdue, reminderLevelLabel } from "@/lib/dunning";
 import type { PlatformInvoiceStatus } from "@/generated/prisma/client";
 import { sendInvoiceEmail, sendReminder, setInvoiceStatus } from "../actions";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
 
@@ -56,11 +56,7 @@ export default async function RechnungDetailPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/plattform/rechnungen" className={buttonSecondaryClass}>
-            ← Rechnungen
-          </Link>
-        }
+        back={{ href: "/plattform/rechnungen", label: "Rechnungen" }}
       >
         {formatInvoiceNumber(inv.year, inv.number)}
       </PageTitle>
@@ -134,9 +130,13 @@ export default async function RechnungDetailPage({
 
         <div className="space-y-5">
           <Card title="Aktionen">
-            <a href={`/api/plattform/rechnungen/${inv.id}/pdf`} target="_blank" rel="noreferrer" className={`${buttonClass} w-full`}>
+            <FilePreviewLink
+              src={`/api/plattform/rechnungen/${inv.id}/pdf`}
+              title={`Rechnung ${formatInvoiceNumber(inv.year, inv.number)}`}
+              className={`${buttonClass} w-full`}
+            >
               PDF öffnen
-            </a>
+            </FilePreviewLink>
             <form action={sendInvoiceEmail} className="mt-2">
               <input type="hidden" name="id" value={inv.id} />
               <button type="submit" disabled={!mailReady} className={`${buttonSecondaryClass} w-full`}>

@@ -1,29 +1,34 @@
-// Öffentliche Startseite (nur Hauptdomain): erklärt das Problem des
-// Verwaltermangels bei kleinen WEGs und stellt das Portal als Lösung zur
-// Selbstverwaltung vor. Jede Funktion verlinkt auf ihre Unterseite mit
-// ausführlicher Erklärung (/funktionen/*). Angemeldete Nutzer landen weiter
-// direkt im Dashboard, Mandanten-Subdomains behalten ihren gebrandeten Login.
+// Öffentliche Startseite von wegportal24 (nur WEG-SaaS-Modus, nur Hauptdomain).
+//
+// Aufbau nach dem 11-Elemente-Rahmen für Landing Pages (Skill
+// `landing-page-guide`): Logo, SEO-Titel, Haupt-CTA, Vertrauens-Fakten,
+// Bilder, Nutzen-Karten, Stimmen, FAQ, Abschluss-CTA, Fußzeile mit Kontakt
+// und Rechtlichem. Umgesetzt mit den Bausteinen dieses Repos statt ShadCN —
+// eigene UI-Bibliothek und ESLint-Regeln gehen vor, der Rahmen bleibt.
+//
+// Zwei Grenzen, die bewusst gezogen sind:
+// - Der „Social Proof" besteht aus Produkt- und Gesetzes-Fakten, die Stimmen
+//   aus klar benannten Situationen. Erfundene Kundenzitate mit Namen und Foto
+//   gibt es nicht — das Portal ist neu, und eine Seite, die mit erfundenen
+//   Bewertungen wirbt, verspielt genau das Vertrauen, das sie aufbauen soll.
+// - Bewegung nur über `--ease-mk-out`; der Prüfbefehl aus
+//   `.claude/skills/marken-seiten/SKILL.md` muss 0 Befunde melden.
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   ArrowRight,
-  Building2,
   CalendarCheck,
   CheckCircle2,
   FileCheck,
-  FolderOpen,
   HandCoins,
   Landmark,
-  Megaphone,
-  PiggyBank,
-  Scale,
   ShieldCheck,
   Users,
   Vote,
-  Wrench,
 } from "lucide-react";
-import { buttonClass } from "@/components/ui";
+import { wpButtonClass } from "@/components/marketing/brand";
 import {
   buttonOnPhotoClass,
   CtaBand,
@@ -32,371 +37,459 @@ import {
   PhotoBand,
   StatsBand,
 } from "@/components/marketing/site";
+import { MobileCtaBar } from "@/components/marketing/mobile-cta-bar";
 import { KenBurnsBackdrop } from "@/components/marketing/photo-hero";
 import { Reveal } from "@/components/marketing/reveal";
 import { ScrollyBuild } from "@/components/marketing/scrolly-build";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
+import { isWegSaas } from "@/lib/app-mode";
 
 export const dynamic = "force-dynamic";
 
+// Element 3: SEO-Titel mit den Suchbegriffen, unter denen Betroffene suchen.
 export const metadata: Metadata = {
-  title: "WEG selbst verwalten – Portal für kleine Eigentümergemeinschaften",
+  title: "WEG selbst verwalten ohne Hausverwaltung – wegportal24",
   description:
-    "Keine Hausverwaltung gefunden? Verwalten Sie Ihre kleine WEG einfach selbst: " +
-    "Wirtschaftsplan, Jahresabrechnung, Hausgeld, Buchhaltung und Eigentümerversammlung " +
-    "in einem Portal – kostenlos starten.",
+    "Keine Hausverwaltung gefunden? Verwalten Sie Ihre WEG selbst: Wirtschaftsplan, " +
+    "Hausgeld, Jahresabrechnung, Versammlung und Beschlüsse nach WEG-Recht – " +
+    "kostenlos starten, ohne Zahlungsdaten.",
+  keywords: [
+    "WEG selbst verwalten",
+    "WEG Selbstverwaltung",
+    "keine Hausverwaltung gefunden",
+    "Wirtschaftsplan WEG",
+    "Jahresabrechnung WEG",
+    "Hausgeld verwalten",
+  ],
+  openGraph: {
+    title: "WEG selbst verwalten – wegportal24",
+    description:
+      "Wirtschaftsplan, Hausgeld, Jahresabrechnung und Versammlung für " +
+      "selbstverwaltete Eigentümergemeinschaften.",
+  },
 };
 
-// ── Inhalte der Seite als Daten, damit das Markup schlank bleibt ──────────
-
-const problems = [
-  {
-    icon: Building2,
-    title: "Verwalter winken ab",
-    text:
-      "Professionelle Hausverwaltungen nehmen kleine Gemeinschaften mit 2–10 " +
-      "Einheiten kaum noch an: gleiche Pflichten wie bei großen Objekten, aber " +
-      "zu wenig Honorar. Absagen oder Preise jenseits des Zumutbaren sind die Regel.",
-  },
-  {
-    icon: Scale,
-    title: "Die Pflichten bleiben trotzdem",
-    text:
-      "Wirtschaftsplan, Jahresabrechnung, Erhaltungsrücklage, Versammlung und " +
-      "Beschlüsse – das Wohnungseigentumsgesetz verlangt sie unabhängig davon, " +
-      "ob sich ein Verwalter findet oder nicht.",
-  },
-  {
-    icon: FolderOpen,
-    title: "Excel und Aktenordner reichen nicht",
-    text:
-      "Wer selbst verwaltet, kämpft schnell mit Tabellen, Papierbergen und der " +
-      "Unsicherheit, ob Abrechnung und Beschlüsse wirklich formal sauber sind.",
-  },
-];
-
-// Jede Funktion verlinkt auf die Unterseite mit der ausführlichen Erklärung.
-const features = [
+// Element 7: Kern-Nutzen als sechs Karten, jede mit Weg zur Unterseite.
+const NUTZEN = [
   {
     icon: CalendarCheck,
-    title: "Wirtschaftsplan (§ 28 WEG)",
-    href: "/funktionen/finanzen#wirtschaftsplan",
+    titel: "Wirtschaftsplan mit Assistent",
     text:
-      "Assistent mit Vorjahres-Istwerten, Einzelwirtschaftspläne je Einheit und " +
-      "Beschlussvorlage. Der Beschluss erzeugt automatisch die monatlichen " +
-      "Hausgeld-Sollstellungen – centgenau.",
+      "Vorjahres-Istwerte daneben, Verteilung nach Ihren Umlageschlüsseln, " +
+      "Beschlussvorlage fertig. Aus dem Beschluss entstehen die monatlichen " +
+      "Hausgeld-Beträge automatisch – centgenau.",
+    href: "/funktionen/finanzen#wirtschaftsplan",
   },
   {
     icon: FileCheck,
-    title: "Jahresabrechnung & Vermögensbericht",
-    href: "/funktionen/finanzen#jahresabrechnung",
+    titel: "Jahresabrechnung, die aufgeht",
     text:
-      "Gesamt- und Einzelabrechnungen mit harter Kontenprüfung, § 35a-Ausweis " +
-      "und tagesgenauer Aufteilung bei Eigentümerwechsel – revisionssicher " +
-      "festgeschrieben.",
+      "Die Abrechnung lässt sich erst festschreiben, wenn der Endbestand laut " +
+      "Kontoauszug stimmt. Einzelabrechnungen je Einheit, § 35a-Ausweis, " +
+      "Vermögensbericht – revisionssicher.",
+    href: "/funktionen/finanzen#jahresabrechnung",
   },
   {
     icon: HandCoins,
-    title: "Hausgeld & Mahnwesen",
-    href: "/funktionen/hausgeld",
+    titel: "Hausgeld & Mahnwesen",
     text:
-      "Rückstandsliste je Einheit (Soll/Ist/Saldo), Zahlungseingänge bequem " +
-      "zuordnen und Mahnungen als fertige DIN-A4-Briefe erzeugen.",
+      "Soll, Ist und Saldo je Einheit. Mahnungen als fertiger DIN-A4-Brief in " +
+      "drei Stufen, Verzugszinsen nach Basiszinssatz – und auf Wunsch " +
+      "SEPA-Einzug ohne Bank-API.",
+    href: "/funktionen/hausgeld",
   },
   {
     icon: Landmark,
-    title: "Buchhaltung mit Bankimport",
+    titel: "Buchhaltung ohne Buchhalter",
+    text:
+      "Buchen mit Beleg, CSV-Import vom Bankkonto mit Duplikaterkennung, " +
+      "Rücklage strikt getrennt. Journal und Kontoblatt als CSV für Beirat " +
+      "oder Steuerberatung.",
     href: "/funktionen/finanzen#buchhaltung",
-    text:
-      "Buchungen mit Beleg-Upload, CSV-Import vom Bankkonto (z. B. Sparkasse, " +
-      "Volksbank) mit Duplikaterkennung – ganz ohne API-Schlüssel.",
-  },
-  {
-    icon: PiggyBank,
-    title: "Erhaltungsrücklage strikt getrennt",
-    href: "/funktionen/finanzen#ruecklage",
-    text:
-      "Girokonto und Rücklage getrennt geführt, Umbuchungen sauber " +
-      "dokumentiert – wie es ordnungsmäßiger Verwaltung entspricht.",
   },
   {
     icon: Vote,
-    title: "Versammlung & Beschlüsse",
+    titel: "Versammlung & Beschlüsse",
+    text:
+      "Einladung mit Fristenrechner, Anwesenheit erfassen, nach " +
+      "Miteigentumsanteilen abstimmen. Jeder Beschluss landet dauerhaft in der " +
+      "Beschluss-Sammlung.",
     href: "/funktionen/versammlung",
-    text:
-      "Versammlungen vorbereiten, Anwesenheit erfassen, nach " +
-      "Miteigentumsanteilen abstimmen und Beschlüsse dauerhaft dokumentieren.",
-  },
-  {
-    icon: Wrench,
-    title: "Schäden & Handwerker",
-    href: "/funktionen/kommunikation#schaeden",
-    text:
-      "Schäden mit Fotos melden, Vorgänge verfolgen und Handwerker direkt " +
-      "beauftragen – inklusive Foto-Dokumentation der Ausführung.",
-  },
-  {
-    icon: Megaphone,
-    title: "Dokumente & Aushänge",
-    href: "/funktionen/kommunikation#dokumente",
-    text:
-      "Protokolle, Abrechnungen und Verträge zentral ablegen, Aushänge digital " +
-      "veröffentlichen – jeder sieht genau das, was ihn betrifft.",
   },
   {
     icon: Users,
-    title: "Eigener Zugang für alle",
-    href: "/funktionen/kommunikation#rollen",
+    titel: "Alle im Haus eingebunden",
     text:
-      "Rollen für Eigentümer, Verwaltung, Beirat, Mieter und Handwerker – " +
-      "jeder mit eigenem Login, auch bequem am Handy.",
+      "Eigentümer, Beirat und Mieter mit eigenem Zugang – jeder sieht genau " +
+      "das, was ihn betrifft, auch am Handy. Handwerker erhalten ihre " +
+      "Aufträge über einen sicheren Link, ganz ohne Konto.",
+    href: "/funktionen/kommunikation",
   },
 ];
 
-const steps = [
+// Element 8: „Für wen"-Slot. Drei Rollen in direkter Ansprache — bewusst
+// keine erzählten Einzelpersonen: Das Portal ist neu, und eine Karte, die wie
+// der Fallbericht einer echten Kundin klingt, wäre eine erfundene Referenz.
+const ROLLEN = [
   {
-    title: "Kostenlos registrieren",
+    rolle: "Sie übernehmen das Amt",
     text:
-      "Konto als selbstverwaltende WEG anlegen – in wenigen Minuten, ohne " +
-      "Zahlungsdaten.",
+      "Das Portal führt Sie durch Wirtschaftsplan, Buchhaltung und " +
+      "Jahresabrechnung, rechnet centgenau und prüft die Summen mit. " +
+      "Fachbegriffe erklären sich per Klick – Buchhaltungswissen brauchen " +
+      "Sie nicht.",
   },
   {
-    title: "WEG einrichten",
+    rolle: "Sie sitzen im Beirat",
     text:
-      "Einheiten mit Miteigentumsanteilen, Konten und Kostenarten anlegen. Der " +
-      "Standardkatalog und die Assistenten führen Schritt für Schritt durch.",
+      "Statt eines Ordners voller Kopien sehen Sie Plan, Abrechnung und " +
+      "Belege direkt im Portal, Journal und Kontoblatt als CSV. Ihr " +
+      "Prüfvermerk nach § 29 WEG steht am Dokument – nachvollziehbar für die " +
+      "ganze Gemeinschaft.",
   },
   {
-    title: "Eigentümer einladen",
+    rolle: "Sie sind Miteigentümer",
     text:
-      "Alle Miteigentümer erhalten einen eigenen Zugang und sehen Dokumente, " +
-      "Abrechnungen und Beschlüsse jederzeit selbst ein.",
+      "Einladung, Tagesordnung und eigene Anträge im Portal, abgestimmt wird " +
+      "nach Miteigentumsanteilen. Wer nicht dabei sein kann, gibt eine " +
+      "Vollmacht – und liest den Beschluss hinterher in der Sammlung nach.",
+  },
+];
+
+// Element 9: FAQ. Native <details> statt Accordion-Bibliothek – kein Client-JS.
+const FAQ = [
+  {
+    f: "Dürfen wir unsere WEG überhaupt selbst verwalten?",
+    a:
+      "Ja. Keine Gemeinschaft ist verpflichtet, eine externe Verwaltung zu " +
+      "beauftragen. Übernimmt ein Miteigentümer das Amt, braucht er in " +
+      "Gemeinschaften mit weniger als neun Sondereigentumsrechten keine " +
+      "Zertifizierung (§ 19 Abs. 2 Nr. 6 WEG) – solange nicht ein Drittel der " +
+      "Eigentümer einen zertifizierten Verwalter verlangt.",
+  },
+  {
+    f: "Was kostet wegportal24?",
+    a:
+      "Der Start ist kostenlos und ohne Zahlungsdaten. Danach zahlt Ihre " +
+      "Gemeinschaft je Einheit und Monat: Basic 10 €, Verwalter-Plus 13,90 € – " +
+      "Letzterer mit einem Ticket-System, über das ein zertifizierter " +
+      "Verwalter (§ 26a WEG) Ihre Fragen beantwortet. Alle Zugänge sind immer " +
+      "inklusive, und je mehr Einheiten, desto günstiger wird die einzelne. " +
+      "Details und ein Rechner stehen auf der Preisseite.",
+  },
+  {
+    f: "Brauchen wir Buchhaltungswissen?",
+    a:
+      "Nein. Die Assistenten führen durch Wirtschaftsplan, Buchhaltung und " +
+      "Jahresabrechnung, rechnen centgenau und prüfen an den kritischen " +
+      "Stellen mit – etwa, ob die Miteigentumsanteile aufgehen und ob die " +
+      "Abrechnung zum Kontoauszug passt. Fachbegriffe erklären sich im Portal " +
+      "per Klick.",
+  },
+  {
+    f: "Wie kommt unser Bankkonto ins Portal?",
+    a:
+      "Per CSV-Export aus Ihrem Online-Banking (z. B. Sparkasse, Volksbank) – " +
+      "mit Spalten-Zuordnung und Duplikaterkennung. Bewusst ohne " +
+      "Konto-Anbindung: Niemand außer Ihnen erhält Zugriff auf das " +
+      "Gemeinschaftskonto. Auch der SEPA-Einzug läuft über eine Datei, die Sie " +
+      "selbst hochladen.",
+  },
+  {
+    f: "Was ist mit unseren Mietern?",
+    a:
+      "Vermietende Eigentümer geben ihren Mietern einen eigenen Zugang: " +
+      "Schäden mit Foto melden, Aushänge lesen, eigene Dokumente einsehen. " +
+      "Jede Rolle sieht nur das, was sie betrifft.",
+  },
+  {
+    f: "Wo liegen unsere Daten – und sind sie sicher?",
+    a:
+      "Datenbank und Anwendung laufen in Frankfurt am Main (EU-Region), " +
+      "DSGVO-konform. Jede Gemeinschaft ist strikt von allen anderen getrennt; " +
+      "diese Trennung wird automatisiert gegen die Datenbank getestet. Dateien " +
+      "werden ausschließlich über rechtegeprüfte Wege ausgeliefert, Passwörter " +
+      "verschlüsselt gespeichert. Details stehen in der Datenschutzerklärung.",
+  },
+  {
+    f: "Rechnet hier eine KI unsere Abrechnung?",
+    a:
+      "Nein. Wirtschaftsplan, Verteilung und Jahresabrechnung entstehen " +
+      "regelbasiert und nachvollziehbar – jede Zahl lässt sich bis zur Buchung " +
+      "zurückverfolgen. KI gibt es nur als optionale Zusatzfunktion (etwa einen " +
+      "Frage-Assistenten), standardmäßig abgeschaltet.",
+  },
+  {
+    f: "Wer steht hinter wegportal24?",
+    a:
+      "Entwickelt hat wegportal24 der Geschäftsführer einer Hausverwaltung – " +
+      "aus der täglichen Arbeit mit Wirtschaftsplänen, Abrechnungen und " +
+      "Versammlungen, nicht am Reißbrett. Dieselbe Verwaltung steht hinter " +
+      "dem Verwalter-Plus-Tarif und übernimmt Gemeinschaften, die aus der " +
+      "Selbstverwaltung herauswachsen. Die Betreiberin steht im Impressum.",
+  },
+  {
+    f: "Was passiert, wenn wir später doch eine Verwaltung finden?",
+    a:
+      "Ihre Daten gehören Ihrer Gemeinschaft. Beschluss-Sammlung, Abrechnungen " +
+      "und Belege bleiben einsehbar, Journal und Kontoblatt lassen sich als " +
+      "CSV exportieren und übergeben.",
   },
 ];
 
 export default async function Home() {
   const user = await getUser();
+  // Eingeloggt: in beiden Modi direkt ins Portal.
   if (user) redirect("/dashboard");
 
-  // Auf Mandanten-Subdomains bleibt der gebrandete Login der Einstieg –
-  // die B&W-Startseite gehört nur auf die Hauptdomain.
+  // Verwaltungs-Variante (APP_MODE=verwaltung): Startseite ist der Login. Die
+  // öffentliche Landing-Page gehört allein zur WEG-SaaS-Variante.
+  if (!isWegSaas()) redirect("/login");
+
+  // Auch im SaaS-Modus behalten Mandanten-Subdomains ihren gebrandeten Login –
+  // die Landing-Page gehört auf die Hauptdomain.
   if (await getTenantOrg()) redirect("/login");
 
   return (
     <main className="mk-light flex-1">
+      {/* Elemente 1–2: sprechende URLs, Logo oben links in der Kopfzeile */}
       <MarketingHeader />
 
-      {/* ── Full-Bleed-Hero: das Haus füllt die Bühne, der Text liegt darauf ── */}
-      <section id="inhalt" className="relative flex min-h-[86vh] items-center overflow-hidden">
+      {/* ── Elemente 3–5: Titel, Haupt-CTA, Vertrauens-Fakten – auf dem Foto ── */}
+      <section id="inhalt" className="relative flex min-h-[82svh] items-center overflow-hidden">
         <KenBurnsBackdrop
           src="/images/marketing/hero-building.jpg"
           alt="Mehrfamilienhaus einer Wohnungseigentümergemeinschaft"
           preload
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-green-dark/95 via-brand-green-dark/70 to-brand-green-dark/20" />
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-brand-green-dark/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-wp-ink/95 via-wp-ink/70 to-wp-ink/25" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-wp-ink/60 to-transparent" />
 
         <div className="relative mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
           <div className="max-w-2xl animate-page-in">
             <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold tracking-wide text-white backdrop-blur-sm">
               <ShieldCheck className="h-3.5 w-3.5" />
-              Für Eigentümer in kleinen Wohnungseigentümergemeinschaften
+              Für selbstverwaltete Wohnungseigentümergemeinschaften
             </p>
-            <h1 className="text-balance text-4xl font-extrabold leading-tight text-white sm:text-6xl">
+            <h1 className="text-balance text-4xl font-semibold leading-tight text-white sm:text-6xl">
               Keine Hausverwaltung gefunden?{" "}
-              <span className="underline decoration-brand-orange decoration-4 underline-offset-8">
+              <span className="underline decoration-wp-accent decoration-4 underline-offset-8">
                 Verwalten Sie Ihre WEG selbst.
               </span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-white/85 sm:text-lg">
-              Immer mehr kleine Eigentümergemeinschaften bekommen schlicht keinen
-              Verwalter mehr – die Pflichten aus dem WEG-Gesetz bleiben trotzdem.
-              Dieses Portal gibt Ihnen alles an die Hand, um Ihre Gemeinschaft
-              einfach, gemeinsam und rechtssicher selbst zu verwalten.
+              Immer mehr kleine Gemeinschaften bekommen schlicht keinen Verwalter
+              mehr – die Pflichten aus dem WEG-Gesetz bleiben trotzdem.{" "}
+              <span className="hidden sm:inline">
+                wegportal24 gibt Ihnen alles an die Hand, um Ihre Gemeinschaft
+                einfach, gemeinsam und rechtssicher selbst zu verwalten.
+              </span>
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link href="/registrieren" className={`${buttonClass} px-6 py-3 text-base`}>
+            {/* Element 4: Haupt-CTA */}
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <Link
+                href="/registrieren"
+                className={`${wpButtonClass} w-full px-6 py-3 text-base sm:w-auto`}
+              >
                 Portal kostenlos einrichten
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link href="/login" className={`${buttonOnPhotoClass} px-6 py-3 text-base`}>
+              <Link
+                href="/login"
+                className={`${buttonOnPhotoClass} w-full px-6 py-3 text-base sm:w-auto`}
+              >
                 Ich habe schon einen Zugang
               </Link>
             </div>
-            <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-white/75">
-              {["Kostenlos starten", "Keine Zahlungsdaten nötig", "In wenigen Minuten einsatzbereit"].map(
-                (item) => (
-                  <li key={item} className="inline-flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-brand-orange" />
-                    {item}
-                  </li>
-                ),
-              )}
+            {/* Element 5: Vertrauens-Fakten – Produktfakten statt Sterne */}
+            <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-white/80">
+              {[
+                "Kostenlos starten, keine Zahlungsdaten",
+                "Ohne Bank-API – Ihr Konto bleibt Ihres",
+                "Nach §§ 19, 24, 28 WEG",
+              ].map((punkt) => (
+                <li key={punkt} className="inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-wp-accent" />
+                  {punkt}
+                </li>
+              ))}
             </ul>
           </div>
         </div>
-
-        {/* Schwebende Kennzahl-Karte als Brücke zum Produkt */}
-        <div
-          className="absolute bottom-10 right-6 hidden items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-800 shadow-e3 md:flex lg:right-12"
-          style={{ animation: "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "600ms" }}
-        >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-orange-light">
-            <Building2 className="h-4 w-4 text-brand-orange-ink" />
-          </span>
-          6 Einheiten · MEA 1000/1000 ✓
-        </div>
       </section>
 
-      {/* ── Scrollytelling: Selbstverwaltung Stockwerk für Stockwerk aufbauen ── */}
+      {/* ── Element 6: das Produkt in Bewegung – der Scroll-Aufbau ────────── */}
       <ScrollyBuild />
 
-      {/* ── Das Problem ── */}
-      <section className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+      {/* ── Element 7: Kern-Nutzen ────────────────────────────────────────── */}
+      <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
         <Reveal>
-          <h2 className="text-balance text-2xl font-bold text-brand-green-dark sm:text-3xl">
-            Das Problem: Kleine WEGs finden keinen Verwalter
+          <h2 className="text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
+            Gebaut für Eigentümer, nicht für Verwaltungsprofis
           </h2>
-          <p className="mt-3 max-w-2xl text-gray-600">
-            Der Verwaltermangel trifft vor allem kleine Häuser. Wer eine
-            Eigentumswohnung in einer Gemeinschaft mit wenigen Einheiten besitzt,
-            kennt das:
+          <p className="mt-3 max-w-2xl text-wp-ink/70">
+            Alles, was Ihre WEG braucht – nichts, was Sie überfordert. Jede
+            Funktion hat eine eigene Seite mit ausführlicher Erklärung.
           </p>
         </Reveal>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          {problems.map(({ icon: Icon, title, text }, i) => (
-            <Reveal key={title} delay={i * 120}>
-              <div className="h-full rounded-2xl border border-gray-200 bg-white p-6 shadow-e1">
-                <Icon className="h-8 w-8 text-brand-orange-ink" />
-                <h3 className="mt-4 text-lg font-semibold text-gray-900">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">{text}</p>
-              </div>
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {NUTZEN.map(({ icon: Icon, titel, text, href }, i) => (
+            <Reveal key={titel} delay={(i % 3) * 90}>
+              <Link
+                href={href}
+                className="group flex h-full flex-col rounded-2xl border border-wp-ink/10 bg-white p-6 shadow-e1 transition-all hover:border-wp-accent-ink/30 hover:shadow-e2"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-wp-accent-light">
+                  <Icon className="h-5 w-5 text-wp-accent-ink" />
+                </span>
+                <h3 className="mt-4 text-lg font-semibold text-wp-ink">{titel}</h3>
+                <p className="mt-2 flex-1 text-sm leading-relaxed text-wp-ink/70">{text}</p>
+                <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-wp-accent-ink">
+                  Mehr erfahren
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </Link>
             </Reveal>
           ))}
         </div>
       </section>
 
-      {/* ── Foto-Band: atmosphärischer Zwischenschnitt ── */}
-      <PhotoBand
-        src="/images/marketing/versammlung.jpg"
-        alt="Eigentümer sitzen gemeinsam am Tisch einer Versammlung"
-        claim="Gemeinsam entscheiden. Gemeinsam verwalten."
-        sub="Ihre Gemeinschaft kennt ihr Haus besser als jeder externe Verwalter – das Portal gibt ihr das Handwerkszeug dazu."
-      />
+      {/* ── Foto-Band als atmosphärischer Zwischenschnitt ─────────────────── */}
+      <div className="mt-20">
+        <PhotoBand
+          src="/images/marketing/versammlung.jpg"
+          alt="Eigentümer sitzen gemeinsam am Tisch einer Versammlung"
+          claim="Gemeinsam entscheiden. Gemeinsam verwalten."
+          sub="Ihre Gemeinschaft kennt ihr Haus besser als jeder externe Verwalter – wegportal24 gibt ihr das Handwerkszeug dazu."
+        />
+      </div>
 
-      {/* ── Die Lösung ── */}
-      <section className="mx-auto w-full max-w-6xl px-4 pt-16 sm:px-6">
-        <Reveal>
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-e2 sm:p-10">
-            <h2 className="text-2xl font-bold text-brand-green sm:text-3xl">
-              Die Lösung: Selbstverwaltung mit System
+      {/* ── Echte Ansichten aus dem Portal ─────────────────────────────────
+          Keine nachgebauten Mockups: Die Bilder sind Screenshots aus der
+          laufenden Anwendung (Demo-Gemeinschaft „WEG Musterstraße 12"),
+          beschnitten auf die Inhalts-Karten und in den Rahmen-Stil der Seite
+          gesetzt. Wer neue aufnimmt: Betreiber-Branding (Seitenleiste,
+          Fußzeile) darf nicht mit aufs Bild. */}
+      <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
+        <div className="grid items-start gap-8 lg:grid-cols-[1fr_1.3fr] lg:gap-12">
+          <Reveal>
+            <h2 className="text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
+              So sieht es im Portal aus – ungeschönt
             </h2>
-            <p className="mt-3 max-w-3xl text-gray-600">
-              Alles, was Ihre WEG braucht, in einem Portal – gebaut für Eigentümer,
-              nicht für Verwaltungsprofis. Jede Funktion hat eine eigene Seite mit
-              ausführlicher Erklärung – klicken Sie sich durch.
+            <p className="mt-3 leading-relaxed text-wp-ink/70">
+              Echte Ansichten aus wegportal24, aufgenommen in der
+              Demo-Gemeinschaft. Das Fristen-Cockpit hält die Pflichten der
+              Gemeinschaft im Blick – Jahresabrechnung, Versammlung,
+              Wirtschaftsplan – und sagt offen, wenn etwas überfällig ist oder
+              Hausgeld aussteht.
             </p>
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {features.map(({ icon: Icon, title, text, href }) => (
-                <Link
-                  key={title}
-                  href={href}
-                  className="group flex items-start gap-3 rounded-xl border border-transparent p-3 transition-colors hover:border-brand-orange/30 hover:bg-brand-orange-light/40"
-                >
-                  <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-orange-light">
-                    <Icon className="h-5 w-5 text-brand-orange-ink" />
-                  </span>
-                  <span>
-                    <span className="font-semibold text-gray-900">{title}</span>
-                    <span className="mt-1 block text-sm leading-relaxed text-gray-600">
-                      {text}
-                    </span>
-                    <span className="mt-1.5 inline-flex items-center gap-1 text-sm font-medium text-brand-orange-ink">
-                      Mehr erfahren
-                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                    </span>
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
+            <p className="mt-3 leading-relaxed text-wp-ink/70">
+              Auch die Buchhaltung versteckt nichts: Jede Buchung zeigt Konto,
+              Kostenart und § 35a-Lohnanteil. Fehlt eine Zuordnung, steht dort
+              „fehlt“ – und die Jahresabrechnung lässt sich erst festschreiben,
+              wenn alles aufgeht.
+            </p>
+          </Reveal>
+          <Reveal delay={120}>
+            <figure className="overflow-hidden rounded-2xl border border-wp-ink/10 bg-white shadow-e2">
+              <figcaption className="border-b border-wp-ink/10 bg-wp-accent-light/50 px-5 py-3 text-sm font-semibold text-wp-ink">
+                Aus dem Portal: WEG-Finanzen · Was ansteht
+              </figcaption>
+              <Image
+                src="/images/marketing/app-fristen.jpg"
+                alt="Fristen-Cockpit im Portal: Jahresabrechnung überfällig, Versammlung einberufen, Wirtschaftsplan beschließen, offene Hausgeld-Rückstände"
+                width={1600}
+                height={565}
+                className="w-full"
+                sizes="(min-width: 1024px) 640px, 100vw"
+              />
+            </figure>
+          </Reveal>
+        </div>
+        <Reveal delay={80}>
+          <figure className="mt-8 overflow-hidden rounded-2xl border border-wp-ink/10 bg-white shadow-e2">
+            <figcaption className="border-b border-wp-ink/10 bg-wp-accent-light/50 px-5 py-3 text-sm font-semibold text-wp-ink">
+              Aus dem Portal: Buchhaltung · alle Buchungen der Gemeinschaft
+            </figcaption>
+            <Image
+              src="/images/marketing/app-buchhaltung.jpg"
+              alt="Buchungsliste im Portal mit Datum, Konto, Kostenart und Betrag je Buchung – fehlende Zuordnungen sind markiert"
+              width={1600}
+              height={948}
+              className="w-full"
+              sizes="(min-width: 1152px) 1104px, 100vw"
+            />
+          </figure>
         </Reveal>
       </section>
 
-      {/* ── Auf einen Blick: nüchterne Produkt-Fakten ── */}
+      {/* ── Element 8: Stimmen – drei Situationen, als solche benannt ─────── */}
+      <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
+        <Reveal>
+          <h2 className="text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
+            Für wen wegportal24 gebaut ist
+          </h2>
+        </Reveal>
+        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+          {ROLLEN.map(({ rolle, text }, i) => (
+            <Reveal key={rolle} delay={i * 100}>
+              <figure className="h-full rounded-2xl border border-wp-ink/10 bg-white p-6 shadow-e1">
+                <blockquote className="text-[15px] leading-relaxed text-wp-ink/80">
+                  {text}
+                </blockquote>
+                <figcaption className="mt-4 border-t border-wp-ink/10 pt-3 text-sm font-semibold text-wp-accent-ink">
+                  {rolle}
+                </figcaption>
+              </figure>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Produkt-Fakten in Zahlen ──────────────────────────────────────── */}
       <div className="mt-20">
         <StatsBand />
       </div>
 
-      {/* ── Rechtlicher Rahmen ── */}
-      <section className="mx-auto w-full max-w-6xl px-4 pt-16 sm:px-6">
+      {/* ── Element 9: FAQ ────────────────────────────────────────────────── */}
+      <section className="mx-auto w-full max-w-3xl px-4 pt-20 sm:px-6">
         <Reveal>
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-e1 sm:p-8">
-            <div className="flex items-start gap-4">
-              <Scale className="mt-1 h-8 w-8 shrink-0 text-brand-orange-ink" />
-              <div>
-                <h2 className="text-xl font-bold text-brand-green-dark sm:text-2xl">
-                  Dürfen wir das überhaupt selbst?
-                </h2>
-                <p className="mt-3 max-w-3xl leading-relaxed text-gray-700">
-                  Ja. Keine WEG ist verpflichtet, eine externe Hausverwaltung zu
-                  beauftragen. Übernimmt ein Miteigentümer das Verwalteramt, braucht
-                  er in Gemeinschaften mit weniger als neun Sondereigentumsrechten
-                  keine Zertifizierung (§ 19 Abs. 2 Nr. 6 WEG) – solange nicht ein
-                  Drittel der Eigentümer einen zertifizierten Verwalter verlangt.
-                  Genau für diese Gemeinschaften ist dieses Portal gemacht.{" "}
-                  <Link href="/so-funktionierts" className="font-medium text-brand-orange-ink hover:underline">
-                    Mehr zum rechtlichen Rahmen →
-                  </Link>
-                </p>
-                <p className="mt-3 text-xs text-gray-500">
-                  Hinweis: allgemeine Information, keine Rechtsberatung.
-                </p>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ── So funktioniert's ── */}
-      <section className="mx-auto w-full max-w-6xl px-4 pt-16 sm:px-6">
-        <Reveal>
-          <h2 className="text-balance text-2xl font-bold text-brand-green-dark sm:text-3xl">
-            In drei Schritten startklar
+          <h2 className="text-balance text-center text-2xl font-semibold text-wp-ink sm:text-3xl">
+            Häufige Fragen
           </h2>
         </Reveal>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          {steps.map(({ title, text }, i) => (
-            <Reveal key={title} delay={i * 120}>
-              <div className="h-full rounded-2xl border border-gray-200 bg-white p-6 shadow-e1">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-orange font-display text-base font-bold text-brand-green-dark">
-                  {i + 1}
-                </span>
-                <h3 className="mt-4 text-lg font-semibold text-gray-900">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">{text}</p>
-              </div>
+        <div className="mt-8">
+          {FAQ.map(({ f, a }, i) => (
+            <Reveal key={f} delay={Math.min(i * 60, 240)}>
+              <details className="group border-t border-wp-ink/15 last:border-b">
+                <summary className="flex cursor-pointer list-none items-baseline gap-3 py-4 text-left font-semibold text-wp-ink transition-colors hover:text-wp-accent-ink [&::-webkit-details-marker]:hidden">
+                  <span className="text-wp-accent-ink transition-transform group-open:rotate-45">+</span>
+                  {f}
+                </summary>
+                <p className="max-w-[62ch] pb-5 pl-6 text-[15px] leading-relaxed text-wp-ink/75">
+                  {a}
+                </p>
+              </details>
             </Reveal>
           ))}
         </div>
-        <Reveal delay={200}>
-          <p className="mt-6 text-gray-600">
-            <Link
-              href="/so-funktionierts"
-              className="inline-flex items-center gap-1.5 font-medium text-brand-orange-ink hover:underline"
-            >
-              Alle fünf Einrichtungsschritte im Detail ansehen
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </p>
-        </Reveal>
       </section>
 
+      {/* ── Element 10: Abschluss-CTA ─────────────────────────────────────── */}
+      <div id="schluss-cta">
       <CtaBand
         title="Bereit, Ihre WEG selbst in die Hand zu nehmen?"
-        text="Richten Sie das Portal für Ihre Gemeinschaft ein und laden Sie Ihre Miteigentümer ein – kostenlos und unverbindlich."
+        text="Richten Sie wegportal24 für Ihre Gemeinschaft ein und laden Sie Ihre Miteigentümer ein – kostenlos und unverbindlich."
       />
+
+      {/* Element 11: Fußzeile mit Kontakt und Rechtlichem. Sie bleibt im
+          Ausblende-Bereich der Sticky-Leiste — sonst täuchte die Leiste am
+          Seitenende wieder auf, sobald nur noch die Fußzeile im Bild ist. */}
       <MarketingFooter />
+      </div>
+      {/* A7: dauerhaft erreichbarer Registrieren-Weg auf Mobil */}
+      <MobileCtaBar />
     </main>
   );
 }

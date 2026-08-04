@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Badge } from "@/components/data-display";
 import { redirect } from "next/navigation";
-import { Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import type { Prisma } from "@/generated/prisma/client";
+import { Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass } from "@/components/ui";
 import { ownedProperties, isSelfManaged, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
@@ -10,9 +12,13 @@ import {
   resolutionStatusLabels,
   votingPrincipleLabels,
 } from "@/lib/labels";
+import { pageHrefFor, parsePage } from "@/lib/list-query";
 import { getOrganization, requireUser } from "@/lib/session";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
+
+const LIST_PAGE_SIZE = 20;
 
 const statusTone: Record<string, string> = {
   ANGENOMMEN: "bg-green-100 text-green-800",
@@ -28,14 +34,17 @@ const statusTone: Record<string, string> = {
 export default async function GemeinschaftPage({
   searchParams,
 }: {
-  searchParams: Promise<{ objekt?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
   if (user.role !== "VERWALTER" && user.role !== "EIGENTUEMER") redirect("/dashboard");
   // Nur in selbstverwalteten Organisationen – im Profi-Profil bleibt WEG unter „Verwaltung".
   if (!isSelfManaged(await getOrganization())) redirect("/dashboard");
 
-  const { objekt } = await searchParams;
+  const sp = await searchParams;
+  const { objekt } = sp;
+  const bPage = parsePage(sp.bseite);
+  const dPage = parsePage(sp.dseite);
 
   // Zugängliche WEG-Objekte (Verwalter: Scope; Eigentümer: eigene, org-gesichert).
   let propWhere;
@@ -65,26 +74,40 @@ export default async function GemeinschaftPage({
   const totalMea = owners.reduce((s, o) => s + (o.mea ?? 0), 0);
   const boardMembers = owners.filter((o) => o.isBoardMember);
 
-  const resolutions = selected
-    ? await db.resolution.findMany({
-        where: { propertyId: selected.id, status: { in: ["ANGENOMMEN", "ABGELEHNT"] } },
-        orderBy: [{ number: "asc" }, { decidedAt: "asc" }],
-        select: { id: true, number: true, title: true, status: true, decidedAt: true },
-      })
-    : [];
+  // Beschlüsse und Dokumente wachsen dauerhaft – beide paginiert. Vorher waren
+  // die Beschlüsse unbegrenzt und die Dokumente still auf 20 gedeckelt.
+  const resolutionWhere: Prisma.ResolutionWhereInput | undefined = selected
+    ? { propertyId: selected.id, status: { in: ["ANGENOMMEN", "ABGELEHNT"] } }
+    : undefined;
+  const documentWhere: Prisma.DocumentWhereInput | undefined = selected
+    ? { propertyId: selected.id, audience: { in: ["EIGENTUEMER", "ALLE"] } }
+    : undefined;
 
-  // Für Eigentümer freigegebene Dokumente dieses Objekts (inkl. Protokolle).
-  const documents = selected
-    ? await db.document.findMany({
-        where: {
-          propertyId: selected.id,
-          audience: { in: ["EIGENTUEMER", "ALLE"] },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 20,
-        select: { id: true, title: true, category: true, createdAt: true, size: true },
-      })
-    : [];
+  const [resolutions, resolutionTotal, documents, documentTotal] = selected
+    ? await Promise.all([
+        db.resolution.findMany({
+          where: resolutionWhere,
+          orderBy: [{ number: "asc" }, { decidedAt: "asc" }],
+          skip: (bPage - 1) * LIST_PAGE_SIZE,
+          take: LIST_PAGE_SIZE,
+          select: { id: true, number: true, title: true, status: true, decidedAt: true },
+        }),
+        db.resolution.count({ where: resolutionWhere }),
+        db.document.findMany({
+          where: documentWhere,
+          orderBy: { createdAt: "desc" },
+          skip: (dPage - 1) * LIST_PAGE_SIZE,
+          take: LIST_PAGE_SIZE,
+          select: { id: true, title: true, category: true, createdAt: true, size: true },
+        }),
+        db.document.count({ where: documentWhere }),
+      ])
+    : [[], 0, [], 0];
+
+  // Blättern in einer Liste erhält Objektauswahl und die andere Liste.
+  // Zwei unabhängig blätterbare Listen auf einer Seite – daher zwei Params.
+  const beschluesseHref = pageHrefFor("/gemeinschaft", sp, "bseite");
+  const dokumenteHref = pageHrefFor("/gemeinschaft", sp, "dseite");
 
   return (
     <>
@@ -151,9 +174,7 @@ export default async function GemeinschaftPage({
                                 <span className="flex flex-wrap items-center gap-2">
                                   {o.user.name}
                                   {o.isBoardMember ? (
-                                    <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-xs font-medium text-brand-green">
-                                      Beirat
-                                    </span>
+                                    <Badge tone="success">Beirat</Badge>
                                   ) : null}
                                 </span>
                               </td>
@@ -203,12 +224,13 @@ export default async function GemeinschaftPage({
                   >
                     Vollständige Sammlung öffnen
                   </Link>
-                  <a
-                    href={`/beschluesse/sammlung/export?objekt=${selected.id}`}
+                  <FilePreviewLink
+                    src={`/beschluesse/sammlung/export?objekt=${selected.id}`}
+                    title={`Beschluss-Sammlung — ${selected.name}`}
                     className={buttonSecondaryClass}
                   >
                     Als PDF exportieren
-                  </a>
+                  </FilePreviewLink>
                 </div>
                 {resolutions.length === 0 ? (
                   <EmptyState>Für dieses Objekt wurden noch keine Beschlüsse gefasst.</EmptyState>
@@ -234,6 +256,14 @@ export default async function GemeinschaftPage({
                     ))}
                   </ul>
                 )}
+
+                <Pagination
+                  currentPage={bPage}
+                  totalPages={Math.max(1, Math.ceil(resolutionTotal / LIST_PAGE_SIZE))}
+                  total={resolutionTotal}
+                  itemLabel="Beschlüsse"
+                  hrefFor={beschluesseHref}
+                />
               </Card>
 
               {/* Dokumente & Protokolle */}
@@ -253,21 +283,30 @@ export default async function GemeinschaftPage({
                             {formatBytes(doc.size)}
                           </span>
                         </span>
-                        <a
-                          href={`/api/files/dokument/${doc.id}`}
-                          target="_blank"
+                        <FilePreviewLink
+                          src={`/api/files/dokument/${doc.id}`}
+                          title={doc.title}
                           className="shrink-0 text-sm text-brand-green hover:underline"
                         >
                           Öffnen →
-                        </a>
+                        </FilePreviewLink>
                       </li>
                     ))}
                   </ul>
                 )}
+
+                <Pagination
+                  currentPage={dPage}
+                  totalPages={Math.max(1, Math.ceil(documentTotal / LIST_PAGE_SIZE))}
+                  total={documentTotal}
+                  itemLabel="Dokumente"
+                  hrefFor={dokumenteHref}
+                />
+
                 <p className="mt-3 text-xs text-gray-400">
                   Alle für Eigentümer freigegebenen Unterlagen finden Sie unter{" "}
-                  <Link href="/infos?t=dokumente" className="underline">
-                    Infos → Dokumente
+                  <Link href="/dokumente" className="underline">
+                    Dokumente
                   </Link>
                   .
                 </p>

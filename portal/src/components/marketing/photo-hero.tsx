@@ -128,14 +128,14 @@ export function PhotoHero({
           </div>
         </div>
         {/* dezenter Verlauf unten für Kontrast/Tiefe */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-brand-green-dark/25 via-transparent to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-wp-ink/25 via-transparent to-transparent" />
       </div>
       {badge ? (
         <div
           className="mk-anim absolute -bottom-5 left-5 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-800 shadow-e2"
-          style={{ animation: "mkPopIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both", animationDelay: "400ms" }}
+          style={{ animation: "mkPopIn 0.5s var(--ease-mk-out) both", animationDelay: "400ms" }}
         >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-orange-light">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-wp-accent-light">
             {badge.icon}
           </span>
           {badge.text}

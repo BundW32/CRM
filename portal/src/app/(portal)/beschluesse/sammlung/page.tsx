@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Card, EmptyState, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import type { Prisma } from "@/generated/prisma/client";
+import { Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass } from "@/components/ui";
+import { FilterBar } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, resolutionStatusLabels } from "@/lib/labels";
+import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
+import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
 
 const statusTone: Record<string, string> = {
   ANGENOMMEN: "bg-green-100 text-green-800",
@@ -17,11 +23,14 @@ const statusTone: Record<string, string> = {
 export default async function BeschlussSammlungPage({
   searchParams,
 }: {
-  searchParams: Promise<{ objekt?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
   if (user.role !== "VERWALTER" && user.role !== "EIGENTUEMER") redirect("/dashboard");
-  const { objekt } = await searchParams;
+  const sp = await searchParams;
+  const { objekt } = sp;
+  const currentPage = parsePage(sp.page);
+  const q = normalizeSearch(sp.q);
 
   // Zugängliche WEG-Objekte (Verwalter: Scope; Eigentümer: eigene).
   let propWhere;
@@ -41,22 +50,45 @@ export default async function BeschlussSammlungPage({
 
   const selected = properties.find((p) => p.id === objekt) ?? properties[0] ?? null;
 
-  const resolutions = selected
-    ? await db.resolution.findMany({
-        where: { propertyId: selected.id, status: { in: ["ANGENOMMEN", "ABGELEHNT"] } },
-        orderBy: [{ number: "asc" }, { decidedAt: "asc" }],
-        include: { votes: { select: { choice: true } } },
-      })
-    : [];
+  // Die Sammlung muss laut § 24 VII WEG lückenlos sein und wächst damit
+  // dauerhaft – deshalb paginiert statt vollständig geladen.
+  const resolutionWhere: Prisma.ResolutionWhereInput | undefined = selected
+    ? {
+        AND: [
+          { propertyId: selected.id, status: { in: ["ANGENOMMEN", "ABGELEHNT"] } },
+          ...(q
+            ? [
+                {
+                  OR: [
+                    { title: { contains: q, mode: "insensitive" as const } },
+                    { description: { contains: q, mode: "insensitive" as const } },
+                  ],
+                },
+              ]
+            : []),
+        ],
+      }
+    : undefined;
+
+  const [resolutions, resolutionTotal] = selected
+    ? await Promise.all([
+        db.resolution.findMany({
+          where: resolutionWhere,
+          orderBy: [{ number: "asc" }, { decidedAt: "asc" }],
+          skip: (currentPage - 1) * PAGE_SIZE,
+          take: PAGE_SIZE,
+          include: { votes: { select: { choice: true } } },
+        }),
+        db.resolution.count({ where: resolutionWhere }),
+      ])
+    : [[], 0];
+
+  const pageHref = pageHrefFor(`/beschluesse/sammlung`, sp);
 
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/beschluesse" className={buttonSecondaryClass}>
-            ← Beschlüsse
-          </Link>
-        }
+        back={{ href: "/beschluesse", label: "Beschlüsse" }}
       >
         Beschluss-Sammlung
       </PageTitle>
@@ -82,18 +114,33 @@ export default async function BeschlussSammlungPage({
               </Link>
             ))}
             {selected ? (
-              <a
-                href={`/beschluesse/sammlung/export?objekt=${selected.id}`}
+              <FilePreviewLink
+                src={`/beschluesse/sammlung/export?objekt=${selected.id}`}
+                title={`Beschluss-Sammlung — ${selected.name}`}
                 className={`${buttonSecondaryClass} ml-auto`}
               >
                 Als PDF exportieren
-              </a>
+              </FilePreviewLink>
             ) : null}
           </div>
 
           <Card title={selected?.name}>
+            <FilterBar
+              className="mb-3"
+              searchPlaceholder="Suchen"
+              searchHint="Nach Titel oder Beschlusstext suchen"
+            />
+            <p className="mb-3 px-1 text-xs text-gray-400">
+              {resolutionTotal} {resolutionTotal === 1 ? "Beschluss" : "Beschlüsse"}
+              {q ? " (gefiltert)" : ""}
+            </p>
+
             {resolutions.length === 0 ? (
-              <EmptyState>Für dieses Objekt wurden noch keine Beschlüsse gefasst.</EmptyState>
+              <EmptyState>
+                {q
+                  ? "Keine Beschlüsse gefunden."
+                  : "Für dieses Objekt wurden noch keine Beschlüsse gefasst."}
+              </EmptyState>
             ) : (
               <ul className="divide-y divide-gray-100">
                 {resolutions.map((r) => {
@@ -122,6 +169,14 @@ export default async function BeschlussSammlungPage({
                 })}
               </ul>
             )}
+
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.max(1, Math.ceil(resolutionTotal / PAGE_SIZE))}
+              total={resolutionTotal}
+              itemLabel="Beschlüsse"
+              hrefFor={pageHref}
+            />
           </Card>
         </>
       )}

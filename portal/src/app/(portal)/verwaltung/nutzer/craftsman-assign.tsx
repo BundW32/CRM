@@ -28,9 +28,12 @@ function AssignSubmit({ count }: { count: number }) {
 // Schränkt ein, welche Handwerker dieser Verwalter sieht.
 export function CraftsmanAssignPicker({
   userId,
+  zurueck,
   available,
 }: {
   userId: string;
+  /** Rücksprungpfad nach dem Speichern. */
+  zurueck: string;
   available: Craft[];
 }) {
   const [q, setQ] = useState("");
@@ -72,6 +75,7 @@ export function CraftsmanAssignPicker({
   return (
     <form action={addCraftsmanAssignment} className="mt-2 space-y-2">
       <input type="hidden" name="userId" value={userId} />
+      <input type="hidden" name="zurueck" value={zurueck} />
       {hiddenSelected.map((id) => (
         <input key={id} type="hidden" name="craftsmanId" value={id} />
       ))}

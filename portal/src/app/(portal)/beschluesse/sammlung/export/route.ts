@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
+import { briefkopfAus } from "@/lib/documents/briefkopf";
 import { getUser } from "@/lib/session";
 import { generateBeschlussSammlung } from "@/lib/documents/beschluss-sammlung";
+import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
 
 export const dynamic = "force-dynamic";
 
@@ -46,13 +48,12 @@ export async function GET(request: Request) {
       include: { votes: { select: { choice: true } } },
     });
 
-    const branding = await getBrandingForOrg(property.organizationId);
+    const kopf = await briefkopfAus(await getBrandingForOrg(property.organizationId));
     const pdf = await generateBeschlussSammlung({
       propertyName: property.name,
-      issuer: {
-        legalName: branding.legalName,
-        contactLine: [branding.addressLine, branding.email].filter(Boolean).join(" · "),
-      },
+      issuer: kopf.issuer,
+      brand: kopf.brand,
+      logo: kopf.logo,
       entries: resolutions.map((r) => ({
         number: r.number,
         title: r.title,
@@ -65,14 +66,8 @@ export async function GET(request: Request) {
       generatedAt: new Date(),
     });
 
-    const fileName = `Beschluss-Sammlung_${property.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
-    return new NextResponse(new Uint8Array(pdf), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"`,
-        "Cache-Control": "private, no-store",
-      },
-    });
+    const fileName = `Beschluss-Sammlung_${fileNamePart(property.name)}.pdf`;
+    return pdfResponse(pdf, fileName, request);
   } catch (err) {
     console.error("Beschluss-Sammlung-Export fehlgeschlagen", err);
     return NextResponse.json({ error: "Export fehlgeschlagen" }, { status: 500 });

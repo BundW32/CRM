@@ -1,8 +1,11 @@
-import { Alert, Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
 import { PushToggle } from "@/components/push-toggle";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { getOrganization, requireUser } from "@/lib/session";
-import { changePassword } from "./actions";
+import { changePassword, saveShowHints } from "./actions";
+import { tourNeuStarten } from "./tour-actions";
+import { VollmachtKarte } from "./vollmacht";
 
 export const dynamic = "force-dynamic";
 
@@ -15,15 +18,21 @@ const errorMessages: Record<string, string> = {
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; ok?: string }>;
+  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
 }) {
   const user = await requireUser();
-  const { fehler, ok } = await searchParams;
+  const { fehler, gespeichert } = await searchParams;
   const org = await getOrganization();
 
   return (
     <>
       <PageTitle>Konto</PageTitle>
+
+      {gespeichert === "hinweise" ? (
+        <Alert variant="success" className="mb-4">
+          Gespeichert.
+        </Alert>
+      ) : null}
 
       <div className="grid max-w-3xl gap-5 md:grid-cols-2">
         <Card title="Ihre Daten">
@@ -70,14 +79,11 @@ export default async function AccountPage({
         </Card>
 
         <Card title="Passwort ändern">
-          {fehler ? (
+          {/* Erfolg meldet der ToastHost (`?flash=…`). Fehler bleiben hier als
+              Banner am Formular stehen, bis sie behoben sind. */}
+          {fehler && fehler !== "signatur" ? (
             <Alert variant="error" className="mb-3">
               {errorMessages[fehler] ?? "Passwortänderung fehlgeschlagen."}
-            </Alert>
-          ) : null}
-          {ok ? (
-            <Alert variant="success" className="mb-3">
-              Ihr Passwort wurde geändert.
             </Alert>
           ) : null}
           <form action={changePassword} className="space-y-3">
@@ -110,11 +116,22 @@ export default async function AccountPage({
                 className={inputClass}
               />
             </Field>
-            <button type="submit" className={buttonClass}>
-              Passwort ändern
-            </button>
+            <PendingButton className={buttonClass}>Passwort ändern</PendingButton>
           </form>
         </Card>
+
+        {/* Unterschrift und Vollmacht führt nur der Eigentümer selbst – er ist
+            der Wohnungsgeber, in dessen Namen die Bescheinigung entsteht. */}
+        {user.role === "EIGENTUEMER" ? (
+          <Card title="Unterschrift & Vollmacht">
+            {fehler === "signatur" ? (
+              <Alert variant="error" className="mb-3">
+                Die Unterschrift konnte nicht gespeichert werden. Bitte erneut versuchen.
+              </Alert>
+            ) : null}
+            <VollmachtKarte user={user} />
+          </Card>
+        ) : null}
 
         <Card title="Benachrichtigungen">
           <p className="mb-3 text-sm text-gray-600">
@@ -124,6 +141,52 @@ export default async function AccountPage({
           </p>
           <PushToggle />
         </Card>
+
+        {/* Hinweise ein/aus. Bewusst hier und nicht in den
+            Verwalter-Einstellungen: Es ist eine Vorliebe der Person, nicht der
+            Organisation — zwei Eigentümer derselben WEG dürfen es verschieden
+            wollen. */}
+        <div data-tour="hinweise-schalter">
+        <Card title="Erklärungen">
+          <form action={saveShowHints} className="space-y-3">
+            <label className="flex items-start gap-2 text-sm text-gray-800">
+              <input
+                type="checkbox"
+                name="showHints"
+                defaultChecked={user.showHints}
+                className="mt-0.5"
+              />
+              <span>
+                Erklärende Hinweise anzeigen
+                <span className="mt-1 block text-xs text-gray-500">
+                  Kurze Erläuterungen zu Fachbegriffen und Eingaben — etwa was eine
+                  Sollstellung ist oder warum der Verbrauchsanteil bei Heizkosten
+                  zwischen 50 und 70 Prozent liegen muss. Wer das Programm kennt,
+                  schaltet sie hier ab.
+                </span>
+                <span className="mt-1 block text-xs text-gray-500">
+                  Warnungen und Fehlermeldungen bleiben immer sichtbar — sie sind
+                  keine Erklärungen, sondern Hinweise auf etwas, das zu tun ist.
+                </span>
+              </span>
+            </label>
+            <PendingButton className={buttonClass}>Speichern</PendingButton>
+          </form>
+
+          {/* Die Führung erklärt unter anderem genau diesen Schalter — deshalb
+              steht ihr Neustart hier und nicht in einem eigenen Bereich. */}
+          <form action={tourNeuStarten} className="mt-4 border-t border-gray-100 pt-4">
+            <p className="mb-2 text-xs text-gray-500">
+              {user.tourDoneAt
+                ? "Sie haben die kurze Einführung bereits gesehen."
+                : "Die kurze Einführung steht noch aus — sie erscheint beim nächsten Seitenaufruf."}
+            </p>
+            <PendingButton className={buttonSecondaryClass}>
+              Einführung {user.tourDoneAt ? "erneut " : ""}starten
+            </PendingButton>
+          </form>
+        </Card>
+        </div>
       </div>
     </>
   );

@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
+import { Alert, Card, EmptyState, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { PLANS, SUBSCRIPTION_STATUSES, planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { requirePlatformAdmin } from "@/lib/platform";
+import { DateField } from "@/components/fields";
 import {
   extendTrial,
   savePlatformNote,
@@ -64,11 +65,7 @@ export default async function OrganisationDetailPage({
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/plattform/organisationen" className={buttonSecondaryClass}>
-            ← Verwaltungen
-          </Link>
-        }
+        back={{ href: "/plattform/organisationen", label: "Verwaltungen" }}
       >
         {org.name}
       </PageTitle>
@@ -118,7 +115,7 @@ export default async function OrganisationDetailPage({
 
           <Card title="Administrator-Zugänge">
             {org.users.length === 0 ? (
-              <p className="text-sm text-gray-500">Keine SuperAdmins hinterlegt.</p>
+              <EmptyState>Keine SuperAdmins hinterlegt.</EmptyState>
             ) : (
               <ul className="space-y-1 text-sm">
                 {org.users.map((u) => (
@@ -144,7 +141,7 @@ export default async function OrganisationDetailPage({
                 placeholder="Interne Notiz zu diesem Kunden (nur im Betreiber-Bereich sichtbar)…"
                 className={inputClass}
               />
-              <button type="submit" className={buttonSecondaryClass}>Notiz speichern</button>
+              <PendingButton className={buttonSecondaryClass}>Notiz speichern</PendingButton>
             </form>
           </Card>
         </div>
@@ -174,7 +171,7 @@ export default async function OrganisationDetailPage({
                   ))}
                 </select>
               </label>
-              <button type="submit" className={buttonClass}>Übernehmen</button>
+              <PendingButton className={buttonClass}>Übernehmen</PendingButton>
             </form>
           </Card>
 
@@ -184,12 +181,12 @@ export default async function OrganisationDetailPage({
                 <form action={extendTrial}>
                   <input type="hidden" name="id" value={org.id} />
                   <input type="hidden" name="mode" value="30" />
-                  <button type="submit" className={buttonSecondaryClass}>+30 Tage</button>
+                  <PendingButton className={buttonSecondaryClass}>+30 Tage</PendingButton>
                 </form>
                 <form action={extendTrial}>
                   <input type="hidden" name="id" value={org.id} />
                   <input type="hidden" name="mode" value="90" />
-                  <button type="submit" className={buttonSecondaryClass}>+90 Tage</button>
+                  <PendingButton className={buttonSecondaryClass}>+90 Tage</PendingButton>
                 </form>
               </div>
               <form action={extendTrial} className="flex items-end gap-2">
@@ -197,9 +194,12 @@ export default async function OrganisationDetailPage({
                 <input type="hidden" name="mode" value="date" />
                 <label className="text-xs text-gray-500">
                   bis Datum
-                  <input type="date" name="date" className={`${inputClass} mt-1`} />
+                  <DateField
+                    name="date"
+                    className="mt-1"
+                  />
                 </label>
-                <button type="submit" className={buttonSecondaryClass}>Setzen</button>
+                <PendingButton className={buttonSecondaryClass}>Setzen</PendingButton>
               </form>
             </div>
           </Card>

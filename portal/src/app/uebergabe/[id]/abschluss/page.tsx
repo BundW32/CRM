@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
+import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessHandover } from "@/lib/access";
-import { Alert, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { Alert, Card, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
 import { generateHandoverPdf, sendHandoverEmail } from "./actions";
 
@@ -51,7 +52,7 @@ ${handover.managerName ?? ""}`.trim();
 
   return (
     <div className="pb-10 animate-page-in">
-      <StepHeader currentStep={6} title="Abschluss" backHref={`/uebergabe/${id}/unterschriften`} handoverId={id} />
+      <StepHeader currentStep={6} backHref={`/uebergabe/${id}/unterschriften`} handoverId={id} />
 
       <div className="mx-auto max-w-2xl px-4 pt-6 space-y-5">
         {/* Success banner */}
@@ -71,15 +72,12 @@ ${handover.managerName ?? ""}`.trim();
         </div>
 
         {/* PDF section */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-          <h2 className="font-semibold text-gray-900">PDF-Protokoll</h2>
+        <Card title="PDF-Protokoll">
 
           {pdfUrl ? (
             <div className="flex flex-wrap gap-3 items-center">
               <a
                 href={`${pdfUrl}?download=1`}
-                target="_blank"
-                rel="noopener noreferrer"
                 className={buttonClass}
               >
                 <svg viewBox="0 0 24 24" className="mr-2 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -88,9 +86,7 @@ ${handover.managerName ?? ""}`.trim();
                 PDF herunterladen
               </a>
               <form action={generateHandoverPdf.bind(null, id)}>
-                <button type="submit" className={buttonSecondaryClass}>
-                  PDF neu generieren
-                </button>
+                <PendingButton className={buttonSecondaryClass}>PDF neu generieren</PendingButton>
               </form>
             </div>
           ) : (
@@ -104,12 +100,11 @@ ${handover.managerName ?? ""}`.trim();
               </button>
             </form>
           )}
-        </div>
+        </Card>
 
         {/* Email section */}
         {emails.length > 0 && (
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-            <h2 className="font-semibold text-gray-900">Protokoll per E-Mail versenden</h2>
+          <Card title="Protokoll per E-Mail versenden">
 
             {sent && (
               <Alert variant="success">
@@ -156,7 +151,7 @@ ${handover.managerName ?? ""}`.trim();
                 E-Mail senden
               </button>
             </form>
-          </div>
+          </Card>
         )}
 
         {/* Back to overview */}

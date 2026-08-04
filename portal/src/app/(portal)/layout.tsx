@@ -1,113 +1,117 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { InstallHint } from "@/components/install-hint";
 import { NavProgress } from "@/components/nav-progress";
+import { NumericAutoselect } from "@/components/numeric-autoselect";
+import { HashScroll } from "@/components/hash-scroll";
+import { TourHost } from "@/components/tour-host";
 import { PageTransition } from "@/components/page-transition";
-import { PortalHeader } from "@/components/portal-header";
+import { ToastHost } from "@/components/toast-host";
+import { AppShell } from "@/components/app-shell";
 import { AssistantWidget } from "@/components/assistant-widget";
 import { BrandTheme } from "@/components/brand-theme";
+import { CommandPalette, type PaletteNavItem } from "@/components/command-palette";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
-import { isSelfManaged, ownsWegProperty } from "@/lib/access";
+import { SetupBanner } from "@/components/setup-banner";
+import {
+  isBoardMember,
+  isSelfManaged,
+  ownsWegProperty,
+  propertyWhereForVerwalter,
+} from "@/lib/access";
+import { canSeeSettings, navFor, settingsItems, usesCounts } from "@/lib/app-nav";
 import { canUseAssistant, isAssistantEnabled } from "@/lib/assistant";
+import { db } from "@/lib/db";
+import { loadNavCounts } from "@/lib/nav-counts";
 import { isPlatformAdminUser } from "@/lib/platform";
 import { orgLogoUrl } from "@/lib/branding";
 import { roleLabels } from "@/lib/labels";
 import { getOrganization, getSession, requireUser } from "@/lib/session";
-
-const navByRole = {
-  MIETER: [
-    { href: "/dashboard", label: "Übersicht" },
-    { href: "/vorgaenge", label: "Meine Vorgänge" },
-    { href: "/nachrichten", label: "Nachrichten" },
-    { href: "/infos", label: "Infos" },
-    { href: "/zaehler", label: "Zähler" },
-  ],
-  EIGENTUEMER: [
-    { href: "/dashboard", label: "Übersicht" },
-    { href: "/vorgaenge", label: "Vorgänge" },
-    { href: "/beschluesse", label: "Beschlüsse" },
-    { href: "/versammlungen", label: "Versammlungen" },
-    { href: "/finanzen", label: "Finanzen" },
-    { href: "/nachrichten", label: "Nachrichten" },
-    { href: "/infos", label: "Infos" },
-    { href: "/zaehler", label: "Zähler" },
-  ],
-  VERWALTER: [
-    { href: "/dashboard", label: "Übersicht" },
-    { href: "/vorgaenge", label: "Vorgänge" },
-    { href: "/nachrichten", label: "Nachrichten" },
-    { href: "/infos", label: "Infos" },
-    { href: "/zaehler", label: "Zähler" },
-    // Beschlüsse & Versammlungen erreicht der Verwalter über den Verwaltung-Hub
-    // (hält die obere Leiste schlank).
-    { href: "/verwaltung", label: "Verwaltung" },
-  ],
-  HANDWERKER: [
-    { href: "/dashboard", label: "Übersicht" },
-    { href: "/vorgaenge", label: "Meine Aufträge" },
-  ],
-} as const;
-
-// Selbstverwaltete WEGs bekommen eine eigene, abgespeckte WEG-Navigation – ohne
-// professionelle Verwalter-Werkzeuge (Vorgänge, Zähler, Handwerker, Wartung …).
-const selfManagedNav = {
-  // Interner Verwalter (aus der Eigentümergemeinschaft) – darf zusätzlich verwalten.
-  VERWALTER: [
-    { href: "/dashboard", label: "Übersicht" },
-    { href: "/beschluesse", label: "Beschlüsse" },
-    { href: "/versammlungen", label: "Versammlungen" },
-    { href: "/antraege", label: "Anträge" },
-    { href: "/gemeinschaft", label: "Gemeinschaft" },
-    { href: "/verwaltung", label: "Verwaltung" },
-    { href: "/nachrichten", label: "Nachrichten" },
-    { href: "/infos", label: "Infos" },
-  ],
-  // Reguläre Eigentümer der Gemeinschaft.
-  EIGENTUEMER: [
-    { href: "/dashboard", label: "Übersicht" },
-    { href: "/beschluesse", label: "Beschlüsse" },
-    { href: "/versammlungen", label: "Versammlungen" },
-    { href: "/antraege", label: "Anträge" },
-    { href: "/gemeinschaft", label: "Gemeinschaft" },
-    { href: "/finanzen", label: "Finanzen" },
-    { href: "/nachrichten", label: "Nachrichten" },
-    { href: "/infos", label: "Infos" },
-  ],
-} as const;
+import { loadSetupStatus, loadSetupStatusAlle } from "@/lib/weg/setup-status";
 
 export default async function PortalLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const user = await requireUser();
   if (user.mustChangePassword) redirect("/passwort-festlegen");
-  const session = await getSession();
-  const org = await getOrganization();
-  const ownsWeg = user.role === "EIGENTUEMER" ? await ownsWegProperty(user.id) : false;
+  // Unabhängige Abfragen parallel laden (spart pro Seitenaufruf eine DB-Runde).
+  // getSession ist bereits gecacht (dedupliziert mit requireUser).
+  const [session, org, ownsWeg, boardMember] = await Promise.all([
+    getSession(),
+    getOrganization(),
+    user.role === "EIGENTUEMER" ? ownsWegProperty(user.id) : Promise.resolve(false),
+    user.role === "EIGENTUEMER" ? isBoardMember(user.id) : Promise.resolve(false),
+  ]);
   const selfManaged = isSelfManaged(org);
+  const isPlatformAdmin = isPlatformAdminUser(user);
 
-  let nav: ReadonlyArray<{ href: string; label: string }>;
-  if (selfManaged && (user.role === "VERWALTER" || user.role === "EIGENTUEMER")) {
-    // Eigene WEG-Selbstverwaltungs-Oberfläche (kein professionelles Werkzeug).
-    nav = selfManagedNav[user.role];
-    // Eigentümer ohne WEG-Objekt: WEG-spezifische Punkte ausblenden.
-    if (user.role === "EIGENTUEMER" && !ownsWeg) {
-      nav = nav.filter(
-        (item) => !["/beschluesse", "/versammlungen", "/antraege", "/gemeinschaft", "/finanzen"].includes(item.href),
-      );
-    }
-  } else {
-    // Professionelles Profil (unverändert).
-    nav = navByRole[user.role];
-    if (user.role === "EIGENTUEMER" && !ownsWeg) {
-      nav = nav.filter(
-        (item) => !["/beschluesse", "/versammlungen", "/finanzen"].includes(item.href),
-      );
-    }
-  }
-  // Plattform-Betreiber (B&W): Zugang zum internen Betreiber-Bereich.
-  if (isPlatformAdminUser(user)) {
-    nav = [...nav, { href: "/plattform", label: "Plattform" }];
-  }
+  // WEG-Finanzen nur einblenden, wenn WEG-Objekte im Zuständigkeitsbereich liegen.
+  const hasWegObjekte =
+    user.role === "VERWALTER"
+      ? (await db.property.count({
+          where: { ...(await propertyWhereForVerwalter(user)), managementType: "WEG" },
+        })) > 0
+      : false;
+
+  const navContext = {
+    role: user.role,
+    isSuperAdmin: Boolean(user.isSuperAdmin),
+    isPlatformAdmin,
+    selfManaged,
+    hasWegObjekte,
+    ownsWeg,
+    boardMember,
+  };
+  const navGroups = navFor(navContext);
+
+  // Sprungziele der ⌘K-Palette: exakt die Punkte, die diese Rolle ohnehin
+  // erreichen kann. Die Einstellungs-Seiten sind bewusst dabei – sie liegen
+  // hinter dem Zahnrad und sind genau deshalb die, die man sucht.
+  const paletteItems: PaletteNavItem[] = [
+    ...navGroups.flatMap((g) =>
+      g.items.map((i) => ({ title: i.title, href: i.href, group: g.label ?? "Bereiche" })),
+    ),
+    ...(canSeeSettings(navContext)
+      ? settingsItems(selfManaged).map((i) => ({
+          title: i.title,
+          href: i.href,
+          group: "Einstellungen",
+        }))
+      : []),
+    { title: "Konto", href: "/konto", group: "Konto" },
+    ...(isPlatformAdmin ? [{ title: "Plattform", href: "/plattform", group: "Konto" }] : []),
+  ];
+
+  // Zähler-Badges: Promise NICHT awaiten – die Leiste rendert sofort, die Zahlen
+  // streamen nach. Nur für Verwalter, sonst entstünden Abfragen ohne Nutzen.
+  const badgesPromise = usesCounts(navContext) ? loadNavCounts(user) : undefined;
+
+  // Einrichtungs-Band: nur für die verwaltende Person einer selbstverwalteten
+  // WEG und nur, solange die Einrichtung läuft. Das Band selbst blendet sich
+  // auf der Übersicht aus – dort steht der Assistent.
+  //
+  // Gezeigt wird das erste **offene** Objekt, nicht das erste beliebige: Ein
+  // `findFirst` ohne Sortierung lieferte irgendeines, und war das fertig, blieb
+  // das Band für ein zweites, gerade angelegtes Objekt stumm.
+  //
+  // Bewusst auf Selbstverwaltungen begrenzt und auf zehn Objekte gedeckelt:
+  // Jeder Stand kostet sieben Abfragen, und dieses Layout läuft bei **jeder**
+  // Seitenauslieferung. Professionelle Verwaltungen finden den Assistenten im
+  // Arbeitsbereich des Objekts, das sie gerade ansehen.
+  const setup = await (async () => {
+    if (!selfManaged || user.role !== "VERWALTER") return null;
+    const props = await db.property.findMany({
+      where: { ...(await propertyWhereForVerwalter(user)), managementType: "WEG" },
+      orderBy: { name: "asc" },
+      take: 10,
+      select: { id: true },
+    });
+    if (props.length === 0) return loadSetupStatus(null);
+    const staende = await loadSetupStatusAlle(props.map((p) => p.id));
+    return staende.find((s) => !s.fertig) ?? null;
+  })();
+
   // KI-Assistent erscheint als schwebende Bubble (unten rechts), nicht in der
   // Navigation – nur bei Feature-Freigabe und passender Rolle.
   const showAssistant = isAssistantEnabled() && canUseAssistant(user);
@@ -127,16 +131,38 @@ export default async function PortalLayout({
         <ImpersonationBanner customerName={user.name} adminName={session.realUser?.name ?? "Betreiber"} />
       ) : null}
       <BrandTheme primaryColor={org?.primaryColor ?? null} />
+      {/* Kurzmeldungen nach Server-Actions (`?flash=…`). Liest die URL-Parameter
+          und braucht deshalb eine Suspense-Grenze. */}
+      <Suspense fallback={null}>
+        <ToastHost />
+      </Suspense>
       <NavProgress />
-      <PortalHeader
-        nav={nav}
-        userName={user.name}
-        roleLabel={roleLabels[user.role]}
-        logoUrl={logoUrl}
-        orgName={orgName}
-      />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-        <PageTransition>{children}</PageTransition>
+      <NumericAutoselect />
+      <main className="mx-auto w-full max-w-[120rem] flex-1 px-4 py-8">
+        <AppShell
+          groups={navGroups}
+          badgesPromise={badgesPromise}
+          user={{ name: user.name, roleLabel: roleLabels[user.role] }}
+          logoUrl={logoUrl}
+          orgName={orgName}
+          showSettings={canSeeSettings(navContext)}
+          showPlattform={isPlatformAdmin}
+        >
+          {setup && !setup.fertig ? (
+            <SetupBanner
+              erledigt={setup.erledigt}
+              gesamt={setup.gesamt}
+              titel={setup.naechster?.title ?? null}
+            />
+          ) : null}
+          {/* Holt den Ankersprung nach, den der Browser beim gestreamten
+              Erstaufruf verpasst — sonst führen Fehlermeldungen zwar auf die
+              richtige Seite, aber nicht an die Stelle. */}
+          <HashScroll />
+          {/* Geführte Einrichtung — lädt nur, solange sie noch nicht gelaufen ist. */}
+          <TourHost />
+          <PageTransition>{children}</PageTransition>
+        </AppShell>
       </main>
       <footer className="mt-4 px-4 py-6 text-center text-xs text-gray-400">
         {footerLegal}
@@ -167,6 +193,9 @@ export default async function PortalLayout({
         </Link>
       </footer>
       <InstallHint />
+      {/* Datensuche nur für Verwalter – siehe `lib/portal-search.ts`. Die
+          Sprungliste bekommt jede Rolle. */}
+      <CommandPalette navItems={paletteItems} canSearchData={user.role === "VERWALTER"} />
       {showAssistant ? <AssistantWidget /> : null}
     </div>
   );

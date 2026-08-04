@@ -1,14 +1,7 @@
 import Link from "next/link";
-import {
-  Alert,
-  Card,
-  EmptyState,
-  Field,
-  PageTitle,
-  buttonClass,
-  buttonSecondaryClass,
-  inputClass,
-} from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
+import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { db } from "@/lib/db";
 import { formatDateOnly } from "@/lib/labels";
 import { requireWegProperty } from "@/lib/weg/scope";
@@ -21,23 +14,71 @@ export default async function JahresabrechnungListPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{ geloescht?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const { propertyId } = await params;
   const { property } = await requireWegProperty(propertyId);
   const sp = await searchParams;
+  const jahr = /^\d{4}$/.test(sp.jahr ?? "") ? Number(sp.jahr) : undefined;
 
   const statements = await db.annualStatement.findMany({
-    where: { propertyId: property.id },
+    where: { propertyId: property.id, ...(jahr ? { year: jahr } : {}) },
     orderBy: { year: "desc" },
   });
 
-  const lastYear = new Date().getFullYear() - 1;
-  const suggestedYear = statements.some((s) => s.year === lastYear) ? lastYear + 1 : lastYear;
+  // Alle vorhandenen Jahrgänge für die Auswahl – unabhängig vom aktiven Filter.
+  const allYears = await db.annualStatement.findMany({
+    where: { propertyId: property.id },
+    orderBy: { year: "desc" },
+    select: { year: true },
+  });
+
+  const thisYear = new Date().getFullYear();
+  const lastYear = thisYear - 1;
+  // Bewusst gegen ALLE Jahrgänge geprüft, nicht gegen die gefilterte Liste –
+  // sonst schlüge das Formular bei aktivem Filter ein falsches Jahr vor.
+  const vorschlag = allYears.some((s) => s.year === lastYear) ? lastYear + 1 : lastYear;
+
+  // Das Vorjahr ist nur dann der richtige Vorschlag, wenn es die Gemeinschaft
+  // damals schon gab. Eine 2026 gegründete WEG bekam sonst „2025" vorgeschlagen
+  // — ein Jahr, für das es nichts abzurechnen gibt und nie geben wird. Der
+  // Kalender allein weiß das nicht; die Daten wissen es.
+  const [ersterPlan, ersteBuchung] = await Promise.all([
+    db.economicPlan.findFirst({
+      where: { propertyId: property.id },
+      orderBy: { year: "asc" },
+      select: { year: true },
+    }),
+    db.booking.findFirst({
+      where: { propertyId: property.id },
+      orderBy: { bookingDate: "asc" },
+      select: { bookingDate: true },
+    }),
+  ]);
+  const datenAb = Math.min(
+    ersterPlan?.year ?? Number.POSITIVE_INFINITY,
+    ersteBuchung?.bookingDate.getFullYear() ?? Number.POSITIVE_INFINITY,
+  );
+  // Ohne jede Datenspur bleibt es beim bisherigen Vorschlag – dann ist nichts
+  // Besseres bekannt. Nie über das laufende Jahr hinaus.
+  const suggestedYear = Number.isFinite(datenAb)
+    ? Math.min(Math.max(vorschlag, datenAb), thisYear)
+    : vorschlag;
+
+  const yearFilters: FilterConfig[] = [
+    {
+      key: "jahr",
+      label: "Jahr",
+      allLabel: "Alle Jahre",
+      primary: true,
+      options: allYears.map((s) => ({ value: String(s.year), label: String(s.year) })),
+    },
+  ];
 
   return (
     <>
       <PageTitle
+        back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
         action={
           <div className="flex gap-2">
             <Link
@@ -45,9 +86,6 @@ export default async function JahresabrechnungListPage({
               className={buttonSecondaryClass}
             >
               Wirtschaftsplan
-            </Link>
-            <Link href="/verwaltung/weg" className={buttonSecondaryClass}>
-              ← WEG-Finanzen
             </Link>
           </div>
         }
@@ -81,15 +119,19 @@ export default async function JahresabrechnungListPage({
                 required
               />
             </Field>
-            <button type="submit" className={buttonClass}>
-              Abrechnung anlegen
-            </button>
+            <PendingButton className={buttonClass}>Abrechnung anlegen</PendingButton>
           </form>
         </Card>
 
         <Card title="Abrechnungen">
+          {allYears.length > 1 ? <FilterBar className="mb-3" filters={yearFilters} /> : null}
+
           {statements.length === 0 ? (
-            <EmptyState>Noch keine Jahresabrechnung vorhanden.</EmptyState>
+            <EmptyState>
+              {jahr
+                ? "Für dieses Jahr liegt keine Abrechnung vor."
+                : "Noch keine Jahresabrechnung vorhanden."}
+            </EmptyState>
           ) : (
             <div className="grid gap-3">
               {statements.map((s) => (

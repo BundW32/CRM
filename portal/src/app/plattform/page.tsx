@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CountUp } from "@/components/count-up";
-import { PageTitle } from "@/components/ui";
+import { Card, PageTitle, cardSurfaceClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/platform";
 
@@ -65,7 +65,7 @@ export default async function PlattformDashboard() {
         {kpis.map((k) => (
           <div
             key={k.label}
-            className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+            className={`relative overflow-hidden p-4 ${cardSurfaceClass}`}
           >
             <span
               className={`absolute inset-x-0 top-0 h-1 ${k.warn ? "bg-red-500" : "bg-brand-orange"}`}
@@ -80,8 +80,7 @@ export default async function PlattformDashboard() {
 
       {/* Abo-Status-Verteilung + Rollen */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold text-gray-900">Abo-Status</h2>
+        <Card title="Abo-Status">
           <ul className="space-y-1 text-sm text-gray-600">
             {statusGroups.length === 0 ? (
               <li className="text-gray-400">Noch keine Verwaltungen.</li>
@@ -94,9 +93,8 @@ export default async function PlattformDashboard() {
               ))
             )}
           </ul>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold text-gray-900">Nutzer nach Rolle</h2>
+        </Card>
+        <Card title="Nutzer nach Rolle">
           <ul className="space-y-1 text-sm text-gray-600">
             {(["VERWALTER", "EIGENTUEMER", "MIETER", "HANDWERKER"] as const).map((role) => (
               <li key={role} className="flex justify-between">
@@ -105,7 +103,7 @@ export default async function PlattformDashboard() {
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -113,7 +111,7 @@ export default async function PlattformDashboard() {
           <Link
             key={t.href}
             href={t.href}
-            className="group rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+            className={`group p-5 transition hover:shadow-md ${cardSurfaceClass}`}
           >
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900">{t.title}</h2>

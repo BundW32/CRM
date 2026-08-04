@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Alert, buttonSecondaryClass } from "@/components/ui";
+import { BackLink, Alert } from "@/components/ui";
 import { LetterHead, letterFooterLine } from "@/components/letter-branding";
 import { canVerwalterManageUser } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -8,20 +7,21 @@ import { brandingFromOrg, orgLogoUrl } from "@/lib/branding";
 import { portalUrl } from "@/lib/mailer";
 import { formatDate, roleLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
+import { liesErstzugaenge } from "@/lib/zugangsschreiben";
 import { PrintButton } from "./print-button";
 
 export const dynamic = "force-dynamic";
 
 export default async function ZugangsschreibenPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ pw?: string }>;
 }) {
   const verwalter = await requireVerwalter();
   const { id } = await params;
-  const { pw } = await searchParams;
+  // Das Erst-Passwort kommt aus einem kurzlebigen, pfadgebundenen Cookie, nicht
+  // mehr aus `?pw=` — siehe `lib/zugangsschreiben.ts`.
+  const pw = (await liesErstzugaenge()).get(id);
 
   // Scope-/Org-Wand: nur Zugangsschreiben von Nutzern im eigenen Zuständigkeitsbereich.
   if (!(await canVerwalterManageUser(verwalter, id))) notFound();
@@ -55,17 +55,15 @@ export default async function ZugangsschreibenPage({
     <main className="min-h-screen bg-gray-100 py-8 print:bg-white print:py-0">
       {/* Steuerleiste – nicht im Druck */}
       <div className="no-print mx-auto mb-4 flex max-w-3xl items-center justify-between px-6">
-        <Link href="/verwaltung/nutzer" className={buttonSecondaryClass}>
-          ← Zurück zu Nutzer
-        </Link>
+        <BackLink href="/verwaltung/nutzer" tone="onLight">Zurück zu Nutzer</BackLink>
         <PrintButton />
       </div>
 
       {!pw ? (
         <Alert variant="warning" className="no-print mx-auto mb-4 max-w-3xl">
-          Das Erst-Passwort kann aus Sicherheitsgründen nur direkt nach der Erstellung
-          angezeigt werden. Über „Nutzer → Zugangsschreiben neu erstellen“ können Sie ein
-          neues Erst-Passwort erzeugen.
+          Das Erst-Passwort kann aus Sicherheitsgründen nur wenige Minuten nach der
+          Erstellung angezeigt werden. Über „Nutzer → Zugangsschreiben neu erstellen“
+          können Sie ein neues Erst-Passwort erzeugen.
         </Alert>
       ) : null}
 

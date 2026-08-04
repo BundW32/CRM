@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Badge } from "@/components/data-display";
 
 const STEPS = [
   { label: "Stammdaten", slug: "stammdaten" },
@@ -11,14 +12,21 @@ const STEPS = [
   { label: "Abschluss", slug: "abschluss" },
 ];
 
+/**
+ * Kopfleiste des Übergabe-Assistenten: Rücksprung und Schrittkette.
+ *
+ * Bewusst **ohne** Titel des aktuellen Schritts. Er stand hier einmal, sagte
+ * aber nichts, was die Schrittkette daneben nicht schon zeigte – und der Platz
+ * reichte nie: In der Leiste blieb von „Unterschriften" ein „Unt…" übrig. Der
+ * gewonnene Platz geht stattdessen an die Schritt-Beschriftungen, die dadurch
+ * schon ab `md` erscheinen statt erst ab `lg`.
+ */
 export function StepHeader({
   currentStep,
-  title,
   backHref,
   handoverId,
 }: {
   currentStep: number;
-  title: string;
   backHref: string;
   /** Wenn gesetzt, sind die Schritte im Header direkt anklickbar. */
   handoverId?: string;
@@ -39,9 +47,7 @@ export function StepHeader({
 
           <span className="hidden h-4 w-px bg-gray-200 sm:block" />
 
-          <span className="text-sm font-semibold text-gray-900">{title}</span>
-
-          <div className="ml-auto hidden items-center gap-1 sm:flex">
+          <div className="ml-auto hidden shrink-0 items-center gap-1 md:flex">
             {STEPS.map((step, i) => {
               const n = i + 1;
               const active = n === currentStep;
@@ -60,7 +66,7 @@ export function StepHeader({
                     {done ? "✓" : n}
                   </div>
                   <span
-                    className={`text-[11px] font-medium ${
+                    className={`hidden text-[11px] font-medium md:inline ${
                       active ? "text-brand-orange-dark" : done ? "text-brand-green" : "text-gray-400"
                     }`}
                   >
@@ -88,11 +94,16 @@ export function StepHeader({
             })}
           </div>
 
-          {/* Mobile: kompaktes, anklickbares Schritt-Menü */}
-          <div className="ml-auto sm:hidden">
+          {/* Kompaktes, anklickbares Schritt-Menü (bis Labels ab lg Platz haben) */}
+          <div className="ml-auto shrink-0 md:hidden">
             {handoverId ? (
               <details className="relative">
                 <summary className="flex cursor-pointer list-none items-center gap-1 rounded-full bg-brand-orange-light px-2.5 py-1 text-xs font-semibold text-brand-orange-dark">
+                  {/* Auf Mobil trägt dieses Element allein die Ortsangabe – die
+                      Schrittkette ist dort ausgeblendet. Der Name steht deshalb
+                      ab `sm` dabei; darunter bleibt es bei „5/6", weil ein
+                      langer Name die Leiste sonst wieder sprengen würde. */}
+                  <span className="hidden sm:inline">{STEPS[currentStep - 1]?.label} </span>
                   {currentStep}/{STEPS.length}
                   <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
@@ -120,9 +131,9 @@ export function StepHeader({
                 </div>
               </details>
             ) : (
-              <span className="rounded-full bg-brand-orange-light px-2 py-0.5 text-xs font-semibold text-brand-orange-dark">
+              <Badge tone="accent">
                 {currentStep}/{STEPS.length}
-              </span>
+              </Badge>
             )}
           </div>
         </div>

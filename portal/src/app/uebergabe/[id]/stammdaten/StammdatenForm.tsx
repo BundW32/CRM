@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { PendingButton } from "@/components/pending-button";
 import { inputClass, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { KeysSection } from "./KeysSection";
 import { saveStammdaten } from "./actions";
+import { DateField } from "@/components/fields";
 
 type HandoverType = "EINZUG" | "AUSZUG" | "ZWISCHENZUSTAND";
 
@@ -138,12 +140,18 @@ export function StammdatenForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <FieldLabel>Protokolldatum</FieldLabel>
-            <input type="date" name="handoverDate" defaultValue={initial.handoverDate} className={inputClass} />
+            <DateField
+              name="handoverDate"
+              defaultValue={initial.handoverDate}
+            />
             <p className="mt-1 text-xs text-gray-400">Tag der Protokollaufnahme</p>
           </div>
           <div>
             <FieldLabel>{MOVE_DATE_LABEL[type]}</FieldLabel>
-            <input type="date" name="moveDate" defaultValue={initial.moveDate} className={inputClass} />
+            <DateField
+              name="moveDate"
+              defaultValue={initial.moveDate}
+            />
             <p className="mt-1 text-xs text-gray-400">
               {type === "ZWISCHENZUSTAND" ? "Stichtag der Begehung" : "Tatsächlicher Übergabetermin"}
             </p>
@@ -161,7 +169,10 @@ export function StammdatenForm({
           </div>
           <div>
             <FieldLabel>Geburtsdatum</FieldLabel>
-            <input type="date" name="tenantBirthDate" defaultValue={initial.tenantBirthDate} className={inputClass} />
+            <DateField
+              name="tenantBirthDate"
+              defaultValue={initial.tenantBirthDate}
+            />
           </div>
           <div>
             <FieldLabel>E-Mail</FieldLabel>
@@ -196,7 +207,10 @@ export function StammdatenForm({
               </div>
               <div>
                 <FieldLabel>Geburtsdatum</FieldLabel>
-                <input type="date" name="tenant2BirthDate" defaultValue={initial.tenant2BirthDate} className={inputClass} />
+                <DateField
+                  name="tenant2BirthDate"
+                  defaultValue={initial.tenant2BirthDate}
+                />
               </div>
             </div>
           </div>
@@ -290,12 +304,8 @@ export function StammdatenForm({
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <button type="submit" name="_action" value="save" className={buttonSecondaryClass}>
-          Speichern &amp; schließen
-        </button>
-        <button type="submit" name="_action" value="next" className={buttonClass}>
-          Weiter: Räume →
-        </button>
+        <PendingButton name="_action" value="save" className={buttonSecondaryClass}>Speichern &amp; schließen</PendingButton>
+        <PendingButton name="_action" value="next" className={buttonClass}>Weiter: Räume →</PendingButton>
       </div>
     </form>
   );

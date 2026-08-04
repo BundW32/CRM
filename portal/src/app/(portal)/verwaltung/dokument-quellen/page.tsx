@@ -1,8 +1,16 @@
-import Link from "next/link";
-import { Alert, PageTitle, buttonSecondaryClass } from "@/components/ui";
+import {
+  Alert,
+  Card,
+  EmptyState,
+  PageTitle,
+} from "@/components/ui";
+import { ComboField } from "@/components/combo-field";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
 import { propertyIdsForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { requireVerwalter } from "@/lib/session";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { createDocumentSourceConfig, deleteDocumentSourceConfig, triggerSync } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -51,15 +59,15 @@ export default async function DokumentQuellenPage({
   ]);
 
   const gdriveReady = Boolean(process.env.GDRIVE_SERVICE_ACCOUNT_JSON);
+  // Wer die Funktion freischalten kann, bekommt den technischen Grund; alle
+  // anderen die Folge. Ein Kunde kann an einer Umgebungsvariablen nichts ändern –
+  // ihm ihren Namen zu nennen erzeugt nur das Gefühl, etwas falsch gemacht zu haben.
+  const istBetreiber = isPlatformAdminUser(verwalter);
 
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
-        }
+        back={{ href: "/verwaltung/einstellungen", label: "Einstellungen" }}
       >
         Dokument-Quellen
       </PageTitle>
@@ -70,13 +78,20 @@ export default async function DokumentQuellenPage({
         übersprungen.
       </p>
 
-      {!gdriveReady && (
-        <Alert variant="warning" className="mb-6">
-          <strong>Hinweis:</strong> Die Umgebungsvariable{" "}
-          <code className="rounded bg-amber-100 px-1">GDRIVE_SERVICE_ACCOUNT_JSON</code> ist nicht
-          gesetzt — Google Drive Sync ist deaktiviert. Bitte ein Service-Account-JSON hinterlegen.
-        </Alert>
-      )}
+      {!gdriveReady &&
+        (istBetreiber ? (
+          <Alert variant="warning" title="Betreiber-Hinweis:" className="mb-6">
+            Die Umgebungsvariable{" "}
+            <code className="rounded bg-amber-100 px-1">GDRIVE_SERVICE_ACCOUNT_JSON</code> ist
+            nicht gesetzt — Google Drive Sync ist deaktiviert. Bitte ein Service-Account-JSON
+            hinterlegen.
+          </Alert>
+        ) : (
+          <Alert variant="info" className="mb-6">
+            Der automatische Dokumenten-Sync ist für Ihr Portal derzeit nicht freigeschaltet.
+            Melden Sie sich bei uns, wenn Sie ihn nutzen möchten.
+          </Alert>
+        ))}
 
       {params.fehler === "eingabe" && (
         <Alert variant="error" className="mb-4">
@@ -108,10 +123,7 @@ export default async function DokumentQuellenPage({
           {configs.map((cfg) => {
             const folderConfig = cfg.config as { folderId?: string };
             return (
-              <div
-                key={cfg.id}
-                className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
-              >
+              <Card key={cfg.id}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <p className="font-semibold text-gray-900">{cfg.label}</p>
@@ -145,28 +157,30 @@ export default async function DokumentQuellenPage({
                     </form>
                     <form action={deleteDocumentSourceConfig}>
                       <input type="hidden" name="id" value={cfg.id} />
-                      <button
-                        type="submit"
+                      <ConfirmActionButton
                         className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                        confirmLabel="Wirklich löschen?"
+                        pendingLabel="Wird gelöscht…"
                       >
                         Löschen
-                      </button>
+                      </ConfirmActionButton>
                     </form>
                   </div>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
       )}
 
       {configs.length === 0 && (
-        <p className="mb-6 text-sm text-gray-400">Noch keine Quellen konfiguriert.</p>
+        <div className="mb-6">
+          <EmptyState>Noch keine Quellen konfiguriert.</EmptyState>
+        </div>
       )}
 
       {/* Neue Quelle anlegen */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-base font-semibold text-gray-900">Neue Google Drive Quelle</h2>
+      <Card title="Neue Google Drive Quelle">
         <form action={createDocumentSourceConfig} className="space-y-4">
           <input type="hidden" name="source" value="GDRIVE" />
 
@@ -196,23 +210,13 @@ export default async function DokumentQuellenPage({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Objekt{" "}
-                <span className="font-normal text-gray-400">(optional)</span>
-              </label>
-              <select
-                name="propertyId"
-                className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
-              >
-                <option value="">– kein Objekt –</option>
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <ComboField
+              label="Objekt (optional)"
+              name="propertyId"
+              placeholder="Objekt suchen …"
+              clearOption="– kein Objekt –"
+              options={properties.map((p) => ({ value: p.id, label: p.name }))}
+            />
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Empfänger</label>
@@ -241,14 +245,9 @@ export default async function DokumentQuellenPage({
             </div>
           </div>
 
-          <button
-            type="submit"
-            className="rounded-xl bg-brand-orange px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-          >
-            Quelle anlegen
-          </button>
+          <PendingButton className="rounded-xl bg-brand-orange px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90">Quelle anlegen</PendingButton>
         </form>
-      </div>
+      </Card>
     </>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { PendingButton } from "@/components/pending-button";
+import { Card, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { saveCheckliste } from "./actions";
 
 type CheckItem = { key: string; label: string };
@@ -113,8 +114,7 @@ export function ChecklisteForm({
         </div>
 
         {sections.map((section) => (
-          <div key={section.title} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-gray-900 mb-3">{section.title}</h2>
+          <Card key={section.title} title={section.title}>
             <div className="divide-y divide-gray-100">
               {section.items.map((item) => (
                 <CheckRow
@@ -125,12 +125,11 @@ export function ChecklisteForm({
                 />
               ))}
             </div>
-          </div>
+          </Card>
         ))}
 
         {/* General notes */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-          <h2 className="font-semibold text-gray-900">Anmerkungen &amp; Vereinbarungen</h2>
+        <Card title="Anmerkungen &amp; Vereinbarungen">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Allgemeine Anmerkungen</label>
             <textarea
@@ -151,15 +150,11 @@ export function ChecklisteForm({
               placeholder="z. B. Mieter streicht Wand bis 01.07. neu …"
             />
           </div>
-        </div>
+        </Card>
 
         <div className="flex items-center justify-between gap-3">
-          <button type="submit" name="_action" value="save" className={buttonSecondaryClass}>
-            Speichern &amp; schließen
-          </button>
-          <button type="submit" name="_action" value="next" className={buttonClass}>
-            Weiter: Zählerstände →
-          </button>
+          <PendingButton name="_action" value="save" className={buttonSecondaryClass}>Speichern &amp; schließen</PendingButton>
+          <PendingButton name="_action" value="next" className={buttonClass}>Weiter: Zählerstände →</PendingButton>
         </div>
       </form>
     </div>

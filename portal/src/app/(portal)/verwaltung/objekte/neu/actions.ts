@@ -1,19 +1,23 @@
 "use server";
 
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { generatePassword, generateUsername } from "@/lib/credentials";
+import type { User } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
-import { getBrandingForOrg } from "@/lib/branding-server";
-import { portalUrl, sendMail } from "@/lib/mailer";
-import { requireVerwalter } from "@/lib/session";
+import { merkeErstzugaenge } from "@/lib/zugangsschreiben";
+import { isSelfManaged } from "@/lib/access";
+import {
+  type PersonTreffer,
+  searchPersons,
+  verifyExistingPerson,
+} from "@/lib/person-search";
+import { getOrganization, requireVerwalter } from "@/lib/session";
+import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
+import { inviteOrLetter } from "@/lib/user-invite";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 
 const MAX_UNITS = 100;
 const MAX_TENANTS = 100;
-const INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 Tage
 
 function optInt(raw: FormDataEntryValue | null): number | null {
   const v = String(raw ?? "").trim();
@@ -34,69 +38,46 @@ function optStr(raw: FormDataEntryValue | null, max = 200): string | null {
   return v ? v.slice(0, max) : null;
 }
 
-async function inviteOrLetter(opts: {
-  name: string;
-  email: string | null;
-  phone: string | null;
-  role: "EIGENTUEMER" | "MIETER";
-  organizationId: string;
-}): Promise<{ id: string; pw: string } | null> {
-  // Existiert bereits ein Nutzer mit dieser E-Mail, wird dieser mit dem Objekt
-  // verknüpft – aber nur, wenn er zur SELBEN Org gehört (sonst kein Cross-Org-Link).
-  if (opts.email) {
-    const exists = await db.user.findUnique({
-      where: { email: opts.email },
-      select: { id: true, organizationId: true },
-    });
-    if (exists) {
-      return exists.organizationId === opts.organizationId ? { id: exists.id, pw: "" } : null;
-    }
-  }
+// ── Bestehende Person statt Dublette ────────────────────────────────────────
+// Dasselbe Muster wie beim Bearbeiten eines Objekts: Ab zwei getippten Zeichen
+// im Nachnamen werden vorhandene Personen vorgeschlagen. Ohne diesen Vorschlag
+// legte der Zugangsschreiben-Weg (kein E-Mail-Feld gefüllt) für jede Einheit
+// ein weiteres Konto derselben Person an.
+export async function searchPersonsForNewObjekt(
+  query: string,
+  role: "MIETER" | "EIGENTUEMER",
+): Promise<PersonTreffer[]> {
+  const actor = await requireVerwalter();
+  return searchPersons(actor, query, role);
+}
 
-  if (opts.email) {
-    const inviteToken = crypto.randomBytes(32).toString("hex");
-    const user = await db.user.create({
-      data: {
-        name: opts.name,
-        email: opts.email,
-        phone: opts.phone ?? undefined,
-        role: opts.role,
-        passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12),
-        passwordResetToken: inviteToken,
-        passwordResetExpiry: new Date(Date.now() + INVITE_TTL_MS),
-        organizationId: opts.organizationId,
-      },
-    });
-    const branding = await getBrandingForOrg(opts.organizationId);
-    await sendMail(
-      opts.email,
-      "Ihr Zugang zum Kundenportal",
-      `Guten Tag ${opts.name},\n\n` +
-        `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.\n\n` +
-        `Zugang einrichten (gültig 7 Tage):\n` +
-        `${portalUrl(`/login/reset/${inviteToken}?einladung=1`)}\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
-      undefined,
-      branding
-    );
-    return { id: user.id, pw: "" };
+/**
+ * Liefert die Person für eine Formularzeile: entweder die im Vorschlag
+ * gewählte bestehende – dann entsteht KEIN zweiter Zugang – oder eine neu
+ * angelegte über `inviteOrLetter`.
+ *
+ * Die gewählte ID stammt aus einem versteckten Feld und wird deshalb gegen
+ * Organisation und Rolle geprüft, bevor sie verwendet wird.
+ */
+async function personFuerZeile(
+  actor: User,
+  chosenId: string,
+  neu: {
+    name: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    phone: string | null;
+    role: "EIGENTUEMER" | "MIETER";
+  },
+): Promise<{ id: string; pw: string } | null> {
+  if (chosenId) {
+    const verified = await verifyExistingPerson(actor, chosenId, neu.role);
+    // Eine ungültige ID darf nicht stillschweigend zu einem neuen Konto
+    // führen – sonst wäre genau die Dublette zurück, die wir verhindern.
+    return verified ? { id: verified, pw: "" } : null;
   }
-
-  // Ohne E-Mail: Zugangsschreiben mit Benutzername + Erst-Passwort
-  const tempPassword = generatePassword(10);
-  const username = await generateUsername(opts.name);
-  const user = await db.user.create({
-    data: {
-      name: opts.name,
-      username,
-      phone: opts.phone ?? undefined,
-      role: opts.role,
-      passwordHash: await bcrypt.hash(tempPassword, 12),
-      mustChangePassword: true,
-      organizationId: opts.organizationId,
-    },
-  });
-  return { id: user.id, pw: tempPassword };
+  return inviteOrLetter({ ...neu, organizationId: actor.organizationId });
 }
 
 export async function createObjekt(formData: FormData) {
@@ -113,10 +94,28 @@ export async function createObjekt(formData: FormData) {
     redirect("/verwaltung/objekte/neu?fehler=objekt");
   }
 
-  const managementType =
-    String(formData.get("managementType") ?? "") === "WEG" ? "WEG" : "MIETVERWALTUNG";
+  // Selbstverwalter verwalten ausschließlich ihre eigene WEG – ein Mietshaus
+  // (Mietverwaltung) dürfen sie nicht anlegen. Serverseitig erzwingen, unabhängig
+  // vom übermittelten Formularwert.
+  const org = await getOrganization();
+  const managementType = isSelfManaged(org)
+    ? "WEG"
+    : String(formData.get("managementType") ?? "") === "WEG"
+      ? "WEG"
+      : "MIETVERWALTUNG";
   const vpRaw = String(formData.get("votingPrinciple") ?? "");
   const votingPrinciple = vpRaw === "MEA" ? "MEA" : vpRaw === "OBJEKT" ? "OBJEKT" : "KOPF";
+
+  // Titelbild (optional) – ein Fehler beim Bild darf die Objektanlage nie blockieren.
+  let titleImageStoredName: string | null = null;
+  const titleImageFile = formData.get("titleImage");
+  if (titleImageFile instanceof File && titleImageFile.size > 0) {
+    try {
+      titleImageStoredName = (await saveUpload(titleImageFile, IMAGE_TYPES)).storedName;
+    } catch {
+      titleImageStoredName = null;
+    }
+  }
 
   // ── Objekt anlegen (inkl. optionaler Stammdaten) ────────────────────
   const property = await db.property.create({
@@ -134,22 +133,44 @@ export async function createObjekt(formData: FormData) {
       buildingType: optStr(formData.get("buildingType")),
       heatingType: optStr(formData.get("heatingType")),
       notes: optStr(formData.get("notes"), 2000),
+      titleImageStoredName,
     },
   });
 
   // ── Einheiten ───────────────────────────────────────────────────────
+  // Fläche/MEA/Personen je Einheit indexgleich zu unitLabel einlesen (VOR dem
+  // Leerfilter), damit die Zuordnung erhalten bleibt. MEA nur bei WEG.
   const unitLabels = formData.getAll("unitLabel").map((v) => String(v).trim());
+  const unitExternals = formData.getAll("unitExternalLabel").map((v) => String(v).trim());
   const unitFloors = formData.getAll("unitFloor").map((v) => String(v).trim());
+  const unitAreas = formData.getAll("unitArea").map((v) => String(v));
+  const unitMeas = formData.getAll("unitMea").map((v) => String(v));
+  const unitPersonsRaw = formData.getAll("unitPersons").map((v) => String(v));
   const unitLabelToId = new Map<string, string>();
 
   const unitsToCreate = unitLabels
-    .map((label, i) => ({ label: label.slice(0, 200), floor: unitFloors[i] || undefined }))
+    .map((label, i) => ({
+      label: label.slice(0, 200),
+      externalLabel: (unitExternals[i] ?? "").slice(0, 200) || null,
+      floor: unitFloors[i] || undefined,
+      livingArea: optFloat(unitAreas[i] ?? null),
+      mea: managementType === "WEG" ? optInt(unitMeas[i] ?? null) : null,
+      personCount: optInt(unitPersonsRaw[i] ?? null),
+    }))
     .filter((u) => u.label.length > 0)
     .slice(0, MAX_UNITS);
 
   if (unitsToCreate.length > 0) {
     await db.unit.createMany({
-      data: unitsToCreate.map((u) => ({ propertyId: property.id, label: u.label, floor: u.floor })),
+      data: unitsToCreate.map((u) => ({
+        propertyId: property.id,
+        label: u.label,
+        externalLabel: u.externalLabel,
+        floor: u.floor,
+        livingArea: u.livingArea,
+        mea: u.mea,
+        personCount: u.personCount,
+      })),
     });
     const created = await db.unit.findMany({
       where: { propertyId: property.id },
@@ -162,15 +183,18 @@ export async function createObjekt(formData: FormData) {
   const letterUsers: Array<{ id: string; pw: string }> = [];
 
   // ── Eigentümer (optional, einzeln) ──────────────────────────────────
-  const eigName = String(formData.get("eigName") ?? "").trim();
+  const eigFirst = String(formData.get("eigFirstName") ?? "").trim();
+  const eigLast = String(formData.get("eigLastName") ?? "").trim();
+  const eigName = `${eigFirst} ${eigLast}`.trim();
   if (eigName.length >= 2) {
     const eigEmailRaw = String(formData.get("eigEmail") ?? "").trim().toLowerCase();
-    const result = await inviteOrLetter({
+    const result = await personFuerZeile(actor, String(formData.get("eigUserId") ?? "").trim(), {
       name: eigName,
+      firstName: eigFirst || null,
+      lastName: eigLast || null,
       email: eigEmailRaw && eigEmailRaw.includes("@") ? eigEmailRaw : null,
       phone: optStr(formData.get("eigPhone"), 50),
       role: "EIGENTUEMER",
-      organizationId: actor.organizationId,
     });
     if (result) {
       // catch: bereits bestehende Verknüpfung (Unique-Constraint) ignorieren
@@ -187,24 +211,34 @@ export async function createObjekt(formData: FormData) {
   // Grundlage der zeitanteiligen Abrechnung) UND objektweit (Ownership, für
   // Stimmrecht/MEA und Belegeinsicht).
   if (managementType === "WEG") {
-    const ownerNames = formData.getAll("wegOwnerName").map((v) => String(v).trim());
+    const ownerFirst = formData.getAll("wegOwnerFirstName").map((v) => String(v).trim());
+    const ownerLast = formData.getAll("wegOwnerLastName").map((v) => String(v).trim());
     const ownerEmails = formData.getAll("wegOwnerEmail").map((v) => String(v).trim().toLowerCase());
     const ownerPhones = formData.getAll("wegOwnerPhone").map((v) => String(v).trim());
     const ownerUnits = formData.getAll("wegOwnerUnit").map((v) => String(v).trim());
-    const ownerCount = Math.min(ownerNames.length, MAX_TENANTS);
+    // „Eigentümer seit": Zuvor stand hier stumpf das Anlagedatum. Der Stichtag
+    // entscheidet aber, wer bei einem Verkauf welchen Teil der Jahresabrechnung
+    // trägt — ein falsches Datum verfälscht sie. Leer bleibt heute.
+    const ownerSince = formData.getAll("wegOwnerSince").map((v) => String(v).trim());
+    // Im Vorschlag gewählte bestehende Person – indexgleich zu den Namensfeldern.
+    const ownerUserIds = formData.getAll("wegOwnerUserId").map((v) => String(v).trim());
+    const ownerCount = Math.min(ownerFirst.length, MAX_TENANTS);
     for (let i = 0; i < ownerCount; i++) {
-      const oName = ownerNames[i];
-      if (!oName || oName.length < 2) continue;
+      const oFirst = ownerFirst[i] ?? "";
+      const oLast = ownerLast[i] ?? "";
+      const oName = `${oFirst} ${oLast}`.trim();
+      if (oName.length < 2) continue;
       const unitId = ownerUnits[i] ? unitLabelToId.get(ownerUnits[i]) : undefined;
       if (!unitId) continue; // ohne Einheit keine WEG-Eigentümerschaft
 
       const oEmailRaw = ownerEmails[i] ?? "";
-      const result = await inviteOrLetter({
+      const result = await personFuerZeile(actor, ownerUserIds[i] ?? "", {
         name: oName,
+        firstName: oFirst || null,
+        lastName: oLast || null,
         email: oEmailRaw && oEmailRaw.includes("@") ? oEmailRaw : null,
         phone: ownerPhones[i] ? ownerPhones[i].slice(0, 50) : null,
         role: "EIGENTUEMER",
-        organizationId: actor.organizationId,
       });
       if (result) {
         await db.unitOwnership
@@ -213,7 +247,11 @@ export async function createObjekt(formData: FormData) {
               organizationId: actor.organizationId,
               unitId,
               userId: result.id,
-              validFrom: new Date(),
+              validFrom: (() => {
+                const roh = ownerSince[i] ?? "";
+                const d = roh ? new Date(roh) : null;
+                return d && !Number.isNaN(d.getTime()) ? d : new Date();
+              })(),
             },
           })
           .catch(() => {});
@@ -229,23 +267,29 @@ export async function createObjekt(formData: FormData) {
   }
 
   // ── Mieter (optional, je eine Karte) ────────────────────────────────
-  const tenantNames = formData.getAll("tenantName").map((v) => String(v).trim());
+  const tenantFirst = formData.getAll("tenantFirstName").map((v) => String(v).trim());
+  const tenantLast = formData.getAll("tenantLastName").map((v) => String(v).trim());
   const tenantEmails = formData.getAll("tenantEmail").map((v) => String(v).trim().toLowerCase());
   const tenantPhones = formData.getAll("tenantPhone").map((v) => String(v).trim());
   const tenantUnits = formData.getAll("tenantUnit").map((v) => String(v).trim());
+  // Im Vorschlag gewählte bestehende Person – indexgleich zu den Namensfeldern.
+  const tenantUserIds = formData.getAll("tenantUserId").map((v) => String(v).trim());
 
-  const tenantCount = Math.min(tenantNames.length, MAX_TENANTS);
+  const tenantCount = Math.min(tenantFirst.length, MAX_TENANTS);
   for (let i = 0; i < tenantCount; i++) {
-    const tName = tenantNames[i];
-    if (!tName || tName.length < 2) continue;
+    const tFirst = tenantFirst[i] ?? "";
+    const tLast = tenantLast[i] ?? "";
+    const tName = `${tFirst} ${tLast}`.trim();
+    if (tName.length < 2) continue;
 
     const tEmailRaw = tenantEmails[i] ?? "";
-    const result = await inviteOrLetter({
+    const result = await personFuerZeile(actor, tenantUserIds[i] ?? "", {
       name: tName,
+      firstName: tFirst || null,
+      lastName: tLast || null,
       email: tEmailRaw && tEmailRaw.includes("@") ? tEmailRaw : null,
       phone: tenantPhones[i] ? tenantPhones[i].slice(0, 50) : null,
       role: "MIETER",
-      organizationId: actor.organizationId,
     });
     if (result) {
       const unitId = tenantUnits[i] ? unitLabelToId.get(tenantUnits[i]) : undefined;
@@ -261,10 +305,13 @@ export async function createObjekt(formData: FormData) {
   revalidatePath("/verwaltung/objekte");
   revalidatePath("/verwaltung/nutzer");
 
-  // Falls Zugangsschreiben gedruckt werden müssen: Batch-Seite öffnen
+  // Falls Zugangsschreiben gedruckt werden müssen: Batch-Seite öffnen.
+  // Die Passwörter reisen nicht mehr in der Adresszeile mit (`?u=id~pw~id~pw`) —
+  // ein ganzes Objekt voller Klartext-Passwörter in einer URL stand in jedem
+  // Zugriffsprotokoll auf dem Weg dorthin.
   if (letterUsers.length > 0) {
-    const param = letterUsers.map((l) => `${l.id}~${l.pw}`).join("~");
-    redirect(`/zugangsschreiben/batch?u=${encodeURIComponent(param)}`);
+    await merkeErstzugaenge(letterUsers.map((l) => ({ id: l.id, pw: l.pw! })));
+    redirect("/zugangsschreiben/batch");
   }
 
   redirect("/verwaltung/objekte?eingerichtet=1");

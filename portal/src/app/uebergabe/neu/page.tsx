@@ -1,9 +1,11 @@
 import { propertyWhereForVerwalter } from "@/lib/access";
+import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
-import { buttonClass, inputClass } from "@/components/ui";
+import { buttonClass, cardSurfaceClass } from "@/components/ui";
 import { createHandover } from "./actions";
 import { PropertyUnitSelector } from "./PropertyUnitSelector";
+import { DateField } from "@/components/fields";
 
 export const dynamic = "force-dynamic";
 
@@ -11,9 +13,11 @@ export default async function NeueUebergabePage() {
   const verwalter = await requireVerwalter();
   const propWhere = await propertyWhereForVerwalter(verwalter);
 
+  // Nur die Objektliste – die Einheiten lädt der Selektor nach der Objektwahl
+  // nach. Vorher stand der halbe Bestand im HTML.
   const properties = await db.property.findMany({
     where: { ...propWhere, units: { some: {} } },
-    include: { units: { orderBy: { label: "asc" }, select: { id: true, label: true, floor: true } } },
+    select: { id: true, name: true, street: true, zip: true, city: true },
     orderBy: { name: "asc" },
   });
 
@@ -34,7 +38,7 @@ export default async function NeueUebergabePage() {
           </a>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className={`p-6 ${cardSurfaceClass}`}>
           <h1 className="text-xl font-bold text-gray-900 mb-1">Neue Übergabe anlegen</h1>
           <p className="text-sm text-gray-500 mb-6">Wählen Sie die Einheit und Art der Übergabe.</p>
 
@@ -66,19 +70,15 @@ export default async function NeueUebergabePage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Protokolldatum</label>
-              <input
-                type="date"
+              <DateField
                 name="handoverDate"
                 defaultValue={today}
-                className={inputClass}
               />
               <p className="mt-1 text-xs text-gray-400">Ein- bzw. Auszugsdatum legen Sie im nächsten Schritt fest.</p>
             </div>
 
             <div className="pt-2">
-              <button type="submit" className={buttonClass}>
-                Protokoll erstellen →
-              </button>
+              <PendingButton className={buttonClass}>Protokoll erstellen →</PendingButton>
             </div>
           </form>
         </div>

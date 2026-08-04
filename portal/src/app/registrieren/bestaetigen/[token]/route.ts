@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { hashToken } from "@/lib/token-hash";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function GET(
   let status: "ok" | "expired" | "invalid" = "invalid";
 
   const user = await db.user.findFirst({
-    where: { emailVerifyToken: token },
+    where: { emailVerifyToken: hashToken(token) },
     select: { id: true, emailVerifyExpiry: true },
   });
 

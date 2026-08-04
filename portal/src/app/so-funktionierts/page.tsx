@@ -57,7 +57,8 @@ const steps = [
     text:
       "Jeder Miteigentümer erhält einen eigenen Zugang und sieht Abrechnungen, " +
       "Dokumente und Beschlüsse jederzeit selbst ein. Auf Wunsch laden Sie auch " +
-      "Beirat, Mieter und Handwerker ein – jeder mit genau passenden Rechten.",
+      "Beirat und Mieter ein – jeder mit genau passenden Rechten. Handwerker " +
+      "binden Sie ohne Konto über Auftrags-Links ein.",
   },
 ];
 
@@ -94,7 +95,7 @@ const faqs = [
   {
     q: "Sind unsere Daten sicher?",
     a:
-      "Jeder Nutzer meldet sich mit eigenem Passwort an, und sämtliche Dateien " +
+      "Jeder Zugang meldet sich mit eigenem Passwort an, und sämtliche Dateien " +
       "werden nur nach Berechtigungsprüfung ausgeliefert – ein Handwerker sieht " +
       "also nie die Abrechnung, ein Mieter nie die Rückstandsliste. Details " +
       "stehen in der Datenschutzerklärung.",
@@ -120,7 +121,7 @@ export default async function SoFunktioniertsPage() {
         title={
           <>
             Von null auf verwaltet –{" "}
-            <span className="underline decoration-brand-orange decoration-4 underline-offset-8">in fünf Schritten.</span>
+            <span className="underline decoration-wp-accent-bright decoration-4 underline-offset-8">in fünf Schritten.</span>
           </>
         }
         intro={
@@ -132,7 +133,7 @@ export default async function SoFunktioniertsPage() {
           src: "/images/marketing/so-funktionierts.jpg",
           alt: "Eigentümerin richtet das Portal zuhause am Laptop ein",
         }}
-        badge={{ icon: <CheckCircle2 className="h-4 w-4 text-brand-orange-ink" />, text: "In wenigen Minuten eingerichtet" }}
+        badge={{ icon: <CheckCircle2 className="h-4 w-4 text-wp-accent-ink" />, text: "In wenigen Minuten eingerichtet" }}
         showSecondaryCta={false}
       />
 
@@ -142,7 +143,7 @@ export default async function SoFunktioniertsPage() {
           {steps.map((step, i) => (
             <Reveal key={step.title}>
               <li className="flex gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-e1">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-orange font-display text-base font-bold text-brand-green-dark">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-wp-accent font-display text-base font-bold text-wp-on-accent">
                   {i + 1}
                 </span>
                 <div>
@@ -160,9 +161,9 @@ export default async function SoFunktioniertsPage() {
         <Reveal>
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-e1 sm:p-8">
             <div className="flex items-start gap-4">
-              <Scale className="mt-1 h-8 w-8 shrink-0 text-brand-orange-ink" />
+              <Scale className="mt-1 h-8 w-8 shrink-0 text-wp-accent-ink" />
               <div>
-                <h2 className="text-xl font-bold text-brand-green-dark sm:text-2xl">
+                <h2 className="text-xl font-bold text-wp-ink sm:text-2xl">
                   Der rechtliche Rahmen der Selbstverwaltung
                 </h2>
                 <div className="mt-3 space-y-3 leading-relaxed text-gray-700">
@@ -195,15 +196,15 @@ export default async function SoFunktioniertsPage() {
       {/* ── Häufige Fragen ── */}
       <section className="mx-auto w-full max-w-3xl px-4 pt-16 sm:px-6">
         <Reveal>
-          <h2 className="text-balance text-2xl font-bold text-brand-green-dark sm:text-3xl">Häufige Fragen</h2>
+          <h2 className="text-balance text-2xl font-bold text-wp-ink sm:text-3xl">Häufige Fragen</h2>
         </Reveal>
         <div className="mt-6 space-y-3">
           {faqs.map((faq, i) => (
             <Reveal key={faq.q} delay={i * 60}>
-              <details className="group rounded-2xl border border-gray-200 bg-white shadow-e1 open:bg-brand-orange-light/30">
+              <details className="group rounded-2xl border border-gray-200 bg-white shadow-e1 open:bg-wp-accent-light/30">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-medium text-gray-900 [&::-webkit-details-marker]:hidden">
                   {faq.q}
-                  <span className="text-brand-orange-ink transition-transform group-open:rotate-45">
+                  <span className="text-wp-accent-ink transition-transform group-open:rotate-45">
                     +
                   </span>
                 </summary>

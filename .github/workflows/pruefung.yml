@@ -1,0 +1,115 @@
+# Typprüfung, Linter und Tests bei jedem Pull Request.
+#
+# Bewusst ohne `next build`: Der Build-Befehl dieses Projekts führt
+# `prisma migrate deploy` aus und bräuchte eine Datenbank. Das Bauen übernimmt
+# Vercel und meldet das Ergebnis als Status an den Pull Request zurück — ein
+# gebrochener Build fällt dort auf.
+#
+# **Dieselbe Prüfung läuft seit dem 29.07.2026 auch im Vercel-Build**
+# (`npm run pruefung`, eingehängt in `portal/vercel.json`). Das ist kein
+# Versehen und keine Dublette, sondern eine Rückfallebene: Am 29.07. liefen auf
+# diesem Repository ab 06:58 Uhr auf **keinem** Branch mehr Workflows — ohne
+# Fehlermeldung, sie wurden schlicht nicht mehr gestartet. Ein Pull Request war
+# damit nicht mehr prüfbar, und ein grüner Vercel-Deploy sagte nichts über die
+# Tests aus. (Die Ursache war später eine andere als zunächst vermutet — ein
+# Merge-Konflikt, wegen dessen GitHub keinen Merge-Commit bauen konnte. Die
+# Rückfallebene bleibt trotzdem richtig: Sie kostet nichts und deckt auch den
+# Fall ab, dass Actions einmal wirklich stillstehen.)
+#
+# Beide Wege rufen **denselben** Skript-Eintrag auf. Wer die Prüfung ändert,
+# ändert sie damit an einer Stelle; zwei Listen von Befehlen liefen sonst
+# früher oder später auseinander.
+name: Prüfung
+
+on:
+  pull_request:
+  # Der Standard-Branch dieses Repos heißt nicht `main`. Der frühere Filter
+  # `branches: [main]` traf deshalb nichts: Nach einem direkten Push lief keine
+  # Prüfung, nur Pull Requests waren abgedeckt.
+  push:
+    branches: [claude/friendly-archimedes-ggmjhp]
+
+jobs:
+  pruefung:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: portal
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+
+      # `npm ci` löst über postinstall `prisma generate` aus – das erzeugt den
+      # Client aus dem Schema und braucht keine Datenbankverbindung.
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      # Genau der Befehl, den auch Vercel ausführt.
+      - name: Typprüfung, Linter und Tests
+        run: npm run pruefung
+
+  # ── Prüfungen gegen eine echte Datenbank ──────────────────────────────────
+  #
+  # Eigener Job, weil `npm run pruefung` auch im Vercel-Build läuft und dort
+  # keine Datenbank erreichbar ist — die `*.dbtest.ts` gehören deshalb nicht in
+  # das Skript (siehe portal/AGENTS.md).
+  #
+  # **Warum dieser Job dazukam.** Die Prüfungen der Mandantentrennung
+  # (`access.dbtest.ts`, `session.dbtest.ts`) lagen im Bestand, wurden aber von
+  # **niemandem** automatisch ausgeführt: Der Workflow rief nur `pruefung`, und
+  # das lässt sie aus. Damit war die Wand zwischen zwei Kunden durch Tests
+  # abgedeckt, die nie liefen — der unangenehmste Zustand, weil er nach
+  # Abdeckung aussieht. Wer eine Zugriffsfunktion kaputt macht, muss es hier
+  # erfahren, nicht im Betrieb.
+  datenbank:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: portal
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: pruefung
+          POSTGRES_DB: pruefung
+        ports:
+          - 5432:5432
+        # Ohne Health-Check startet der nächste Schritt, bevor die Datenbank
+        # Verbindungen annimmt — der Lauf scheitert dann an etwas, das gar
+        # nicht kaputt ist.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:pruefung@localhost:5432/pruefung
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      # Das Schema von null aufbauen — dieselben Migrationen wie in Produktion.
+      # Schlägt das fehl, ist eine Migration kaputt, und das ist der wichtigere
+      # Befund als jeder Testfehler danach.
+      - name: Migrationen anwenden
+        run: npx prisma migrate deploy
+
+      - name: Prüfungen mit Datenbank
+        run: npm run test:db

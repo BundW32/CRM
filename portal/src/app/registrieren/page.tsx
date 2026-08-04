@@ -1,7 +1,11 @@
 import Link from "next/link";
+import { PendingButton } from "@/components/pending-button";
+import { redirect } from "next/navigation";
 import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { AccountTypeFields } from "./account-type-fields";
 import { registerOrganization } from "./actions";
+import { isWegSaas, registrationEnabled } from "@/lib/app-mode";
+import { Wordmark } from "@/components/marketing/wordmark";
 
 export const dynamic = "force-dynamic";
 
@@ -17,21 +21,27 @@ export default async function RegisterPage({
 }: {
   searchParams: Promise<{ fehler?: string; ref?: string }>;
 }) {
+  // Self-Service-Registrierung gibt es nur in der WEG-SaaS-Variante (APP_MODE=weg).
+  // Im B&W-Modus (verwaltung) ist die Seite gesperrt → zurück zum Login.
+  if (!registrationEnabled()) redirect("/login");
+
   const { fehler, ref } = await searchParams;
 
   return (
-    <main className="flex flex-1 items-center justify-center p-4">
-      <div className="w-full max-w-md animate-page-in">
-        <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-          <p className="mb-1 text-center text-sm font-medium text-gray-400">
-            Kostenlos registrieren
-          </p>
-          <h1 className="mb-2 text-center text-xl font-bold text-brand-green">
-            Ihr eigenes Kundenportal
-          </h1>
-          <p className="mx-auto mb-6 max-w-sm text-center text-sm text-gray-600">
-            Für Hausverwaltungen und selbstverwaltende WEGs. Legen Sie kostenlos Ihr Konto
-            an – im Anschluss richten Sie Logo, Farbe und Daten ein.
+    // Die Seite gibt es nur in der SaaS-Variante (siehe Wächter oben), sie
+    // trägt deshalb durchgehend die Wegportal24-Marke.
+    <main className="wp-brand flex min-h-screen w-full flex-1">
+      {/* Formular-Spalte */}
+      <div className="flex w-full items-center justify-center bg-white px-4 py-10 sm:px-8 lg:w-[55%] lg:px-14">
+        <div className="w-full max-w-md animate-page-in">
+          <Link href="/" className="mb-8 inline-block" aria-label="Zur Startseite">
+            <Wordmark className="text-xl" />
+          </Link>
+          <p className="mb-1 text-sm font-medium text-gray-400">Kostenlos registrieren</p>
+          <h1 className="mb-2 text-2xl font-bold text-brand-green">Das Portal für Ihre selbstverwaltete WEG</h1>
+          <p className="mb-6 text-sm text-gray-600">
+            Legen Sie kostenlos das Portal Ihrer Eigentümergemeinschaft an –
+            Einheiten, Konten und Miteigentümer richten Sie im Anschluss ein.
           </p>
 
           {fehler ? (
@@ -50,10 +60,24 @@ export default async function RegisterPage({
             </div>
             {/* Herkunft der Registrierung (z. B. von HausMatch verlinkt). */}
             {ref ? <input type="hidden" name="ref" value={ref} /> : null}
-            <AccountTypeFields />
-            <Field label="Ihr Name">
-              <input type="text" name="name" required minLength={2} className={inputClass} />
-            </Field>
+            <AccountTypeFields wegMode={isWegSaas()} />
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-[6rem_1fr_1fr]">
+              <Field label="Anrede">
+                <select name="salutation" defaultValue="" className={inputClass}>
+                  <option value="">–</option>
+                  <option value="Herr">Herr</option>
+                  <option value="Frau">Frau</option>
+                </select>
+              </Field>
+              <Field label="Vorname">
+                <input type="text" name="firstName" required minLength={2} autoComplete="given-name" className={inputClass} />
+              </Field>
+              <Field label="Nachname">
+                <input type="text" name="lastName" required minLength={2} autoComplete="family-name" className={inputClass} />
+              </Field>
+            </div>
+
             <Field label="E-Mail-Adresse">
               <input type="email" name="email" required autoComplete="email" className={inputClass} />
             </Field>
@@ -91,26 +115,58 @@ export default async function RegisterPage({
                 gelesen.
               </span>
             </label>
-            <button type="submit" className={`${buttonClass} w-full py-2.5`}>
-              Konto erstellen
-            </button>
+            <PendingButton className={`${buttonClass} w-full py-2.5`}>Konto erstellen</PendingButton>
           </form>
 
-          <p className="mt-6 text-center text-xs text-gray-500">
+          <p className="mt-6 text-sm text-gray-500">
             Bereits registriert?{" "}
             <Link href="/login" className="text-brand-green hover:underline">
               Zur Anmeldung
             </Link>
           </p>
+          <p className="mt-4 text-xs text-gray-400">
+            Mit der Registrierung stimmen Sie der{" "}
+            <Link href="/datenschutz" className="hover:underline">
+              Datenschutzerklärung
+            </Link>{" "}
+            zu.
+          </p>
         </div>
+      </div>
 
-        <p className="mt-4 text-center text-xs text-gray-400">
-          Mit der Registrierung stimmen Sie der{" "}
-          <Link href="/datenschutz" className="hover:underline">
-            Datenschutzerklärung
-          </Link>{" "}
-          zu.
-        </p>
+      {/* Markenpanel (ab lg sichtbar) */}
+      <div className="relative hidden overflow-hidden lg:block lg:w-[45%]">
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-green via-brand-green to-brand-green-dark" />
+        <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-brand-orange/20 blur-3xl" />
+        <div className="absolute -top-16 -left-10 h-56 w-56 rounded-full bg-white/5 blur-2xl" />
+        <div className="relative flex h-full flex-col justify-center px-14 text-white">
+          <Wordmark className="mb-8 text-2xl" tone="light" />
+          <h2 className="max-w-md text-3xl font-bold leading-tight">
+            Das digitale Portal für Ihre WEG
+          </h2>
+          <p className="mt-4 max-w-md text-white/70">
+            WEG-Finanzen, Wirtschaftsplan, Versammlungen, Dokumente und Beirat – alles an
+            einem Ort, für selbstverwaltende Eigentümergemeinschaften.
+          </p>
+          <ul className="mt-8 space-y-3 text-sm text-white/85">
+            {[
+              "WEG-Finanzen, Wirtschaftsplan & Jahresabrechnung",
+              "Versammlungen, Beschlüsse & Verwaltungsbeirat",
+              "Dokumente, Zähler & Wohnungsübergaben",
+            ].map((t) => (
+              <li key={t} className="flex items-center gap-3">
+                {/* Dunkle Tinte auf dem Akzent statt Weiß: Der Haken muss sich
+                    vom Kreis abheben (3:1), das schafft Weiß auf Türkis nicht. */}
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-orange text-brand-green-dark">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3">
+                    <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                {t}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </main>
   );

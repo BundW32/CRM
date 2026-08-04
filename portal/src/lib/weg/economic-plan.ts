@@ -1,7 +1,7 @@
 // Wirtschaftsplan-Logik (§ 28 Abs. 1 WEG): Wirtschaftsjahr, Vorschuss-Gewichte,
 // Einzelwirtschaftspläne und monatliche Hausgeld-Raten. Pure Funktionen —
 // DB/UI übernehmen die Server Actions.
-import type { DistributionKey } from "@/generated/prisma/client";
+import type { CostCategory, DistributionKey } from "@/generated/prisma/client";
 import { distributeByWeight, type Share, type UnitForDistribution } from "./distribution";
 
 // Die 12 Kalendermonate des Wirtschaftsjahres, das im Jahr `year` beginnt
@@ -56,8 +56,63 @@ export function advanceWeightsForKey(units: UnitForDistribution[], key: Distribu
 export type PlanItemInput = {
   costTypeId: string;
   distributionKey: DistributionKey;
-  amountCents: number; // Jahres-Planwert
+  amountCents: number; // Jahres-Planwert, immer positiv
+  /** ERTRAG mindert den Vorschussbedarf, statt ihn zu erhöhen. */
+  category?: CostCategory;
 };
+
+/**
+ * Eine einzelne Position lässt sich nicht verteilen.
+ *
+ * Der Grund für eine eigene Fehlerklasse: Bis hierher fiel aus der Tiefe der
+ * Verteilung ein „Gesamtgewicht muss größer als 0 sein" nach oben durch — ein
+ * Satz aus der Rechenmaschine, der weder die Kostenart nennt noch das fehlende
+ * Feld. Eine Gemeinschaft, die den Standardkatalog übernommen hat, stand damit
+ * vor einem gesperrten Knopf und keiner Ahnung, wo sie ansetzen soll: Der
+ * Katalog verteilt auch nach Personenzahl und Fläche, die Einrichtung verlangt
+ * aber nur Miteigentumsanteile.
+ *
+ * `costTypeId` und `fehlendesFeld` reisen deshalb mit, damit die Oberfläche den
+ * Namen der Kostenart einsetzen und direkt an die richtige Stelle verlinken kann.
+ */
+export class PositionNichtVerteilbar extends Error {
+  constructor(
+    readonly costTypeId: string,
+    readonly distributionKey: DistributionKey,
+    /** Welches Stammdatenfeld fehlt – null, wenn die Ursache woanders liegt. */
+    readonly fehlendesFeld: "flaeche" | "personen" | "mea" | null,
+    message: string,
+  ) {
+    super(message);
+    this.name = "PositionNichtVerteilbar";
+  }
+}
+
+/**
+ * Welche Einheiten das genannte Feld nicht haben.
+ *
+ * `PositionNichtVerteilbar` sagt bisher nur, *welches* Feld fehlt — nicht, bei
+ * wem. Für die Fehlermeldung ist genau das der Unterschied zwischen „Die
+ * Verteilung ist nicht möglich" und „Bei WE 03 fehlt die Wohnfläche": Das eine
+ * lässt den Nutzer suchen, das andere schickt ihn hin.
+ */
+export function einheitenOhneFeld<T extends UnitForDistribution>(
+  units: T[],
+  feld: "flaeche" | "personen" | "mea",
+): T[] {
+  const wert = (u: UnitForDistribution) =>
+    feld === "flaeche" ? u.livingArea : feld === "personen" ? u.personCount : u.mea;
+  return units.filter((u) => wert(u) == null);
+}
+
+/** Welches Feld ein Schlüssel braucht – für die Fehlermeldung und die Vorprüfung. */
+export function benoetigtesFeld(key: DistributionKey): "flaeche" | "personen" | "mea" | null {
+  if (key === "FLAECHE") return "flaeche";
+  if (key === "PERSONEN") return "personen";
+  if (key === "EINHEITEN") return null;
+  // VERBRAUCH/FESTBETRAG/INDIVIDUELL laufen beim Vorschuss über MEA.
+  return "mea";
+}
 
 export type UnitAdvances = {
   // Jahres-Vorschuss je Einheit (Summe über alle Positionen) — centgenau:
@@ -65,26 +120,77 @@ export type UnitAdvances = {
   perUnit: Map<string, number>;
   // Aufschlüsselung je Position (für den Einzelwirtschaftsplan)
   perItem: Map<string, Map<string, number>>;
+  /** Vorschussbedarf gesamt: Ausgaben − Einnahmen. */
   totalCents: number;
+  /** Σ geplanter Ausgaben (ohne Einnahmen) — für die Darstellung. */
+  expenseCents: number;
+  /** Σ geplanter Einnahmen — mindert den Bedarf. */
+  incomeCents: number;
 };
 
-// Verteilt alle Planpositionen auf die Einheiten (Einzelwirtschaftspläne).
+/**
+ * Verteilt alle Planpositionen auf die Einheiten (Einzelwirtschaftspläne).
+ *
+ * § 28 Abs. 1 WEG verlangt einen Plan über die voraussichtlichen **Einnahmen und
+ * Ausgaben**. Positionen der Kategorie `ERTRAG` — Zinsen, Miete aus
+ * Gemeinschaftseigentum, PV-Einspeisung — mindern deshalb den Vorschussbedarf,
+ * verteilt nach ihrem eigenen Schlüssel. Ohne sie wäre das Hausgeld bei jeder
+ * Gemeinschaft mit Einnahmen systematisch zu hoch angesetzt.
+ *
+ * Die Beträge bleiben wie überall positiv; die Richtung steckt in der Kategorie.
+ */
 export function computeUnitAdvances(items: PlanItemInput[], units: UnitForDistribution[]): UnitAdvances {
   const perUnit = new Map<string, number>(units.map((u) => [u.id, 0]));
   const perItem = new Map<string, Map<string, number>>();
-  let totalCents = 0;
+  let expenseCents = 0;
+  let incomeCents = 0;
   for (const item of items) {
     if (item.amountCents < 0) throw new Error("Planwerte dürfen nicht negativ sein.");
     if (item.amountCents === 0) continue;
-    totalCents += item.amountCents;
-    const weights = advanceWeightsForKey(units, item.distributionKey);
-    const shares = distributeByWeight(item.amountCents, weights);
-    perItem.set(item.costTypeId, shares);
-    for (const [unitId, cents] of shares) {
+    const istErtrag = item.category === "ERTRAG";
+    if (istErtrag) incomeCents += item.amountCents;
+    else expenseCents += item.amountCents;
+    let shares: Map<string, number>;
+    try {
+      shares = distributeByWeight(item.amountCents, advanceWeightsForKey(units, item.distributionKey));
+    } catch (e) {
+      // Den Rechenfehler in etwas übersetzen, mit dem eine Gemeinschaft etwas
+      // anfangen kann – siehe `PositionNichtVerteilbar`.
+      const feld = benoetigtesFeld(item.distributionKey);
+      throw new PositionNichtVerteilbar(
+        item.costTypeId,
+        item.distributionKey,
+        feld,
+        feld === "flaeche"
+          ? "Bei keiner Einheit ist eine Wohn-/Nutzfläche hinterlegt."
+          : feld === "personen"
+            ? "Bei keiner Einheit ist eine Personenzahl hinterlegt."
+            : feld === "mea"
+              ? "Die Miteigentumsanteile sind unvollständig."
+              : e instanceof Error
+                ? e.message
+                : "Verteilung nicht möglich.",
+      );
+    }
+    // Einnahmen mit umgekehrtem Vorzeichen — je Einheit und in der
+    // Aufschlüsselung, damit der Einzelwirtschaftsplan beides zeigt.
+    // `0 * -1` ergibt in JavaScript `-0` — das reist durch JSON und Snapshots
+    // und liest sich in der Oberfläche als „−0,00 €". Deshalb explizit.
+    const gerichtet = istErtrag
+      ? new Map([...shares].map(([unitId, cents]) => [unitId, cents === 0 ? 0 : -cents]))
+      : shares;
+    perItem.set(item.costTypeId, gerichtet);
+    for (const [unitId, cents] of gerichtet) {
       perUnit.set(unitId, (perUnit.get(unitId) ?? 0) + cents);
     }
   }
-  return { perUnit, perItem, totalCents };
+  const totalCents = expenseCents - incomeCents;
+  if (totalCents < 0) {
+    throw new Error(
+      "Die geplanten Einnahmen übersteigen die geplanten Ausgaben — daraus lässt sich kein Hausgeld ableiten.",
+    );
+  }
+  return { perUnit, perItem, totalCents, expenseCents, incomeCents };
 }
 
 // 12 Monatsraten, die centgenau den Jahresbetrag ergeben (Restcents auf die

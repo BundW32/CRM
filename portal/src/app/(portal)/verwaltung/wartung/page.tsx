@@ -1,14 +1,42 @@
 import Link from "next/link";
-import { Alert, Card, EmptyState, Field, PageTitle, buttonSecondaryClass, inputClass } from "@/components/ui";
+import type { Prisma } from "@/generated/prisma/client";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { PendingButton } from "@/components/pending-button";
+import {
+  Pagination,
+  Alert,
+  Card,
+  CollapsibleCard,
+  EmptyState,
+  Field,
+  PageTitle,
+  inputClass,
+  buttonClass,
+  buttonDangerClass,
+  buttonSecondaryClass,
+  buttonCompact,
+} from "@/components/ui";
+import {
+  Badge,
+  DataTable,
+  stackTight,
+  type BadgeTone,
+  type Column,
+} from "@/components/data-display";
+import { ComboField } from "@/components/combo-field";
+import { DateField, SelectField } from "@/components/fields";
+import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { SubmitButton } from "@/components/submit-button";
 import { craftsmanWhereForVerwalter, propertyIdsForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import {
-  formatDate,
+  formatDateOnly,
   maintenanceIntervalLabels,
   ticketStatusLabels,
   tradeLabels,
 } from "@/lib/labels";
+import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
+import { normalizeSearch, parsePage, resolveSort, toOrderBy, pageHrefFor } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 import {
   completeMaintenanceTask,
@@ -23,31 +51,74 @@ const DAY = 1000 * 60 * 60 * 24;
 
 const PAGE_SIZE = 30;
 
+// Whitelist der Sortierfelder (verhindert beliebige Felder aus der URL).
+const SORT_FIELDS = { faellig: "dueDate", titel: "title", erledigt: "lastDoneAt" } as const;
+
+const sortOptions = [
+  { value: "faellig", label: "Fällig am" },
+  { value: "titel", label: "Titel" },
+  { value: "erledigt", label: "Zuletzt erledigt" },
+];
+
+const faelligOptions = [
+  { value: "ueberfaellig", label: "Überfällig" },
+  { value: "bald", label: "Bald fällig (14 Tage)" },
+];
+
 export default async function WartungPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; page?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const verwalter = await requireVerwalter();
   const params = await searchParams;
   const { fehler } = params;
-  const currentPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
+  const currentPage = parsePage(params.page);
   const assignedIds = await propertyIdsForVerwalter(verwalter);
   // Org-Filter gilt auch für SuperAdmin (sonst objekt-/mandantenübergreifende Liste).
   const propWhere =
     assignedIds === null
       ? { organizationId: verwalter.organizationId }
       : { id: { in: assignedIds } };
-  const taskWhere =
+  const baseTaskWhere: Prisma.MaintenanceTaskWhereInput =
     assignedIds === null
       ? { active: true, organizationId: verwalter.organizationId }
       : { active: true, property: { id: { in: assignedIds } } };
+
+  // ── Filter: Suche, Intervall, Fälligkeit, Objekt ──
+  const scope = await propertyScopeFilters(verwalter, params, { withUnit: false });
+  const q = normalizeSearch(params.q);
+  const intervall =
+    params.intervall && params.intervall in maintenanceIntervalLabels ? params.intervall : undefined;
+  const faellig = params.faellig === "ueberfaellig" || params.faellig === "bald" ? params.faellig : undefined;
+  const sort = resolveSort(params.sort, params.dir, SORT_FIELDS, "faellig", "asc");
+
+  const taskAnd: Prisma.MaintenanceTaskWhereInput[] = [baseTaskWhere];
+  if (q) {
+    taskAnd.push({
+      OR: [
+        { title: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (intervall) {
+    taskAnd.push({ interval: intervall as Prisma.MaintenanceTaskWhereInput["interval"] });
+  }
+  const today = new Date();
+  if (faellig === "ueberfaellig") taskAnd.push({ dueDate: { lt: today } });
+  if (faellig === "bald") {
+    taskAnd.push({ dueDate: { gte: today, lte: new Date(today.getTime() + 14 * DAY) } });
+  }
+  if (scope.objektId) taskAnd.push({ propertyId: scope.objektId });
+  const taskWhere: Prisma.MaintenanceTaskWhereInput = { AND: taskAnd };
+  const hasFilter = Boolean(q || intervall || faellig || scope.active);
 
   const [total, tasks, properties, craftsmen] = await Promise.all([
     db.maintenanceTask.count({ where: taskWhere }),
     db.maintenanceTask.findMany({
       where: taskWhere,
-      orderBy: { dueDate: "asc" },
+      orderBy: toOrderBy(sort.field, sort.dir) as Prisma.MaintenanceTaskOrderByWithRelationInput,
       skip: (currentPage - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: {
@@ -69,23 +140,121 @@ export default async function WartungPage({
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  function pageHref(p: number) {
-    const sp = new URLSearchParams();
-    if (p > 1) sp.set("page", String(p));
-    const q = sp.toString();
-    return `/verwaltung/wartung${q ? `?${q}` : ""}`;
-  }
+  const pageHref = pageHrefFor(`/verwaltung/wartung`, params);
+
+  const taskFilters: FilterConfig[] = [
+    { key: "faellig", label: "Fälligkeit", allLabel: "Alle", primary: true, options: faelligOptions },
+    { key: "intervall", label: "Intervall", allLabel: "Alle Intervalle", options: optionsFrom(maintenanceIntervalLabels) },
+  ];
 
   const now = new Date().getTime();
+
+  // Fälligkeit als Etikett statt als eingefärbte Kachel: Vorher trug die ganze Karte
+  // die Farbe, wodurch eine Liste mit vielen überfälligen Aufgaben zur roten Wand
+  // wurde – und damit nichts mehr hervorhob. Jetzt trägt nur der Zustand Farbe.
+  const faelligkeit = (dueDate: Date): { tone: BadgeTone; text: string } => {
+    const days = Math.floor((dueDate.getTime() - now) / DAY);
+    if (days < 0) {
+      return { tone: "danger", text: `überfällig seit ${Math.abs(days)} Tag(en)` };
+    }
+    if (days === 0) return { tone: "warning", text: "heute fällig" };
+    if (days <= 14) return { tone: "warning", text: `fällig in ${days} Tag(en)` };
+    return { tone: "neutral", text: `fällig in ${days} Tag(en)` };
+  };
+
+  type Task = (typeof tasks)[number];
+
+  const columns: readonly Column<Task>[] = [
+    {
+      header: "Aufgabe",
+      cell: (t) => (
+        <div className="min-w-0">
+          <p className="font-medium text-gray-900">{t.title}</p>
+          <p className="text-xs text-gray-500">
+            {t.property ? t.property.name : "Allgemein"}
+            {t.craftsman
+              ? ` · ${t.craftsman.company ? t.craftsman.company + " / " : ""}${t.craftsman.name} (${tradeLabels[t.craftsman.trade]})`
+              : ""}
+            {/* Letzte Erledigung steht hier statt in einer eigenen Spalte: Sie ist bei
+                den meisten Aufgaben leer und hätte eine Spalte voller „–" ergeben.
+                Sortieren lässt sich weiterhin danach. */}
+            {t.lastDoneAt ? ` · zuletzt erledigt ${formatDateOnly(t.lastDoneAt)}` : ""}
+          </p>
+          {t.description ? (
+            <p className="mt-1 line-clamp-2 text-xs text-gray-600">{t.description}</p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      header: "Fällig",
+      cell: (t) => {
+        const f = faelligkeit(t.dueDate);
+        return (
+          <div className="space-y-1 whitespace-nowrap">
+            <div>{formatDateOnly(t.dueDate)}</div>
+            <Badge tone={f.tone} dot>
+              {f.text}
+            </Badge>
+          </div>
+        );
+      },
+    },
+    {
+      header: "Intervall",
+      cell: (t) => maintenanceIntervalLabels[t.interval],
+      className: "whitespace-nowrap",
+    },
+    {
+      header: "Vorgang",
+      cell: (t) =>
+        t.generatedTickets[0] ? (
+          <Link
+            href={`/vorgaenge/${t.generatedTickets[0].id}`}
+            className={`${buttonSecondaryClass} ${buttonCompact}`}
+          >
+            #{t.generatedTickets[0].number} ·{" "}
+            {ticketStatusLabels[t.generatedTickets[0].status]}
+          </Link>
+        ) : (
+          <form action={createTicketFromTask}>
+            <input type="hidden" name="id" value={t.id} />
+            <PendingButton className={`${buttonSecondaryClass} ${buttonCompact}`}>
+              Vorgang anlegen
+            </PendingButton>
+          </form>
+        ),
+      className: "whitespace-nowrap",
+    },
+    {
+      cell: (t) => (
+        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+          <form action={completeMaintenanceTask}>
+            <input type="hidden" name="id" value={t.id} />
+            <PendingButton className={`${buttonClass} ${buttonCompact}`}>
+              Erledigt
+            </PendingButton>
+          </form>
+          <form action={deleteMaintenanceTask}>
+            <input type="hidden" name="id" value={t.id} />
+            <ConfirmActionButton
+              className={`${buttonDangerClass} ${buttonCompact}`}
+              confirmLabel="Wirklich löschen?"
+              pendingLabel="Wird gelöscht…"
+            >
+              Löschen
+            </ConfirmActionButton>
+          </form>
+        </div>
+      ),
+      align: "right",
+      className: "w-px",
+    },
+  ];
 
   return (
     <>
       <PageTitle
-        action={
-          <Link href="/verwaltung" className={buttonSecondaryClass}>
-            ← Verwaltung
-          </Link>
-        }
       >
         Wartung &amp; Prüfungen
       </PageTitle>
@@ -101,159 +270,86 @@ export default async function WartungPage({
         </Alert>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="space-y-3 lg:col-span-2">
-          {tasks.length === 0 ? (
-            <EmptyState>Noch keine Wartungsaufgaben angelegt.</EmptyState>
-          ) : (
-            tasks.map((t) => {
-              const days = Math.floor((t.dueDate.getTime() - now) / DAY);
-              const tone =
-                days < 0
-                  ? "border-red-300 bg-red-50"
-                  : days <= 14
-                    ? "border-orange-300 bg-orange-50"
-                    : "border-gray-200 bg-white";
-              const statusText =
-                days < 0
-                  ? `überfällig seit ${Math.abs(days)} Tag(en)`
-                  : days === 0
-                    ? "heute fällig"
-                    : `fällig in ${days} Tag(en)`;
-              return (
-                <div key={t.id} className={`rounded-2xl border p-4 shadow-sm ${tone}`}>
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">{t.title}</p>
-                      <p className="text-xs text-gray-500">
-                        {maintenanceIntervalLabels[t.interval]} · fällig am{" "}
-                        {formatDate(t.dueDate)} · {statusText}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {t.property ? t.property.name : "Allgemein"}
-                        {t.craftsman
-                          ? ` · ${t.craftsman.company ? t.craftsman.company + " / " : ""}${t.craftsman.name} (${tradeLabels[t.craftsman.trade]})`
-                          : ""}
-                        {t.lastDoneAt ? ` · zuletzt erledigt ${formatDate(t.lastDoneAt)}` : ""}
-                      </p>
-                      {t.description ? (
-                        <p className="mt-1 text-sm text-gray-700">{t.description}</p>
-                      ) : null}
-                    </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-3">
-                      {t.generatedTickets[0] ? (
-                        <a
-                          href={`/vorgaenge/${t.generatedTickets[0].id}`}
-                          className="rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100"
-                        >
-                          Vorgang #{t.generatedTickets[0].number} ({ticketStatusLabels[t.generatedTickets[0].status]})
-                        </a>
-                      ) : (
-                        <form action={createTicketFromTask}>
-                          <input type="hidden" name="id" value={t.id} />
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                          >
-                            Vorgang anlegen
-                          </button>
-                        </form>
-                      )}
-                      <form action={completeMaintenanceTask}>
-                        <input type="hidden" name="id" value={t.id} />
-                        <button
-                          type="submit"
-                          className="rounded-lg bg-brand-orange px-3 py-1.5 text-xs font-semibold text-brand-green-dark hover:bg-brand-orange-dark"
-                        >
-                          Erledigt
-                        </button>
-                      </form>
-                      <form action={deleteMaintenanceTask}>
-                        <input type="hidden" name="id" value={t.id} />
-                        <button type="submit" className="text-xs text-red-600 hover:underline">
-                          Löschen
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-
-          {totalPages > 1 ? (
-            <div className="mt-4 flex items-center justify-between">
-              {currentPage > 1 ? (
-                <a
-                  href={pageHref(currentPage - 1)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  ← Zurück
-                </a>
-              ) : (
-                <span />
-              )}
-              <span className="text-xs text-gray-400">
-                Seite {currentPage} von {totalPages} · {total} Einträge
-              </span>
-              {currentPage < totalPages ? (
-                <a
-                  href={pageHref(currentPage + 1)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Weiter →
-                </a>
-              ) : (
-                <span />
-              )}
-            </div>
-          ) : null}
+      <div className="space-y-4">
+        <div>
+          <FilterBar
+            searchPlaceholder="Suchen"
+            searchHint="Nach Titel oder Beschreibung suchen"
+            filters={taskFilters}
+            comboboxes={scope.comboboxes}
+          />
+          <div className="mt-2 flex items-center justify-between gap-3 px-1">
+            <p className="text-xs text-gray-400">
+              {total} {total === 1 ? "Aufgabe" : "Aufgaben"}
+              {hasFilter ? " (gefiltert)" : ""}
+            </p>
+            <SortControl sortOptions={sortOptions} defaultSort="faellig" total={total} />
+          </div>
         </div>
 
-        <Card title="Wartung anlegen">
-          <form action={createMaintenanceTask} className="space-y-3">
+        <Card>
+          <DataTable
+            columns={columns}
+            rows={tasks}
+            getKey={(t) => t.id}
+            minWidth="52rem"
+            caption="Wartungs- und Prüfaufgaben"
+            empty={
+              <EmptyState>
+                {hasFilter
+                  ? "Keine Aufgaben gefunden."
+                  : "Noch keine Wartungsaufgaben angelegt."}
+              </EmptyState>
+            }
+          />
+        </Card>
+
+        <Pagination currentPage={currentPage} totalPages={totalPages} total={total} hrefFor={pageHref} />
+
+        {/* Anlegen steht unter der Liste und eingeklappt: Eine Wartung trägt man
+            selten ein, die Liste liest man täglich. Als feste Spalte daneben nahm
+            das Formular der Tabelle ein Drittel der Breite – und die Aktionsspalte
+            rutschte aus dem Bild. */}
+        <CollapsibleCard title="Wartung anlegen">
+          <form action={createMaintenanceTask} className={stackTight}>
             <Field label="Titel">
               <input type="text" name="title" required minLength={2} className={inputClass} placeholder="z. B. Heizungswartung" />
             </Field>
-            <Field label="Intervall">
-              <select name="interval" required className={inputClass} defaultValue="JAEHRLICH">
-                {Object.entries(maintenanceIntervalLabels).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Nächste Fälligkeit">
-              <input type="date" name="dueDate" required className={inputClass} />
-            </Field>
-            <Field label="Objekt (optional)">
-              <select name="propertyId" className={inputClass} defaultValue="">
-                <option value="">– Allgemein –</option>
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Handwerker (optional)">
-              <select name="craftsmanId" className={inputClass} defaultValue="">
-                <option value="">– keiner –</option>
-                {craftsmen.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.company ? `${c.company} / ` : ""}
-                    {c.name} ({tradeLabels[c.trade]})
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <SelectField
+              label="Intervall"
+              name="interval"
+              required
+              defaultValue="JAEHRLICH"
+              options={Object.entries(maintenanceIntervalLabels).map(([value, label]) => ({
+                value,
+                label,
+              }))}
+            />
+            <DateField label="Nächste Fälligkeit" name="dueDate" required />
+            <ComboField
+              label="Objekt (optional)"
+              name="propertyId"
+              placeholder="Objekt suchen …"
+              clearOption="– Allgemein –"
+              options={properties.map((p) => ({ value: p.id, label: p.name }))}
+            />
+            <ComboField
+              label="Handwerker (optional)"
+              name="craftsmanId"
+              placeholder="Handwerker suchen …"
+              clearOption="– keiner –"
+              options={craftsmen.map((c) => ({
+                value: c.id,
+                label: c.company ? `${c.company} / ${c.name}` : c.name,
+                sublabel: tradeLabels[c.trade],
+              }))}
+            />
             <Field label="Notiz (optional)">
               <textarea name="description" rows={2} className={inputClass} />
             </Field>
             <SubmitButton pendingLabel="Wird angelegt…">Anlegen</SubmitButton>
           </form>
-        </Card>
+        </CollapsibleCard>
       </div>
     </>
   );

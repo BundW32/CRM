@@ -360,7 +360,7 @@ export function VoteVisual() {
   );
 }
 
-/* ── Versammlung: Anwesenheit & Beschlussfähigkeit ── */
+/* ── Versammlung: Anwesenheit und vertretene Anteile ── */
 export function MeetingVisual() {
   const attendees = ["JA", "SM", "AY", "TK", "LB", "RW"];
   return (
@@ -385,8 +385,12 @@ export function MeetingVisual() {
         className="mk-anim mt-4 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700"
         style={{ animation: "mkRowIn 0.5s ease-out both", animationDelay: "1100ms" }}
       >
-        Anwesend: <span className="font-semibold">612 von 1000 MEA</span> – die
-        Versammlung ist beschlussfähig
+        {/* Kein Quorum mehr behaupten: Seit dem WEMoG (01.12.2020) ist jede
+            ordnungsgemäß einberufene Versammlung beschlussfähig — die Zahl
+            hier ist die Grundlage der Stimmgewichte, keine Hürde. */}
+        Anwesend und vertreten:{" "}
+        <span className="font-semibold">612 von 1000 MEA</span> – Grundlage der
+        Stimmgewichte
       </div>
     </MockCard>
   );

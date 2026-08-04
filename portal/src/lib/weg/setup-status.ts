@@ -193,7 +193,17 @@ function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
         b.unitCount > 0 && b.ownedUnits < b.unitCount
           ? `${b.unitCount - b.ownedUnits} von ${b.unitCount} Einheiten haben noch keinen Eigentümer.`
           : undefined,
-      href: stammdaten("eigentuemer"),
+      // Solange noch niemand erfasst ist, führt dieser Schritt ins
+      // Objektformular: Dort werden Personen **angelegt** und zugleich der
+      // Einheit zugeordnet. Die Stammdaten können nur aus vorhandenen Personen
+      // auswählen — eine frisch registrierte Gemeinschaft stand dort vor einem
+      // leeren Auswahlfeld und kam bei Schritt 3 von 8 nicht weiter.
+      // Sobald Eigentümer da sind, ist die Stammdatenseite das richtige Ziel:
+      // Dort liegen Stichtag, Anteil und der Eigentümerwechsel.
+      href:
+        b.ownedUnits === 0 && propertyId
+          ? `/verwaltung/objekte/${propertyId}/bearbeiten#einheiten`
+          : stammdaten("eigentuemer"),
       manual: false,
     },
     {
@@ -220,8 +230,16 @@ function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
       key: "bestellung",
       title: "Verwaltung durch Beschluss bestellen",
       why:
-        "Auch wer aus den eigenen Reihen verwaltet, wird dazu bestellt. Unter neun " +
-        "Einheiten muss die Person dafür nicht zertifiziert sein (§ 19 Abs. 2 Nr. 6 WEG).",
+        // Die Ausnahme des § 19 Abs. 2 Nr. 6 WEG hat drei Bedingungen, nicht
+        // eine: weniger als neun Sondereigentumsrechte, ein Eigentümer als
+        // Verwalter — UND kein Drittel, das die Zertifizierung verlangt. Die
+        // Kurzfassung „unter neun Einheiten braucht es keine Zertifizierung"
+        // ließ den letzten Punkt weg und hätte eine Gemeinschaft in einen
+        // angreifbaren Bestellungsbeschluss laufen lassen.
+        "Auch wer aus den eigenen Reihen verwaltet, wird dazu bestellt. Zertifiziert " +
+        "sein muss die Person nicht, solange die Anlage weniger als neun Einheiten hat, " +
+        "ein Eigentümer das Amt übernimmt und kein Drittel der Eigentümer die " +
+        "Zertifizierung verlangt (§ 19 Abs. 2 Nr. 6 WEG).",
       done: b.manuellErledigt.has("bestellung"),
       href: "/beschluesse",
       manual: true,

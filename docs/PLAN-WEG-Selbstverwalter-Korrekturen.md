@@ -4,9 +4,7 @@ Stand: 03.08.2026 · Basis: Testbericht „WEG Lindenhof 12" und
 „Laientauglichkeit WEG-Portal" · Ergänzung zu
 [`PLAN-Laientauglichkeit.md`](./PLAN-Laientauglichkeit.md)
 
-> **Umsetzungsstand.** **Block 1** (SK1–SK4), **Block 2** (SK5–SK7), **Block 3**
-> (SK8) und **Block 4** (SK9–SK10) sind gebaut und geprüft. Offen: **Block 5**
-> (Passwort aus der URL) — eigener Zweig, eigene Prüfung.
+> **Umsetzungsstand: alle Blöcke gebaut und geprüft** (SK1–SK11).
 >
 > Das Ausrollen des Glossars bleibt nach der Regel aus `PLAN-Laientauglichkeit.md`
 > eine fortlaufende Aufgabe: Wer eine Seite ohnehin anfasst, zieht sie mit. Die
@@ -302,11 +300,28 @@ Fünf Stellen geben ein frisch erzeugtes Passwort als GET-Parameter weiter:
 entgegengenommen in `zugangsschreiben/[id]/page.tsx:19`. Das landet in
 Server-Logs, Browser-Verlauf und im `Referer` jeder von dort geladenen Ressource.
 
-Lösung: ein einmal einlösbares, kurzlebiges Token serverseitig statt des
-Klartextpassworts in der Adresse. Der Weg ist derselbe wie bei den gehashten
-Reset-Tokens aus P1-6 (Schritt in `DECISIONS.md`) — dort steht das Muster schon.
+**Korrektur zum geplanten Lösungsweg (03.08.2026).** Hier stand, das Muster der
+gehashten Reset-Tokens aus P1-6 sei zu übernehmen. Das geht nicht: Ein Hash
+lässt sich nicht in ein druckbares Passwort zurückverwandeln, und das
+Zugangsschreiben muss es im Klartext zeigen. Eine Ablage in der Datenbank
+schied ebenso aus — sie hieße, Klartext-Passwörter zu speichern, und sei es
+kurz; dieselbe Fehlerklasse eine Ebene tiefer.
 
-**Nicht mit den WEG-Paketen mischen.** Eigener Zweig, eigene Prüfung.
+Umgesetzt als **kurzlebiges, pfadgebundenes `httpOnly`-Cookie**
+(`lib/zugangsschreiben.ts`): Es reist nicht in Protokollen, nicht im Verlauf
+und nicht im `Referer`, gilt fünf Minuten und räumt sich selbst auf. Die
+Grenze ehrlich benannt: Solange es gilt, zeigt ein Neuladen das Schreiben
+erneut — Absicht, damit ein versehentlich geschlossener Reiter den Druck nicht
+kostet, und der Grund für die kurze Frist.
+
+Dazu eine statische Prüfung (`zugangsschreiben.test.ts`), die einen Rückfall
+abfängt: Ein `?pw=` in einem neuen `redirect()` sieht aus wie jeder andere
+Parameter und funktioniert tadellos — nur eben mit dem Passwort in jedem Log
+auf dem Weg.
+
+**Zum Zweig:** Ursprünglich als eigener Zweig geplant. Die Sitzungsvorgabe
+nennt genau einen Entwicklungszweig, deshalb liegt es auf demselben — aber in
+einem eigenen Commit, der nichts anderes enthält.
 
 ---
 

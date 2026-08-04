@@ -6,6 +6,7 @@ import type { User } from "@/generated/prisma/client";
 import { canVerwalterAccessProperty, canVerwalterManageUser } from "@/lib/access";
 import { encodeBelegung } from "@/lib/belegung";
 import { db } from "@/lib/db";
+import { merkeErstzugang } from "@/lib/zugangsschreiben";
 import { type PersonTreffer, searchPersons } from "@/lib/person-search";
 import { requireVerwalter } from "@/lib/session";
 import { parseEuroToCents } from "@/lib/money";
@@ -371,7 +372,10 @@ export async function addUnitTenant(formData: FormData) {
     update: { active: true },
   });
   revalidatePath(backTo(propertyId, "").split("?")[0]);
-  if (result.pw) redirect(`/zugangsschreiben/${result.id}?pw=${encodeURIComponent(result.pw)}`);
+  if (result.pw) {
+    await merkeErstzugang(result.id, result.pw);
+    redirect(`/zugangsschreiben/${result.id}`);
+  }
   redirect(backTo(propertyId, "person=gespeichert"));
 }
 
@@ -453,7 +457,10 @@ export async function addUnitOwner(formData: FormData) {
   });
   await syncOwnerVotingWeights(propertyId);
   revalidatePath(backTo(propertyId, "").split("?")[0]);
-  if (result.pw) redirect(`/zugangsschreiben/${result.id}?pw=${encodeURIComponent(result.pw)}`);
+  if (result.pw) {
+    await merkeErstzugang(result.id, result.pw);
+    redirect(`/zugangsschreiben/${result.id}`);
+  }
   redirect(backTo(propertyId, "person=gespeichert"));
 }
 
@@ -499,7 +506,10 @@ export async function addPropertyOwner(formData: FormData) {
     update: {},
   });
   revalidatePath(backTo(propertyId, "").split("?")[0]);
-  if (result.pw) redirect(`/zugangsschreiben/${result.id}?pw=${encodeURIComponent(result.pw)}`);
+  if (result.pw) {
+    await merkeErstzugang(result.id, result.pw);
+    redirect(`/zugangsschreiben/${result.id}`);
+  }
   redirect(backTo(propertyId, "person=gespeichert"));
 }
 

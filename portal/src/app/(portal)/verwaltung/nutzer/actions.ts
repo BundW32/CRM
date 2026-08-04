@@ -21,6 +21,7 @@ import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
 import { hashToken } from "@/lib/token-hash";
+import { merkeErstzugang } from "@/lib/zugangsschreiben";
 
 // ── Rücksprung ──────────────────────────────────────────────────────
 // Dieselben Aktionen laufen von zwei Oberflächen: der Nutzerliste und der
@@ -405,7 +406,8 @@ export async function createUser(formData: FormData) {
   await assignRole(user.id, parsed.data.role, parsed.data.unitId, parsed.data.propertyId);
 
   revalidatePath("/verwaltung/nutzer");
-  redirect(`/zugangsschreiben/${user.id}?pw=${encodeURIComponent(tempPassword)}`);
+  await merkeErstzugang(user.id, tempPassword);
+  redirect(`/zugangsschreiben/${user.id}`);
 }
 
 // DSGVO-Löschung durch Anonymisierung: personenbezogene Daten werden entfernt,
@@ -742,5 +744,6 @@ export async function regenerateAccessLetter(formData: FormData) {
     },
   });
 
-  redirect(`/zugangsschreiben/${id}?pw=${encodeURIComponent(tempPassword)}`);
+  await merkeErstzugang(id, tempPassword);
+  redirect(`/zugangsschreiben/${id}`);
 }

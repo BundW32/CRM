@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { User } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { merkeErstzugaenge } from "@/lib/zugangsschreiben";
 import { isSelfManaged } from "@/lib/access";
 import {
   type PersonTreffer,
@@ -304,10 +305,13 @@ export async function createObjekt(formData: FormData) {
   revalidatePath("/verwaltung/objekte");
   revalidatePath("/verwaltung/nutzer");
 
-  // Falls Zugangsschreiben gedruckt werden müssen: Batch-Seite öffnen
+  // Falls Zugangsschreiben gedruckt werden müssen: Batch-Seite öffnen.
+  // Die Passwörter reisen nicht mehr in der Adresszeile mit (`?u=id~pw~id~pw`) —
+  // ein ganzes Objekt voller Klartext-Passwörter in einer URL stand in jedem
+  // Zugriffsprotokoll auf dem Weg dorthin.
   if (letterUsers.length > 0) {
-    const param = letterUsers.map((l) => `${l.id}~${l.pw}`).join("~");
-    redirect(`/zugangsschreiben/batch?u=${encodeURIComponent(param)}`);
+    await merkeErstzugaenge(letterUsers.map((l) => ({ id: l.id, pw: l.pw! })));
+    redirect("/zugangsschreiben/batch");
   }
 
   redirect("/verwaltung/objekte?eingerichtet=1");

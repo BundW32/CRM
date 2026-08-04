@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, buttonClass, inputClass, Field } from "@/components/ui";
 import { BrandTheme } from "@/components/brand-theme";
-import { BwLogo, OrgLogo } from "@/components/logo";
+import { ProductLogo, OrgLogo } from "@/components/logo";
 import { db } from "@/lib/db";
 import { publicOrgLogoUrl } from "@/lib/branding";
 import { getUser } from "@/lib/session";
@@ -41,7 +41,7 @@ export default async function LoginPage({
               </p>
             )
           ) : (
-            <BwLogo className="mx-auto mb-1 h-20 w-auto" />
+            <ProductLogo className="mx-auto mb-1 h-20 w-auto" />
           )}
           <p className="mb-4 text-center text-sm font-medium text-gray-500">
             Kundenportal

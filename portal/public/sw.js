@@ -33,13 +33,17 @@ self.addEventListener("push", (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { title: "B&W Kundenportal", body: event.data ? event.data.text() : "" };
+    data = { title: "", body: event.data ? event.data.text() : "" };
   }
-  const title = data.title || "B&W Kundenportal";
+  // Kein fester Produktname und kein festes Icon: Diese Datei ist statisch und
+  // kennt `APP_MODE` nicht. Der Titel kommt aus der Nachricht, das Icon über
+  // eine Weiche in next.config.ts — sonst trüge jede Push-Meldung auf
+  // wegportal24 das B&W-Signet.
+  const title = data.title || "Neue Nachricht";
   const options = {
     body: data.body || "",
-    icon: "/icon-192.png",
-    badge: "/icon-192.png",
+    icon: "/app-icon-192.png",
+    badge: "/app-icon-192.png",
     data: { url: data.url || "/dashboard" },
   };
   event.waitUntil(self.registration.showNotification(title, options));

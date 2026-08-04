@@ -29,7 +29,7 @@ import {
 // Gemeinsamer Prüfhelfer: liest über pdf.js zurück und kommt damit sowohl mit
 // den eingebetteten Schriften des Kits als auch mit den noch nicht umgestellten
 // Standard-Schriften zurecht.
-import { drawnTexts, type DrawnText } from "./test-helpers/pdf-inspect";
+import { drawnImages, drawnTexts, type DrawnText } from "./test-helpers/pdf-inspect";
 
 const MM = 841.89 / 297;
 const PAGE_W = 595.28;
@@ -718,5 +718,57 @@ describe("Übergabeprotokoll: Fotos", () => {
     });
     const alle = (await drawnTexts(pdf)).map((it) => it.text).join(" ");
     expect(alle).toContain("nicht ladbar");
+  });
+});
+
+describe("Briefkopf: das Logo bleibt in seiner Box", () => {
+  // Die Satzspiegel-Prüfungen oben lesen gezeichnete **Texte**. Bilder sahen
+  // sie nie — und genau dort saß die Lücke: Der Briefkopf skalierte das Logo
+  // allein auf 13 mm Höhe und hielt rechts 40 mm für den Absenderblock frei.
+  // Beim etwa quadratischen B&W-Logo ging das auf (19 mm breit). Eine
+  // Wortmarke im Verhältnis 5:1 — die Produktmarke wegportal24, aber auch
+  // jedes hochgeladene Mandantenlogo im Querformat — wurde 64 mm breit und
+  // lief in den Absender hinein.
+  // Punkt je Millimeter, wie oben im Satzspiegel.
+  const PT = MM;
+
+  async function briefMit(logo: string) {
+    return generateMahnung({
+      issuer: kitIssuer,
+      logo,
+      propertyName: "WEG Lindenhof",
+      unitLabel: "WE 07",
+      level: 2,
+      recipient: { name: "Ayşe Şahin", salutation: "Frau", lastName: "Şahin" },
+      recipientAddress: "Lindenstraße 14\n45964 Gladbeck",
+      arrearsCents: 148750,
+      paymentDeadline: new Date(2026, 7, 14),
+      iban: "DE02 4265 0150 0000 1234 56",
+      accountHolder: "WEG Lindenhof",
+      createdAt: new Date(2026, 6, 28),
+      city: "Gladbeck",
+    });
+  }
+
+  it("hält die Wortmarke aus dem Absenderblock heraus", async () => {
+    const pdf = await briefMit(path.join(process.cwd(), "public", "wegportal24-logo.png"));
+    const gezeichnet = await drawnImages(pdf);
+    expect(gezeichnet.length, "Kein Logo im Briefkopf gefunden").toBeGreaterThan(0);
+    const logo = { x: gezeichnet[0].x / PT, w: gezeichnet[0].width / PT, h: gezeichnet[0].height / PT };
+    // 20 mm linker Rand + 40 mm reservierte Breite: Ab 60 mm beginnt der
+    // Absenderblock, der rechtsbündig bis an den rechten Rand laufen darf.
+    expect(logo.x + logo.w).toBeLessThanOrEqual(60.5);
+    expect(logo.h).toBeLessThanOrEqual(13.5);
+    // Nicht bis zur Unkenntlichkeit geschrumpft.
+    expect(logo.h).toBeGreaterThan(5);
+  });
+
+  it("lässt das quadratische Logo unverändert groß", async () => {
+    // Gegenprobe: Die Box darf das bisherige Verhalten nicht verschlechtern —
+    // ein hohes Logo schöpft die 13 mm weiterhin aus.
+    const pdf = await briefMit(path.join(process.cwd(), "public", "bw-logo.png"));
+    const logo = (await drawnImages(pdf))[0];
+    expect(logo.height / PT).toBeGreaterThan(12.5);
+    expect((logo.x + logo.width) / PT).toBeLessThanOrEqual(60.5);
   });
 });

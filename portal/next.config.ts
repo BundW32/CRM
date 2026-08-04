@@ -42,7 +42,10 @@ const nextConfig: NextConfig = {
   // Serverless-Bundle und jede PDF-Erzeugung schlüge in der Produktion fehl,
   // während sie lokal läuft.
   outputFileTracingIncludes: {
-    "/**": ["public/fonts/**/*.ttf", "public/bw-logo.png"],
+    // Beide Produktlogos: Welches gebraucht wird, entscheidet APP_MODE erst
+    // zur Laufzeit (lib/branding.ts → defaultLogoPath) — die Verfolgung sieht
+    // das nicht und ließe das andere im Bundle fehlen.
+    "/**": ["public/fonts/**/*.ttf", "public/bw-logo.png", "public/wegportal24-logo.png"],
   },
   experimental: {
     // Standard ist 1 MB – zu klein für Foto-Uploads vom Handy

@@ -1,6 +1,7 @@
 "use server";
 
 import crypto from "crypto";
+import { signOffName } from "@/lib/branding";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
@@ -47,7 +48,7 @@ export async function requestPasswordReset(formData: FormData) {
         `Klicken Sie auf folgenden Link, um ein neues Passwort zu vergeben (gültig 2 Stunden):\n` +
         `${link}\n\n` +
         `Falls Sie keine Anfrage gestellt haben, ignorieren Sie diese E-Mail.\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+        `Mit freundlichen Grüßen\n${signOffName(branding)}`,
       undefined,
       branding
     );

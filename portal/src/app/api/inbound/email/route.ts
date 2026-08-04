@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { signOffName } from "@/lib/branding";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
@@ -305,7 +306,7 @@ export async function POST(request: Request) {
         `Ihre Meldung „${subject}" ist bei der ${branding.legalName} eingegangen und ` +
         `wird unter der Vorgangsnummer #${ticket.number} bearbeitet.\n\n` +
         `Sie können den Stand jederzeit im Kundenportal verfolgen.\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+        `Mit freundlichen Grüßen\n${signOffName(branding)}`,
       undefined,
       branding
     );

@@ -367,7 +367,11 @@ export function Pagination({
   );
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+// `label` ist ReactNode, nicht `string`: Eine Beschriftung darf einen
+// `<Begriff>` tragen („Umlageschlüssel" mit Erklärung daneben). `FieldShell`,
+// `SelectField` und `Card` konnten das längst — nur hier blieb es bei Text,
+// und das Ausrollen des Glossars endete deshalb an jedem gewöhnlichen Feld.
+export function Field({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium text-gray-700">{label}</span>

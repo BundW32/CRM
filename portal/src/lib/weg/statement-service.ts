@@ -37,6 +37,8 @@ export type StatementView = {
   }[];
   errors: string[];
   warnings: string[];
+  /** Gab es im Wirtschaftsjahr überhaupt etwas zu verteilen? */
+  hatPositionen: boolean;
   perUnitTotal: Record<string, number>;
   duePerUnit: Record<string, number>;
   peak: Record<string, number>; // Abrechnungsspitze: + Nachschuss / − Guthaben
@@ -415,6 +417,7 @@ export async function computeStatementView(
     })),
     errors: result.errors,
     warnings: result.warnings,
+    hatPositionen: result.hatPositionen,
     perUnitTotal: Object.fromEntries(result.perUnitTotal),
     duePerUnit: Object.fromEntries(duePerUnit),
     peak: Object.fromEntries(peak),

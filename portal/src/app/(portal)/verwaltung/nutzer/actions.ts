@@ -6,7 +6,11 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { User } from "@/generated/prisma/client";
-import { canVerwalterManageUser, propertyIdsForVerwalter } from "@/lib/access";
+import {
+  canVerwalterManageUser,
+  hinweiseVoreinstellung,
+  propertyIdsForVerwalter,
+} from "@/lib/access";
 import { generatePassword, generateUsername } from "@/lib/credentials";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
@@ -17,6 +21,7 @@ import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
 import { hashToken } from "@/lib/token-hash";
+import { merkeErstzugang } from "@/lib/zugangsschreiben";
 
 // ── Rücksprung ──────────────────────────────────────────────────────
 // Dieselben Aktionen laufen von zwei Oberflächen: der Nutzerliste und der
@@ -298,6 +303,15 @@ export async function createUser(formData: FormData) {
 
   const email = parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null;
   const name = `${parsed.data.firstName} ${parsed.data.lastName}`.trim();
+  // Erklärende Hinweise: für Mieter und Eigentümer immer an, für Kollegen einer
+  // professionellen Verwaltung aus. Umschaltbar unter „Konto".
+  const showHints = hinweiseVoreinstellung(
+    parsed.data.role,
+    await db.organization.findUnique({
+      where: { id: actor.organizationId },
+      select: { accountType: true },
+    }),
+  );
 
   // E-Mail-Einladung setzt eine E-Mail-Adresse voraus
   if (parsed.data.method === "email" && !email) {
@@ -332,6 +346,7 @@ export async function createUser(formData: FormData) {
         passwordResetToken: hashToken(inviteToken),
         passwordResetExpiry: inviteExpiry,
         organizationId: actor.organizationId,
+        showHints,
       },
     });
     await assignRole(user.id, parsed.data.role, parsed.data.unitId, parsed.data.propertyId);
@@ -385,12 +400,14 @@ export async function createUser(formData: FormData) {
       passwordHash: await bcrypt.hash(tempPassword, 12),
       mustChangePassword: true,
       organizationId: actor.organizationId,
+      showHints,
     },
   });
   await assignRole(user.id, parsed.data.role, parsed.data.unitId, parsed.data.propertyId);
 
   revalidatePath("/verwaltung/nutzer");
-  redirect(`/zugangsschreiben/${user.id}?pw=${encodeURIComponent(tempPassword)}`);
+  await merkeErstzugang(user.id, tempPassword);
+  redirect(`/zugangsschreiben/${user.id}`);
 }
 
 // DSGVO-Löschung durch Anonymisierung: personenbezogene Daten werden entfernt,
@@ -398,7 +415,8 @@ export async function createUser(formData: FormData) {
 export async function anonymizeUser(formData: FormData) {
   const verwalter = await requireVerwalter();
   // DSGVO-Löschung ist unwiderruflich und rechtlich sensibel: nur SuperAdmin.
-  if (!verwalter.isSuperAdmin) redirect(zurueckZurListe(formData));
+  // Mit Meldung, sonst wirkt der Knopf wie kaputt statt wie gesperrt.
+  if (!verwalter.isSuperAdmin) redirect(zurueckZurListe(formData, "?flash=keine-berechtigung"));
   const id = String(formData.get("id") ?? "");
   if (!id || id === verwalter.id) {
     redirect(zurueckZurListe(formData));
@@ -726,5 +744,6 @@ export async function regenerateAccessLetter(formData: FormData) {
     },
   });
 
-  redirect(`/zugangsschreiben/${id}?pw=${encodeURIComponent(tempPassword)}`);
+  await merkeErstzugang(id, tempPassword);
+  redirect(`/zugangsschreiben/${id}`);
 }

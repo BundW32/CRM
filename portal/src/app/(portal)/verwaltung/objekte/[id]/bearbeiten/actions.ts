@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { User } from "@/generated/prisma/client";
 import { canVerwalterAccessProperty, canVerwalterManageUser } from "@/lib/access";
+import { encodeBelegung } from "@/lib/belegung";
 import { db } from "@/lib/db";
+import { merkeErstzugang } from "@/lib/zugangsschreiben";
 import { type PersonTreffer, searchPersons } from "@/lib/person-search";
 import { requireVerwalter } from "@/lib/session";
 import { parseEuroToCents } from "@/lib/money";
@@ -203,12 +205,13 @@ export async function removeUnit(formData: FormData) {
   if (!(await canVerwalterAccessProperty(actor, unit.propertyId))) {
     redirect("/verwaltung/objekte");
   }
-  const c = unit._count;
-  const dependents =
-    c.tenancies + c.unitOwnerships + c.hausgeldPayments + c.duePostings + c.hausgeldMahnungen +
-    c.statementUnitAmounts + c.sepaMandates + c.handovers + c.tickets + c.documents + c.meters;
-  if (dependents > 0) {
-    redirect(`/verwaltung/objekte/${unit.propertyId}/bearbeiten?fehler=einheit_belegt`);
+  // Nicht summieren, sondern benennen: Die Abfrage weiß, *was* belegt ist, und
+  // genau das braucht der Nutzer — „nicht leer" allein lässt ihn suchen.
+  const belegt = encodeBelegung("einheit", unit._count);
+  if (belegt) {
+    redirect(
+      `/verwaltung/objekte/${unit.propertyId}/bearbeiten?fehler=einheit_belegt&belegt=${encodeURIComponent(belegt)}`,
+    );
   }
   await db.unit.delete({ where: { id: unitId } });
   revalidatePath(`/verwaltung/objekte/${unit.propertyId}/bearbeiten`);
@@ -216,9 +219,15 @@ export async function removeUnit(formData: FormData) {
 }
 
 // ── Objekt archivieren / reaktivieren / löschen (nur SuperAdmin) ─────────────
+// Ein Wächter, der stumm zurückleitet, sieht aus wie ein Knopf, der nichts tut:
+// Man klickt „Löschen", landet wieder in der Liste, und der Eintrag steht noch
+// da. `AGENTS.md` hält bereits fest, dass ein Wächter keinen Erfolg melden darf
+// — er muss aber melden, *dass* er gegriffen hat.
 async function requireSuperAdminProperty(actor: User, id: string) {
-  if (!actor.isSuperAdmin) redirect("/verwaltung/objekte");
-  if (!id || !(await canVerwalterAccessProperty(actor, id))) redirect("/verwaltung/objekte");
+  if (!actor.isSuperAdmin) redirect("/verwaltung/objekte?flash=keine-berechtigung");
+  if (!id || !(await canVerwalterAccessProperty(actor, id))) {
+    redirect("/verwaltung/objekte?flash=keine-berechtigung");
+  }
 }
 
 export async function archiveProperty(formData: FormData) {
@@ -284,9 +293,11 @@ export async function deleteProperty(formData: FormData) {
     },
   });
   if (!prop) redirect("/verwaltung/objekte");
-  const dependents = Object.values(prop._count).reduce((a, b) => a + b, 0);
-  if (dependents > 0) {
-    redirect(`/verwaltung/objekte/${id}/bearbeiten?fehler=objekt_belegt`);
+  const belegt = encodeBelegung("objekt", prop._count);
+  if (belegt) {
+    redirect(
+      `/verwaltung/objekte/${id}/bearbeiten?fehler=objekt_belegt&belegt=${encodeURIComponent(belegt)}`,
+    );
   }
   try {
     await db.property.delete({ where: { id } });
@@ -361,7 +372,10 @@ export async function addUnitTenant(formData: FormData) {
     update: { active: true },
   });
   revalidatePath(backTo(propertyId, "").split("?")[0]);
-  if (result.pw) redirect(`/zugangsschreiben/${result.id}?pw=${encodeURIComponent(result.pw)}`);
+  if (result.pw) {
+    await merkeErstzugang(result.id, result.pw);
+    redirect(`/zugangsschreiben/${result.id}`);
+  }
   redirect(backTo(propertyId, "person=gespeichert"));
 }
 
@@ -383,11 +397,29 @@ export async function removeUnitTenant(formData: FormData) {
   redirect(backTo(propertyId, "person=entfernt"));
 }
 
+// Miteigentumsanteil und Stichtag einer Einheiten-Eigentümerschaft.
+//
+// Beides gab es hier bisher nicht: Der Anteil blieb auf dem Vorgabewert 100 %,
+// der Beginn war immer „heute". Bei einem Ehepaar mit je der Hälfte einer
+// Einheit zählte `mea-sync` deshalb 100 % + 100 % und verdoppelte den MEA der
+// Einheit — die Rechnung stimmte, die Eingabe konnte gar nichts anderes sagen.
+// Dieselben Felder pflegt die WEG-Stammdatenseite längst; sie fehlten nur auf
+// dem Weg, den eine selbstverwaltende Gemeinschaft zuerst findet.
+function ownershipFields(formData: FormData) {
+  const roh = String(formData.get("sharePercent") ?? "").trim().replace(",", ".");
+  const n = roh ? Number.parseFloat(roh) : 100;
+  // Außerhalb von 0–100 ist der Wert kein Anteil. Dann lieber die Vorgabe als
+  // eine Zahl, die die Summenprüfung stillschweigend unbrauchbar macht.
+  const sharePercent = Number.isFinite(n) && n > 0 && n <= 100 ? n : 100;
+  return { sharePercent, validFrom: parseDateInput(formData.get("validFrom")) ?? new Date() };
+}
+
 export async function addUnitOwner(formData: FormData) {
   const actor = await requireVerwalter();
   const unitId = String(formData.get("unitId") ?? "").trim();
   if (!unitId) redirect("/verwaltung/objekte");
   const propertyId = await requireUnitScope(actor, unitId);
+  const { sharePercent, validFrom } = ownershipFields(formData);
 
   // Bestehende Person gewählt? Dann nur zuordnen – kein zweites Konto anlegen.
   const vorhandeneId = String(formData.get("userId") ?? "").trim();
@@ -396,7 +428,7 @@ export async function addUnitOwner(formData: FormData) {
       redirect(backTo(propertyId, "fehler=person_org"));
     }
     await db.unitOwnership
-      .create({ data: { organizationId: actor.organizationId, unitId, userId: vorhandeneId, validFrom: new Date() } })
+      .create({ data: { organizationId: actor.organizationId, unitId, userId: vorhandeneId, sharePercent, validFrom } })
       .catch(() => {});
     await db.ownership.upsert({
       where: { userId_propertyId: { userId: vorhandeneId, propertyId } },
@@ -416,7 +448,7 @@ export async function addUnitOwner(formData: FormData) {
   });
   if (!result) redirect(backTo(propertyId, "fehler=person_org"));
   await db.unitOwnership
-    .create({ data: { organizationId: actor.organizationId, unitId, userId: result.id, validFrom: new Date() } })
+    .create({ data: { organizationId: actor.organizationId, unitId, userId: result.id, sharePercent, validFrom } })
     .catch(() => {});
   await db.ownership.upsert({
     where: { userId_propertyId: { userId: result.id, propertyId } },
@@ -425,7 +457,10 @@ export async function addUnitOwner(formData: FormData) {
   });
   await syncOwnerVotingWeights(propertyId);
   revalidatePath(backTo(propertyId, "").split("?")[0]);
-  if (result.pw) redirect(`/zugangsschreiben/${result.id}?pw=${encodeURIComponent(result.pw)}`);
+  if (result.pw) {
+    await merkeErstzugang(result.id, result.pw);
+    redirect(`/zugangsschreiben/${result.id}`);
+  }
   redirect(backTo(propertyId, "person=gespeichert"));
 }
 
@@ -471,7 +506,10 @@ export async function addPropertyOwner(formData: FormData) {
     update: {},
   });
   revalidatePath(backTo(propertyId, "").split("?")[0]);
-  if (result.pw) redirect(`/zugangsschreiben/${result.id}?pw=${encodeURIComponent(result.pw)}`);
+  if (result.pw) {
+    await merkeErstzugang(result.id, result.pw);
+    redirect(`/zugangsschreiben/${result.id}`);
+  }
   redirect(backTo(propertyId, "person=gespeichert"));
 }
 

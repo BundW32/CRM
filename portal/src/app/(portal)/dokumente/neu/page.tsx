@@ -77,10 +77,19 @@ export default async function DokumentHochladenPage({
                 />
               </Field>
               <SelectField label="Kategorie" name="category" required options={kategorien} />
+              {/* Ohne Vorauswahl nahm der Browser die erste Option — „Mieter".
+                  Wer das Feld übersah, legte ein Eigentümerdokument ab, das
+                  kein Eigentümer sehen konnte, ohne dass irgendetwas darauf
+                  hinwies. Bewusst KEINE Vorgabe „Alle" als Gegenmittel: Ein
+                  Mietvertrag, der versehentlich an alle geht, wäre der
+                  schlimmere Ausgang. Wer Sichtbarkeit festlegt, soll sie
+                  wählen. */}
               <SelectField
                 label="Sichtbar für"
                 name="audience"
                 required
+                placeholder="— bitte wählen —"
+                hint="Wer das Dokument im Portal sehen kann."
                 options={Object.entries(audienceLabels).map(([value, label]) => ({
                   value,
                   label,

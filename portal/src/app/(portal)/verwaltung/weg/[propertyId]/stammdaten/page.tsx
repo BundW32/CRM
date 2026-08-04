@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Begriff } from "@/components/begriff";
 import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import {
@@ -141,17 +142,41 @@ export default async function WegStammdatenPage({
         <Card id="objekt-einstellungen" title="Objekt-Einstellungen">
           <form action={saveFinanceSettings} className="grid gap-4 sm:grid-cols-3">
             <input type="hidden" name="propertyId" value={property.id} />
-            <Field label="MEA-Nenner (Summe aller Anteile, z. B. 1000)">
+            <Field
+              label={
+                <>
+                  <Begriff name="miteigentumsanteil">MEA</Begriff>-Nenner (Summe aller
+                  Anteile, z. B. 1000)
+                </>
+              }
+            >
               <input
                 name="meaTotal"
                 type="number"
                 min={1}
                 defaultValue={property.meaTotal ?? ""}
                 className={inputClass}
-                placeholder="1000"
+                placeholder={meaSum > 0 ? String(meaSum) : "1000"}
               />
+              {/* Der Nenner ist ein zweites, von Hand gepflegtes Feld neben der
+                  Summe der Einheiten-Anteile. Das lässt sich nicht auflösen —
+                  die Teilungserklärung darf einen anderen Nenner nennen als die
+                  bisher erfassten Einheiten ergeben, und genau diese Abweichung
+                  soll auffallen. Was ging: die Summe danebenschreiben, statt
+                  sie den Verwalter selbst ausrechnen zu lassen. */}
+              {meaSum > 0 && property.meaTotal !== meaSum ? (
+                <p className="mt-1 text-xs text-gray-500">
+                  Summe der erfassten Einheiten: {meaSum.toLocaleString("de-DE")}
+                </p>
+              ) : null}
             </Field>
-            <Field label="Beginn des Wirtschaftsjahres">
+            <Field
+              label={
+                <>
+                  Beginn des <Begriff name="wirtschaftsjahr">Wirtschaftsjahres</Begriff>
+                </>
+              }
+            >
               <select
                 name="fiscalYearStartMonth"
                 defaultValue={property.fiscalYearStartMonth}
@@ -230,9 +255,16 @@ export default async function WegStammdatenPage({
         {/* MEA-Summenprüfung */}
         {property.meaTotal == null ? (
           <Alert variant="warning" title="MEA-Nenner fehlt">
+            {/* Vorher stand hier „ohne ihn ist keine Kostenverteilung nach MEA
+                möglich". Das stimmt nicht: Der Wirtschaftsplan verteilt längst
+                nach den Anteilen der Einheiten. Der Nenner ist die Gegenprobe,
+                nicht die Voraussetzung — eine Warnung, die mehr behauptet, als
+                sie belegen kann, verliert ihre Wirkung. */}
             Bitte den MEA-Nenner des Objekts eintragen (steht in der Teilungserklärung,
-            häufig 1.000 oder 10.000). Ohne ihn ist keine Kostenverteilung nach
-            Miteigentumsanteilen möglich.
+            häufig 1.000 oder 10.000). Die Verteilung nach{" "}
+            <Begriff name="miteigentumsanteil">Miteigentumsanteilen</Begriff> läuft auch
+            ohne ihn — aber ohne Nenner lässt sich nicht prüfen, ob alle Einheiten erfasst
+            sind{meaSum > 0 ? ` (Summe bisher: ${meaSum.toLocaleString("de-DE")})` : ""}.
           </Alert>
         ) : !meaOk ? (
           <Alert variant="warning" title="Miteigentumsanteile unvollständig">
@@ -497,7 +529,15 @@ export default async function WegStammdatenPage({
         </Card>
 
         {/* Kostenarten */}
-        <Card id="kostenarten" title="Kostenarten & Umlageschlüssel">
+        <Card
+          id="kostenarten"
+          title={
+            <>
+              Kostenarten &amp;{" "}
+              <Begriff name="umlageschluessel">Umlageschlüssel</Begriff>
+            </>
+          }
+        >
           {costTypes.length === 0 ? (
             <EmptyState
               action={
@@ -669,7 +709,7 @@ export default async function WegStammdatenPage({
                   ))}
                 </select>
               </Field>
-              <Field label="Umlageschlüssel">
+              <Field label={<Begriff name="umlageschluessel">Umlageschlüssel</Begriff>}>
                 <select name="distributionKey" className={`${inputClass} w-auto`} defaultValue="MEA">
                   {Object.entries(distributionKeyLabels).map(([value, label]) => (
                     <option key={value} value={value}>

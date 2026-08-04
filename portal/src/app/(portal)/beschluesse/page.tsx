@@ -23,6 +23,8 @@ import {
   KeyFigures,
   type BadgeTone,
 } from "@/components/data-display";
+import { Begriff } from "@/components/begriff";
+import { Tipp } from "@/components/tipp";
 import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -374,6 +376,17 @@ export default async function BeschluessePage({
       >
         Beschlüsse &amp; Abstimmungen
       </PageTitle>
+
+      {/* Die Unterscheidung der beiden Verfahren stand bisher nur im Quelltext.
+          Für den Laien sind es zwei Knöpfe, die dasselbe zu tun scheinen — und
+          der Unterschied entscheidet darüber, ob ein Beschluss wirksam ist. */}
+      <Tipp className="mb-4">
+        Hier stehen zwei Verfahren nebeneinander. Ein{" "}
+        <Begriff name="umlaufbeschluss">Umlaufbeschluss</Begriff> wird ohne Versammlung
+        schriftlich eingeholt. Über einen Tagesordnungspunkt einer geplanten Versammlung
+        wird dagegen erst dort abgestimmt — er erscheint hier, lässt aber vorher keine
+        Stimmabgabe zu.
+      </Tipp>
 
       {fehler ? (
         <Alert variant="error" className="mb-4">

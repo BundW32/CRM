@@ -90,6 +90,27 @@ const FEHLER_TEXTE: Record<string, string> = {
     "Zu diesem Import gibt es bereits Stornobuchungen — er kann nicht mehr im Ganzen zurückgenommen werden.",
 };
 
+/**
+ * Weg zu den Kontostammdaten — von dort, wo der Name auffällt.
+ *
+ * Konten werden beim Einrichten oft mit Kürzeln angelegt („sfae", „ff"). Die
+ * stehen dann groß auf dieser Seite, während die Umbenennung weit unten auf
+ * einer anderen liegt. Wer den Namen ändern will, sucht ihn dort, wo er ihn
+ * sieht.
+ */
+function KontenPflegeLink({ propertyId }: { propertyId: string }) {
+  return (
+    <p className="mt-3 border-t border-gray-100 pt-2 text-xs text-gray-400">
+      <Link
+        href={`/verwaltung/weg/${propertyId}/stammdaten#konten`}
+        className="hover:text-brand-green hover:underline"
+      >
+        Konten benennen, IBAN und Anfangsbestand pflegen →
+      </Link>
+    </p>
+  );
+}
+
 export default async function WegBuchhaltungPage({
   params,
   searchParams,
@@ -376,6 +397,7 @@ export default async function WegBuchhaltungPage({
                 ))}
               </dl>
             )}
+            <KontenPflegeLink propertyId={property.id} />
           </Card>
           <Card title="Erhaltungsrücklage (getrennt)">
             {ruecklage.length === 0 ? (
@@ -398,6 +420,7 @@ export default async function WegBuchhaltungPage({
                 ))}
               </dl>
             )}
+            <KontenPflegeLink propertyId={property.id} />
           </Card>
         </div>
 

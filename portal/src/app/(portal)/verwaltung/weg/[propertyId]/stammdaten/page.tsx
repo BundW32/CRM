@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Begriff } from "@/components/begriff";
 import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import {
@@ -141,7 +142,14 @@ export default async function WegStammdatenPage({
         <Card id="objekt-einstellungen" title="Objekt-Einstellungen">
           <form action={saveFinanceSettings} className="grid gap-4 sm:grid-cols-3">
             <input type="hidden" name="propertyId" value={property.id} />
-            <Field label="MEA-Nenner (Summe aller Anteile, z. B. 1000)">
+            <Field
+              label={
+                <>
+                  <Begriff name="miteigentumsanteil">MEA</Begriff>-Nenner (Summe aller
+                  Anteile, z. B. 1000)
+                </>
+              }
+            >
               <input
                 name="meaTotal"
                 type="number"
@@ -151,7 +159,13 @@ export default async function WegStammdatenPage({
                 placeholder="1000"
               />
             </Field>
-            <Field label="Beginn des Wirtschaftsjahres">
+            <Field
+              label={
+                <>
+                  Beginn des <Begriff name="wirtschaftsjahr">Wirtschaftsjahres</Begriff>
+                </>
+              }
+            >
               <select
                 name="fiscalYearStartMonth"
                 defaultValue={property.fiscalYearStartMonth}
@@ -231,8 +245,8 @@ export default async function WegStammdatenPage({
         {property.meaTotal == null ? (
           <Alert variant="warning" title="MEA-Nenner fehlt">
             Bitte den MEA-Nenner des Objekts eintragen (steht in der Teilungserklärung,
-            häufig 1.000 oder 10.000). Ohne ihn ist keine Kostenverteilung nach
-            Miteigentumsanteilen möglich.
+            häufig 1.000 oder 10.000). Ohne ihn ist keine Kostenverteilung nach{" "}
+            <Begriff name="miteigentumsanteil">Miteigentumsanteilen</Begriff> möglich.
           </Alert>
         ) : !meaOk ? (
           <Alert variant="warning" title="Miteigentumsanteile unvollständig">
@@ -497,7 +511,15 @@ export default async function WegStammdatenPage({
         </Card>
 
         {/* Kostenarten */}
-        <Card id="kostenarten" title="Kostenarten & Umlageschlüssel">
+        <Card
+          id="kostenarten"
+          title={
+            <>
+              Kostenarten &amp;{" "}
+              <Begriff name="umlageschluessel">Umlageschlüssel</Begriff>
+            </>
+          }
+        >
           {costTypes.length === 0 ? (
             <EmptyState
               action={
@@ -669,7 +691,7 @@ export default async function WegStammdatenPage({
                   ))}
                 </select>
               </Field>
-              <Field label="Umlageschlüssel">
+              <Field label={<Begriff name="umlageschluessel">Umlageschlüssel</Begriff>}>
                 <select name="distributionKey" className={`${inputClass} w-auto`} defaultValue="MEA">
                   {Object.entries(distributionKeyLabels).map(([value, label]) => (
                     <option key={value} value={value}>

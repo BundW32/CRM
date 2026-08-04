@@ -4,9 +4,13 @@ Stand: 03.08.2026 · Basis: Testbericht „WEG Lindenhof 12" und
 „Laientauglichkeit WEG-Portal" · Ergänzung zu
 [`PLAN-Laientauglichkeit.md`](./PLAN-Laientauglichkeit.md)
 
-> **Umsetzungsstand.** **Block 1** (SK1–SK4), **Block 2** (SK5–SK7) und
-> **Block 3** (SK8) sind gebaut und geprüft. Offen: Block 4 (Glossar ausrollen,
-> Kleinkram) und Block 5 (Passwort aus der URL).
+> **Umsetzungsstand.** **Block 1** (SK1–SK4), **Block 2** (SK5–SK7), **Block 3**
+> (SK8) und **Block 4** (SK9–SK10) sind gebaut und geprüft. Offen: **Block 5**
+> (Passwort aus der URL) — eigener Zweig, eigene Prüfung.
+>
+> Das Ausrollen des Glossars bleibt nach der Regel aus `PLAN-Laientauglichkeit.md`
+> eine fortlaufende Aufgabe: Wer eine Seite ohnehin anfasst, zieht sie mit. Die
+> in beiden Berichten namentlich genannten Seiten sind erledigt.
 >
 > Zwei Entscheidungen sind unterwegs gefallen: Der Fahrplan **fasst** mehrere
 > Objekte zusammen, statt umschaltbar zu sein, und der Einrichtungs-Assistent
@@ -272,8 +276,18 @@ genannten Seiten ein gezielter Durchgang.
 - `antraege/actions.ts:212` und `wirtschaftsplan/actions.ts:526`: neue Einträge
   landen per `max + 1` immer am Ende. Die Reihenfolge ist über `TopReihenfolge`
   änderbar — der Hinweis darauf fehlt an der Stelle, an der es auffällt.
-- Fehlende Verlinkungen (Organisationsname unter Einstellungen → Branding ist
-  pflegbar, aber von keiner Stelle aus erreichbar, an der man ihn vermisst).
+- **Korrektur (03.08.2026):** Der Organisationsname war für Selbstverwaltungen
+  nicht „nur nicht verlinkt", sondern **gar nicht erreichbar**.
+  `settingsItems()` blendet „Branding" für sie aus, und die Seite selbst weist
+  sie ab (`isSelfManaged(org) → redirect`) — beides zu Recht, denn Logo,
+  Akzentfarbe und Impressum einer Hausverwaltung gehen sie nichts an. Nur stand
+  der Name eben mitten darin. Ein Tippfehler bei der Registrierung blieb damit
+  für immer in der Kopfzeile jeder Seite stehen.
+
+  Gelöst mit einer eigenen schmalen Seite `/verwaltung/gemeinschaft` samt
+  eigener Aktion. Bewusst **nicht** durch Mitbenutzung von `saveBranding`: Jene
+  schreibt alle Branding-Felder aus dem Formular und würde bei einem Formular
+  mit einem Feld Impressum, Farbe und Anschrift stillschweigend leeren.
 
 ---
 

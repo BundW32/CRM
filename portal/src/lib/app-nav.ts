@@ -78,7 +78,18 @@ export const SETTINGS_HREF = "/verwaltung/einstellungen";
 export function settingsItems(selfManaged: boolean): NavItem[] {
   return [
     ...(selfManaged
-      ? []
+      ? [
+          // Der Name der Gemeinschaft steht bei professionellen Verwaltungen
+          // unter „Branding" – zwischen Logo, Farbe und Impressum, die dort
+          // zusammengehören. Selbstverwaltete WEGs weist jene Seite ab, und
+          // damit gab es für sie überhaupt keinen Weg zu ihrem eigenen Namen.
+          {
+            href: "/verwaltung/gemeinschaft",
+            title: "Gemeinschaft",
+            desc: "Name Ihrer WEG, wie er im Portal und auf Schreiben erscheint",
+            icon: "branding" as const,
+          },
+        ]
       : [
           {
             href: "/verwaltung/branding",

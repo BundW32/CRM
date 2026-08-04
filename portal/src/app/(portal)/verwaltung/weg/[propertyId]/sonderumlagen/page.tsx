@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Begriff } from "@/components/begriff";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -104,7 +105,13 @@ export default async function SonderumlagenPage({
             <Field label="Gesamtbetrag (€)">
               <input name="amount" inputMode="decimal" required className={inputClass} placeholder="0,00" />
             </Field>
-            <Field label="Umlageschlüssel *">
+            <Field
+              label={
+                <>
+                  <Begriff name="umlageschluessel">Umlageschlüssel</Begriff> *
+                </>
+              }
+            >
               <select name="distributionKey" defaultValue="MEA" className={inputClass}>
                 {KEYS.map((k) => (
                   <option key={k} value={k}>

@@ -3,6 +3,7 @@ import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { notFound, redirect } from "next/navigation";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { stackTight } from "@/components/data-display";
 import { canVerwalterAccessProperty, ownedProperties } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, formatDateOnly, resolutionStatusLabels } from "@/lib/labels";
@@ -299,12 +300,53 @@ export default async function MeetingDetailPage({
                 <PendingButton className={buttonClass}>Hinzufügen</PendingButton>
                 <p className="text-xs text-gray-500">
                   Beschluss-TOPs erzeugen automatisch eine Abstimmung im Bereich Beschlüsse.
+                  {meeting.agendaItems.length > 0
+                    ? " Neue Punkte kommen ans Ende der Tagesordnung — die Reihenfolge lässt sich links unter „Reihenfolge“ ändern."
+                    : null}
                 </p>
               </form>
             </Card>
             ) : null}
 
             <Card title="Eckdaten & Anwesenheit">
+              {/* Nach der Versammlung sind Eckdaten und Anwesenheit gesperrt —
+                  serverseitig war das längst so (`isMeetingClosed`), nur die
+                  Felder blieben bedienbar. Man tippte eine Korrektur, drückte
+                  Speichern und bekam eine Fehlermeldung. Eine Sperre, die man
+                  erst beim Speichern bemerkt, ist keine Sperre, sondern eine
+                  Falle. Der Text sagt jetzt vorher, was gilt. */}
+              {closed ? (
+                <>
+                  <dl className={`${stackTight} text-sm`}>
+                    <div>
+                      <dt className="text-xs font-medium text-gray-500">Titel</dt>
+                      <dd className="text-gray-900">{meeting.title}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-medium text-gray-500">Termin</dt>
+                      <dd className="text-gray-900">{formatDate(meeting.scheduledAt)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-medium text-gray-500">Ort</dt>
+                      <dd className="text-gray-900">{meeting.location ?? "—"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-medium text-gray-500">
+                        Anwesenheit / Vertretung
+                      </dt>
+                      <dd className="whitespace-pre-line text-gray-900">
+                        {meeting.attendanceNote ?? "—"}
+                      </dd>
+                    </div>
+                  </dl>
+                  <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-500">
+                    {meeting.status === "ABGESAGT"
+                      ? "Die Versammlung ist abgesagt — die Eckdaten bleiben als Nachweis der Einladung unverändert."
+                      : "Die Versammlung ist durchgeführt. Eckdaten und Anwesenheit sind Teil des Protokolls und deshalb nicht mehr änderbar."}
+                  </p>
+                </>
+              ) : (
+                <>
               <form action={updateMeeting} className="space-y-3">
                 <input type="hidden" name="meetingId" value={meeting.id} />
                 <Field label="Titel">
@@ -358,6 +400,8 @@ export default async function MeetingDetailPage({
                 </Field>
                 <PendingButton className="text-xs text-brand-green hover:underline">Anwesenheit speichern</PendingButton>
               </form>
+                </>
+              )}
             </Card>
 
             {!closed ? (

@@ -52,7 +52,7 @@ export const GLOSSAR = {
   },
   erhaltungsruecklage: {
     erklaerung:
-      "Das Gespartes für größere Reparaturen, streng getrennt vom laufenden Konto. Früher „Instandhaltungsrücklage“ genannt.",
+      "Das Ersparte für größere Reparaturen, streng getrennt vom laufenden Konto. Früher „Instandhaltungsrücklage“ genannt.",
     paragraph: "§ 19 Abs. 2 Nr. 4 WEG",
   },
   umlageschluessel: {

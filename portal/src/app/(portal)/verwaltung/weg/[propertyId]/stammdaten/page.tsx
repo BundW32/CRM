@@ -156,8 +156,19 @@ export default async function WegStammdatenPage({
                 min={1}
                 defaultValue={property.meaTotal ?? ""}
                 className={inputClass}
-                placeholder="1000"
+                placeholder={meaSum > 0 ? String(meaSum) : "1000"}
               />
+              {/* Der Nenner ist ein zweites, von Hand gepflegtes Feld neben der
+                  Summe der Einheiten-Anteile. Das lässt sich nicht auflösen —
+                  die Teilungserklärung darf einen anderen Nenner nennen als die
+                  bisher erfassten Einheiten ergeben, und genau diese Abweichung
+                  soll auffallen. Was ging: die Summe danebenschreiben, statt
+                  sie den Verwalter selbst ausrechnen zu lassen. */}
+              {meaSum > 0 && property.meaTotal !== meaSum ? (
+                <p className="mt-1 text-xs text-gray-500">
+                  Summe der erfassten Einheiten: {meaSum.toLocaleString("de-DE")}
+                </p>
+              ) : null}
             </Field>
             <Field
               label={
@@ -244,9 +255,16 @@ export default async function WegStammdatenPage({
         {/* MEA-Summenprüfung */}
         {property.meaTotal == null ? (
           <Alert variant="warning" title="MEA-Nenner fehlt">
+            {/* Vorher stand hier „ohne ihn ist keine Kostenverteilung nach MEA
+                möglich". Das stimmt nicht: Der Wirtschaftsplan verteilt längst
+                nach den Anteilen der Einheiten. Der Nenner ist die Gegenprobe,
+                nicht die Voraussetzung — eine Warnung, die mehr behauptet, als
+                sie belegen kann, verliert ihre Wirkung. */}
             Bitte den MEA-Nenner des Objekts eintragen (steht in der Teilungserklärung,
-            häufig 1.000 oder 10.000). Ohne ihn ist keine Kostenverteilung nach{" "}
-            <Begriff name="miteigentumsanteil">Miteigentumsanteilen</Begriff> möglich.
+            häufig 1.000 oder 10.000). Die Verteilung nach{" "}
+            <Begriff name="miteigentumsanteil">Miteigentumsanteilen</Begriff> läuft auch
+            ohne ihn — aber ohne Nenner lässt sich nicht prüfen, ob alle Einheiten erfasst
+            sind{meaSum > 0 ? ` (Summe bisher: ${meaSum.toLocaleString("de-DE")})` : ""}.
           </Alert>
         ) : !meaOk ? (
           <Alert variant="warning" title="Miteigentumsanteile unvollständig">

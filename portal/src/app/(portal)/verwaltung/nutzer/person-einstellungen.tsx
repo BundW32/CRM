@@ -120,13 +120,17 @@ export function PersonEinstellungen({
           <form action={anonymizeUser}>
             <input type="hidden" name="zurueck" value={zurueck} />
             <input type="hidden" name="id" value={u.id} />
-            {/* Unwiderruflich – deshalb Rückfrage statt sofortigem Vollzug. */}
+            {/* Unwiderruflich – deshalb Rückfrage statt sofortigem Vollzug.
+                Die Beschriftung hieß „DSGVO-Löschung". Fachlich richtig, aber
+                wer eine versehentlich doppelt angelegte Person entfernen will,
+                sucht danach nicht: Der Begriff nennt die Rechtsgrundlage, nicht
+                die Handlung. Jetzt beides — die Handlung zuerst. */}
             <ConfirmActionButton
               className="text-xs text-red-600 hover:underline"
-              confirmLabel="Endgültig löschen?"
-              pendingLabel="Wird gelöscht…"
+              confirmLabel="Person endgültig entfernen? Persönliche Daten werden gelöscht, Vorgänge und Belege bleiben anonymisiert erhalten."
+              pendingLabel="Wird entfernt…"
             >
-              DSGVO-Löschung
+              Person entfernen (DSGVO-Löschung)
             </ConfirmActionButton>
           </form>
         ) : null}

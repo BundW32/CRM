@@ -82,6 +82,10 @@ export const GLOSSAR = {
       "Von der Versammlung gewählte Eigentümer, die die Verwaltung unterstützen und die Jahresabrechnung vor der Beschlussfassung prüfen.",
     paragraph: "§ 29 WEG",
   },
+  reinvermoegen: {
+    erklaerung:
+      "Was der Gemeinschaft nach Abzug ihrer Schulden bleibt: Kontostände und Forderungen minus offener Rechnungen und Darlehen.",
+  },
   vermoegensbericht: {
     erklaerung:
       "Eine Übersicht am Jahresende: Was besitzt die Gemeinschaft, was schuldet sie, wie hoch ist die Rücklage?",

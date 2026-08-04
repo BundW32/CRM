@@ -559,7 +559,14 @@ Muster — ersetzt keine Rechtsberatung.`;
         </Card>
 
         {/* Einzelabrechnungen */}
-        <Card title="Einzelabrechnungen & Abrechnungsspitze (§ 28 Abs. 2 WEG)">
+        <Card
+          title={
+            <>
+              Einzelabrechnungen &amp;{" "}
+              <Begriff name="abrechnungsspitze">Abrechnungsspitze</Begriff> (§ 28 Abs. 2 WEG)
+            </>
+          }
+        >
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-gray-500">
               Jede Einzelabrechnung lässt sich als druckfertiges PDF (DIN A4) an den jeweiligen
@@ -731,7 +738,9 @@ Muster — ersetzt keine Rechtsberatung.`;
                       : "bg-gray-50 text-gray-900"
                   }`}
                 >
-                  <span className="text-sm font-semibold">Reinvermögen der Gemeinschaft</span>
+                  <span className="text-sm font-semibold">
+                    <Begriff name="reinvermoegen">Reinvermögen</Begriff> der Gemeinschaft
+                  </span>
                   <span className="text-lg font-semibold">
                     {euro(bericht.reinvermoegenCents)}
                   </span>

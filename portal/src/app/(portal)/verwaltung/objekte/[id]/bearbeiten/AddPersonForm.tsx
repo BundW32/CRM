@@ -167,9 +167,14 @@ export function AddPersonForm({
       {treffer.length > 0 ? (
         <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2">
           <p className="mb-1 text-xs font-medium text-amber-800">
+            {/* Nicht „Diese Person gibt es bereits“: Gesucht wird nach dem
+                Namen, und ein Treffer kann eine ganz andere Person sein. Beim
+                Anlegen von „Michael Krüger“ nannte die Warnung „Sabine Krüger“
+                — eine Behauptung, die erkennbar nicht stimmte, und wer eine
+                Warnung einmal als falsch erlebt, klickt die nächste weg. */}
             {trotzdemNeu
-              ? "Es gibt bereits Personen dieses Namens. Sie legen bewusst eine weitere an:"
-              : "Diese Person gibt es bereits – erneutes Anlegen erzeugt einen zweiten Zugang:"}
+              ? "Es gibt bereits Personen mit ähnlichem Namen. Sie legen bewusst eine weitere an:"
+              : "Es gibt bereits Personen mit ähnlichem Namen. Ist eine davon gemeint?"}
           </p>
           <ul className="space-y-1">
             {treffer.map((t) => (

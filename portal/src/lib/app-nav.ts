@@ -44,6 +44,17 @@ export type NavItem = {
   title: string;
   /** Kurzbeschreibung – genutzt in Übersichten (z. B. Einstellungs-Seite). */
   desc?: string;
+  /**
+   * Wen der Punkt überhaupt betrifft — für Einstellungen, die die meisten
+   * Gemeinschaften nie brauchen.
+   *
+   * Die Einstellungsseite listet fünf Kacheln mit fachsprachlichen Untertiteln.
+   * Ein Laie liest „Einbehalte anmelden — bis zum 10. des Folgemonats
+   * (§ 48a EStG)" und schließt daraus, dass er etwas versäumt, wenn er es nicht
+   * versteht. Dabei betrifft die Bauabzugsteuer nur, wer Bauleistungen oberhalb
+   * bestimmter Schwellen bezahlt — für die allermeisten kleinen WEGs also nie.
+   */
+  nurWenn?: string;
   icon: NavIcon;
   /** Schlüssel für ein optionales Zähler-Badge (siehe `loadCounts`). */
   countKey?: string;
@@ -102,6 +113,7 @@ export function settingsItems(selfManaged: boolean): NavItem[] {
       href: "/verwaltung/integrationen",
       title: "Integrationen",
       desc: "Optionale API-Zugänge (Open Banking, Messdienst) — ohne Schlüssel gilt der manuelle Weg",
+      nurWenn: "Sie Kontoumsätze oder Zählerstände automatisch übernehmen möchten",
       icon: "integrationen",
     },
     ...(selfManaged
@@ -118,12 +130,14 @@ export function settingsItems(selfManaged: boolean): NavItem[] {
       href: "/verwaltung/bauabzugsteuer",
       title: "Bauabzugsteuer",
       desc: "Einbehalte anmelden — bis zum 10. des Folgemonats (§ 48a EStG)",
+      nurWenn: "Sie Bauleistungen beauftragen und mehr als 5.000 € im Jahr an eine Firma zahlen",
       icon: "abrechnung",
     },
     {
       href: "/verwaltung/basiszinssatz",
       title: "Basiszinssatz",
       desc: "Grundlage der Verzugszinsen bei säumigem Hausgeld (§ 247 BGB, halbjährlich)",
+      nurWenn: "Sie Verzugszinsen für säumiges Hausgeld berechnen",
       icon: "abrechnung",
     },
     {
@@ -138,6 +152,7 @@ export function settingsItems(selfManaged: boolean): NavItem[] {
       href: "/verwaltung/audit",
       title: "Audit-Log",
       desc: "Sicherheitsrelevante Aktionen (Login, DSGVO, Freigaben)",
+      nurWenn: "Sie nachvollziehen wollen, wer wann was geändert hat",
       icon: "audit",
     },
   ];

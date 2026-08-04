@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { BwLogo } from "@/components/logo";
+import { PublicBrand } from "@/components/public-brand";
+import { isWegSaas } from "@/lib/app-mode";
 
 export const dynamic = "force-static";
 
@@ -16,11 +17,19 @@ export default function ImpressumPage() {
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 p-4">
       <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-        <BwLogo className="mb-6 h-14 w-auto" />
+        <PublicBrand />
         <h1 className="mb-4 text-2xl font-bold text-gray-900">Impressum</h1>
 
         <div className="space-y-4 text-sm text-gray-700">
           <Section title="Angaben gemäß § 5 TMG">
+            {/* Nur in der WEG-SaaS: dort tritt dieselbe UG unter der Marke
+                wegportal24 auf und muss sich als Betreiberin zu erkennen
+                geben. Auf portal.bundwimmobilien.de wäre der Satz sinnlos. */}
+            {isWegSaas() ? (
+              <p className="mb-2 text-gray-600">
+                Betreiberin der Website und des Portals <strong>wegportal24</strong>:
+              </p>
+            ) : null}
             <p>
               B &amp; W Immobilien Management UG (haftungsbeschränkt)
               <br />
@@ -134,6 +143,9 @@ export default function ImpressumPage() {
           </Link>
           <Link href="/datenschutz" className="text-brand-green hover:underline">
             Datenschutzerklärung
+          </Link>
+          <Link href="/ki-transparenz" className="text-brand-green hover:underline">
+            KI-Transparenz
           </Link>
         </div>
       </div>

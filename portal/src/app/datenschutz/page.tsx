@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BwLogo } from "@/components/logo";
+import { PublicBrand } from "@/components/public-brand";
 
 export const dynamic = "force-static";
 
@@ -16,7 +16,7 @@ export default function DatenschutzPage() {
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 p-4">
       <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-        <BwLogo className="mb-6 h-14 w-auto" />
+        <PublicBrand />
         <h1 className="mb-2 text-2xl font-bold text-gray-900">Datenschutzerklärung</h1>
         <p className="mb-6 text-xs text-gray-400">
           Hinweis: Diese Erklärung beschreibt die Datenverarbeitung im Kundenportal. Bitte vor
@@ -68,8 +68,12 @@ export default function DatenschutzPage() {
               <li>Datei-Speicher: Vercel Blob (Dokumente, Fotos, Unterschriften)</li>
               <li>E-Mail-Versand: Google (Gmail / Google Workspace)</li>
               <li>
-                KI-gestützte Vorqualifizierung eingehender Meldungen – optional, nur bei
-                Aktivierung durch die Verwaltung: Google (Gemini API)
+                KI-Funktionen (Assistent, Vorqualifizierung eingehender Meldungen) – optional,
+                nur bei Aktivierung durch die Verwaltung: Google (Gemini API); Einzelheiten
+                unter{" "}
+                <Link href="/ki-transparenz" className="text-brand-green hover:underline">
+                  KI-Transparenz
+                </Link>
               </li>
               <li>Optionaler Dokumenten-Import aus Google Drive</li>
               <li>
@@ -102,7 +106,30 @@ export default function DatenschutzPage() {
             </p>
           </Section>
 
-          <Section title="7. Ihre Rechte">
+          <Section title="7. Einsatz von KI-Systemen">
+            <p>
+              Das Portal enthält zwei optionale KI-Funktionen: einen Assistenten, der Fragen
+              aus den für Sie freigegebenen Unterlagen beantwortet, und eine
+              Vorqualifizierung eingehender Schadensmeldungen (Vorschlag für Gewerk und
+              Dringlichkeit). Beide sind standardmäßig deaktiviert und werden nur aktiv,
+              wenn die Verwaltung sie ausdrücklich freischaltet. Ist eine Funktion aktiv,
+              werden die jeweils benötigten Textinhalte an die Gemini-API von Google
+              übermittelt; eine Verarbeitung außerhalb der EU ist dabei möglich.
+            </p>
+            <p>
+              Die KI trifft <strong>keine automatisierte Entscheidung im Einzelfall</strong>{" "}
+              im Sinne von Art. 22 DSGVO: Sie erzeugt Vorschläge und Auskünfte, über die
+              Menschen entscheiden. Bei Finanzen, Hausgeld, Mahnwesen, Abrechnungen und
+              Abstimmungen kommt keine KI zum Einsatz. Welche Systeme wir mit welcher
+              Risikoeinstufung nach der EU-KI-Verordnung betreiben, legen wir unter{" "}
+              <Link href="/ki-transparenz" className="text-brand-green hover:underline">
+                KI-Transparenz
+              </Link>{" "}
+              offen.
+            </p>
+          </Section>
+
+          <Section title="8. Ihre Rechte">
             <p>
               Sie haben das Recht auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung (Art. 17),
               Einschränkung (Art. 18), Datenübertragbarkeit (Art. 20) und Widerspruch (Art. 21) sowie
@@ -119,6 +146,9 @@ export default function DatenschutzPage() {
           </Link>
           <Link href="/impressum" className="text-brand-green hover:underline">
             Impressum
+          </Link>
+          <Link href="/ki-transparenz" className="text-brand-green hover:underline">
+            KI-Transparenz
           </Link>
         </div>
       </div>

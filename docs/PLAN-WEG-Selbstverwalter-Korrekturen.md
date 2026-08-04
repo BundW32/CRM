@@ -4,9 +4,9 @@ Stand: 03.08.2026 · Basis: Testbericht „WEG Lindenhof 12" und
 „Laientauglichkeit WEG-Portal" · Ergänzung zu
 [`PLAN-Laientauglichkeit.md`](./PLAN-Laientauglichkeit.md)
 
-> **Umsetzungsstand.** **Block 1** (SK1–SK4) und **Block 2** (SK5–SK7) sind
-> gebaut und geprüft. Offen: Block 3 (Status aus Daten), Block 4 (Glossar
-> ausrollen, Kleinkram) und Block 5 (Passwort aus der URL).
+> **Umsetzungsstand.** **Block 1** (SK1–SK4), **Block 2** (SK5–SK7) und
+> **Block 3** (SK8) sind gebaut und geprüft. Offen: Block 4 (Glossar ausrollen,
+> Kleinkram) und Block 5 (Passwort aus der URL).
 >
 > Zwei Entscheidungen sind unterwegs gefallen: Der Fahrplan **fasst** mehrere
 > Objekte zusammen, statt umschaltbar zu sein, und der Einrichtungs-Assistent

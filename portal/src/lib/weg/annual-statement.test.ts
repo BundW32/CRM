@@ -91,6 +91,46 @@ describe("computeStatement", () => {
     expect(r.errors.some((e) => e.includes("ohne Kostenart"))).toBe(true);
   });
 
+  // Die Prüfung „Summe der Einzelabrechnungen == Gesamtkosten" ist bei einer
+  // leeren Abrechnung 0 == 0. Sie besteht also — und die Seite meldete daraufhin
+  // „Verteilung vollständig und centgenau" für ein Jahr ohne eine einzige
+  // Buchung. Genau diesen Fall trennt `hatPositionen` ab.
+  it("meldet eine leere Abrechnung als solche, statt sie zu bestätigen", () => {
+    const r = computeStatement(
+      baseInput({ expenseByCostType: new Map(), manualAmounts: new Map() }),
+    );
+    // Rechnerisch ist nichts zu beanstanden – und genau das ist die Falle.
+    expect(r.errors).toEqual([]);
+    expect(r.totalExpenseCents).toBe(0);
+    expect(r.hatPositionen).toBe(false);
+  });
+
+  it("zählt eine Kostenart ohne Betrag nicht als Position", () => {
+    // Kostenarten stehen im Katalog, auch wenn im Jahr nichts darauf gebucht
+    // wurde. Eine Zeile mit 0 € ist deshalb keine Position.
+    const r = computeStatement(
+      baseInput({ expenseByCostType: new Map([["hausmeister", 0]]), manualAmounts: new Map() }),
+    );
+    expect(r.hatPositionen).toBe(false);
+  });
+
+  it("erkennt eine reine Rücklagenzuführung als Position", () => {
+    // Ein Jahr, in dem nur in die Rücklage umgebucht wurde, ist nicht leer –
+    // es wurde Geld bewegt und es wird etwas verteilt.
+    const r = computeStatement(
+      baseInput({
+        expenseByCostType: new Map(),
+        manualAmounts: new Map(),
+        reserveTransferCents: 100_000,
+      }),
+    );
+    expect(r.hatPositionen).toBe(true);
+  });
+
+  it("bestätigt eine gefüllte Abrechnung weiterhin", () => {
+    expect(computeStatement(baseInput()).hatPositionen).toBe(true);
+  });
+
   it("Rücklagen-Ist wird als eigene MEA-Position verteilt", () => {
     const r = computeStatement(baseInput({ reserveTransferCents: 100_000 }));
     const reserveRow = r.rows.find((row) => row.costTypeId === RESERVE_ROW_ID);

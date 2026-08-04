@@ -8,6 +8,7 @@
 // Zustand, nie ein Abbild davon.
 
 import { db } from "@/lib/db";
+import { NOT_REVERSED } from "./booking-scope";
 import { classifyDue, type DueStatus } from "./compliance";
 import { ersterFehlenderSollmonat } from "./due-postings";
 import { oposJeEinheit } from "./opos-service";
@@ -48,7 +49,7 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
   const jahr = now.getFullYear();
   const weg = `/verwaltung/weg/${propertyId}`;
 
-  const [planKommend, planIrgendeiner, abrechnungVorjahr, versammlungImJahr, pruefpflichten, rueckstaende, fehlenderSollmonat] =
+  const [planKommend, planIrgendeiner, abrechnungVorjahr, buchungenVorjahr, versammlungImJahr, pruefpflichten, rueckstaende, fehlenderSollmonat] =
     await Promise.all([
       db.economicPlan.findFirst({
         where: { propertyId, year: jahr + 1, status: "BESCHLOSSEN" },
@@ -63,6 +64,18 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
       db.annualStatement.findFirst({
         where: { propertyId, year: jahr - 1, status: "FERTIG" },
         select: { id: true },
+      }),
+      // Gab es im Vorjahr überhaupt etwas abzurechnen? „Seit 33 Tagen
+      // überfällig" für eine Gemeinschaft, die es damals noch gar nicht gab,
+      // ist keine Mahnung, sondern ein Fehlalarm — und wer den einmal
+      // durchschaut hat, liest den nächsten Eintrag auch nicht mehr.
+      // Maßgeblich sind die Daten, nicht der Kalender.
+      db.booking.count({
+        where: {
+          propertyId,
+          bookingDate: { gte: new Date(jahr - 1, 0, 1), lt: new Date(jahr, 0, 1) },
+          ...NOT_REVERSED,
+        },
       }),
       db.ownersMeeting.findFirst({
         where: {
@@ -114,7 +127,9 @@ export async function loadRoadmap(propertyId: string, now: Date = new Date()): P
   }
 
   // ── Jahresabrechnung fürs Vorjahr ──────────────────────────────────────────
-  if (!abrechnungVorjahr) {
+  // Nur, wenn im Vorjahr überhaupt gebucht wurde: Ohne Buchungen gibt es nichts
+  // zu verteilen, und eine Frist dafür ist frei erfunden.
+  if (!abrechnungVorjahr && buchungenVorjahr > 0) {
     // Richtwert: bis Ende Juni des Folgejahres. Das ist die gängige Praxis, kein
     // gesetzlicher Stichtag – § 28 Abs. 2 WEG nennt keinen Tag.
     items.push(

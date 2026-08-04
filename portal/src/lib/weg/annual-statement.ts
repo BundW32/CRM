@@ -75,6 +75,21 @@ export type StatementResult = {
   errors: string[]; // blockiert das Fertigstellen — leer = verteilungsplausibel
   /** Hinweise, die NICHT blockieren (z. B. Zuführung weicht vom Plan ab). */
   warnings: string[];
+  /**
+   * Gab es überhaupt etwas zu verteilen?
+   *
+   * Die Prüfung „Summe der Einzelabrechnungen = Gesamtabrechnung" ist bei einer
+   * leeren Abrechnung `0 = 0` — trivial erfüllt. Ohne diese Unterscheidung
+   * meldete die Seite „Verteilung vollständig und centgenau" für ein
+   * Wirtschaftsjahr, in dem keine einzige Buchung erfasst war. Eine Zusicherung
+   * ohne Deckung ist schlimmer als keine: Sie beendet die Suche nach dem Fehler,
+   * statt sie auszulösen.
+   *
+   * Bewusst kein `error`: Ein Jahr ohne Kosten ist theoretisch zulässig, und
+   * das Fertigstellen zu blockieren hieße, einen fachlich möglichen Fall
+   * unmöglich zu machen. Die Seite sagt stattdessen, was Sache ist.
+   */
+  hatPositionen: boolean;
 };
 
 export const RESERVE_ROW_ID = "__ruecklage__";
@@ -268,6 +283,11 @@ export function computeStatement(input: StatementInput): StatementResult {
     reserveWithdrawalCents,
     errors,
     warnings,
+    // Eine Zeile mit 0 € ist keine Position: Kostenarten stehen im Katalog,
+    // auch wenn im Jahr nichts darauf gebucht wurde. Gefragt ist, ob überhaupt
+    // Geld bewegt wurde — Umbuchung in die Rücklage eingeschlossen.
+    hatPositionen:
+      rows.some((r) => r.totalCents !== 0) || input.reserveTransferCents !== 0,
   };
 }
 

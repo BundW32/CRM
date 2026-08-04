@@ -250,6 +250,16 @@ Muster — ersetzt keine Rechtsberatung.`;
             ))}
           </ul>
         </Alert>
+      ) : !view.hatPositionen ? (
+        // Ohne Positionen ist die Gleichung „Summe der Einzelabrechnungen =
+        // Gesamtabrechnung" 0 = 0 und damit trivial erfüllt. Grün zu melden
+        // hieße, eine Prüfung zu bestätigen, die nichts geprüft hat — und die
+        // Suche nach dem eigentlichen Fehler zu beenden, statt sie auszulösen.
+        <Alert variant="warning" className="mb-4">
+          Für dieses Wirtschaftsjahr ist nichts zu verteilen — es sind keine Buchungen
+          erfasst. Die Abrechnung wäre rechnerisch richtig und inhaltlich leer. Prüfen Sie,
+          ob die Kontoauszüge des Jahres eingelesen und den Kostenarten zugeordnet sind.
+        </Alert>
       ) : (
         <Alert variant="success" className="mb-4">
           Verteilung vollständig und centgenau — Summe der Einzelabrechnungen entspricht der

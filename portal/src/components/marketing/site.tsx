@@ -30,6 +30,7 @@ const navItems = [
   { href: "/funktionen/hausgeld", label: "Hausgeld" },
   { href: "/funktionen/versammlung", label: "Versammlung" },
   { href: "/funktionen/kommunikation", label: "Kommunikation" },
+  { href: "/preise", label: "Preise" },
 ] as const;
 
 export function MarketingHeader({ active }: { active?: string }) {
@@ -105,6 +106,7 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
     title: "Einstieg",
     links: [
       { href: "/so-funktionierts", label: "So funktioniert’s" },
+      { href: "/preise", label: "Preise" },
       { href: "/registrieren", label: "Kostenlos registrieren" },
       { href: "/login", label: "Anmelden" },
     ],

@@ -169,9 +169,11 @@ const FAQ = [
   {
     f: "Was kostet wegportal24?",
     a:
-      "Der Start ist kostenlos und ohne Zahlungsdaten. Sie legen Ihre WEG an, " +
-      "richten Einheiten und Konten ein und laden die Miteigentümer ein – erst " +
-      "danach entscheiden Sie, ob das Portal zu Ihrer Gemeinschaft passt.",
+      "Der Start ist kostenlos und ohne Zahlungsdaten. Danach kostet Basic " +
+      "10 € je Nutzer und Monat; Verwalter-Plus kostet 13,90 € je Einheit und " +
+      "Monat und enthält ein Ticket-System, über das ein zertifizierter " +
+      "Verwalter (§ 26a WEG) Ihre Fragen beantwortet. Alle Details und ein " +
+      "Rechner für Ihre Gemeinschaft stehen auf der Preisseite.",
   },
   {
     f: "Brauchen wir Buchhaltungswissen?",

@@ -57,7 +57,8 @@ const steps = [
     text:
       "Jeder Miteigentümer erhält einen eigenen Zugang und sieht Abrechnungen, " +
       "Dokumente und Beschlüsse jederzeit selbst ein. Auf Wunsch laden Sie auch " +
-      "Beirat, Mieter und Handwerker ein – jeder mit genau passenden Rechten.",
+      "Beirat und Mieter ein – jeder mit genau passenden Rechten. Handwerker " +
+      "binden Sie ohne Konto über Auftrags-Links ein.",
   },
 ];
 
@@ -94,7 +95,7 @@ const faqs = [
   {
     q: "Sind unsere Daten sicher?",
     a:
-      "Jeder Nutzer meldet sich mit eigenem Passwort an, und sämtliche Dateien " +
+      "Jeder Zugang meldet sich mit eigenem Passwort an, und sämtliche Dateien " +
       "werden nur nach Berechtigungsprüfung ausgeliefert – ein Handwerker sieht " +
       "also nie die Abrechnung, ein Mieter nie die Rückstandsliste. Details " +
       "stehen in der Datenschutzerklärung.",

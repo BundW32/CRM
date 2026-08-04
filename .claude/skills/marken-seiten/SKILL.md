@@ -14,8 +14,8 @@ Abschluss-CTA, Fußzeile). Wer den Aufbau erneut ändern will, fragt zuerst.
 ## Der Prüfbefehl
 
 ```bash
-npx --yes impeccable@latest detect portal/src/app/page.tsx portal/src/app/funktionen \
-  portal/src/app/so-funktionierts portal/src/components/marketing
+npx --yes impeccable@latest detect portal/src/app/page.tsx portal/src/app/preise \
+  portal/src/app/funktionen portal/src/app/so-funktionierts portal/src/components/marketing
 ```
 
 **Auf diesen Pfaden gilt: null Befunde**, vor und nach jeder Änderung. Der
@@ -36,8 +36,10 @@ dortigen Resttreffer betreffen das ganze Portal, nicht diese Seiten.
 ## Inhaltsregeln (nicht verhandelbar)
 
 - **Keine erfundenen Kundenstimmen.** Das Portal ist neu. Der Stimmen-Slot
-  wird mit klar benannten Situationen/Rollen gefüllt („Die Eigentümerin, die
-  das Amt übernimmt"), nie mit erfundenen Namen, Fotos oder Sternen.
+  wird mit Rollen in DIREKTER ANSPRACHE gefüllt („Sie übernehmen das Amt"),
+  nie mit erfundenen Namen, Fotos, Sternen — und auch nicht mit erzählten
+  Einzelpersonen („Die Eigentümerin, die …"): Ein Fallbericht über eine
+  Person, die es nicht gibt, ist eine erfundene Referenz.
 - **Vertrauens-Fakten sind Produkt- oder Gesetzes-Fakten** (kostenlos, ohne
   Zahlungsdaten, §-Angaben, echte Zahlen aus dem Demo-Datenbestand). Keine
   „500+ zufriedene Kunden".
@@ -47,12 +49,19 @@ dortigen Resttreffer betreffen das ganze Portal, nicht diese Seiten.
   SaaS-Variante kennt genau einen Kontotyp (`selbstverwalter`, serverseitig
   erzwungen in `registrieren/actions.ts`) — die Seiten bieten nichts anderes
   an.
-- **Preise haben EINE Quelle:** `src/app/preise/preise-daten.ts` (Basic 10 €
-  je Nutzer/Monat, Verwalter-Plus 13,90 € je Einheit/Monat mit Ticket-Weg zu
-  einem zertifizierten Verwalter nach § 26a WEG; Start bleibt kostenlos).
-  Tarifkarten, Rechner und die Startseiten-FAQ lesen diese Konstanten — einen
-  Preis ändert man dort, nirgendwo sonst. Noch offen und deshalb bewusst
-  nicht auf der Seite: Umsatzsteuer-Darstellung, Laufzeit, Kündigungsfrist.
+- **Preise haben EINE Quelle:** `src/app/preise/preise-daten.ts`. Das Modell:
+  BEIDE Tarife je Einheit/Monat (Basic 10 €, Verwalter-Plus 13,90 € mit
+  Ticket-Weg zu einem zertifizierten Verwalter nach § 26a WEG), alle Zugänge
+  immer inklusive — keine Preisspaltung nach Nutzern. Mengenstaffel: je mehr
+  Einheiten, desto günstiger je Einheit (Sätze in `RABATT_STAFFEL`, vom
+  Auftraggeber noch zu bestätigen). Grenze 12 Einheiten; darüber Hinweisfeld
+  mit Kontakt zur Verwaltung hinter dem Portal (ohne Namensnennung). Start
+  bleibt kostenlos. Noch offen und deshalb bewusst nicht auf der Seite:
+  Umsatzsteuer-Darstellung, Laufzeit, Kündigungsfrist.
+- **Herkunft ohne Namen:** Erfinder des Portals ist der Geschäftsführer der
+  Betreiberin (einer Hausverwaltung). Auf den Seiten wird weder Firma noch
+  Person genannt — nur „die Verwaltung hinter wegportal24"; Namen stehen im
+  Impressum.
 
 ## Marke
 

@@ -39,35 +39,39 @@
   }
 
   // ── Preis-Rechner (nur /preise) ──────────────────────────────────────────
-  // Die Vorschau trägt kein React; die Zähler-Knöpfe wären tot. Dieser Zweig
-  // liest die Faktoren aus dem SICHTBAREN Markup („8 Nutzer × 10,00 €") statt
-  // die Preise zu wiederholen — ändert sich ein Preis, stimmt die Vorschau
-  // ohne Anfassen weiter.
-  const zahl = (t) => parseFloat(t.replace(/\./g, "").replace(",", "."));
-  const euro = (n) => n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  document.querySelectorAll('button[aria-label$="erh\u00f6hen"], button[aria-label$="verringern"]').forEach((knopf) => {
-    knopf.addEventListener("click", () => {
-      const zeile = knopf.closest("div").parentElement;
-      const anzeige = zeile.querySelector("span.tabular-nums, span[class*='w-10']");
-      if (!anzeige) return;
-      const label = knopf.getAttribute("aria-label");
-      const einheiten = label.startsWith("Einheiten");
-      const min = einheiten ? 2 : 1, max = einheiten ? 30 : 60;
-      let wert = parseInt(anzeige.textContent, 10) + (label.endsWith("erh\u00f6hen") ? 1 : -1);
-      wert = Math.max(min, Math.min(max, wert));
-      anzeige.textContent = String(wert);
-      // Zugehörige Ergebnisbox: Basic hängt an Nutzern, Plus an Einheiten.
-      const karte = knopf.closest(".rounded-2xl");
-      // Nur die Ergebnis-DIVs — die Zähler-Knöpfe tragen selbst `rounded-xl`
-      // und wären sonst boxen[0] und boxen[1].
-      const boxen = karte.querySelectorAll("div.rounded-xl");
-      const box = einheiten ? boxen[1] : boxen[0];
-      const detail = box.querySelector("p:last-child");
-      const faktor = zahl(detail.textContent.split("\u00d7")[1]);
-      box.querySelector(".tabular-nums").childNodes[0].textContent = `${euro(wert * faktor)} \u20ac`;
-      detail.textContent = `${wert} ${einheiten ? "Einheiten" : "Nutzer"} \u00d7 ${euro(faktor)} \u20ac`;
+  // Die Vorschau trägt kein React; die Zähler-Knöpfe wären tot. Preise,
+  // Staffel und Obergrenze liest dieser Zweig aus den data-Attributen, die
+  // `preis-rechner.tsx` genau dafür rendert — eine Quelle, keine Kopie.
+  const rechner = document.querySelector("[data-preisrechner]");
+  if (rechner) {
+    const basic = parseFloat(rechner.dataset.basic);
+    const plus = parseFloat(rechner.dataset.plus);
+    const max = parseInt(rechner.dataset.max, 10);
+    const staffel = JSON.parse(rechner.dataset.staffel);
+    const euro = (n) => n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const rabatt = (e) => (staffel.find((st) => e >= st.abEinheiten)?.rabatt ?? 0);
+    const anzeige = rechner.querySelector("[data-einheiten]");
+    const zeichneRechner = (e) => {
+      anzeige.textContent = String(e);
+      [basic, plus].forEach((basis, i) => {
+        const box = rechner.querySelectorAll("[data-gesamt]")[i];
+        const detail = rechner.querySelectorAll("[data-detail]")[i];
+        const je = basis * (1 - rabatt(e));
+        // SSR trennt "54,00" und " \u20ac" in eigene Textknoten (React-Kommentar
+        // dazwischen) \u2014 hier nur die Zahl ersetzen, das \u20ac-Zeichen bleibt stehen.
+        box.childNodes[0].textContent = euro(e * je);
+        const r = rabatt(e);
+        detail.textContent = `${e} Einheiten \u00d7 ${euro(je)} \u20ac` + (r > 0 ? ` (${Math.round(r * 100)} % Mengenrabatt)` : "");
+      });
+    };
+    rechner.querySelectorAll("button[aria-label^='Einheiten']").forEach((knopf) => {
+      knopf.addEventListener("click", () => {
+        const delta = knopf.getAttribute("aria-label").endsWith("erh\u00f6hen") ? 1 : -1;
+        const e = Math.max(2, Math.min(max, parseInt(anzeige.textContent, 10) + delta));
+        zeichneRechner(e);
+      });
     });
-  });
+  }
 
   // ── Bau-Szene ────────────────────────────────────────────────────────────
   const track = document.querySelector('[aria-label="So bauen Sie Ihre Selbstverwaltung auf"]');

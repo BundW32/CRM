@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { BwLogo } from "@/components/logo";
+import { Wordmark } from "@/components/marketing/wordmark";
+import { isWegSaas } from "@/lib/app-mode";
 
 export const dynamic = "force-static";
 
@@ -13,10 +15,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function DatenschutzPage() {
+  const weg = isWegSaas();
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 p-4">
-      <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-        <BwLogo className="mb-6 h-14 w-auto" />
+      <div className={`rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30 ${weg ? "wp-brand" : ""}`}>
+        {weg ? (
+          <div className="mb-6">
+            <Wordmark className="text-2xl" />
+          </div>
+        ) : (
+          <BwLogo className="mb-6 h-14 w-auto" />
+        )}
         <h1 className="mb-2 text-2xl font-bold text-gray-900">Datenschutzerklärung</h1>
         <p className="mb-6 text-xs text-gray-400">
           Hinweis: Diese Erklärung beschreibt die Datenverarbeitung im Kundenportal. Bitte vor

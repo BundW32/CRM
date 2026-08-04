@@ -22,7 +22,8 @@ export const metadata: Metadata = {
   description:
     "Schäden mit Fotos melden, Handwerker beauftragen, Dokumente und Aushänge " +
     "zentral teilen: So bleibt in der selbstverwalteten WEG jeder informiert – " +
-    "mit eigenem Zugang für Eigentümer, Beirat, Mieter und Handwerker.",
+    "mit eigenem Zugang für Eigentümer, Beirat und Mieter – Handwerker " +
+    "arbeiten ohne Konto über sichere Auftrags-Links.",
 };
 
 export default async function KommunikationPage() {
@@ -85,14 +86,15 @@ export default async function KommunikationPage() {
         visual={<RolesVisual />}
         points={[
           "Vorgänge direkt einem Handwerker zuweisen – per E-Mail benachrichtigt",
-          "Handwerker sehen ausschließlich ihre eigenen Aufträge",
+          "Handwerker arbeiten über einen sicheren Link – ohne eigenes Konto",
           "„Arbeit begonnen“ / „Auftrag erledigt“ mit Foto-Dokumentation",
         ]}
       >
         <p>
-          Statt Telefonketten bekommt der Handwerker einen eigenen, streng
-          begrenzten Zugang: Er sieht nur die ihm zugewiesenen Aufträge, meldet
-          den Beginn der Arbeiten und dokumentiert die Ausführung mit Fotos.
+          Statt Telefonketten erhält der Handwerker per E-Mail einen sicheren
+          Auftrags-Link – ganz ohne eigenes Konto. Darüber sieht er nur den ihm
+          zugewiesenen Auftrag, meldet den Beginn der Arbeiten und dokumentiert
+          die Ausführung mit Fotos.
           Die Gemeinschaft hat damit automatisch einen Nachweis, was wann
           gemacht wurde – hilfreich für Gewährleistung und Abrechnung.
         </p>
@@ -129,8 +131,8 @@ export default async function KommunikationPage() {
           "Eigentümer: Abrechnungen, Beschlüsse, Dokumente, Statistiken der eigenen Objekte",
           "Beirat: prüft Abrechnungen und Belege",
           "Mieter: melden Schäden, lesen Aushänge und eigene Dokumente",
-          "Handwerker: sehen nur zugewiesene Aufträge",
-          "Sicherer Login mit eigenem Passwort, auch als App am Handy nutzbar",
+          "Handwerker: erhalten Aufträge per sicherem Link, ohne Konto",
+          "Für alle Zugänge: sicherer Login mit eigenem Passwort, auch am Handy",
         ]}
       >
         <p>

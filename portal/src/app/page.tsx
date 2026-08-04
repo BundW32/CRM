@@ -14,6 +14,7 @@
 // - Bewegung nur über `--ease-mk-out`; der Prüfbefehl aus
 //   `.claude/skills/marken-seiten/SKILL.md` muss 0 Befunde melden.
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -118,36 +119,37 @@ const NUTZEN = [
   },
   {
     icon: Users,
-    titel: "Alle im Haus, jeder mit Zugang",
+    titel: "Alle im Haus eingebunden",
     text:
-      "Eigentümer, Beirat, Mieter und Handwerker – jede Rolle sieht genau das, " +
-      "was sie betrifft. Schäden mit Foto melden, Dokumente und Aushänge " +
-      "zentral, auch am Handy.",
+      "Eigentümer, Beirat und Mieter mit eigenem Zugang – jeder sieht genau " +
+      "das, was ihn betrifft, auch am Handy. Handwerker erhalten ihre " +
+      "Aufträge über einen sicheren Link, ganz ohne Konto.",
     href: "/funktionen/kommunikation",
   },
 ];
 
-// Element 8: Stimmen-Slot – drei Situationen aus der Zielgruppe, als solche
-// benannt. Keine erfundenen Namen, keine erfundenen Sterne.
-const SITUATIONEN = [
+// Element 8: „Für wen"-Slot. Drei Rollen in direkter Ansprache — bewusst
+// keine erzählten Einzelpersonen: Das Portal ist neu, und eine Karte, die wie
+// der Fallbericht einer echten Kundin klingt, wäre eine erfundene Referenz.
+const ROLLEN = [
   {
-    rolle: "Die Eigentümerin, die das Amt übernimmt",
+    rolle: "Sie übernehmen das Amt",
     text:
-      "Vier Absagen von Hausverwaltungen, dann macht sie es selbst. Das Portal " +
-      "führt sie durch Wirtschaftsplan und Abrechnung, prüft die Summen mit und " +
-      "erklärt jeden Fachbegriff per Klick – Buchhaltungswissen braucht sie " +
-      "nicht.",
+      "Das Portal führt Sie durch Wirtschaftsplan, Buchhaltung und " +
+      "Jahresabrechnung, rechnet centgenau und prüft die Summen mit. " +
+      "Fachbegriffe erklären sich per Klick – Buchhaltungswissen brauchen " +
+      "Sie nicht.",
   },
   {
-    rolle: "Der Beirat, der prüfen soll",
+    rolle: "Sie sitzen im Beirat",
     text:
-      "Statt eines Ordners voller Kopien sieht er Plan, Abrechnung und Belege " +
-      "im Portal, Journal und Kontoblatt als CSV. Sein Prüfvermerk nach § 29 " +
-      "WEG steht direkt am Dokument – nachvollziehbar für die ganze " +
-      "Gemeinschaft.",
+      "Statt eines Ordners voller Kopien sehen Sie Plan, Abrechnung und " +
+      "Belege direkt im Portal, Journal und Kontoblatt als CSV. Ihr " +
+      "Prüfvermerk nach § 29 WEG steht am Dokument – nachvollziehbar für die " +
+      "ganze Gemeinschaft.",
   },
   {
-    rolle: "Die Miteigentümer, die mitentscheiden",
+    rolle: "Sie sind Miteigentümer",
     text:
       "Einladung, Tagesordnung und eigene Anträge im Portal, abgestimmt wird " +
       "nach Miteigentumsanteilen. Wer nicht dabei sein kann, gibt eine " +
@@ -169,11 +171,12 @@ const FAQ = [
   {
     f: "Was kostet wegportal24?",
     a:
-      "Der Start ist kostenlos und ohne Zahlungsdaten. Danach kostet Basic " +
-      "10 € je Nutzer und Monat; Verwalter-Plus kostet 13,90 € je Einheit und " +
-      "Monat und enthält ein Ticket-System, über das ein zertifizierter " +
-      "Verwalter (§ 26a WEG) Ihre Fragen beantwortet. Alle Details und ein " +
-      "Rechner für Ihre Gemeinschaft stehen auf der Preisseite.",
+      "Der Start ist kostenlos und ohne Zahlungsdaten. Danach zahlt Ihre " +
+      "Gemeinschaft je Einheit und Monat: Basic 10 €, Verwalter-Plus 13,90 € – " +
+      "Letzterer mit einem Ticket-System, über das ein zertifizierter " +
+      "Verwalter (§ 26a WEG) Ihre Fragen beantwortet. Alle Zugänge sind immer " +
+      "inklusive, und je mehr Einheiten, desto günstiger wird die einzelne. " +
+      "Details und ein Rechner stehen auf der Preisseite.",
   },
   {
     f: "Brauchen wir Buchhaltungswissen?",
@@ -220,10 +223,11 @@ const FAQ = [
   {
     f: "Wer steht hinter wegportal24?",
     a:
-      "Ein Team aus der Praxis der Immobilienverwaltung – das Portal ist aus " +
-      "der täglichen Arbeit mit Wirtschaftsplänen, Abrechnungen und " +
-      "Versammlungen entstanden, nicht am Reißbrett. Die Betreiberin steht im " +
-      "Impressum.",
+      "Entwickelt hat wegportal24 der Geschäftsführer einer Hausverwaltung – " +
+      "aus der täglichen Arbeit mit Wirtschaftsplänen, Abrechnungen und " +
+      "Versammlungen, nicht am Reißbrett. Dieselbe Verwaltung steht hinter " +
+      "dem Verwalter-Plus-Tarif und übernimmt Gemeinschaften, die aus der " +
+      "Selbstverwaltung herauswachsen. Die Betreiberin steht im Impressum.",
   },
   {
     f: "Was passiert, wenn wir später doch eine Verwaltung finden?",
@@ -361,102 +365,74 @@ export default async function Home() {
         />
       </div>
 
-      {/* ── Das Produkt-Artefakt: eine Einzelabrechnung, die aufgeht ──────
-          Kein Dashboard-Mockup, sondern das Papier, auf das es am Jahresende
-          ankommt — Beispiel aus der Demo-Gemeinschaft, Einheit 3 mit 137/1000
-          Miteigentumsanteilen. */}
+      {/* ── Echte Ansichten aus dem Portal ─────────────────────────────────
+          Keine nachgebauten Mockups: Die Bilder sind Screenshots aus der
+          laufenden Anwendung (Demo-Gemeinschaft „WEG Musterstraße 12"),
+          beschnitten auf die Inhalts-Karten und in den Rahmen-Stil der Seite
+          gesetzt. Wer neue aufnimmt: Betreiber-Branding (Seitenleiste,
+          Fußzeile) darf nicht mit aufs Bild. */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
         <div className="grid items-start gap-8 lg:grid-cols-[1fr_1.3fr] lg:gap-12">
           <Reveal>
             <h2 className="text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
-              Das Ergebnis zählt: eine Abrechnung, die aufgeht
+              So sieht es im Portal aus – ungeschönt
             </h2>
             <p className="mt-3 leading-relaxed text-wp-ink/70">
-              So sieht eine Einzelabrechnung aus wegportal24 aus – hier für
-              Einheit 3 der Demo-Gemeinschaft (137/1000 Miteigentumsanteile).
-              Jede Zeile kommt aus den Buchungen des Jahres, jeder Schlüssel aus
-              Ihrer Teilungserklärung.
+              Echte Ansichten aus wegportal24, aufgenommen in der
+              Demo-Gemeinschaft. Das Fristen-Cockpit hält die Pflichten der
+              Gemeinschaft im Blick – Jahresabrechnung, Versammlung,
+              Wirtschaftsplan – und sagt offen, wenn etwas überfällig ist oder
+              Hausgeld aussteht.
             </p>
             <p className="mt-3 leading-relaxed text-wp-ink/70">
-              Festschreiben lässt sich die Abrechnung erst, wenn der Endbestand
-              laut Kontoauszug aufgeht – danach ist sie eingefroren und hält
-              einer Prüfung stand.
+              Auch die Buchhaltung versteckt nichts: Jede Buchung zeigt Konto,
+              Kostenart und § 35a-Lohnanteil. Fehlt eine Zuordnung, steht dort
+              „fehlt“ – und die Jahresabrechnung lässt sich erst festschreiben,
+              wenn alles aufgeht.
             </p>
           </Reveal>
           <Reveal delay={120}>
             <figure className="overflow-hidden rounded-2xl border border-wp-ink/10 bg-white shadow-e2">
               <figcaption className="border-b border-wp-ink/10 bg-wp-accent-light/50 px-5 py-3 text-sm font-semibold text-wp-ink">
-                Einzelabrechnung 2025 · WE 3 · 137/1000 MEA
+                Aus dem Portal: WEG-Finanzen · Was ansteht
               </figcaption>
-              <div className="overflow-x-auto px-5 pb-5">
-                <table className="w-full min-w-[30rem] text-[14px] tabular-nums">
-                  <thead>
-                    <tr className="border-b border-wp-ink/15 text-left text-[11px] font-semibold uppercase tracking-wider text-wp-ink/50">
-                      <th scope="col" className="py-2.5 pr-3 font-semibold">Kostenart</th>
-                      <th scope="col" className="py-2.5 pr-3 text-right font-semibold">Gesamt €</th>
-                      <th scope="col" className="py-2.5 pr-3 font-semibold">Schlüssel</th>
-                      <th scope="col" className="py-2.5 text-right font-semibold">Anteil €</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      ["Heizung & Warmwasser", "14.820,00", "Verbrauch", "1.964,15"],
-                      ["Wasser & Abwasser", "3.240,00", "Personen", "540,00"],
-                      ["Hausstrom", "1.180,00", "MEA", "161,66"],
-                      ["Versicherungen", "2.960,00", "MEA", "405,52"],
-                      ["Hausmeister & Reinigung", "5.400,00", "MEA", "739,80"],
-                      ["Kontoführung", "480,00", "MEA", "65,76"],
-                    ].map(([art, gesamt, schluessel, anteil]) => (
-                      <tr key={art} className="border-b border-wp-ink/8">
-                        <td className="py-1.5 pr-3 text-wp-ink/85">{art}</td>
-                        <td className="py-1.5 pr-3 text-right text-wp-ink/55">{gesamt}</td>
-                        <td className="py-1.5 pr-3 text-wp-ink/50">{schluessel}</td>
-                        <td className="py-1.5 text-right text-wp-ink/85">{anteil}</td>
-                      </tr>
-                    ))}
-                    <tr className="border-b border-wp-ink/15 font-semibold text-wp-ink">
-                      <td className="py-2 pr-3">Summe Kosten</td>
-                      <td className="py-2 pr-3 text-right">28.080,00</td>
-                      <td className="py-2 pr-3" />
-                      <td className="py-2 text-right">3.876,89</td>
-                    </tr>
-                    <tr className="border-b border-wp-ink/8">
-                      <td className="py-1.5 pr-3 text-wp-ink/85">Zuführung Erhaltungsrücklage</td>
-                      <td className="py-1.5 pr-3 text-right text-wp-ink/55">6.000,00</td>
-                      <td className="py-1.5 pr-3 text-wp-ink/50">MEA</td>
-                      <td className="py-1.5 text-right text-wp-ink/85">822,00</td>
-                    </tr>
-                    <tr className="border-b border-wp-ink/8">
-                      <td className="py-1.5 pr-3 text-wp-ink/85" colSpan={3}>
-                        Hausgeld-Vorauszahlungen 12 × 372,00
-                      </td>
-                      <td className="py-1.5 text-right text-wp-ink/85">−4.464,00</td>
-                    </tr>
-                    <tr>
-                      <td className="py-2.5 pr-3 font-semibold text-wp-ink" colSpan={3}>
-                        Abrechnungsspitze – Nachzahlung
-                      </td>
-                      <td className="py-2.5 text-right text-lg font-semibold text-wp-accent-ink">
-                        234,89
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <Image
+                src="/images/marketing/app-fristen.jpg"
+                alt="Fristen-Cockpit im Portal: Jahresabrechnung überfällig, Versammlung einberufen, Wirtschaftsplan beschließen, offene Hausgeld-Rückstände"
+                width={1600}
+                height={565}
+                className="w-full"
+                sizes="(min-width: 1024px) 640px, 100vw"
+              />
             </figure>
           </Reveal>
         </div>
+        <Reveal delay={80}>
+          <figure className="mt-8 overflow-hidden rounded-2xl border border-wp-ink/10 bg-white shadow-e2">
+            <figcaption className="border-b border-wp-ink/10 bg-wp-accent-light/50 px-5 py-3 text-sm font-semibold text-wp-ink">
+              Aus dem Portal: Buchhaltung · alle Buchungen der Gemeinschaft
+            </figcaption>
+            <Image
+              src="/images/marketing/app-buchhaltung.jpg"
+              alt="Buchungsliste im Portal mit Datum, Konto, Kostenart und Betrag je Buchung – fehlende Zuordnungen sind markiert"
+              width={1600}
+              height={948}
+              className="w-full"
+              sizes="(min-width: 1152px) 1104px, 100vw"
+            />
+          </figure>
+        </Reveal>
       </section>
 
       {/* ── Element 8: Stimmen – drei Situationen, als solche benannt ─────── */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
         <Reveal>
           <h2 className="text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
-            Drei Situationen, ein Portal
+            Für wen wegportal24 gebaut ist
           </h2>
         </Reveal>
         <div className="mt-8 grid gap-4 lg:grid-cols-3">
-          {SITUATIONEN.map(({ rolle, text }, i) => (
+          {ROLLEN.map(({ rolle, text }, i) => (
             <Reveal key={rolle} delay={i * 100}>
               <figure className="h-full rounded-2xl border border-wp-ink/10 bg-white p-6 shadow-e1">
                 <blockquote className="text-[15px] leading-relaxed text-wp-ink/80">

@@ -58,9 +58,10 @@ const STAGES: Stage[] = [
     step: "Schritt 5 · Gemeinschaft",
     title: "Alle unter einem Dach",
     text:
-      "Eigentümer, Beirat, Mieter und Handwerker – jeder mit eigenem Zugang und " +
-      "genau den Rechten, die er braucht. Auch bequem am Handy.",
-    badge: "4 Rollen · 1 Portal",
+      "Eigentümer, Beirat und Mieter – jeder mit eigenem Zugang und genau den " +
+      "Rechten, die er braucht, auch am Handy. Handwerker arbeiten ohne Konto " +
+      "über sichere Auftrags-Links.",
+    badge: "Ein Portal für alle im Haus",
   },
   {
     step: "Fertig",

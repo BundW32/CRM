@@ -1,38 +1,54 @@
-// Preisseite von wegportal24. Drei bescheidene Stufen, jede skaliert
-// nachvollziehbar: Der Einstieg ist kostenlos, Basic rechnet je Nutzer,
-// Verwalter-Plus je Einheit — inklusive Ticket-Weg zu einem zertifizierten
-// Verwalter (§ 26a WEG) für die Fragen, bei denen die Gemeinschaft
-// professionellen Rat will, ohne das Amt aus der Hand zu geben.
+// Preisseite von wegportal24. Beide Tarife rechnen je Einheit und Monat —
+// alle Zugänge sind immer inklusive, es gibt keine Preisspaltung nach
+// Nutzern. Die Mengenstaffel macht die einzelne Einheit mit wachsender
+// Gemeinschaft günstiger; oberhalb von 12 Einheiten endet der Self-Service
+// und ein Hinweis verweist auf den direkten Kontakt zur Verwaltung hinter
+// dem Portal (ohne Namensnennung — die Betreiberin steht im Impressum).
 //
-// Die Beträge kommen aus ./preise-daten (eine Quelle für Karten, Rechner und
-// die FAQ der Startseite). Bewusst NICHT auf der Seite: Vertragslaufzeiten,
-// Kündigungsfristen und Umsatzsteuer-Darstellung — beides ist noch nicht
-// festgelegt und wird nicht erfunden.
+// Die Beträge und die Staffel kommen aus ./preise-daten (eine Quelle für
+// Karten, Rechner und die FAQ der Startseite). Bewusst NICHT auf der Seite:
+// Vertragslaufzeiten, Kündigungsfristen und Umsatzsteuer-Darstellung — beides
+// ist noch nicht festgelegt und wird nicht erfunden.
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Check } from "lucide-react";
-import { wpButtonClass, wpButtonSecondaryClass } from "@/components/marketing/brand";
+import {
+  BRAND_EMAIL,
+  wpButtonClass,
+  wpButtonSecondaryClass,
+} from "@/components/marketing/brand";
 import { CtaBand, MarketingFooter, MarketingHeader } from "@/components/marketing/site";
 import { Reveal } from "@/components/marketing/reveal";
 import { assertMainDomain } from "@/lib/marketing";
 import { PreisRechner } from "./preis-rechner";
-import { BASIC_JE_NUTZER_EUR, PLUS_JE_EINHEIT_EUR } from "./preise-daten";
+import {
+  BASIC_JE_EINHEIT_EUR,
+  MAX_EINHEITEN,
+  PLUS_JE_EINHEIT_EUR,
+  RABATT_STAFFEL,
+} from "./preise-daten";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Preise – WEG-Selbstverwaltung ab 10 € | wegportal24",
+  title: "Preise – WEG-Selbstverwaltung je Einheit, alle Zugänge inklusive | wegportal24",
   description:
-    "Kostenlos starten, dann fair skaliert: Basic für 10 € je Nutzer/Monat oder " +
-    "Verwalter-Plus für 13,90 € je Einheit/Monat – mit Ticket-System zu einem " +
-    "zertifizierten Verwalter (§ 26a WEG).",
+    "Kostenlos starten, dann je Einheit und Monat: Basic 10 €, Verwalter-Plus " +
+    "13,90 € mit Ticket-System zu einem zertifizierten Verwalter (§ 26a WEG). " +
+    "Alle Zugänge inklusive, Mengenrabatt ab 5 Einheiten.",
 };
 
 const euro = (betrag: number) =>
   betrag.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-// Drei Stufen. `takt` ist die Größe, nach der der Tarif skaliert — genau eine
-// je Tarif, damit die Rechnung auf einen Blick nachvollziehbar bleibt.
+const ganz = (betrag: number) =>
+  betrag.toLocaleString("de-DE", {
+    minimumFractionDigits: betrag % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+
+// Drei Stufen. Beide bezahlten Tarife skalieren an derselben Größe — der Zahl
+// der Einheiten. Das ist die Größe, die eine WEG ohnehin kennt.
 const TARIFE = [
   {
     name: "Start",
@@ -51,18 +67,19 @@ const TARIFE = [
   },
   {
     name: "Basic",
-    preis: `${BASIC_JE_NUTZER_EUR} €`,
-    takt: "je Nutzer / Monat",
+    preis: `${ganz(BASIC_JE_EINHEIT_EUR)} €`,
+    takt: "je Einheit / Monat",
     beschreibung:
-      "Die komplette Selbstverwaltung. Sie zahlen nur für Menschen, die " +
-      "wirklich einen Zugang haben – nicht für Wohnungen.",
+      "Die komplette Selbstverwaltung. Alle Zugänge inklusive – Eigentümer, " +
+      "Beirat und Mieter zählen nicht extra.",
     punkte: [
       "Wirtschaftsplan mit Assistent und Beschlussvorlage (§ 28 WEG)",
       "Jahresabrechnung mit Kontenprüfung, § 35a-Ausweis, Vermögensbericht",
       "Hausgeld, Mahnwesen als DIN-A4-Brief, SEPA-Einzug",
       "Buchhaltung mit CSV-Bankimport und Belegen",
       "Versammlung, Abstimmung nach MEA, Beschluss-Sammlung",
-      "Dokumente, Aushänge, Schäden mit Foto, Handwerker",
+      "Dokumente, Aushänge, Schäden mit Foto, Handwerker-Aufträge per Link",
+      "Unbegrenzte Zugänge für Eigentümer, Beirat und Mieter",
     ],
     cta: { text: "Mit Basic starten", href: "/registrieren", primaer: true },
   },
@@ -74,7 +91,7 @@ const TARIFE = [
       "Alles aus Basic – plus ein direkter Draht zu einem zertifizierten " +
       "Verwalter (§ 26a WEG), wenn Ihre Gemeinschaft fachlichen Rat braucht.",
     punkte: [
-      "Alle Funktionen aus Basic, unbegrenzte Nutzer",
+      "Alle Funktionen und Zugänge aus Basic",
       "Ticket-System für Anfragen an einen zertifizierten Verwalter",
       "Antworten von echten Verwaltungs-Profis, dokumentiert im Portal",
       "Für die Fälle, in denen die Gemeinschaft Rückendeckung will – " +
@@ -86,13 +103,32 @@ const TARIFE = [
 
 const PREIS_FAQ = [
   {
-    f: "Warum rechnet Basic nach Nutzern, Verwalter-Plus nach Einheiten?",
+    f: "Warum wird je Einheit gerechnet – und nicht je Nutzer?",
     a:
-      "Basic kostet nur, wer das Portal wirklich benutzt – eine kleine " +
-      "Gemeinschaft, in der zwei Personen alles erledigen, zahlt genau zwei " +
-      "Zugänge. Verwalter-Plus enthält die Arbeit eines zertifizierten " +
-      "Verwalters, und dieser Aufwand hängt an der Zahl der Einheiten – " +
-      "deshalb der Einheiten-Takt mit unbegrenzten Zugängen.",
+      "Weil die Einheit die Größe ist, die Ihre WEG ohnehin kennt: Sie steht " +
+      "in der Teilungserklärung und ändert sich nicht. Zugänge sind dagegen " +
+      "immer inklusive – laden Sie so viele Eigentümer, Beiräte und Mieter " +
+      "ein, wie Ihre Gemeinschaft braucht, ohne dass sich am Preis etwas " +
+      "ändert. Handwerker brauchen gar kein Konto: Sie erhalten ihre Aufträge " +
+      "über einen sicheren Link.",
+  },
+  {
+    f: "Wie funktioniert der Mengenrabatt?",
+    a:
+      `Je mehr Einheiten, desto günstiger die einzelne: ab ` +
+      `${RABATT_STAFFEL[1].abEinheiten} Einheiten ` +
+      `${Math.round(RABATT_STAFFEL[1].rabatt * 100)} % Rabatt je Einheit, ab ` +
+      `${RABATT_STAFFEL[0].abEinheiten} Einheiten ` +
+      `${Math.round(RABATT_STAFFEL[0].rabatt * 100)} %. Der Rechner oben zeigt ` +
+      `den Monatsbetrag für Ihre Gemeinschaft auf einen Blick.`,
+  },
+  {
+    f: `Was ist, wenn wir mehr als ${MAX_EINHEITEN} Einheiten haben?`,
+    a:
+      "Dann ist Selbstverwaltung meist nicht mehr der richtige Weg – der " +
+      "Aufwand wächst schneller als die Gemeinschaft. Schreiben Sie an " +
+      `${BRAND_EMAIL}: Die Verwaltung hinter wegportal24 übernimmt größere ` +
+      "Gemeinschaften direkt und meldet sich mit einem Angebot.",
   },
   {
     f: "Was ist der zertifizierte Verwalter in Verwalter-Plus?",
@@ -128,12 +164,12 @@ export default async function PreisePage() {
       <section id="inhalt" className="mx-auto w-full max-w-6xl px-4 pt-14 sm:px-6 sm:pt-20">
         <Reveal>
           <h1 className="text-balance text-3xl font-semibold text-wp-ink sm:text-5xl">
-            Kostenlos starten. Fair skalieren.
+            Ein Preis je Einheit. Alle Zugänge inklusive.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-wp-ink/75 sm:text-lg">
-            Keine Einrichtungsgebühr, keine Zahlungsdaten zum Start. Danach
-            wächst der Preis mit Ihrer Gemeinschaft – nachvollziehbar an genau
-            einer Größe je Tarif.
+            Kostenlos starten, ohne Zahlungsdaten. Danach zahlt Ihre
+            Gemeinschaft je Einheit und Monat – und je mehr Einheiten es sind,
+            desto günstiger wird die einzelne.
           </p>
         </Reveal>
 
@@ -179,8 +215,16 @@ export default async function PreisePage() {
           ))}
         </div>
 
-        {/* ── Der Rechner: Skalierung anfassbar machen ── */}
-        <div className="mt-10">
+        {/* ── Mengenstaffel als eine Zeile, dann der Rechner ── */}
+        <Reveal>
+          <p className="mt-6 text-center text-sm text-wp-ink/65">
+            Mengenrabatt in beiden Tarifen: ab {RABATT_STAFFEL[1].abEinheiten}{" "}
+            Einheiten {Math.round(RABATT_STAFFEL[1].rabatt * 100)} % günstiger
+            je Einheit, ab {RABATT_STAFFEL[0].abEinheiten} Einheiten{" "}
+            {Math.round(RABATT_STAFFEL[0].rabatt * 100)} %.
+          </p>
+        </Reveal>
+        <div className="mt-8">
           <Reveal>
             <PreisRechner />
           </Reveal>

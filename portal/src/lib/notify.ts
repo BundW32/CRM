@@ -1,6 +1,7 @@
 // Benachrichtigungen zu Vorgängen. Bewusst "fire and forget":
 // Fehler werden geloggt, blockieren aber keine Nutzeraktion.
 import type { Ticket, User } from "@/generated/prisma/client";
+import { signOffName } from "@/lib/branding";
 import { db } from "./db";
 import { getBrandingForOrg } from "./branding-server";
 import { portalUrl, sendMail } from "./mailer";
@@ -37,7 +38,7 @@ export async function notifyTenantStatusChange(
           sendMail(
             u.email!,
             subject,
-            `Guten Tag ${u.name},\n\n${body}\n\nMit freundlichen Grüßen\n${branding.legalName}`,
+            `Guten Tag ${u.name},\n\n${body}\n\nMit freundlichen Grüßen\n${signOffName(branding)}`,
             undefined,
             branding
           ).catch(() => {})
@@ -213,7 +214,7 @@ export async function notifyDocumentPublished(documentId: string): Promise<void>
               `Ihre Hausverwaltung hat ein neues Dokument für Sie bereitgestellt:\n` +
               `„${doc.title}"\n\n` +
               `Sie finden es im Portal unter Dokumente:\n${link}\n\n` +
-              `Mit freundlichen Grüßen\n${branding.legalName}`,
+              `Mit freundlichen Grüßen\n${signOffName(branding)}`,
             undefined,
             branding
           ).catch(() => {})
@@ -239,7 +240,7 @@ export async function notifyWelcome(user: User) {
       `Benutzername: ${user.email}\n\n` +
       `Ihr Start-Passwort erhalten Sie persönlich von Ihrer Verwaltung. ` +
       `Bitte ändern Sie es nach der ersten Anmeldung unter „Konto“.\n\n` +
-      `Mit freundlichen Grüßen\n${branding.legalName}`,
+      `Mit freundlichen Grüßen\n${signOffName(branding)}`,
     undefined,
     branding
   );

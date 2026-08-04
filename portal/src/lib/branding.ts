@@ -5,6 +5,8 @@
 // Die strukturelle Dunkelgrün-/Shell-Farbe bleibt als neutrale Chrome-Farbe
 // bestehen – pro Mandant wird die Akzentfarbe und das Logo getauscht.
 
+import { isWegSaas } from "@/lib/app-mode";
+
 // Standard = aktuelles B&W-Orange (Fallback, wenn ein Mandant nichts gesetzt hat)
 export const DEFAULT_PRIMARY = "#f69018";
 
@@ -67,7 +69,7 @@ export function orgLogoUrl(org: {
   id: string;
   logoStoredName: string | null;
 }): string {
-  return org.logoStoredName ? `/api/files/org-logo/${org.id}` : "/bw-logo.png";
+  return org.logoStoredName ? `/api/files/org-logo/${org.id}` : defaultLogoPath();
 }
 
 // ── Zentrale Branding-Strings für E-Mails & Dokumente ──────────────────────
@@ -89,6 +91,13 @@ export type OrgBranding = {
   primaryColor: string;
   logoStoredName: string | null;
   isDefault: boolean; // true = Fallback (kein konkreter Mandant aufgelöst)
+  // Unterschrift unter „Mit freundlichen Grüßen". Ohne Angabe der `legalName` —
+  // bei einer Hausverwaltung oder WEG ist die Firmierung dort genau richtig.
+  // Ein Produkt unterschreibt dagegen nicht mit seiner Rechtsform: „B&W
+  // Immobilien Management UG (haftungsbeschränkt)" unter einer
+  // wegportal24-Mail liest sich wie ein Versehen. Der Rechtsträger steht
+  // ohnehin im Fußzeilenblock jeder Mail.
+  signOff?: string;
 };
 
 // Fallback-Branding (entspricht den bisherigen, fest verdrahteten B&W-Daten).
@@ -174,6 +183,19 @@ export function publicOrgLogoUrl(org: {
   return org.logoStoredName ? `/api/branding/${encodeURIComponent(org.slug)}/logo` : null;
 }
 
+// ── Standardlogo je Deployment ──────────────────────────────────────────────
+// Eine Codebasis, zwei Türen: Wer kein eigenes Logo hochgeladen hat, bekommt
+// das Logo des Produkts — und das ist auf wegportal24.de nicht B&W. Vorher war
+// `/bw-logo.png` an fünf Stellen fest verdrahtet, sodass eine
+// selbstverwaltende Gemeinschaft die Marke einer fremden Hausverwaltung im
+// Kopf ihres Portals und auf jedem erzeugten Schreiben trug.
+//
+// Nur serverseitig aufrufen: `APP_MODE` steht im Browser nicht zur Verfügung,
+// und ein Aufruf von dort fiele still auf die B&W-Tür zurück.
+export function defaultLogoPath(): string {
+  return isWegSaas() ? "/wegportal24-logo.png" : "/bw-logo.png";
+}
+
 // Rückfall-Branding der WEG-SaaS (APP_MODE=weg). Gegenstück zu
 // DEFAULT_BRANDING: dieselbe UG als Rechtsträger – sie betreibt beide Produkte,
 // siehe Impressum –, aber unter der Marke wegportal24 und mit deren
@@ -189,7 +211,14 @@ export const WEG_SAAS_BRANDING: OrgBranding = {
   displayName: "wegportal24",
   email: "info@wegportal24.de",
   website: "www.wegportal24.de",
+  signOff: "Ihr Team von wegportal24",
 };
+
+// Unterschrift für „Mit freundlichen Grüßen". Der Rechtsträger bleibt davon
+// unberührt — der steht im Fußzeilenblock, den `renderHtml` aus `legalName` baut.
+export function signOffName(b: OrgBranding): string {
+  return b.signOff ?? b.legalName;
+}
 
 // Logo-URL für E-Mails/externe Kontexte (absolute URL nötig). Eigenes Logo des
 // Mandanten über die öffentliche Branding-Route; für das B&W-Standard-Branding

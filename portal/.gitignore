@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# Die Vorlage gehört ins Repository — sie enthält nur Namen und Kommentare,
+# keine Werte. Ohne diese Ausnahme wurde sie stillschweigend nie eingecheckt,
+# obwohl die README auf sie verweist.
+!.env.example
 
 # vercel
 .vercel

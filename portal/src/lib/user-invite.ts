@@ -6,6 +6,7 @@
 // Rückgabe: { id, pw } – pw ist leer bei E-Mail-Einladung, sonst das Erst-Passwort
 // (Zugangsschreiben). null, wenn die E-Mail zu einer FREMDEN Organisation gehört.
 import bcrypt from "bcryptjs";
+import { signOffName } from "@/lib/branding";
 import crypto from "crypto";
 import { db } from "./db";
 import { getBrandingForOrg } from "./branding-server";
@@ -60,7 +61,7 @@ export async function inviteOrLetter(opts: {
         `Sie wurden zum Kundenportal der ${branding.legalName} eingeladen.\n\n` +
         `Zugang einrichten (gültig 7 Tage):\n` +
         `${await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`)}\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+        `Mit freundlichen Grüßen\n${signOffName(branding)}`,
       undefined,
       branding
     );

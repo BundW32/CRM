@@ -97,14 +97,20 @@ eingerichtet werden – bis dahin läuft dort keine Anfrage auf.
 5. Environment Variable **`SESSION_SECRET`** setzen (zufällig, mind. 32 Zeichen,
    z. B. aus `openssl rand -base64 48`)
 6. Optional: `PORTAL_BASE_URL` (z. B. `https://portal.bundwimmobilien.de`) und
-   `SMTP_*` für E-Mail-Versand (siehe `.env.example`)
-7. **Deploy** — die Datenbanktabellen werden beim Build automatisch angelegt
+   `SMTP_*` für E-Mail-Versand — **alle** Schalter samt Erklärung stehen in
+   [`.env.example`](./.env.example)
+7. **KI-Assistent** (die Sprechblase unten rechts): erscheint nur, wenn
+   `AI_ASSISTANT_ENABLED="true"` **und** `GEMINI_API_KEY` gesetzt sind. Fehlt
+   einer der beiden, wird das Widget kommentarlos nicht gerendert — es gibt
+   keine Fehlermeldung und keinen Hinweis. Sichtbar ist es zudem nur für
+   Verwalter und Eigentümer, nicht für Mieter.
+8. **Deploy** — die Datenbanktabellen werden beim Build automatisch angelegt
    (`prisma migrate deploy`, s. `vercel.json`)
-8. Erste Anmeldung: Die App leitet automatisch zur **Ersteinrichtung** (`/setup`),
+9. Erste Anmeldung: Die App leitet automatisch zur **Ersteinrichtung** (`/setup`),
    dort den Verwalter-Zugang anlegen. Danach Objekte, Einheiten und Nutzer im
    Portal anlegen.
-9. Später: Domain `portal.bundwimmobilien.de` im Vercel-Projekt hinzufügen und
-   den Login-Button auf www.bundwimmobilien.de dorthin verlinken
+10. Später: Domain `portal.bundwimmobilien.de` im Vercel-Projekt hinzufügen und
+    den Login-Button auf www.bundwimmobilien.de dorthin verlinken
 
 ## Lokale Entwicklung
 

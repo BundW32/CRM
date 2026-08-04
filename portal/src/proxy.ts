@@ -33,7 +33,27 @@ function tenantSlugFromHost(host: string | null): string | null {
   return sub;
 }
 
+// Icons je Deployment. Browser fragen `/favicon.ico` von sich aus ab, ohne die
+// Angaben im <head> zu beachten, und der Service Worker (`public/sw.js`) ist
+// eine statische Datei ohne Zugriff auf `APP_MODE`. Beide bekommen deshalb hier
+// die passende Datei untergeschoben.
+//
+// Bewusst hier und nicht als `rewrites()` in `next.config.ts`: Jene werden zur
+// **Bauzeit** festgeschrieben. Alles andere im Programm — Titel, Logo,
+// Manifest — liest `APP_MODE` zur Laufzeit; eine Weiche, die als Einzige am
+// Build hängt, läuft früher oder später auseinander.
+const ICONS: Record<string, { weg: string; verwaltung: string }> = {
+  "/favicon.ico": { weg: "/favicon-wegportal24.ico", verwaltung: "/favicon-bw.ico" },
+  "/app-icon-192.png": { weg: "/icon-wegportal24-192.png", verwaltung: "/icon-192.png" },
+};
+
 export function proxy(request: NextRequest) {
+  const icon = ICONS[request.nextUrl.pathname];
+  if (icon) {
+    const ziel = process.env.APP_MODE === "weg" ? icon.weg : icon.verwaltung;
+    return NextResponse.rewrite(new URL(ziel, request.url));
+  }
+
   const slug = tenantSlugFromHost(request.headers.get("host"));
 
   const requestHeaders = new Headers(request.headers);
@@ -49,5 +69,11 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Auf allen Seiten-Routen laufen; statische Assets/API ausnehmen.
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.[\\w]+$).*)"],
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.[\\w]+$).*)",
+    // Die beiden Icon-Pfade sind vom Muster oben ausgenommen (Dateiendung) und
+    // müssen einzeln aufgeführt werden.
+    "/favicon.ico",
+    "/app-icon-192.png",
+  ],
 };

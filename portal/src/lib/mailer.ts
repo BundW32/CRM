@@ -39,14 +39,80 @@ function linkify(escaped: string) {
   );
 }
 
+// Steht eine Adresse ALLEIN auf einer Zeile, ist sie die Handlungsaufforderung
+// der Mail („Bitte bestätigen Sie über diesen Link:" + Adresse). Nur diese wird
+// zum Knopf — Adressen mitten im Fließtext bleiben Verweise, sonst zerrisse ein
+// beiläufig erwähnter Link den Absatz.
+const CTA_LINE = /^[ \t]*(https?:\/\/[^\s<>"]+)[ \t]*$/m;
+
+// Beschriftung aus dem Ziel ableiten. „Link öffnen" sagt nichts darüber, was
+// danach passiert; bei einer Bestätigungsmail ist genau das die Frage.
+function ctaLabel(url: string): string {
+  if (url.includes("/registrieren/bestaetigen")) return "E-Mail-Adresse bestätigen";
+  if (url.includes("/passwort") || url.includes("/reset")) return "Neues Passwort festlegen";
+  if (url.includes("/auftraege/")) return "Auftrag ansehen";
+  if (url.includes("/uebergabe/")) return "Übergabe ansehen";
+  return "Im Portal öffnen";
+}
+
+// Knopf als Tabelle, nicht als gestyltes <a>: Outlook rendert Hintergrundfarben
+// auf Inline-Elementen nicht zuverlässig. Die Adresse steht zusätzlich als Text
+// darunter — Clients, die den Knopf verschlucken, lassen den Weg sonst zu.
+function ctaButton(url: string, accent: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;">
+            <tr><td align="center" style="border-radius:10px;background:${accent};">
+              <a href="${url}" style="display:inline-block;padding:13px 26px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#00241f;text-decoration:none;border-radius:10px;">${ctaLabel(url)}</a>
+            </td></tr>
+            <tr><td style="padding-top:10px;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.5;color:#9ca3af;">
+              Falls der Knopf nicht funktioniert:<br>
+              <a href="${url}" style="color:#9ca3af;word-break:break-all;">${url}</a>
+            </td></tr>
+          </table>`;
+}
+
+// Wortmarke „wegportal24" als HTML statt als Bilddatei. Grund: Für wegportal24
+// liegt kein PNG im Build, und viele Mail-Programme blockieren Bilder ohnehin
+// standardmäßig — ein Kopf, der erst nach „Bilder anzeigen" erscheint, ist keiner.
+// Das Bildzeichen sind drei Rechtecke aus Tabellenzellen; wo `border-radius`
+// fehlt (Outlook), bleiben es eckige Kästchen. Das trägt.
+function wordmarkHtml(): string {
+  const dark = "#00241f";
+  const orange = "#f69018";
+  const box = "font-size:0;line-height:0;";
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+            <tr>
+              <td style="padding-right:7px;">
+                <table role="presentation" cellpadding="0" cellspacing="0">
+                  <tr><td style="width:12px;height:12px;background:${dark};border-radius:3px;${box}">&nbsp;</td></tr>
+                  <tr><td style="height:4px;${box}">&nbsp;</td></tr>
+                  <tr><td style="width:12px;height:12px;background:${dark};border-radius:3px;${box}">&nbsp;</td></tr>
+                </table>
+              </td>
+              <td style="width:12px;height:28px;background:${orange};border-radius:3px;${box}">&nbsp;</td>
+              <td style="padding-left:10px;font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:bold;letter-spacing:-.02em;color:${dark};white-space:nowrap;">wegportal<span style="color:${orange};">24</span></td>
+            </tr>
+          </table>`;
+}
+
 // Markenkonformes HTML-Layout mit Logo und Signatur (Kontaktdaten). Das
 // Branding bestimmt Logo, Akzentfarbe und Fußzeile (Mandanten-spezifisch).
 export function renderHtml(subject: string, text: string, branding: OrgBranding = fallbackBranding()) {
   const base = (process.env.PORTAL_BASE_URL ?? "").replace(/\/$/, "");
   const logo = emailLogoUrl(branding, base);
-  const bodyHtml = linkify(escapeHtml(text)).replace(/\r?\n/g, "<br>");
-
   const accent = branding.primaryColor;
+  // Nur der Rückfall der WEG-SaaS trägt die Wortmarke. Eine echte WEG behält
+  // ihren eigenen Namen im Kopf – die Mail kommt von IHRER Gemeinschaft.
+  const isWegSaasBrand = branding.slug === "wegportal24";
+
+  // Die Handlungsaufforderung wird an Ort und Stelle zum Knopf – der Text davor
+  // („…über diesen Link:") behält damit seinen Bezug.
+  const render = (s: string) => linkify(escapeHtml(s)).replace(/\r?\n/g, "<br>");
+  const cta = text.match(CTA_LINE);
+  const bodyHtml = cta
+    ? render(text.slice(0, cta.index)) +
+      ctaButton(cta[1], accent) +
+      render(text.slice((cta.index ?? 0) + cta[0].length))
+    : render(text);
   const link = "#0c534a";
   // Fußzeile aus den (vorhandenen) Kontaktdaten zusammensetzen.
   const contactParts: string[] = [];
@@ -74,9 +140,15 @@ export function renderHtml(subject: string, text: string, branding: OrgBranding 
         <!-- Kopf -->
         <tr><td style="background:${accent};height:6px;line-height:6px;font-size:6px;">&nbsp;</td></tr>
         <tr><td align="center" style="padding:24px 24px 8px;">
-          ${logo ? `<img src="${logo}" alt="${escapeHtml(branding.displayName)}" width="170" style="display:block;width:170px;max-width:60%;height:auto;">` : `<div style="font-size:20px;font-weight:bold;color:#003630;">${escapeHtml(branding.displayName)}</div>`}
+          ${
+            logo
+              ? `<img src="${logo}" alt="${escapeHtml(branding.displayName)}" width="170" style="display:block;width:170px;max-width:60%;height:auto;">`
+              : isWegSaasBrand
+                ? wordmarkHtml()
+                : `<div style="font-size:20px;font-weight:bold;color:#003630;">${escapeHtml(branding.displayName)}</div>`
+          }
         </td></tr>
-        <tr><td align="center" style="padding:0 24px 8px;color:#9ca3af;font-size:12px;letter-spacing:.04em;text-transform:uppercase;">Kundenportal</td></tr>
+        <tr><td align="center" style="padding:0 24px 8px;color:#9ca3af;font-size:12px;letter-spacing:.04em;text-transform:uppercase;">${isWegSaasBrand ? "Portal für selbstverwaltete WEGs" : "Kundenportal"}</td></tr>
 
         <!-- Inhalt -->
         <tr><td style="padding:8px 28px 4px;">

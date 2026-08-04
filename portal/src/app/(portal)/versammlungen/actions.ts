@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { signOffName } from "@/lib/branding";
 import { revalidatePath } from "next/cache";
 import type { User } from "@/generated/prisma/client";
 import { canVerwalterAccessProperty } from "@/lib/access";
@@ -263,7 +264,7 @@ export async function cancelMeeting(formData: FormData) {
           `Absage der Eigentümerversammlung – ${property?.name ?? ""}`,
           `Guten Tag ${o.user.name},\n\n` +
             `die für „${meeting.title}" geplante Eigentümerversammlung wurde abgesagt.\n\n` +
-            `Mit freundlichen Grüßen\n${branding.legalName}`,
+            `Mit freundlichen Grüßen\n${signOffName(branding)}`,
           undefined,
           branding,
         ).catch(() => {}),
@@ -382,7 +383,7 @@ export async function sendInvitation(formData: FormData) {
           (meeting.location ? `Ort: ${meeting.location}\n` : "") +
           `\nTagesordnung:\n${agenda || "(wird noch ergänzt)"}\n\n` +
           `Details im Portal: ${link}\n\n` +
-          `Mit freundlichen Grüßen\n${branding.legalName}`,
+          `Mit freundlichen Grüßen\n${signOffName(branding)}`,
         undefined,
         branding,
       ).catch(() => {}),

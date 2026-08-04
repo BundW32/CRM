@@ -24,9 +24,13 @@ export function generateMetadata(): Metadata {
       title: weg ? "wegportal24" : "B&W Portal",
       statusBarStyle: "black-translucent",
     },
+    // Titel und Beschreibung schalten längst nach Modus um — die Icons taten
+    // es nicht. Auf wegportal24.de stand deshalb das B&W-Signet im Browser-Tab
+    // und auf dem Homescreen, und bei 32 Pixeln ist davon nur ein Klecks übrig.
     icons: {
-      icon: "/icon-192.png",
-      apple: "/apple-touch-icon.png",
+      icon: weg ? "/icon-wegportal24-192.png" : "/icon-192.png",
+      shortcut: weg ? "/favicon-wegportal24.ico" : "/favicon-bw.ico",
+      apple: weg ? "/apple-touch-icon-wegportal24.png" : "/apple-touch-icon.png",
     },
   };
 }

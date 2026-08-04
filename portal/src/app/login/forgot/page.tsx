@@ -1,7 +1,6 @@
 import { Alert, buttonClass, Field, inputClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
-import { BwLogo } from "@/components/logo";
-import { Wordmark } from "@/components/marketing/wordmark";
+import { PublicBrand } from "@/components/public-brand";
 import { isWegSaas } from "@/lib/app-mode";
 import { getTenantOrg } from "@/lib/tenant";
 import { requestPasswordReset } from "./actions";
@@ -28,11 +27,7 @@ export default async function ForgotPasswordPage({
     >
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-          {wegMarke ? (
-            <Wordmark className="mb-6 justify-center text-xl" />
-          ) : (
-            <BwLogo className="mx-auto mb-6 h-16 w-auto" />
-          )}
+          <PublicBrand variant="login" />
           <h1 className="mb-4 text-lg font-semibold text-gray-800">Passwort zurücksetzen</h1>
 
           {gesendet ? (

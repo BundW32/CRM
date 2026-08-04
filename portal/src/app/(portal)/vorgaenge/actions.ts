@@ -1,6 +1,7 @@
 "use server";
 
 import crypto from "crypto";
+import { signOffName } from "@/lib/branding";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -443,7 +444,7 @@ export async function confirmAppointment(formData: FormData) {
       `Guten Tag ${ticket.craftsman.name},\n\n` +
         `Ihr Terminvorschlag für Vorgang #${ticket.number} „${ticket.title}" wurde bestätigt:\n` +
         `${ticket.appointmentNote}\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+        `Mit freundlichen Grüßen\n${signOffName(branding)}`,
       undefined,
       branding
     );
@@ -492,7 +493,7 @@ export async function declineAppointment(formData: FormData) {
       `Guten Tag ${ticket.craftsman.name},\n\n` +
         `Ihr Terminvorschlag für Vorgang #${ticket.number} „${ticket.title}" (${abgelehnt}) ` +
         `passt leider nicht. Bitte schlagen Sie über das Auftragsportal einen neuen Termin vor.\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+        `Mit freundlichen Grüßen\n${signOffName(branding)}`,
       undefined,
       branding
     );
@@ -670,7 +671,7 @@ export async function rejectInvoice(formData: FormData) {
       `Rechnung zu Auftrag #${ticket.number} abgelehnt`,
       `Guten Tag ${invoice.craftsman.name},\n\n` +
         `Ihre Rechnung zum Auftrag „${ticket.title}" wurde nicht akzeptiert${reason ? `:\n${reason}` : "."}\n\n` +
-        `Bitte reichen Sie ggf. eine korrigierte Rechnung ein.\n\nMit freundlichen Grüßen\n${branding.legalName}`,
+        `Bitte reichen Sie ggf. eine korrigierte Rechnung ein.\n\nMit freundlichen Grüßen\n${signOffName(branding)}`,
       undefined,
       branding,
     ).catch(() => {});
@@ -729,7 +730,7 @@ export async function reopenTicket(formData: FormData) {
         `der Vorgang #${ticket.number} „${ticket.title}" wurde noch nicht abgenommen` +
         `${note ? `:\n\n${note}` : "."}\n\n` +
         `Bitte stimmen Sie sich mit der ${branding.legalName} ab.\n\n` +
-        `Mit freundlichen Grüßen\n${branding.legalName}`,
+        `Mit freundlichen Grüßen\n${signOffName(branding)}`,
       undefined,
       branding
     );
@@ -813,7 +814,7 @@ export async function notifyCraftsman(formData: FormData) {
       `${ortsangabe}\n\n` +
       `Auftrag annehmen, Termin vorschlagen oder Rückfragen stellen:\n` +
       `${portalUrl(`/auftraege/${token}`)}\n\n` +
-      `Mit freundlichen Grüßen\n${branding.legalName}` +
+      `Mit freundlichen Grüßen\n${signOffName(branding)}` +
       (branding.email ? `\n${branding.email}` : ""),
     undefined,
     branding

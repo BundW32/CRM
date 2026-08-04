@@ -68,8 +68,20 @@ export async function drawBrandHead(
     try {
       // Über doc.image(), damit ein mehrseitiges Dokument das Logo nur einmal trägt.
       const image = await doc.image(logo!, bytes);
-      const height = mm(13);
-      const width = image.width * (height / image.height);
+      // In eine Box einpassen, nicht nur auf Höhe skalieren.
+      //
+      // Vorher galt allein die Höhe von 13 mm — bei einem etwa quadratischen
+      // Logo (B&W: 19 mm breit) ging das auf. Eine Wortmarke im Verhältnis 5:1
+      // wird so aber 64 mm breit und läuft in den Absenderblock, der rechts
+      // beginnt: `headRoom` hält dafür nur 40 mm frei. Das trifft nicht nur die
+      // Produktmarke — jedes hochgeladene Mandantenlogo im Querformat hätte den
+      // Briefkopf ebenso zerlegt, und zwar still, denn Text prüfen die
+      // Satzspiegel-Tests, Bilder nicht.
+      const maxHeight = mm(13);
+      const maxWidth = mm(40);
+      const skala = Math.min(maxHeight / image.height, maxWidth / image.width);
+      const height = image.height * skala;
+      const width = image.width * skala;
       page.drawImage(image, {
         x: DIN.marginLeft,
         y: PAGE.height - mm(12) - height,

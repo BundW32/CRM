@@ -2,9 +2,11 @@ import { redirect } from "next/navigation";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, buttonClass, inputClass, Field } from "@/components/ui";
 import { BrandTheme } from "@/components/brand-theme";
-import { BwLogo, OrgLogo } from "@/components/logo";
+import { OrgLogo } from "@/components/logo";
+import { PublicBrand } from "@/components/public-brand";
 import { db } from "@/lib/db";
 import { publicOrgLogoUrl } from "@/lib/branding";
+import { fallbackBranding } from "@/lib/branding-server";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
 import { registrationEnabled } from "@/lib/app-mode";
@@ -25,6 +27,8 @@ export default async function LoginPage({
   // Mandanten-Branding anhand der Subdomain (sofern vorhanden).
   const tenantOrg = await getTenantOrg();
   const tenantLogo = tenantOrg ? publicOrgLogoUrl(tenantOrg) : null;
+  // Kontaktadresse ohne Mandanten: die des Deployments, nicht fest B&W.
+  const kontakt = tenantOrg?.email ?? fallbackBranding().email ?? "info@bundwimmobilien.de";
 
   return (
     <main className="flex flex-1 items-center justify-center p-4">
@@ -41,7 +45,9 @@ export default async function LoginPage({
               </p>
             )
           ) : (
-            <BwLogo className="mx-auto mb-1 h-20 w-auto" />
+            // Hauptdomain: je Deployment die eigene Marke – B&W-Logo auf
+            // portal.bundwimmobilien.de, Wortmarke auf wegportal24.de.
+            <PublicBrand variant="login" />
           )}
           <p className="mb-4 text-center text-sm font-medium text-gray-500">
             Kundenportal
@@ -103,10 +109,10 @@ export default async function LoginPage({
         <p className="mt-6 text-center text-xs text-gray-400">
           Noch keinen Zugang? Wenden Sie sich an{" "}
           <a
-            href={`mailto:${tenantOrg?.email ?? "info@bundwimmobilien.de"}`}
+            href={`mailto:${kontakt}`}
             className="hover:underline"
           >
-            {tenantOrg?.email ?? "info@bundwimmobilien.de"}
+            {kontakt}
           </a>
         </p>
         <p className="mt-2 text-center text-xs text-gray-400">

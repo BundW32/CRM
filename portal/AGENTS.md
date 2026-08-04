@@ -305,10 +305,9 @@ wegportal24.de, wo es die Marke eines fremden Unternehmens ist.
 
 | Wofür | Was zu benutzen ist |
 |---|---|
-| Logo in einer Server-Komponente vor der Anmeldung | `<ProductLogo>` (`components/logo.tsx`) |
+| Marke auf öffentlichen Seiten (Login, Rechtsseiten, Einrichtung) | `<PublicBrand>` |
 | Logo-Pfad (Portal-Kopf, Zugangsschreiben, PDF) | `defaultLogoPath()` (`lib/branding.ts`) |
 | Produktname im Fließtext | `productName()` (`lib/app-mode.ts`) |
-| Markenzeichen auf öffentlichen Rechtsseiten | `<PublicBrand>` |
 | Favicon / Push-Icon | Weiche in `src/proxy.ts` (`ICONS`) |
 
 Zwei Fallen:

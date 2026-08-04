@@ -7,7 +7,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { hinweiseVoreinstellung } from "@/lib/access";
-import { brandingFromOrg } from "@/lib/branding";
+import { fallbackBranding } from "@/lib/branding-server";
 import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { createSession } from "@/lib/session";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -121,7 +121,7 @@ export async function registerOrganization(formData: FormData) {
   const trialEndsAt = new Date(Date.now() + trialDays(referralSource) * 86_400_000);
 
   // Org + Gründer-SuperAdmin atomisch anlegen.
-  const { user, org } = await db.$transaction(async (tx) => {
+  const { user } = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({
       data: {
         slug,
@@ -158,8 +158,13 @@ export async function registerOrganization(formData: FormData) {
     return { user, org };
   });
 
-  // Willkommens- + Bestätigungs-E-Mail (Branding aus der frischen Org).
-  const branding = brandingFromOrg(org);
+  // Willkommens- + Bestätigungs-E-Mail: Branding der PLATTFORM, nicht der
+  // frischen Organisation. Wer sich gerade registriert hat, kennt seine WEG als
+  // Marke noch nicht – er hat sich bei wegportal24 bzw. im B&W-Portal angemeldet.
+  // Mit dem Org-Branding stand im Mailkopf der eben eingetippte WEG-Name, was
+  // wie ein Fehler aussieht. Alle FOLGENDEN Mails an die Gemeinschaft tragen
+  // weiterhin deren eigenen Namen – dort ist er richtig.
+  const branding = fallbackBranding();
   const verifyLink = await portalUrlFromRequest(`/registrieren/bestaetigen/${verifyToken}`);
   const selfManaged = accountType === "selbstverwalter";
   const introLine = selfManaged

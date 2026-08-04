@@ -189,12 +189,32 @@ export function defaultLogoPath(): string {
   return isWegSaas() ? "/wegportal24-logo.png" : "/bw-logo.png";
 }
 
+// Rückfall-Branding der WEG-SaaS (APP_MODE=weg). Gegenstück zu
+// DEFAULT_BRANDING: dieselbe UG als Rechtsträger – sie betreibt beide Produkte,
+// siehe Impressum –, aber unter der Marke wegportal24 und mit deren
+// Kontaktadresse. Greift nur, wenn keine Organisation aufgelöst werden kann;
+// Mails an eine WEG tragen weiterhin deren eigenen Namen.
+//
+// Bewusst OHNE Logo-Datei: Für wegportal24 gibt es kein PNG im Build, und der
+// Mailkopf zeigt dann den Namen als gestalteten Text. Ein hier eingetragener,
+// nicht vorhandener Pfad ergäbe in jeder Mail ein kaputtes Bild.
+export const WEG_SAAS_BRANDING: OrgBranding = {
+  ...DEFAULT_BRANDING,
+  slug: "wegportal24",
+  displayName: "wegportal24",
+  email: "info@wegportal24.de",
+  website: "www.wegportal24.de",
+};
+
 // Logo-URL für E-Mails/externe Kontexte (absolute URL nötig). Eigenes Logo des
-// Mandanten über die öffentliche Branding-Route; für das Standard-Branding das
-// statische B&W-Logo; sonst null (Empfänger sieht den Namen als Text).
+// Mandanten über die öffentliche Branding-Route; für das B&W-Standard-Branding
+// das statische B&W-Logo; sonst null (Empfänger sieht den Namen als Text).
+//
+// Die Prüfung hängt am Slug, nicht an `isDefault`: WEG_SAAS_BRANDING ist
+// ebenfalls ein Rückfall, darf aber niemals das B&W-Logo ziehen.
 export function emailLogoUrl(b: OrgBranding, base: string): string | null {
   if (!base) return null;
   if (b.logoStoredName) return `${base}/api/branding/${encodeURIComponent(b.slug)}/logo`;
-  if (b.isDefault) return `${base}${defaultLogoPath()}`;
+  if (b.isDefault && b.slug === "bw") return `${base}/bw-logo.png`;
   return null;
 }

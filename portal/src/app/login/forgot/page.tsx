@@ -1,6 +1,6 @@
 import { Alert, buttonClass, Field, inputClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
-import { ProductLogo } from "@/components/logo";
+import { PublicBrand } from "@/components/public-brand";
 import { requestPasswordReset } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export default async function ForgotPasswordPage({
     <main className="flex flex-1 items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
-          <ProductLogo className="mx-auto mb-6 h-16 w-auto" />
+          <PublicBrand />
           <h1 className="mb-4 text-lg font-semibold">Passwort zurücksetzen</h1>
 
           {gesendet ? (

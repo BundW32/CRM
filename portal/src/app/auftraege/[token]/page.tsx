@@ -1,4 +1,4 @@
-import { ProductLogo } from "@/components/logo";
+import { PublicBrand } from "@/components/public-brand";
 import { FileInput } from "@/components/file-input";
 import { Alert } from "@/components/ui";
 import { db } from "@/lib/db";
@@ -38,7 +38,7 @@ export default async function AuftraegePage({
     return (
       <main className="flex flex-1 items-center justify-center p-4">
         <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white p-8 text-center shadow-2xl shadow-black/30">
-          <ProductLogo className="mx-auto mb-4 h-16 w-auto" />
+          <PublicBrand />
           <p className="text-sm text-gray-600">
             Dieser Auftrags-Link ist ungültig oder nicht mehr aktiv. Bitte wenden Sie sich
             an die B&amp;W Immobilien Management UG.
@@ -67,7 +67,7 @@ export default async function AuftraegePage({
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 p-4">
       <div className="mb-5 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/95 px-4 py-3 shadow-xl shadow-black/20">
-        <ProductLogo className="h-10 w-auto" />
+        <PublicBrand />
         <div>
           <p className="text-sm font-semibold text-gray-900">Auftragsportal</p>
           <p className="text-xs text-gray-500">

@@ -115,7 +115,7 @@ export default async function LoginPage({
           {registrationEnabled() && !tenantOrg ? (
             <div className="mt-5 border-t border-gray-100 pt-4 text-center">
               <p className="text-xs text-gray-500">
-                Hausverwaltung oder selbstverwaltende WEG?{" "}
+                Selbstverwaltende WEG?{" "}
                 <a href="/registrieren" className="font-medium text-brand-orange-ink hover:underline">
                   Portal kostenlos einrichten
                 </a>

@@ -38,10 +38,10 @@ export default async function RegisterPage({
             <Wordmark className="text-xl" />
           </Link>
           <p className="mb-1 text-sm font-medium text-gray-400">Kostenlos registrieren</p>
-          <h1 className="mb-2 text-2xl font-bold text-brand-green">Ihr eigenes WEG-Portal</h1>
+          <h1 className="mb-2 text-2xl font-bold text-brand-green">Das Portal für Ihre selbstverwaltete WEG</h1>
           <p className="mb-6 text-sm text-gray-600">
-            Für selbstverwaltende Eigentümergemeinschaften. Legen Sie kostenlos Ihr
-            WEG-Portal an – im Anschluss richten Sie alles Weitere ein.
+            Legen Sie kostenlos das Portal Ihrer Eigentümergemeinschaft an –
+            Einheiten, Konten und Miteigentümer richten Sie im Anschluss ein.
           </p>
 
           {fehler ? (

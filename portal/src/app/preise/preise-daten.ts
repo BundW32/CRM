@@ -27,6 +27,12 @@ export const PLUS_JE_EINHEIT_EUR = 13.9;
 /** Oberhalb dieser Einheitenzahl gibt es keinen Self-Service-Tarif. */
 export const MAX_EINHEITEN = 12;
 
+/** Kleinste WEG: unter zwei Einheiten gibt es keine Gemeinschaft. */
+export const MIN_EINHEITEN = 2;
+
+/** Voreinstellung des Reglers — die Größe der Demo-Gemeinschaft. */
+export const START_EINHEITEN = 6;
+
 /** Mengenstaffel, absteigend sortiert; der erste passende Eintrag gilt. */
 export const RABATT_STAFFEL = [
   { abEinheiten: 9, rabatt: 0.2 },

@@ -58,6 +58,11 @@ dortigen Resttreffer betreffen das ganze Portal, nicht diese Seiten.
   mit Kontakt zur Verwaltung hinter dem Portal (ohne Namensnennung). Start
   bleibt kostenlos. Noch offen und deshalb bewusst nicht auf der Seite:
   Umsatzsteuer-Darstellung, Laufzeit, Kündigungsfrist.
+- **Der Einheiten-Regler steht über den Tarifkarten** (`tarif-bereich.tsx`):
+  Beim Aufschlagen zeigen die Karten den Preis **je Einheit** — die Zahl zum
+  Vergleichen. Erst wenn jemand den Regler anfasst, wird daraus der
+  Monatsbetrag und die Zeile darunter sagt „Preis für Ihre WEG". Diese
+  Reihenfolge ist gewollt; sie nicht umdrehen.
 - **Herkunft ohne Namen:** Erfinder des Portals ist der Geschäftsführer der
   Betreiberin (einer Hausverwaltung). Auf den Seiten wird weder Firma noch
   Person genannt — nur „die Verwaltung hinter wegportal24"; Namen stehen im

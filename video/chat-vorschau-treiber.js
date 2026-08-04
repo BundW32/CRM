@@ -38,39 +38,47 @@
     reveals.forEach((el) => io.observe(el));
   }
 
-  // ── Preis-Rechner (nur /preise) ──────────────────────────────────────────
-  // Die Vorschau trägt kein React; die Zähler-Knöpfe wären tot. Preise,
-  // Staffel und Obergrenze liest dieser Zweig aus den data-Attributen, die
-  // `preis-rechner.tsx` genau dafür rendert — eine Quelle, keine Kopie.
+  // ── Einheiten-Regler (nur /preise) ─────────────────────────────────
+  // Die Vorschau trägt kein React; der Regler bliebe ohne diesen Zweig stumm.
+  // Preise, Staffel und Grenzen liest er aus den data-Attributen, die
+  // `tarif-bereich.tsx` genau dafür rendert — eine Quelle, keine Kopie.
   const rechner = document.querySelector("[data-preisrechner]");
-  if (rechner) {
+  const regler = rechner && rechner.querySelector('input[type="range"]');
+  if (rechner && regler) {
     const basic = parseFloat(rechner.dataset.basic);
     const plus = parseFloat(rechner.dataset.plus);
+    const min = parseInt(rechner.dataset.min, 10);
     const max = parseInt(rechner.dataset.max, 10);
     const staffel = JSON.parse(rechner.dataset.staffel);
     const euro = (n) => n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const rabatt = (e) => (staffel.find((st) => e >= st.abEinheiten)?.rabatt ?? 0);
     const anzeige = rechner.querySelector("[data-einheiten]");
-    const zeichneRechner = (e) => {
+
+    const zeichneRegler = (e) => {
       anzeige.textContent = String(e);
+      regler.style.setProperty("--wp-regler-anteil", `${((e - min) / (max - min)) * 100}%`);
       [basic, plus].forEach((basis, i) => {
+        // Die kostenlose Stufe trägt keine data-Attribute; gezählt werden nur
+        // die beiden bezahlten Karten.
         const box = rechner.querySelectorAll("[data-gesamt]")[i];
         const detail = rechner.querySelectorAll("[data-detail]")[i];
-        const je = basis * (1 - rabatt(e));
-        // SSR trennt "54,00" und " \u20ac" in eigene Textknoten (React-Kommentar
-        // dazwischen) \u2014 hier nur die Zahl ersetzen, das \u20ac-Zeichen bleibt stehen.
-        box.childNodes[0].textContent = euro(e * je);
+        if (!box || !detail) return;
         const r = rabatt(e);
-        detail.textContent = `${e} Einheiten \u00d7 ${euro(je)} \u20ac` + (r > 0 ? ` (${Math.round(r * 100)} % Mengenrabatt)` : "");
+        const je = basis * (1 - r);
+        // SSR trennt "96,00" und " €" in eigene Textknoten (React-Kommentar
+        // dazwischen) — hier nur die Zahl ersetzen, das Zeichen bleibt stehen.
+        box.childNodes[0].textContent = euro(e * je);
+        // Nach dem ersten Zug steht dort der Monatsbetrag; die Einheit dahinter
+        // wechselt von "je Einheit / Monat" auf "/ Monat".
+        const takt = box.nextElementSibling;
+        if (takt) takt.textContent = " / Monat";
+        detail.textContent =
+          `Preis für Ihre WEG · ${e} Einheiten × ${euro(je)} €` +
+          (r > 0 ? ` (${Math.round(r * 100)} % Mengenrabatt)` : "");
       });
     };
-    rechner.querySelectorAll("button[aria-label^='Einheiten']").forEach((knopf) => {
-      knopf.addEventListener("click", () => {
-        const delta = knopf.getAttribute("aria-label").endsWith("erh\u00f6hen") ? 1 : -1;
-        const e = Math.max(2, Math.min(max, parseInt(anzeige.textContent, 10) + delta));
-        zeichneRechner(e);
-      });
-    });
+
+    regler.addEventListener("input", () => zeichneRegler(parseInt(regler.value, 10)));
   }
 
   // ── Bau-Szene ────────────────────────────────────────────────────────────

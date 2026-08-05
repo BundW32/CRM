@@ -197,6 +197,13 @@ export default async function PortalLayout({
               Widerruf
             </Link>{" "}
             ·{" "}
+            {/* § 312k Abs. 2 BGB: auch aus dem angemeldeten Bereich erreichbar.
+                Die Seite selbst verlangt keine Anmeldung — eine Kündigung, die
+                am Passwort hängt, ist nicht „leicht zugänglich“. */}
+            <Link href="/kuendigen" className="hover:text-brand-orange">
+              Verträge hier kündigen
+            </Link>{" "}
+            ·{" "}
           </>
         ) : null}
         <Link href="/avv" className="hover:text-brand-orange">

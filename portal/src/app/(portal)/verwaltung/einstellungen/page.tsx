@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Tipp } from "@/components/tipp";
 import { redirect } from "next/navigation";
 import {
+  FileSignature,
   HardDriveDownload,
   Palette,
   Plug,
@@ -22,8 +23,11 @@ export const dynamic = "force-dynamic";
 // Einstellungen liegen bewusst außerhalb der Hauptnavigation: Man stellt sie
 // einmal ein und fasst sie monatelang nicht an. Diese Seite ist ihr Zuhause –
 // die Einzelseiten selbst bleiben unter ihren gewohnten Adressen erreichbar.
+// Jeder Icon-Schlüssel aus `settingsItems` braucht hier einen Eintrag — ohne
+// ihn erscheint die Kachel ohne Icon (so geschah es dem Verwaltervertrag).
 const ICONS: Partial<Record<NavIcon, LucideIcon>> = {
   branding: Palette,
+  dokumente: FileSignature,
   integrationen: Plug,
   quellen: HardDriveDownload,
   abrechnung: Receipt,

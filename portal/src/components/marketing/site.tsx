@@ -117,6 +117,9 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
       { href: "/impressum", label: "Impressum" },
       { href: "/datenschutz", label: "Datenschutz" },
       { href: "/agb", label: "AGB" },
+      // Pflichtangabe gegenüber Verbrauchern: Eine WEG ist Verbraucherin,
+      // sobald ihr eine natürliche Person angehört (BGH VIII ZR 243/13).
+      { href: "/widerruf", label: "Widerrufsbelehrung" },
       { href: "/avv", label: "Auftragsverarbeitung (AVV)" },
       // Pflichtangabe nach Art. 50 EU-KI-VO – seit dem 2.8.2026 in Kraft.
       { href: "/ki-transparenz", label: "KI-Transparenz" },

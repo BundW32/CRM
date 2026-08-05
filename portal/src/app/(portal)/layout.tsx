@@ -20,6 +20,7 @@ import {
   ownsWegProperty,
   propertyWhereForVerwalter,
 } from "@/lib/access";
+import { isWegSaas } from "@/lib/app-mode";
 import { canSeeSettings, navFor, settingsItems, usesCounts } from "@/lib/app-nav";
 import { canUseAssistant, isAssistantEnabled } from "@/lib/assistant";
 import { db } from "@/lib/db";
@@ -188,6 +189,16 @@ export default async function PortalLayout({
           AGB
         </Link>{" "}
         ·{" "}
+        {/* Nur wegportal24 – auf der B&W-Tür ist der Kunde Unternehmer und die
+            Seite gibt es nicht. */}
+        {isWegSaas() ? (
+          <>
+            <Link href="/widerruf" className="hover:text-brand-orange">
+              Widerruf
+            </Link>{" "}
+            ·{" "}
+          </>
+        ) : null}
         <Link href="/avv" className="hover:text-brand-orange">
           AVV
         </Link>

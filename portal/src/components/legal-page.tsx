@@ -58,6 +58,14 @@ export function LegalPage({
           <Link href="/agb" className="text-brand-green hover:underline">
             AGB
           </Link>
+          {/* Nur wegportal24: Dort ist die Kundin eine WEG und damit
+              Verbraucherin. Auf der B&W-Tür ist der Kunde Unternehmer — die
+              Seite gibt es dort nicht (404), ein Link liefe ins Leere. */}
+          {isWegSaas() ? (
+            <Link href="/widerruf" className="text-brand-green hover:underline">
+              Widerruf
+            </Link>
+          ) : null}
           <Link href="/avv" className="text-brand-green hover:underline">
             AVV
           </Link>

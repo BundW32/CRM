@@ -22,6 +22,34 @@ import {
 } from "./kit";
 import type { RGB } from "pdf-lib";
 
+/**
+ * Angaben aus dem Ausfüll-Formular der Seite `/verwaltung/verwaltervertrag`.
+ * Jede Angabe ist freiwillig — was fehlt, bleibt im PDF eine Ausfülllinie,
+ * damit dasselbe Dokument auch als leeres Muster taugt. Alle Werte kommen
+ * bereits formatiert an (Daten als TT.MM.JJJJ, Beträge als Text).
+ */
+export type VerwaltervertragAngaben = {
+  /** Wer den Vertrag für die Gemeinschaft unterschreibt. */
+  vertreterName?: string;
+  /** Datum des Bestellungs-/Ermächtigungsbeschlusses. */
+  beschlussDatum?: string;
+  topNummer?: string;
+  verwalterName?: string;
+  verwalterAnschrift?: string;
+  beginn?: string;
+  ende?: string;
+  /** Betragsgrenze im Innenverhältnis (§ 5), als Text ohne €-Zeichen. */
+  innenGrenzeEur?: string;
+  verguetung?: "EHRENAMT" | "AUFWAND";
+  verguetungBetragEur?: string;
+  verguetungIntervall?: "MONAT" | "JAHR";
+  /** Haftungsgrenze bei einfacher Fahrlässigkeit (§ 8), als Text ohne €-Zeichen. */
+  haftungGrenzeEur?: string;
+  sonderleistungen?: string;
+  /** Ort für die Unterschriftszeilen (das Datum bleibt der Unterschrift vorbehalten). */
+  ort?: string;
+};
+
 export type VerwaltervertragInput = {
   propertyName: string;
   /** Straße und Ort des Objekts, sofern erfasst. */
@@ -33,10 +61,17 @@ export type VerwaltervertragInput = {
   /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
   logo?: string | Uint8Array | null;
   generatedAt: Date;
+  angaben?: VerwaltervertragAngaben;
 };
 
 const BLANK = "________________________";
 const BLANK_KURZ = "____________";
+
+/** Angabe aus dem Formular oder Ausfülllinie — nie ein leerer Fleck im Vertrag. */
+function oder(wert: string | undefined, linie: string = BLANK_KURZ): string {
+  const getrimmt = wert?.trim();
+  return getrimmt ? getrimmt : linie;
+}
 
 function fmtDate(d: Date): string {
   return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
@@ -58,6 +93,8 @@ function hinweis(doc: Doc, text: string): void {
 }
 
 export async function generateVerwaltervertrag(input: VerwaltervertragInput): Promise<Buffer> {
+  const a = input.angaben ?? {};
+  const ausgefuellt = Object.values(a).some((wert) => wert && String(wert).trim());
   const doc = await Doc.create({
     title: `Verwaltervertrag (Muster) — ${input.propertyName}`,
     author: input.issuer.legalName,
@@ -75,7 +112,12 @@ export async function generateVerwaltervertrag(input: VerwaltervertragInput): Pr
     subtitle:
       `${input.propertyName}\n` +
       "Muster für die Bestellung eines Wohnungseigentümers zur Verwalterin / zum Verwalter (Selbstverwaltung)",
-    status: { text: "Muster — von der Gemeinschaft auszufüllen und zu beschließen", tone: "neutral" },
+    status: {
+      text: ausgefuellt
+        ? "Im Portal ausgefüllt — von der Versammlung zu beschließen, dann unterschreiben"
+        : "Muster — von der Gemeinschaft auszufüllen und zu beschließen",
+      tone: "neutral",
+    },
     meta: [
       ["Stand", fmtDate(input.generatedAt)],
       ...(input.unitsCount ? ([["Einheiten", String(input.unitsCount)]] as [string, string][]) : []),
@@ -92,10 +134,10 @@ export async function generateVerwaltervertrag(input: VerwaltervertragInput): Pr
   formSection(doc, "Vertragsparteien", [
     { label: "Gemeinschaft (GdWE)", value: gdweName },
     { label: "Anschrift der Wohnanlage", value: input.propertyAddress?.trim() || "" },
-    { label: "vertreten durch (Name)", value: "" },
-    { label: "ermächtigt durch Beschluss vom", value: "" },
-    { label: "Verwalter/in (Name)", value: "" },
-    { label: "Anschrift des Verwalters", value: "" },
+    { label: "vertreten durch (Name)", value: a.vertreterName?.trim() || "" },
+    { label: "ermächtigt durch Beschluss vom", value: a.beschlussDatum?.trim() || "" },
+    { label: "Verwalter/in (Name)", value: a.verwalterName?.trim() || "" },
+    { label: "Anschrift des Verwalters", value: a.verwalterAnschrift?.trim() || "" },
   ]);
   hinweis(
     doc,
@@ -106,8 +148,8 @@ export async function generateVerwaltervertrag(input: VerwaltervertragInput): Pr
 
   // ── Vertragstext ───────────────────────────────────────────────────────────
   paragraf(doc, "§ 1  Bestellung und Vertragsgegenstand", [
-    `Die Eigentümerversammlung hat die Verwalterin / den Verwalter mit Beschluss vom ${BLANK_KURZ} ` +
-      `(TOP ${BLANK_KURZ}) gemäß § 26 Abs. 1 WEG zum Verwalter der Gemeinschaft bestellt. ` +
+    `Die Eigentümerversammlung hat die Verwalterin / den Verwalter mit Beschluss vom ` +
+      `${oder(a.beschlussDatum)} (TOP ${oder(a.topNummer)}) gemäß § 26 Abs. 1 WEG zum Verwalter der Gemeinschaft bestellt. ` +
       "Bestellung (Organstellung) und dieser Vertrag sind rechtlich getrennt; der Vertrag regelt " +
       "das schuldrechtliche Verhältnis zwischen der Gemeinschaft und der Verwalterin / dem " +
       "Verwalter als Geschäftsbesorgung (§ 675 BGB).",
@@ -116,7 +158,7 @@ export async function generateVerwaltervertrag(input: VerwaltervertragInput): Pr
   ]);
 
   paragraf(doc, "§ 2  Beginn und Laufzeit", [
-    `Die Bestellung beginnt am ${BLANK_KURZ} und ist befristet bis zum ${BLANK_KURZ}. ` +
+    `Die Bestellung beginnt am ${oder(a.beginn)} und ist befristet bis zum ${oder(a.ende)}. ` +
       "Es gelten die gesetzlichen Höchstfristen: höchstens fünf Jahre, im Fall der ersten " +
       "Bestellung nach der Begründung des Wohnungseigentums höchstens drei Jahre " +
       "(§ 26 Abs. 2 Satz 1 WEG). Eine wiederholte Bestellung ist durch erneuten Beschluss " +
@@ -168,25 +210,31 @@ export async function generateVerwaltervertrag(input: VerwaltervertragInput): Pr
 
   paragraf(doc, "§ 5  Grenzen im Innenverhältnis (§ 27 Abs. 2 WEG)", [
     `Im Innenverhältnis darf die Verwalterin / der Verwalter ohne vorherigen Beschluss ` +
-      `Maßnahmen mit Kosten bis zu ${BLANK_KURZ} € im Einzelfall veranlassen. Maßnahmen nach ` +
+      `Maßnahmen mit Kosten bis zu ${oder(a.innenGrenzeEur)} € im Einzelfall veranlassen. Maßnahmen nach ` +
       "§ 27 Abs. 1 Nr. 2 WEG (Fristwahrung, Abwendung eines Nachteils) bleiben unberührt. " +
       "Die Vertretungsmacht der Gemeinschaft nach außen (§ 9b Abs. 1 WEG) wird hierdurch " +
       "nicht beschränkt.",
   ]);
 
   doc.section("§ 6  Vergütung und Auslagen");
-  doc.para("Zutreffendes ankreuzen und ergänzen:");
+  if (!a.verguetung) doc.para("Zutreffendes ankreuzen und ergänzen:");
   doc.space(mm(2));
+  const intervallWort =
+    a.verguetungIntervall === "MONAT"
+      ? "Monat"
+      : a.verguetungIntervall === "JAHR"
+        ? "Jahr"
+        : "☐ Monat   ☐ Jahr";
   checkboxLine(
     doc,
     "Die Verwalterin / der Verwalter ist ehrenamtlich tätig und erhält keine Vergütung.",
-    false,
+    a.verguetung === "EHRENAMT",
   );
   checkboxLine(
     doc,
-    `Die Verwalterin / der Verwalter erhält eine Aufwandsentschädigung von ${BLANK_KURZ} € je  ` +
-      "☐ Monat   ☐ Jahr.",
-    false,
+    `Die Verwalterin / der Verwalter erhält eine Aufwandsentschädigung von ` +
+      `${oder(a.verguetungBetragEur)} € je ${intervallWort}.`,
+    a.verguetung === "AUFWAND",
   );
   doc.space(mm(1));
   doc.para(
@@ -198,7 +246,7 @@ export async function generateVerwaltervertrag(input: VerwaltervertragInput): Pr
   doc.para(
     "Leistungen außerhalb der Grundleistungen des § 4 (z. B. eine zusätzliche, von einzelnen " +
       "Eigentümern veranlasste Versammlung oder die Begleitung größerer Baumaßnahmen) werden " +
-      `nur nach vorheriger Vereinbarung gesondert vergütet: ${BLANK}`,
+      `nur nach vorheriger Vereinbarung gesondert vergütet: ${oder(a.sonderleistungen, BLANK)}`,
   );
   doc.space(mm(2));
 
@@ -211,7 +259,7 @@ export async function generateVerwaltervertrag(input: VerwaltervertragInput): Pr
   paragraf(doc, "§ 8  Haftung und Versicherung", [
     "Die Verwalterin / der Verwalter führt das Amt mit der Sorgfalt einer ordentlichen " +
       "Verwalterin / eines ordentlichen Verwalters. Für Vorsatz und grobe Fahrlässigkeit " +
-      `wird unbeschränkt gehaftet. Für einfache Fahrlässigkeit wird die Haftung auf ${BLANK_KURZ} € ` +
+      `wird unbeschränkt gehaftet. Für einfache Fahrlässigkeit wird die Haftung auf ${oder(a.haftungGrenzeEur)} € ` +
       "je Schadensfall begrenzt; diese Begrenzung gilt nicht für die Verletzung von Leben, " +
       "Körper oder Gesundheit und nicht für die Verletzung wesentlicher Vertragspflichten.",
     "Die Gemeinschaft prüft den Abschluss einer Vermögensschaden-Haftpflichtversicherung " +
@@ -262,15 +310,21 @@ export async function generateVerwaltervertrag(input: VerwaltervertragInput): Pr
   );
 
   // ── Unterschriften ─────────────────────────────────────────────────────────
+  // Der Ort darf aus dem Formular kommen, das Datum bleibt der Unterschrift
+  // vorbehalten — ein vorgedrucktes Unterschriftsdatum wäre schlicht falsch.
+  const ortDatum = a.ort?.trim() ? `${a.ort.trim()}, den ${BLANK_KURZ}` : `Ort, Datum: ${BLANK}`;
+  const vertreterZeile = a.vertreterName?.trim()
+    ? `${a.vertreterName.trim()} — für die Gemeinschaft der Wohnungseigentümer (durch Beschluss ermächtigt)`
+    : "Für die Gemeinschaft der Wohnungseigentümer (durch Beschluss ermächtigt)";
+  const verwalterZeile = a.verwalterName?.trim()
+    ? `${a.verwalterName.trim()} — Verwalter/in`
+    : "Die Verwalterin / der Verwalter";
   doc.space(mm(4));
-  doc.para(`Ort, Datum: ${BLANK}`);
-  await doc.signature(
-    null,
-    "Für die Gemeinschaft der Wohnungseigentümer (durch Beschluss ermächtigt)",
-  );
+  doc.para(ortDatum);
+  await doc.signature(null, vertreterZeile);
   doc.space(mm(4));
-  doc.para(`Ort, Datum: ${BLANK}`);
-  await doc.signature(null, "Die Verwalterin / der Verwalter");
+  doc.para(ortDatum);
+  await doc.signature(null, verwalterZeile);
 
   // Bei selbstverwalteten WEGs heißen Absender und Objekt oft gleich — dann
   // stünde derselbe Name zweimal nebeneinander in der Fußzeile.

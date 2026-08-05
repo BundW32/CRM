@@ -106,7 +106,7 @@ export function settingsItems(selfManaged: boolean): NavItem[] {
           {
             href: "/verwaltung/verwaltervertrag",
             title: "Verwaltervertrag",
-            desc: "Mustervertrag für die Bestellung eines Miteigentümers zum Verwalter — als PDF zum Ausfüllen",
+            desc: "Mustervertrag für die Bestellung eines Miteigentümers zum Verwalter — digital ausfüllen, nur noch unterschreiben",
             icon: "dokumente" as const,
           },
         ]

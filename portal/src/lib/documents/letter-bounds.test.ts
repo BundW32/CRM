@@ -520,6 +520,44 @@ describe("Verwaltervertrag (Muster): Satzspiegel", () => {
     });
     assertInsideMargins(await drawnTexts(pdf));
   });
+
+  it("übernimmt die Formular-Angaben und hält dabei die Ränder", async () => {
+    const pdf = await generateVerwaltervertrag({
+      propertyName: "WEG Lindenhof",
+      propertyAddress: "Lindenstraße 14, 45964 Gladbeck",
+      unitsCount: 6,
+      issuer: kitIssuer,
+      generatedAt: new Date(2026, 7, 5),
+      angaben: {
+        vertreterName: "Dr. Ayşe Şahin-Grünewald von Hohenlohe-Langenburg (Beiratsvorsitz)",
+        beschlussDatum: "12.03.2026",
+        topNummer: "4",
+        verwalterName: "Maximilian-Friedrich Freiherr von und zu Lindenhofen-Grünewald",
+        verwalterAnschrift: "Lindenstraße 14, Hinterhaus, 3. Obergeschoss, 45964 Gladbeck-Zweckel",
+        beginn: "01.04.2026",
+        ende: "31.03.2029",
+        innenGrenzeEur: "500",
+        verguetung: "AUFWAND",
+        verguetungBetragEur: "600",
+        verguetungIntervall: "JAHR",
+        haftungGrenzeEur: "10.000",
+        sonderleistungen:
+          "Zusätzliche außerordentliche Versammlung auf Wunsch einzelner Eigentümer: 150 € je Termin",
+        ort: "Gladbeck",
+      },
+    });
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    const alle = items.map((it) => it.text).join(" ");
+    // Die Angaben stehen im Vertrag — und keine Ausfülllinie bleibt übrig,
+    // wo eine Angabe gemacht wurde.
+    expect(alle).toContain("12.03.2026");
+    expect(alle).toContain("31.03.2029");
+    expect(alle).toContain("600 € je Jahr");
+    expect(alle).toContain("500 € im Einzelfall");
+    expect(alle).toContain("10.000 €");
+    expect(alle).toContain("Gladbeck, den");
+  });
 });
 
 // Stammdaten einer Übergabe, ohne Räume und Zähler — die setzt jeder Test selbst.

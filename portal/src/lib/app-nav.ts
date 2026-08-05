@@ -100,6 +100,15 @@ export function settingsItems(selfManaged: boolean): NavItem[] {
             desc: "Name Ihrer WEG, wie er im Portal und auf Schreiben erscheint",
             icon: "branding" as const,
           },
+          // Der Mustervertrag gehört zur Selbstverwaltung: Bei professionellen
+          // Verwaltungen schließt die Gemeinschaft ihren Vertrag mit der
+          // Verwaltung, nicht mit einem Miteigentümer.
+          {
+            href: "/verwaltung/verwaltervertrag",
+            title: "Verwaltervertrag",
+            desc: "Mustervertrag für die Bestellung eines Miteigentümers zum Verwalter — als PDF zum Ausfüllen",
+            icon: "dokumente" as const,
+          },
         ]
       : [
           {

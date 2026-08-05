@@ -184,11 +184,12 @@ export default async function SoFunktioniertsPage() {
                     genau die deckt dieses Portal ab.
                   </p>
                   <p>
-                    Für die Bestellung des internen Verwalters erhalten Sie von
-                    uns einen <strong className="text-gray-900">Mustervertrag für
-                    die eigene Selbstverwaltung</strong> – eine Vorlage für
-                    Bestellung und Verwaltervertrag, die Ihre Gemeinschaft
-                    anpasst und beschließt.
+                    Für die Bestellung des internen Verwalters erstellt Ihnen
+                    das Portal einen <strong className="text-gray-900">Mustervertrag
+                    für die eigene Selbstverwaltung</strong> als PDF –
+                    vorausgefüllt mit den Daten Ihrer WEG, mit allen Punkten
+                    von Laufzeit über Vergütung bis Haftung. Ihre Gemeinschaft
+                    füllt ihn aus, passt ihn an und beschließt ihn.
                   </p>
                 </div>
                 <p className="mt-3 text-xs text-gray-500">

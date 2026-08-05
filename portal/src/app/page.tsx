@@ -295,7 +295,7 @@ export default async function Home() {
       {/* ── Elemente 3–5: Titel, Haupt-CTA, Vertrauens-Fakten – auf dem Foto ── */}
       <section id="inhalt" className="relative flex min-h-[82svh] items-center overflow-hidden">
         <KenBurnsBackdrop
-          src="/images/marketing/hero-building.jpg"
+          src="/images/marketing/hero-building-v2.jpg"
           alt="Mehrfamilienhaus einer Wohnungseigentümergemeinschaft"
           preload
         />

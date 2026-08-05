@@ -174,12 +174,25 @@ export async function updatePlanItems(formData: FormData) {
   if (!plan) back(property.id);
   if (plan.status !== "ENTWURF") back(property.id, `/${plan.id}`, "fehler=beschlossen");
 
+  // Erst ALLE Zeilen ansehen, dann speichern — und die unlesbaren nur melden,
+  // nicht die lesbaren mitreißen.
+  //
+  // Vorher brach die Schleife beim ersten unlesbaren Betrag mit einer
+  // Weiterleitung ab. Gespeichert wurde dabei nichts (das `update` steht hinter
+  // der Schleife), und die Seite rendert die Felder wieder aus der Datenbank:
+  // Wer neun Positionen eintippte und sich bei der letzten vertippte, verlor
+  // alle neun. Ein Tippfehler darf höchstens die eine Zeile kosten, in der er
+  // steht.
   const updates: { id: string; amountCents: number }[] = [];
+  const unlesbar: string[] = [];
   for (const item of plan.items) {
     const raw = String(formData.get(`item_${item.id}`) ?? "").trim();
     if (raw === "") continue;
     const cents = parseEuroToCents(raw);
-    if (cents === null) back(property.id, `/${plan.id}`, "fehler=betrag");
+    if (cents === null) {
+      unlesbar.push(item.costType?.name ?? item.id);
+      continue;
+    }
     if (cents !== item.amountCents) updates.push({ id: item.id, amountCents: cents });
   }
   if (updates.length > 0) {
@@ -194,9 +207,18 @@ export async function updatePlanItems(formData: FormData) {
     action: AUDIT.WEG_PLAN_SAVED,
     targetType: "EconomicPlan",
     targetId: plan.id,
-    meta: { updatedItems: updates.length },
+    meta: { updatedItems: updates.length, unlesbar: unlesbar.length },
   });
   revalidatePath(`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}`);
+  if (unlesbar.length > 0) {
+    // Die lesbaren Werte stehen jetzt in der Datenbank und damit wieder in den
+    // Feldern; die Meldung nennt genau die Positionen, die noch fehlen.
+    back(
+      property.id,
+      `/${plan.id}`,
+      `fehler=betrag&positionen=${encodeURIComponent(unlesbar.slice(0, 8).join(", "))}`,
+    );
+  }
   back(property.id, `/${plan.id}`, "gespeichert=1");
 }
 

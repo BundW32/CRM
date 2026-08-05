@@ -55,6 +55,8 @@ export default async function WirtschaftsplanDetailPage({
     gespeichert?: string;
     beschlossen?: string;
     fehler?: string;
+    /** Bei `fehler=betrag`: die Positionen, deren Wert unlesbar war. */
+    positionen?: string;
     abgelegt?: string;
     ablage?: string;
     ohne?: string;
@@ -218,7 +220,12 @@ Muster — ersetzt keine Rechtsberatung.`;
       ) : null}
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">
-          {FEHLER_TEXTE[sp.fehler] ?? "Die Eingabe konnte nicht gespeichert werden."}
+          {/* Beim unlesbaren Betrag sind die übrigen Werte gespeichert. Das
+              gehört dazugesagt: Sonst tippt man aus Sorge um den Verlust alles
+              noch einmal ab. */}
+          {sp.fehler === "betrag" && sp.positionen
+            ? `Diese Planwerte konnten nicht gelesen werden: ${sp.positionen}. Alle übrigen Eingaben wurden gespeichert — bitte nur die genannten Zeilen im Format 1.234,56 nachtragen.`
+            : (FEHLER_TEXTE[sp.fehler] ?? "Die Eingabe konnte nicht gespeichert werden.")}
         </Alert>
       ) : null}
 

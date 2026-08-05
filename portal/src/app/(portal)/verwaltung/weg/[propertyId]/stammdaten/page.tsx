@@ -14,6 +14,7 @@ import {
 } from "@/lib/labels";
 import { DateField, SelectField, toDateInputValue } from "@/components/fields";
 import { formatCents } from "@/lib/money";
+import { anteilSummeStatus } from "@/lib/weg/anteil";
 import { WEG_COST_CATALOG } from "@/lib/weg/cost-catalog";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { formatDateOnly } from "@/lib/labels";
@@ -426,11 +427,23 @@ export default async function WegStammdatenPage({
                             >
                               <input type="hidden" name="propertyId" value={property.id} />
                               <input type="hidden" name="ownershipId" value={o.id} />
-                              <span className="font-medium text-gray-900">
-                                {o.user.name}
-                                {o.sharePercent !== 100 ? ` (${o.sharePercent} %)` : ""}
-                              </span>
-                              <span className="text-xs text-gray-500">seit</span>
+                              <span className="font-medium text-gray-900">{o.user.name}</span>
+                              {/* Der Anteil war hier bis dahin reine Anzeige.
+                                  Korrigieren ging nur über Beenden und neu
+                                  Eintragen — und dabei entstand über den
+                                  Zugangsschreiben-Weg eine zweite Person. */}
+                              <span className="text-xs text-gray-500">Anteil</span>
+                              <input
+                                name="sharePercent"
+                                type="number"
+                                min={1}
+                                max={100}
+                                step="0.01"
+                                defaultValue={o.sharePercent}
+                                aria-label={`Anteil von ${o.user.name} an dieser Einheit in Prozent`}
+                                className={`${inputClass} w-20 py-1 text-xs`}
+                              />
+                              <span className="text-xs text-gray-500">%, seit</span>
                               <DateField
                                 name="validFrom"
                                 required
@@ -473,6 +486,27 @@ export default async function WegStammdatenPage({
                         ))}
                       </ul>
                     )}
+                    {/* Summenkontrolle je Einheit: Über 100 % zählt der MEA
+                        dieser Einheit mehrfach — genau so kam die Gemeinschaft
+                        auf 1.147 Anteile statt 1.000. Die Meldung steht dort,
+                        wo sich der Fehler beheben lässt. */}
+                    {(() => {
+                      const laufend = list.filter((o) => !o.validTo);
+                      if (laufend.length === 0) return null;
+                      const { summe, vollstaendig, ueberzeichnet } = anteilSummeStatus(
+                        laufend.map((o) => o.sharePercent),
+                      );
+                      if (vollstaendig) return null;
+                      return (
+                        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-900">
+                          Die Anteile dieser Einheit ergeben zusammen{" "}
+                          <strong>{summe.toLocaleString("de-DE")} %</strong>.{" "}
+                          {ueberzeichnet
+                            ? "Über 100 % zählt der Miteigentumsanteil dieser Einheit mehrfach — die Stimmanteile der Gemeinschaft werden dadurch zu hoch."
+                            : "Unter 100 % fehlt ein Miteigentümer, oder ein Anteil ist zu niedrig eingetragen."}
+                        </p>
+                      );
+                    })()}
                     {/* Steht ein Eigentümer, ist das Eintragen die Ausnahme (Verkauf,
                         Miteigentum) – ein immer offenes Formular liest sich dann wie
                         eine Pflicht, obwohl die Zuordnung längst da ist und darüber

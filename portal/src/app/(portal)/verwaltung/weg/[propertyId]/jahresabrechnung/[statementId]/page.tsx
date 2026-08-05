@@ -261,9 +261,15 @@ Muster — ersetzt keine Rechtsberatung.`;
           ob die Kontoauszüge des Jahres eingelesen und den Kostenarten zugeordnet sind.
         </Alert>
       ) : (
+        // „Vollständig" versprach mehr, als hier geprüft wird: Nachgerechnet
+        // wird die VERTEILUNG (Σ Einzelabrechnungen = Gesamtabrechnung), nicht
+        // ob alle Kosten des Jahres gebucht sind. Bei einer einzigen erfassten
+        // Buchung ging der Satz genauso grün durch — und wer ihn liest, hört
+        // auf zu suchen.
         <Alert variant="success" className="mb-4">
-          Verteilung vollständig und centgenau — Summe der Einzelabrechnungen entspricht der
-          Gesamtabrechnung.
+          Die Verteilung geht centgenau auf: Die Summe der Einzelabrechnungen entspricht der
+          Gesamtabrechnung. Ob alle Kosten des Jahres gebucht sind, prüft das nicht — dazu
+          ein Blick auf die Kontoauszüge.
         </Alert>
       )}
 

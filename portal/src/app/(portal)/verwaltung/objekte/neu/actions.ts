@@ -14,6 +14,7 @@ import {
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
 import { inviteOrLetter } from "@/lib/user-invite";
+import { parseAnteil } from "@/lib/weg/anteil";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 
 const MAX_UNITS = 100;
@@ -243,24 +244,56 @@ export async function createObjekt(formData: FormData) {
     const ownerSince = formData.getAll("wegOwnerSince").map((v) => String(v).trim());
     // Im Vorschlag gewählte bestehende Person – indexgleich zu den Namensfeldern.
     const ownerUserIds = formData.getAll("wegOwnerUserId").map((v) => String(v).trim());
+    // Anteil an der Einheit (Miteigentum). Ohne dieses Feld blieb jede
+    // Eigentümerschaft bei 100 %, und `mea-sync` zählte den MEA einer geteilten
+    // Einheit für jeden Miteigentümer voll — die Summe lag über dem Nenner.
+    const ownerShares = formData.getAll("wegOwnerShare").map((v) => parseAnteil(v));
+    // Antwort auf die Dublettenfrage: Index einer FRÜHEREN Zeile derselben
+    // Person. `PersonVorschlag` kann hier nichts finden — beim Anlegen einer
+    // neuen WEG entstehen alle Eigentümer in derselben Absendung, und wer zwei
+    // Einheiten besitzt, bekam dadurch zwei getrennte Zugänge.
+    const ownerSameAs = formData.getAll("wegOwnerSameAs").map((v) => String(v).trim());
+    // Je Zeile die tatsächlich verwendete Person – Grundlage für die Verweise.
+    const ownerResults: Array<{ id: string } | null> = [];
     const ownerCount = Math.min(ownerFirst.length, MAX_TENANTS);
     for (let i = 0; i < ownerCount; i++) {
       const oFirst = ownerFirst[i] ?? "";
       const oLast = ownerLast[i] ?? "";
       const oName = `${oFirst} ${oLast}`.trim();
-      if (oName.length < 2) continue;
+      if (oName.length < 2) {
+        // Der Platz in `ownerResults` muss stehen bleiben: Ein „gleich wie
+        // Zeile 3" verweist auf den Formularindex, nicht auf die Zählung der
+        // brauchbaren Zeilen.
+        ownerResults.push(null);
+        continue;
+      }
       const unitId = ownerUnits[i] ? unitLabelToId.get(ownerUnits[i]) : undefined;
-      if (!unitId) continue; // ohne Einheit keine WEG-Eigentümerschaft
+      if (!unitId) {
+        ownerResults.push(null);
+        continue; // ohne Einheit keine WEG-Eigentümerschaft
+      }
+
+      // „Dieselbe Person wie Zeile j" – dann keinen zweiten Zugang anlegen,
+      // sondern die schon erzeugte Person erneut verknüpfen. Nur Rückverweise
+      // auf frühere Zeilen sind gültig; alles andere fällt auf den Normalweg
+      // zurück, statt still eine falsche Person zuzuordnen.
+      const verweisRoh = ownerSameAs[i] ?? "";
+      const verweis = verweisRoh === "" ? -1 : Number.parseInt(verweisRoh, 10);
+      const fruehere =
+        Number.isInteger(verweis) && verweis >= 0 && verweis < i ? ownerResults[verweis] : null;
 
       const oEmailRaw = ownerEmails[i] ?? "";
-      const result = await personFuerZeile(actor, ownerUserIds[i] ?? "", {
-        name: oName,
-        firstName: oFirst || null,
-        lastName: oLast || null,
-        email: oEmailRaw && oEmailRaw.includes("@") ? oEmailRaw : null,
-        phone: ownerPhones[i] ? ownerPhones[i].slice(0, 50) : null,
-        role: "EIGENTUEMER",
-      });
+      const result: { id: string; pw: string } | null = fruehere
+        ? { id: fruehere.id, pw: "" } // ein Zugangsschreiben je Person, nicht je Einheit
+        : await personFuerZeile(actor, ownerUserIds[i] ?? "", {
+            name: oName,
+            firstName: oFirst || null,
+            lastName: oLast || null,
+            email: oEmailRaw && oEmailRaw.includes("@") ? oEmailRaw : null,
+            phone: ownerPhones[i] ? ownerPhones[i].slice(0, 50) : null,
+            role: "EIGENTUEMER",
+          });
+      ownerResults.push(result ? { id: result.id } : null);
       if (result) {
         await db.unitOwnership
           .create({
@@ -268,6 +301,7 @@ export async function createObjekt(formData: FormData) {
               organizationId: actor.organizationId,
               unitId,
               userId: result.id,
+              sharePercent: ownerShares[i] ?? 100,
               validFrom: (() => {
                 const roh = ownerSince[i] ?? "";
                 const d = roh ? new Date(roh) : null;

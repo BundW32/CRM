@@ -8,6 +8,7 @@ import { INTEGRATION_AREAS } from "@/lib/integrations";
 import { assistentStatus } from "@/lib/assistant";
 import { requireVerwalter } from "@/lib/session";
 import { clearIntegration, saveIntegration } from "./actions";
+import { AssistentTest } from "./assistent-test";
 
 export const dynamic = "force-dynamic";
 
@@ -80,10 +81,22 @@ export default async function IntegrationenPage({
           </span>
         </div>
         {assistent.aktiv ? (
-          <p className="text-sm text-gray-600">
-            Der Assistent antwortet ausschließlich aus Unterlagen, die der Fragende ohnehin
-            sehen darf. Sichtbar ist er für Verwalter und Eigentümer, nicht für Mieter.
-          </p>
+          <>
+            <p className="text-sm text-gray-600">
+              Der Assistent antwortet ausschließlich aus Unterlagen, die der Fragende
+              ohnehin sehen darf. Sichtbar ist er für Verwalter und Eigentümer, nicht für
+              Mieter.
+            </p>
+            {/* „Aktiv" heißt nur: beide Variablen sind gesetzt. Ob Google den
+                Schlüssel annimmt und das Modell noch existiert, weiß erst der
+                Aufruf — und der endete bislang in einer einzigen Zeile, die
+                jeden Grund zudeckte. */}
+            <p className="mt-2 text-sm text-gray-600">
+              Antwortet er trotz dieser Anzeige nur „Der Assistent ist momentan nicht
+              erreichbar“, liegt es an Google — am Schlüssel, am Modellnamen oder am
+              Kontingent. Der Test darunter sagt, woran.
+            </p>
+          </>
         ) : (
           <div className="text-sm text-gray-600">
             <p className="mb-2">Es fehlt in den Umgebungsvariablen des Deployments:</p>
@@ -109,6 +122,9 @@ export default async function IntegrationenPage({
             </p>
           </div>
         )}
+        {/* Auch bei „Nicht aktiv" sinnvoll: Wer den Schlüssel gerade einträgt,
+            will wissen, ob er taugt — bevor er ein Deployment dafür aufwendet. */}
+        {assistent.schluesselGesetzt ? <AssistentTest /> : null}
       </Card>
       </div>
 

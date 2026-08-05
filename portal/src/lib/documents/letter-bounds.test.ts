@@ -18,6 +18,7 @@ import { generateWirtschaftsplan } from "./wirtschaftsplan";
 import { generateEinzelabrechnungen } from "./einzelabrechnung";
 import { generateMeetingProtocol } from "./meeting-protocol";
 import { generateBeschlussSammlung } from "./beschluss-sammlung";
+import { generateVerwaltervertrag } from "./verwaltervertrag";
 import sharp from "sharp";
 import { generateHandoverPdfBuffer } from "@/lib/handover-pdf";
 import { fotoVorbereiten } from "./photo";
@@ -483,6 +484,41 @@ describe("Berichte: Satzspiegel", () => {
     for (let i = 1; i <= 40; i++) {
       expect(alle, `Nr. ${i} fehlt`).toContain(`Nr. ${i}`);
     }
+  });
+});
+
+describe("Verwaltervertrag (Muster): Satzspiegel", () => {
+  it("hält die Ränder und behält alle Paragrafen", async () => {
+    const pdf = await generateVerwaltervertrag({
+      propertyName: "WEG Lindenhof",
+      propertyAddress: "Lindenstraße 14, 45964 Gladbeck",
+      unitsCount: 6,
+      issuer: kitIssuer,
+      generatedAt: new Date(2026, 7, 5),
+    });
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    const alle = items.map((it) => it.text).join(" ");
+    for (let i = 1; i <= 11; i++) {
+      expect(alle, `§ ${i} fehlt`).toContain(`§ ${i}`);
+    }
+    // Die Kernaussagen, die den Vertrag rechtlich tragen, bleiben auf dem Blatt.
+    expect(alle).toContain("26 Abs. 3");
+    expect(alle).toContain("181 BGB");
+    expect(alle).toContain("keine Rechtsberatung");
+  });
+
+  it("hält die Ränder auch bei überlangen Namen", async () => {
+    const pdf = await generateVerwaltervertrag({
+      propertyName:
+        "Wohnungseigentümergemeinschaft Lindenhof-Nord, Lindenstraße 12–16 und Rosenweg 3a–3f, 45964 Gladbeck-Zweckel",
+      propertyAddress:
+        "Lindenstraße 12–16 und Rosenweg 3a–3f, Hinterhaus mit Tiefgarage, 45964 Gladbeck-Zweckel",
+      unitsCount: 12,
+      issuer: langerKitIssuer,
+      generatedAt: new Date(2026, 7, 5),
+    });
+    assertInsideMargins(await drawnTexts(pdf));
   });
 });
 

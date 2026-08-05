@@ -210,9 +210,10 @@ const FAQ = [
     a:
       "Sinnvoll ist er: Auch ein Miteigentümer wird durch Beschluss zum " +
       "Verwalter bestellt, und ein Vertrag regelt Aufgaben, Laufzeit und " +
-      "Vergütung. wegportal24 stellt Ihnen dafür einen Mustervertrag für die " +
-      "eigene Selbstverwaltung bereit – als Vorlage, die Ihre Gemeinschaft " +
-      "anpasst und beschließt. Allgemeine Vorlage, keine Rechtsberatung.",
+      "Vergütung. wegportal24 erstellt Ihnen dafür den Mustervertrag für die " +
+      "eigene Selbstverwaltung als PDF, vorausgefüllt mit den Daten Ihrer " +
+      "WEG – Ihre Gemeinschaft passt ihn an und beschließt ihn. Allgemeine " +
+      "Vorlage, keine Rechtsberatung.",
   },
   {
     f: "Brauchen wir Buchhaltungswissen?",
@@ -561,9 +562,9 @@ export default async function Home() {
             .
           </p>
         </Reveal>
-        {/* Mustervertrag: Angebots-Leistung des Betreibers, bewusst nicht als
-            Portal-Funktion formuliert – einen Vertrags-Generator gibt es
-            (noch) nicht im Produkt. */}
+        {/* Mustervertrag: echte Portal-Funktion — das PDF entsteht in
+            `lib/documents/verwaltervertrag.ts` und steht selbstverwalteten
+            WEGs unter /verwaltung/verwaltervertrag bereit. */}
         <Reveal delay={160}>
           <div className="mt-8 flex flex-col gap-4 rounded-2xl border border-wp-ink/10 bg-white p-6 shadow-e1 sm:flex-row sm:items-start">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-wp-accent-light">
@@ -576,9 +577,10 @@ export default async function Home() {
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-wp-ink/70">
                 Auch ein Miteigentümer wird durch Beschluss zum Verwalter
                 bestellt – und ein Vertrag regelt Aufgaben, Laufzeit und
-                Vergütung. Dafür erhalten Sie von uns einen Mustervertrag für
-                die eigene Selbstverwaltung: eine Vorlage für Bestellung und
-                Verwaltervertrag, die Ihre Gemeinschaft anpasst und beschließt.
+                Vergütung. Das Portal erstellt Ihnen dafür den Mustervertrag
+                für die eigene Selbstverwaltung als PDF, vorausgefüllt mit den
+                Daten Ihrer WEG – Ihre Gemeinschaft füllt ihn aus, passt ihn an
+                und beschließt ihn in der Versammlung.
               </p>
               <p className="mt-2 text-xs text-wp-ink/50">
                 Allgemeine Vorlage, keine Rechtsberatung.

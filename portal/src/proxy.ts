@@ -45,12 +45,22 @@ function tenantSlugFromHost(host: string | null): string | null {
 const ICONS: Record<string, { weg: string; verwaltung: string }> = {
   "/favicon.ico": { weg: "/favicon-wegportal24.ico", verwaltung: "/favicon-bw.ico" },
   "/app-icon-192.png": { weg: "/icon-wegportal24-192.png", verwaltung: "/icon-192.png" },
+  // iOS, einige Android-Browser und Suchmaschinen fragen diesen Pfad direkt
+  // ab, ohne die Angaben im <head> zu lesen — ohne Weiche stand auf
+  // wegportal24.de das B&W-Signet auf dem Homescreen und in Suchergebnissen.
+  "/apple-touch-icon.png": {
+    weg: "/apple-touch-icon-wegportal24.png",
+    verwaltung: "/apple-touch-icon.png",
+  },
 };
 
 export function proxy(request: NextRequest) {
   const icon = ICONS[request.nextUrl.pathname];
   if (icon) {
     const ziel = process.env.APP_MODE === "weg" ? icon.weg : icon.verwaltung;
+    // Zeigt die Weiche auf denselben Pfad (B&W-Datei unter ihrem Originalnamen),
+    // braucht es kein Rewrite — die statische Datei wird direkt ausgeliefert.
+    if (ziel === request.nextUrl.pathname) return NextResponse.next();
     return NextResponse.rewrite(new URL(ziel, request.url));
   }
 
@@ -75,5 +85,6 @@ export const config = {
     // müssen einzeln aufgeführt werden.
     "/favicon.ico",
     "/app-icon-192.png",
+    "/apple-touch-icon.png",
   ],
 };

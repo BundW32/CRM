@@ -48,19 +48,20 @@ const STAGES: Stage[] = [
   },
   {
     step: "Schritt 4 · Versammlung",
-    title: "Beschlüsse nach MEA",
+    title: "Beschlüsse mit Bestand",
     text:
-      "Versammlung vorbereiten, Anwesenheit erfassen, nach Miteigentumsanteilen " +
-      "abstimmen und Beschlüsse dauerhaft in der Beschluss-Sammlung dokumentieren.",
-    badge: "Abstimmung nach Miteigentumsanteilen",
+      "Versammlung vorbereiten, Anwesenheit erfassen, abstimmen nach dem " +
+      "Stimmprinzip Ihrer Gemeinschaft – Kopf, MEA oder Objekt – und Beschlüsse " +
+      "dauerhaft in der Beschluss-Sammlung dokumentieren.",
+    badge: "Stimmprinzip: Kopf · MEA · Objekt",
   },
   {
     step: "Schritt 5 · Gemeinschaft",
     title: "Alle unter einem Dach",
     text:
       "Eigentümer, Beirat und Mieter – jeder mit eigenem Zugang und genau den " +
-      "Rechten, die er braucht, auch am Handy. Handwerker arbeiten ohne Konto " +
-      "über sichere Auftrags-Links.",
+      "Rechten, die er braucht, auch am Handy. Schäden werden mit Foto im " +
+      "Portal gemeldet und bis zur Erledigung nachverfolgt.",
     badge: "Ein Portal für alle im Haus",
   },
   {

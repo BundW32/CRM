@@ -22,6 +22,7 @@ import {
   CalendarCheck,
   CheckCircle2,
   FileCheck,
+  FileSignature,
   HandCoins,
   Landmark,
   ShieldCheck,
@@ -44,6 +45,11 @@ import { ScrollyBuild } from "@/components/marketing/scrolly-build";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
 import { isWegSaas } from "@/lib/app-mode";
+import {
+  BASIC_JE_EINHEIT_EUR,
+  monatspreis,
+  START_EINHEITEN,
+} from "./preise/preise-daten";
 
 export const dynamic = "force-dynamic";
 
@@ -112,9 +118,9 @@ const NUTZEN = [
     icon: Vote,
     titel: "Versammlung & Beschlüsse",
     text:
-      "Einladung mit Fristenrechner, Anwesenheit erfassen, nach " +
-      "Miteigentumsanteilen abstimmen. Jeder Beschluss landet dauerhaft in der " +
-      "Beschluss-Sammlung.",
+      "Einladung mit Fristenrechner, Anwesenheit erfassen, abstimmen nach dem " +
+      "Stimmprinzip Ihrer Gemeinschaft – Kopfprinzip, Miteigentumsanteile oder " +
+      "Objektprinzip. Jeder Beschluss landet dauerhaft in der Beschluss-Sammlung.",
     href: "/funktionen/versammlung",
   },
   {
@@ -122,11 +128,31 @@ const NUTZEN = [
     titel: "Alle im Haus eingebunden",
     text:
       "Eigentümer, Beirat und Mieter mit eigenem Zugang – jeder sieht genau " +
-      "das, was ihn betrifft, auch am Handy. Handwerker erhalten ihre " +
-      "Aufträge über einen sicheren Link, ganz ohne Konto.",
+      "das, was ihn betrifft, auch am Handy. Schäden werden mit Foto direkt " +
+      "im Portal gemeldet und behalten ihren Status bis zur Erledigung.",
     href: "/funktionen/kommunikation",
   },
 ];
+
+// Vergleichsrechnung gegenüber einer externen Verwaltung. Die Portal-Seite
+// der Rechnung kommt aus `preise/preise-daten.ts` (die eine Preisquelle);
+// der Vergleichswert ist eine marktübliche Grundvergütung externer
+// WEG-Verwaltungen (je nach Region meist 25–40 € je Einheit und Monat,
+// kleine Gemeinschaften eher am oberen Rand) – bewusst als Mittelwert
+// angesetzt und im Text als Beispielrechnung gekennzeichnet.
+const VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR = 30;
+const VERGLEICH_EINHEITEN = START_EINHEITEN;
+const VERGLEICH_JAHR_VERWALTUNG =
+  VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR * VERGLEICH_EINHEITEN * 12;
+const VERGLEICH_JAHR_PORTAL = monatspreis(BASIC_JE_EINHEIT_EUR, VERGLEICH_EINHEITEN) * 12;
+const VERGLEICH_ERSPARNIS_JAHR = VERGLEICH_JAHR_VERWALTUNG - VERGLEICH_JAHR_PORTAL;
+
+const euro = (betrag: number) =>
+  betrag.toLocaleString("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  });
 
 // Element 8: „Für wen"-Slot. Drei Rollen in direkter Ansprache — bewusst
 // keine erzählten Einzelpersonen: Das Portal ist neu, und eine Karte, die wie
@@ -152,8 +178,9 @@ const ROLLEN = [
     rolle: "Sie sind Miteigentümer",
     text:
       "Einladung, Tagesordnung und eigene Anträge im Portal, abgestimmt wird " +
-      "nach Miteigentumsanteilen. Wer nicht dabei sein kann, gibt eine " +
-      "Vollmacht – und liest den Beschluss hinterher in der Sammlung nach.",
+      "nach dem Stimmprinzip Ihrer Gemeinschaftsordnung. Wer nicht dabei sein " +
+      "kann, gibt eine Vollmacht – und liest den Beschluss hinterher in der " +
+      "Sammlung nach.",
   },
 ];
 
@@ -177,6 +204,15 @@ const FAQ = [
       "Verwalter (§ 26a WEG) Ihre Fragen beantwortet. Alle Zugänge sind immer " +
       "inklusive, und je mehr Einheiten, desto günstiger wird die einzelne. " +
       "Details und ein Rechner stehen auf der Preisseite.",
+  },
+  {
+    f: "Brauchen wir für die Selbstverwaltung einen Verwaltervertrag?",
+    a:
+      "Sinnvoll ist er: Auch ein Miteigentümer wird durch Beschluss zum " +
+      "Verwalter bestellt, und ein Vertrag regelt Aufgaben, Laufzeit und " +
+      "Vergütung. wegportal24 stellt Ihnen dafür einen Mustervertrag für die " +
+      "eigene Selbstverwaltung bereit – als Vorlage, die Ihre Gemeinschaft " +
+      "anpasst und beschließt. Allgemeine Vorlage, keine Rechtsberatung.",
   },
   {
     f: "Brauchen wir Buchhaltungswissen?",
@@ -451,6 +487,106 @@ export default async function Home() {
       <div className="mt-20">
         <StatsBand />
       </div>
+
+      {/* ── Ersparnis gegenüber einer externen Verwaltung ─────────────────── */}
+      <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
+        <Reveal>
+          <h2 className="text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
+            Was Ihre WEG gegenüber einer externen Verwaltung spart
+          </h2>
+          <p className="mt-3 max-w-2xl text-wp-ink/70">
+            Eine externe WEG-Verwaltung kostet marktüblich 25 bis 40 € je
+            Einheit und Monat – kleine Gemeinschaften zahlen je Einheit meist
+            am oberen Rand, und Sondervergütungen für zusätzliche Versammlungen
+            oder Mahnungen kommen häufig dazu. In der Selbstverwaltung
+            übernimmt Ihre Gemeinschaft die Arbeit selbst – und behält die
+            Differenz.
+          </p>
+        </Reveal>
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          <Reveal>
+            <div className="flex h-full flex-col rounded-2xl border border-wp-ink/10 bg-white p-6 shadow-e1">
+              <p className="text-sm font-semibold text-wp-ink/60">
+                Externe Verwaltung
+              </p>
+              <p className="mt-2 text-3xl font-semibold text-wp-ink">
+                {euro(VERGLEICH_JAHR_VERWALTUNG)}
+                <span className="text-base font-normal text-wp-ink/60"> im Jahr</span>
+              </p>
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-wp-ink/70">
+                Beispiel: {VERGLEICH_EINHEITEN} Einheiten zu{" "}
+                {euro(VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR)} je Einheit und
+                Monat – Sondervergütungen noch nicht eingerechnet.
+              </p>
+            </div>
+          </Reveal>
+          <Reveal delay={90}>
+            <div className="flex h-full flex-col rounded-2xl border border-wp-ink/10 bg-white p-6 shadow-e1">
+              <p className="text-sm font-semibold text-wp-ink/60">
+                Selbstverwaltung mit wegportal24 Basic
+              </p>
+              <p className="mt-2 text-3xl font-semibold text-wp-ink">
+                {euro(VERGLEICH_JAHR_PORTAL)}
+                <span className="text-base font-normal text-wp-ink/60"> im Jahr</span>
+              </p>
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-wp-ink/70">
+                Dieselben {VERGLEICH_EINHEITEN} Einheiten, Mengenrabatt bereits
+                eingerechnet – alle Zugänge inklusive.
+              </p>
+            </div>
+          </Reveal>
+          <Reveal delay={180}>
+            <div className="flex h-full flex-col rounded-2xl border border-wp-accent-ink/30 bg-wp-accent-light/50 p-6 shadow-e1">
+              <p className="text-sm font-semibold text-wp-accent-ink">
+                Bleibt in der Rücklage
+              </p>
+              <p className="mt-2 text-3xl font-semibold text-wp-ink">
+                {euro(VERGLEICH_ERSPARNIS_JAHR)}
+                <span className="text-base font-normal text-wp-ink/60"> im Jahr</span>
+              </p>
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-wp-ink/70">
+                Geld, das nicht in Verwaltungsgebühren fließt, sondern in Dach,
+                Heizung und Rücklage Ihrer Gemeinschaft.
+              </p>
+            </div>
+          </Reveal>
+        </div>
+        <Reveal delay={120}>
+          <p className="mt-3 text-xs text-wp-ink/50">
+            Beispielrechnung – marktübliche Vergütungen unterscheiden sich je
+            nach Region und Leistungsumfang. Details und Rechner auf der{" "}
+            <Link href="/preise" className="underline underline-offset-2">
+              Preisseite
+            </Link>
+            .
+          </p>
+        </Reveal>
+        {/* Mustervertrag: Angebots-Leistung des Betreibers, bewusst nicht als
+            Portal-Funktion formuliert – einen Vertrags-Generator gibt es
+            (noch) nicht im Produkt. */}
+        <Reveal delay={160}>
+          <div className="mt-8 flex flex-col gap-4 rounded-2xl border border-wp-ink/10 bg-white p-6 shadow-e1 sm:flex-row sm:items-start">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-wp-accent-light">
+              <FileSignature className="h-5 w-5 text-wp-accent-ink" />
+            </span>
+            <div>
+              <h3 className="text-lg font-semibold text-wp-ink">
+                Mustervertrag für die Selbstverwaltung inklusive
+              </h3>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-wp-ink/70">
+                Auch ein Miteigentümer wird durch Beschluss zum Verwalter
+                bestellt – und ein Vertrag regelt Aufgaben, Laufzeit und
+                Vergütung. Dafür erhalten Sie von uns einen Mustervertrag für
+                die eigene Selbstverwaltung: eine Vorlage für Bestellung und
+                Verwaltervertrag, die Ihre Gemeinschaft anpasst und beschließt.
+              </p>
+              <p className="mt-2 text-xs text-wp-ink/50">
+                Allgemeine Vorlage, keine Rechtsberatung.
+              </p>
+            </div>
+          </div>
+        </Reveal>
+      </section>
 
       {/* ── Element 9: FAQ ────────────────────────────────────────────────── */}
       <section className="mx-auto w-full max-w-3xl px-4 pt-20 sm:px-6">

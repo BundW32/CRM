@@ -71,8 +71,8 @@ const TARIFE: Tarif[] = [
       "Jahresabrechnung mit Kontenprüfung, § 35a-Ausweis, Vermögensbericht",
       "Hausgeld, Mahnwesen als DIN-A4-Brief, SEPA-Einzug",
       "Buchhaltung mit CSV-Bankimport und Belegen",
-      "Versammlung, Abstimmung nach MEA, Beschluss-Sammlung",
-      "Dokumente, Aushänge, Schäden mit Foto, Handwerker-Aufträge per Link",
+      "Versammlung, Abstimmung nach Kopf, MEA oder Objekt, Beschluss-Sammlung",
+      "Dokumente, Aushänge, Schadensmeldungen mit Foto",
       "Unbegrenzte Zugänge für Eigentümer, Beirat und Mieter",
     ],
     cta: { text: "Mit Basic starten", href: "/registrieren", primaer: true },
@@ -251,8 +251,7 @@ export function TarifBereich() {
       </div>
 
       <p className="mt-5 text-center text-sm text-wp-ink/65">
-        Alle Zugänge inklusive — Eigentümer, Beirat und Mieter zählen nicht extra;
-        Handwerker arbeiten ohne Konto über sichere Auftrags-Links.
+        Alle Zugänge inklusive — Eigentümer, Beirat und Mieter zählen nicht extra.
       </p>
 
       {/* Die Grenze des Self-Service — und der Weg darüber hinaus. */}

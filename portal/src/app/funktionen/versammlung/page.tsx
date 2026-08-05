@@ -16,8 +16,8 @@ export const metadata: Metadata = {
   title: "Eigentümerversammlung & Beschlüsse digital organisieren",
   description:
     "Versammlungen mit Ladefrist einberufen, Anwesenheit und Vertretung erfassen, " +
-    "nach Miteigentumsanteilen abstimmen und Beschlüsse dauerhaft dokumentieren – " +
-    "für selbstverwaltete WEGs.",
+    "abstimmen nach dem Stimmprinzip Ihrer Gemeinschaft (Kopf, MEA oder Objekt) " +
+    "und Beschlüsse dauerhaft dokumentieren – für selbstverwaltete WEGs.",
 };
 
 export default async function VersammlungPage() {
@@ -85,21 +85,25 @@ export default async function VersammlungPage() {
       <FeatureSection
         id="abstimmung"
         eyebrow="Durchführung"
-        title="Anwesenheit, Vertretung und Abstimmung nach MEA"
+        title="Anwesenheit, Vertretung und Abstimmung nach Ihrem Stimmprinzip"
         reverse
         visual={<VoteVisual />}
         points={[
-          "Anwesenheit digital erfassen – das Portal rechnet die vertretenen MEA zusammen",
-          "Abstimmen nach Miteigentumsanteilen, Ergebnis sofort sichtbar",
+          "Anwesenheit digital erfassen – das Portal rechnet die vertretenen Anteile zusammen",
+          "Stimmgewichte nach dem Prinzip Ihrer Gemeinschaft: Kopf, MEA oder Objekt",
           "Angenommen oder abgelehnt: das Ergebnis wird direkt festgehalten",
         ]}
       >
         <p>
           Während der Versammlung haken Sie einfach ab, wer da ist – das Portal
-          zeigt live, wie viele Miteigentumsanteile vertreten sind. Bei jeder
-          Abstimmung zählen Sie Ja, Nein und Enthaltung, und das System rechnet
-          das Ergebnis korrekt nach MEA aus, statt Köpfe zu zählen, wo Anteile
-          gefragt sind.
+          zeigt live, wie viele Anteile vertreten sind. Bei jeder Abstimmung
+          zählen Sie Ja, Nein und Enthaltung, und das System gewichtet die
+          Stimmen nach dem Prinzip, das in Ihrer Gemeinschaft gilt: Gesetzlicher
+          Regelfall ist das Kopfprinzip – eine Stimme je Eigentümer (§ 25 WEG).
+          Sieht Ihre Gemeinschaftsordnung stattdessen Miteigentumsanteile
+          (Wertprinzip) oder eine Stimme je Einheit (Objektprinzip) vor, rechnet
+          das Portal genau danach – auch bei Mehrheiten, die zusätzlich auf die
+          MEA schauen, etwa der doppelt qualifizierten nach § 21 WEG.
         </p>
       </FeatureSection>
 

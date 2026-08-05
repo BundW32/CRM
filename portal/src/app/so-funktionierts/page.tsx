@@ -57,8 +57,8 @@ const steps = [
     text:
       "Jeder Miteigentümer erhält einen eigenen Zugang und sieht Abrechnungen, " +
       "Dokumente und Beschlüsse jederzeit selbst ein. Auf Wunsch laden Sie auch " +
-      "Beirat und Mieter ein – jeder mit genau passenden Rechten. Handwerker " +
-      "binden Sie ohne Konto über Auftrags-Links ein.",
+      "Beirat und Mieter ein – jeder mit genau passenden Rechten. Mieter " +
+      "melden Schäden mit Foto direkt im Portal.",
   },
 ];
 
@@ -96,9 +96,9 @@ const faqs = [
     q: "Sind unsere Daten sicher?",
     a:
       "Jeder Zugang meldet sich mit eigenem Passwort an, und sämtliche Dateien " +
-      "werden nur nach Berechtigungsprüfung ausgeliefert – ein Handwerker sieht " +
-      "also nie die Abrechnung, ein Mieter nie die Rückstandsliste. Details " +
-      "stehen in der Datenschutzerklärung.",
+      "werden nur nach Berechtigungsprüfung ausgeliefert – ein Mieter sieht " +
+      "also nie die Rückstandsliste oder die Abrechnung der Gemeinschaft. " +
+      "Details stehen in der Datenschutzerklärung.",
   },
   {
     q: "Was passiert, wenn wir doch wieder einen Verwalter finden?",
@@ -182,6 +182,13 @@ export default async function SoFunktioniertsPage() {
                     Verwalter. Die Pflichten aus § 28 WEG (Wirtschaftsplan,
                     Jahresabrechnung, Vermögensbericht) gelten trotzdem – und
                     genau die deckt dieses Portal ab.
+                  </p>
+                  <p>
+                    Für die Bestellung des internen Verwalters erhalten Sie von
+                    uns einen <strong className="text-gray-900">Mustervertrag für
+                    die eigene Selbstverwaltung</strong> – eine Vorlage für
+                    Bestellung und Verwaltervertrag, die Ihre Gemeinschaft
+                    anpasst und beschließt.
                   </p>
                 </div>
                 <p className="mt-3 text-xs text-gray-500">

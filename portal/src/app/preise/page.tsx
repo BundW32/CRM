@@ -35,8 +35,7 @@ const PREIS_FAQ = [
       "in der Teilungserklärung und ändert sich nicht. Zugänge sind dagegen " +
       "immer inklusive – laden Sie so viele Eigentümer, Beiräte und Mieter " +
       "ein, wie Ihre Gemeinschaft braucht, ohne dass sich am Preis etwas " +
-      "ändert. Handwerker brauchen gar kein Konto: Sie erhalten ihre Aufträge " +
-      "über einen sicheren Link.",
+      "ändert.",
   },
   {
     f: "Wie funktioniert der Mengenrabatt?",

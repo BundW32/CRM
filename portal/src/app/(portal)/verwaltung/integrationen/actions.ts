@@ -7,6 +7,7 @@ import { encryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { integrationArea } from "@/lib/integrations";
 import { requireVerwalter } from "@/lib/session";
+import { pruefeVerbindung, type VerbindungsErgebnis } from "@/lib/assistant";
 
 function back(param?: string): never {
   redirect(`/verwaltung/integrationen${param ? `?${param}` : ""}`);
@@ -74,4 +75,24 @@ export async function clearIntegration(formData: FormData) {
   });
   revalidatePath("/verwaltung/integrationen");
   back("geloescht=1");
+}
+
+/**
+ * Prüft Schlüssel und Modellnamen direkt bei Google.
+ *
+ * Nur für SuperAdmins: Das Ergebnis nennt zwar nie den Schlüssel, verrät aber
+ * den Zustand der Betreiber-Einrichtung — das geht einen eingeschränkten
+ * Verwalter nichts an.
+ */
+export async function testeAssistentVerbindung(): Promise<VerbindungsErgebnis> {
+  const verwalter = await requireVerwalter();
+  if (!verwalter.isSuperAdmin) {
+    return {
+      ok: false,
+      meldung: "Diese Prüfung darf nur der Administrator der Organisation ausführen.",
+      details: null,
+      modelle: [],
+    };
+  }
+  return pruefeVerbindung();
 }

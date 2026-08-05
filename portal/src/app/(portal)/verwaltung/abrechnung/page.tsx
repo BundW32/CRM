@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { Badge } from "@/components/data-display";
-import { PLANS, isBillingEnabled, planLabel, subscriptionStatusLabel } from "@/lib/billing";
+import { PLANS, aktiverPlan, isBillingEnabled, planLabel, subscriptionStatusLabel } from "@/lib/billing";
 import { formatDate } from "@/lib/labels";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { openBillingPortal, startCheckout } from "./actions";
@@ -22,6 +22,13 @@ export default async function BillingPage({
 
   const sp = await searchParams;
   const billingReady = isBillingEnabled();
+  // Der Tarif, der GERADE gilt — in der Testphase ist das Pro. In
+  // `org.plan` steht dagegen, worauf die Gemeinschaft nach der Testphase
+  // zurückfällt, solange nichts gebucht wurde. Die Seite zeigte bisher
+  // diesen gespeicherten Wert und meldete „Aktueller Tarif: Free" neben
+  // „Status: Testphase" — zwei Angaben, die einander widersprechen.
+  const genutzt = aktiverPlan(org);
+  const inTestphase = org.subscriptionStatus === "trialing";
 
   return (
     <>
@@ -35,7 +42,7 @@ export default async function BillingPage({
         <dl className="grid gap-4 sm:grid-cols-2">
           <div>
             <dt className="text-xs uppercase tracking-wide text-gray-400">Aktueller Tarif</dt>
-            <dd className="text-lg font-semibold text-gray-900">{planLabel(org.plan)}</dd>
+            <dd className="text-lg font-semibold text-gray-900">{planLabel(genutzt)}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-gray-400">Status</dt>
@@ -71,7 +78,7 @@ export default async function BillingPage({
 
         {billingReady ? (
           <div className="mt-6 flex flex-wrap gap-2">
-            {org.plan !== "pro" ? (
+            {genutzt !== "pro" ? (
               <form action={startCheckout}>
                 <PendingButton className={buttonClass}>Auf Pro upgraden</PendingButton>
               </form>
@@ -84,6 +91,14 @@ export default async function BillingPage({
           </div>
         ) : (
           <div className="mt-6 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+            {inTestphase ? (
+              <>
+                <strong>In der Testphase steht Ihnen der volle Funktionsumfang von Pro
+                offen.</strong>{" "}
+                Es entsteht daraus keine Zahlungspflicht — die Testphase geht nicht
+                selbsttätig in einen kostenpflichtigen Tarif über.{" "}
+              </>
+            ) : null}
             Die Online-Buchung und Zahlungsabwicklung wird derzeit eingerichtet. Sie nutzen das
             Portal bis dahin uneingeschränkt. Bei Fragen zur Abrechnung wenden Sie sich an uns.
           </div>
@@ -95,15 +110,15 @@ export default async function BillingPage({
           <div
             key={plan.id}
             className={`rounded-2xl border p-5 ${
-              org.plan === plan.id
+              genutzt === plan.id
                 ? "border-brand-orange/50 bg-brand-orange-light"
                 : "border-gray-200 bg-white"
             }`}
           >
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900">{plan.name}</h2>
-              {org.plan === plan.id ? (
-                <Badge tone="onAccent">aktuell</Badge>
+              {genutzt === plan.id ? (
+                <Badge tone="onAccent">{inTestphase ? "in der Testphase" : "aktuell"}</Badge>
               ) : null}
             </div>
             <p className="mt-1 text-sm text-gray-600">{plan.description}</p>

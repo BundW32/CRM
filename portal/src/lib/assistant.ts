@@ -89,6 +89,135 @@ export function assistentStatus(): AssistentStatus {
   };
 }
 
+/** Voreinstellung, wenn `GEMINI_MODEL` nicht gesetzt ist. */
+export const MODELL_VORGABE = "gemini-2.0-flash";
+
+export type VerbindungsErgebnis = {
+  ok: boolean;
+  /** Klartext für die Einstellungsseite — ohne den Schlüssel. */
+  meldung: string;
+  /** Die Antwort von Google, gekürzt. Nur zur Fehlersuche. */
+  details: string | null;
+  /** Bei unbekanntem Modell: was das Konto tatsächlich anbietet. */
+  modelle: string[];
+};
+
+/**
+ * Fragt Google, ob Schlüssel UND Modell taugen.
+ *
+ * Der Grund für diese Funktion: `frageAssistent` fängt jeden Fehler ab und
+ * antwortet immer „Der Assistent ist momentan nicht erreichbar." — bei
+ * ungültigem Schlüssel, bei abgelaufenem Modellnamen, bei erschöpftem
+ * Kontingent und bei Zeitüberschreitung dieselbe Zeile. Für den Betreiber ist
+ * das keine Auskunft, sondern eine Sackgasse: Er sieht, dass es nicht geht,
+ * und erfährt nicht, woran.
+ *
+ * Geprüft wird gegen den Modell-Endpunkt statt gegen `generateContent` — der
+ * beantwortet beide Fragen auf einmal, kostet kein Kontingent und erzeugt
+ * keine Abrechnungsposition.
+ */
+export async function pruefeVerbindung(): Promise<VerbindungsErgebnis> {
+  const key = schluessel();
+  const modell = modellName();
+  if (!key) {
+    return {
+      ok: false,
+      meldung: "Es ist kein API-Schlüssel gesetzt (GEMINI_API_KEY).",
+      details: null,
+      modelle: [],
+    };
+  }
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modell)}?key=${key}`,
+      { signal: ctrl.signal },
+    );
+    const data = await res.json().catch(() => null);
+
+    if (res.ok) {
+      return {
+        ok: true,
+        meldung: `Verbindung steht. Das Modell „${modell}“ ist für diesen Schlüssel verfügbar.`,
+        details: null,
+        modelle: [],
+      };
+    }
+
+    const grund: string | undefined = data?.error?.details?.find(
+      (d: { reason?: string }) => d?.reason,
+    )?.reason;
+    const text: string = data?.error?.message ?? `HTTP ${res.status}`;
+
+    // Bei unbekanntem Modell ist die Liste der verfügbaren die eigentliche
+    // Antwort — sonst rät man Namen durch.
+    let modelle: string[] = [];
+    if (res.status === 404) modelle = await verfuegbareModelle(key);
+
+    return { ok: false, meldung: deutung(res.status, grund, modell), details: kurz(text), modelle };
+  } catch (e) {
+    const abbruch = e instanceof Error && e.name === "AbortError";
+    return {
+      ok: false,
+      meldung: abbruch
+        ? "Google hat innerhalb von 12 Sekunden nicht geantwortet."
+        : "Die Verbindung zu Google kam nicht zustande (Netzwerkfehler).",
+      details: e instanceof Error ? kurz(e.message) : null,
+      modelle: [],
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function modellName(): string {
+  return process.env.GEMINI_MODEL?.trim().replace(/^["']|["']$/g, "") || MODELL_VORGABE;
+}
+
+function kurz(s: string): string {
+  return s.length > 300 ? `${s.slice(0, 300)}…` : s;
+}
+
+/** Übersetzt Googles Fehlerkennung in einen Satz, der sagt, was zu tun ist. */
+function deutung(status: number, grund: string | undefined, modell: string): string {
+  if (grund === "API_KEY_INVALID" || status === 400) {
+    return "Der API-Schlüssel wird von Google abgelehnt. Bitte prüfen, ob er vollständig kopiert wurde (ohne Anführungszeichen und ohne Leerzeichen am Rand).";
+  }
+  if (status === 403) {
+    return "Der Schlüssel ist gültig, darf diese Schnittstelle aber nicht nutzen. Meist ist die „Generative Language API“ im Google-Projekt nicht aktiviert oder der Schlüssel ist auf andere Dienste beschränkt.";
+  }
+  if (status === 404) {
+    return `Das Modell „${modell}“ kennt Google für diesen Schlüssel nicht. Modellnamen werden nach einiger Zeit abgeschaltet — bitte einen der unten genannten Namen in GEMINI_MODEL eintragen.`;
+  }
+  if (status === 429) {
+    return "Das Kontingent ist erschöpft (zu viele Anfragen oder Freikontingent aufgebraucht). Später erneut versuchen oder im Google-Konto ein Abrechnungskonto hinterlegen.";
+  }
+  if (status >= 500) {
+    return "Google meldet eine Störung auf seiner Seite. Das legt sich meist von selbst.";
+  }
+  return `Google hat die Anfrage abgelehnt (HTTP ${status}).`;
+}
+
+/** Namen der Modelle, die dieser Schlüssel für `generateContent` nutzen darf. */
+async function verfuegbareModelle(key: string): Promise<string[]> {
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const liste: Array<{ name?: string; supportedGenerationMethods?: string[] }> =
+      data?.models ?? [];
+    return liste
+      .filter((m) => m.supportedGenerationMethods?.includes("generateContent"))
+      .map((m) => (m.name ?? "").replace(/^models\//, ""))
+      .filter(Boolean)
+      .slice(0, 12);
+  } catch {
+    return [];
+  }
+}
+
 // Rollen, die den Assistenten sehen (WEG-Inhalte sind Eigentümer-/Verwalter-Sache).
 export function canUseAssistant(user: Pick<User, "role">): boolean {
   return user.role === "VERWALTER" || user.role === "EIGENTUEMER";
@@ -393,10 +522,34 @@ export async function askAssistant(user: User, question: string): Promise<Assist
       },
     ).finally(() => clearTimeout(timer));
 
-    if (!res.ok) return { answer: "Der Assistent ist momentan nicht erreichbar.", sources: [] };
+    if (!res.ok) {
+      // In die Server-Protokolle, nicht auf den Bildschirm: Der Fragende kann
+      // mit „HTTP 404, model not found" nichts anfangen, der Betreiber sehr
+      // wohl — und ohne diese Zeile stand in den Vercel-Protokollen bisher
+      // gar nichts. Der Schlüssel steht nicht in der Antwort, nur in der URL,
+      // die hier bewusst nicht mitprotokolliert wird.
+      const fehler = await res.text().catch(() => "");
+      console.error(
+        `[assistent] Gemini antwortete mit HTTP ${res.status} für Modell "${model}": ${fehler.slice(0, 500)}`,
+      );
+      return { answer: nichtErreichbar(res.status), sources: [] };
+    }
     const data = await res.json();
     const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return { answer: "Der Assistent ist momentan nicht erreichbar.", sources: [] };
+    if (!text) {
+      // Kommt vor, wenn der Sicherheitsfilter greift oder die Antwort am
+      // Token-Limit abgeschnitten wurde. `finishReason` sagt, welches von
+      // beidem — ohne Protokoll war das nicht zu unterscheiden.
+      const grund = data?.candidates?.[0]?.finishReason ?? data?.promptFeedback?.blockReason;
+      console.error(`[assistent] Gemini lieferte keinen Text (finishReason: ${grund ?? "unbekannt"}).`);
+      return {
+        answer:
+          grund === "SAFETY" || grund === "PROHIBITED_CONTENT"
+            ? "Diese Frage konnte ich nicht beantworten. Bitte formulieren Sie sie anders."
+            : "Der Assistent ist momentan nicht erreichbar.",
+        sources: [],
+      };
+    }
 
     const parsed = JSON.parse(text) as { answer?: string; used?: number[] };
     const answer = (parsed.answer ?? "").trim() || "Dazu finde ich in Ihren Unterlagen nichts.";
@@ -409,9 +562,28 @@ export async function askAssistant(user: User, question: string): Promise<Assist
     const noHit = /finde ich in ihren unterlagen nichts/i.test(answer);
     const shown = noHit ? [] : cited.length > 0 ? cited : sources.slice(0, 3);
     return { answer, sources: dedupe(shown) };
-  } catch {
+  } catch (e) {
+    console.error(`[assistent] Aufruf fehlgeschlagen: ${e instanceof Error ? e.message : e}`);
     return { answer: "Der Assistent ist momentan nicht erreichbar.", sources: [] };
   }
+}
+
+/**
+ * Was der Fragende zu sehen bekommt, wenn Google ablehnt.
+ *
+ * Bewusst nicht Googles Wortlaut: Ein Eigentümer, der nach seiner Abrechnung
+ * fragt, soll keine HTTP-Kennzahl lesen. Aber „nicht erreichbar" bei einem
+ * erschöpften Kontingent führt in die Irre — es liegt nicht am Netz, und ein
+ * späterer Versuch hilft tatsächlich.
+ */
+function nichtErreichbar(status: number): string {
+  if (status === 429) {
+    return "Der Assistent ist gerade ausgelastet. Bitte versuchen Sie es in ein paar Minuten erneut.";
+  }
+  if (status === 400 || status === 403 || status === 404) {
+    return "Der Assistent ist nicht richtig eingerichtet. Bitte wenden Sie sich an die Verwaltung Ihrer Gemeinschaft.";
+  }
+  return "Der Assistent ist momentan nicht erreichbar.";
 }
 
 function dedupe(sources: AssistantSource[]): AssistantSource[] {

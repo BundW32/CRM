@@ -62,9 +62,15 @@ export function LegalPage({
               Verbraucherin. Auf der B&W-Tür ist der Kunde Unternehmer — die
               Seite gibt es dort nicht (404), ein Link liefe ins Leere. */}
           {isWegSaas() ? (
-            <Link href="/widerruf" className="text-brand-green hover:underline">
-              Widerruf
-            </Link>
+            <>
+              <Link href="/widerruf" className="text-brand-green hover:underline">
+                Widerruf
+              </Link>
+              {/* § 312k Abs. 2 BGB — die Beschriftung gibt das Gesetz vor. */}
+              <Link href="/kuendigen" className="text-brand-green hover:underline">
+                Verträge hier kündigen
+              </Link>
+            </>
           ) : null}
           <Link href="/avv" className="text-brand-green hover:underline">
             AVV

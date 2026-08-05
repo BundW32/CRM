@@ -120,6 +120,10 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
       // Pflichtangabe gegenüber Verbrauchern: Eine WEG ist Verbraucherin,
       // sobald ihr eine natürliche Person angehört (BGH VIII ZR 243/13).
       { href: "/widerruf", label: "Widerrufsbelehrung" },
+      // § 312k Abs. 2 BGB: ständig verfügbar sowie unmittelbar und leicht
+      // zugänglich. Die Beschriftung ist vom Gesetz vorgegeben — nicht in
+      // „Vertrag beenden“ o. Ä. umbenennen.
+      { href: "/kuendigen", label: "Verträge hier kündigen" },
       { href: "/avv", label: "Auftragsverarbeitung (AVV)" },
       // Pflichtangabe nach Art. 50 EU-KI-VO – seit dem 2.8.2026 in Kraft.
       { href: "/ki-transparenz", label: "KI-Transparenz" },

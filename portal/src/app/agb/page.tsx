@@ -156,9 +156,14 @@ function AgbWegPortal() {
           Kündigung aus wichtigem Grund bleibt unberührt.
         </p>
         <p>
-          Die Kündigung ist formlos möglich, etwa per E-Mail an{" "}
-          <a href="mailto:info@bundwimmobilien.de" className="text-brand-green hover:underline">
-            info@bundwimmobilien.de
+          Die Kündigung ist formlos möglich. Am einfachsten über die Schaltfläche{" "}
+          <Link href="/kuendigen" className="font-medium text-brand-green hover:underline">
+            „Verträge hier kündigen“
+          </Link>{" "}
+          — sie steht in der Fußzeile jeder Seite und ist ohne Anmeldung erreichbar
+          (§ 312k BGB). Ebenso genügt eine E-Mail an{" "}
+          <a href="mailto:info@wegportal24.de" className="text-brand-green hover:underline">
+            info@wegportal24.de
           </a>
           . Die Anbieterin bestätigt den Zugang und den Zeitpunkt der Beendigung in
           Textform.

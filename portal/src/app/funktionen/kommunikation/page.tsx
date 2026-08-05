@@ -20,10 +20,9 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Schäden, Dokumente & Kommunikation in der WEG",
   description:
-    "Schäden mit Fotos melden, Handwerker beauftragen, Dokumente und Aushänge " +
-    "zentral teilen: So bleibt in der selbstverwalteten WEG jeder informiert – " +
-    "mit eigenem Zugang für Eigentümer, Beirat und Mieter – Handwerker " +
-    "arbeiten ohne Konto über sichere Auftrags-Links.",
+    "Schäden mit Fotos melden und bis zur Erledigung verfolgen, Dokumente und " +
+    "Aushänge zentral teilen: So bleibt in der selbstverwalteten WEG jeder " +
+    "informiert – mit eigenem Zugang für Eigentümer, Beirat und Mieter.",
 };
 
 export default async function KommunikationPage() {
@@ -43,7 +42,7 @@ export default async function KommunikationPage() {
         }
         intro={
           "Selbstverwaltung heißt nicht, dass eine Person alles am Telefon " +
-          "regelt. Schäden, Aufträge, Dokumente und Aushänge laufen im Portal " +
+          "regelt. Schäden, Dokumente und Aushänge laufen im Portal " +
           "zusammen – und jeder im Haus sieht genau das, was ihn betrifft."
         }
         image={{
@@ -79,24 +78,28 @@ export default async function KommunikationPage() {
       </FeatureSection>
 
       <FeatureSection
-        id="handwerker"
-        eyebrow="Handwerker"
-        title="Aufträge vergeben und die Ausführung dokumentieren"
+        id="reparaturen"
+        eyebrow="Reparaturen"
+        title="Reparaturen organisieren und die Ausführung dokumentieren"
         reverse
         visual={<RolesVisual />}
         points={[
-          "Vorgänge direkt einem Handwerker zuweisen – per E-Mail benachrichtigt",
-          "Handwerker arbeiten über einen sicheren Link – ohne eigenes Konto",
-          "„Arbeit begonnen“ / „Auftrag erledigt“ mit Foto-Dokumentation",
+          "Jede Schadensmeldung wird zum dokumentierten Vorgang mit Status",
+          "Termine, Absprachen und Zwischenstände im Kommentarverlauf festhalten",
+          "Fotos vor und nach der Ausführung direkt am Vorgang",
+          "Die Rechnung landet als Beleg an der Buchung – alles hängt zusammen",
         ]}
       >
         <p>
-          Statt Telefonketten erhält der Handwerker per E-Mail einen sicheren
-          Auftrags-Link – ganz ohne eigenes Konto. Darüber sieht er nur den ihm
-          zugewiesenen Auftrag, meldet den Beginn der Arbeiten und dokumentiert
-          die Ausführung mit Fotos.
-          Die Gemeinschaft hat damit automatisch einen Nachweis, was wann
-          gemacht wurde – hilfreich für Gewährleistung und Abrechnung.
+          Den Handwerker beauftragt Ihre Gemeinschaft wie gewohnt – per Telefon
+          oder E-Mail. Die Dokumentation übernimmt das Portal: Wer wurde wann
+          beauftragt, welcher Termin ist vereinbart, was ist erledigt? All das
+          steht am Vorgang statt in verstreuten Nachrichten.
+        </p>
+        <p>
+          So hat die Gemeinschaft automatisch einen Nachweis, was wann gemacht
+          wurde – hilfreich für Gewährleistung, Abrechnung und die nächste
+          Versammlung.
         </p>
       </FeatureSection>
 
@@ -128,10 +131,10 @@ export default async function KommunikationPage() {
         reverse
         visual={<RolesVisual />}
         points={[
+          "Interner Verwalter: führt Bücher, Versammlung und Vorgänge",
           "Eigentümer: Abrechnungen, Beschlüsse, Dokumente, Statistiken der eigenen Objekte",
           "Beirat: prüft Abrechnungen und Belege",
           "Mieter: melden Schäden, lesen Aushänge und eigene Dokumente",
-          "Handwerker: erhalten Aufträge per sicherem Link, ohne Konto",
           "Für alle Zugänge: sicherer Login mit eigenem Passwort, auch am Handy",
         ]}
       >

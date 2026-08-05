@@ -13,8 +13,8 @@ import {
   PiggyBank,
   Landmark,
   ShieldCheck,
+  UserCog,
   Users,
-  Wrench,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -324,7 +324,10 @@ export function DunningVisual() {
   );
 }
 
-/* ── Versammlung: Abstimmung nach Miteigentumsanteilen ── */
+/* ── Versammlung: gewichtete Abstimmung. Die Beispiel-Gemeinschaft stimmt
+      laut ihrer Gemeinschaftsordnung nach MEA ab – der Chip benennt das als
+      eingestelltes Stimmprinzip, nicht als Regelfall (gesetzlicher Standard
+      ist das Kopfprinzip, § 25 WEG). ── */
 export function VoteVisual() {
   const votes = [
     { label: "Ja", mea: "618 / 1000 MEA", width: "62%", tone: "bg-good" },
@@ -332,7 +335,7 @@ export function VoteVisual() {
     { label: "Enthaltung", mea: "168 / 1000 MEA", width: "17%", tone: "bg-gray-300" },
   ];
   return (
-    <MockCard title="TOP 3 · Dachsanierung beauftragen" chip="Abstimmung nach MEA">
+    <MockCard title="TOP 3 · Dachsanierung beauftragen" chip="Stimmprinzip: MEA">
       <div className="space-y-3">
         {votes.map((vote, i) => (
           <div key={vote.label}>
@@ -432,8 +435,8 @@ export function TicketVisual() {
         className="mk-anim mt-3 rounded-lg border border-gray-100 px-2.5 py-2 text-xs text-gray-600"
         style={{ animation: "mkRowIn 0.5s ease-out both", animationDelay: "800ms" }}
       >
-        <span className="font-semibold text-gray-800">Handwerker Timm:</span>{" "}
-        „Termin bestätigt – Dienstag 9:00 Uhr, Ausführung wird mit Fotos dokumentiert.“
+        <span className="font-semibold text-gray-800">Verwaltung:</span>{" "}
+        „Installateur beauftragt, Termin Dienstag 9:00 Uhr – Ausführung wird mit Fotos dokumentiert.“
       </div>
     </MockCard>
   );
@@ -442,10 +445,10 @@ export function TicketVisual() {
 /* ── Kommunikation: Rollen mit eigenem Zugang ── */
 export function RolesVisual() {
   const roles = [
+    { icon: UserCog, name: "Interner Verwalter", text: "führt Bücher & Versammlung" },
     { icon: Users, name: "Eigentümer", text: "Abrechnungen, Beschlüsse, Statistiken" },
     { icon: ShieldCheck, name: "Beirat", text: "prüft Abrechnung & Belege" },
     { icon: Home, name: "Mieter", text: "meldet Schäden, liest Aushänge" },
-    { icon: Wrench, name: "Handwerker", text: "sieht nur eigene Aufträge" },
   ];
   return (
     <div className="grid grid-cols-2 gap-3">

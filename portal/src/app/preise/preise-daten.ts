@@ -4,8 +4,8 @@
 //
 // Modell, festgelegt vom Auftraggeber am 04.08.2026:
 //   - BEIDE Tarife rechnen je Einheit und Monat. Es gibt keine Preisspaltung
-//     nach Nutzern: Alle Zugänge (Eigentümer, Beirat, Mieter, Handwerker)
-//     sind immer inklusive.
+//     nach Nutzern: Alle Zugänge (Eigentümer, Beirat, Mieter) sind immer
+//     inklusive.
 //   - Basic          10,00 € je Einheit
 //   - Verwalter-Plus 13,90 € je Einheit, mit Ticket-System zu einem
 //     zertifizierten Verwalter (§ 26a WEG)

@@ -91,6 +91,25 @@ die Prüfung der gewählten ID). Im Einsatz in `objekte/neu/` und
 **Kein automatisches Zusammenführen über den Namen** — zwei verschiedene Menschen können
 gleich heißen. Der Vorschlag nennt Objekt und Einheit; entscheiden muss der Verwalter.
 
+**Der Datenbank-Vorschlag allein genügt nicht, wo alle Personen in EINER Absendung
+entstehen.** `searchPersons` sucht im Bestand — beim Anlegen einer neuen WEG gibt es den
+noch nicht. Wer in `objekte/neu` dieselbe Person für zwei Einheiten einträgt (der
+Normalfall jeder Ersteinrichtung), bekam deshalb zwei getrennte Zugänge; zwei
+aufeinanderfolgende Testläufe sind darüber gestolpert. Formulare mit mehreren
+Personenzeilen prüfen zusätzlich **ihre eigenen Zeilen** gegeneinander
+(`namensSchluessel` in `lib/weg/anteil.ts`) und **sperren das Absenden**, bis die Frage
+beantwortet ist — ein zweiter Zugang darf nicht die stille Vorgabe sein, wenn der
+Hinweis überlesen wird. Das versteckte Verweisfeld gilt nur für **frühere** Zeilen.
+
+**Wer `UnitOwnership` schreibt, fragt den Anteil ab.** `sharePercent` steht auf 100, wenn
+niemand etwas anderes sagt — bei einem Ehepaar mit je der Hälfte zählte der MEA der
+Einheit dadurch doppelt, und die Gemeinschaft kam auf 1.147 Anteile statt 1.000. Drei
+Formulare schreiben dieses Modell (`objekte/neu`, `objekte/[id]/bearbeiten`,
+`weg/[propertyId]/stammdaten`); die Prozent-Auslegung steht deshalb **einmal** in
+`lib/weg/anteil.ts` (`parseAnteil`, `anteilSummeStatus`). Und der Anteil bleibt nach dem
+Eintragen **änderbar** — sonst führt der einzige Korrekturweg über Löschen und Neuanlegen,
+also genau in die Dublette zurück.
+
 Zwei Fallen bei den Zeilen-Formularen (`getAll()` liest indexgleich ein):
 - Das versteckte `…UserId`-Feld gehört in **jede** Zeile, auch leer. Fehlt es, rutscht
   die Zuordnung aller folgenden Zeilen.

@@ -99,6 +99,11 @@ export default async function RegisterPage({
                 required
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
               />
+              {/* Verlinkt wird die maßgebliche Datenschutzerklärung, nicht
+                  mehr `/datenschutz-saas`: Jene Seite trägt den Hinweis
+                  „Entwurf – noch nicht rechtsverbindlich geprüft". Ein
+                  Dokument, das man beim Anhaken als Entwurf zu erkennen gibt,
+                  ist die denkbar schlechteste Grundlage für eine Zustimmung. */}
               <span>
                 Ich akzeptiere die{" "}
                 <Link href="/agb" target="_blank" className="text-brand-green hover:underline">
@@ -109,8 +114,12 @@ export default async function RegisterPage({
                   AVV
                 </Link>{" "}
                 und habe die{" "}
-                <Link href="/datenschutz-saas" target="_blank" className="text-brand-green hover:underline">
-                  Datenschutzhinweise
+                <Link href="/datenschutz" target="_blank" className="text-brand-green hover:underline">
+                  Datenschutzerklärung
+                </Link>{" "}
+                sowie die{" "}
+                <Link href="/widerruf" target="_blank" className="text-brand-green hover:underline">
+                  Widerrufsbelehrung
                 </Link>{" "}
                 gelesen.
               </span>

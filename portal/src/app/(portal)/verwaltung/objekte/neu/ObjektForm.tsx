@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { createObjekt } from "./actions";
 import { extractObjektFields } from "./import-actions";
 import { splitName } from "@/lib/person-name";
+import { anteilSummeStatus, namensSchluessel, parseAnteil } from "@/lib/weg/anteil";
 import { type GewaehltePerson, PersonVorschlag } from "./PersonVorschlag";
 
 type UnitRow = { label: string; external: string; floor: string; area: string; mea: string; persons: string };
@@ -22,6 +23,21 @@ type PersonRow = {
   /** „Eigentümer seit" – nur bei WEG-Eigentümern genutzt, leer = heute. */
   since: string;
   person: GewaehltePerson | null;
+  /**
+   * Anteil an der Einheit in Prozent – nur bei WEG-Eigentümern. Leer = 100 %.
+   * Ohne dieses Feld zählte jeder Miteigentümer den MEA seiner Einheit voll,
+   * und die Summe über alle Einheiten lag über dem Nenner (1.147 statt 1.000).
+   */
+  share: string;
+  /**
+   * Antwort auf die Dublettenfrage innerhalb DIESES Formulars.
+   * `sameAsKey` zeigt auf die frühere Zeile derselben Person, `dupOk` bedeutet
+   * „andere Person, trotz gleichen Namens". Solange beides leer ist, ist die
+   * Frage offen und das Formular gesperrt — ein zweiter Zugang für dieselbe
+   * Person darf nicht die stille Vorgabe sein.
+   */
+  sameAsKey: string;
+  dupOk: boolean;
 };
 type TenantRow = PersonRow;
 type OwnerRow = PersonRow;
@@ -45,6 +61,9 @@ const leereZeile = () => ({
   unit: "",
   since: "",
   person: null,
+  share: "",
+  sameAsKey: "",
+  dupOk: false,
 });
 
 export function ObjektForm({
@@ -149,6 +168,39 @@ export function ObjektForm({
   const unitOptions = units
     .map((u) => u.label.trim())
     .filter((l) => l.length > 0);
+
+  // ── Dubletten INNERHALB dieses Formulars ──────────────────────────────────
+  // `PersonVorschlag` sucht in der Datenbank und kann hier prinzipiell nicht
+  // greifen: Beim Anlegen einer neuen WEG existiert noch niemand, alle
+  // Eigentümer entstehen in derselben Absendung. Wer eine Person mit zwei
+  // Einheiten einträgt (der Normalfall bei jeder Ersteinrichtung), bekam
+  // deshalb zwei getrennte Zugänge — „thomas.berger3" und „thomas.berger4".
+  //
+  // Verglichen wird nur der Name, und der entscheidet nichts: Zwei Menschen
+  // können gleich heißen. Deshalb eine Frage, keine automatische Zusammen-
+  // führung — aber eine, die beantwortet werden muss.
+  const dubletteVon = (index: number): number => {
+    const eigen = namensSchluessel(owners[index].firstName, owners[index].lastName);
+    if (eigen.length < 3) return -1;
+    return owners.findIndex(
+      (r, j) => j < index && namensSchluessel(r.firstName, r.lastName) === eigen,
+    );
+  };
+  const offeneDubletten = owners.some(
+    (o, i) => dubletteVon(i) >= 0 && !o.sameAsKey && !o.dupOk,
+  );
+
+  // ── Anteilssummen je Einheit ──────────────────────────────────────────────
+  // Über 100 % zählt der MEA der Einheit mehrfach — genau der Fehler, der ohne
+  // Anteilsfeld unvermeidlich war. Sichtbar, solange das Formular offen ist.
+  const anteilProblem = unitOptions
+    .map((label) => {
+      const zeilen = owners.filter((o) => o.unit === label);
+      if (zeilen.length === 0) return null;
+      const status = anteilSummeStatus(zeilen.map((o) => parseAnteil(o.share)));
+      return status.summe === 100 ? null : { label, ...status, anzahl: zeilen.length };
+    })
+    .filter((x) => x !== null);
 
   // Mögliche Dublette: gleiche Adresse (Straße + PLZ) oder identischer Name.
   const duplicates = existing.filter((p) => {
@@ -572,7 +624,129 @@ export function ObjektForm({
                         )
                       }
                     />
+                    {/* Anteil an DIESER Einheit. Bei Alleineigentum bleibt es
+                        bei 100 % — das Feld ist für den Regelfall unsichtbar
+                        richtig ausgefüllt und muss nur beim Miteigentum
+                        angefasst werden. */}
+                    <Field label="Anteil an der Einheit (%)">
+                      <input
+                        type="number"
+                        name="wegOwnerShare"
+                        min={1}
+                        max={100}
+                        step="0.01"
+                        placeholder="100"
+                        value={o.share}
+                        onChange={(e) =>
+                          setOwners((rows) =>
+                            rows.map((r) => (r.key === o.key ? { ...r, share: e.target.value } : r))
+                          )
+                        }
+                        className={inputClass}
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Leer = 100 %. Bei Miteigentum je Zeile den eigenen Anteil, zusammen 100 %
+                        (Ehepaar: 50 und 50).
+                      </p>
+                    </Field>
                   </div>
+                  {/* Das versteckte Feld steht in JEDER Zeile, auch leer: Die
+                      Server-Action liest die Zeilen über `getAll()` indexgleich
+                      ein, ein fehlendes Feld verschöbe alle folgenden. */}
+                  <input
+                    type="hidden"
+                    name="wegOwnerSameAs"
+                    value={(() => {
+                      if (!o.sameAsKey) return "";
+                      const j = owners.findIndex((r) => r.key === o.sameAsKey);
+                      return j >= 0 && j < i ? String(j) : "";
+                    })()}
+                  />
+                  {(() => {
+                    const j = dubletteVon(i);
+                    if (j < 0) return null;
+                    if (o.sameAsKey) {
+                      return (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-brand-orange/30 bg-brand-orange-light px-3 py-2">
+                          <span className="text-sm font-medium text-brand-orange-dark">
+                            Dieselbe Person wie Eigentümer {j + 1} — ein Zugang, zwei Einheiten
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOwners((rows) =>
+                                rows.map((r) => (r.key === o.key ? { ...r, sameAsKey: "" } : r)),
+                              )
+                            }
+                            className="ml-auto text-xs text-gray-600 hover:underline"
+                          >
+                            Doch eine andere Person
+                          </button>
+                        </div>
+                      );
+                    }
+                    if (o.dupOk) {
+                      return (
+                        <p className="mt-2 text-xs text-gray-500">
+                          Als eigene Person angelegt, obwohl der Name dem von Eigentümer {j + 1}
+                          {" "}entspricht.{" "}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOwners((rows) =>
+                                rows.map((r) => (r.key === o.key ? { ...r, dupOk: false } : r)),
+                              )
+                            }
+                            className="underline hover:text-gray-700"
+                          >
+                            Ändern
+                          </button>
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                        <p className="text-sm font-medium text-amber-900">
+                          {o.firstName} {o.lastName} steht schon als Eigentümer {j + 1}. Dieselbe
+                          Person?
+                        </p>
+                        <p className="mt-1 text-xs text-amber-800">
+                          Wem zwei Einheiten gehören, braucht einen Zugang — nicht zwei. Bitte
+                          einmal beantworten, sonst lässt sich das Objekt nicht anlegen.
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOwners((rows) =>
+                                rows.map((r) =>
+                                  r.key === o.key
+                                    ? { ...r, sameAsKey: owners[j].key, dupOk: false }
+                                    : r,
+                                ),
+                              )
+                            }
+                            className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+                          >
+                            Ja, dieselbe Person
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOwners((rows) =>
+                                rows.map((r) =>
+                                  r.key === o.key ? { ...r, dupOk: true, sameAsKey: "" } : r,
+                                ),
+                              )
+                            }
+                            className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                          >
+                            Nein, zwei verschiedene Menschen
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <PersonVorschlag
                     fieldName="wegOwnerUserId"
                     role="EIGENTUEMER"
@@ -604,6 +778,27 @@ export function ObjektForm({
           >
             + Eigentümer hinzufügen
           </button>
+          {/* Die Summenkontrolle steht schon hier, nicht erst auf der
+              Gemeinschaftsseite: Dort war die falsche Summe zwar sichtbar, aber
+              erst Stunden später und ohne den Bezug zu der Eingabe, die sie
+              verursacht hat. */}
+          {anteilProblem.length > 0 ? (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <p className="font-medium">Anteile prüfen</p>
+              <ul className="mt-1 space-y-0.5 text-xs">
+                {anteilProblem.map((p) => (
+                  <li key={p.label}>
+                    <span className="font-medium">{p.label}</span>:{" "}
+                    {p.summe.toLocaleString("de-DE")} % auf {p.anzahl}{" "}
+                    {p.anzahl === 1 ? "Eigentümer" : "Eigentümer"} verteilt —{" "}
+                    {p.ueberzeichnet
+                      ? "über 100 %. Der Miteigentumsanteil dieser Einheit würde mehrfach zählen."
+                      : "unter 100 %. Fehlt ein Miteigentümer?"}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </Card>
       ) : (
         <Card title="3. Eigentümer (optional)">
@@ -799,8 +994,18 @@ export function ObjektForm({
         </button>
       </Card>
 
+      {/* Formularfehler gehören als Banner ans Formular, nicht in einen Toast:
+          Sie müssen stehen bleiben, bis der Fehler behoben ist. */}
+      {offeneDubletten ? (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Bitte oben beantworten, ob es sich bei den gleichnamigen Eigentümern um dieselbe Person
+          handelt. Danach lässt sich das Objekt anlegen.
+        </p>
+      ) : null}
       <div className="flex items-center gap-4">
-        <SubmitButton pendingLabel="Wird angelegt…">Objekt anlegen</SubmitButton>
+        <SubmitButton pendingLabel="Wird angelegt…" disabled={offeneDubletten}>
+          Objekt anlegen
+        </SubmitButton>
         <a href="/verwaltung/objekte" className="text-sm text-gray-500 hover:underline">
           Abbrechen
         </a>

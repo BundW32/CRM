@@ -59,7 +59,7 @@ export default async function GemeinschaftPage({
   const properties = await db.property.findMany({
     where: propWhere,
     orderBy: { name: "asc" },
-    select: { id: true, name: true, votingPrinciple: true },
+    select: { id: true, name: true, votingPrinciple: true, meaTotal: true },
   });
 
   const selected = properties.find((p) => p.id === objekt) ?? properties[0] ?? null;
@@ -72,6 +72,9 @@ export default async function GemeinschaftPage({
       })
     : [];
   const totalMea = owners.reduce((s, o) => s + (o.mea ?? 0), 0);
+  // Nur die Verwaltung kann die Anteile korrigieren – ein Eigentümer bekäme
+  // sonst einen Link auf eine Seite, die ihm verschlossen ist.
+  const isVerwalter = user.role === "VERWALTER";
   const boardMembers = owners.filter((o) => o.isBoardMember);
 
   // Beschlüsse und Dokumente wachsen dauerhaft – beide paginiert. Vorher waren
@@ -186,11 +189,43 @@ export default async function GemeinschaftPage({
                         <tr className="border-t border-gray-200">
                           <td className="px-3 py-2 font-medium text-gray-700">Summe</td>
                           <td className="px-3 py-2 font-medium text-gray-700" colSpan={2}>
-                            {totalMea} MEA
+                            {totalMea.toLocaleString("de-DE")} MEA
+                            {selected.meaTotal != null ? (
+                              <span className="ml-2 font-normal text-gray-500">
+                                von {selected.meaTotal.toLocaleString("de-DE")}
+                              </span>
+                            ) : null}
                           </td>
                         </tr>
                       </tbody>
                     </table>
+                    {/* Diese Summe MUSS den Nenner der Teilungserklärung
+                        ergeben — sie ist die Grundlage jeder Mehrheitsrechnung
+                        nach § 25 WEG. Weicht sie ab, stimmt eine Zuordnung
+                        nicht, und die Tabelle sagt es hier statt es dem Leser
+                        zu überlassen, zwei Zahlen im Kopf zu vergleichen. In
+                        einem Test stand hier 1.147 statt 1.000, ohne dass die
+                        Seite darauf hingewiesen hätte. */}
+                    {selected.meaTotal != null && totalMea !== selected.meaTotal ? (
+                      <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        Die Summe der Stimmanteile weicht vom MEA-Nenner ab (
+                        {totalMea.toLocaleString("de-DE")} statt{" "}
+                        {selected.meaTotal.toLocaleString("de-DE")}). Bis das stimmt, sind
+                        Mehrheiten nach Anteilen nicht belastbar.{" "}
+                        {isVerwalter ? (
+                          <Link
+                            href={`/verwaltung/weg/${selected.id}/stammdaten#eigentuemer`}
+                            className="font-medium underline"
+                          >
+                            Anteile je Einheit prüfen
+                          </Link>
+                        ) : (
+                          "Bitte die Verwaltung darauf hinweisen."
+                        )}
+                        {" "}— häufigste Ursache: Bei einer Einheit mit mehreren Eigentümern
+                        steht bei jedem 100 % statt des eigenen Anteils.
+                      </p>
+                    ) : null}
                   </div>
                 )}
               </Card>

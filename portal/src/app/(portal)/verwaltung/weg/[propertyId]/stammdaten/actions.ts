@@ -10,6 +10,7 @@ import { requireVerwalter } from "@/lib/session";
 import type { CostCategory } from "@/generated/prisma/client";
 import { costCategoryLabels } from "@/lib/labels";
 import { WEG_COST_CATALOG, costTypeFieldsFrom } from "@/lib/weg/cost-catalog";
+import { parseAnteil } from "@/lib/weg/anteil";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 import { loadWegProperty } from "@/lib/weg/scope";
 
@@ -533,15 +534,30 @@ export async function updateOwnershipStart(formData: FormData) {
   // zeitanteilige Abrechnung würde daran stillschweigend falsch rechnen.
   if (ownership.validTo && validFrom > ownership.validTo) back(property.id, "fehler=zeitraum");
 
-  await db.unitOwnership.update({ where: { id: ownership.id }, data: { validFrom } });
+  // Der Anteil war bis hierher nur beim EINTRAGEN wählbar, danach nicht mehr.
+  // Wer ihn korrigieren wollte, musste die Zuordnung beenden und neu anlegen —
+  // und legte dabei über den Zugangsschreiben-Weg eine zweite Person an. Die
+  // einzige Stelle, an der ein falscher Anteil auffällt (die MEA-Summe), lag
+  // damit hinter genau dem Fehler, den sie melden sollte.
+  const sharePercent = parseAnteil(formData.get("sharePercent"));
+
+  await db.unitOwnership.update({
+    where: { id: ownership.id },
+    data: { validFrom, sharePercent },
+  });
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_UNIT_OWNERSHIP_SAVED,
     targetType: "Unit",
     targetId: ownership.unitId,
-    meta: { ownershipId: ownership.id, validFrom: validFromRaw },
+    meta: { ownershipId: ownership.id, validFrom: validFromRaw, sharePercent },
   });
+  // Anteil geändert → abgeleitete Stimmgewichte neu rechnen. Ohne diesen Lauf
+  // stünde die Korrektur in der Zuordnung, und die MEA-Summe zeigte weiter den
+  // alten, falschen Wert.
+  await syncOwnerVotingWeights(property.id);
   revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
+  revalidatePath("/gemeinschaft");
   back(property.id, "gespeichert=eigentuemer");
 }
 

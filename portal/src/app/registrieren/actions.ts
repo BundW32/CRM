@@ -19,7 +19,12 @@ import { hashToken } from "@/lib/token-hash";
 
 // Version der bei der Registrierung akzeptierten Rechtsdokumente (AGB/AVV).
 // Bei inhaltlichen Änderungen hochzählen → erneute Zustimmung einholbar.
-const TERMS_VERSION = "2026-06-28";
+// 05.08.2026: AGB als Verbraucherfassung für selbstverwaltende WEGs neu
+// gefasst (BGH VIII ZR 243/13), Widerrufsbelehrung ergänzt, Datenschutz-
+// erklärung auf die zwei Verantwortlichkeiten getrennt. Inhaltliche Änderung →
+// neue Version, damit sich die Zustimmung der Altkunden von der neuen
+// unterscheiden lässt.
+const TERMS_VERSION = "2026-08-05";
 
 const registerSchema = z.object({
   company: z.string().trim().min(2).max(200),

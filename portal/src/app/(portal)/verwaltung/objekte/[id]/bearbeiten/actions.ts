@@ -12,6 +12,7 @@ import { requireVerwalter } from "@/lib/session";
 import { parseEuroToCents } from "@/lib/money";
 import { DOCUMENT_TYPES, IMAGE_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 import { inviteOrLetter } from "@/lib/user-invite";
+import { parseAnteil } from "@/lib/weg/anteil";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 
 function optInt(raw: FormDataEntryValue | null): number | null {
@@ -406,12 +407,10 @@ export async function removeUnitTenant(formData: FormData) {
 // Dieselben Felder pflegt die WEG-Stammdatenseite längst; sie fehlten nur auf
 // dem Weg, den eine selbstverwaltende Gemeinschaft zuerst findet.
 function ownershipFields(formData: FormData) {
-  const roh = String(formData.get("sharePercent") ?? "").trim().replace(",", ".");
-  const n = roh ? Number.parseFloat(roh) : 100;
-  // Außerhalb von 0–100 ist der Wert kein Anteil. Dann lieber die Vorgabe als
-  // eine Zahl, die die Summenprüfung stillschweigend unbrauchbar macht.
-  const sharePercent = Number.isFinite(n) && n > 0 && n <= 100 ? n : 100;
-  return { sharePercent, validFrom: parseDateInput(formData.get("validFrom")) ?? new Date() };
+  return {
+    sharePercent: parseAnteil(formData.get("sharePercent")),
+    validFrom: parseDateInput(formData.get("validFrom")) ?? new Date(),
+  };
 }
 
 export async function addUnitOwner(formData: FormData) {

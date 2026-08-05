@@ -76,15 +76,57 @@ describe("Stimmgewicht aus Anteilen ableiten", () => {
     expect(summe).toBe(200);
   });
 
-  it("verdoppelt ihn, wenn beide auf 100 % stehen", async () => {
-    // Genau der Zustand, den das Objektformular vor dem 03.08.2026 erzeugte.
-    // Festgehalten, damit klar bleibt, woran die Verdopplung hing: nicht an der
-    // Rechnung, sondern an einem Anteil, den niemand eingeben konnte.
+  it("verdoppelt ihn NICHT mehr, wenn beide auf 100 % stehen", async () => {
+    // Genau der Zustand, den das Objektformular vor dem 05.08.2026 erzeugte —
+    // zweimal die Vorgabe 100 %, weil es kein Anteilsfeld gab. Damals zählte
+    // der MEA der Einheit doppelt und die Gemeinschaft kam auf 1.147 statt
+    // 1.000 Anteile.
+    //
+    // Seit der Verteilung je Einheit kann das nicht mehr passieren: Die
+    // Anteile sind Gewichte, und die Summe über die Miteigentümer bleibt
+    // IMMER der MEA der Einheit. Der Eingabefehler verschwindet damit nicht —
+    // er wird nur nicht mehr in die Stimmanteile hineingerechnet. Gemeldet
+    // wird er dort, wo er behebbar ist: als Anteilssumme von 200 % an der
+    // Einheit (`anteilSummeStatus`, sichtbar in den Stammdaten).
     await zweiterEigentuemer(100);
     await syncOwnerVotingWeights(a.objekt.id);
 
-    const { summe } = await stimmgewichte();
-    expect(summe).toBe(400);
+    const { summe, einzeln } = await stimmgewichte();
+    expect(summe).toBe(200);
+    expect(einzeln).toEqual([100, 100]);
+  });
+
+  it("verliert auch bei ungerader Teilung keinen Anteil", async () => {
+    // 247 Anteile zu je 50 % ergeben 123,5. Einzeln gerundet wurde daraus
+    // zweimal 124 — die Gemeinschaft stand auf 1.001 statt 1.000 Anteilen,
+    // und die Summenkontrolle hätte bei einer KORREKT erfassten WEG Alarm
+    // geschlagen. Ein Anteil, den es nicht gibt, verschiebt jede Mehrheit
+    // nach § 25 WEG.
+    await db.unit.update({ where: { id: a.einheit.id }, data: { mea: 247 } });
+    await db.unitOwnership.updateMany({
+      where: { unitId: a.einheit.id },
+      data: { sharePercent: 50 },
+    });
+    await zweiterEigentuemer(50);
+    await syncOwnerVotingWeights(a.objekt.id);
+
+    const { summe, einzeln } = await stimmgewichte();
+    expect(summe).toBe(247);
+    // Der Restanteil geht an genau einen der beiden, nicht an beide.
+    expect(einzeln).toEqual([123, 124]);
+  });
+
+  it("verteilt Drittel ohne Verlust", async () => {
+    await db.unit.update({ where: { id: a.einheit.id }, data: { mea: 100 } });
+    await db.unitOwnership.updateMany({
+      where: { unitId: a.einheit.id },
+      data: { sharePercent: 33.34 },
+    });
+    await zweiterEigentuemer(33.33);
+    await zweiterEigentuemer(33.33);
+    await syncOwnerVotingWeights(a.objekt.id);
+
+    expect((await stimmgewichte()).summe).toBe(100);
   });
 
   it("zählt einen beendeten Voreigentümer nicht mehr mit", async () => {

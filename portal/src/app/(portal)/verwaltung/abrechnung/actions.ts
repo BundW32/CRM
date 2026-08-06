@@ -29,7 +29,9 @@ export async function startCheckout() {
     line_items: [{ price, quantity: 1 }],
     client_reference_id: org.id,
     customer: org.stripeCustomerId ?? undefined,
-    success_url: `${base}/verwaltung/abrechnung?erfolg=1`,
+    // Nach dem Bezahlen auf die Danke-Seite — nicht zurück in die nüchterne
+    // Abrechnungs-Übersicht. Der Abbruch bleibt dort, wo man weitermacht.
+    success_url: `${base}/verwaltung/abrechnung/danke`,
     cancel_url: `${base}/verwaltung/abrechnung?abbruch=1`,
   });
   if (!session.url) redirect("/verwaltung/abrechnung?fehler=nicht_konfiguriert");

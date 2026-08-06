@@ -6,6 +6,7 @@ import {
   PLANS,
   aktiverPlan,
   isBillingEnabled,
+  istTestphaseAbgelaufen,
   planLabel,
   subscriptionStatusLabel,
   type Plan,
@@ -14,7 +15,8 @@ import { isWegSaas } from "@/lib/app-mode";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { getOrganization, requireVerwalter } from "@/lib/session";
-import { openBillingPortal, startCheckout } from "./actions";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { openBillingPortal, startCheckout, wechsleTarif } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +68,10 @@ export default async function BillingPage({
   // In `org.plan` steht dagegen, worauf die Gemeinschaft nach der Testphase
   // zurückfällt, solange nichts gebucht wurde.
   const genutzt = aktiverPlan(org);
-  const inTestphase = org.subscriptionStatus === "trialing";
+  // „In der Testphase" heißt: sie läuft NOCH — abgelaufen zählt nicht mehr,
+  // sonst behauptete die Seite den vollen Umfang, den aktiverPlan längst
+  // entzogen hat.
+  const inTestphase = org.subscriptionStatus === "trialing" && !istTestphaseAbgelaufen(org);
   // Die generische Testphase heißt intern "pro"; auf wegportal24 entspricht
   // der volle Umfang dem Verwalter-Plus-Tarif — die Karten unten kennen dort
   // kein "pro".
@@ -161,6 +166,23 @@ export default async function BillingPage({
                   <PendingButton className={buttonClass}>Auf Pro upgraden</PendingButton>
                 </form>
               ) : null
+            ) : null}
+            {/* Tarifwechsel im laufenden Abo — kein neuer Checkout, der
+                bestehende Abo-Posten wird umgestellt und anteilig verrechnet. */}
+            {hatAktivesAbo && weg && (org.plan === "basic" || org.plan === "plus") ? (
+              <form action={wechsleTarif}>
+                <input type="hidden" name="tarif" value={org.plan === "basic" ? "plus" : "basic"} />
+                <ConfirmActionButton
+                  className={buttonSecondaryClass}
+                  confirmLabel={
+                    org.plan === "basic"
+                      ? "Zu Verwalter-Plus wechseln?"
+                      : "Zu Basic wechseln?"
+                  }
+                >
+                  {org.plan === "basic" ? "Zu Verwalter-Plus wechseln" : "Zu Basic wechseln"}
+                </ConfirmActionButton>
+              </form>
             ) : null}
             {org.stripeCustomerId ? (
               <form action={openBillingPortal}>

@@ -71,14 +71,22 @@ export async function POST(request: Request) {
         const sub = event.data.object as Stripe.Subscription;
         const status = event.type === "customer.subscription.deleted" ? "canceled" : mapStatus(sub.status);
         const customerId = typeof sub.customer === "string" ? sub.customer : null;
-        // Zuordnung über die Subscription-Id, ersatzweise über die Customer-Id.
+        // Der Tarif steht seit dem Checkout auch am Abo selbst (subscription_data
+        // bzw. Tarifwechsel-Update) — so hält der Webhook `plan` auch dann
+        // richtig, wenn der Wechsel woanders passierte (z. B. Stripe-Dashboard).
+        const tarifMeta = sub.metadata?.tarif;
+        const planAusMeta =
+          tarifMeta === "basic" || tarifMeta === "plus" || tarifMeta === "pro"
+            ? { plan: tarifMeta }
+            : {};
         await db.organization.updateMany({
           where: customerId
             ? { OR: [{ stripeSubscriptionId: sub.id }, { stripeCustomerId: customerId }] }
             : { stripeSubscriptionId: sub.id },
           data: {
             subscriptionStatus: status,
-            ...(status === "canceled" ? { plan: "free" } : {}),
+            // Gekündigt heißt Start-Umfang — das gewinnt gegen jedes Metadatum.
+            ...(status === "canceled" ? { plan: "free" } : planAusMeta),
           },
         });
         break;

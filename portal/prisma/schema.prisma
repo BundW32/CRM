@@ -293,19 +293,20 @@ model Organization {
   trialEndsAt          DateTime?
 
   // Rechtliches / Akquise (Phase 6 – Gerüst)
-  termsAcceptedAt      DateTime? // Zeitpunkt der AGB-/AVV-Zustimmung bei Registrierung
-  termsVersion         String? // Version der akzeptierten Rechtsdokumente
-  termsAcceptedIp      String? // IP zum Zeitpunkt der Zustimmung (Nachweis)
+  termsAcceptedAt        DateTime? // Zeitpunkt der AGB-/AVV-Zustimmung bei Registrierung
+  termsVersion           String? // Version der akzeptierten Rechtsdokumente
+  termsAcceptedIp        String? // IP zum Zeitpunkt der Zustimmung (Nachweis)
   termsAcceptedUserAgent String? // User-Agent zum Zeitpunkt der Zustimmung (Nachweis)
-  referralSource       String? // Herkunft der Registrierung (z. B. "hausmatch")
+  referralSource         String? // Herkunft der Registrierung (z. B. "hausmatch")
 
   // Interne Notiz des Plattform-Betreibers zu diesem Kunden (nur /plattform sichtbar)
-  platformNote         String?
+  platformNote String?
 
   users                 User[]
   properties            Property[]
   craftsmen             Craftsman[]
   tickets               Ticket[]
+  verwalterAnfragen     VerwalterAnfrage[]
   documents             Document[]
   announcements         Announcement[]
   notes                 Note[]
@@ -339,45 +340,45 @@ model Organization {
 }
 
 model User {
-  id                   String                    @id @default(cuid())
-  organizationId       String
-  organization         Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  email                String?                   @unique
-  username             String?                   @unique
-  passwordHash         String
-  name                 String
-  firstName            String? // Vorname
-  lastName             String? // Nachname
-  salutation           String? // "Herr" oder "Frau"
-  phone                String?
-  role                 Role
-  active               Boolean                   @default(true)
-  mustChangePassword   Boolean                   @default(false)
+  id                          String                      @id @default(cuid())
+  organizationId              String
+  organization                Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email                       String?                     @unique
+  username                    String?                     @unique
+  passwordHash                String
+  name                        String
+  firstName                   String? // Vorname
+  lastName                    String? // Nachname
+  salutation                  String? // "Herr" oder "Frau"
+  phone                       String?
+  role                        Role
+  active                      Boolean                     @default(true)
+  mustChangePassword          Boolean                     @default(false)
   // Erklärende Hinweise in der Oberfläche anzeigen. Standardmäßig AN: Wer sie
   // nicht braucht, schaltet sie ab — die umgekehrte Voreinstellung erreicht
   // genau die nicht, für die sie da sind. Eine Vorliebe der **Person**, nicht
   // der Organisation: Zwei Eigentümer derselben WEG dürfen es verschieden
   // wollen. Warnungen und Fehlermeldungen hängen NICHT daran.
-  showHints            Boolean                   @default(true)
+  showHints                   Boolean                     @default(true)
   // Wann die geführte Einrichtung durchlaufen wurde. `null` = noch nie —
   // dann erscheint sie einmal von selbst. Zurücksetzen startet sie neu.
-  tourDoneAt           DateTime?
-  preferredContact     ContactMethod? // bevorzugter Kontaktweg (Mieter/Eigentümer)
+  tourDoneAt                  DateTime?
+  preferredContact            ContactMethod? // bevorzugter Kontaktweg (Mieter/Eigentümer)
   // Optionale Anschrift (z. B. Eigentümer als Wohnungsgeber) und Unterschriftsbild
-  street               String?
-  zip                  String?
-  city                 String?
-  signatureStoredName  String? // hinterlegte Unterschrift (Bild) für Bescheinigungen
+  street                      String?
+  zip                         String?
+  city                        String?
+  signatureStoredName         String? // hinterlegte Unterschrift (Bild) für Bescheinigungen
   // Hat die Person selbst unterschrieben (Self-Service unter „Konto")? Nur dann
   // darf die Unterschrift unter ihrem eigenen Namen erscheinen. Vom Verwalter
   // erfasste Unterschriften gelten als Fremderfassung.
-  signatureSelfSigned  Boolean                   @default(false)
+  signatureSelfSigned         Boolean                     @default(false)
   // Ermächtigung des Eigentümers (§ 19 Abs. 5 BMG): erlaubt der Verwaltung,
   // Wohnungsgeberbestätigungen und Mietbescheinigungen in seinem Namen zu
   // erstellen. Gilt pro Person – greift aber nur für tatsächlich vermietete
   // Einheiten, weil ohne Mietverhältnis nichts zu bescheinigen ist.
-  certMandateGrantedAt DateTime?
-  certMandateRevokedAt DateTime?
+  certMandateGrantedAt        DateTime?
+  certMandateRevokedAt        DateTime?
   // Wie kam die Ermächtigung zustande? "SELBST" = im Portal erteilt,
   // "SCHRIFTLICH" = unterschriebene Vollmacht auf Papier, von der Verwaltung
   // vermerkt. Beim schriftlichen Weg hält `certMandateNote` die Fundstelle fest
@@ -385,10 +386,10 @@ model User {
   // Vermerk gesetzt hat – ohne beides wäre der Vermerk kein Nachweis, sondern
   // nur eine Behauptung. Bewusst keine Relation: Der Vermerkende soll den
   // Nachweis auch dann noch belegen, wenn sein Konto später entfällt.
-  certMandateSource    String?
-  certMandateNote      String?
-  certMandateRecordedById String?
-  createdAt            DateTime                  @default(now())
+  certMandateSource           String?
+  certMandateNote             String?
+  certMandateRecordedById     String?
+  createdAt                   DateTime                    @default(now())
   // Ab wann Sitzungen dieses Nutzers gelten. Jedes Sitzungs-Token trägt seinen
   // Ausstellungszeitpunkt; liegt der davor, ist es ungültig.
   //
@@ -398,64 +399,66 @@ model User {
   // verhindern wollte — und „auf allen Geräten abmelden" gab es nicht. Wird bei
   // jedem Passwortwechsel, jedem Reset und beim Abmelden aller Geräte
   // hochgesetzt. `null` = nie hochgesetzt, alle Token gelten.
-  sessionsValidFrom    DateTime?
-  passwordResetToken   String?                   @unique
-  passwordResetExpiry  DateTime?
+  sessionsValidFrom           DateTime?
+  passwordResetToken          String?                     @unique
+  passwordResetExpiry         DateTime?
   // E-Mail-Verifizierung (Phase 5 – Self-Service-Onboarding)
-  emailVerifiedAt      DateTime?
-  emailVerifyToken     String?                   @unique
-  emailVerifyExpiry    DateTime?
+  emailVerifiedAt             DateTime?
+  emailVerifyToken            String?                     @unique
+  emailVerifyExpiry           DateTime?
   // DSGVO-Löschung durch Anonymisierung (Art. 17): markiert einen entpersonalisierten
   // Datensatz, damit er aus Kontakt-/Eigentümerlisten ausgeblendet werden kann.
-  anonymizedAt         DateTime?
-  tenancies            Tenancy[]
-  ownerships           Ownership[]
-  ticketsCreated       Ticket[]                  @relation("TicketCreatedBy")
-  ticketsAssigned      Ticket[]                  @relation("TicketAssignedTo")
-  comments             TicketComment[]
-  documents            Document[]
-  documentRecipients   DocumentRecipient[]
-  announcements        Announcement[]
-  acknowledgements     Acknowledgement[]
-  conversationParts    ConversationParticipant[]
-  messagesSent         Message[]
-  meterReadings        MeterReading[]
-  resolutionsCreated   Resolution[]              @relation("ResolutionCreatedBy")
-  resolutionVotes      ResolutionVote[]          @relation("VoteOwner")
-  resolutionVotesCast  ResolutionVote[]          @relation("VoteCastBy")
-  beiratTasksCreated   BeiratTask[]              @relation("BeiratTaskCreatedBy")
-  economicPlansReviewed EconomicPlan[]          @relation("EconomicPlanBeiratReview")
-  statementsReviewed   AnnualStatement[]         @relation("StatementBeiratReview")
-  ownersMeetingsCreated OwnersMeeting[]          @relation("MeetingCreatedBy")
-  motionsSubmitted     OwnerMotion[]             @relation("MotionSubmittedBy")
-  motionsDecided       OwnerMotion[]             @relation("MotionDecidedBy")
-  pushSubscriptions    PushSubscription[]
-  notesAuthored        Note[]
-  notesAbout           Note[]                    @relation("NotesAboutUser")
-  handoversCreated     Handover[]                @relation("HandoverCreatedBy")
-  isSuperAdmin              Boolean                   @default(false)
+  anonymizedAt                DateTime?
+  tenancies                   Tenancy[]
+  ownerships                  Ownership[]
+  ticketsCreated              Ticket[]                    @relation("TicketCreatedBy")
+  ticketsAssigned             Ticket[]                    @relation("TicketAssignedTo")
+  comments                    TicketComment[]
+  verwalterAnfragenCreated    VerwalterAnfrage[]          @relation("VerwalterAnfrageCreatedBy")
+  verwalterAnfrageNachrichten VerwalterAnfrageNachricht[] @relation("VerwalterAnfrageNachrichtAuthor")
+  documents                   Document[]
+  documentRecipients          DocumentRecipient[]
+  announcements               Announcement[]
+  acknowledgements            Acknowledgement[]
+  conversationParts           ConversationParticipant[]
+  messagesSent                Message[]
+  meterReadings               MeterReading[]
+  resolutionsCreated          Resolution[]                @relation("ResolutionCreatedBy")
+  resolutionVotes             ResolutionVote[]            @relation("VoteOwner")
+  resolutionVotesCast         ResolutionVote[]            @relation("VoteCastBy")
+  beiratTasksCreated          BeiratTask[]                @relation("BeiratTaskCreatedBy")
+  economicPlansReviewed       EconomicPlan[]              @relation("EconomicPlanBeiratReview")
+  statementsReviewed          AnnualStatement[]           @relation("StatementBeiratReview")
+  ownersMeetingsCreated       OwnersMeeting[]             @relation("MeetingCreatedBy")
+  motionsSubmitted            OwnerMotion[]               @relation("MotionSubmittedBy")
+  motionsDecided              OwnerMotion[]               @relation("MotionDecidedBy")
+  pushSubscriptions           PushSubscription[]
+  notesAuthored               Note[]
+  notesAbout                  Note[]                      @relation("NotesAboutUser")
+  handoversCreated            Handover[]                  @relation("HandoverCreatedBy")
+  isSuperAdmin                Boolean                     @default(false)
   // Plattform-Betreiber (B&W) – Zugang zu /plattform. NUR per DB/Seed setzbar,
   // niemals über eine Oberfläche. Zusätzlich muss die E-Mail in der Env-Variable
   // PLATFORM_ADMIN_EMAILS stehen (doppelte Wand, siehe lib/platform.ts).
-  isPlatformAdmin           Boolean                   @default(false)
-  propertyAssignments       PropertyAssignment[]
-  craftsmanAssignments      CraftsmanAssignment[]
-  auditLogs                 AuditLog[]
-  documentSourceConfigs     DocumentSourceConfig[]
-  platformInvoicesCreated   PlatformInvoice[]         @relation("PlatformInvoiceCreatedBy")
-  bookingsCreated           Booking[]                 @relation("BookingCreatedBy")
-  bankImportsCreated        BankImportBatch[]         @relation("BankImportCreatedBy")
-  economicPlansCreated      EconomicPlan[]            @relation("EconomicPlanCreatedBy")
-  statementsCreated         AnnualStatement[]         @relation("StatementCreatedBy")
-  unitOwnerships            UnitOwnership[]
-  mahnungenCreated          HausgeldMahnung[]         @relation("MahnungCreatedBy")
-  paymentAllocations        PaymentAllocation[]       @relation("PaymentAllocationCreatedBy")
-  sonderumlagenCreated      Sonderumlage[]            @relation("SonderumlageCreatedBy")
-  maintenanceMeasuresCreated MaintenanceMeasure[]     @relation("MaintenanceMeasureCreatedBy")
-  verbindlichkeitenCreated   Verbindlichkeit[]         @relation("VerbindlichkeitCreatedBy")
-  sepaMandatesCreated        SepaMandate[]            @relation("SepaMandateCreatedBy")
-  co2AllocationsCreated      Co2Allocation[]          @relation("Co2AllocationCreatedBy")
-  wegSetupStepsDone          WegSetupStep[]           @relation("WegSetupStepDoneBy")
+  isPlatformAdmin             Boolean                     @default(false)
+  propertyAssignments         PropertyAssignment[]
+  craftsmanAssignments        CraftsmanAssignment[]
+  auditLogs                   AuditLog[]
+  documentSourceConfigs       DocumentSourceConfig[]
+  platformInvoicesCreated     PlatformInvoice[]           @relation("PlatformInvoiceCreatedBy")
+  bookingsCreated             Booking[]                   @relation("BookingCreatedBy")
+  bankImportsCreated          BankImportBatch[]           @relation("BankImportCreatedBy")
+  economicPlansCreated        EconomicPlan[]              @relation("EconomicPlanCreatedBy")
+  statementsCreated           AnnualStatement[]           @relation("StatementCreatedBy")
+  unitOwnerships              UnitOwnership[]
+  mahnungenCreated            HausgeldMahnung[]           @relation("MahnungCreatedBy")
+  paymentAllocations          PaymentAllocation[]         @relation("PaymentAllocationCreatedBy")
+  sonderumlagenCreated        Sonderumlage[]              @relation("SonderumlageCreatedBy")
+  maintenanceMeasuresCreated  MaintenanceMeasure[]        @relation("MaintenanceMeasureCreatedBy")
+  verbindlichkeitenCreated    Verbindlichkeit[]           @relation("VerbindlichkeitCreatedBy")
+  sepaMandatesCreated         SepaMandate[]               @relation("SepaMandateCreatedBy")
+  co2AllocationsCreated       Co2Allocation[]             @relation("Co2AllocationCreatedBy")
+  wegSetupStepsDone           WegSetupStep[]              @relation("WegSetupStepDoneBy")
 
   @@index([role])
   @@index([role, active])
@@ -489,18 +492,18 @@ model CraftsmanAssignment {
 }
 
 model Property {
-  id                  String               @id @default(cuid())
-  organizationId      String
-  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  name                String
-  street              String
-  zip                 String
-  city                String
-  managementType      ManagementType       @default(MIETVERWALTUNG)
-  votingPrinciple     VotingPrinciple      @default(KOPF) // Stimmprinzip (nur WEG)
+  id                    String                 @id @default(cuid())
+  organizationId        String
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name                  String
+  street                String
+  zip                   String
+  city                  String
+  managementType        ManagementType         @default(MIETVERWALTUNG)
+  votingPrinciple       VotingPrinciple        @default(KOPF) // Stimmprinzip (nur WEG)
   // WEG-Finanzstammdaten
-  meaTotal            Int? // MEA-Nenner (Summe aller Anteile, z. B. 1000)
-  fiscalYearStartMonth Int                 @default(1) // Wirtschaftsjahr-Beginn (1 = Januar)
+  meaTotal              Int? // MEA-Nenner (Summe aller Anteile, z. B. 1000)
+  fiscalYearStartMonth  Int                    @default(1) // Wirtschaftsjahr-Beginn (1 = Januar)
   // Wann das monatliche Hausgeld fällig wird. Steuert die Sollstellungen und
   // zugleich den Wortlaut der Beschlussvorlage — beides muss dasselbe sagen,
   // sonst mahnt die Verwaltung zu einem Termin, den der Beschluss nicht nennt.
@@ -508,37 +511,37 @@ model Property {
   // 40 €:** § 288 Abs. 5 BGB gilt nur zwischen Unternehmern; der
   // Wohnungseigentümer ist regelmäßig Verbraucher. Ersetzt wird nur, was
   // wirklich angefallen ist.
-  mahnkostenCents     Int                  @default(0)
-  dueDayRule          DueDayRule           @default(MONATSERSTER)
-  dueDayOfMonth       Int? // nur bei FREIER_TAG (1–28)
+  mahnkostenCents       Int                    @default(0)
+  dueDayRule            DueDayRule             @default(MONATSERSTER)
+  dueDayOfMonth         Int? // nur bei FREIER_TAG (1–28)
   // SEPA-Lastschrift: Gläubiger-Identifikationsnummer der Gemeinschaft (Bundesbank)
-  sepaCreditorId      String?
+  sepaCreditorId        String?
   // Standard-Link zur Video-Zuschaltung (externer Dienst, z. B. Jitsi/Zoom) —
   // wird beim Anlegen einer Versammlung vorbelegt, je Termin überschreibbar.
-  defaultVideoLink    String?
+  defaultVideoLink      String?
   // Optionale Stammdaten zum Objekt
-  buildYear           Int? // Baujahr
-  livingArea          Float? // Gesamtwohnfläche in m²
-  floors              Int? // Anzahl Etagen
-  buildingType        String? // Bauart, z. B. Mehrfamilienhaus, Massivbau
-  heatingType         String? // Heizungsart, z. B. Gas-Zentralheizung
-  notes               String? // freie Notizen
+  buildYear             Int? // Baujahr
+  livingArea            Float? // Gesamtwohnfläche in m²
+  floors                Int? // Anzahl Etagen
+  buildingType          String? // Bauart, z. B. Mehrfamilienhaus, Massivbau
+  heatingType           String? // Heizungsart, z. B. Gas-Zentralheizung
+  notes                 String? // freie Notizen
   // Titelbild des Objekts (Blob/Data-URL wie Logo/Unterschrift). Sichtbar für
   // Verwalter im Scope sowie Eigentümer/Mieter des Objekts.
-  titleImageStoredName String?
+  titleImageStoredName  String?
   // Referenz für den späteren Stammdaten-Sync mit Immoware24
-  immoware24Id        String?              @unique
+  immoware24Id          String?                @unique
   // Archiviert = aus den aktiven Verwalter-Listen ausgeblendet (Bestandsdaten
   // bleiben erhalten). Reaktivierbar; hartes Löschen nur bei leeren Objekten.
-  active              Boolean              @default(true)
-  createdAt           DateTime             @default(now())
-  units               Unit[]
-  ownerships          Ownership[]
-  tickets             Ticket[]
-  documents           Document[]
-  announcements       Announcement[]
-  maintenanceTasks    MaintenanceTask[]
-  resolutions         Resolution[]
+  active                Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  units                 Unit[]
+  ownerships            Ownership[]
+  tickets               Ticket[]
+  documents             Document[]
+  announcements         Announcement[]
+  maintenanceTasks      MaintenanceTask[]
+  resolutions           Resolution[]
   meters                Meter[]
   internalNotes         Note[]
   propertyAssignments   PropertyAssignment[]
@@ -565,51 +568,51 @@ model Property {
 }
 
 model Unit {
-  id            String     @id @default(cuid())
-  propertyId    String
-  property      Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  label         String // INTERNE Bezeichnung (z. B. "WE 03") – nur für Verwalter
+  id                   String                @id @default(cuid())
+  propertyId           String
+  property             Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  label                String // INTERNE Bezeichnung (z. B. "WE 03") – nur für Verwalter
   // EXTERNE Bezeichnung / Lage (z. B. "1. OG links") – erscheint in Dokumenten
   // und in der Mieter-/Eigentümer-Ansicht. Leer = Fallback auf die interne label.
-  externalLabel String?
-  floor         String?
+  externalLabel        String?
+  floor                String?
   // WEG-Finanzstammdaten (Kostenverteilung — NICHT Ownership.mea = Stimmgewicht)
-  unitType      UnitType   @default(WOHNUNG)
-  mea           Int? // MEA-Zähler dieser Einheit (Nenner: Property.meaTotal)
-  livingArea    Float? // Wohn-/Nutzfläche in m²
-  personCount   Int? // Personenzahl (Umlageschlüssel PERSONEN)
-  orderIndex    Int        @default(0)
-  duePostings   DuePosting[]
-  hausgeldPayments Booking[] // zugeordnete Zahlungseingänge (Hausgeld)
-  unitOwnerships UnitOwnership[]
+  unitType             UnitType              @default(WOHNUNG)
+  mea                  Int? // MEA-Zähler dieser Einheit (Nenner: Property.meaTotal)
+  livingArea           Float? // Wohn-/Nutzfläche in m²
+  personCount          Int? // Personenzahl (Umlageschlüssel PERSONEN)
+  orderIndex           Int                   @default(0)
+  duePostings          DuePosting[]
+  hausgeldPayments     Booking[] // zugeordnete Zahlungseingänge (Hausgeld)
+  unitOwnerships       UnitOwnership[]
   statementUnitAmounts StatementUnitAmount[]
-  hausgeldMahnungen HausgeldMahnung[]
-  tenancies     Tenancy[]
-  tickets       Ticket[]
-  documents     Document[]
-  meters        Meter[]
-  internalNotes Note[]
-  handovers     Handover[]
-  sepaMandates  SepaMandate[]
+  hausgeldMahnungen    HausgeldMahnung[]
+  tenancies            Tenancy[]
+  tickets              Ticket[]
+  documents            Document[]
+  meters               Meter[]
+  internalNotes        Note[]
+  handovers            Handover[]
+  sepaMandates         SepaMandate[]
 
   @@index([propertyId])
 }
 
 // Zähler – entweder einer Einheit (unitId) oder dem Objekt allgemein (propertyId)
 model Meter {
-  id          String         @id @default(cuid())
-  unitId      String?
-  unit        Unit?          @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  propertyId  String? // Allgemeinzähler (Allgemeinstrom, Hauswasser …)
-  property    Property?      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  type        MeterType
-  meterNumber String? // Zählernummer
-  location    String? // Einbauort
+  id             String         @id @default(cuid())
+  unitId         String?
+  unit           Unit?          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  propertyId     String? // Allgemeinzähler (Allgemeinstrom, Hauswasser …)
+  property       Property?      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  type           MeterType
+  meterNumber    String? // Zählernummer
+  location       String? // Einbauort
   // Fernablesbar (funk-/smart): löst die Pflicht zur monatlichen unterjährigen
   // Verbrauchsinformation aus (§ 6a HeizkostenV).
-  remoteReadable Boolean     @default(false)
-  createdAt   DateTime       @default(now())
-  readings    MeterReading[]
+  remoteReadable Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  readings       MeterReading[]
 
   @@index([unitId])
   @@index([propertyId])
@@ -630,28 +633,28 @@ model MeterReading {
 }
 
 model Ownership {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  propertyId String
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  mea        Int? // Miteigentumsanteil (z. B. von 1000) – Stimmgewicht beim Wertprinzip
-  voteUnits  Int? // Anzahl Stimmen beim Objektprinzip (Einheiten dieses Eigentümers)
-  isBoardMember Boolean @default(false) // Mitglied des Verwaltungsbeirats (Selbstverwaltung)
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId    String
+  property      Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  mea           Int? // Miteigentumsanteil (z. B. von 1000) – Stimmgewicht beim Wertprinzip
+  voteUnits     Int? // Anzahl Stimmen beim Objektprinzip (Einheiten dieses Eigentümers)
+  isBoardMember Boolean  @default(false) // Mitglied des Verwaltungsbeirats (Selbstverwaltung)
 
   @@unique([userId, propertyId])
   @@index([propertyId])
 }
 
 model Tenancy {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  unitId    String
-  unit      Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  startDate DateTime  @default(now())
-  endDate   DateTime?
-  active    Boolean   @default(true)
+  id                       String    @id @default(cuid())
+  userId                   String
+  user                     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unitId                   String
+  unit                     Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  startDate                DateTime  @default(now())
+  endDate                  DateTime?
+  active                   Boolean   @default(true)
   // Monatliche Betriebskosten-Vorauszahlung des Mieters (für die Abrechnung, M-K)
   bkPrepaymentMonthlyCents Int?
   // Mietvertrags-Kerndaten (Mietverwaltung). Beträge als Integer-Cent.
@@ -668,21 +671,21 @@ model Tenancy {
 }
 
 model Ticket {
-  id                       String          @id @default(cuid())
+  id                       String            @id @default(cuid())
   organizationId           String
-  organization             Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  number                   Int             @unique @default(autoincrement())
+  organization             Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  number                   Int               @unique @default(autoincrement())
   type                     TicketType
-  status                   TicketStatus    @default(NEU)
-  priority                 TicketPriority  @default(NORMAL)
+  status                   TicketStatus      @default(NEU)
+  priority                 TicketPriority    @default(NORMAL)
   category                 String? // z. B. "Wasserschaden", "Heizung" — Basis für spätere Automatisierung
   title                    String
   description              String
   location                 String? // Ort im Objekt, z. B. "Bad, Decke"
   propertyId               String?
-  property                 Property?       @relation(fields: [propertyId], references: [id])
+  property                 Property?         @relation(fields: [propertyId], references: [id])
   unitId                   String?
-  unit                     Unit?           @relation(fields: [unitId], references: [id])
+  unit                     Unit?             @relation(fields: [unitId], references: [id])
   // Externer Absender (z. B. E-Mail), wenn (noch) kein Portal-Nutzer zugeordnet ist
   senderEmail              String?
   senderName               String?
@@ -700,7 +703,7 @@ model Ticket {
   completionReportedVia    String? // Kanal der Erledigungsmeldung (Portal, Telefon, WhatsApp, …)
   closedAt                 DateTime?
   closedById               String?
-  inboundMessageId         String?         @unique // Idempotenz für E-Mail-Eingang (verhindert Doppel-Tickets)
+  inboundMessageId         String?           @unique // Idempotenz für E-Mail-Eingang (verhindert Doppel-Tickets)
   // SLA-Fälligkeitsdatum – wird aus der Priorität beim Erstellen berechnet;
   // bei Prioritätsänderung wird es relativ zum Änderungszeitpunkt neu gesetzt.
   dueAt                    DateTime?
@@ -711,20 +714,20 @@ model Ticket {
   costNote                 String?
   // Herkunft: Vorgang aus einer Wartungsaufgabe erzeugt (Rückverfolgung)
   sourceMaintenanceTaskId  String?
-  sourceMaintenanceTask    MaintenanceTask? @relation(fields: [sourceMaintenanceTaskId], references: [id], onDelete: SetNull)
+  sourceMaintenanceTask    MaintenanceTask?  @relation(fields: [sourceMaintenanceTaskId], references: [id], onDelete: SetNull)
   createdById              String
-  createdBy                User            @relation("TicketCreatedBy", fields: [createdById], references: [id])
+  createdBy                User              @relation("TicketCreatedBy", fields: [createdById], references: [id])
   assignedToId             String?
-  assignedTo               User?           @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
+  assignedTo               User?             @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
   craftsmanId              String?
-  craftsman                Craftsman?      @relation(fields: [craftsmanId], references: [id])
+  craftsman                Craftsman?        @relation(fields: [craftsmanId], references: [id])
   // Freigabe für die Beauftragung EXTERNER Handwerker. Null = noch nicht
   // freigegeben → externe Beauftragung ist serverseitig gesperrt (interne
   // Eigenleistung zuerst). Wird durch eine bewusste Verwalter-Aktion gesetzt.
   externalReleasedAt       DateTime?
   externalReleasedById     String?
-  createdAt                DateTime        @default(now())
-  updatedAt                DateTime        @updatedAt
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
   comments                 TicketComment[]
   attachments              Attachment[]
   invoice                  CraftsmanInvoice?
@@ -860,9 +863,9 @@ model Attachment {
 }
 
 model Document {
-  id               String            @id @default(cuid())
+  id               String              @id @default(cuid())
   organizationId   String
-  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   title            String
   category         DocumentCategory
   audience         Audience
@@ -871,16 +874,16 @@ model Document {
   mimeType         String
   size             Int
   propertyId       String?
-  property         Property?         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property         Property?           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unitId           String?
-  unit             Unit?             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit             Unit?               @relation(fields: [unitId], references: [id], onDelete: Cascade)
   uploadedById     String
-  uploadedBy       User              @relation(fields: [uploadedById], references: [id])
+  uploadedBy       User                @relation(fields: [uploadedById], references: [id])
   // Herkunft: UPLOAD = manuell, GDRIVE = automatischer Sync
-  source           DocumentSource    @default(UPLOAD)
+  source           DocumentSource      @default(UPLOAD)
   // Externe Datei-ID (z. B. Google Drive fileId) für Deduplizierung beim Sync
   externalRef      String?
-  createdAt        DateTime          @default(now())
+  createdAt        DateTime            @default(now())
   acknowledgements Acknowledgement[]
   // Optionale gezielte Empfänger. Sind Empfänger gesetzt, sehen NUR diese Personen
   // (plus der Verwalter im Scope) das Dokument – die Audience-/Objekt-Logik greift
@@ -911,22 +914,22 @@ model DocumentRecipient {
 // Sync-Metadaten. organizationId ist für die spätere Mandantentrennung
 // bereits vorbereitet, aber noch nicht erzwungen.
 model DocumentSourceConfig {
-  id             String         @id @default(cuid())
+  id             String           @id @default(cuid())
   label          String // Anzeigename, z. B. "Jahresabrechnungen Musterstr. 1"
   source         DocumentSource
   propertyId     String?
-  property       Property?      @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  audience       Audience       @default(ALLE)
+  property       Property?        @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  audience       Audience         @default(ALLE)
   category       DocumentCategory @default(SONSTIGES)
   // Connector-spezifische Konfiguration (z. B. { folderId: "..." } für Google Drive)
   config         Json
   organizationId String
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   lastSyncAt     DateTime?
-  active         Boolean        @default(true)
-  createdAt      DateTime       @default(now())
+  active         Boolean          @default(true)
+  createdAt      DateTime         @default(now())
   createdById    String
-  createdBy      User           @relation(fields: [createdById], references: [id])
+  createdBy      User             @relation(fields: [createdById], references: [id])
 
   @@index([propertyId])
   @@index([source, active])
@@ -1008,24 +1011,24 @@ model Message {
 
 // WEG-Umlaufbeschluss mit digitaler Abstimmung
 model Resolution {
-  id          String           @id @default(cuid())
+  id             String              @id @default(cuid())
   organizationId String
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  propertyId  String
-  property    Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  number      Int? // laufende Nummer in der Beschlusssammlung (nach Entscheidung)
-  title       String
-  description String
-  status      ResolutionStatus @default(OFFEN)
-  majority    MajorityType     @default(EINFACH) // erforderliche Mehrheit
-  deadline    DateTime?
-  createdById String
-  createdBy   User             @relation("ResolutionCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime         @default(now())
-  decidedAt   DateTime?
-  votes       ResolutionVote[]
-  agendaItems MeetingAgendaItem[]
-  ownerMotions OwnerMotion[]
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  number         Int? // laufende Nummer in der Beschlusssammlung (nach Entscheidung)
+  title          String
+  description    String
+  status         ResolutionStatus    @default(OFFEN)
+  majority       MajorityType        @default(EINFACH) // erforderliche Mehrheit
+  deadline       DateTime?
+  createdById    String
+  createdBy      User                @relation("ResolutionCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime            @default(now())
+  decidedAt      DateTime?
+  votes          ResolutionVote[]
+  agendaItems    MeetingAgendaItem[]
+  ownerMotions   OwnerMotion[]
 
   @@unique([propertyId, number]) // lückenlose, kollisionsfreie Beschluss-Sammlung (§24 VII WEG); mehrere NULLs erlaubt
   @@index([propertyId])
@@ -1107,23 +1110,23 @@ model BeiratTask {
 }
 
 model ResolutionVote {
-  id           String     @id @default(cuid())
-  resolutionId String
-  resolution   Resolution @relation(fields: [resolutionId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User       @relation("VoteOwner", fields: [userId], references: [id], onDelete: Cascade)
-  choice       VoteChoice
-  comment      String?
+  id              String     @id @default(cuid())
+  resolutionId    String
+  resolution      Resolution @relation(fields: [resolutionId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User       @relation("VoteOwner", fields: [userId], references: [id], onDelete: Cascade)
+  choice          VoteChoice
+  comment         String?
   // Stellvertretende Stimmabgabe durch den Verwalter (§ 25 WEG, schriftliche
   // Stimme eines Eigentümers, der die App nicht nutzt). castByUserId = Verwalter,
   // der die Stimme eingetragen hat; userId bleibt der abstimmende Eigentümer.
   // Optionaler Nachweis (unterschriebener Stimmzettel als Bild/PDF).
   castByUserId    String?
-  castBy          User?   @relation("VoteCastBy", fields: [castByUserId], references: [id], onDelete: SetNull)
+  castBy          User?      @relation("VoteCastBy", fields: [castByUserId], references: [id], onDelete: SetNull)
   proofStoredName String?
   proofFileName   String?
   proofMimeType   String?
-  createdAt    DateTime   @default(now())
+  createdAt       DateTime   @default(now())
 
   @@unique([resolutionId, userId])
   @@index([castByUserId])
@@ -1364,22 +1367,22 @@ model PushSubscription {
 
 // Interne Notizen – nur für Verwalter sichtbar
 model Note {
-  id             String    @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   body           String
-  pinned         Boolean   @default(false)
-  authorId     String
-  author       User      @relation(fields: [authorId], references: [id])
+  pinned         Boolean      @default(false)
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id])
   // Exactly one target:
-  propertyId   String?
-  property     Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade, map: "Note_propertyId_fkey")
-  unitId       String?
-  unit         Unit?     @relation(fields: [unitId], references: [id], onDelete: Cascade, map: "Note_unitId_fkey")
-  targetUserId String?
-  targetUser   User?     @relation("NotesAboutUser", fields: [targetUserId], references: [id], onDelete: Cascade)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  propertyId     String?
+  property       Property?    @relation(fields: [propertyId], references: [id], onDelete: Cascade, map: "Note_propertyId_fkey")
+  unitId         String?
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: Cascade, map: "Note_unitId_fkey")
+  targetUserId   String?
+  targetUser     User?        @relation("NotesAboutUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@index([propertyId])
   @@index([unitId])
@@ -1423,25 +1426,25 @@ model AuditLog {
 // Kostenart einer WEG (z. B. Hausmeister, Gebäudeversicherung). Vorbefüllbar aus
 // dem WEG-Standardkatalog (src/lib/weg/cost-catalog.ts), danach frei editierbar.
 model CostType {
-  id                String          @id @default(cuid())
-  organizationId    String
-  organization      Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  propertyId        String
-  property          Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  name              String
-  category          CostCategory    @default(BETRIEBSKOSTEN)
-  distributionKey   DistributionKey @default(MEA)
-  laborShareType    LaborShareType  @default(KEINE) // §35a EStG
+  id                        String                @id @default(cuid())
+  organizationId            String
+  organization              Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId                String
+  property                  Property              @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name                      String
+  category                  CostCategory          @default(BETRIEBSKOSTEN)
+  distributionKey           DistributionKey       @default(MEA)
+  laborShareType            LaborShareType        @default(KEINE) // §35a EStG
   // Erfahrungswert für den Lohn-/Fahrt-/Maschinenkostenanteil dieser Kostenart
   // in Prozent (§ 35a EStG). Greift nur, wenn an der einzelnen Buchung nichts
   // erfasst ist — die Rechnung geht immer vor. null = keine Vorbelegung, dann
   // wird der Betrag als „Lohnanteil nicht erfasst" ausgewiesen statt geschätzt.
-  laborSharePercent Int?
+  laborSharePercent         Int?
   // Heiz-/Warmwasserkosten im Sinne der HeizkostenV. Für sie gilt die
   // Zwangsaufteilung 50–70 % Verbrauch / Rest Fläche (§§ 7, 8 HeizkostenV);
   // eine Verteilung zu 100 % nach Verbrauch wäre formell fehlerhaft und gäbe
   // jedem Eigentümer ein Kürzungsrecht von 15 % (§ 12 Abs. 1 HeizkostenV).
-  heatingCost       Boolean         @default(false)
+  heatingCost               Boolean               @default(false)
   // Tatsächlich angewandter Verbrauchsanteil (50–70). Wird beim Verteilen
   // gesetzt und in die Abrechnung übernommen: Ohne ihn steht im Dokument nur
   // „Verbrauch" — das liest sich wie eine Verteilung zu 100 % nach Verbrauch
@@ -1454,14 +1457,14 @@ model CostType {
   // Die Unterscheidung ist nicht kosmetisch. Ohne sie warnte das Programm auch
   // bei der Treppenhausreinigung und beim Gartendienst — beides ist **keine**
   // Bauleistung — und die Warnung wäre nach dem dritten Fehlalarm wertlos.
-  constructionWork  Boolean         @default(false)
-  recoverableBetrKV Boolean         @default(false) // umlagefähig nach BetrKV (Mieter)
-  active            Boolean         @default(true)
-  orderIndex        Int             @default(0)
-  createdAt         DateTime        @default(now())
-  bookings          Booking[]
-  planItems         EconomicPlanItem[]
-  statementUnitAmounts StatementUnitAmount[]
+  constructionWork          Boolean               @default(false)
+  recoverableBetrKV         Boolean               @default(false) // umlagefähig nach BetrKV (Mieter)
+  active                    Boolean               @default(true)
+  orderIndex                Int                   @default(0)
+  createdAt                 DateTime              @default(now())
+  bookings                  Booking[]
+  planItems                 EconomicPlanItem[]
+  statementUnitAmounts      StatementUnitAmount[]
 
   @@index([propertyId])
 }
@@ -1469,18 +1472,18 @@ model CostType {
 // Geldkonto der Gemeinschaft. Erhaltungsrücklage (RUECKLAGE) strikt getrennt
 // vom laufenden Girokonto ausweisen (§ 19 Abs. 2 Nr. 4 WEG).
 model LedgerAccount {
-  id                  String            @id @default(cuid())
+  id                  String                  @id @default(cuid())
   organizationId      String
-  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization        Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   propertyId          String
-  property            Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property            Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   name                String
-  kind                LedgerAccountKind @default(GIRO)
+  kind                LedgerAccountKind       @default(GIRO)
   iban                String?
-  openingBalanceCents Int               @default(0) // Anfangsbestand in Cent
+  openingBalanceCents Int                     @default(0) // Anfangsbestand in Cent
   openingBalanceDate  DateTime? // Stichtag des Anfangsbestands
-  active              Boolean           @default(true)
-  createdAt           DateTime          @default(now())
+  active              Boolean                 @default(true)
+  createdAt           DateTime                @default(now())
   bookings            Booking[]
   importBatches       BankImportBatch[]
   statementChecks     StatementAccountCheck[]
@@ -1493,18 +1496,18 @@ model LedgerAccount {
 // (UMBUCHUNGen zählen je Konto als Einnahme bzw. Ausgabe der Gegenseite,
 // verbunden über transferGroupId).
 model Booking {
-  id              String           @id @default(cuid())
-  organizationId  String
-  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  propertyId      String
-  property        Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  accountId       String
-  account         LedgerAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  costTypeId      String?
-  costType        CostType?        @relation(fields: [costTypeId], references: [id], onDelete: SetNull)
+  id                   String              @id @default(cuid())
+  organizationId       String
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId           String
+  property             Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  accountId            String
+  account              LedgerAccount       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  costTypeId           String?
+  costType             CostType?           @relation(fields: [costTypeId], references: [id], onDelete: SetNull)
   // Zahlungszuordnung: Hausgeld-Eingang einer Einheit zugeordnet (offene Posten)
-  unitId          String?
-  unit            Unit?            @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unitId               String?
+  unit                 Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
   // Wer bezahlt wurde — als Verknüpfung, nicht als getippter Name.
   //
   // `counterparty` bleibt daneben bestehen und ist weiterhin der Normalfall:
@@ -1514,36 +1517,36 @@ model Booking {
   // Nötig wurde sie für § 48 EStG: Die 5.000-€-Grenze gilt **je Leistendem und
   // Kalenderjahr**. Über einen Freitext lässt sich das nicht summieren — „Meier
   // GmbH", „Meier Gmbh" und „Fa. Meier" wären drei Handwerker.
-  craftsmanId     String?
-  craftsman       Craftsman?       @relation(fields: [craftsmanId], references: [id], onDelete: SetNull)
-  kind            BookingKind
-  bookingDate     DateTime
-  valueDate       DateTime? // Wertstellung (aus Bankimport)
-  amountCents     Int // immer positiv; Richtung über kind
+  craftsmanId          String?
+  craftsman            Craftsman?          @relation(fields: [craftsmanId], references: [id], onDelete: SetNull)
+  kind                 BookingKind
+  bookingDate          DateTime
+  valueDate            DateTime? // Wertstellung (aus Bankimport)
+  amountCents          Int // immer positiv; Richtung über kind
   // §35a EStG: der in der Rechnung ausgewiesene Lohn-, Fahrt- und
   // Maschinenkostenanteil. NUR dieser Teil ist begünstigt — Material nicht.
   // null = nicht erfasst (nicht: null Euro); dann greift der Erfahrungswert der
   // Kostenart, und fehlt auch der, wird der Betrag als Lücke ausgewiesen.
-  laborShareCents Int?
-  text            String
-  counterparty    String? // Zahlungspartner
-  reference       String? // Verwendungszweck
+  laborShareCents      Int?
+  text                 String
+  counterparty         String? // Zahlungspartner
+  reference            String? // Verwendungszweck
   // Bankimport / Duplikaterkennung
-  importBatchId   String?
-  importBatch     BankImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
-  dedupeHash      String? // Hash aus Konto+Datum+Betrag+Verwendungszweck
+  importBatchId        String?
+  importBatch          BankImportBatch?    @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  dedupeHash           String? // Hash aus Konto+Datum+Betrag+Verwendungszweck
   // Umbuchung Giro<->Rücklage: zwei Gegenbuchungen (je Konto eine) mit
   // gemeinsamer transferGroupId; beide kind=UMBUCHUNG, Richtung über transferOut.
-  transferGroupId String?
-  transferOut     Boolean? // nur bei UMBUCHUNG: true = Geld verlässt dieses Konto
+  transferGroupId      String?
+  transferOut          Boolean? // nur bei UMBUCHUNG: true = Geld verlässt dieses Konto
   // Storno: Buchungen werden nie geändert oder gelöscht, sondern durch eine
   // Gegenbuchung neutralisiert. Diese zeigt über reversalOfId auf das Original;
   // @unique stellt sicher, dass jede Buchung höchstens einmal storniert wird.
-  reversalOfId    String?          @unique
-  reversalOf      Booking?         @relation("BookingReversal", fields: [reversalOfId], references: [id], onDelete: Cascade)
-  reversedBy      Booking?         @relation("BookingReversal")
+  reversalOfId         String?             @unique
+  reversalOf           Booking?            @relation("BookingReversal", fields: [reversalOfId], references: [id], onDelete: Cascade)
+  reversedBy           Booking?            @relation("BookingReversal")
   // Auf welche Forderungen diese Zahlung angerechnet wurde (§§ 366, 367 BGB).
-  allocations     PaymentAllocation[]
+  allocations          PaymentAllocation[]
   // ── Bauabzugsteuer (§§ 48, 48a EStG) ──────────────────────────────────────
   // Tatsächlich einbehaltener Betrag. `null` heißt „nicht einbehalten" — das
   // ist der Normalfall (keine Bauleistung oder Freistellungsbescheinigung) und
@@ -1560,12 +1563,12 @@ model Booking {
   // die Buchung in der Fristenliste.
   bauabzugAngemeldetAt DateTime?
   // Beleg (gleiche Storage-Konvention wie Handover: storedName/fileName/mimeType)
-  belegStoredName String?
-  belegFileName   String?
-  belegMimeType   String?
-  createdById     String
-  createdBy       User             @relation("BookingCreatedBy", fields: [createdById], references: [id])
-  createdAt       DateTime         @default(now())
+  belegStoredName      String?
+  belegFileName        String?
+  belegMimeType        String?
+  createdById          String
+  createdBy            User                @relation("BookingCreatedBy", fields: [createdById], references: [id])
+  createdAt            DateTime            @default(now())
 
   @@unique([accountId, dedupeHash]) // verhindert Doppelimport (NULL = manuell, mehrfach erlaubt)
   @@index([propertyId])
@@ -1605,14 +1608,14 @@ model BankImportBatch {
 // Rücklagenzuführung. Nach Beschluss unveränderlich; der Beschluss erzeugt die
 // monatlichen Sollstellungen je Einheit.
 model EconomicPlan {
-  id             String             @id @default(cuid())
-  organizationId String
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  propertyId     String
-  property       Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  year           Int // Wirtschaftsjahr, das in diesem Kalenderjahr beginnt
-  status         PlanStatus         @default(ENTWURF)
-  resolvedAt     DateTime? // Datum des Beschlusses (Versammlung/Umlauf)
+  id                 String              @id @default(cuid())
+  organizationId     String
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId         String
+  property           Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  year               Int // Wirtschaftsjahr, das in diesem Kalenderjahr beginnt
+  status             PlanStatus          @default(ENTWURF)
+  resolvedAt         DateTime? // Datum des Beschlusses (Versammlung/Umlauf)
   // Geltungszeitraum. Der Plan ist NICHT starr an sein Wirtschaftsjahr
   // gebunden: Nach § 28 Abs. 1 Satz 2 WEG gilt ein beschlossener Plan fort,
   // bis ein neuer beschlossen ist — sonst schuldete im Januar niemand Hausgeld,
@@ -1622,19 +1625,19 @@ model EconomicPlan {
   // `validFrom` wird mit dem Beschluss gesetzt (null = noch nicht beschlossen),
   // `validUntil` erst, wenn ein Nachfolgeplan beschlossen wird (null = gilt fort).
   // Beide Grenzen sind Tagesdaten; `validUntil` ist exklusiv.
-  validFrom      DateTime?
-  validUntil     DateTime?
-  resolutionNote String? // Verweis, z. B. "ETV 12.03.2026, TOP 4"
-  createdById    String
-  createdBy      User               @relation("EconomicPlanCreatedBy", fields: [createdById], references: [id])
-  createdAt      DateTime           @default(now())
-  items          EconomicPlanItem[]
-  duePostings    DuePosting[]
+  validFrom          DateTime?
+  validUntil         DateTime?
+  resolutionNote     String? // Verweis, z. B. "ETV 12.03.2026, TOP 4"
+  createdById        String
+  createdBy          User                @relation("EconomicPlanCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime            @default(now())
+  items              EconomicPlanItem[]
+  duePostings        DuePosting[]
   // Prüfvermerk des Verwaltungsbeirats (§ 29 III WEG)
   beiratReviewStatus BeiratReviewStatus?
   beiratReviewNote   String?
   beiratReviewById   String?
-  beiratReviewBy     User?              @relation("EconomicPlanBeiratReview", fields: [beiratReviewById], references: [id], onDelete: SetNull)
+  beiratReviewBy     User?               @relation("EconomicPlanBeiratReview", fields: [beiratReviewById], references: [id], onDelete: SetNull)
   beiratReviewedAt   DateTime?
 
   // Kein @@unique([propertyId, year]) mehr: Ein unterjährig geänderter
@@ -1663,23 +1666,23 @@ model EconomicPlanItem {
 // Wirtschaftsplan (später auch Sonderumlagen). Offene Posten = Σ fällige
 // Sollstellungen − Σ zugeordnete Zahlungseingänge (Booking.unitId).
 model DuePosting {
-  id             String        @id @default(cuid())
+  id             String              @id @default(cuid())
   organizationId String
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   propertyId     String
-  property       Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property       Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   unitId         String
-  unit           Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit           Unit                @relation(fields: [unitId], references: [id], onDelete: Cascade)
   planId         String?
-  plan           EconomicPlan? @relation(fields: [planId], references: [id], onDelete: Cascade)
+  plan           EconomicPlan?       @relation(fields: [planId], references: [id], onDelete: Cascade)
   sonderumlageId String?
-  sonderumlage   Sonderumlage? @relation(fields: [sonderumlageId], references: [id], onDelete: Cascade)
+  sonderumlage   Sonderumlage?       @relation(fields: [sonderumlageId], references: [id], onDelete: Cascade)
   dueDate        DateTime // Fälligkeit (1. des Monats bzw. Fälligkeit der Sonderumlage)
   periodYear     Int
   periodMonth    Int // 1–12 (Kalendermonat)
   amountCents    Int
-  source         String        @default("WIRTSCHAFTSPLAN") // WIRTSCHAFTSPLAN | SONDERUMLAGE
-  createdAt      DateTime      @default(now())
+  source         String              @default("WIRTSCHAFTSPLAN") // WIRTSCHAFTSPLAN | SONDERUMLAGE
+  createdAt      DateTime            @default(now())
   // Zahlungen, die auf diese Forderung angerechnet wurden.
   allocations    PaymentAllocation[]
 
@@ -1763,20 +1766,20 @@ model WegSetupStep {
 // Jahresabrechnung (§ 28 Abs. 2 WEG). ENTWURF wird live aus der Buchhaltung
 // gerechnet; FERTIG friert das Ergebnis als Snapshot ein (revisionssicher).
 model AnnualStatement {
-  id             String                  @id @default(cuid())
-  organizationId String
-  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  propertyId     String
-  property       Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  year           Int // Wirtschaftsjahr, das in diesem Kalenderjahr beginnt
-  status         StatementStatus         @default(ENTWURF)
-  finalizedAt    DateTime?
-  snapshot       Json? // eingefrorenes Ergebnis bei FERTIG
-  createdById    String
-  createdBy      User                    @relation("StatementCreatedBy", fields: [createdById], references: [id])
-  createdAt      DateTime                @default(now())
-  unitAmounts    StatementUnitAmount[]
-  accountChecks  StatementAccountCheck[]
+  id                 String                  @id @default(cuid())
+  organizationId     String
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId         String
+  property           Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  year               Int // Wirtschaftsjahr, das in diesem Kalenderjahr beginnt
+  status             StatementStatus         @default(ENTWURF)
+  finalizedAt        DateTime?
+  snapshot           Json? // eingefrorenes Ergebnis bei FERTIG
+  createdById        String
+  createdBy          User                    @relation("StatementCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime                @default(now())
+  unitAmounts        StatementUnitAmount[]
+  accountChecks      StatementAccountCheck[]
   // Prüfvermerk des Verwaltungsbeirats (§ 29 III WEG)
   beiratReviewStatus BeiratReviewStatus?
   beiratReviewNote   String?
@@ -1810,12 +1813,12 @@ model StatementUnitAmount {
 // Endbestand laut Kontoauszug. FERTIG nur, wenn rechnerischer Endbestand ==
 // gemeldeter Endbestand für alle Konten (häufigster Anfechtungsgrund).
 model StatementAccountCheck {
-  id                String          @id @default(cuid())
-  statementId       String
-  statement         AnnualStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
-  accountId         String
-  account           LedgerAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  reportedEndCents  Int // Endbestand laut Kontoauszug
+  id               String          @id @default(cuid())
+  statementId      String
+  statement        AnnualStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  accountId        String
+  account          LedgerAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  reportedEndCents Int // Endbestand laut Kontoauszug
 
   @@unique([statementId, accountId])
   @@index([accountId])
@@ -1851,33 +1854,33 @@ model BaseInterestRate {
 }
 
 model HausgeldMahnung {
-  id              String       @id @default(cuid())
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  propertyId      String
-  property        Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  unitId          String
-  unit            Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  level           Int // 1–3, siehe lib/dunning.ts
-  arrearsCents    Int // Rückstand zum Erstellzeitpunkt
-  paymentDeadline DateTime // Zahlungsziel
-  recipientName   String // Empfänger-Snapshot (aktuelle Eigentümer der Einheit)
-  recipientAddress String? // Snapshot "Straße\nPLZ Ort" (falls hinterlegt)
+  id                  String       @id @default(cuid())
+  organizationId      String
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId          String
+  property            Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId              String
+  unit                Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  level               Int // 1–3, siehe lib/dunning.ts
+  arrearsCents        Int // Rückstand zum Erstellzeitpunkt
+  paymentDeadline     DateTime // Zahlungsziel
+  recipientName       String // Empfänger-Snapshot (aktuelle Eigentümer der Einheit)
+  recipientAddress    String? // Snapshot "Straße\nPLZ Ort" (falls hinterlegt)
   // Anrede-Snapshot für die Briefanrede. Wie Name und Anschrift eingefroren:
   // Das Schreiben muss auch später zeigen, wie es verschickt wurde. Bei
   // mehreren Eigentümern bleiben beide leer — dann grüßt der Brief allgemein.
   recipientSalutation String? // "Herr" oder "Frau"
   recipientLastName   String?
-  sentAt          DateTime? // "als versendet markiert" (Fristen-Nachweis)
+  sentAt              DateTime? // "als versendet markiert" (Fristen-Nachweis)
   // Verzugszinsen und Mahnkosten zum Erstellzeitpunkt — als Momentaufnahme.
   // Sie später neu zu berechnen wäre falsch: Das Schreiben ist raus, und was
   // darin stand, muss nachvollziehbar bleiben. `interestCents` ist null, wenn
   // für den Zeitraum kein Basiszinssatz hinterlegt war.
-  interestCents   Int?
-  feeCents        Int          @default(0)
-  createdById     String
-  createdBy       User         @relation("MahnungCreatedBy", fields: [createdById], references: [id])
-  createdAt       DateTime     @default(now())
+  interestCents       Int?
+  feeCents            Int          @default(0)
+  createdById         String
+  createdBy           User         @relation("MahnungCreatedBy", fields: [createdById], references: [id])
+  createdAt           DateTime     @default(now())
 
   @@index([unitId])
   @@index([propertyId])
@@ -2088,4 +2091,50 @@ model Verbindlichkeit {
 
   @@index([propertyId])
   @@index([propertyId, settledAt])
+}
+
+// ── Verwalter-Plus: Ticket-System zum zertifizierten Verwalter (§ 26a WEG) ───
+// Das Unterscheidungsmerkmal des Verwalter-Plus-Tarifs: Die Selbstverwaltung
+// stellt eine Frage, ein zertifizierter Verwalter des Betreibers antwortet im
+// Portal. Bewusst ein EIGENES Modell statt eines weiteren TicketType: Das
+// Vorgänge-Ticket lebt INNERHALB der Organisation (Schaden → Handwerker),
+// diese Anfrage geht über die Mandantengrenze an den Betreiber — anderer
+// Empfänger, andere Sichtbarkeit, anderer Workflow.
+enum VerwalterAnfrageStatus {
+  OFFEN // wartet auf Antwort des zertifizierten Verwalters
+  BEANTWORTET // Betreiber hat geantwortet; Rückfrage der WEG öffnet erneut
+  GESCHLOSSEN // von der WEG oder dem Betreiber abgeschlossen
+}
+
+model VerwalterAnfrage {
+  id             String                      @id @default(cuid())
+  organizationId String
+  organization   Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  number         Int                         @unique @default(autoincrement())
+  title          String
+  status         VerwalterAnfrageStatus      @default(OFFEN)
+  createdById    String
+  createdBy      User                        @relation("VerwalterAnfrageCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  nachrichten    VerwalterAnfrageNachricht[]
+
+  @@index([organizationId, status])
+  @@index([status, updatedAt])
+}
+
+model VerwalterAnfrageNachricht {
+  id           String           @id @default(cuid())
+  anfrageId    String
+  anfrage      VerwalterAnfrage @relation(fields: [anfrageId], references: [id], onDelete: Cascade)
+  // true = Antwort des zertifizierten Verwalters (Betreiber). Das Flag ist die
+  // fachliche Aussage; `author` hält nur fest, wer konkret geschrieben hat,
+  // und darf bei DSGVO-Löschung des Kontos verwaisen.
+  vomBetreiber Boolean          @default(false)
+  authorId     String?
+  author       User?            @relation("VerwalterAnfrageNachrichtAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  body         String
+  createdAt    DateTime         @default(now())
+
+  @@index([anfrageId, createdAt])
 }

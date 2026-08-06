@@ -6,6 +6,7 @@ import type { User } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { merkeErstzugaenge } from "@/lib/zugangsschreiben";
 import { isSelfManaged } from "@/lib/access";
+import { aboMengeSynchronisieren } from "@/lib/billing-sync";
 import {
   type PersonTreffer,
   searchPersons,
@@ -356,6 +357,10 @@ export async function createObjekt(formData: FormData) {
       if (result.pw) letterUsers.push(result);
     }
   }
+
+  // Die Tarife rechnen je Einheit — ein laufendes Abo (z. B. beim zweiten
+  // Objekt) zieht die Menge nach.
+  await aboMengeSynchronisieren(actor.organizationId);
 
   revalidatePath("/verwaltung/objekte");
   revalidatePath("/verwaltung/nutzer");

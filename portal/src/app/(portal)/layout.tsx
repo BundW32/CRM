@@ -12,6 +12,7 @@ import { AppShell } from "@/components/app-shell";
 import { AssistantWidget } from "@/components/assistant-widget";
 import { BrandTheme } from "@/components/brand-theme";
 import { CommandPalette, type PaletteNavItem } from "@/components/command-palette";
+import { AboBanner } from "@/components/abo-banner";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { SetupBanner } from "@/components/setup-banner";
 import {
@@ -22,6 +23,7 @@ import {
 } from "@/lib/access";
 import { isWegSaas } from "@/lib/app-mode";
 import { canSeeSettings, navFor, settingsItems, usesCounts } from "@/lib/app-nav";
+import { aboHinweis } from "@/lib/billing";
 import { canUseAssistant, isAssistantEnabled } from "@/lib/assistant";
 import { db } from "@/lib/db";
 import { loadNavCounts } from "@/lib/nav-counts";
@@ -149,6 +151,18 @@ export default async function PortalLayout({
           showSettings={canSeeSettings(navContext)}
           showPlattform={isPlatformAdmin}
         >
+          {/* Abo-Zustand (Testphase abgelaufen, Zahlung überfällig, gekündigt):
+              nur für die verwaltende Person — Eigentümer und Mieter können
+              nichts daran ändern. Die Bedeutung der Zustände definiert
+              aboHinweis in lib/billing.ts. */}
+          {user.role === "VERWALTER" && org
+            ? (() => {
+                const hinweis = aboHinweis(org);
+                return hinweis ? (
+                  <AboBanner hinweis={hinweis} kannBuchen={Boolean(user.isSuperAdmin)} />
+                ) : null;
+              })()
+            : null}
           {setup && !setup.fertig ? (
             <SetupBanner
               erledigt={setup.erledigt}

@@ -1,30 +1,121 @@
 import { describe, expect, it } from "vitest";
-import { PLANS, aktiverPlan, checkoutJeEinheitCents, planLabel } from "./billing";
+import {
+  PLANS,
+  aboHinweis,
+  aktiverPlan,
+  checkoutJeEinheitCents,
+  hatPlanFunktion,
+  istTestphaseAbgelaufen,
+  planLabel,
+} from "./billing";
+
+// Hilfen: eine Organisation mit laufender bzw. abgelaufener Testfrist.
+const inZukunft = new Date(Date.now() + 7 * 86_400_000);
+const inVergangenheit = new Date(Date.now() - 7 * 86_400_000);
 
 describe("aktiverPlan", () => {
-  it("meldet in der Testphase Pro, nicht den gespeicherten Tarif", () => {
+  it("meldet in der laufenden Testphase Pro, nicht den gespeicherten Tarif", () => {
     // Der springende Punkt: Neukunden testen den vollen Funktionsumfang. Die
     // Seite zeigte „Aktueller Tarif: Free" neben „Status: Testphase" — zwei
     // Angaben, die einander widersprechen.
-    expect(aktiverPlan({ plan: "free", subscriptionStatus: "trialing" })).toBe("pro");
-    expect(planLabel(aktiverPlan({ plan: "free", subscriptionStatus: "trialing" }))).toBe("Pro");
+    const org = { plan: "free", subscriptionStatus: "trialing", trialEndsAt: inZukunft };
+    expect(aktiverPlan(org)).toBe("pro");
+    expect(planLabel(aktiverPlan(org))).toBe("Pro");
+  });
+
+  it("fällt nach Ablauf der Testfrist auf den gespeicherten Tarif zurück", () => {
+    // Vorher lieferte "trialing" IMMER Pro — und weil niemand den Status nach
+    // Fristablauf umstellt, lief jede Testphase faktisch ewig weiter.
+    expect(
+      aktiverPlan({ plan: "free", subscriptionStatus: "trialing", trialEndsAt: inVergangenheit }),
+    ).toBe("free");
+    expect(istTestphaseAbgelaufen({ subscriptionStatus: "trialing", trialEndsAt: inVergangenheit })).toBe(true);
+    expect(istTestphaseAbgelaufen({ subscriptionStatus: "trialing", trialEndsAt: inZukunft })).toBe(false);
+  });
+
+  it("lässt eine Testphase ohne Frist (B&W-Tür) nicht ablaufen", () => {
+    expect(
+      aktiverPlan({ plan: "free", subscriptionStatus: "trialing", trialEndsAt: null }),
+    ).toBe("pro");
+    expect(istTestphaseAbgelaufen({ subscriptionStatus: "trialing", trialEndsAt: null })).toBe(false);
   });
 
   it("lässt den gespeicherten Tarif unangetastet, sobald die Testphase vorbei ist", () => {
     // `Organization.plan` sagt, worauf die Gemeinschaft NACH der Testphase
     // zurückfällt. Diese Aussage darf die Ableitung nicht überschreiben.
-    expect(aktiverPlan({ plan: "free", subscriptionStatus: "canceled" })).toBe("free");
-    expect(aktiverPlan({ plan: "pro", subscriptionStatus: "active" })).toBe("pro");
+    expect(aktiverPlan({ plan: "free", subscriptionStatus: "canceled", trialEndsAt: null })).toBe("free");
+    expect(aktiverPlan({ plan: "pro", subscriptionStatus: "active", trialEndsAt: null })).toBe("pro");
   });
 
   it("fällt bei unbekanntem Tarif auf free zurück statt den Rohwert durchzureichen", () => {
-    expect(aktiverPlan({ plan: "enterprise", subscriptionStatus: "active" })).toBe("free");
+    expect(aktiverPlan({ plan: "enterprise", subscriptionStatus: "active", trialEndsAt: null })).toBe("free");
   });
 
   it("kennt die wegportal24-Einheiten-Tarife", () => {
-    expect(aktiverPlan({ plan: "basic", subscriptionStatus: "active" })).toBe("basic");
-    expect(aktiverPlan({ plan: "plus", subscriptionStatus: "active" })).toBe("plus");
+    expect(aktiverPlan({ plan: "basic", subscriptionStatus: "active", trialEndsAt: null })).toBe("basic");
+    expect(aktiverPlan({ plan: "plus", subscriptionStatus: "active", trialEndsAt: null })).toBe("plus");
     expect(planLabel("plus")).toBe("Verwalter-Plus");
+  });
+});
+
+describe("hatPlanFunktion", () => {
+  it("gibt das Verwalter-Ticket nur Verwalter-Plus (und der Testphase)", () => {
+    // Das Ticket-System ist DAS Unterscheidungsmerkmal zwischen Basic und
+    // Verwalter-Plus — Basic darf es nie haben, sonst gibt es keinen Grund
+    // für den Aufpreis. Die Testphase verspricht den vollen Umfang und
+    // schließt es deshalb ein.
+    const aktiv = (plan: string) => ({ plan, subscriptionStatus: "active", trialEndsAt: null });
+    expect(hatPlanFunktion(aktiv("plus"), "verwalterTicket")).toBe(true);
+    expect(hatPlanFunktion(aktiv("basic"), "verwalterTicket")).toBe(false);
+    expect(hatPlanFunktion(aktiv("free"), "verwalterTicket")).toBe(false);
+    expect(
+      hatPlanFunktion(
+        { plan: "free", subscriptionStatus: "trialing", trialEndsAt: inZukunft },
+        "verwalterTicket",
+      ),
+    ).toBe(true);
+  });
+
+  it("nimmt Start (free) die Arbeitsfunktionen, lässt sie jedem bezahlten Tarif", () => {
+    const aktiv = (plan: string) => ({ plan, subscriptionStatus: "active", trialEndsAt: null });
+    expect(hatPlanFunktion(aktiv("free"), "vollerUmfang")).toBe(false);
+    expect(hatPlanFunktion(aktiv("basic"), "vollerUmfang")).toBe(true);
+    expect(hatPlanFunktion(aktiv("plus"), "vollerUmfang")).toBe(true);
+    expect(hatPlanFunktion(aktiv("pro"), "vollerUmfang")).toBe(true);
+    // Abgelaufene Testphase = Start-Umfang.
+    expect(
+      hatPlanFunktion(
+        { plan: "free", subscriptionStatus: "trialing", trialEndsAt: inVergangenheit },
+        "vollerUmfang",
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("aboHinweis", () => {
+  it("meldet Zahlungsverzug, Kündigung und abgelaufene Testphase — sonst nichts", () => {
+    expect(aboHinweis({ plan: "basic", subscriptionStatus: "past_due", trialEndsAt: null })).toBe(
+      "zahlung-ueberfaellig",
+    );
+    expect(aboHinweis({ plan: "free", subscriptionStatus: "canceled", trialEndsAt: null })).toBe(
+      "gekuendigt",
+    );
+    expect(
+      aboHinweis({ plan: "free", subscriptionStatus: "trialing", trialEndsAt: inVergangenheit }),
+    ).toBe("testphase-abgelaufen");
+    expect(
+      aboHinweis({ plan: "free", subscriptionStatus: "trialing", trialEndsAt: inZukunft }),
+    ).toBe(null);
+    expect(aboHinweis({ plan: "plus", subscriptionStatus: "active", trialEndsAt: null })).toBe(null);
+  });
+
+  it("lässt past_due den vollen Umfang (Kulanz — Stripe mahnt selbst)", () => {
+    // Wer im Zahlungsverzug sofort gesperrt wird, kann die Ursache (abgelaufene
+    // Karte) oft nicht mal mehr im Portal beheben wollen. Endgültiges Scheitern
+    // kommt als `canceled` per Webhook, DANN greift der Start-Umfang.
+    const org = { plan: "plus", subscriptionStatus: "past_due", trialEndsAt: null };
+    expect(hatPlanFunktion(org, "vollerUmfang")).toBe(true);
+    expect(hatPlanFunktion(org, "verwalterTicket")).toBe(true);
   });
 });
 
@@ -52,10 +143,13 @@ describe("Einheiten-Tarife", () => {
 });
 
 describe("Tarifbeschreibungen", () => {
-  it("behaupten keinen fertigen Grundtarif", () => {
-    // Free gibt es in diesem Zuschnitt noch nicht — „Zum Ausprobieren“ stand
-    // außerdem am falschen Tarif: Ausprobiert wird Pro.
+  it("Start beschreibt den festgelegten Umfang der Preisseite", () => {
+    // Der Zuschnitt steht seit der Start-Karte der Preisseite fest: einrichten
+    // und ansehen, ohne Zeitlimit. „Zum Ausprobieren" bleibt draußen —
+    // ausprobiert wird der volle Umfang, und zwar in der Testphase.
+    expect(PLANS.free.name).toBe("Start");
     expect(PLANS.free.description).not.toContain("Zum Ausprobieren");
-    expect(PLANS.free.description).toContain("noch festgelegt");
+    expect(PLANS.free.description).not.toContain("noch festgelegt");
+    expect(PLANS.free.description).toContain("Einrichten und Ansehen");
   });
 });

@@ -48,10 +48,15 @@ export async function POST(request: Request) {
         const session = event.data.object as Stripe.Checkout.Session;
         const organizationId = session.client_reference_id;
         if (organizationId) {
+          // Welcher Tarif gebucht wurde, steht in den Metadaten der Session
+          // (gesetzt in abrechnung/actions.ts). Unbekannte Werte fallen auf
+          // "pro" zurück — das ist der Alt-Zustand vor den Einheiten-Tarifen.
+          const tarifRaw = session.metadata?.tarif;
+          const plan = tarifRaw === "basic" || tarifRaw === "plus" ? tarifRaw : "pro";
           await db.organization.updateMany({
             where: { id: organizationId },
             data: {
-              plan: "pro",
+              plan,
               subscriptionStatus: "active",
               stripeCustomerId: typeof session.customer === "string" ? session.customer : null,
               stripeSubscriptionId:

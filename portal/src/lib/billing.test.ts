@@ -20,6 +20,22 @@ describe("aktiverPlan", () => {
   it("fällt bei unbekanntem Tarif auf free zurück statt den Rohwert durchzureichen", () => {
     expect(aktiverPlan({ plan: "enterprise", subscriptionStatus: "active" })).toBe("free");
   });
+
+  it("kennt die wegportal24-Einheiten-Tarife", () => {
+    expect(aktiverPlan({ plan: "basic", subscriptionStatus: "active" })).toBe("basic");
+    expect(aktiverPlan({ plan: "plus", subscriptionStatus: "active" })).toBe("plus");
+    expect(planLabel("plus")).toBe("Verwalter-Plus");
+  });
+});
+
+describe("Einheiten-Tarife", () => {
+  it("tragen die Preise der einen Preisquelle", () => {
+    // Preisseite und Abrechnung dürfen nie zwei verschiedene Zahlen nennen —
+    // beide lesen preise-daten.ts. Basic 10 €, Verwalter-Plus 13,90 € je
+    // Einheit und Monat (Stand 04.08.2026, Festlegung des Auftraggebers).
+    expect(PLANS.basic.perUnitCents).toBe(1000);
+    expect(PLANS.plus.perUnitCents).toBe(1390);
+  });
 });
 
 describe("Tarifbeschreibungen", () => {

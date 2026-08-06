@@ -569,9 +569,13 @@ export function ScrollyBuild() {
                   aria-hidden={i !== stage}
                 >
                   <p className="text-sm font-semibold text-wp-accent-ink">{s.step}</p>
-                  <h2 className="mt-2 text-3xl font-extrabold leading-tight text-wp-ink sm:text-4xl">
+                  {/* Kein <h2>: Dieselben sechs Titel stehen bereits als Ueberschriften
+                      in der gestapelten Liste (ReducedFallback), die fuer lg:hidden immer
+                      im Dokument liegt. Zwei Auszeichnungen desselben Textes lasen sich
+                      fuer Suchmaschinen als doppelte Ueberschriften. */}
+                  <p className="mt-2 text-3xl font-extrabold leading-tight text-wp-ink sm:text-4xl">
                     {s.title}
-                  </h2>
+                  </p>
                   <p className="mt-4 max-w-md text-base leading-relaxed text-gray-600">{s.text}</p>
                   <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-wp-accent-ink/40 bg-wp-accent-light px-3 py-1.5 text-xs font-semibold text-wp-accent-ink">
                     <CheckCircle2 className="h-3.5 w-3.5" />

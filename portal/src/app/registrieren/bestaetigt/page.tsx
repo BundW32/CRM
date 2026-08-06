@@ -18,6 +18,11 @@ const RESULTS = {
     body: "Dieser Bestätigungslink ist ungültig oder wurde bereits verwendet.",
     tone: "text-gray-700",
   },
+  limit: {
+    title: "Zu viele Versuche",
+    body: "Von diesem Anschluss sind zu viele Bestätigungen eingegangen. Bitte warten Sie eine Stunde und öffnen Sie den Link dann erneut.",
+    tone: "text-amber-700",
+  },
 } as const;
 
 export default async function VerifyResultPage({

@@ -7,6 +7,33 @@
 
 ---
 
+## Nachtrag 06.08.2026 — Umsetzungsstand
+
+Am selben Tag wurden die code-behebbaren Befunde umgesetzt (Branch
+`claude/repo-saas-fundament-check-ugythh`, alle Prüfungen inkl. der 44
+Datenbank-Tests grün):
+
+| Befund | Stand |
+|---|---|
+| **B-1** Abo-Status ohne Wirkung | ✅ Behoben: `zugriffsStatus()` in `lib/billing.ts` (voll/kulanz/gesperrt, mit Tests), Durchsetzung im Portal-Layout (nur WEG-SaaS; Plattform-Betreiber und Impersonation ausgenommen), Sperrseite `/abo` mit Checkout/Kundenportal, Kulanz-Banner bei überfälliger Zahlung. |
+| **B-2** Dependency-Schwachstellen | ✅ Behoben: `npm audit` meldet 0 Schwachstellen (Next 16.3.0, sharp 0.35.3, nodemailer 9.x u. a.); Audit-Schritt läuft jetzt in der CI. |
+| **B-3** Webhook-Lücken | ✅ Behoben: Idempotenz-Wand (`StripeEvent`-Tabelle + Migration), `invoice.payment_failed` (Status + Dunning-Mail an SuperAdmins) und `trial_will_end` behandelt, keine `null`-Überschreibung der Stripe-Ids mehr, Alarm-Mail an den Betreiber bei Fehlern und Events ohne Zuordnung (`BILLING_ALERT_EMAIL`). |
+| **B-8** Kein Reconciliation | ✅ Behoben: täglicher Cron `/api/cron/billing-abgleich` (Stripe ↔ DB, korrigiert Drift, alarmiert den Betreiber) + Erinnerung 2–3 Tage vor Ende der portalinternen Testphase. |
+| **B-10** Rate-Limit | ✅ Behoben: atomares `INSERT … ON CONFLICT … RETURNING` (unter 10 parallelen Requests exakt 5 erlaubt, verifiziert), Anmeldung fail-closed; zusätzlich P1-6b (Limit auf das Einlösen von Reset-/Bestätigungslinks). Offen bleibt aus P1-9 nur die Bindung der IP-Quelle an die Plattform. |
+| **B-11** Data-URL-Fallback | ✅ Behoben: In Produktion (`VERCEL_ENV=production`) bricht ein Upload ohne Blob-Store hart ab, statt still in die Datenbank auszuweichen. |
+| **B-4** Error-Tracking/Monitoring | ⏳ Offen — braucht Konten/Entscheidungen außerhalb des Codes (Sentry EU + AVV, externer Uptime-Check). |
+| **B-5** Backup-Restore | ⏳ Offen — operative Aufgabe beim DB-Anbieter (PITR klären, Restore proben, Runbook). |
+| **B-6** Sicherheits-Restarbeiten | ⏳ Teilweise (P0-4, P1-6b, P1-9 größtenteils erledigt); MFA, Magic-Link-Ablauf, CSP-Nonce, Testabdeckung der Datei-Endpunkte bleiben offen. |
+| **B-7** Async-Serienvorgänge | ⏳ Offen — größerer Umbau je Serienvorgang, eigenes Arbeitspaket. |
+| **B-9/B-13** Stripe Tax, Kosten je Mandant | ⏳ Offen — Konfiguration/Betriebsaufgabe, kein Code. |
+| **B-12/B-14** Feldverschlüsselung, Quoten | ⏳ Offen — eingeplant laut eigenem P2-Plan. |
+
+**Neue Umgebungsvariable:** `BILLING_ALERT_EMAIL` (optional) — Empfänger der
+Billing-Alarme; ohne sie geht der Alarm an die erste Adresse aus
+`PLATFORM_ADMIN_EMAILS`.
+
+---
+
 ## 1. Management-Zusammenfassung
 
 Das Fundament ist deutlich besser als bei den meisten SaaS-Produkten in diesem Stadium: Die Mandantentrennung ist zentral in `src/lib/access.ts` verankert, wird durch Kreuztests gegen eine echte Datenbank in der CI geprüft, Sitzungen sind widerrufbar, Uploads liegen privat im Objekt-Speicher, und die Sicherheitsarbeit ist mit zwei eigenen Berichten (`SICHERHEITSBERICHT-Marktreife.md`, `SICHERHEIT-Restarbeiten.md`) selbstkritisch dokumentiert — die dort als P0 markierten Rechteausweitungs- und Sitzungs-Lücken sind nachweislich geschlossen. Auch Architektur und Datenmodell tragen: modularer Monolith, versionierte Migrationen, die in der CI von null aufgebaut werden, 116 Indexe, idempotenter Bankimport.

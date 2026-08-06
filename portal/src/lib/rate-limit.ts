@@ -10,42 +10,57 @@ export async function getClientIp(): Promise<string> {
   );
 }
 
-// Gibt false zurück wenn das Limit überschritten ist (→ 429 / Redirect).
-// Fail-open: DB-Fehler blockieren nie legitime Nutzer.
+/**
+ * Zählt einen Versuch und meldet, ob er noch im Limit liegt.
+ * Gibt false zurück, wenn das Limit überschritten ist (→ 429 / Redirect).
+ *
+ * Atomar in EINEM Statement (INSERT … ON CONFLICT … RETURNING): Die frühere
+ * Fassung las den Zähler, prüfte ihn und schrieb dann — unter parallelen
+ * Requests verloren sich dabei Erhöhungen, und genau ein Angreifer erzeugt
+ * parallele Requests. Ein abgelaufenes Fenster wird im selben Statement auf 1
+ * zurückgesetzt.
+ *
+ * Fehlerverhalten ist wählbar:
+ * - Standard fail-open: Ein DB-Fehler blockiert nie legitime Nutzer
+ *   (Registrierung, Inbound-Mail, Versand-Limits).
+ * - `failClosed` für die Anmeldung: Wenn die Zählung nicht funktioniert, wird
+ *   NICHT unbegrenzt weiterprobiert. Aussperren kann das niemanden zusätzlich —
+ *   ohne Datenbank scheitert auch die Passwortprüfung selbst.
+ */
 export async function checkRateLimit(
   key: string,
   max: number,
-  windowSeconds: number
+  windowSeconds: number,
+  opts: { failClosed?: boolean } = {}
 ): Promise<boolean> {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + windowSeconds * 1000);
 
   try {
-    const existing = await db.rateLimit.findUnique({ where: { key } });
+    const rows = await db.$queryRaw<{ count: number }[]>`
+      INSERT INTO "RateLimit" ("key", "count", "expiresAt")
+      VALUES (${key}, 1, ${expiresAt})
+      ON CONFLICT ("key") DO UPDATE SET
+        "count" = CASE
+          WHEN "RateLimit"."expiresAt" < ${now} THEN 1
+          ELSE "RateLimit"."count" + 1
+        END,
+        "expiresAt" = CASE
+          WHEN "RateLimit"."expiresAt" < ${now} THEN ${expiresAt}
+          ELSE "RateLimit"."expiresAt"
+        END
+      RETURNING "count"
+    `;
 
-    if (!existing || existing.expiresAt < now) {
-      // Abgelaufenes oder neues Fenster – zurücksetzen
-      await db.rateLimit.upsert({
-        where: { key },
-        create: { key, count: 1, expiresAt },
-        update: { count: 1, expiresAt },
-      });
-      // Probabilistisches Cleanup abgelaufener Einträge (≈1 % der Anfragen)
-      if (Math.random() < 0.01) {
-        db.rateLimit.deleteMany({ where: { expiresAt: { lt: now } } }).catch(() => {});
-      }
-      return true;
+    // Probabilistisches Cleanup abgelaufener Einträge (≈1 % der Anfragen);
+    // die tägliche Aufräumroutine (lib/retention.ts) räumt den Rest.
+    if (Math.random() < 0.01) {
+      db.rateLimit.deleteMany({ where: { expiresAt: { lt: now } } }).catch(() => {});
     }
 
-    if (existing.count >= max) return false;
-
-    await db.rateLimit.update({
-      where: { key },
-      data: { count: { increment: 1 } },
-    });
-    return true;
+    return (rows[0]?.count ?? 1) <= max;
   } catch {
-    return true;
+    return !opts.failClosed;
   }
 }
 
@@ -57,7 +72,7 @@ export async function checkRateLimit(
  * an- und abmeldet, säße vor „zu viele Versuche". Gezählt gehören Fehlversuche;
  * ein Erfolg ist der Beweis, dass hier niemand durchprobiert.
  *
- * Fail-open wie `checkRateLimit`: Ein DB-Fehler darf niemanden aussperren.
+ * Fail-open: Ein DB-Fehler darf niemanden aussperren.
  */
 export async function resetRateLimit(key: string): Promise<void> {
   try {

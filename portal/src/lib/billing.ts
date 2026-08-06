@@ -84,3 +84,47 @@ export function subscriptionStatusLabel(status: string): string {
 export function isBillingEnabled(): boolean {
   return Boolean(process.env.STRIPE_SECRET_KEY);
 }
+
+// ── Abo-Durchsetzung ────────────────────────────────────────────────────────
+//
+// DIE eine Stelle, die aus dem Abo-Zustand ableitet, was die Organisation
+// gerade darf. Verstreute Einzelabfragen („ist der Status active?") an
+// Seiten oder Actions sind verboten — sie machen jede Änderung der
+// Kulanzregeln zum Suchspiel über die Codebasis.
+//
+//   voll     – arbeiten wie immer (aktives Abo oder laufende Testphase)
+//   kulanz   – Zahlung überfällig, Stripe wiederholt sie noch (Smart
+//              Retries). Zugriff bleibt, die Oberfläche mahnt. Scheitert
+//              auch der letzte Versuch, setzt der Webhook „canceled".
+//   gesperrt – Testphase abgelaufen ohne Buchung oder Abo gekündigt.
+//              Das Portal leitet auf die Sperrseite /abo um.
+//
+// Durchgesetzt wird das im Portal-Layout (src/app/(portal)/layout.tsx) und
+// NUR in der WEG-SaaS-Variante: Die B&W-Tür rechnet über Plattform-Rechnungen
+// ab und wird über Organization.active gesteuert.
+export type ZugriffsStatus = "voll" | "kulanz" | "gesperrt";
+
+export function zugriffsStatus(
+  org: { subscriptionStatus: string; trialEndsAt: Date | null },
+  now: Date = new Date(),
+): ZugriffsStatus {
+  switch (org.subscriptionStatus as SubscriptionStatus) {
+    case "active":
+      return "voll";
+    case "trialing":
+      // Ohne Enddatum (etwa von der Plattform angelegte Organisationen) läuft
+      // die Testphase unbefristet — gesperrt wird nur ein ABGELAUFENES Datum.
+      return !org.trialEndsAt || org.trialEndsAt.getTime() > now.getTime()
+        ? "voll"
+        : "gesperrt";
+    case "past_due":
+      return "kulanz";
+    case "canceled":
+      return "gesperrt";
+    default:
+      // Unbekannter Status sperrt niemanden aus: Er kann nur durch Drift oder
+      // Handeingriff entstehen, und dafür gibt es den täglichen Abgleich
+      // (api/cron/billing-abgleich) — nicht die Aussperrung des Kunden.
+      return "voll";
+  }
+}

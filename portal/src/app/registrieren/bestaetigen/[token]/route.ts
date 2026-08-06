@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { hashToken } from "@/lib/token-hash";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,12 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
+
+  // Grenze auch auf das Einlösen, nicht nur auf das Anfordern (P1-6b).
+  const ip = await getClientIp();
+  if (!(await checkRateLimit(`verify-einloesen:${ip}`, 10, 3600))) {
+    return NextResponse.redirect(new URL("/registrieren/bestaetigt?status=limit", request.url));
+  }
 
   let status: "ok" | "expired" | "invalid" = "invalid";
 

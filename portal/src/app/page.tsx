@@ -45,6 +45,7 @@ import { ScrollyBuild } from "@/components/marketing/scrolly-build";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
 import { isWegSaas } from "@/lib/app-mode";
+import { siteUrl } from "@/lib/site-url";
 import {
   BASIC_JE_EINHEIT_EUR,
   monatspreis,
@@ -58,8 +59,7 @@ export const metadata: Metadata = {
   title: "WEG selbst verwalten ohne Hausverwaltung – wegportal24",
   description:
     "Keine Hausverwaltung gefunden? Verwalten Sie Ihre WEG selbst: Wirtschaftsplan, " +
-    "Hausgeld, Jahresabrechnung, Versammlung und Beschlüsse nach WEG-Recht – " +
-    "kostenlos starten, ohne Zahlungsdaten.",
+    "Hausgeld, Jahresabrechnung und Versammlung – jetzt kostenlos starten.",
   keywords: [
     "WEG selbst verwalten",
     "WEG Selbstverwaltung",
@@ -69,10 +69,29 @@ export const metadata: Metadata = {
     "Hausgeld verwalten",
   ],
   openGraph: {
-    title: "WEG selbst verwalten – wegportal24",
+    type: "website",
+    locale: "de_DE",
+    siteName: "wegportal24",
+    url: "/",
+    title: "WEG selbst verwalten ohne Hausverwaltung – wegportal24",
     description:
       "Wirtschaftsplan, Hausgeld, Jahresabrechnung und Versammlung für " +
       "selbstverwaltete Eigentümergemeinschaften.",
+    // Ohne Bild zeigen soziale Netze und Messenger nur einen grauen Kasten.
+    images: [
+      {
+        url: "/images/marketing/hero-building-v2.jpg",
+        alt: "Mehrfamilienhaus einer Wohnungseigentümergemeinschaft",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "WEG selbst verwalten ohne Hausverwaltung – wegportal24",
+    description:
+      "Wirtschaftsplan, Hausgeld, Jahresabrechnung und Versammlung für " +
+      "selbstverwaltete Eigentümergemeinschaften.",
+    images: ["/images/marketing/hero-building-v2.jpg"],
   },
 };
 
@@ -275,6 +294,69 @@ const FAQ = [
   },
 ];
 
+// ── Strukturierte Daten (schema.org) ──────────────────────────────────────
+// Es gab keine. Ohne sie kennt eine Suchmaschine nur den Fließtext; mit ihnen
+// kann die FAQ direkt in der Trefferliste aufklappen, und Name, Betreiber und
+// Preis des Produkts stehen maschinenlesbar da.
+//
+// Die Fragen kommen aus derselben Liste, die auch die Seite rendert — eine
+// zweite, gepflegte Kopie würde irgendwann auseinanderlaufen, und Google
+// verlangt, dass Auszeichnung und sichtbarer Text übereinstimmen.
+function StrukturierteDaten() {
+  const basis = siteUrl();
+  const daten = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": basis + "/#website",
+        url: basis + "/",
+        name: "wegportal24",
+        inLanguage: "de-DE",
+      },
+      {
+        "@type": "Organization",
+        "@id": basis + "/#organisation",
+        name: "wegportal24",
+        url: basis + "/",
+        email: "info@wegportal24.de",
+      },
+      {
+        "@type": "SoftwareApplication",
+        name: "wegportal24",
+        applicationCategory: "BusinessApplication",
+        operatingSystem: "Web",
+        url: basis + "/",
+        inLanguage: "de-DE",
+        description:
+          "Portal für selbstverwaltete Wohnungseigentümergemeinschaften: " +
+          "Wirtschaftsplan, Hausgeld, Jahresabrechnung, Versammlung und Beschlüsse.",
+        offers: {
+          "@type": "Offer",
+          price: BASIC_JE_EINHEIT_EUR,
+          priceCurrency: "EUR",
+          description: "je Einheit und Monat – der Start ist kostenlos",
+        },
+      },
+      {
+        "@type": "FAQPage",
+        "@id": basis + "/#faq",
+        mainEntity: FAQ.map(({ f, a }) => ({
+          "@type": "Question",
+          name: f,
+          acceptedAnswer: { "@type": "Answer", text: a },
+        })),
+      },
+    ],
+  };
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(daten) }}
+    />
+  );
+}
+
 export default async function Home() {
   const user = await getUser();
   // Eingeloggt: in beiden Modi direkt ins Portal.
@@ -290,6 +372,7 @@ export default async function Home() {
 
   return (
     <main className="mk-light flex-1">
+      <StrukturierteDaten />
       {/* Elemente 1–2: sprechende URLs, Logo oben links in der Kopfzeile */}
       <MarketingHeader />
 
@@ -316,8 +399,8 @@ export default async function Home() {
               </span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-white/85 sm:text-lg">
-              Immer mehr kleine Gemeinschaften bekommen schlicht keinen Verwalter
-              mehr – die Pflichten aus dem WEG-Gesetz bleiben trotzdem.{" "}
+              Immer mehr kleine Gemeinschaften bekommen <strong className="font-semibold text-white">schlicht keinen Verwalter
+              mehr</strong> – die Pflichten aus dem WEG-Gesetz bleiben trotzdem.{" "}
               <span className="hidden sm:inline">
                 wegportal24 gibt Ihnen alles an die Hand, um Ihre Gemeinschaft
                 einfach, gemeinsam und rechtssicher selbst zu verwalten.

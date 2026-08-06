@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLANS, aktiverPlan, planLabel } from "./billing";
+import { PLANS, aktiverPlan, checkoutJeEinheitCents, planLabel } from "./billing";
 
 describe("aktiverPlan", () => {
   it("meldet in der Testphase Pro, nicht den gespeicherten Tarif", () => {
@@ -35,6 +35,19 @@ describe("Einheiten-Tarife", () => {
     // Einheit und Monat (Stand 04.08.2026, Festlegung des Auftraggebers).
     expect(PLANS.basic.perUnitCents).toBe(1000);
     expect(PLANS.plus.perUnitCents).toBe(1390);
+  });
+
+  it("berechnet den Checkout-Preis je Einheit nach der Mengenstaffel", () => {
+    // Der Buchen-Knopf bucht GENAU die Zahlen der Preisseite: Basispreis bis
+    // 4 Einheiten, 10 % Rabatt ab 5, 20 % ab 9 (RABATT_STAFFEL). Der Betrag
+    // geht als price_data inline an Stripe — es gibt keine zweite Staffel im
+    // Stripe-Dashboard, die abweichen könnte.
+    expect(checkoutJeEinheitCents("basic", 2)).toBe(1000);
+    expect(checkoutJeEinheitCents("basic", 5)).toBe(900);
+    expect(checkoutJeEinheitCents("basic", 9)).toBe(800);
+    expect(checkoutJeEinheitCents("plus", 4)).toBe(1390);
+    expect(checkoutJeEinheitCents("plus", 5)).toBe(1251);
+    expect(checkoutJeEinheitCents("plus", 12)).toBe(1112);
   });
 });
 

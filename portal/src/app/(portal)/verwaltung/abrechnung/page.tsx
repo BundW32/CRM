@@ -32,6 +32,13 @@ function preisZeile(plan: Plan): string {
 
 const FEHLER_TEXTE: Record<string, string> = {
   kein_kunde: "Noch kein Abo vorhanden – bitte zuerst einen Tarif buchen.",
+  nicht_konfiguriert:
+    "Die Online-Buchung ist noch nicht fertig eingerichtet. Bitte versuchen " +
+    "Sie es später erneut – Ihr Portal-Zugang läuft davon unabhängig weiter.",
+  zahlung:
+    "Die Verbindung zur Zahlungsabwicklung ist fehlgeschlagen – es wurde " +
+    "nichts gebucht. Bitte versuchen Sie es erneut; bleibt der Fehler, " +
+    "wenden Sie sich an uns.",
   keine_einheiten:
     "Es sind noch keine Einheiten angelegt – der Preis rechnet je Einheit. " +
     "Bitte legen Sie zuerst Ihr WEG-Objekt mit seinen Einheiten an.",

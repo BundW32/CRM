@@ -4,7 +4,11 @@
 // Typen/Konstanten + sichere Helfer, damit der Rest der App schon damit arbeiten
 // kann, ohne dass etwas bricht, wenn Stripe (noch) nicht konfiguriert ist.
 
-import { BASIC_JE_EINHEIT_EUR, PLUS_JE_EINHEIT_EUR } from "@/app/preise/preise-daten";
+import {
+  BASIC_JE_EINHEIT_EUR,
+  PLUS_JE_EINHEIT_EUR,
+  jeEinheitNachStaffel,
+} from "@/app/preise/preise-daten";
 
 export type PlanId = "free" | "pro" | "basic" | "plus";
 
@@ -61,6 +65,20 @@ export const PLANS: Record<PlanId, Plan> = {
     perUnitCents: Math.round(PLUS_JE_EINHEIT_EUR * 100),
   },
 };
+
+/**
+ * Preis je Einheit und Monat in Cent für den Stripe-Checkout — nach Mengenstaffel.
+ *
+ * Der Checkout legt den Preis damit inline an (`price_data`), statt eine vorab
+ * im Stripe-Dashboard gepflegte Preis-ID mit Volumen-Staffel zu verlangen:
+ * Preise und Staffel stehen in `preise-daten.ts`, der einen Preisquelle — eine
+ * zweite Pflege derselben Staffel in Stripe liefe früher oder später auseinander,
+ * und ohne die Preis-IDs führte der Buchen-Knopf ins Leere.
+ */
+export function checkoutJeEinheitCents(tarif: "basic" | "plus", einheiten: number): number {
+  const basis = tarif === "basic" ? BASIC_JE_EINHEIT_EUR : PLUS_JE_EINHEIT_EUR;
+  return Math.round(jeEinheitNachStaffel(basis, einheiten) * 100);
+}
 
 export type SubscriptionStatus =
   | "trialing"

@@ -4,7 +4,9 @@
 // Typen/Konstanten + sichere Helfer, damit der Rest der App schon damit arbeiten
 // kann, ohne dass etwas bricht, wenn Stripe (noch) nicht konfiguriert ist.
 
-export type PlanId = "free" | "pro";
+import { BASIC_JE_EINHEIT_EUR, PLUS_JE_EINHEIT_EUR } from "@/app/preise/preise-daten";
+
+export type PlanId = "free" | "pro" | "basic" | "plus";
 
 export type Plan = {
   id: PlanId;
@@ -12,24 +14,51 @@ export type Plan = {
   description: string;
   // Preis bewusst offen (null = noch nicht festgelegt). Cent/Monat, sobald geklärt.
   monthlyPriceCents: number | null;
+  /**
+   * Preis je Einheit und Monat in Cent — das Modell der wegportal24-Tarife
+   * (Quelle: `app/preise/preise-daten.ts`, die eine Preisquelle). Tarife mit
+   * diesem Feld werden im Checkout mit Menge = Einheitenzahl gebucht; die
+   * Mengenstaffel liegt als Volumen-Preisstufen am Stripe-Preis selbst.
+   */
+  perUnitCents?: number;
 };
 
 export const PLANS: Record<PlanId, Plan> = {
   free: {
     id: "free",
     name: "Free",
-    // Nicht mehr „zum Ausprobieren": Ausprobiert wird Pro — die Testphase
-    // liefert den vollen Funktionsumfang. Free ist der Tarif DANACH, und sein
+    // Nicht mehr „zum Ausprobieren": Ausprobiert wird der volle Umfang — die
+    // Testphase liefert ihn komplett. Free ist der Tarif DANACH, und sein
     // Zuschnitt steht noch nicht fest; das gehört hier hin und nicht in eine
     // Beschreibung, die einen fertigen Grundtarif behauptet.
     description: "Grundfunktionen nach der Testphase. Der Umfang wird noch festgelegt.",
     monthlyPriceCents: 0,
   },
+  // Die pauschale Pro-Stufe der B&W-Variante (professionelle Verwaltungen).
   pro: {
     id: "pro",
     name: "Pro",
     description: "Voller Funktionsumfang für aktive Hausverwaltungen.",
     monthlyPriceCents: null, // Preis folgt
+  },
+  // Die beiden wegportal24-Tarife: je Einheit und Monat, alle Zugänge inklusive.
+  basic: {
+    id: "basic",
+    name: "Basic",
+    description:
+      "Die komplette Selbstverwaltung. Alle Zugänge inklusive — Eigentümer, " +
+      "Beirat und Mieter zählen nicht extra.",
+    monthlyPriceCents: null,
+    perUnitCents: Math.round(BASIC_JE_EINHEIT_EUR * 100),
+  },
+  plus: {
+    id: "plus",
+    name: "Verwalter-Plus",
+    description:
+      "Alles aus Basic — plus ein Ticket-System zu einem zertifizierten " +
+      "Verwalter (§ 26a WEG) für die Fragen Ihrer Gemeinschaft.",
+    monthlyPriceCents: null,
+    perUnitCents: Math.round(PLUS_JE_EINHEIT_EUR * 100),
   },
 };
 

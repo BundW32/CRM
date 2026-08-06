@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { isWegSaas } from "@/lib/app-mode";
+import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 // Eine Codebasis, zwei Marken: Der Titel im Browser-Tab, der Name auf dem
@@ -13,11 +14,43 @@ import "./globals.css";
 export function generateMetadata(): Metadata {
   const weg = isWegSaas();
   return {
+    // Basis für alle relativen Adressen in den Metadaten. Ohne sie kann Next
+    // weder ein Canonical noch eine absolute og:image-Adresse bilden – beides
+    // verlangen Suchmaschinen und soziale Netze absolut.
+    metadataBase: new URL(siteUrl()),
     title: weg ? "wegportal24 – WEG selbst verwalten" : "B&W Kundenportal",
     description: weg
       ? "Portal für selbstverwaltete Wohnungseigentümergemeinschaften – " +
         "Wirtschaftsplan, Jahresabrechnung, Hausgeld, Versammlung und Beschlüsse an einem Ort."
       : "Kundenportal der B&W Immobilien Management UG – für Mieter, Eigentümer und Verwaltung.",
+    // Selbstverweisendes Canonical für JEDE Seite. "./" löst Next gegen
+    // metadataBase und den aktuellen Pfad auf – eine Zeile hier ersetzt einen
+    // Eintrag je Route. Vorher hatte keine einzige Seite ein Canonical, womit
+    // dieselbe Seite mit und ohne Schrägstrich und mit Query-Parametern als
+    // mehrere Adressen zählte.
+    alternates: { canonical: "./" },
+    // Die B&W-Tür ist ein reines Kundenportal: nichts davon gehört in einen
+    // Suchindex. wegportal24 dagegen ausdrücklich freigeben, mit großen
+    // Vorschaubildern und ungekürzten Snippets.
+    robots: weg
+      ? {
+          index: true,
+          follow: true,
+          googleBot: {
+            index: true,
+            follow: true,
+            "max-image-preview": "large",
+            "max-snippet": -1,
+            "max-video-preview": -1,
+          },
+        }
+      : { index: false, follow: false, nocache: true },
+    openGraph: {
+      type: "website",
+      locale: "de_DE",
+      siteName: weg ? "wegportal24" : "B&W Kundenportal",
+      url: "./",
+    },
     manifest: "/manifest.webmanifest",
     appleWebApp: {
       capable: true,

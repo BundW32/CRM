@@ -39,6 +39,10 @@ const FEHLER_TEXTE: Record<string, string> = {
     "Ihre Gemeinschaft hat mehr als 12 Einheiten – dafür gibt es keinen " +
     "Self-Service-Tarif. Bitte wenden Sie sich an uns, wir melden uns mit " +
     "einem Angebot.",
+  checkout_fehlgeschlagen:
+    "Die Weiterleitung zur Zahlung ist fehlgeschlagen. Bitte versuchen Sie es " +
+    "erneut – bleibt der Fehler, prüfen wir die Konfiguration (die Ursache " +
+    "steht in unseren Logs).",
 };
 
 export default async function BillingPage({

@@ -2065,6 +2065,22 @@ enum VerbindlichkeitKind {
   SONSTIGE
 }
 
+// Verarbeitete Stripe-Webhook-Events (Idempotenz-Wand). Stripe liefert Events
+// mehrfach — bei ausbleibender 200-Antwort, aber auch schlicht doppelt. Ohne
+// diese Wand würde jede Wiederholung erneut verarbeitet: doppelte
+// Status-Umstellungen wären folgenlos, doppelte E-Mails an Kunden nicht.
+// Der Primärschlüssel ist die Stripe-Event-Id; ein zweites Eintreffen scheitert
+// am Unique und wird ohne Wirkung mit 200 beantwortet. Alte Einträge räumt der
+// tägliche Cleanup-Cron ab (lib/retention.ts) — Stripe wiederholt höchstens
+// wenige Tage.
+model StripeEvent {
+  id        String   @id // Stripe-Event-Id (evt_…)
+  type      String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model Verbindlichkeit {
   id             String              @id @default(cuid())
   organizationId String

@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { createSession, revokeSessions } from "@/lib/session";
 import { hashToken } from "@/lib/token-hash";
 
@@ -10,6 +11,14 @@ export async function resetPassword(formData: FormData) {
   const token = String(formData.get("token") ?? "");
   const password = String(formData.get("password") ?? "");
   const passwordConfirm = String(formData.get("passwordConfirm") ?? "");
+
+  // Grenze auch auf das EINLÖSEN, nicht nur auf das Anfordern (P1-6b): Bei
+  // 256 Bit Token-Zufall ist Durchprobieren akademisch — aber die Grenze
+  // kostet nichts und macht den Endpunkt als Orakel unbrauchbar.
+  const ip = await getClientIp();
+  if (!(await checkRateLimit(`reset-einloesen:${ip}`, 10, 3600))) {
+    redirect(`/login/reset/${token}?fehler=limit`);
+  }
 
   if (!token || password.length < 10 || password !== passwordConfirm) {
     redirect(`/login/reset/${token}?fehler=eingabe`);

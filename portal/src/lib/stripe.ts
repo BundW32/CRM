@@ -1,4 +1,21 @@
 import Stripe from "stripe";
+import type { PlanId, SubscriptionStatus } from "./billing";
+
+// Stripe-Abo-Status → unser subscriptionStatus. Vom Webhook UND vom täglichen
+// Abgleich genutzt — zwei Kopien dieser Zuordnung würden auseinanderlaufen.
+export function mapStripeStatus(s: Stripe.Subscription.Status): SubscriptionStatus {
+  switch (s) {
+    case "active":
+      return "active";
+    case "trialing":
+      return "trialing";
+    case "past_due":
+    case "unpaid":
+      return "past_due";
+    default:
+      return "canceled";
+  }
+}
 
 // Lazy Stripe-Client. Ohne STRIPE_SECRET_KEY ist die Anbindung inaktiv
 // (`stripeOrNull()` liefert dann null) – Build und App laufen ohne Keys durch,
@@ -20,6 +37,9 @@ export function stripeOrNull(): Stripe | null {
 //   STRIPE_PRICE_PLUS      – Preis-ID des Verwalter-Plus-Abos je Einheit
 //   STRIPE_PRICE_PRO       – Preis-ID des pauschalen Pro-Abos (B&W-Variante)
 //   PORTAL_BASE_URL        – Basis-URL für Success/Cancel/Return
+//   BILLING_ALERT_EMAIL    – Empfänger der Billing-Alarme (Webhook-Fehler,
+//                            Drift im täglichen Abgleich); ersatzweise geht der
+//                            Alarm an die erste Adresse aus PLATFORM_ADMIN_EMAILS
 export function stripePricePro(): string | null {
   return process.env.STRIPE_PRICE_PRO || null;
 }
@@ -34,4 +54,33 @@ export function stripePricePlus(): string | null {
 
 export function stripeWebhookSecret(): string | null {
   return process.env.STRIPE_WEBHOOK_SECRET || null;
+}
+
+// Leitet den Tarif aus der Stripe-Preis-Id ab. Nötig überall dort, wo es KEINE
+// Checkout-Metadaten gibt: bei `customer.subscription.updated` und im täglichen
+// Abgleich. Ohne diese Ableitung stünde dort nur ein pauschales „pro" — und
+// jedes Abo-Update überschriebe den gebuchten Basic-/Plus-Tarif.
+// null = Preis keinem Tarif zuordenbar (dann den gespeicherten Plan lassen).
+export function planFromPriceId(priceId: string | null | undefined): PlanId | null {
+  if (!priceId) return null;
+  if (priceId === stripePriceBasic()) return "basic";
+  if (priceId === stripePricePlus()) return "plus";
+  if (priceId === stripePricePro()) return "pro";
+  return null;
+}
+
+// Erzeugt eine Customer-Portal-Session (Zahlungsmittel, Rechnungen, Kündigung).
+// Von der Abrechnungsseite UND der Sperrseite (/abo) genutzt.
+// null = Billing nicht konfiguriert oder noch kein Stripe-Kunde.
+export async function createPortalUrl(
+  org: { stripeCustomerId: string | null },
+  returnUrl: string,
+): Promise<string | null> {
+  const stripe = stripeOrNull();
+  if (!stripe || !org.stripeCustomerId) return null;
+  const session = await stripe.billingPortal.sessions.create({
+    customer: org.stripeCustomerId,
+    return_url: returnUrl,
+  });
+  return session.url;
 }

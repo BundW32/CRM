@@ -7,6 +7,7 @@ import {
   hatPlanFunktion,
   istTestphaseAbgelaufen,
   planLabel,
+  zugriffsStatus,
 } from "./billing";
 
 // Hilfen: eine Organisation mit laufender bzw. abgelaufener Testfrist.
@@ -139,6 +140,45 @@ describe("Einheiten-Tarife", () => {
     expect(checkoutJeEinheitCents("plus", 4)).toBe(1390);
     expect(checkoutJeEinheitCents("plus", 5)).toBe(1251);
     expect(checkoutJeEinheitCents("plus", 12)).toBe(1112);
+  });
+});
+
+describe("zugriffsStatus", () => {
+  const now = new Date("2026-08-06T12:00:00Z");
+  const morgen = new Date("2026-08-07T12:00:00Z");
+  const gestern = new Date("2026-08-05T12:00:00Z");
+
+  it("lässt aktive Abos und laufende Testphasen arbeiten", () => {
+    expect(zugriffsStatus({ subscriptionStatus: "active", trialEndsAt: null }, now)).toBe("voll");
+    expect(zugriffsStatus({ subscriptionStatus: "trialing", trialEndsAt: morgen }, now)).toBe("voll");
+  });
+
+  it("meldet eine abgelaufene Testphase als gesperrt (heißt: Start-Umfang, kein Aussperren)", () => {
+    // „gesperrt" führt seit dem 06.08.2026 nicht mehr auf eine Sperrseite —
+    // es gilt der Start-Umfang, und die Buchungsseite /abo nutzt den Status
+    // als Zugangswächter. Ohne die Ableitung hätte der Ablauf gar keine Wirkung.
+    expect(zugriffsStatus({ subscriptionStatus: "trialing", trialEndsAt: gestern }, now)).toBe(
+      "gesperrt",
+    );
+  });
+
+  it("lässt eine Testphase OHNE Enddatum unbefristet laufen (von der Plattform angelegte Organisationen)", () => {
+    expect(zugriffsStatus({ subscriptionStatus: "trialing", trialEndsAt: null }, now)).toBe("voll");
+  });
+
+  it("sperrt gekündigte Abos und gewährt bei überfälliger Zahlung Kulanz", () => {
+    expect(zugriffsStatus({ subscriptionStatus: "canceled", trialEndsAt: null }, now)).toBe(
+      "gesperrt",
+    );
+    // Stripe wiederholt die Zahlung (Smart Retries) — der Kunde bleibt drin,
+    // die Oberfläche mahnt. Endgültig scheitern setzt „canceled".
+    expect(zugriffsStatus({ subscriptionStatus: "past_due", trialEndsAt: null }, now)).toBe(
+      "kulanz",
+    );
+  });
+
+  it("sperrt bei unbekanntem Status niemanden aus (Drift meldet der Abgleich)", () => {
+    expect(zugriffsStatus({ subscriptionStatus: "kaputt", trialEndsAt: gestern }, now)).toBe("voll");
   });
 });
 

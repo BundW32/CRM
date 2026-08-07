@@ -39,8 +39,13 @@ export async function login(formData: FormData) {
   // langen Schlüsseln vollschreiben kann.
   const kennungKey = `login:kennung:${kennung.slice(0, 120)}`;
   const ipKey = `login:${ip}`;
-  const kennungLimit = kennung ? await checkRateLimit(kennungKey, 5, 900) : true;
-  const ipLimit = await checkRateLimit(ipKey, 30, 900);
+  // Fail-closed NUR hier: Wenn die Zählung nicht funktioniert, wird nicht
+  // unbegrenzt weiterprobiert. Aussperren kann das niemanden zusätzlich —
+  // ohne Datenbank scheitert auch die Passwortprüfung selbst.
+  const kennungLimit = kennung
+    ? await checkRateLimit(kennungKey, 5, 900, { failClosed: true })
+    : true;
+  const ipLimit = await checkRateLimit(ipKey, 30, 900, { failClosed: true });
   if (!kennungLimit || !ipLimit) {
     redirect("/login?fehler=limit");
   }

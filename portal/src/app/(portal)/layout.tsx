@@ -49,6 +49,12 @@ export default async function PortalLayout({
   const selfManaged = isSelfManaged(org);
   const isPlatformAdmin = isPlatformAdminUser(user);
 
+  // Abo-Durchsetzung: bewusst KEINE Sperrseite (Festlegung 06.08.2026).
+  // Nach abgelaufener Testphase oder Kündigung gilt der Start-Umfang der
+  // Preisseite („ohne Frist im Nacken") — das AboBanner unten sagt es der
+  // verwaltenden Person, gesperrt wird je Funktion über hatPlanFunktion
+  // (lib/billing.ts). Die Buchungsseite /abo bleibt direkt erreichbar.
+
   // WEG-Finanzen nur einblenden, wenn WEG-Objekte im Zuständigkeitsbereich liegen.
   const hasWegObjekte =
     user.role === "VERWALTER"

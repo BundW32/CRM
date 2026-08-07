@@ -57,6 +57,21 @@ function uploadDir() {
   return path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? "./uploads");
 }
 
+// Der Data-URL-Fallback (Datei als Base64 in der Datenbank) ist für Previews
+// gedacht. In PRODUKTION ist er ein schleichender Datenbank-Aufbläher: Jeder
+// Beleg, jedes Foto landete für immer als Base64-Spalte in Postgres, und
+// niemand merkte es — die Uploads „funktionieren" ja. Deshalb bricht Produktion
+// ohne Blob-Store hart ab, statt still in die Datenbank auszuweichen.
+function assertDataUrlFallbackAllowed() {
+  if (process.env.VERCEL_ENV === "production") {
+    throw new Error(
+      "Dateien können nicht gespeichert werden: In Produktion muss Vercel Blob " +
+        "konfiguriert sein (BLOB_READ_WRITE_TOKEN). Der Data-URL-Fallback in die " +
+        "Datenbank ist Preview-Umgebungen vorbehalten."
+    );
+  }
+}
+
 export async function saveUpload(file: File, allowedTypes: string[]) {
   if (file.size === 0) throw new Error("Die Datei ist leer.");
   if (file.size > MAX_FILE_SIZE) {
@@ -79,6 +94,7 @@ export async function saveUpload(file: File, allowedTypes: string[]) {
   }
 
   if (process.env.VERCEL) {
+    assertDataUrlFallbackAllowed();
     // Vercel ohne Blob: als Data-URL in der DB ablegen (max. 5 MB)
     if (file.size > DATA_URL_MAX_SIZE) {
       throw new Error(
@@ -125,6 +141,7 @@ export async function saveBuffer(
   }
 
   if (process.env.VERCEL) {
+    assertDataUrlFallbackAllowed();
     // Vercel ohne Blob: als Data-URL in der DB ablegen (max. 5 MB)
     if (size > DATA_URL_MAX_SIZE) {
       throw new Error(

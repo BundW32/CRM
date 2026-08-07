@@ -48,6 +48,10 @@ const FEHLER_TEXTE: Record<string, string> = {
     "Ihre Gemeinschaft hat mehr als 12 Einheiten – dafür gibt es keinen " +
     "Self-Service-Tarif. Bitte wenden Sie sich an uns, wir melden uns mit " +
     "einem Angebot.",
+  checkout_fehlgeschlagen:
+    "Die Weiterleitung zur Zahlung ist fehlgeschlagen. Bitte versuchen Sie es " +
+    "erneut – bleibt der Fehler, prüfen wir die Konfiguration (die Ursache " +
+    "steht in unseren Logs).",
 };
 
 export default async function BillingPage({
@@ -102,7 +106,9 @@ export default async function BillingPage({
         <dl className="grid gap-4 sm:grid-cols-2">
           <div>
             <dt className="text-xs uppercase tracking-wide text-gray-400">Aktueller Tarif</dt>
-            <dd className="text-lg font-semibold text-gray-900">{planLabel(genutzt)}</dd>
+            {/* Auf wegportal24 heißt der volle Umfang der Testphase nach außen
+                „Verwalter-Plus" — das interne „Pro" ist dort kein Tarifname. */}
+            <dd className="text-lg font-semibold text-gray-900">{planLabel(hervorgehoben)}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-gray-400">Status</dt>
@@ -144,28 +150,14 @@ export default async function BillingPage({
 
         {billingReady ? (
           <div className="mt-6 flex flex-wrap gap-2">
-            {/* Ein zweites Abo neben einem aktiven wäre eine Doppelbuchung —
-                mit laufendem Abo führt der Weg über das Kundenportal. */}
-            {!hatAktivesAbo ? (
-              weg ? (
-                <>
-                  <form action={startCheckout}>
-                    <input type="hidden" name="tarif" value="basic" />
-                    <PendingButton className={buttonClass}>Basic buchen</PendingButton>
-                  </form>
-                  <form action={startCheckout}>
-                    <input type="hidden" name="tarif" value="plus" />
-                    <PendingButton className={buttonSecondaryClass}>
-                      Verwalter-Plus buchen
-                    </PendingButton>
-                  </form>
-                </>
-              ) : genutzt !== "pro" ? (
-                <form action={startCheckout}>
-                  <input type="hidden" name="tarif" value="pro" />
-                  <PendingButton className={buttonClass}>Auf Pro upgraden</PendingButton>
-                </form>
-              ) : null
+            {/* Die Buchungs-Knöpfe der wegportal24-Tarife sitzen unten in den
+                Tarifkarten — direkt bei der Erklärung dessen, was man bucht.
+                Hier oben bleibt nur, was das laufende Abo betrifft. */}
+            {!hatAktivesAbo && !weg && genutzt !== "pro" ? (
+              <form action={startCheckout}>
+                <input type="hidden" name="tarif" value="pro" />
+                <PendingButton className={buttonClass}>Auf Pro upgraden</PendingButton>
+              </form>
             ) : null}
             {/* Tarifwechsel im laufenden Abo — kein neuer Checkout, der
                 bestehende Abo-Posten wird umgestellt und anteilig verrechnet. */}
@@ -228,6 +220,17 @@ export default async function BillingPage({
               <p className="mt-1 text-xs text-gray-500">
                 Mengenrabatt ab 5 Einheiten — Details auf der Preisseite.
               </p>
+            ) : null}
+            {/* Der Buchen-Knopf gehört zur Erklärung des Tarifs. Mit aktivem
+                Abo verschwindet er — ein zweites Abo daneben wäre eine
+                Doppelbuchung; dafür gibt es oben den Tarifwechsel-Knopf. */}
+            {billingReady &&
+            !hatAktivesAbo &&
+            (plan.id === "basic" || plan.id === "plus") ? (
+              <form action={startCheckout} className="mt-4">
+                <input type="hidden" name="tarif" value={plan.id} />
+                <PendingButton className={buttonClass}>{plan.name} buchen</PendingButton>
+              </form>
             ) : null}
           </div>
         ))}

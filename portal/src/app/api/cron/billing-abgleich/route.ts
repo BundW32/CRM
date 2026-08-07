@@ -3,7 +3,7 @@ import { isWegSaas } from "@/lib/app-mode";
 import { isBillingEnabled } from "@/lib/billing";
 import { alertBetreiber, mailOrgSuperAdmins } from "@/lib/billing-notify";
 import { db } from "@/lib/db";
-import { mapStripeStatus, stripeOrNull } from "@/lib/stripe";
+import { mapStripeStatus, planFromPriceId, stripeOrNull } from "@/lib/stripe";
 import { portalUrl } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
@@ -45,12 +45,18 @@ export async function GET(request: Request) {
       const sub = await stripe.subscriptions.retrieve(org.stripeSubscriptionId!);
       const status = mapStripeStatus(sub.status);
       if (status !== org.subscriptionStatus) {
+        // Tarif wie im Webhook aus dem Stripe-Preis ableiten — nie pauschal
+        // „pro", das überschriebe einen gebuchten Basic-/Plus-Tarif.
+        const planAusPreis = planFromPriceId(sub.items?.data?.[0]?.price?.id);
         await db.organization.update({
           where: { id: org.id },
           data: {
             subscriptionStatus: status,
-            ...(status === "active" ? { plan: "pro" } : {}),
-            ...(status === "canceled" ? { plan: "free" } : {}),
+            ...(status === "canceled"
+              ? { plan: "free" }
+              : planAusPreis
+                ? { plan: planAusPreis }
+                : {}),
           },
         });
         korrigiert.push(`${org.name} (${org.id}): ${org.subscriptionStatus} → ${status}`);

@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { db } from "@/lib/db";
 import { isBillingEnabled } from "@/lib/billing";
 import { alertBetreiber, mailOrgSuperAdmins } from "@/lib/billing-notify";
-import { mapStripeStatus, stripeOrNull, stripeWebhookSecret } from "@/lib/stripe";
+import { mapStripeStatus, planFromPriceId, stripeOrNull, stripeWebhookSecret } from "@/lib/stripe";
 import { portalUrl } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
@@ -49,10 +49,15 @@ export async function POST(request: Request) {
         const session = event.data.object as Stripe.Checkout.Session;
         const organizationId = session.client_reference_id;
         if (organizationId) {
+          // Welcher Tarif gebucht wurde, steht in den Metadaten der Session
+          // (gesetzt in abrechnung/actions.ts). Unbekannte Werte fallen auf
+          // "pro" zurück — das ist der Alt-Zustand vor den Einheiten-Tarifen.
+          const tarifRaw = session.metadata?.tarif;
+          const plan = tarifRaw === "basic" || tarifRaw === "plus" ? tarifRaw : "pro";
           await db.organization.updateMany({
             where: { id: organizationId },
             data: {
-              plan: "pro",
+              plan,
               subscriptionStatus: "active",
               // Ids nur setzen, wenn Stripe sie liefert — nie eine vorhandene
               // Zuordnung mit null überschreiben (expandierte Objekte statt
@@ -76,6 +81,10 @@ export async function POST(request: Request) {
             ? "canceled"
             : mapStripeStatus(sub.status);
         const customerId = typeof sub.customer === "string" ? sub.customer : null;
+        // Der Tarif folgt dem Stripe-Preis der Subscription — hier gibt es
+        // keine Checkout-Metadaten, und ein pauschales „pro" überschriebe den
+        // gebuchten Basic-/Plus-Tarif bei jedem Abo-Update.
+        const planAusPreis = planFromPriceId(sub.items?.data?.[0]?.price?.id);
         // Zuordnung über die Subscription-Id, ersatzweise über die Customer-Id.
         const result = await db.organization.updateMany({
           where: customerId
@@ -83,10 +92,11 @@ export async function POST(request: Request) {
             : { stripeSubscriptionId: sub.id },
           data: {
             subscriptionStatus: status,
-            // Reaktivierung nach Kündigung: „canceled" hatte den Plan auf free
-            // zurückgesetzt — wird das Abo wieder aktiv, gehört er zurück auf pro.
-            ...(status === "active" ? { plan: "pro" } : {}),
-            ...(status === "canceled" ? { plan: "free" } : {}),
+            ...(status === "canceled"
+              ? { plan: "free" }
+              : planAusPreis
+                ? { plan: planAusPreis }
+                : {}),
           },
         });
         if (result.count === 0) {

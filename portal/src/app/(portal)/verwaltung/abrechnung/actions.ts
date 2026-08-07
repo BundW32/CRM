@@ -2,16 +2,19 @@
 
 import { redirect } from "next/navigation";
 import { isBillingEnabled } from "@/lib/billing";
+import { parseTarif, starteCheckout } from "@/lib/billing-checkout";
 import { getOrganization, requireVerwalter } from "@/lib/session";
-import { createCheckoutUrl, createPortalUrl } from "@/lib/stripe";
+import { createPortalUrl } from "@/lib/stripe";
 
 function baseUrl(): string {
   return (process.env.PORTAL_BASE_URL ?? "").replace(/\/$/, "");
 }
 
-// Startet den Stripe-Checkout für das Pro-Abo. Nur SuperAdmin, nur wenn Billing
-// konfiguriert ist (sonst bleibt die Seite beim „wird eingerichtet"-Hinweis).
-export async function startCheckout() {
+// Startet den Stripe-Checkout. Nur SuperAdmin, nur wenn Billing konfiguriert
+// ist (sonst bleibt die Seite beim „wird eingerichtet"-Hinweis). Tarifwahl,
+// Einheitenzählung und Session-Aufbau liegen in lib/billing-checkout.ts —
+// gemeinsam mit der Sperrseite /abo.
+export async function startCheckout(formData: FormData) {
   const actor = await requireVerwalter();
   if (!actor.isSuperAdmin) redirect("/verwaltung");
   const org = await getOrganization();
@@ -24,13 +27,14 @@ export async function startCheckout() {
   const base = baseUrl();
   // Nach dem Bezahlen auf die Danke-Seite — nicht zurück in die nüchterne
   // Abrechnungs-Übersicht. Der Abbruch bleibt dort, wo man weitermacht.
-  const url = await createCheckoutUrl(
+  const ergebnis = await starteCheckout(
     org,
+    parseTarif(formData.get("tarif")),
     `${base}/verwaltung/abrechnung/danke`,
     `${base}/verwaltung/abrechnung?abbruch=1`,
   );
-  if (!url) redirect("/verwaltung/abrechnung?fehler=nicht_konfiguriert");
-  redirect(url);
+  if ("fehler" in ergebnis) redirect(`/verwaltung/abrechnung?fehler=${ergebnis.fehler}`);
+  redirect(ergebnis.url);
 }
 
 // Öffnet das Stripe-Kundenportal (Zahlungsmittel/Kündigung/Rechnungen).

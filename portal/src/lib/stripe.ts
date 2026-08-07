@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import type { SubscriptionStatus } from "./billing";
+import type { PlanId, SubscriptionStatus } from "./billing";
 
 // Stripe-Abo-Status → unser subscriptionStatus. Vom Webhook UND vom täglichen
 // Abgleich genutzt — zwei Kopien dieser Zuordnung würden auseinanderlaufen.
@@ -32,7 +32,10 @@ export function stripeOrNull(): Stripe | null {
 // Env-Konfiguration (alles optional; ohne diese bleibt Billing inaktiv):
 //   STRIPE_SECRET_KEY      – Secret Key (sk_test_… / sk_live_…)
 //   STRIPE_WEBHOOK_SECRET  – Signing Secret des Webhook-Endpoints (whsec_…)
-//   STRIPE_PRICE_PRO       – Preis-ID des Pro-Abos (price_…) aus dem Dashboard
+//   STRIPE_PRICE_BASIC     – Preis-ID des Basic-Abos je Einheit (price_…),
+//                            in Stripe als Volumen-Staffel angelegt
+//   STRIPE_PRICE_PLUS      – Preis-ID des Verwalter-Plus-Abos je Einheit
+//   STRIPE_PRICE_PRO       – Preis-ID des pauschalen Pro-Abos (B&W-Variante)
 //   PORTAL_BASE_URL        – Basis-URL für Success/Cancel/Return
 //   BILLING_ALERT_EMAIL    – Empfänger der Billing-Alarme (Webhook-Fehler,
 //                            Drift im täglichen Abgleich); ersatzweise geht der
@@ -41,37 +44,33 @@ export function stripePricePro(): string | null {
   return process.env.STRIPE_PRICE_PRO || null;
 }
 
+export function stripePriceBasic(): string | null {
+  return process.env.STRIPE_PRICE_BASIC || null;
+}
+
+export function stripePricePlus(): string | null {
+  return process.env.STRIPE_PRICE_PLUS || null;
+}
+
 export function stripeWebhookSecret(): string | null {
   return process.env.STRIPE_WEBHOOK_SECRET || null;
 }
 
-// ── Gemeinsame Checkout-/Portal-Helfer ──────────────────────────────────────
-// Von der Abrechnungsseite UND der Sperrseite (/abo) genutzt. Beide Aufrufer
-// unterscheiden sich nur in den Rücksprung-Adressen — die Stripe-Logik selbst
-// darf es nur einmal geben.
-
-// Erzeugt eine Checkout-Session für das Pro-Abo. null = Billing nicht
-// konfiguriert oder Stripe lieferte keine URL.
-export async function createCheckoutUrl(
-  org: { id: string; stripeCustomerId: string | null },
-  successUrl: string,
-  cancelUrl: string,
-): Promise<string | null> {
-  const stripe = stripeOrNull();
-  const price = stripePricePro();
-  if (!stripe || !price) return null;
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    line_items: [{ price, quantity: 1 }],
-    client_reference_id: org.id,
-    customer: org.stripeCustomerId ?? undefined,
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-  });
-  return session.url ?? null;
+// Leitet den Tarif aus der Stripe-Preis-Id ab. Nötig überall dort, wo es KEINE
+// Checkout-Metadaten gibt: bei `customer.subscription.updated` und im täglichen
+// Abgleich. Ohne diese Ableitung stünde dort nur ein pauschales „pro" — und
+// jedes Abo-Update überschriebe den gebuchten Basic-/Plus-Tarif.
+// null = Preis keinem Tarif zuordenbar (dann den gespeicherten Plan lassen).
+export function planFromPriceId(priceId: string | null | undefined): PlanId | null {
+  if (!priceId) return null;
+  if (priceId === stripePriceBasic()) return "basic";
+  if (priceId === stripePricePlus()) return "plus";
+  if (priceId === stripePricePro()) return "pro";
+  return null;
 }
 
 // Erzeugt eine Customer-Portal-Session (Zahlungsmittel, Rechnungen, Kündigung).
+// Von der Abrechnungsseite UND der Sperrseite (/abo) genutzt.
 // null = Billing nicht konfiguriert oder noch kein Stripe-Kunde.
 export async function createPortalUrl(
   org: { stripeCustomerId: string | null },

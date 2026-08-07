@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { PendingButton } from "@/components/pending-button";
 import { PublicBrand } from "@/components/public-brand";
-import { Alert, buttonClass } from "@/components/ui";
+import { Alert, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { isWegSaas } from "@/lib/app-mode";
 import { isBillingEnabled, zugriffsStatus } from "@/lib/billing";
 import { logout } from "@/app/login/actions";
@@ -9,6 +9,15 @@ import { getOrganization, requireUser } from "@/lib/session";
 import { openPortalAusSperre, startCheckoutAusSperre } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+const FEHLER_TEXTE: Record<string, string> = {
+  kein_kunde:
+    "Für diese Organisation ist noch kein Zahlungskonto hinterlegt. Bitte nutzen Sie die Buchung — oder wenden Sie sich an den Support.",
+  keine_einheiten:
+    "Es sind noch keine Einheiten angelegt – der Preis rechnet je Einheit. Bitte wenden Sie sich an den Support.",
+  zu_viele_einheiten:
+    "Ihre Gemeinschaft hat mehr als 12 Einheiten – dafür gibt es keinen Self-Service-Tarif. Bitte wenden Sie sich an uns, wir melden uns mit einem Angebot.",
+};
 
 /**
  * Sperrseite der Abo-Durchsetzung (nur WEG-SaaS).
@@ -60,20 +69,33 @@ export default async function AboSperrePage({
         ) : null}
         {sp.fehler ? (
           <Alert variant="error" className="mb-4">
-            {sp.fehler === "kein_kunde"
-              ? "Für diese Organisation ist noch kein Zahlungskonto hinterlegt. Bitte nutzen Sie die Buchung — oder wenden Sie sich an den Support."
-              : "Die Abrechnung ist noch nicht fertig eingerichtet. Bitte wenden Sie sich an den Support."}
+            {FEHLER_TEXTE[sp.fehler] ??
+              "Die Abrechnung ist noch nicht fertig eingerichtet. Bitte wenden Sie sich an den Support."}
           </Alert>
         ) : null}
 
         {kannBuchen ? (
           isBillingEnabled() ? (
             <div className="grid gap-3">
-              <form action={startCheckoutAusSperre}>
-                <PendingButton className={buttonClass} pendingLabel="Weiter zu Stripe…">
-                  Pro-Abo buchen
-                </PendingButton>
-              </form>
+              {/* Dieselben Tarife wie auf der Abrechnungsseite — Preis je
+                  Einheit, alle Zugänge inklusive (lib/billing-checkout.ts). */}
+              <div className="flex flex-wrap gap-2">
+                <form action={startCheckoutAusSperre}>
+                  <input type="hidden" name="tarif" value="basic" />
+                  <PendingButton className={buttonClass} pendingLabel="Weiter zu Stripe…">
+                    Basic buchen
+                  </PendingButton>
+                </form>
+                <form action={startCheckoutAusSperre}>
+                  <input type="hidden" name="tarif" value="plus" />
+                  <PendingButton
+                    className={buttonSecondaryClass}
+                    pendingLabel="Weiter zu Stripe…"
+                  >
+                    Verwalter-Plus buchen
+                  </PendingButton>
+                </form>
+              </div>
               {org.stripeCustomerId ? (
                 <form action={openPortalAusSperre}>
                   <PendingButton

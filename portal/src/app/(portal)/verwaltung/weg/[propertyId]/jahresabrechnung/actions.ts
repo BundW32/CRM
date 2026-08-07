@@ -199,7 +199,7 @@ export async function distributeByMeters(formData: FormData) {
   // Einheit werden summiert). Allgemeinzähler (ohne unitId) zählen hier nicht.
   const units = await db.unit.findMany({
     where: { propertyId: property.id },
-    select: { id: true, mea: true, livingArea: true, personCount: true },
+    select: { id: true, mea: true, livingArea: true, personCount: true, unitType: true },
   });
   const meters = await db.meter.findMany({
     where: { unitId: { in: units.map((u) => u.id) }, type: meterType },

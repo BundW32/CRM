@@ -48,8 +48,10 @@ export async function GET(request: Request) {
         // Tarif wie im Webhook aus dem Stripe-Preis ableiten — nie pauschal
         // „pro", das überschriebe einen gebuchten Basic-/Plus-Tarif.
         const tarifMeta = sub.metadata?.tarif;
+        // Über ALLE Posten suchen — items[0] kann seit den Stellplätzen auch
+        // die Stellplatz-Position sein, deren Preis-Id keinem Tarif entspricht.
         const planAusPreis =
-          planFromPriceId(sub.items?.data?.[0]?.price?.id) ??
+          sub.items?.data?.map((item) => planFromPriceId(item.price?.id)).find(Boolean) ??
           // Inline erzeugte Preise (Checkout/Tarifwechsel ohne Env-Preis-Id)
           // erkennt planFromPriceId nicht — dann trägt das Abo den Tarif als
           // Metadatum, wie im Webhook.

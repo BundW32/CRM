@@ -10,13 +10,15 @@
 // - `pro` (B&W-Variante): pauschal je Organisation, Menge 1.
 import type Stripe from "stripe";
 import { MAX_EINHEITEN } from "@/app/preise/preise-daten";
-import { checkoutJeEinheitCents, type PlanId } from "@/lib/billing";
-import { db } from "@/lib/db";
+import { STELLPLATZ_CENTS, checkoutJeEinheitCents, type PlanId } from "@/lib/billing";
+import { zaehleWegMengen } from "@/lib/billing-mengen";
 import {
+  STELLPLATZ_PRODUKT_METADATUM,
   stripeOrNull,
   stripePriceBasic,
   stripePricePlus,
   stripePricePro,
+  stripePriceStellplatz,
 } from "@/lib/stripe";
 
 export type CheckoutFehler =
@@ -65,13 +67,16 @@ export async function starteCheckout(
   }
 
   let quantity = 1;
+  let stellplaetze = 0;
   if (tarif === "basic" || tarif === "plus") {
     // Die Einheit ist die Abrechnungsgröße: Sie steht in der Teilungserklärung
     // und ändert sich nicht — gezählt wird über alle WEG-Objekte der
     // Organisation (selbstverwaltete WEGs haben in aller Regel genau eines).
-    quantity = await db.unit.count({
-      where: { property: { organizationId: org.id, managementType: "WEG" } },
-    });
+    // Stellplätze zählen separat: 1 € je Stellplatz, ohne Staffel — und ohne
+    // Einfluss auf die Einheiten-Grenzen.
+    const mengen = await zaehleWegMengen(org.id);
+    quantity = mengen.einheiten;
+    stellplaetze = mengen.stellplaetze;
     if (quantity < 1) return { fehler: "keine_einheiten" };
     // Oberhalb der Grenze ist Selbstverwaltung kein Self-Service-Fall mehr —
     // dieselbe Grenze wie auf der Preisseite.
@@ -98,10 +103,34 @@ export async function starteCheckout(
         quantity,
       };
 
+  // Stellplätze als eigene Position — nur wenn es welche gibt. Das Produkt
+  // trägt das Kennzeichen-Metadatum, damit Mengenabgleich und Tarifwechsel
+  // den Posten später vom Tarif-Posten unterscheiden können.
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [lineItem];
+  if ((tarif === "basic" || tarif === "plus") && stellplaetze > 0) {
+    const stellplatzPrice = stripePriceStellplatz();
+    lineItems.push(
+      stellplatzPrice
+        ? { price: stellplatzPrice, quantity: stellplaetze }
+        : {
+            price_data: {
+              currency: "eur",
+              unit_amount: STELLPLATZ_CENTS,
+              recurring: { interval: "month" },
+              product_data: {
+                name: "wegportal24 Stellplatz/Garage",
+                metadata: { ...STELLPLATZ_PRODUKT_METADATUM },
+              },
+            },
+            quantity: stellplaetze,
+          },
+    );
+  }
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      line_items: [lineItem],
+      line_items: lineItems,
       client_reference_id: org.id,
       customer: org.stripeCustomerId ?? undefined,
       // Der Webhook liest den gebuchten Tarif aus den Metadaten — die Preis-Id

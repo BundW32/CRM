@@ -48,6 +48,12 @@ export function advanceWeightsForKey(units: UnitForDistribution[], key: Distribu
       return units.map((u) => ({ unitId: u.id, weight: 1 }));
     case "PERSONEN":
       return units.map((u) => ({ unitId: u.id, weight: u.personCount ?? 0 }));
+    case "JE_STELLPLATZ":
+      // Auch beim Vorschuss strikt auf die Stellplätze — hier gibt es keine
+      // nachsichtige Variante: Ohne Stellplatz-Einheit liefe die Position auf
+      // ein Gesamtgewicht von 0, und das übersetzt computeUnitAdvances in
+      // eine verständliche PositionNichtVerteilbar-Meldung.
+      return units.map((u) => ({ unitId: u.id, weight: u.unitType === "STELLPLATZ" ? 1 : 0 }));
     default:
       throw new Error(`Unerwarteter Umlageschlüssel: ${effective}`);
   }
@@ -110,6 +116,9 @@ export function benoetigtesFeld(key: DistributionKey): "flaeche" | "personen" | 
   if (key === "FLAECHE") return "flaeche";
   if (key === "PERSONEN") return "personen";
   if (key === "EINHEITEN") return null;
+  // JE_STELLPLATZ braucht kein Stammdatenfeld, sondern Einheiten vom Typ
+  // Stellplatz — die Meldung dazu formuliert die Verteilung selbst.
+  if (key === "JE_STELLPLATZ") return null;
   // VERBRAUCH/FESTBETRAG/INDIVIDUELL laufen beim Vorschuss über MEA.
   return "mea";
 }
@@ -167,9 +176,12 @@ export function computeUnitAdvances(items: PlanItemInput[], units: UnitForDistri
             ? "Bei keiner Einheit ist eine Personenzahl hinterlegt."
             : feld === "mea"
               ? "Die Miteigentumsanteile sind unvollständig."
-              : e instanceof Error
-                ? e.message
-                : "Verteilung nicht möglich.",
+              : item.distributionKey === "JE_STELLPLATZ"
+                ? "Im Objekt ist keine Einheit vom Typ „Stellplatz“ angelegt — " +
+                  "der Schlüssel „je Stellplatz“ braucht mindestens eine."
+                : e instanceof Error
+                  ? e.message
+                  : "Verteilung nicht möglich.",
       );
     }
     // Einnahmen mit umgekehrtem Vorzeichen — je Einheit und in der

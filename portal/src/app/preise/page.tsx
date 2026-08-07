@@ -6,16 +6,26 @@
 // dem Portal (ohne Namensnennung — die Betreiberin steht im Impressum).
 //
 // Die Beträge und die Staffel kommen aus ./preise-daten (eine Quelle für
-// Karten, Rechner und die FAQ der Startseite). Bewusst NICHT auf der Seite:
-// Vertragslaufzeiten, Kündigungsfristen und Umsatzsteuer-Darstellung — beides
-// ist noch nicht festgelegt und wird nicht erfunden.
+// Karten, Rechner und die FAQ der Startseite). Seit den AGB vom 05.08.2026
+// festgelegt und deshalb auf der Seite: Alle Preise sind BRUTTOPREISE
+// (Gesamtpreise inkl. Umsatzsteuer, AGB Ziffer 6), es gibt keine
+// Mindestlaufzeit, gekündigt wird jederzeit zum Ende des Abrechnungsmonats
+// (AGB Ziffer 8). Die Brutto-Transparenz wird aktiv ausgespielt — Wettbewerber
+// werben mit Nettopreisen, der Endbetrag ist das ehrliche Vergleichsmaß.
 import type { Metadata } from "next";
 import { BRAND_EMAIL } from "@/components/marketing/brand";
 import { CtaBand, MarketingFooter, MarketingHeader } from "@/components/marketing/site";
 import { Reveal } from "@/components/marketing/reveal";
 import { assertMainDomain } from "@/lib/marketing";
 import { TarifBereich } from "./tarif-bereich";
-import { MAX_EINHEITEN, RABATT_STAFFEL } from "./preise-daten";
+import {
+  BASIC_JE_EINHEIT_EUR,
+  MAX_EINHEITEN,
+  monatspreis,
+  RABATT_STAFFEL,
+  rabattFuer,
+  VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR,
+} from "./preise-daten";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +34,52 @@ export const metadata: Metadata = {
   description:
     "Kostenlos starten, dann je Einheit und Monat: Basic 10 €, Verwalter-Plus " +
     "13,90 € mit Ticket-System zu einem zertifizierten Verwalter (§ 26a WEG). " +
-    "Alle Zugänge inklusive, Mengenrabatt ab 5 Einheiten.",
+    "Endpreise inkl. MwSt., alle Zugänge inklusive, Mengenrabatt ab 5 Einheiten, " +
+    "keine Mindestlaufzeit.",
 };
 
+// Rechenbeispiele je WEG-Größe: eine kleine, eine mittlere und eine große
+// Gemeinschaft im Self-Service-Bereich — die Größen decken die drei Stufen
+// der Mengenstaffel ab (ohne Rabatt, 10 %, 20 %).
+const BEISPIEL_GROESSEN = [3, 6, 9] as const;
+
+const euro = (betrag: number) =>
+  betrag.toLocaleString("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  });
+
 const PREIS_FAQ = [
+  {
+    f: "Sind die Preise brutto oder netto?",
+    a:
+      "Brutto. 10 € sind bei uns 10 € – die gesetzliche Mehrwertsteuer ist " +
+      "bereits enthalten, es kommt kein Aufschlag dazu. Ihre WEG zahlt als " +
+      "Verbraucherin genau den Betrag, der auf dieser Seite steht. " +
+      "Software-Preise werden anderswo oft netto beworben; vergleichen Sie " +
+      "deshalb immer den Endbetrag.",
+  },
+  {
+    f: "Gibt es eine Mindestlaufzeit?",
+    a:
+      "Nein. Der Vertrag läuft auf unbestimmte Zeit und ist jederzeit zum " +
+      "Ende des laufenden Abrechnungsmonats kündbar – formlos, zum Beispiel " +
+      "per E-Mail oder über den Kündigen-Link in der Fußzeile. Ihre Daten " +
+      "bleiben danach noch mindestens 30 Tage exportierbar.",
+  },
+  {
+    f: "Zählen Stellplätze und Garagen als Einheiten?",
+    a:
+      "Nein. Stellplätze, Carports, Garagen und Tiefgaragen-Stellplätze " +
+      "kosten in den Bezahltarifen pauschal 1,00 € je Stellplatz und Monat " +
+      "(inkl. MwSt.), im Start-Tarif nichts. Sie beeinflussen weder den " +
+      "Mengenrabatt noch die 12-Einheiten-Grenze – die zählt nur Ihre Wohn- " +
+      "und Gewerbeeinheiten. Hinweis: Ob eine Garage rechtlich ein eigenes " +
+      "Sondereigentumsrecht ist (relevant für die Zertifizierungsfrage nach " +
+      "§ 19 Abs. 2 Nr. 6 WEG), sagt Ihre Teilungserklärung – das Portal " +
+      "trifft dazu keine Aussage.",
+  },
   {
     f: "Warum wird je Einheit gerechnet – und nicht je Nutzer?",
     a:
@@ -94,7 +146,11 @@ export default async function PreisePage() {
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-wp-ink/75 sm:text-lg">
             Kostenlos starten, ohne Zahlungsdaten. Danach zahlt Ihre
             Gemeinschaft je Einheit und Monat – und je mehr Einheiten es sind,
-            desto günstiger wird die einzelne.
+            desto günstiger wird die einzelne.{" "}
+            <strong className="font-semibold text-wp-ink">
+              Alle Preise sind Endpreise inklusive Mehrwertsteuer
+            </strong>{" "}
+            – 10 € sind bei uns 10 €.
           </p>
         </Reveal>
 
@@ -102,6 +158,75 @@ export default async function PreisePage() {
         <div className="mt-10">
           <Reveal>
             <TarifBereich />
+          </Reveal>
+        </div>
+
+        {/* ── Rechenbeispiele: Ersparnis gegenüber einer externen Verwaltung ──
+            Drei WEG-Größen, die die drei Stufen der Mengenstaffel abdecken.
+            Beide Seiten der Rechnung kommen aus preise-daten — dieselben
+            Werte wie in der Beispielrechnung der Startseite. */}
+        <div className="mt-16">
+          <Reveal>
+            <h2 className="text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
+              Was Ihre WEG im Jahr spart – drei Beispielgrößen
+            </h2>
+            <p className="mt-3 max-w-2xl leading-relaxed text-wp-ink/70">
+              Eine externe WEG-Verwaltung kostet marktüblich 25 bis 40 € je
+              Einheit und Monat – kleine Gemeinschaften zahlen meist am oberen
+              Rand, Sondervergütungen kommen häufig dazu. So rechnet sich die
+              Selbstverwaltung mit dem Basic-Tarif, Mengenrabatt bereits
+              eingerechnet:
+            </p>
+          </Reveal>
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            {BEISPIEL_GROESSEN.map((einheiten, i) => {
+              const jahrVerwaltung =
+                VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR * einheiten * 12;
+              const jahrPortal = monatspreis(BASIC_JE_EINHEIT_EUR, einheiten) * 12;
+              const rabatt = rabattFuer(einheiten);
+              return (
+                <Reveal key={einheiten} delay={i * 90}>
+                  <div className="flex h-full flex-col rounded-2xl border border-wp-ink/10 bg-white p-6 shadow-e1">
+                    <p className="text-sm font-semibold text-wp-ink/60">
+                      WEG mit {einheiten} Einheiten
+                    </p>
+                    <p className="mt-3 flex items-baseline justify-between gap-3 text-sm text-wp-ink/70">
+                      <span>Externe Verwaltung</span>
+                      <span className="font-semibold tabular-nums text-wp-ink">
+                        {euro(jahrVerwaltung)} / Jahr
+                      </span>
+                    </p>
+                    <p className="mt-2 flex items-baseline justify-between gap-3 text-sm text-wp-ink/70">
+                      <span>
+                        wegportal24 Basic
+                        {rabatt > 0 ? ` (−${Math.round(rabatt * 100)} %)` : ""}
+                      </span>
+                      <span className="font-semibold tabular-nums text-wp-ink">
+                        {euro(jahrPortal)} / Jahr
+                      </span>
+                    </p>
+                    <p className="mt-4 border-t border-wp-ink/10 pt-3 text-sm font-semibold text-wp-accent-ink">
+                      Bleibt in der Rücklage
+                    </p>
+                    <p className="text-2xl font-semibold tabular-nums text-wp-ink">
+                      {euro(jahrVerwaltung - jahrPortal)}
+                      <span className="text-base font-normal text-wp-ink/60">
+                        {" "}
+                        im Jahr
+                      </span>
+                    </p>
+                  </div>
+                </Reveal>
+              );
+            })}
+          </div>
+          <Reveal delay={120}>
+            <p className="mt-3 text-xs text-wp-ink/50">
+              Beispielrechnung mit {euro(VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR)} je
+              Einheit und Monat für die externe Verwaltung – marktübliche
+              Vergütungen unterscheiden sich je nach Region und
+              Leistungsumfang. Alle wegportal24-Preise inkl. MwSt.
+            </p>
           </Reveal>
         </div>
 

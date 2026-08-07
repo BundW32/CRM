@@ -351,7 +351,7 @@ export async function schreibeSollstellungenFort(formData: FormData) {
 
   const units = await db.unit.findMany({
     where: { propertyId: property.id },
-    select: { id: true, mea: true, livingArea: true, personCount: true },
+    select: { id: true, mea: true, livingArea: true, personCount: true, unitType: true },
   });
   if (units.length === 0) back(property.id, "fehler=einheiten");
 

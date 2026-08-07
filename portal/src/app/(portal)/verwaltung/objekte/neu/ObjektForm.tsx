@@ -87,6 +87,9 @@ export function ObjektForm({
   const [units, setUnits] = useState<Array<UnitRow & { key: string }>>([
     { key: nextKey(), label: "", external: "", floor: "", area: "", mea: "", persons: "" },
   ]);
+  // Anzahl Stellplätze/Garagen (nur WEG) — sie entstehen als Einheiten vom
+  // Typ STELLPLATZ und zählen abrechnungsseitig nicht als Einheiten.
+  const [stellplatzAnzahl, setStellplatzAnzahl] = useState("");
   const [tenants, setTenants] = useState<Array<TenantRow & { key: string }>>([]);
   const [owners, setOwners] = useState<Array<OwnerRow & { key: string }>>([]);
   const [name, setName] = useState(defaultName);
@@ -504,6 +507,30 @@ export function ObjektForm({
         >
           + Einheit hinzufügen
         </button>
+        {isWeg ? (
+          <div className="mt-4 border-t border-gray-100 pt-4">
+            <div className="max-w-xs">
+              <Field label="Stellplätze & Garagen (Anzahl, optional)">
+                <input
+                  type="number"
+                  name="stellplatzAnzahl"
+                  min={0}
+                  max={99}
+                  value={stellplatzAnzahl}
+                  onChange={(e) => setStellplatzAnzahl(e.target.value)}
+                  placeholder="z. B. 4"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Sie werden als Einheiten vom Typ „Stellplatz&ldquo; angelegt
+              (Stellplatz 1, 2, …) und lassen sich in den WEG-Stammdaten
+              umbenennen und Eigentümern zuordnen. Stellplätze zählen nicht
+              als Wohn-/Gewerbeeinheiten.
+            </p>
+          </div>
+        ) : null}
       </Card>
 
       {/* 3. Eigentümer — WEG: je Einheit; Mietverwaltung: ein Objekt-Eigentümer */}

@@ -260,7 +260,7 @@ async function main() {
 
     const units = await db.unit.findMany({
       where: { propertyId: weg.id },
-      select: { id: true, label: true, mea: true, livingArea: true, personCount: true },
+      select: { id: true, label: true, mea: true, livingArea: true, personCount: true, unitType: true },
       orderBy: { orderIndex: "asc" },
     });
     const advances = computeUnitAdvances(

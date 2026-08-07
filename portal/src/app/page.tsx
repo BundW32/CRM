@@ -25,6 +25,7 @@ import {
   FileSignature,
   HandCoins,
   Landmark,
+  MessagesSquare,
   ShieldCheck,
   Users,
   Vote,
@@ -49,7 +50,9 @@ import { siteUrl } from "@/lib/site-url";
 import {
   BASIC_JE_EINHEIT_EUR,
   monatspreis,
+  PLUS_JE_EINHEIT_EUR,
   START_EINHEITEN,
+  VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR,
 } from "./preise/preise-daten";
 
 export const dynamic = "force-dynamic";
@@ -153,13 +156,9 @@ const NUTZEN = [
   },
 ];
 
-// Vergleichsrechnung gegenüber einer externen Verwaltung. Die Portal-Seite
-// der Rechnung kommt aus `preise/preise-daten.ts` (die eine Preisquelle);
-// der Vergleichswert ist eine marktübliche Grundvergütung externer
-// WEG-Verwaltungen (je nach Region meist 25–40 € je Einheit und Monat,
-// kleine Gemeinschaften eher am oberen Rand) – bewusst als Mittelwert
-// angesetzt und im Text als Beispielrechnung gekennzeichnet.
-const VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR = 30;
+// Vergleichsrechnung gegenüber einer externen Verwaltung. Beide Seiten der
+// Rechnung kommen aus `preise/preise-daten.ts` (die eine Preisquelle) — die
+// Preisseite rechnet mit denselben Werten je WEG-Größe.
 const VERGLEICH_EINHEITEN = START_EINHEITEN;
 const VERGLEICH_JAHR_VERWALTUNG =
   VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR * VERGLEICH_EINHEITEN * 12;
@@ -220,9 +219,10 @@ const FAQ = [
       "Der Start ist kostenlos und ohne Zahlungsdaten. Danach zahlt Ihre " +
       "Gemeinschaft je Einheit und Monat: Basic 10 €, Verwalter-Plus 13,90 € – " +
       "Letzterer mit einem Ticket-System, über das ein zertifizierter " +
-      "Verwalter (§ 26a WEG) Ihre Fragen beantwortet. Alle Zugänge sind immer " +
-      "inklusive, und je mehr Einheiten, desto günstiger wird die einzelne. " +
-      "Details und ein Rechner stehen auf der Preisseite.",
+      "Verwalter (§ 26a WEG) Ihre Fragen beantwortet. Alle Preise sind " +
+      "Endpreise inklusive Mehrwertsteuer, alle Zugänge immer inklusive, und " +
+      "je mehr Einheiten, desto günstiger wird die einzelne. Details und ein " +
+      "Rechner stehen auf der Preisseite.",
   },
   {
     f: "Brauchen wir für die Selbstverwaltung einen Verwaltervertrag?",
@@ -678,6 +678,83 @@ export default async function Home() {
               <p className="mt-2 text-xs text-wp-ink/50">
                 Allgemeine Vorlage, keine Rechtsberatung.
               </p>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ── Verwalter-Plus: der Draht zum zertifizierten Verwalter ────────────
+          Das stärkste Unterscheidungsmerkmal des Portals gehört auf die
+          Startseite, nicht nur auf die Preisseite: Self-Service-Software plus
+          punktueller Zugriff auf einen Verwalter mit Zertifizierung nach
+          § 26a WEG. Die Funktion dahinter ist das Ticket-System unter
+          `(portal)/verwaltung/verwalter-tickets/` — keine Behauptung ohne
+          Code. Preis aus der einen Preisquelle. */}
+      <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
+        <Reveal>
+          <div className="rounded-2xl border border-wp-accent-ink/30 bg-wp-accent-light/50 p-6 shadow-e1 sm:p-10">
+            <div className="grid items-start gap-8 lg:grid-cols-[1.3fr_1fr] lg:gap-12">
+              <div>
+                <p className="inline-flex items-center gap-2 rounded-full border border-wp-accent-ink/30 bg-white px-3 py-1 text-xs font-semibold tracking-wide text-wp-accent-ink">
+                  <MessagesSquare className="h-3.5 w-3.5" />
+                  Verwalter-Plus
+                </p>
+                <h2 className="mt-4 text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
+                  Selbst verwalten – mit einem zertifizierten Verwalter im
+                  Rücken
+                </h2>
+                <p className="mt-3 max-w-2xl leading-relaxed text-wp-ink/75">
+                  Streit um eine Abrechnungsposition? Unsicher, wie der
+                  Beschluss zur Dachsanierung formuliert werden muss? Im
+                  Verwalter-Plus-Tarif stellt Ihre Gemeinschaft solche Fragen
+                  per Ticket direkt einem Verwalter mit Zertifizierung nach
+                  § 26a WEG – die Antwort bleibt im Portal dokumentiert, für
+                  die ganze Gemeinschaft nachlesbar.
+                </p>
+                <p className="mt-3 max-w-2xl leading-relaxed text-wp-ink/75">
+                  Das Amt und alle Entscheidungen bleiben bei Ihrer
+                  Gemeinschaft. Sie holen sich Rückendeckung genau dann, wenn
+                  Sie sie brauchen – statt dauerhaft eine volle Verwaltung zu
+                  bezahlen.
+                </p>
+              </div>
+              <div className="flex h-full flex-col rounded-2xl border border-wp-ink/10 bg-white p-6 shadow-e1">
+                <p className="text-sm font-semibold text-wp-ink/60">
+                  Verwalter-Plus
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-wp-ink">
+                  {PLUS_JE_EINHEIT_EUR.toLocaleString("de-DE", {
+                    minimumFractionDigits: 2,
+                  })}{" "}
+                  €
+                  <span className="text-base font-normal text-wp-ink/60">
+                    {" "}
+                    je Einheit / Monat
+                  </span>
+                </p>
+                <p className="mt-1 text-sm text-wp-ink/60">
+                  Endpreis inkl. MwSt. – alle Zugänge inklusive
+                </p>
+                <ul className="mt-4 flex-1 space-y-2 text-sm text-wp-ink/80">
+                  {[
+                    "Fragen zu Abrechnung, Beschlüssen und Einzelfällen",
+                    "Antworten von echten Verwaltungs-Profis",
+                    "Dokumentiert im Portal, jederzeit kündbar",
+                  ].map((punkt) => (
+                    <li key={punkt} className="flex items-start gap-2">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-wp-accent-ink" />
+                      {punkt}
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/preise"
+                  className={`${wpButtonClass} mt-5 w-full py-2.5`}
+                >
+                  Tarife vergleichen
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
           </div>
         </Reveal>

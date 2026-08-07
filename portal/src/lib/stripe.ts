@@ -36,6 +36,9 @@ export function stripeOrNull(): Stripe | null {
 //                            in Stripe als Volumen-Staffel angelegt
 //   STRIPE_PRICE_PLUS      – Preis-ID des Verwalter-Plus-Abos je Einheit
 //   STRIPE_PRICE_PRO       – Preis-ID des pauschalen Pro-Abos (B&W-Variante)
+//   STRIPE_PRICE_STELLPLATZ – Preis-ID der Stellplatz-Position (1 €/Monat je
+//                            Stellplatz, flach); ohne sie wird der Preis wie
+//                            bei den Tarifen inline aus preise-daten erzeugt
 //   PORTAL_BASE_URL        – Basis-URL für Success/Cancel/Return
 //   BILLING_ALERT_EMAIL    – Empfänger der Billing-Alarme (Webhook-Fehler,
 //                            Drift im täglichen Abgleich); ersatzweise geht der
@@ -50,6 +53,29 @@ export function stripePriceBasic(): string | null {
 
 export function stripePricePlus(): string | null {
   return process.env.STRIPE_PRICE_PLUS || null;
+}
+
+export function stripePriceStellplatz(): string | null {
+  return process.env.STRIPE_PRICE_STELLPLATZ || null;
+}
+
+// Kennzeichen der Stellplatz-Position am Stripe-Produkt. Der Mengenabgleich
+// und der Tarifwechsel müssen die beiden Abo-Posten (Tarif je Einheit,
+// Stellplätze) auseinanderhalten — bei inline erzeugten Preisen verrät die
+// Preis-Id nichts, deshalb trägt das Produkt dieses Metadatum.
+export const STELLPLATZ_PRODUKT_METADATUM = { posten: "stellplatz" } as const;
+
+/** Ist dieser Abo-Posten die Stellplatz-Position? (Preis-Id oder Produkt-Metadatum) */
+export function istStellplatzPosten(item: {
+  price: { id: string; product: string | { id: string; metadata?: Record<string, string> } };
+}): boolean {
+  const envId = stripePriceStellplatz();
+  if (envId && item.price.id === envId) return true;
+  const product = item.price.product;
+  return (
+    typeof product !== "string" &&
+    product.metadata?.posten === STELLPLATZ_PRODUKT_METADATUM.posten
+  );
 }
 
 export function stripeWebhookSecret(): string | null {

@@ -87,8 +87,10 @@ export async function POST(request: Request) {
         // Tarif als Metadatum (Tarifwechsel mit inline erzeugtem Preis, dessen
         // Id planFromPriceId nichts sagt), gilt das als Rückfallebene.
         const tarifMeta = sub.metadata?.tarif;
+        // Über ALLE Posten suchen — items[0] kann seit den Stellplätzen auch
+        // die Stellplatz-Position sein, deren Preis-Id keinem Tarif entspricht.
         const planAusPreis =
-          planFromPriceId(sub.items?.data?.[0]?.price?.id) ??
+          sub.items?.data?.map((item) => planFromPriceId(item.price?.id)).find(Boolean) ??
           (tarifMeta === "basic" || tarifMeta === "plus" || tarifMeta === "pro"
             ? tarifMeta
             : null);

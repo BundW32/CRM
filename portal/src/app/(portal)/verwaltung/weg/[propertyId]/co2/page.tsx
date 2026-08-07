@@ -33,7 +33,7 @@ export default async function Co2Page({
     db.unit.findMany({
       where: { propertyId: property.id },
       orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
-      select: { id: true, label: true, mea: true, livingArea: true, personCount: true },
+      select: { id: true, label: true, mea: true, livingArea: true, personCount: true, unitType: true },
     }),
     db.co2Allocation.findMany({ where: { propertyId: property.id }, orderBy: { year: "desc" } }),
   ]);

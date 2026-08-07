@@ -24,6 +24,43 @@
 export const BASIC_JE_EINHEIT_EUR = 10;
 export const PLUS_JE_EINHEIT_EUR = 13.9;
 
+// Beide Beträge sind BRUTTOPREISE: Kundin ist die selbstverwaltende WEG als
+// Verbraucherin, und die AGB (Stand 05.08.2026, Ziffer 6) weisen die Preise
+// als Gesamtpreise einschließlich Umsatzsteuer aus. Die Seiten sagen das
+// ausdrücklich dazu — Wettbewerber werben mit Nettopreisen, der Endbetrag
+// ist das ehrliche Vergleichsmaß.
+
+/**
+ * Vergleichswert für die Ersparnis-Rechnung: marktübliche Grundvergütung
+ * externer WEG-Verwaltungen (je nach Region meist 25–40 € je Einheit und
+ * Monat, kleine Gemeinschaften eher am oberen Rand) — bewusst als Mittelwert
+ * angesetzt und im Text stets als Beispielrechnung gekennzeichnet.
+ */
+export const VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR = 30;
+
+/**
+ * Stellplätze und Garagen (Einheiten vom Typ STELLPLATZ): pauschal 1 € je
+ * Stellplatz und Monat in BEIDEN Bezahltarifen, im Start-Tarif kostenlos.
+ * Bewusst OHNE Mengenstaffel — der flache Preis liegt bereits unter dem
+ * Wettbewerb (dort je nach Paket 1,00–2,80 €). Stellplätze zählen NICHT als
+ * Einheiten: weder für die Rabattstaffel noch für die 12er-Grenze — die
+ * bezieht sich auf die Wohn- und Gewerbeeinheiten der Gemeinschaft.
+ */
+export const STELLPLATZ_JE_MONAT_EUR = 1;
+
+/**
+ * Monatspreis der Gemeinschaft INKLUSIVE Stellplätze, in Euro — die eine
+ * Rechnung für Preisrechner, Checkout und Abo-Anzeige. Die Staffel wirkt nur
+ * auf die Einheiten, nie auf die Stellplätze.
+ */
+export function monatspreisGesamt(
+  basisJeEinheit: number,
+  einheiten: number,
+  stellplaetze: number,
+): number {
+  return monatspreis(basisJeEinheit, einheiten) + stellplaetze * STELLPLATZ_JE_MONAT_EUR;
+}
+
 /** Oberhalb dieser Einheitenzahl gibt es keinen Self-Service-Tarif. */
 export const MAX_EINHEITEN = 12;
 

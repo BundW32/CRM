@@ -10,6 +10,7 @@ import {
   distributionKeyLabels,
   laborShareTypeLabels,
   ledgerAccountKindLabels,
+  stellplatzTypLabels,
   unitTypeLabels,
 } from "@/lib/labels";
 import { DateField, SelectField, toDateInputValue } from "@/components/fields";
@@ -342,6 +343,25 @@ export default async function WegStammdatenPage({
                               </option>
                             ))}
                           </select>
+                          {/* Untertyp nur für Stellplätze — beschreibend, am
+                              Preis (1 €/Monat je Stellplatz) ändert er nichts.
+                              Er erscheint nach dem Speichern der Art. */}
+                          {u.unitType === "STELLPLATZ" ? (
+                            <select
+                              form={formId}
+                              name="stellplatzTyp"
+                              defaultValue={u.stellplatzTyp ?? ""}
+                              className={`${inputClass} mt-1 w-auto`}
+                              aria-label={`Stellplatz-Typ der Einheit ${u.label}`}
+                            >
+                              <option value="">Typ (optional)</option>
+                              {Object.entries(stellplatzTypLabels).map(([value, label]) => (
+                                <option key={value} value={value}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                          ) : null}
                         </td>
                         <td className="py-2 pr-3">
                           <input

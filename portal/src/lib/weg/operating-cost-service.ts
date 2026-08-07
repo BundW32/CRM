@@ -49,7 +49,7 @@ export async function deriveOperatingCostStatement(params: {
     db.costType.findMany({ where: { propertyId: params.propertyId }, select: { id: true, recoverableBetrKV: true } }),
     db.unit.findMany({
       where: { propertyId: params.propertyId },
-      select: { id: true, mea: true, livingArea: true, personCount: true },
+      select: { id: true, mea: true, livingArea: true, personCount: true, unitType: true },
     }),
     db.tenancy.findFirst({
       where: { unitId: params.unitId, active: true },

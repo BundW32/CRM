@@ -184,6 +184,9 @@ enum DistributionKey {
   VERBRAUCH
   FESTBETRAG
   INDIVIDUELL
+  // Nur auf Einheiten vom Typ STELLPLATZ, gleichmäßig — für Kosten, die
+  // allein die Stellplätze betreffen (Garagentor, Tiefgaragen-Reinigung).
+  JE_STELLPLATZ
 }
 
 // Grobe Kategorie einer Kostenart

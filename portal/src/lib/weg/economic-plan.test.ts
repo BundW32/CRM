@@ -11,12 +11,12 @@ import type { UnitForDistribution } from "./distribution";
 
 // Demo-WEG: 5 Wohnungen + 1 Stellplatz (ohne Fläche/Personen), MEA-Summe 1000
 const units: UnitForDistribution[] = [
-  { id: "we1", mea: 180, livingArea: 72.5, personCount: 2 },
-  { id: "we2", mea: 175, livingArea: 70.2, personCount: 1 },
-  { id: "we3", mea: 180, livingArea: 72.5, personCount: 3 },
-  { id: "we4", mea: 175, livingArea: 70.2, personCount: 2 },
-  { id: "we5", mea: 240, livingArea: 96.4, personCount: 4 },
-  { id: "te6", mea: 50, livingArea: null, personCount: null },
+  { id: "we1", mea: 180, livingArea: 72.5, personCount: 2, unitType: "WOHNUNG" as const },
+  { id: "we2", mea: 175, livingArea: 70.2, personCount: 1, unitType: "WOHNUNG" as const },
+  { id: "we3", mea: 180, livingArea: 72.5, personCount: 3, unitType: "WOHNUNG" as const },
+  { id: "we4", mea: 175, livingArea: 70.2, personCount: 2, unitType: "WOHNUNG" as const },
+  { id: "we5", mea: 240, livingArea: 96.4, personCount: 4, unitType: "WOHNUNG" as const },
+  { id: "te6", mea: 50, livingArea: null, personCount: null, unitType: "STELLPLATZ" as const },
 ];
 
 describe("fiscalYearMonths / fiscalYearRange", () => {
@@ -64,7 +64,7 @@ describe("advanceWeightsForKey", () => {
   });
 
   it("MEA bleibt strikt (null → Fehler)", () => {
-    const broken = [...units, { id: "x", mea: null, livingArea: 10, personCount: 1 }];
+    const broken = [...units, { id: "x", mea: null, livingArea: 10, personCount: 1, unitType: "WOHNUNG" as const }];
     expect(() => advanceWeightsForKey(broken, "MEA")).toThrow(/MEA/);
   });
 });
@@ -109,8 +109,8 @@ describe("computeUnitAdvances", () => {
    * sagen, wo anzusetzen ist.
    */
   const ohneZusatzdaten = [
-    { id: "we1", mea: 400, livingArea: null, personCount: null },
-    { id: "we2", mea: 600, livingArea: null, personCount: null },
+    { id: "we1", mea: 400, livingArea: null, personCount: null, unitType: "WOHNUNG" as const },
+    { id: "we2", mea: 600, livingArea: null, personCount: null, unitType: "WOHNUNG" as const },
   ];
 
   it("nennt Kostenart und fehlendes Feld, wenn die Personenzahl fehlt", () => {
@@ -144,8 +144,8 @@ describe("computeUnitAdvances", () => {
 
   it("verteilt weiter, sobald eine einzige Einheit den Wert trägt", () => {
     const gemischt = [
-      { id: "we1", mea: 400, livingArea: null, personCount: 2 },
-      { id: "we2", mea: 600, livingArea: null, personCount: null },
+      { id: "we1", mea: 400, livingArea: null, personCount: 2, unitType: "WOHNUNG" as const },
+      { id: "we2", mea: 600, livingArea: null, personCount: null, unitType: "WOHNUNG" as const },
     ];
     const { perItem } = computeUnitAdvances(
       [{ costTypeId: "muell", distributionKey: "PERSONEN", amountCents: 96_000 }],
@@ -220,5 +220,34 @@ describe("Einnahmen im Wirtschaftsplan", () => {
     expect(() => computeUnitAdvances([ausgabe(100_000), ertrag(150_000)], units)).toThrow(
       /Einnahmen übersteigen/,
     );
+  });
+});
+
+describe("Umlageschlüssel JE_STELLPLATZ im Wirtschaftsplan", () => {
+  it("verteilt Vorschüsse nur auf die Stellplätze — Wohnungen tragen 0", () => {
+    // Die Demo-WEG oben hat genau einen Stellplatz (te6): Er trägt die
+    // Position allein, centgenau.
+    const { perUnit } = computeUnitAdvances(
+      [{ costTypeId: "tor", distributionKey: "JE_STELLPLATZ", amountCents: 60_000 }],
+      units,
+    );
+    expect(perUnit.get("te6")).toBe(60_000);
+    expect(perUnit.get("we1")).toBe(0);
+  });
+
+  it("ohne Stellplatz-Einheit → PositionNichtVerteilbar mit klarer Meldung", () => {
+    const ohneStellplatz = units.filter((u) => u.unitType !== "STELLPLATZ");
+    expect(() =>
+      computeUnitAdvances(
+        [{ costTypeId: "tor", distributionKey: "JE_STELLPLATZ", amountCents: 60_000 }],
+        ohneStellplatz,
+      ),
+    ).toThrow(PositionNichtVerteilbar);
+    expect(() =>
+      computeUnitAdvances(
+        [{ costTypeId: "tor", distributionKey: "JE_STELLPLATZ", amountCents: 60_000 }],
+        ohneStellplatz,
+      ),
+    ).toThrow(/Stellplatz/);
   });
 });

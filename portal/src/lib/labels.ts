@@ -235,6 +235,7 @@ export const distributionKeyLabels: Record<DistributionKey, string> = {
   VERBRAUCH: "Verbrauch",
   FESTBETRAG: "Festbetrag",
   INDIVIDUELL: "Individuell je Einheit",
+  JE_STELLPLATZ: "Je Stellplatz (nur Stellplätze/Garagen)",
 };
 
 export const costCategoryLabels: Record<CostCategory, string> = {

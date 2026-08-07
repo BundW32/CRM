@@ -1,6 +1,6 @@
 // Umlage-Verteilungs-Engine: verteilt einen Gesamtbetrag (Integer-Cent)
 // centgenau auf Einheiten nach Gewichten. Kein UI, keine DB — pure Funktionen.
-import type { DistributionKey } from "@/generated/prisma/client";
+import type { DistributionKey, UnitType } from "@/generated/prisma/client";
 
 export type Share = { unitId: string; weight: number };
 
@@ -72,6 +72,10 @@ export type UnitForDistribution = {
   mea: number | null;
   livingArea: number | null;
   personCount: number | null;
+  // Für den Schlüssel JE_STELLPLATZ: Nur Einheiten vom Typ STELLPLATZ tragen.
+  // Pflichtfeld, damit keine Abfrage das Feld vergisst und der Schlüssel dann
+  // still „keine Stellplätze" meldet, obwohl es welche gibt.
+  unitType: UnitType;
 };
 
 /**
@@ -103,6 +107,16 @@ export function weightsForKey(units: UnitForDistribution[], key: DistributionKey
         if (u.personCount == null) throw new Error(`Einheit ohne Personenzahl: ${u.id}`);
         return { unitId: u.id, weight: u.personCount };
       });
+    case "JE_STELLPLATZ": {
+      // Gleichmäßig, aber NUR auf Stellplätze/Garagen — Wohn- und
+      // Gewerbeeinheiten tragen solche Kosten nicht mit.
+      if (!units.some((u) => u.unitType === "STELLPLATZ")) {
+        throw new Error(
+          "Der Schlüssel „je Stellplatz“ braucht mindestens eine Einheit vom Typ Stellplatz.",
+        );
+      }
+      return units.map((u) => ({ unitId: u.id, weight: u.unitType === "STELLPLATZ" ? 1 : 0 }));
+    }
     default:
       throw new Error(`Umlageschlüssel ${key} benötigt Zusatzdaten (nicht in diesem Schritt).`);
   }

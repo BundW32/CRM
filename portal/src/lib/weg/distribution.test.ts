@@ -103,9 +103,9 @@ describe("distributeByWeight", () => {
 
 describe("weightsForKey", () => {
   const units: UnitForDistribution[] = [
-    { id: "a", mea: 500, livingArea: 76.38, personCount: 2 },
-    { id: "b", mea: 300, livingArea: 54.51, personCount: 1 },
-    { id: "c", mea: 200, livingArea: 102.17, personCount: 4 },
+    { id: "a", mea: 500, livingArea: 76.38, personCount: 2, unitType: "WOHNUNG" as const },
+    { id: "b", mea: 300, livingArea: 54.51, personCount: 1, unitType: "WOHNUNG" as const },
+    { id: "c", mea: 200, livingArea: 102.17, personCount: 4, unitType: "WOHNUNG" as const },
   ];
 
   it("MEA nutzt Miteigentumsanteile", () => {
@@ -131,7 +131,7 @@ describe("weightsForKey", () => {
   });
 
   it("fehlende Stammdaten → verständlicher Fehler", () => {
-    const broken: UnitForDistribution[] = [{ id: "x", mea: null, livingArea: null, personCount: null }];
+    const broken: UnitForDistribution[] = [{ id: "x", mea: null, livingArea: null, personCount: null, unitType: "WOHNUNG" as const }];
     expect(() => weightsForKey(broken, "MEA")).toThrow(/MEA/);
     expect(() => weightsForKey(broken, "FLAECHE")).toThrow(/Wohnfläche/);
     expect(() => weightsForKey(broken, "PERSONEN")).toThrow(/Personenzahl/);
@@ -141,5 +141,39 @@ describe("weightsForKey", () => {
     expect(() => weightsForKey(units, "VERBRAUCH")).toThrow();
     expect(() => weightsForKey(units, "FESTBETRAG")).toThrow();
     expect(() => weightsForKey(units, "INDIVIDUELL")).toThrow();
+  });
+});
+
+describe("weightsForKey: JE_STELLPLATZ", () => {
+  const wohnungen: UnitForDistribution[] = [
+    { id: "a", mea: 500, livingArea: 76.38, personCount: 2, unitType: "WOHNUNG" },
+    { id: "b", mea: 300, livingArea: 54.51, personCount: 1, unitType: "WOHNUNG" },
+  ];
+  const stellplaetze: UnitForDistribution[] = [
+    { id: "st1", mea: 10, livingArea: null, personCount: null, unitType: "STELLPLATZ" },
+    { id: "st2", mea: 10, livingArea: null, personCount: null, unitType: "STELLPLATZ" },
+  ];
+
+  it("gewichtet nur Einheiten vom Typ Stellplatz — Wohnungen tragen 0", () => {
+    expect(weightsForKey([...wohnungen, ...stellplaetze], "JE_STELLPLATZ")).toEqual([
+      { unitId: "a", weight: 0 },
+      { unitId: "b", weight: 0 },
+      { unitId: "st1", weight: 1 },
+      { unitId: "st2", weight: 1 },
+    ]);
+  });
+
+  it("verteilt damit centgenau ausschließlich auf die Stellplätze", () => {
+    const shares = distributeByWeight(
+      10001,
+      weightsForKey([...wohnungen, ...stellplaetze], "JE_STELLPLATZ"),
+    );
+    expect(shares.get("a")).toBe(0);
+    expect(shares.get("b")).toBe(0);
+    expect((shares.get("st1") ?? 0) + (shares.get("st2") ?? 0)).toBe(10001);
+  });
+
+  it("ohne Stellplatz-Einheit → verständlicher Fehler statt Gewichts-Mathematik", () => {
+    expect(() => weightsForKey(wohnungen, "JE_STELLPLATZ")).toThrow(/Stellplatz/);
   });
 });

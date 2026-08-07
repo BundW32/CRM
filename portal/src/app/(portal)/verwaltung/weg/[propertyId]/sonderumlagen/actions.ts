@@ -12,7 +12,9 @@ import { loadWegProperty } from "@/lib/weg/scope";
 
 // Sonderumlagen nutzen die strikten Verteilungsschlüssel (die manuellen
 // VERBRAUCH/FESTBETRAG/INDIVIDUELL sind hier nicht sinnvoll).
-const SONDERUMLAGE_KEYS = ["MEA", "FLAECHE", "EINHEITEN", "PERSONEN"] as const;
+// JE_STELLPLATZ auch hier: Eine Sonderumlage für die Toranlage trifft nur
+// die Stellplätze — derselbe strikte Schlüssel wie in Plan und Abrechnung.
+const SONDERUMLAGE_KEYS = ["MEA", "FLAECHE", "EINHEITEN", "PERSONEN", "JE_STELLPLATZ"] as const;
 
 function back(propertyId: string, param?: string): never {
   redirect(`/verwaltung/weg/${propertyId}/sonderumlagen${param ? `?${param}` : ""}`);
@@ -52,7 +54,7 @@ export async function createSonderumlage(formData: FormData) {
 
   const units = await db.unit.findMany({
     where: { propertyId: property.id },
-    select: { id: true, mea: true, livingArea: true, personCount: true },
+    select: { id: true, mea: true, livingArea: true, personCount: true, unitType: true },
   });
   if (units.length === 0) back(property.id, "fehler=einheiten");
 
@@ -80,17 +82,22 @@ export async function createSonderumlage(formData: FormData) {
       },
     });
     await tx.duePosting.createMany({
-      data: units.map((u) => ({
-        organizationId: verwalter.organizationId,
-        propertyId: property.id,
-        unitId: u.id,
-        sonderumlageId: su.id,
-        dueDate,
-        periodYear: dueDate.getUTCFullYear(),
-        periodMonth: dueDate.getUTCMonth() + 1,
-        amountCents: shares.get(u.id) ?? 0,
-        source: "SONDERUMLAGE",
-      })),
+      // Nur Einheiten mit Anteil: Bei JE_STELLPLATZ tragen Wohn- und
+      // Gewerbeeinheiten 0 — eine leere Sollstellung über 0 € hätte in
+      // Hausgeld-Liste und Mahnwesen nichts verloren.
+      data: units
+        .filter((u) => (shares.get(u.id) ?? 0) > 0)
+        .map((u) => ({
+          organizationId: verwalter.organizationId,
+          propertyId: property.id,
+          unitId: u.id,
+          sonderumlageId: su.id,
+          dueDate,
+          periodYear: dueDate.getUTCFullYear(),
+          periodMonth: dueDate.getUTCMonth() + 1,
+          amountCents: shares.get(u.id) ?? 0,
+          source: "SONDERUMLAGE",
+        })),
     });
     return su;
   });

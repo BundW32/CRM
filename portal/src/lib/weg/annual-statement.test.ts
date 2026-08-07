@@ -12,12 +12,12 @@ import type { UnitForDistribution } from "./distribution";
 
 // Testfall aus dem Build-Auftrag: 6 Einheiten, gemischte Schlüssel
 const units: UnitForDistribution[] = [
-  { id: "we1", mea: 180, livingArea: 72.5, personCount: 2 },
-  { id: "we2", mea: 175, livingArea: 70.2, personCount: 1 },
-  { id: "we3", mea: 180, livingArea: 72.5, personCount: 3 },
-  { id: "we4", mea: 175, livingArea: 70.2, personCount: 2 },
-  { id: "we5", mea: 240, livingArea: 96.4, personCount: 4 },
-  { id: "te6", mea: 50, livingArea: null, personCount: null },
+  { id: "we1", mea: 180, livingArea: 72.5, personCount: 2, unitType: "WOHNUNG" as const },
+  { id: "we2", mea: 175, livingArea: 70.2, personCount: 1, unitType: "WOHNUNG" as const },
+  { id: "we3", mea: 180, livingArea: 72.5, personCount: 3, unitType: "WOHNUNG" as const },
+  { id: "we4", mea: 175, livingArea: 70.2, personCount: 2, unitType: "WOHNUNG" as const },
+  { id: "we5", mea: 240, livingArea: 96.4, personCount: 4, unitType: "WOHNUNG" as const },
+  { id: "te6", mea: 50, livingArea: null, personCount: null, unitType: "STELLPLATZ" as const },
 ];
 
 const B = "BETRIEBSKOSTEN" as const;

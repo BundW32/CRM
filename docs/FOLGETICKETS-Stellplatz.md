@@ -1,20 +1,15 @@
 # Folgetickets zur Stellplatz-Logik (Stand 07.08.2026)
 
 Die Stellplatz-Logik (1 € je Stellplatz/Monat, Einheiten vom Typ STELLPLATZ
-als eigene Abo-Position) ist umgesetzt. Drei Punkte wurden bewusst NICHT in
-diesem Zug erledigt und gehören auf die Liste:
+als eigene Abo-Position) ist umgesetzt. Verbleibende Punkte:
 
-## 1. Eigener Umlageschlüssel „je Stellplatz"
+## 1. ✅ Erledigt (07.08.2026): Umlageschlüssel „je Stellplatz"
 
-Stellplätze nehmen als Einheiten bereits heute an allen Umlageschlüsseln
-teil (MEA, Einheiten, Fläche …) — Wirtschaftsplan, Hausgeld und
-Jahresabrechnung funktionieren also ohne Sonderbehandlung. Was fehlt, ist
-ein Schlüssel, der Kosten **nur** auf Stellplätze verteilt (z. B. Wartung
-Garagentor, Tiefgaragen-Reinigung): ein neuer `DistributionKey`
-`JE_STELLPLATZ`, der ausschließlich Einheiten vom Typ STELLPLATZ zählt.
-Betroffen: `economic-plan.ts`, `annual-statement`-Rechnung, Kostenarten-UI,
-Labels. Bis dahin deckt `INDIVIDUELL` (Betrag je Einheit von Hand) den Fall
-ab.
+`DistributionKey.JE_STELLPLATZ` verteilt gleichmäßig und ausschließlich auf
+Einheiten vom Typ STELLPLATZ — in Wirtschaftsplan, Jahresabrechnung und
+Sonderumlagen wählbar (Kostenarten- und Sonderumlage-Formular). Ohne
+Stellplatz-Einheit meldet die Verteilung verständlich, was fehlt; bei
+Sonderumlagen entstehen keine 0-€-Sollstellungen für Wohneinheiten.
 
 ## 2. AGB / Preisverzeichnis (Betreiber-Aufgabe, kein Code)
 

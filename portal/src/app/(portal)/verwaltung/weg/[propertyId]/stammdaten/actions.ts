@@ -16,7 +16,7 @@ import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 import { loadWegProperty } from "@/lib/weg/scope";
 
 const UNIT_TYPES = ["WOHNUNG", "TEILEIGENTUM", "STELLPLATZ", "SONSTIGES"] as const;
-const DISTRIBUTION_KEYS = ["MEA", "FLAECHE", "EINHEITEN", "PERSONEN", "VERBRAUCH", "FESTBETRAG", "INDIVIDUELL"] as const;
+const DISTRIBUTION_KEYS = ["MEA", "FLAECHE", "EINHEITEN", "PERSONEN", "VERBRAUCH", "FESTBETRAG", "INDIVIDUELL", "JE_STELLPLATZ"] as const;
 // Aus dem Label-Verzeichnis abgeleitet, nicht abgeschrieben: Das Auswahlfeld der
 // Seite baut sich aus derselben Quelle. Eine handgepflegte zweite Liste hätte
 // beim Ergänzen von ERTRAG dazu geführt, dass die Oberfläche eine Kategorie

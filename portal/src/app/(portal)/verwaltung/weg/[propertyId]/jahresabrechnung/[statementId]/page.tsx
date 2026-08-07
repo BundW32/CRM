@@ -105,7 +105,7 @@ export default async function JahresabrechnungDetailPage({
       orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
       // `livingArea` für die Fehlermeldung: Fehlt sie, nennt die Meldung die
       // betroffene Einheit beim Namen statt „mindestens einer Einheit".
-      select: { id: true, label: true, livingArea: true },
+      select: { id: true, label: true, livingArea: true, unitType: true },
     }),
     db.statementUnitAmount.findMany({ where: { statementId: statement.id } }),
     db.statementAccountCheck.findMany({ where: { statementId: statement.id } }),

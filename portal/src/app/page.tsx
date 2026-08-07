@@ -712,7 +712,7 @@ export default async function Home() {
         <a
           href="https://www.gesetze-im-internet.de/woeigg/"
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
           className="underline underline-offset-2"
         >
           Wohnungseigentumsgesetz bei gesetze-im-internet.de
@@ -726,7 +726,7 @@ export default async function Home() {
         <a
           href="https://wa.me/?text=WEG%20selbst%20verwalten%20ohne%20Hausverwaltung%3A%20https%3A%2F%2Fwww.wegportal24.de%2F"
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
           className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
         >
           Über WhatsApp teilen
@@ -734,7 +734,7 @@ export default async function Home() {
         <a
           href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fwww.wegportal24.de%2F"
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
           className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
         >
           Auf LinkedIn teilen
@@ -748,7 +748,7 @@ export default async function Home() {
         <a
           href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fwww.wegportal24.de%2F"
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
           className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
         >
           Auf Facebook teilen
@@ -756,7 +756,7 @@ export default async function Home() {
         <a
           href="https://x.com/intent/post?url=https%3A%2F%2Fwww.wegportal24.de%2F&text=WEG%20selbst%20verwalten%20ohne%20Hausverwaltung"
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
           className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
         >
           Auf X teilen

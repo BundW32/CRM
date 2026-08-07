@@ -745,6 +745,22 @@ export default async function Home() {
         >
           Per E-Mail weitergeben
         </a>
+        <a
+          href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fwww.wegportal24.de%2F"
+          target="_blank"
+          rel="noopener"
+          className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
+        >
+          Auf Facebook teilen
+        </a>
+        <a
+          href="https://x.com/intent/post?url=https%3A%2F%2Fwww.wegportal24.de%2F&text=WEG%20selbst%20verwalten%20ohne%20Hausverwaltung"
+          target="_blank"
+          rel="noopener"
+          className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
+        >
+          Auf X teilen
+        </a>
       </div>
       </section>
 

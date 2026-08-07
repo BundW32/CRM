@@ -251,7 +251,8 @@ export function TarifBereich() {
       </div>
 
       <p className="mt-5 text-center text-sm text-wp-ink/65">
-        Alle Zugänge inklusive — Eigentümer, Beirat und Mieter zählen nicht extra.
+        Alle Zugänge inklusive — Eigentümer, Beirat und Mieter zählen nicht
+        extra. Alle Preise sind Endpreise inkl. MwSt.
       </p>
 
       {/* Die Grenze des Self-Service — und der Weg darüber hinaus. */}

@@ -24,6 +24,20 @@
 export const BASIC_JE_EINHEIT_EUR = 10;
 export const PLUS_JE_EINHEIT_EUR = 13.9;
 
+// Beide Beträge sind BRUTTOPREISE: Kundin ist die selbstverwaltende WEG als
+// Verbraucherin, und die AGB (Stand 05.08.2026, Ziffer 6) weisen die Preise
+// als Gesamtpreise einschließlich Umsatzsteuer aus. Die Seiten sagen das
+// ausdrücklich dazu — Wettbewerber werben mit Nettopreisen, der Endbetrag
+// ist das ehrliche Vergleichsmaß.
+
+/**
+ * Vergleichswert für die Ersparnis-Rechnung: marktübliche Grundvergütung
+ * externer WEG-Verwaltungen (je nach Region meist 25–40 € je Einheit und
+ * Monat, kleine Gemeinschaften eher am oberen Rand) — bewusst als Mittelwert
+ * angesetzt und im Text stets als Beispielrechnung gekennzeichnet.
+ */
+export const VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR = 30;
+
 /** Oberhalb dieser Einheitenzahl gibt es keinen Self-Service-Tarif. */
 export const MAX_EINHEITEN = 12;
 

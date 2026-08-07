@@ -56,8 +56,12 @@ dortigen Resttreffer betreffen das ganze Portal, nicht diese Seiten.
   Einheiten, desto günstiger je Einheit (Sätze in `RABATT_STAFFEL`, vom
   Auftraggeber noch zu bestätigen). Grenze 12 Einheiten; darüber Hinweisfeld
   mit Kontakt zur Verwaltung hinter dem Portal (ohne Namensnennung). Start
-  bleibt kostenlos. Noch offen und deshalb bewusst nicht auf der Seite:
-  Umsatzsteuer-Darstellung, Laufzeit, Kündigungsfrist.
+  bleibt kostenlos. Seit den AGB vom 05.08.2026 festgelegt und auf den
+  Seiten ausgespielt: Alle Preise sind **Bruttopreise** (Gesamtpreise inkl.
+  MwSt., AGB Ziffer 6 der WEG-Fassung), **keine Mindestlaufzeit**, Kündigung
+  jederzeit zum Ende des Abrechnungsmonats (AGB Ziffer 8). Die
+  Brutto-Transparenz ist Verkaufsargument („10 € sind bei uns 10 €") — nicht
+  wieder entfernen.
 - **Der Einheiten-Regler steht über den Tarifkarten** (`tarif-bereich.tsx`):
   Beim Aufschlagen zeigen die Karten den Preis **je Einheit** — die Zahl zum
   Vergleichen. Erst wenn jemand den Regler anfasst, wird daraus der

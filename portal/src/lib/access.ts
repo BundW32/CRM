@@ -624,3 +624,25 @@ export async function ticketTargetsForUser(user: User): Promise<TicketTarget[]> 
     label: `${u.property.name}, ${u.property.street} – ${u.label}`,
   }));
 }
+
+// ── Verwalter-Plus: Anfragen an den zertifizierten Verwalter (§ 26a WEG) ─────
+// Sichtbar ist IMMER nur der eigene Mandant: Die Anfrage geht zwar an den
+// Betreiber, aber die Nachbar-WEG geht sie nichts an. Ob der TARIF die Funktion
+// einschließt, prüft hatPlanFunktion (lib/billing.ts) — Mandantentrennung und
+// Plan-Sperre sind zwei getrennte Fragen mit getrennten Wächtern.
+export function verwalterAnfrageWhereForVerwalter(
+  user: User,
+): Prisma.VerwalterAnfrageWhereInput {
+  return { organizationId: user.organizationId };
+}
+
+export async function canVerwalterAccessAnfrage(
+  user: User,
+  anfrageId: string,
+): Promise<boolean> {
+  if (user.role !== "VERWALTER") return false;
+  const c = await db.verwalterAnfrage.count({
+    where: { id: anfrageId, ...verwalterAnfrageWhereForVerwalter(user) },
+  });
+  return c > 0;
+}

@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireUser, requireVerwalter } from "@/lib/session";
+import { planErlaubt } from "@/lib/plan-guard";
 import { DOCUMENT_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 
 const MAJORITIES = ["EINFACH", "DREIVIERTEL", "DOPPELT_QUALIFIZIERT", "ALLSTIMMIG"] as const;
@@ -29,6 +30,9 @@ const createSchema = z.object({
 
 export async function createResolution(formData: FormData) {
   const user = await requireVerwalter();
+  // Plan-Sperre: Arbeitsfunktion — im Start-Umfang (einrichten + ansehen)
+  // nicht enthalten; Umfang je Tarif siehe PLAN_FUNKTIONEN in lib/billing.ts.
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/beschluesse?flash=nur-mit-tarif");
   const parsed = createSchema.safeParse({
     propertyId: formData.get("propertyId"),
     title: formData.get("title"),

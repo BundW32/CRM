@@ -8,8 +8,9 @@
 //   Einheitenzahl der WEG-Objekte der Organisation, die Mengenstaffel liegt
 //   als Volumen-Preisstufen am Stripe-Preis selbst.
 // - `pro` (B&W-Variante): pauschal je Organisation, Menge 1.
+import type Stripe from "stripe";
 import { MAX_EINHEITEN } from "@/app/preise/preise-daten";
-import type { PlanId } from "@/lib/billing";
+import { checkoutJeEinheitCents, type PlanId } from "@/lib/billing";
 import { db } from "@/lib/db";
 import {
   stripeOrNull,
@@ -44,7 +45,11 @@ export async function starteCheckout(
       : tarif === "plus"
         ? stripePricePlus()
         : stripePricePro();
-  if (!stripe || !price) {
+  // Ohne Schlüssel geht nichts. Ohne Preis-Id geht es für die Einheiten-Tarife
+  // trotzdem: Der Preis wird dann inline aus preise-daten erzeugt (unten) —
+  // die Buchen-Knöpfe hängen nicht an gepflegten Stripe-Preisen. Nur der
+  // pauschale Pro-Tarif hat keinen Preis im Code und braucht seine Id.
+  if (!stripe || (!price && tarif === "pro")) {
     // Welche Variable fehlt, gehört in die Logs — auf der Seite steht sonst
     // nur „nicht verfügbar", und die Fehlersuche beginnt beim Raten.
     console.error(
@@ -77,15 +82,35 @@ export async function starteCheckout(
   // Live-Schlüssel, Währungs-Konflikt …), soll der Klick eine verständliche
   // Meldung zeigen — nicht in einem unbehandelten Serverfehler enden. Der
   // eigentliche Grund steht in den Vercel-Logs und im Stripe-Dashboard.
+  // Ohne gepflegte Preis-Id (nur basic/plus, s. o.): Preis inline aus der
+  // einen Preisquelle — Betrag je Einheit nach Mengenstaffel, Menge = Einheiten.
+  const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = price
+    ? { price, quantity }
+    : {
+        price_data: {
+          currency: "eur",
+          unit_amount: checkoutJeEinheitCents(tarif as "basic" | "plus", quantity),
+          recurring: { interval: "month" },
+          product_data: {
+            name: tarif === "basic" ? "wegportal24 Basic" : "wegportal24 Verwalter-Plus",
+          },
+        },
+        quantity,
+      };
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      line_items: [{ price, quantity }],
+      line_items: [lineItem],
       client_reference_id: org.id,
       customer: org.stripeCustomerId ?? undefined,
       // Der Webhook liest den gebuchten Tarif aus den Metadaten — die Preis-Id
-      // allein verrät ihn nicht, ohne sie erneut gegen die Env zu halten.
+      // allein verrät ihn nicht, ohne sie erneut gegen die Env zu halten. Das
+      // Abo selbst trägt ihn ebenfalls: subscription.updated-Events und der
+      // tägliche Abgleich haben keine Checkout-Metadaten, und bei inline
+      // erzeugten Preisen sagt ihnen auch die Preis-Id nichts.
       metadata: { tarif },
+      subscription_data: { metadata: { tarif } },
       success_url: successUrl,
       cancel_url: cancelUrl,
     });

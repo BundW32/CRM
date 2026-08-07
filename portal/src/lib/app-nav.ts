@@ -244,6 +244,11 @@ function selfManagedVerwalterGroups(): NavGroup[] {
         { href: "/verwaltung/eigentuemer", title: "Eigentümer & Stimmrecht", icon: "eigentuemer" },
         { href: "/verwaltung/nutzer", title: "Zugänge", icon: "nutzer", countKey: "nutzer" },
         { href: "/zaehler", title: "Zähler", icon: "zaehler" },
+        // Verwalter-Plus: Fragen an den zertifizierten Verwalter (§ 26a WEG).
+        // Bewusst für ALLE selbstverwalteten WEGs sichtbar — ohne den Tarif
+        // zeigt die Seite, was die Funktion kann, und den Weg zur Buchung;
+        // gesperrt wird serverseitig (hatPlanFunktion), nie nur im Menü.
+        { href: "/verwaltung/verwalter-tickets", title: "Verwalter-Tickets", icon: "vorgaenge" },
       ],
     },
   ];

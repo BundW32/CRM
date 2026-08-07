@@ -12,6 +12,7 @@ import { briefkopfAus } from "@/lib/documents/briefkopf";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { deleteBlob, saveBuffer } from "@/lib/storage";
 import { requireVerwalter } from "@/lib/session";
+import { planErlaubt } from "@/lib/plan-guard";
 import { generateMeetingProtocol } from "@/lib/documents/meeting-protocol";
 import { MEETING_AGENDA_TEMPLATES } from "@/lib/weg/meeting-agenda-templates";
 
@@ -35,6 +36,9 @@ function isMeetingClosed(status: string): boolean {
 
 export async function createMeeting(formData: FormData) {
   const verwalter = await requireVerwalter();
+  // Plan-Sperre: Arbeitsfunktion — im Start-Umfang (einrichten + ansehen)
+  // nicht enthalten; Umfang je Tarif siehe PLAN_FUNKTIONEN in lib/billing.ts.
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/versammlungen?flash=nur-mit-tarif");
   const propertyId = String(formData.get("propertyId") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim().slice(0, 200);
   const scheduledStr = String(formData.get("scheduledAt") ?? "");
@@ -338,6 +342,7 @@ export async function updateAttendance(formData: FormData) {
 
 export async function sendInvitation(formData: FormData) {
   const verwalter = await requireVerwalter();
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/versammlungen?flash=nur-mit-tarif");
   const meetingId = String(formData.get("meetingId") ?? "").trim();
   const meeting = await meetingInScope(verwalter, meetingId);
   if (!meeting) redirect("/versammlungen");

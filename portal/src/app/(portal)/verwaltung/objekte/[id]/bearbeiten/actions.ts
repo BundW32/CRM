@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { User } from "@/generated/prisma/client";
 import { canVerwalterAccessProperty, canVerwalterManageUser } from "@/lib/access";
 import { encodeBelegung } from "@/lib/belegung";
+import { aboMengeSynchronisieren } from "@/lib/billing-sync";
 import { db } from "@/lib/db";
 import { merkeErstzugang } from "@/lib/zugangsschreiben";
 import { type PersonTreffer, searchPersons } from "@/lib/person-search";
@@ -143,6 +144,8 @@ export async function addUnit(formData: FormData) {
       orderIndex: (max._max.orderIndex ?? 0) + 1,
     },
   });
+  // Die Tarife rechnen je Einheit — ein laufendes Abo zieht die Menge nach.
+  await aboMengeSynchronisieren(actor.organizationId);
   revalidatePath(`/verwaltung/objekte/${propertyId}/bearbeiten`);
   redirect(`/verwaltung/objekte/${propertyId}/bearbeiten?einheit=gespeichert`);
 }
@@ -215,6 +218,8 @@ export async function removeUnit(formData: FormData) {
     );
   }
   await db.unit.delete({ where: { id: unitId } });
+  // Die Tarife rechnen je Einheit — ein laufendes Abo zieht die Menge nach.
+  await aboMengeSynchronisieren(actor.organizationId);
   revalidatePath(`/verwaltung/objekte/${unit.propertyId}/bearbeiten`);
   redirect(`/verwaltung/objekte/${unit.propertyId}/bearbeiten?einheit=geloescht`);
 }

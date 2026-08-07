@@ -47,7 +47,15 @@ export async function GET(request: Request) {
       if (status !== org.subscriptionStatus) {
         // Tarif wie im Webhook aus dem Stripe-Preis ableiten — nie pauschal
         // „pro", das überschriebe einen gebuchten Basic-/Plus-Tarif.
-        const planAusPreis = planFromPriceId(sub.items?.data?.[0]?.price?.id);
+        const tarifMeta = sub.metadata?.tarif;
+        const planAusPreis =
+          planFromPriceId(sub.items?.data?.[0]?.price?.id) ??
+          // Inline erzeugte Preise (Checkout/Tarifwechsel ohne Env-Preis-Id)
+          // erkennt planFromPriceId nicht — dann trägt das Abo den Tarif als
+          // Metadatum, wie im Webhook.
+          (tarifMeta === "basic" || tarifMeta === "plus" || tarifMeta === "pro"
+            ? tarifMeta
+            : null);
         await db.organization.update({
           where: { id: org.id },
           data: {

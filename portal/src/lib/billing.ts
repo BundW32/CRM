@@ -4,7 +4,11 @@
 // Typen/Konstanten + sichere Helfer, damit der Rest der App schon damit arbeiten
 // kann, ohne dass etwas bricht, wenn Stripe (noch) nicht konfiguriert ist.
 
-import { BASIC_JE_EINHEIT_EUR, PLUS_JE_EINHEIT_EUR } from "@/app/preise/preise-daten";
+import {
+  BASIC_JE_EINHEIT_EUR,
+  PLUS_JE_EINHEIT_EUR,
+  jeEinheitNachStaffel,
+} from "@/app/preise/preise-daten";
 
 export type PlanId = "free" | "pro" | "basic" | "plus";
 
@@ -26,12 +30,16 @@ export type Plan = {
 export const PLANS: Record<PlanId, Plan> = {
   free: {
     id: "free",
-    name: "Free",
-    // Nicht mehr „zum Ausprobieren": Ausprobiert wird der volle Umfang — die
-    // Testphase liefert ihn komplett. Free ist der Tarif DANACH, und sein
-    // Zuschnitt steht noch nicht fest; das gehört hier hin und nicht in eine
-    // Beschreibung, die einen fertigen Grundtarif behauptet.
-    description: "Grundfunktionen nach der Testphase. Der Umfang wird noch festgelegt.",
+    // „Start" — der Zuschnitt steht seit der Preisseite fest (Start-Karte in
+    // `app/preise/tarif-bereich.tsx`): WEG vollständig einrichten (Einheiten,
+    // Miteigentumsanteile, Konten, Kostenarten, Zugänge) und alle Funktionen
+    // ansehen — ohne Zeitlimit. Die Arbeitsfunktionen (Wirtschaftsplan,
+    // Abrechnung, Hausgeld, Versammlung …) gehören zu Basic; welche Funktion
+    // welchen Tarif braucht, sagt PLAN_FUNKTIONEN weiter unten.
+    name: "Start",
+    description:
+      "Einrichten und Ansehen ohne Zeitlimit: WEG anlegen, Einheiten, " +
+      "Anteile und Zugänge — alle Funktionen ansehen, ohne Zahlungsdaten.",
     monthlyPriceCents: 0,
   },
   // Die pauschale Pro-Stufe der B&W-Variante (professionelle Verwaltungen).
@@ -62,6 +70,20 @@ export const PLANS: Record<PlanId, Plan> = {
   },
 };
 
+/**
+ * Preis je Einheit und Monat in Cent für den Stripe-Checkout — nach Mengenstaffel.
+ *
+ * Der Checkout legt den Preis damit inline an (`price_data`), statt eine vorab
+ * im Stripe-Dashboard gepflegte Preis-ID mit Volumen-Staffel zu verlangen:
+ * Preise und Staffel stehen in `preise-daten.ts`, der einen Preisquelle — eine
+ * zweite Pflege derselben Staffel in Stripe liefe früher oder später auseinander,
+ * und ohne die Preis-IDs führte der Buchen-Knopf ins Leere.
+ */
+export function checkoutJeEinheitCents(tarif: "basic" | "plus", einheiten: number): number {
+  const basis = tarif === "basic" ? BASIC_JE_EINHEIT_EUR : PLUS_JE_EINHEIT_EUR;
+  return Math.round(jeEinheitNachStaffel(basis, einheiten) * 100);
+}
+
 export type SubscriptionStatus =
   | "trialing"
   | "active"
@@ -86,22 +108,94 @@ export function planLabel(plan: string): string {
   return PLANS[plan as PlanId]?.name ?? plan;
 }
 
+// Die Felder der Organisation, aus denen sich der wirksame Tarif ableitet.
+// `trialEndsAt` gehört dazu: Ohne das Ablaufdatum liefe eine Testphase ewig
+// auf Pro-Niveau weiter — niemand stellt den Status automatisch um.
+export type PlanQuelle = {
+  plan: string;
+  subscriptionStatus: string;
+  trialEndsAt: Date | null;
+};
+
+/**
+ * Ist die Testphase vorbei, ohne dass ein Tarif gebucht wurde?
+ *
+ * `trialEndsAt === null` heißt: Testphase ohne Frist (die B&W-Tür legt keine
+ * fest) — sie läuft dann nicht ab. Der Status bleibt bewusst "trialing", bis
+ * gebucht oder gekündigt wird; abgelaufen ist eine **Ableitung**, kein eigener
+ * gespeicherter Zustand, den ein Cron pflegen müsste.
+ */
+export function istTestphaseAbgelaufen(org: {
+  subscriptionStatus: string;
+  trialEndsAt: Date | null;
+}): boolean {
+  return (
+    org.subscriptionStatus === "trialing" &&
+    org.trialEndsAt != null &&
+    org.trialEndsAt.getTime() < Date.now()
+  );
+}
+
 /**
  * Der Tarif, den die Organisation **gerade tatsächlich nutzt**.
  *
- * In der Testphase ist das immer `pro`: Neukunden bekommen den vollen
+ * In der laufenden Testphase ist das immer `pro`: Neukunden bekommen den vollen
  * Funktionsumfang zum Ausprobieren, nicht den Grundtarif. Gespeichert bleibt
  * in `Organization.plan` der Tarif, auf den sie **nach** der Testphase
  * zurückfallen, solange nichts gebucht wurde — das ist eine andere Aussage und
  * gehört deshalb nicht überschrieben.
  *
- * Vorher zeigte die Abrechnungsseite den gespeicherten Wert und meldete
- * „Aktueller Tarif: Free / Status: Testphase". Beides zusammen ergibt keinen
- * Sinn — wer in der Testphase ist, testet etwas, und zwar Pro.
+ * Ist die Testphase **abgelaufen**, gilt der gespeicherte Tarif (in aller Regel
+ * `free` = Start). Vorher lieferte diese Funktion für jeden "trialing"-Status
+ * Pro — mangels Umstellung also unbegrenzt.
  */
-export function aktiverPlan(org: { plan: string; subscriptionStatus: string }): PlanId {
-  if (org.subscriptionStatus === "trialing") return "pro";
+export function aktiverPlan(org: PlanQuelle): PlanId {
+  if (org.subscriptionStatus === "trialing" && !istTestphaseAbgelaufen(org)) return "pro";
   return (PLANS[org.plan as PlanId]?.id ?? "free") as PlanId;
+}
+
+// ── Funktionsumfang je Tarif ─────────────────────────────────────────────────
+// Die EINE Quelle dafür, welche Funktion welchen Tarif voraussetzt. Seiten
+// blenden damit aus, Server-Actions sperren damit — beides über hatPlanFunktion,
+// nie über einen eigenen Plan-Vergleich in der Seite.
+//
+//   vollerUmfang    – die Arbeitsfunktionen (Wirtschaftsplan beschließen,
+//                     Abrechnung erzeugen, Hausgeld, Versammlung einberufen …).
+//                     Start (= free) hat sie nicht: einrichten + ansehen.
+//   verwalterTicket – das Ticket-System zum zertifizierten Verwalter
+//                     (§ 26a WEG), das Unterscheidungsmerkmal von Verwalter-Plus.
+//                     `pro` schließt es ein: Die Testphase verspricht den vollen
+//                     Funktionsumfang, und der ist auf wegportal24 Verwalter-Plus.
+export const PLAN_FUNKTIONEN = {
+  free: { vollerUmfang: false, verwalterTicket: false },
+  basic: { vollerUmfang: true, verwalterTicket: false },
+  plus: { vollerUmfang: true, verwalterTicket: true },
+  pro: { vollerUmfang: true, verwalterTicket: true },
+} as const satisfies Record<PlanId, Record<string, boolean>>;
+
+export type PlanFunktion = keyof (typeof PLAN_FUNKTIONEN)["free"];
+
+export function hatPlanFunktion(org: PlanQuelle, funktion: PlanFunktion): boolean {
+  return PLAN_FUNKTIONEN[aktiverPlan(org)][funktion];
+}
+
+// ── Abo-Hinweis (Banner in der Portal-Shell) ─────────────────────────────────
+// Was `past_due` und `canceled` BEDEUTEN, steht hier — nicht verstreut in
+// Seiten:
+//   past_due  → der volle Umfang bleibt (Stripe mahnt und versucht es erneut;
+//               endgültiges Scheitern kommt als `canceled` per Webhook), aber
+//               die Verwaltung sieht eine Warnung.
+//   canceled  → der Webhook hat `plan` auf free zurückgesetzt; es gilt der
+//               Start-Umfang. Der Hinweis sagt das, statt Funktionen stumm zu
+//               sperren.
+//   Testphase abgelaufen → ebenfalls Start-Umfang (siehe aktiverPlan) + Hinweis.
+export type AboHinweis = "testphase-abgelaufen" | "zahlung-ueberfaellig" | "gekuendigt";
+
+export function aboHinweis(org: PlanQuelle): AboHinweis | null {
+  if (org.subscriptionStatus === "past_due") return "zahlung-ueberfaellig";
+  if (org.subscriptionStatus === "canceled") return "gekuendigt";
+  if (istTestphaseAbgelaufen(org)) return "testphase-abgelaufen";
+  return null;
 }
 
 export function subscriptionStatusLabel(status: string): string {
@@ -126,11 +220,13 @@ export function isBillingEnabled(): boolean {
 //              Retries). Zugriff bleibt, die Oberfläche mahnt. Scheitert
 //              auch der letzte Versuch, setzt der Webhook „canceled".
 //   gesperrt – Testphase abgelaufen ohne Buchung oder Abo gekündigt.
-//              Das Portal leitet auf die Sperrseite /abo um.
 //
-// Durchgesetzt wird das im Portal-Layout (src/app/(portal)/layout.tsx) und
-// NUR in der WEG-SaaS-Variante: Die B&W-Tür rechnet über Plattform-Rechnungen
-// ab und wird über Organization.active gesteuert.
+// „gesperrt" heißt seit dem 06.08.2026 NICHT mehr ausgesperrt: Es gilt der
+// Start-Umfang der Preisseite („ohne Frist im Nacken") — das AboBanner im
+// Portal-Layout weist darauf hin, einzelne Funktionen sperrt hatPlanFunktion.
+// Die Buchungsseite /abo nutzt diesen Status weiterhin als Zugangswächter.
+// Alles nur in der WEG-SaaS-Variante: Die B&W-Tür rechnet über
+// Plattform-Rechnungen ab und wird über Organization.active gesteuert.
 export type ZugriffsStatus = "voll" | "kulanz" | "gesperrt";
 
 export function zugriffsStatus(

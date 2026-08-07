@@ -6,6 +6,7 @@ import { z } from "zod";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { requireUser, requireVerwalter } from "@/lib/session";
+import { planErlaubt } from "@/lib/plan-guard";
 
 const announcementSchema = z.object({
   propertyId: z.string().min(1),
@@ -16,6 +17,9 @@ const announcementSchema = z.object({
 
 export async function createAnnouncement(formData: FormData) {
   const user = await requireVerwalter();
+  // Plan-Sperre: Arbeitsfunktion — im Start-Umfang (einrichten + ansehen)
+  // nicht enthalten; Umfang je Tarif siehe PLAN_FUNKTIONEN in lib/billing.ts.
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/aushaenge?flash=nur-mit-tarif");
 
   const parsed = announcementSchema.safeParse({
     propertyId: formData.get("propertyId"),

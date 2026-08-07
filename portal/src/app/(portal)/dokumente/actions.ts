@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { notifyDocumentPublished } from "@/lib/notify";
 import { DOCUMENT_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 import { requireUser, requireVerwalter } from "@/lib/session";
+import { planErlaubt } from "@/lib/plan-guard";
 
 const uploadSchema = z.object({
   title: z.string().trim().min(2).max(200),
@@ -169,6 +170,9 @@ export async function acknowledgeDocument(formData: FormData) {
 
 export async function uploadDocument(formData: FormData) {
   const user = await requireVerwalter();
+  // Plan-Sperre: Arbeitsfunktion — im Start-Umfang (einrichten + ansehen)
+  // nicht enthalten; Umfang je Tarif siehe PLAN_FUNKTIONEN in lib/billing.ts.
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/dokumente?flash=nur-mit-tarif");
 
   const parsed = uploadSchema.safeParse({
     title: formData.get("title"),

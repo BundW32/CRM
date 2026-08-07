@@ -9,10 +9,10 @@ import { TourHost } from "@/components/tour-host";
 import { PageTransition } from "@/components/page-transition";
 import { ToastHost } from "@/components/toast-host";
 import { AppShell } from "@/components/app-shell";
-import { Alert } from "@/components/ui";
 import { AssistantWidget } from "@/components/assistant-widget";
 import { BrandTheme } from "@/components/brand-theme";
 import { CommandPalette, type PaletteNavItem } from "@/components/command-palette";
+import { AboBanner } from "@/components/abo-banner";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { SetupBanner } from "@/components/setup-banner";
 import {
@@ -22,8 +22,8 @@ import {
   propertyWhereForVerwalter,
 } from "@/lib/access";
 import { isWegSaas } from "@/lib/app-mode";
-import { zugriffsStatus } from "@/lib/billing";
 import { canSeeSettings, navFor, settingsItems, usesCounts } from "@/lib/app-nav";
+import { aboHinweis } from "@/lib/billing";
 import { canUseAssistant, isAssistantEnabled } from "@/lib/assistant";
 import { db } from "@/lib/db";
 import { loadNavCounts } from "@/lib/nav-counts";
@@ -49,16 +49,11 @@ export default async function PortalLayout({
   const selfManaged = isSelfManaged(org);
   const isPlatformAdmin = isPlatformAdminUser(user);
 
-  // Abo-Durchsetzung (nur WEG-SaaS): Ohne aktives Abo oder laufende Testphase
-  // endet jede Portalseite auf der Sperrseite /abo — sie liegt außerhalb
-  // dieser Layout-Gruppe, sonst träfe die Umleitung sie selbst. Die B&W-Tür
-  // rechnet über Plattform-Rechnungen ab und wird über `Organization.active`
-  // gesteuert. Ausgenommen bleiben Plattform-Betreiber und ihre Impersonation:
-  // Ein gesperrter Kunde muss für den Support erreichbar bleiben.
-  const abo = org && isWegSaas() ? zugriffsStatus(org) : "voll";
-  if (abo === "gesperrt" && !isPlatformAdmin && !session.impersonating) {
-    redirect("/abo");
-  }
+  // Abo-Durchsetzung: bewusst KEINE Sperrseite (Festlegung 06.08.2026).
+  // Nach abgelaufener Testphase oder Kündigung gilt der Start-Umfang der
+  // Preisseite („ohne Frist im Nacken") — das AboBanner unten sagt es der
+  // verwaltenden Person, gesperrt wird je Funktion über hatPlanFunktion
+  // (lib/billing.ts). Die Buchungsseite /abo bleibt direkt erreichbar.
 
   // WEG-Finanzen nur einblenden, wenn WEG-Objekte im Zuständigkeitsbereich liegen.
   const hasWegObjekte =
@@ -162,24 +157,18 @@ export default async function PortalLayout({
           showSettings={canSeeSettings(navContext)}
           showPlattform={isPlatformAdmin}
         >
-          {abo === "kulanz" && user.role === "VERWALTER" ? (
-            // Zahlung überfällig: Stripe wiederholt sie noch, der Zugang bleibt.
-            // Der Hinweis richtet sich an die, die es beheben können — schlägt
-            // auch der letzte Versuch fehl, setzt der Webhook „canceled" und
-            // die Sperrseite übernimmt.
-            <Alert
-              variant="warning"
-              className="mb-4"
-              action={
-                <Link href="/verwaltung/abrechnung" className="font-semibold underline">
-                  Zur Abrechnung
-                </Link>
-              }
-            >
-              Die letzte Abo-Zahlung ist fehlgeschlagen. Bitte aktualisieren Sie Ihre
-              Zahlungsmethode, sonst wird der Zugang gesperrt.
-            </Alert>
-          ) : null}
+          {/* Abo-Zustand (Testphase abgelaufen, Zahlung überfällig, gekündigt):
+              nur für die verwaltende Person — Eigentümer und Mieter können
+              nichts daran ändern. Die Bedeutung der Zustände definiert
+              aboHinweis in lib/billing.ts. */}
+          {user.role === "VERWALTER" && org
+            ? (() => {
+                const hinweis = aboHinweis(org);
+                return hinweis ? (
+                  <AboBanner hinweis={hinweis} kannBuchen={Boolean(user.isSuperAdmin)} />
+                ) : null;
+              })()
+            : null}
           {setup && !setup.fertig ? (
             <SetupBanner
               erledigt={setup.erledigt}

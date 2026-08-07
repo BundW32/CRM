@@ -8,6 +8,7 @@ import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { formatCents, parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
+import { planErlaubt } from "@/lib/plan-guard";
 import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
 import {
   guessMapping,
@@ -54,6 +55,9 @@ const bookingSchema = z.object({
 
 export async function createBooking(formData: FormData) {
   const verwalter = await requireVerwalter();
+  // Plan-Sperre: Arbeitsfunktion — im Start-Umfang (einrichten + ansehen)
+  // nicht enthalten; Umfang je Tarif siehe PLAN_FUNKTIONEN in lib/billing.ts.
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/verwaltung/weg?flash=nur-mit-tarif");
   const parsed = bookingSchema.safeParse({
     propertyId: formData.get("propertyId"),
     accountId: formData.get("accountId"),
@@ -211,6 +215,7 @@ const transferSchema = z.object({
 
 export async function createTransfer(formData: FormData) {
   const verwalter = await requireVerwalter();
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/verwaltung/weg?flash=nur-mit-tarif");
   const parsed = transferSchema.safeParse({
     propertyId: formData.get("propertyId"),
     fromAccountId: formData.get("fromAccountId"),
@@ -396,6 +401,7 @@ export async function analyzeCsvAction(
 
 export async function importCsvAction(formData: FormData) {
   const verwalter = await requireVerwalter();
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/verwaltung/weg?flash=nur-mit-tarif");
   const propertyId = String(formData.get("propertyId") ?? "");
   const accountId = String(formData.get("accountId") ?? "");
   const property = await loadWegProperty(verwalter, propertyId);

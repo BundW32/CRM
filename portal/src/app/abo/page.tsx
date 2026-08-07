@@ -22,15 +22,15 @@ const FEHLER_TEXTE: Record<string, string> = {
 };
 
 /**
- * Sperrseite der Abo-Durchsetzung (nur WEG-SaaS).
+ * Buchungsseite nach Testphase/Kündigung (nur WEG-SaaS).
  *
- * Hierhin leitet das Portal-Layout jede Seite um, sobald `zugriffsStatus`
- * „gesperrt" meldet — Testphase abgelaufen ohne Buchung oder Abo gekündigt.
- * Die Seite liegt bewusst AUSSERHALB der (portal)-Gruppe: Läge sie innerhalb,
- * würde die Umleitung im Layout auch sie selbst treffen und eine
- * Umleitungsschleife bauen.
+ * Seit dem 06.08.2026 leitet das Portal-Layout NICHT mehr hierher um: Nach
+ * abgelaufener Testphase oder Kündigung gilt der Start-Umfang der Preisseite
+ * („ohne Frist im Nacken"), das AboBanner im Portal weist darauf hin. Diese
+ * Seite bleibt als direkter Buchungsweg für genau diesen Zustand bestehen —
+ * wer nicht „gesperrt" ist, wird zurück ins Portal geleitet.
  *
- * Der Weg zurück (Checkout, Kundenportal) steht nur dem SuperAdmin offen —
+ * Der Weg zur Buchung (Checkout, Kundenportal) steht nur dem SuperAdmin offen —
  * alle anderen Rollen können nichts buchen und bekommen gesagt, an wen sie
  * sich wenden.
  */

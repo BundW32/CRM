@@ -83,8 +83,15 @@ export async function POST(request: Request) {
         const customerId = typeof sub.customer === "string" ? sub.customer : null;
         // Der Tarif folgt dem Stripe-Preis der Subscription — hier gibt es
         // keine Checkout-Metadaten, und ein pauschales „pro" überschriebe den
-        // gebuchten Basic-/Plus-Tarif bei jedem Abo-Update.
-        const planAusPreis = planFromPriceId(sub.items?.data?.[0]?.price?.id);
+        // gebuchten Basic-/Plus-Tarif bei jedem Abo-Update. Trägt das Abo den
+        // Tarif als Metadatum (Tarifwechsel mit inline erzeugtem Preis, dessen
+        // Id planFromPriceId nichts sagt), gilt das als Rückfallebene.
+        const tarifMeta = sub.metadata?.tarif;
+        const planAusPreis =
+          planFromPriceId(sub.items?.data?.[0]?.price?.id) ??
+          (tarifMeta === "basic" || tarifMeta === "plus" || tarifMeta === "pro"
+            ? tarifMeta
+            : null);
         // Zuordnung über die Subscription-Id, ersatzweise über die Customer-Id.
         const result = await db.organization.updateMany({
           where: customerId
@@ -92,6 +99,7 @@ export async function POST(request: Request) {
             : { stripeSubscriptionId: sub.id },
           data: {
             subscriptionStatus: status,
+            // Gekündigt heißt Start-Umfang — das gewinnt gegen Preis und Metadatum.
             ...(status === "canceled"
               ? { plan: "free" }
               : planAusPreis

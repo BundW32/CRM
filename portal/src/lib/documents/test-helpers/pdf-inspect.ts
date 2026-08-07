@@ -19,12 +19,14 @@ export type DrawnText = {
 };
 
 export async function drawnTexts(pdf: Uint8Array | Buffer): Promise<DrawnText[]> {
-  const document = await pdfjs.getDocument({
+  // Seit pdf.js 6 hängt `destroy()` am Lade-Task, nicht mehr am Dokument.
+  const task = pdfjs.getDocument({
     data: new Uint8Array(pdf),
     // Im Test gibt es keinen Worker; ohne das wartet pdf.js auf einen, den es
     // nie bekommt.
     useWorkerFetch: false,
-  }).promise;
+  });
+  const document = await task.promise;
 
   const out: DrawnText[] = [];
   for (let n = 1; n <= document.numPages; n++) {
@@ -41,7 +43,7 @@ export async function drawnTexts(pdf: Uint8Array | Buffer): Promise<DrawnText[]>
       });
     }
   }
-  await document.destroy();
+  await task.destroy();
   return out;
 }
 

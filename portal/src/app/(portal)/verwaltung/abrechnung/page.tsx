@@ -94,7 +94,9 @@ export default async function BillingPage({
         <dl className="grid gap-4 sm:grid-cols-2">
           <div>
             <dt className="text-xs uppercase tracking-wide text-gray-400">Aktueller Tarif</dt>
-            <dd className="text-lg font-semibold text-gray-900">{planLabel(genutzt)}</dd>
+            {/* Auf wegportal24 heißt der volle Umfang der Testphase nach außen
+                „Verwalter-Plus" — das interne „Pro" ist dort kein Tarifname. */}
+            <dd className="text-lg font-semibold text-gray-900">{planLabel(hervorgehoben)}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-gray-400">Status</dt>
@@ -136,28 +138,14 @@ export default async function BillingPage({
 
         {billingReady ? (
           <div className="mt-6 flex flex-wrap gap-2">
-            {/* Ein zweites Abo neben einem aktiven wäre eine Doppelbuchung —
-                mit laufendem Abo führt der Weg über das Kundenportal. */}
-            {!hatAktivesAbo ? (
-              weg ? (
-                <>
-                  <form action={startCheckout}>
-                    <input type="hidden" name="tarif" value="basic" />
-                    <PendingButton className={buttonClass}>Basic buchen</PendingButton>
-                  </form>
-                  <form action={startCheckout}>
-                    <input type="hidden" name="tarif" value="plus" />
-                    <PendingButton className={buttonSecondaryClass}>
-                      Verwalter-Plus buchen
-                    </PendingButton>
-                  </form>
-                </>
-              ) : genutzt !== "pro" ? (
-                <form action={startCheckout}>
-                  <input type="hidden" name="tarif" value="pro" />
-                  <PendingButton className={buttonClass}>Auf Pro upgraden</PendingButton>
-                </form>
-              ) : null
+            {/* Die Buchungs-Knöpfe der wegportal24-Tarife sitzen unten in den
+                Tarifkarten — direkt bei der Erklärung dessen, was man bucht.
+                Hier oben bleibt nur, was das laufende Abo betrifft. */}
+            {!hatAktivesAbo && !weg && genutzt !== "pro" ? (
+              <form action={startCheckout}>
+                <input type="hidden" name="tarif" value="pro" />
+                <PendingButton className={buttonClass}>Auf Pro upgraden</PendingButton>
+              </form>
             ) : null}
             {org.stripeCustomerId ? (
               <form action={openBillingPortal}>
@@ -203,6 +191,17 @@ export default async function BillingPage({
               <p className="mt-1 text-xs text-gray-500">
                 Mengenrabatt ab 5 Einheiten — Details auf der Preisseite.
               </p>
+            ) : null}
+            {/* Der Buchen-Knopf gehört zur Erklärung des Tarifs. Mit aktivem
+                Abo verschwindet er — ein zweites Abo daneben wäre eine
+                Doppelbuchung; Wechsel laufen über „Abo verwalten". */}
+            {billingReady &&
+            !hatAktivesAbo &&
+            (plan.id === "basic" || plan.id === "plus") ? (
+              <form action={startCheckout} className="mt-4">
+                <input type="hidden" name="tarif" value={plan.id} />
+                <PendingButton className={buttonClass}>{plan.name} buchen</PendingButton>
+              </form>
             ) : null}
           </div>
         ))}

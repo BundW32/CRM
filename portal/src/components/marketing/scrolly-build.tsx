@@ -40,7 +40,7 @@ const STAGES: Stage[] = [
   },
   {
     step: "Schritt 3 · Hausgeld",
-    title: "Hausgeld & Mahnwesen",
+    title: "Hausgeld & Zahlungseingang",
     text:
       "Sollstellungen entstehen automatisch aus dem Plan. Rückstände je Einheit " +
       "im Blick, Mahnungen als fertiger DIN-A4-Brief.",
@@ -403,50 +403,92 @@ function Building({
   );
 }
 
-// ── Gestapelte Liste: auf dem Handy und bei reduzierter Bewegung ──────────
+// ── Die sechs Stufen als EINE Liste ───────────────────────────────────────
 //
-// Ohne Scroll-Pinning (das gilt erst ab `lg`) kann das Haus nicht stehen
-// bleiben, während der Text daran vorbeizieht. Statt es ganz wegzulassen –
-// dann fehlte auf dem Handy genau das Bild, um das es geht – trägt jede Stufe
-// ihr eigenes Haus in genau dem Bauzustand, den sie beschreibt. Beim Scrollen
-// durch die Karten wächst es damit von Stufe zu Stufe, ganz ohne Skript.
-function ReducedFallback() {
+// Vorher stand jede Stufe zweimal im Dokument: einmal gestapelt für < lg und
+// noch einmal als Textpanel der gepinnten Szene. Beide Fassungen lagen immer
+// im HTML — sechs Überschriften und sechs Absätze also doppelt. Suchmaschinen
+// lesen das als Text-Duplikate und als wiederholte Überschriftentexte.
+//
+// Jetzt trägt eine Liste beide Auftritte: unter lg Karten untereinander, ab lg
+// absolut übereinandergelegt und über den Scroll-Fortschritt eingeblendet. Was
+// nur zu einem Auftritt gehört (Ziffer und kleines Haus mobil, Merkmal-Chip und
+// Abschluss-CTA am Schreibtisch), blendet CSS aus — nicht ein zweites Markup.
+function Stufen({
+  stage,
+  statisch,
+}: {
+  stage: number;
+  statisch: boolean;
+}) {
   const N = STAGES.length;
+  const ueberlagert = !statisch;
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-      <h2 className="text-2xl font-bold text-wp-ink sm:text-3xl">
-        So bauen Sie Ihre Selbstverwaltung auf
-      </h2>
-      <ol className="mt-8 space-y-4">
-        {STAGES.map((s, i) => (
-          <li
-            key={s.title}
-            className="flex flex-wrap items-start gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-e1"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-wp-accent font-display text-base font-bold text-wp-on-accent">
-              {i + 1}
-            </span>
-            {/* `basis` hält den Text mindestens 12 rem breit – darunter umbricht
-                die Zeile lieber, als den Satz in Zwei-Wort-Zeilen zu pressen.
-                Genau dann rutscht das Haus in die nächste Reihe und steht dort
-                mittig unter dem Schritt. */}
-            <div className="min-w-0 flex-1 basis-48">
-              <p className="text-xs font-semibold uppercase tracking-wider text-wp-accent-ink">{s.step}</p>
-              <h3 className="mt-1 text-lg font-semibold text-gray-900">{s.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{s.text}</p>
-            </div>
-            {/* `progress` so gewählt, dass die Bauteile dieser Stufe voll
-                dastehen: appear(i) = 1 bei progress · N − i ≥ 1. */}
-            <Building
-              stage={i}
-              progress={(i + 1) / N}
-              className="mx-auto h-[168px] w-[118px] shrink-0"
-              dekorativ
-            />
-          </li>
-        ))}
-      </ol>
-    </section>
+    <ol className={ueberlagert ? "space-y-4 lg:relative lg:min-h-[268px] lg:space-y-0" : "space-y-4"}>
+      {STAGES.map((s, i) => (
+        <li
+          key={s.title}
+          style={
+            ueberlagert
+              ? {
+                  ["--mk-panel-op" as string]: i === stage ? 1 : 0,
+                  ["--mk-panel-pe" as string]: i === stage ? "auto" : "none",
+                }
+              : undefined
+          }
+          className={
+            "flex flex-wrap items-start gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-e1" +
+            (ueberlagert
+              ? " lg:absolute lg:inset-0 lg:block lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none" +
+                " lg:opacity-[var(--mk-panel-op)] lg:[pointer-events:var(--mk-panel-pe)]" +
+                " lg:transition-opacity lg:duration-500 lg:[transition-timing-function:var(--ease-mk-out)]"
+              : "")
+          }
+        >
+          {/* Schritt-Ziffer: mobil der Anker in der Liste, am Schreibtisch
+              übernimmt das die Fortschrittsleiste. */}
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-wp-accent font-display text-base font-bold text-wp-on-accent lg:hidden">
+            {i + 1}
+          </span>
+          {/* `basis` hält den Text mobil mindestens 12 rem breit – darunter
+              umbricht die Zeile lieber, als den Satz in Zwei-Wort-Zeilen zu
+              pressen. Genau dann rutscht das Haus in die nächste Reihe. */}
+          <div className="min-w-0 flex-1 basis-48 lg:basis-auto">
+            <p className="text-xs font-semibold uppercase tracking-wider text-wp-accent-ink lg:text-sm lg:normal-case lg:tracking-normal">
+              {s.step}
+            </p>
+            <h3 className="mt-1 text-lg font-semibold text-gray-900 lg:mt-2 lg:text-4xl lg:font-extrabold lg:leading-tight lg:text-wp-ink">
+              {s.title}
+            </h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-gray-600 lg:mt-4 lg:max-w-md lg:text-base">
+              {s.text}
+            </p>
+            <p className="mt-3 hidden items-center gap-2 rounded-full border border-wp-accent-ink/40 bg-wp-accent-light px-3 py-1.5 text-xs font-semibold text-wp-accent-ink lg:mt-5 lg:inline-flex">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {s.badge}
+            </p>
+            {i === N - 1 ? (
+              <div className="mt-6 hidden lg:block">
+                <Link href="/registrieren" className={`${wpButtonClass} px-6 py-3 text-base`}>
+                  Selbstverwaltung einrichten
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            ) : null}
+          </div>
+          {/* Mobil trägt jede Stufe ihr eigenes Haus in genau dem Bauzustand,
+              den sie beschreibt — ohne Pinning wächst es so beim Scrollen durch
+              die Karten, ganz ohne Skript. `progress` so gewählt, dass die
+              Bauteile dieser Stufe voll dastehen: appear(i) = 1 bei p·N − i ≥ 1. */}
+          <Building
+            stage={i}
+            progress={(i + 1) / N}
+            className="mx-auto h-[168px] w-[118px] shrink-0 lg:hidden"
+            dekorativ
+          />
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -494,45 +536,49 @@ export function ScrollyBuild() {
     };
   }, [reduced]);
 
-  // Bei reduzierter Bewegung: statische, gestapelte Liste.
-  if (reduced) return <ReducedFallback />;
+  // Bei reduzierter Bewegung: statische, gestapelte Liste auf jeder Breite.
+  if (reduced) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
+        <h2 className="text-2xl font-bold text-wp-ink sm:text-3xl">
+          So bauen Sie Ihre Selbstverwaltung auf
+        </h2>
+        <div className="mt-8">
+          <Stufen stage={0} statisch />
+        </div>
+      </section>
+    );
+  }
 
   const isLast = stage === STAGES.length - 1;
 
   return (
-    <>
-    {/* Unter lg: dieselben sechs Schritte kompakt gestapelt (~1.100 px statt
-        ~7.000 px Pin-Strecke). Per CSS geschaltet, nicht per Client-Weiche —
-        der Server kennt die Breite nicht, und ein Umschalten nach der
-        Hydratation würde sichtbar springen. Der Pin kollidierte auf iOS
-        zudem mit dem Momentum-Scrolling („die Seite hängt"). */}
-    <div className="lg:hidden">
-      <ReducedFallback />
-    </div>
+    // Höhe der Scroll-Strecke: 120vh je Stufe (STAGES.length = 6 → 720vh) —
+    // ruhiges Tempo, jede Stufe bekommt genug Verweildauer. Unter lg gibt es
+    // kein Pinning: Auf iOS kollidierte es mit dem Momentum-Scrolling („die
+    // Seite hängt"), und ohne festen Halt kann die Szene nicht stehen bleiben,
+    // während der Text daran vorbeizieht.
     <section
       ref={trackRef}
-      aria-label="So bauen Sie Ihre Selbstverwaltung auf"
-      // 120vh Scroll-Strecke je Stufe: ruhigeres Tempo, jede Stufe bekommt
-      // genug Verweildauer für einen sauberen Durchlauf.
-      style={{ height: `${STAGES.length * 120}vh` }}
-      className="relative hidden lg:block"
+      className="relative mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 lg:h-[720vh] lg:max-w-none lg:px-0 lg:py-0"
     >
-      {/* h-svh statt h-screen (korrekt bei mobiler Browserleiste); das obere
-          Padding hält den Inhalt unter der fixierten Kopfzeile frei. */}
-      <div className="sticky top-0 flex h-svh items-center overflow-hidden pb-4 pt-16">
-        <SceneAmbience progress={progress} />
-        {/* feine Rahmenlinien: die Szene liest sich als eigene „Leinwand" */}
-        <div className="absolute inset-x-0 top-0 h-px bg-gray-200/80" />
-        <div className="absolute inset-x-0 bottom-0 h-px bg-gray-200/80" />
-        <div className="relative mx-auto grid w-full max-w-6xl items-center gap-8 px-4 sm:px-6 lg:grid-cols-2">
-          {/* Linke Spalte: Fortschritt + wechselnder Text */}
+      <div className="relative mt-0 lg:sticky lg:top-0 lg:flex lg:h-svh lg:items-center lg:overflow-hidden lg:pb-4 lg:pt-16">
+        {/* Ambiente und Rahmenlinien gehören zur gepinnten Szene. */}
+        <div className="pointer-events-none absolute inset-0 hidden lg:block">
+          <SceneAmbience progress={progress} />
+        </div>
+        <div className="absolute inset-x-0 top-0 hidden h-px bg-gray-200/80 lg:block" />
+        <div className="absolute inset-x-0 bottom-0 hidden h-px bg-gray-200/80 lg:block" />
+
+        <div className="relative mx-auto w-full items-center gap-8 lg:grid lg:max-w-6xl lg:grid-cols-2 lg:px-6">
+          {/* Linke Spalte: Überschrift, Fortschritt und die sechs Stufen */}
           <div className="relative">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-wp-accent-ink">
+            <h2 className="text-2xl font-bold text-wp-ink sm:text-3xl lg:text-xs lg:font-semibold lg:uppercase lg:tracking-[0.2em] lg:text-wp-accent-ink">
               So bauen Sie Ihre Selbstverwaltung auf
-            </p>
+            </h2>
 
             {/* Schritt-Ziffer + kontinuierlich mitlaufende Fortschrittsleiste */}
-            <div className="mt-4 flex items-center gap-4">
+            <div className="mt-4 hidden items-center gap-4 lg:flex">
               <span className="font-display text-2xl font-extrabold tabular-nums leading-none text-wp-ink">
                 <span data-stepnum>{String(stage + 1).padStart(2, "0")}</span>
                 <span className="ml-1 align-middle text-sm font-semibold text-gray-400">/ 06</span>
@@ -554,71 +600,31 @@ export function ScrollyBuild() {
               </div>
             </div>
 
-            {/* Textpanels – nur das aktive sichtbar (Cross-Fade) */}
-            <div className="relative mt-6 min-h-[248px]">
-              {STAGES.map((s, i) => (
-                <div
-                  key={s.title}
-                  data-panel={i}
-                  className="absolute inset-0 transition-all duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]"
-                  style={{
-                    opacity: i === stage ? 1 : 0,
-                    transform: i === stage ? "translateY(0)" : i < stage ? "translateY(-16px)" : "translateY(16px)",
-                    pointerEvents: i === stage ? "auto" : "none",
-                  }}
-                  aria-hidden={i !== stage}
-                >
-                  <p className="text-sm font-semibold text-wp-accent-ink">{s.step}</p>
-                  {/* Kein <h2>: Dieselben sechs Titel stehen bereits als Ueberschriften
-                      in der gestapelten Liste (ReducedFallback), die fuer lg:hidden immer
-                      im Dokument liegt. Zwei Auszeichnungen desselben Textes lasen sich
-                      fuer Suchmaschinen als doppelte Ueberschriften. */}
-                  <p className="mt-2 text-3xl font-extrabold leading-tight text-wp-ink sm:text-4xl">
-                    {s.title}
-                  </p>
-                  <p className="mt-4 max-w-md text-base leading-relaxed text-gray-600">{s.text}</p>
-                  <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-wp-accent-ink/40 bg-wp-accent-light px-3 py-1.5 text-xs font-semibold text-wp-accent-ink">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    {s.badge}
-                  </p>
-                  {i === STAGES.length - 1 ? (
-                    <div className="mt-6">
-                      <Link href="/registrieren" className={`${wpButtonClass} px-6 py-3 text-base`}>
-                        Jetzt kostenlos starten
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
+            <div className="mt-8 lg:mt-6">
+              <Stufen stage={stage} statisch={false} />
             </div>
 
             {/* Scroll-Hinweis (verblasst nach Beginn) */}
             <p
               data-hint
-              className="mt-2 text-xs text-gray-500 transition-opacity duration-500"
+              className="mt-2 hidden text-xs text-gray-500 transition-opacity duration-500 lg:block"
               style={{ opacity: isLast ? 0 : 0.9 }}
             >
               ↓ Scrollen, um Ihre WEG aufzubauen
             </p>
           </div>
 
-          {/* Rechte Spalte: das sich aufbauende Gebäude. Auf kleinen Screens
-              herunterskaliert (negative Margins gleichen die Layout-Höhe aus),
-              damit die komplette Szene in einen Viewport passt – nichts wird
-              abgeschnitten. */}
+          {/* Rechte Spalte: das sich aufbauende Gebäude. Mobil trägt jede Karte
+              ihr eigenes kleines Haus, hier steht das große in der Szene. */}
           <div
             data-buildingwrap
-            className="flex items-center justify-center"
+            className="hidden items-center justify-center lg:flex"
             style={{ transform: `translateY(${(0.5 - progress) * 24}px)` }}
           >
-            <div className="-my-16 scale-[0.68] sm:-my-6 sm:scale-90 lg:my-0 lg:scale-100">
-              <Building stage={stage} progress={progress} />
-            </div>
+            <Building stage={stage} progress={progress} />
           </div>
         </div>
       </div>
     </section>
-    </>
   );
 }

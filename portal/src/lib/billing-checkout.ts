@@ -18,7 +18,11 @@ import {
   stripePricePro,
 } from "@/lib/stripe";
 
-export type CheckoutFehler = "nicht_konfiguriert" | "keine_einheiten" | "zu_viele_einheiten";
+export type CheckoutFehler =
+  | "nicht_konfiguriert"
+  | "keine_einheiten"
+  | "zu_viele_einheiten"
+  | "checkout_fehlgeschlagen";
 export type CheckoutErgebnis = { url: string } | { fehler: CheckoutFehler };
 
 // Formularwert → Tarif. Unbekanntes fällt auf "pro" zurück — den Alt-Zustand
@@ -40,7 +44,20 @@ export async function starteCheckout(
       : tarif === "plus"
         ? stripePricePlus()
         : stripePricePro();
-  if (!stripe || !price) return { fehler: "nicht_konfiguriert" };
+  if (!stripe || !price) {
+    // Welche Variable fehlt, gehört in die Logs — auf der Seite steht sonst
+    // nur „nicht verfügbar", und die Fehlersuche beginnt beim Raten.
+    console.error(
+      `Checkout nicht konfiguriert: tarif=${tarif}, key=${Boolean(stripe)}, price=${Boolean(price)}`,
+    );
+    return { fehler: "nicht_konfiguriert" };
+  }
+  // Ohne absolute Rücksprung-Adressen lehnt Stripe die success_url ab und die
+  // Session-Erstellung wirft — der Klick bliebe ohne jede Rückmeldung stecken.
+  if (!successUrl.startsWith("http")) {
+    console.error("Checkout nicht konfiguriert: PORTAL_BASE_URL fehlt");
+    return { fehler: "nicht_konfiguriert" };
+  }
 
   let quantity = 1;
   if (tarif === "basic" || tarif === "plus") {
@@ -56,16 +73,25 @@ export async function starteCheckout(
     if (quantity > MAX_EINHEITEN) return { fehler: "zu_viele_einheiten" };
   }
 
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    line_items: [{ price, quantity }],
-    client_reference_id: org.id,
-    customer: org.stripeCustomerId ?? undefined,
-    // Der Webhook liest den gebuchten Tarif aus den Metadaten — die Preis-Id
-    // allein verrät ihn nicht, ohne sie erneut gegen die Env zu halten.
-    metadata: { tarif },
-    success_url: successUrl,
-    cancel_url: cancelUrl,
-  });
-  return session.url ? { url: session.url } : { fehler: "nicht_konfiguriert" };
+  // Scheitert die Session-Erstellung (falsche Preis-ID, Test-Preis mit
+  // Live-Schlüssel, Währungs-Konflikt …), soll der Klick eine verständliche
+  // Meldung zeigen — nicht in einem unbehandelten Serverfehler enden. Der
+  // eigentliche Grund steht in den Vercel-Logs und im Stripe-Dashboard.
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      line_items: [{ price, quantity }],
+      client_reference_id: org.id,
+      customer: org.stripeCustomerId ?? undefined,
+      // Der Webhook liest den gebuchten Tarif aus den Metadaten — die Preis-Id
+      // allein verrät ihn nicht, ohne sie erneut gegen die Env zu halten.
+      metadata: { tarif },
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    });
+    return session.url ? { url: session.url } : { fehler: "checkout_fehlgeschlagen" };
+  } catch (err) {
+    console.error(`Stripe-Checkout fehlgeschlagen (tarif=${tarif}, quantity=${quantity})`, err);
+    return { fehler: "checkout_fehlgeschlagen" };
+  }
 }

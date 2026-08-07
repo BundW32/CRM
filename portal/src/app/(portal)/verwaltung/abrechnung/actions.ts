@@ -12,8 +12,8 @@ function baseUrl(): string {
 
 // Startet den Stripe-Checkout. Nur SuperAdmin, nur wenn Billing konfiguriert
 // ist (sonst bleibt die Seite beim „wird eingerichtet"-Hinweis). Tarifwahl,
-// Einheitenzählung und Session-Aufbau liegen in lib/billing-checkout.ts —
-// gemeinsam mit der Sperrseite /abo.
+// Einheitenzählung, Konfigurations-Logging und Session-Aufbau liegen in
+// lib/billing-checkout.ts — gemeinsam mit der Sperrseite /abo.
 export async function startCheckout(formData: FormData) {
   const actor = await requireVerwalter();
   if (!actor.isSuperAdmin) redirect("/verwaltung");

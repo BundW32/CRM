@@ -399,7 +399,7 @@ export default async function Home() {
               </span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-white/85 sm:text-lg">
-              Immer mehr kleine Gemeinschaften bekommen <strong className="font-semibold text-white">schlicht keinen Verwalter
+              Immer mehr kleine Gemeinschaften finden <strong className="font-semibold text-white">keine Hausverwaltung
               mehr</strong> – die Pflichten aus dem WEG-Gesetz bleiben trotzdem.{" "}
               <span className="hidden sm:inline">
                 wegportal24 gibt Ihnen alles an die Hand, um Ihre Gemeinschaft
@@ -449,27 +449,37 @@ export default async function Home() {
             Gebaut für Eigentümer, nicht für Verwaltungsprofis
           </h2>
           <p className="mt-3 max-w-2xl text-wp-ink/70">
-            Alles, was Ihre WEG braucht – nichts, was Sie überfordert. Jede
+            Keine Hausverwaltung gefunden? Dann verwalten Sie Ihre WEG selbst — mit
+                allem, was sie dafür braucht, und nichts, was Sie überfordert. Jede
             Funktion hat eine eigene Seite mit ausführlicher Erklärung.
           </p>
         </Reveal>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {NUTZEN.map(({ icon: Icon, titel, text, href }, i) => (
             <Reveal key={titel} delay={(i % 3) * 90}>
-              <Link
-                href={href}
-                className="group flex h-full flex-col rounded-2xl border border-wp-ink/10 bg-white p-6 shadow-e1 transition-all hover:border-wp-accent-ink/30 hover:shadow-e2"
-              >
+              <article className="group relative flex h-full flex-col rounded-2xl border border-wp-ink/10 bg-white p-6 shadow-e1 transition-all hover:border-wp-accent-ink/30 hover:shadow-e2">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-wp-accent-light">
                   <Icon className="h-5 w-5 text-wp-accent-ink" />
                 </span>
-                <h3 className="mt-4 text-lg font-semibold text-wp-ink">{titel}</h3>
+                {/* Nur die Überschrift ist der Link — die ganze Karte bleibt trotzdem
+                    klickbar, weil `after:inset-0` eine unsichtbare Fläche darüber legt.
+                    Vorher umschloss das <a> die komplette Karte: Der Ankertext war damit
+                    über 200 Zeichen lang — für Suchmaschinen wie für eine
+                    Screenreader-Linkliste unbrauchbar. */}
+                <h3 className="mt-4 text-lg font-semibold text-wp-ink">
+                  <Link
+                    href={href}
+                    className="after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wp-accent-ink"
+                  >
+                    {titel}
+                  </Link>
+                </h3>
                 <p className="mt-2 flex-1 text-sm leading-relaxed text-wp-ink/70">{text}</p>
                 <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-wp-accent-ink">
                   Mehr erfahren
                   <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                 </span>
-              </Link>
+              </article>
             </Reveal>
           ))}
         </div>
@@ -695,6 +705,19 @@ export default async function Home() {
             </Reveal>
           ))}
         </div>
+      {/* Externer Beleg statt Behauptung: Die Fristen und Pflichten auf dieser
+          Seite stehen im Wortlaut im Wohnungseigentumsgesetz. */}
+      <p className="mt-8 text-center text-xs text-wp-ink/50">
+        Alle genannten Fristen und Pflichten im Wortlaut:{" "}
+        <a
+          href="https://www.gesetze-im-internet.de/woeigg/"
+          target="_blank"
+          rel="noopener"
+          className="underline underline-offset-2"
+        >
+          Wohnungseigentumsgesetz bei gesetze-im-internet.de
+        </a>
+      </p>
       </section>
 
       {/* ── Element 10: Abschluss-CTA ─────────────────────────────────────── */}

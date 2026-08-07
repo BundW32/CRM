@@ -32,6 +32,17 @@ export async function startCheckout(formData: FormData) {
   const price =
     tarif === "basic" ? stripePriceBasic() : tarif === "plus" ? stripePricePlus() : stripePricePro();
   if (!isBillingEnabled() || !stripe || !price) {
+    // Welche Variable fehlt, gehört in die Logs — auf der Seite steht sonst
+    // nur „nicht verfügbar", und die Fehlersuche beginnt beim Raten.
+    console.error(
+      `Checkout nicht konfiguriert: tarif=${tarif}, key=${Boolean(stripe)}, price=${Boolean(price)}`,
+    );
+    redirect("/verwaltung/abrechnung?fehler=nicht_konfiguriert");
+  }
+  // Ohne Basis-URL lehnt Stripe die success_url ab und die Session-Erstellung
+  // wirft — der Klick bliebe ohne jede Rückmeldung stecken.
+  if (!baseUrl()) {
+    console.error("Checkout nicht konfiguriert: PORTAL_BASE_URL fehlt");
     redirect("/verwaltung/abrechnung?fehler=nicht_konfiguriert");
   }
 
@@ -50,21 +61,32 @@ export async function startCheckout(formData: FormData) {
   }
 
   const base = baseUrl();
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    line_items: [{ price, quantity }],
-    client_reference_id: org.id,
-    customer: org.stripeCustomerId ?? undefined,
-    // Der Webhook liest den gebuchten Tarif aus den Metadaten — die Preis-Id
-    // allein verrät ihn nicht, ohne sie erneut gegen die Env zu halten.
-    metadata: { tarif },
-    // Nach dem Bezahlen auf die Danke-Seite — nicht zurück in die nüchterne
-    // Abrechnungs-Übersicht. Der Abbruch bleibt dort, wo man weitermacht.
-    success_url: `${base}/verwaltung/abrechnung/danke`,
-    cancel_url: `${base}/verwaltung/abrechnung?abbruch=1`,
-  });
-  if (!session.url) redirect("/verwaltung/abrechnung?fehler=nicht_konfiguriert");
-  redirect(session.url);
+  // Scheitert die Session-Erstellung (falsche Preis-ID, Test-Preis mit
+  // Live-Schlüssel, Währungs-Konflikt …), soll der Klick eine verständliche
+  // Meldung zeigen — nicht in einem unbehandelten Serverfehler enden. Der
+  // eigentliche Grund steht in den Vercel-Logs und im Stripe-Dashboard.
+  let checkoutUrl: string | null = null;
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      line_items: [{ price, quantity }],
+      client_reference_id: org.id,
+      customer: org.stripeCustomerId ?? undefined,
+      // Der Webhook liest den gebuchten Tarif aus den Metadaten — die Preis-Id
+      // allein verrät ihn nicht, ohne sie erneut gegen die Env zu halten.
+      metadata: { tarif },
+      // Nach dem Bezahlen auf die Danke-Seite — nicht zurück in die nüchterne
+      // Abrechnungs-Übersicht. Der Abbruch bleibt dort, wo man weitermacht.
+      success_url: `${base}/verwaltung/abrechnung/danke`,
+      cancel_url: `${base}/verwaltung/abrechnung?abbruch=1`,
+    });
+    checkoutUrl = session.url;
+  } catch (err) {
+    console.error(`Stripe-Checkout fehlgeschlagen (tarif=${tarif}, quantity=${quantity})`, err);
+    redirect("/verwaltung/abrechnung?fehler=checkout_fehlgeschlagen");
+  }
+  if (!checkoutUrl) redirect("/verwaltung/abrechnung?fehler=checkout_fehlgeschlagen");
+  redirect(checkoutUrl);
 }
 
 // Öffnet das Stripe-Kundenportal (Zahlungsmittel/Kündigung/Rechnungen).

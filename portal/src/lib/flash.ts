@@ -101,6 +101,14 @@ export const flashMessages = {
     text: "Diese Funktion gehört zum Verwalter-Plus-Tarif. Den Wechsel finden Sie unter Einstellungen → Abrechnung.",
     tone: "error",
   },
+  // Plan-Sperre des Start-Umfangs: einrichten und ansehen ist frei, die
+  // Arbeitsfunktionen gehören zu den bezahlten Tarifen.
+  "nur-mit-tarif": {
+    text:
+      "Diese Funktion ist im Start-Umfang nicht enthalten. Mit Basic oder " +
+      "Verwalter-Plus (Einstellungen → Abrechnung) steht sie sofort wieder offen.",
+    tone: "error",
+  },
   "anfrage-gesendet": {
     text: "Ihre Anfrage ist beim zertifizierten Verwalter eingegangen. Die Antwort erscheint hier im Portal.",
     tone: "success",

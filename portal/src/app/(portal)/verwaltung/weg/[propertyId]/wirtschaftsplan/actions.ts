@@ -8,6 +8,7 @@ import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
+import { planErlaubt } from "@/lib/plan-guard";
 import { computeUnitAdvances, fiscalYearRange } from "@/lib/weg/economic-plan";
 import { synchronisiereSollstellungen } from "@/lib/weg/due-postings";
 import { faelligkeitsText, monatsBeginn } from "@/lib/weg/plan-validity";
@@ -29,6 +30,9 @@ const createSchema = z.object({
 
 export async function createPlan(formData: FormData) {
   const verwalter = await requireVerwalter();
+  // Plan-Sperre: Arbeitsfunktion — im Start-Umfang (einrichten + ansehen)
+  // nicht enthalten; Umfang je Tarif siehe PLAN_FUNKTIONEN in lib/billing.ts.
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/verwaltung/weg?flash=nur-mit-tarif");
   const parsed = createSchema.safeParse({
     propertyId: formData.get("propertyId"),
     year: formData.get("year"),
@@ -262,6 +266,7 @@ const resolveSchema = z.object({
 
 export async function resolvePlan(formData: FormData) {
   const verwalter = await requireVerwalter();
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/verwaltung/weg?flash=nur-mit-tarif");
   const parsed = resolveSchema.safeParse({
     propertyId: formData.get("propertyId"),
     planId: formData.get("planId"),

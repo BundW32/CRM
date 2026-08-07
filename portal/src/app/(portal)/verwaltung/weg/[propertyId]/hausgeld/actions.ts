@@ -6,6 +6,7 @@ import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
+import { planErlaubt } from "@/lib/plan-guard";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import {
   offenePostenDerEinheit,
@@ -75,6 +76,9 @@ const currentArrears = rueckstandDerEinheit;
 // Entwürfe erhöhen die Stufe nicht. Rückstand und Empfänger werden eingefroren.
 export async function createMahnung(formData: FormData) {
   const verwalter = await requireVerwalter();
+  // Plan-Sperre: Arbeitsfunktion — im Start-Umfang (einrichten + ansehen)
+  // nicht enthalten; Umfang je Tarif siehe PLAN_FUNKTIONEN in lib/billing.ts.
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/verwaltung/weg?flash=nur-mit-tarif");
   const propertyId = String(formData.get("propertyId") ?? "");
   const unitId = String(formData.get("unitId") ?? "");
   const property = await loadWegProperty(verwalter, propertyId);
@@ -337,6 +341,7 @@ export async function saveUebernahme(formData: FormData) {
 
 export async function schreibeSollstellungenFort(formData: FormData) {
   const verwalter = await requireVerwalter();
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/verwaltung/weg?flash=nur-mit-tarif");
   const propertyId = String(formData.get("propertyId") ?? "");
   const property = await loadWegProperty(verwalter, propertyId);
   if (!property) redirect("/verwaltung/weg");

@@ -1,0 +1,36 @@
+# Automatisierte Abhängigkeits-Updates als Pull Requests.
+#
+# Ergänzt den bestehenden `npm audit`-Schritt in `pruefung.yml` (der deckt nur
+# bereits gemeldete Schwachstellen ab). Dependabot hält die Versionen zusätzlich
+# laufend aktuell, bevor überhaupt ein CVE veröffentlicht wird — siehe
+# docs/SICHERHEIT-Restarbeiten.md, P0-4 ("Dependabot/Renovate aktivieren").
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /portal
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      # Kleinere Versionsstände zusammenfassen, damit nicht zehn Einzel-PRs für
+      # zehn Patch-Releases entstehen — nur bei Major-Sprüngen einzeln prüfen.
+      nebenversionen:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: npm
+    directory: /video
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      nebenversionen:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

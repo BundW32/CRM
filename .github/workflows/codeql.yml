@@ -1,0 +1,35 @@
+# Statische Sicherheitsanalyse (SAST) für JavaScript/TypeScript.
+#
+# Ergänzt `pruefung.yml` (Typen/Linter/Tests) und `npm audit` (bekannte
+# Schwachstellen in Abhängigkeiten) um eine dritte Ebene: Muster im eigenen
+# Code, die typischerweise zu Sicherheitslücken führen (z. B. Injection,
+# unsichere Deserialisierung). Aus docs/SICHERHEIT-Restarbeiten.md, P0-4
+# ("CodeQL einschalten").
+name: CodeQL
+
+on:
+  pull_request:
+  schedule:
+    # Wöchentlich zusätzlich zum Pull Request, damit neu erkannte Muster in
+    # der CodeQL-Regelbasis auch unveränderten Code erfassen.
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    name: Analyse
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

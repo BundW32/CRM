@@ -34,6 +34,27 @@ Billing-Alarme; ohne sie geht der Alarm an die erste Adresse aus
 
 ---
 
+## Nachtrag 07.08.2026 — vier Fundament-Bausteine ohne Produktänderung
+
+Ergänzend zu B-2 (dort nur `npm audit fix` + CI-Schritt) und B-4 (dort noch
+offen) vier reine Infrastruktur-/CI-Ergänzungen, die keine Kunden-Funktion
+berühren:
+
+| Baustein | Umsetzung | Bezug |
+|---|---|---|
+| **Dependabot** | `.github/dependabot.yml` — wöchentliche Update-PRs für `portal/`, `video/` (npm) und die GitHub-Actions-Workflows selbst, Nebenversionen gruppiert. | B-2 / P0-4 (Maßnahme 3, bislang nicht umgesetzt trotz „✅ Behoben"-Status). |
+| **CodeQL** | `.github/workflows/codeql.yml` — SAST bei jedem Pull Request plus wöchentlicher Lauf, damit auch unveränderter Code von neuen Erkennungsmustern erfasst wird. | B-2 / P0-4 (Maßnahme 3), P3-21 (Schwachstellen-Managementprozess). |
+| **`security.txt`** | `portal/public/.well-known/security.txt` (RFC 9116), Kontakt `info@wegportal24.de` / `info@bundwimmobilien.de`, `Expires` auf ein Jahr gesetzt. | P3-21 — schließt nur den Meldeweg; Pentest und Prozess dahinter bleiben offen. |
+| **Health-Endpoint** | `GET /api/health` — ungeschützt, prüft nur `SELECT 1` gegen die Datenbank, keine Details im Fehlerfall. Liefert den fehlenden Ansatzpunkt für einen externen Uptime-Check. | B-4 (liefert nur den Endpunkt, nicht das Monitoring selbst — ein externer Dienst muss ihn noch abfragen und alarmieren). |
+
+**Bewusst nicht angefasst:** Sentry/Error-Tracking, das eigentliche externe
+Uptime-Monitoring (Anbieterauswahl, Vertrag), Connection-Pooling und alles
+mit Produktwirkung — das sind Entscheidungen bzw. Aufwände, die über eine
+reine Code-/CI-Ergänzung hinausgehen. `npm run pruefung` (541 Tests) läuft
+nach allen vier Änderungen unverändert grün.
+
+---
+
 ## 1. Management-Zusammenfassung
 
 Das Fundament ist deutlich besser als bei den meisten SaaS-Produkten in diesem Stadium: Die Mandantentrennung ist zentral in `src/lib/access.ts` verankert, wird durch Kreuztests gegen eine echte Datenbank in der CI geprüft, Sitzungen sind widerrufbar, Uploads liegen privat im Objekt-Speicher, und die Sicherheitsarbeit ist mit zwei eigenen Berichten (`SICHERHEITSBERICHT-Marktreife.md`, `SICHERHEIT-Restarbeiten.md`) selbstkritisch dokumentiert — die dort als P0 markierten Rechteausweitungs- und Sitzungs-Lücken sind nachweislich geschlossen. Auch Architektur und Datenmodell tragen: modularer Monolith, versionierte Migrationen, die in der CI von null aufgebaut werden, 116 Indexe, idempotenter Bankimport.

@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import { FileInput } from "@/components/file-input";
 import { Card, Field, inputClass } from "@/components/ui";
-import { DateField } from "@/components/fields";
+import { DateField, SelectField } from "@/components/fields";
+import { unitTypeLabels } from "@/lib/labels";
 import { SubmitButton } from "@/components/submit-button";
 import { createObjekt } from "./actions";
 import { extractObjektFields } from "./import-actions";
@@ -11,7 +12,7 @@ import { splitName } from "@/lib/person-name";
 import { anteilSummeStatus, namensSchluessel, parseAnteil } from "@/lib/weg/anteil";
 import { type GewaehltePerson, PersonVorschlag } from "./PersonVorschlag";
 
-type UnitRow = { label: string; external: string; floor: string; area: string; mea: string; persons: string };
+type UnitRow = { label: string; external: string; floor: string; area: string; mea: string; persons: string; typ: string };
 // `person` ist gesetzt, sobald eine bestehende Person aus dem Vorschlag gewählt
 // wurde – dann wird verknüpft statt ein zweiter Zugang angelegt.
 type PersonRow = {
@@ -85,7 +86,7 @@ export function ObjektForm({
   const [managementType, setManagementType] = useState(defaultManagementType);
   const isWeg = managementType === "WEG";
   const [units, setUnits] = useState<Array<UnitRow & { key: string }>>([
-    { key: nextKey(), label: "", external: "", floor: "", area: "", mea: "", persons: "" },
+    { key: nextKey(), label: "", external: "", floor: "", area: "", mea: "", persons: "", typ: "WOHNUNG" },
   ]);
   // Anzahl Stellplätze/Garagen (nur WEG) — sie entstehen als Einheiten vom
   // Typ STELLPLATZ und zählen abrechnungsseitig nicht als Einheiten.
@@ -153,6 +154,7 @@ export function ObjektForm({
             area: "",
             mea: "",
             persons: "",
+            typ: "WOHNUNG",
           })),
         );
       }
@@ -389,7 +391,9 @@ export function ObjektForm({
       <Card title="2. Einheiten">
         <p className="mb-3 text-xs text-gray-500">
           Legen Sie die Wohn- bzw. Gewerbeeinheiten an. Diese stehen anschließend für die
-          {isWeg ? " Eigentümer-Zuordnung" : " Mieter-Zuordnung"} zur Verfügung.
+          {isWeg ? " Eigentümer-Zuordnung" : " Mieter-Zuordnung"} zur Verfügung. Einzelne
+          Stellplätze oder Garagen lassen sich hier über die Art „Stellplatz&ldquo; anlegen —
+          oder gesammelt über das Anzahl-Feld unten.
         </p>
         {isWeg ? (
           <p className="mb-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500">
@@ -442,7 +446,19 @@ export function ObjektForm({
                   />
                 </Field>
               </div>
-              <div className={`mt-2 grid gap-2 ${isWeg ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-3"}`}>
+              <div className={`mt-2 grid gap-2 ${isWeg ? "grid-cols-2 sm:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"}`}>
+                <SelectField
+                  label="Art"
+                  name="unitType"
+                  value={u.typ}
+                  onChange={(e) =>
+                    setUnits((rows) => rows.map((r) => (r.key === u.key ? { ...r, typ: e.target.value } : r)))
+                  }
+                  options={Object.entries(unitTypeLabels).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                />
                 <Field label="Etage (optional)">
                   <input
                     type="text"
@@ -502,7 +518,7 @@ export function ObjektForm({
         </div>
         <button
           type="button"
-          onClick={() => setUnits((rows) => [...rows, { key: nextKey(), label: "", external: "", floor: "", area: "", mea: "", persons: "" }])}
+          onClick={() => setUnits((rows) => [...rows, { key: nextKey(), label: "", external: "", floor: "", area: "", mea: "", persons: "", typ: "WOHNUNG" }])}
           className="mt-3 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
           + Einheit hinzufügen

@@ -2,10 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import type { User } from "@/generated/prisma/client";
+import type { UnitType, User } from "@/generated/prisma/client";
 import { canVerwalterAccessProperty, canVerwalterManageUser } from "@/lib/access";
 import { encodeBelegung } from "@/lib/belegung";
 import { aboMengeSynchronisieren } from "@/lib/billing-sync";
+import { unitTypeLabels } from "@/lib/labels";
 import { db } from "@/lib/db";
 import { merkeErstzugang } from "@/lib/zugangsschreiben";
 import { type PersonTreffer, searchPersons } from "@/lib/person-search";
@@ -15,6 +16,15 @@ import { DOCUMENT_TYPES, IMAGE_TYPES, deleteBlob, saveUpload } from "@/lib/stora
 import { inviteOrLetter } from "@/lib/user-invite";
 import { parseAnteil } from "@/lib/weg/anteil";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
+
+// Art der Einheit (Wohnung, Teileigentum, Stellplatz, Sonstiges) — Whitelist
+// über die Label-Tabelle; Unbekanntes fällt auf Wohnung zurück. Garagen sind
+// Stellplätze; ihr Untertyp (Garage, Carport, Tiefgarage) wird in den
+// WEG-Stammdaten gepflegt.
+function parseUnitType(raw: FormDataEntryValue | null): UnitType {
+  const wert = String(raw ?? "");
+  return (wert in unitTypeLabels ? wert : "WOHNUNG") as UnitType;
+}
 
 function optInt(raw: FormDataEntryValue | null): number | null {
   const v = String(raw ?? "").trim();
@@ -138,6 +148,7 @@ export async function addUnit(formData: FormData) {
       label: label.slice(0, 200),
       externalLabel: optStr(formData.get("externalLabel")),
       floor: optStr(formData.get("floor"), 50),
+      unitType: parseUnitType(formData.get("unitType")),
       livingArea: optFloat(formData.get("livingArea")),
       mea: optInt(formData.get("mea")),
       personCount: optInt(formData.get("personCount")),
@@ -165,6 +176,7 @@ export async function updateUnit(formData: FormData) {
       label: label.slice(0, 200),
       externalLabel: optStr(formData.get("externalLabel")),
       floor: optStr(formData.get("floor"), 50),
+      unitType: parseUnitType(formData.get("unitType")),
       livingArea: optFloat(formData.get("livingArea")),
       mea: optInt(formData.get("mea")),
       personCount: optInt(formData.get("personCount")),

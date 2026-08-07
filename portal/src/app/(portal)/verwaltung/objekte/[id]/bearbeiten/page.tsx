@@ -12,13 +12,13 @@ import {
   buttonSecondaryClass,
   inputClass,
 } from "@/components/ui";
-import { DateField, toDateInputValue } from "@/components/fields";
+import { DateField, SelectField, toDateInputValue } from "@/components/fields";
 import { SubmitButton } from "@/components/submit-button";
 import { AddPersonForm } from "./AddPersonForm";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { belegungHinweis, belegungText, decodeBelegung } from "@/lib/belegung";
 import { db } from "@/lib/db";
-import { managementTypeLabels } from "@/lib/labels";
+import { managementTypeLabels, unitTypeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import { FilePreviewLink } from "@/components/file-preview-link";
 import {
@@ -428,8 +428,10 @@ export default async function ObjektBearbeitenPage({
         <h2 className="mb-1 text-lg font-bold tracking-tight text-white">Einheiten</h2>
         <p className="mb-4 max-w-3xl text-sm text-gray-300">
           Interne Bezeichnung sieht nur die Verwaltung; die externe Bezeichnung/Lage erscheint
-          in Dokumenten und für Mieter/Eigentümer. Eigentümer- und Mieter-Zuordnung erfolgt unter
-          „Nutzer“.
+          in Dokumenten und für Mieter/Eigentümer. Auch Stellplätze und Garagen werden hier als
+          Einheiten geführt — dafür die Art „Stellplatz“ wählen; ob Garage, Carport oder
+          Tiefgarage, pflegen Sie in den WEG-Stammdaten. Eigentümer- und Mieter-Zuordnung
+          erfolgt unter „Nutzer“.
         </p>
 
         <div className="space-y-4">
@@ -460,6 +462,15 @@ export default async function ObjektBearbeitenPage({
                       <Field label="Externe Bezeichnung / Lage">
                         <input type="text" name="externalLabel" defaultValue={u.externalLabel ?? ""} className={inputClass} placeholder="z. B. 1. OG links" />
                       </Field>
+                      <SelectField
+                        label="Art"
+                        name="unitType"
+                        defaultValue={u.unitType}
+                        options={Object.entries(unitTypeLabels).map(([value, label]) => ({
+                          value,
+                          label,
+                        }))}
+                      />
                       <Field label="Etage">
                         <input type="text" name="floor" defaultValue={u.floor ?? ""} className={inputClass} placeholder="z. B. EG" />
                       </Field>
@@ -588,6 +599,15 @@ export default async function ObjektBearbeitenPage({
               <Field label="Externe Bezeichnung / Lage">
                 <input type="text" name="externalLabel" className={inputClass} placeholder="z. B. 2. OG rechts" />
               </Field>
+              <SelectField
+                label="Art"
+                name="unitType"
+                defaultValue="WOHNUNG"
+                options={Object.entries(unitTypeLabels).map(([value, label]) => ({
+                  value,
+                  label,
+                }))}
+              />
               <Field label="Etage">
                 <input type="text" name="floor" className={inputClass} placeholder="z. B. 2. OG" />
               </Field>

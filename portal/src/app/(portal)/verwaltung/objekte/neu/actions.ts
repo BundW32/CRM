@@ -2,11 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import type { User } from "@/generated/prisma/client";
+import type { UnitType, User } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { merkeErstzugaenge } from "@/lib/zugangsschreiben";
 import { isSelfManaged } from "@/lib/access";
 import { aboMengeSynchronisieren } from "@/lib/billing-sync";
+import { unitTypeLabels } from "@/lib/labels";
 import {
   type PersonTreffer,
   searchPersons,
@@ -145,6 +146,7 @@ export async function createObjekt(formData: FormData) {
   const unitLabels = formData.getAll("unitLabel").map((v) => String(v).trim());
   const unitExternals = formData.getAll("unitExternalLabel").map((v) => String(v).trim());
   const unitFloors = formData.getAll("unitFloor").map((v) => String(v).trim());
+  const unitTypes = formData.getAll("unitType").map((v) => String(v));
   const unitAreas = formData.getAll("unitArea").map((v) => String(v));
   const unitMeas = formData.getAll("unitMea").map((v) => String(v));
   const unitPersonsRaw = formData.getAll("unitPersons").map((v) => String(v));
@@ -155,6 +157,12 @@ export async function createObjekt(formData: FormData) {
       label: label.slice(0, 200),
       externalLabel: (unitExternals[i] ?? "").slice(0, 200) || null,
       floor: unitFloors[i] || undefined,
+      // Art (Wohnung, Teileigentum, Stellplatz, Sonstiges) — Whitelist über
+      // die Label-Tabelle, Unbekanntes fällt auf Wohnung zurück. Garagen sind
+      // Stellplätze; der Untertyp folgt in den WEG-Stammdaten.
+      unitType: ((unitTypes[i] ?? "") in unitTypeLabels
+        ? unitTypes[i]
+        : "WOHNUNG") as UnitType,
       livingArea: optFloat(unitAreas[i] ?? null),
       mea: managementType === "WEG" ? optInt(unitMeas[i] ?? null) : null,
       personCount: optInt(unitPersonsRaw[i] ?? null),
@@ -169,6 +177,7 @@ export async function createObjekt(formData: FormData) {
         label: u.label,
         externalLabel: u.externalLabel,
         floor: u.floor,
+        unitType: u.unitType,
         livingArea: u.livingArea,
         mea: u.mea,
         personCount: u.personCount,

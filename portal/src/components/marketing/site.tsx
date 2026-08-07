@@ -97,18 +97,18 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
     title: "Funktionen",
     links: [
       { href: "/funktionen/finanzen", label: "Finanzen & Jahresabrechnung" },
-      { href: "/funktionen/hausgeld", label: "Hausgeld & Mahnwesen" },
-      { href: "/funktionen/versammlung", label: "Versammlung & Beschlüsse" },
+      { href: "/funktionen/hausgeld", label: "Hausgeld & Rückstände" },
+      { href: "/funktionen/versammlung", label: "Versammlung & Abstimmung" },
       { href: "/funktionen/kommunikation", label: "Kommunikation & Alltag" },
     ],
   },
   {
     title: "Einstieg",
     links: [
-      { href: "/so-funktionierts", label: "So funktioniert’s" },
-      { href: "/preise", label: "Preise" },
+      { href: "/so-funktionierts", label: "Der Weg zur Selbstverwaltung" },
+      { href: "/preise", label: "Preise und Tarife" },
       { href: "/registrieren", label: "Kostenlos registrieren" },
-      { href: "/login", label: "Anmelden" },
+      { href: "/login", label: "Zum Login" },
     ],
   },
   {
@@ -416,7 +416,7 @@ export function CtaBand({
                 href={`mailto:${BRAND_EMAIL}`}
                 className="font-medium text-wp-accent-bright hover:underline"
               >
-                {BRAND_EMAIL}
+                Schreiben Sie uns
               </a>
             </p>
           </div>

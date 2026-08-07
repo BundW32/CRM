@@ -4,6 +4,7 @@ import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass } from "@/com
 import { Badge } from "@/components/data-display";
 import {
   PLANS,
+  STELLPLATZ_CENTS,
   aktiverPlan,
   isBillingEnabled,
   istTestphaseAbgelaufen,
@@ -11,8 +12,8 @@ import {
   subscriptionStatusLabel,
   type Plan,
 } from "@/lib/billing";
+import { zaehleWegMengen } from "@/lib/billing-mengen";
 import { isWegSaas } from "@/lib/app-mode";
-import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
@@ -82,13 +83,12 @@ export default async function BillingPage({
   const hervorgehoben = weg && inTestphase ? "plus" : genutzt;
   const hatAktivesAbo = org.subscriptionStatus === "active" && Boolean(org.stripeSubscriptionId);
 
-  // Die wegportal24-Tarife rechnen je Einheit — die Zahl gehört auf die Seite,
-  // damit niemand raten muss, was der Checkout gleich berechnet.
-  const einheiten = weg
-    ? await db.unit.count({
-        where: { property: { organizationId: org.id, managementType: "WEG" } },
-      })
-    : 0;
+  // Die wegportal24-Tarife rechnen je Einheit — die Zahlen gehören auf die
+  // Seite, damit niemand raten muss, was der Checkout gleich berechnet.
+  // Stellplätze sind eine eigene Position (1 € je Stellplatz, ohne Staffel).
+  const { einheiten, stellplaetze } = weg
+    ? await zaehleWegMengen(org.id)
+    : { einheiten: 0, stellplaetze: 0 };
 
   const sichtbarePlaene = weg
     ? [PLANS.basic, PLANS.plus]
@@ -128,6 +128,16 @@ export default async function BillingPage({
                 Einheiten (Abrechnungsgröße)
               </dt>
               <dd className="text-gray-800">{einheiten}</dd>
+            </div>
+          ) : null}
+          {weg && stellplaetze > 0 ? (
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-gray-400">
+                Stellplätze &amp; Garagen
+              </dt>
+              <dd className="text-gray-800">
+                {stellplaetze} · je {euro(STELLPLATZ_CENTS)} / Monat
+              </dd>
             </div>
           ) : null}
         </dl>

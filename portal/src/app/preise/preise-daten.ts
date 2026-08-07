@@ -38,6 +38,29 @@ export const PLUS_JE_EINHEIT_EUR = 13.9;
  */
 export const VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR = 30;
 
+/**
+ * Stellplätze und Garagen (Einheiten vom Typ STELLPLATZ): pauschal 1 € je
+ * Stellplatz und Monat in BEIDEN Bezahltarifen, im Start-Tarif kostenlos.
+ * Bewusst OHNE Mengenstaffel — der flache Preis liegt bereits unter dem
+ * Wettbewerb (dort je nach Paket 1,00–2,80 €). Stellplätze zählen NICHT als
+ * Einheiten: weder für die Rabattstaffel noch für die 12er-Grenze — die
+ * bezieht sich auf die Wohn- und Gewerbeeinheiten der Gemeinschaft.
+ */
+export const STELLPLATZ_JE_MONAT_EUR = 1;
+
+/**
+ * Monatspreis der Gemeinschaft INKLUSIVE Stellplätze, in Euro — die eine
+ * Rechnung für Preisrechner, Checkout und Abo-Anzeige. Die Staffel wirkt nur
+ * auf die Einheiten, nie auf die Stellplätze.
+ */
+export function monatspreisGesamt(
+  basisJeEinheit: number,
+  einheiten: number,
+  stellplaetze: number,
+): number {
+  return monatspreis(basisJeEinheit, einheiten) + stellplaetze * STELLPLATZ_JE_MONAT_EUR;
+}
+
 /** Oberhalb dieser Einheitenzahl gibt es keinen Self-Service-Tarif. */
 export const MAX_EINHEITEN = 12;
 

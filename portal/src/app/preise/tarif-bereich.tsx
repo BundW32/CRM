@@ -26,11 +26,12 @@ import {
   jeEinheitNachStaffel,
   MAX_EINHEITEN,
   MIN_EINHEITEN,
-  monatspreis,
+  monatspreisGesamt,
   PLUS_JE_EINHEIT_EUR,
   RABATT_STAFFEL,
   rabattFuer,
   START_EINHEITEN,
+  STELLPLATZ_JE_MONAT_EUR,
 } from "./preise-daten";
 
 const euro = (betrag: number) =>
@@ -98,10 +99,12 @@ const TARIFE: Tarif[] = [
 function Kartenpreis({
   jeEinheit,
   einheiten,
+  stellplaetze,
   gerechnet,
 }: {
   jeEinheit: number | null;
   einheiten: number;
+  stellplaetze: number;
   gerechnet: boolean;
 }) {
   if (jeEinheit === null) {
@@ -120,7 +123,7 @@ function Kartenpreis({
     <>
       <p className="mt-3">
         <span className="text-4xl font-semibold tabular-nums text-wp-ink" data-gesamt>
-          {euro(gerechnet ? monatspreis(jeEinheit, einheiten) : jeEinheit)} €
+          {euro(gerechnet ? monatspreisGesamt(jeEinheit, einheiten, stellplaetze) : jeEinheit)} €
         </span>
         <span className="ml-2 text-sm font-medium text-wp-ink/60">
           {gerechnet ? "/ Monat" : "je Einheit / Monat"}
@@ -133,6 +136,9 @@ function Kartenpreis({
             <span className="font-medium text-wp-accent-ink">Preis für Ihre WEG</span> ·{" "}
             {einheiten} Einheiten × {euro(jeEinheitJetzt)} €
             {rabatt > 0 ? ` (${Math.round(rabatt * 100)} % Mengenrabatt)` : ""}
+            {stellplaetze > 0
+              ? ` + ${stellplaetze} ${stellplaetze === 1 ? "Stellplatz" : "Stellplätze"} × ${euro(STELLPLATZ_JE_MONAT_EUR)} €`
+              : ""}
           </>
         ) : (
           "Alle Zugänge inklusive. Regler oben bewegen für den Monatsbetrag Ihrer Gemeinschaft."
@@ -144,10 +150,14 @@ function Kartenpreis({
 
 export function TarifBereich() {
   const [einheiten, setEinheiten] = useState(START_EINHEITEN);
+  // Stellplätze & Garagen: eigene Position, 1 € je Stellplatz — ohne Staffel
+  // und ohne Einfluss auf die Einheiten-Grenzen des Reglers.
+  const [stellplaetze, setStellplaetze] = useState(0);
   // Erst nach dem ersten Zug am Regler zeigen die Karten den Gesamtbetrag —
   // wer die Seite nur überfliegt, soll den Preis je Einheit sehen.
   const [gerechnet, setGerechnet] = useState(false);
   const reglerId = useId();
+  const stellplatzId = useId();
 
   const anteil = (einheiten - MIN_EINHEITEN) / (MAX_EINHEITEN - MIN_EINHEITEN);
 
@@ -214,6 +224,31 @@ export function TarifBereich() {
             </span>
           ))}
         </div>
+
+        {/* ── Stellplätze & Garagen: eigene Position, flacher Preis ── */}
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-wp-ink/10 pt-4">
+          <label htmlFor={stellplatzId} className="text-sm font-semibold text-wp-ink">
+            Stellplätze &amp; Garagen
+          </label>
+          <input
+            id={stellplatzId}
+            type="number"
+            min={0}
+            max={99}
+            value={stellplaetze}
+            onChange={(e) => {
+              const wert = Math.min(Math.max(Number(e.target.value) || 0, 0), 99);
+              setStellplaetze(wert);
+              setGerechnet(true);
+            }}
+            className="w-20 rounded-lg border border-wp-ink/20 bg-white px-3 py-2 text-sm tabular-nums text-wp-ink"
+            aria-describedby={`${stellplatzId}-hinweis`}
+          />
+          <p id={`${stellplatzId}-hinweis`} className="text-sm text-wp-ink/65">
+            je {euro(STELLPLATZ_JE_MONAT_EUR)} € / Monat in jedem Bezahltarif — bei
+            anderen Anbietern kosten Stellplätze bis zu 2,80 €/Monat.
+          </p>
+        </div>
       </div>
 
       {/* ── Die drei Stufen ── */}
@@ -229,6 +264,7 @@ export function TarifBereich() {
             <Kartenpreis
               jeEinheit={tarif.jeEinheit}
               einheiten={einheiten}
+              stellplaetze={stellplaetze}
               gerechnet={gerechnet}
             />
             <p className="mt-3 text-sm leading-relaxed text-wp-ink/70">{tarif.beschreibung}</p>
@@ -252,7 +288,9 @@ export function TarifBereich() {
 
       <p className="mt-5 text-center text-sm text-wp-ink/65">
         Alle Zugänge inklusive — Eigentümer, Beirat und Mieter zählen nicht
-        extra. Alle Preise sind Endpreise inkl. MwSt.
+        extra. Stellplätze &amp; Garagen: {euro(STELLPLATZ_JE_MONAT_EUR)} € je
+        Stellplatz/Monat in jedem Bezahltarif, im Start-Tarif kostenlos. Alle
+        Preise sind Endpreise inkl. MwSt.
       </p>
 
       {/* Die Grenze des Self-Service — und der Weg darüber hinaus. */}

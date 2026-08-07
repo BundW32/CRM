@@ -69,6 +69,18 @@ const PREIS_FAQ = [
       "bleiben danach noch mindestens 30 Tage exportierbar.",
   },
   {
+    f: "Zählen Stellplätze und Garagen als Einheiten?",
+    a:
+      "Nein. Stellplätze, Carports, Garagen und Tiefgaragen-Stellplätze " +
+      "kosten in den Bezahltarifen pauschal 1,00 € je Stellplatz und Monat " +
+      "(inkl. MwSt.), im Start-Tarif nichts. Sie beeinflussen weder den " +
+      "Mengenrabatt noch die 12-Einheiten-Grenze – die zählt nur Ihre Wohn- " +
+      "und Gewerbeeinheiten. Hinweis: Ob eine Garage rechtlich ein eigenes " +
+      "Sondereigentumsrecht ist (relevant für die Zertifizierungsfrage nach " +
+      "§ 19 Abs. 2 Nr. 6 WEG), sagt Ihre Teilungserklärung – das Portal " +
+      "trifft dazu keine Aussage.",
+  },
+  {
     f: "Warum wird je Einheit gerechnet – und nicht je Nutzer?",
     a:
       "Weil die Einheit die Größe ist, die Ihre WEG ohnehin kennt: Sie steht " +

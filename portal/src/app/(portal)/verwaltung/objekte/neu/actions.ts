@@ -202,6 +202,25 @@ export async function createObjekt(formData: FormData) {
     }
   }
 
+  // ── Stellplätze & Garagen (optional, nur WEG) ───────────────────────
+  // Sie entstehen als Einheiten vom Typ STELLPLATZ: Damit laufen Zuordnung,
+  // MEA und Umlage über die bestehende Einheiten-Mechanik — abrechnungsseitig
+  // zählen sie als eigene Position (1 € je Stellplatz/Monat), nicht als
+  // Einheit. Bezeichnung fortlaufend; umbenennen geht in den Stammdaten.
+  if (managementType === "WEG") {
+    const anzahl = Math.min(Math.max(optInt(String(formData.get("stellplatzAnzahl") ?? "")) ?? 0, 0), 99);
+    if (anzahl > 0) {
+      await db.unit.createMany({
+        data: Array.from({ length: anzahl }, (_, i) => ({
+          propertyId: property.id,
+          label: `Stellplatz ${i + 1}`,
+          unitType: "STELLPLATZ" as const,
+          orderIndex: 1000 + i,
+        })),
+      });
+    }
+  }
+
   // Sammlung aller Zugangsschreiben-Nutzer: [{id, pw}]
   const letterUsers: Array<{ id: string; pw: string }> = [];
 

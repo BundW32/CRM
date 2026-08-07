@@ -165,6 +165,16 @@ enum UnitType {
   SONSTIGES
 }
 
+// Untertyp einer STELLPLATZ-Einheit — rein beschreibend (Listen, Dokumente).
+// Für Preis und Abrechnung zählt allein unitType = STELLPLATZ: 1 € je
+// Stellplatz/Monat, keine Einheit im Sinne von Staffel und 12er-Grenze.
+enum StellplatzTyp {
+  AUSSENSTELLPLATZ
+  CARPORT
+  GARAGE
+  TIEFGARAGE
+}
+
 // Umlageschlüssel je Kostenart
 enum DistributionKey {
   MEA
@@ -578,6 +588,9 @@ model Unit {
   floor                String?
   // WEG-Finanzstammdaten (Kostenverteilung — NICHT Ownership.mea = Stimmgewicht)
   unitType             UnitType              @default(WOHNUNG)
+  // Nur für unitType STELLPLATZ: Außenstellplatz, Carport, Garage oder
+  // Tiefgaragen-Stellplatz. Beschreibend — am Preis ändert der Untertyp nichts.
+  stellplatzTyp        StellplatzTyp?
   mea                  Int? // MEA-Zähler dieser Einheit (Nenner: Property.meaTotal)
   livingArea           Float? // Wohn-/Nutzfläche in m²
   personCount          Int? // Personenzahl (Umlageschlüssel PERSONEN)

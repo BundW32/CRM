@@ -13,6 +13,7 @@ import type {
   MeterType,
   ResolutionStatus,
   Role,
+  StellplatzTyp,
   TicketPriority,
   TicketStatus,
   TicketType,
@@ -216,6 +217,14 @@ export const unitTypeLabels: Record<UnitType, string> = {
   TEILEIGENTUM: "Teileigentum",
   STELLPLATZ: "Stellplatz",
   SONSTIGES: "Sonstiges",
+};
+
+// Untertyp einer STELLPLATZ-Einheit — beschreibend, ohne Preiswirkung.
+export const stellplatzTypLabels: Record<StellplatzTyp, string> = {
+  AUSSENSTELLPLATZ: "Außenstellplatz",
+  CARPORT: "Carport",
+  GARAGE: "Garage",
+  TIEFGARAGE: "Tiefgaragen-Stellplatz",
 };
 
 export const distributionKeyLabels: Record<DistributionKey, string> = {

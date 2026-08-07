@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PLANS,
+  STELLPLATZ_CENTS,
   aboHinweis,
   aktiverPlan,
   checkoutJeEinheitCents,
@@ -140,6 +141,12 @@ describe("Einheiten-Tarife", () => {
     expect(checkoutJeEinheitCents("plus", 4)).toBe(1390);
     expect(checkoutJeEinheitCents("plus", 5)).toBe(1251);
     expect(checkoutJeEinheitCents("plus", 12)).toBe(1112);
+  });
+
+  it("berechnet Stellplätze flach mit 1 € — die Staffel greift dort nie", () => {
+    // Der Stellplatz-Posten geht mit genau diesem Betrag an Stripe — in
+    // beiden Bezahltarifen gleich, unabhängig von der Einheitenzahl.
+    expect(STELLPLATZ_CENTS).toBe(100);
   });
 });
 

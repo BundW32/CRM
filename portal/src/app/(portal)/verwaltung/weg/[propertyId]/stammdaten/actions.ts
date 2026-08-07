@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { AUDIT, logAudit } from "@/lib/audit";
+import { aboMengeSynchronisieren } from "@/lib/billing-sync";
 import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
@@ -133,10 +134,18 @@ export async function saveFinanceSettings(formData: FormData) {
 
 // ── Einheiten-Finanzstammdaten (MEA, Fläche, Personen) ───────────────────────
 
+const STELLPLATZ_TYPEN = ["AUSSENSTELLPLATZ", "CARPORT", "GARAGE", "TIEFGARAGE"] as const;
+
 const unitSchema = z.object({
   propertyId: z.string().min(1),
   unitId: z.string().min(1),
   unitType: z.enum(UNIT_TYPES),
+  // Untertyp nur für STELLPLATZ; leere Angabe = keiner. Bei anderen Arten
+  // wird er beim Speichern geleert, damit kein „Garage"-Rest an einer
+  // zurückgestuften Wohnung hängen bleibt.
+  stellplatzTyp: z
+    .union([z.enum(STELLPLATZ_TYPEN), z.literal(""), z.null()])
+    .transform((v) => (v ? v : null)),
   mea: optionalInt,
   livingArea: optionalFloat,
   personCount: optionalInt,
@@ -148,6 +157,7 @@ export async function saveUnitFinanceData(formData: FormData) {
     propertyId: formData.get("propertyId"),
     unitId: formData.get("unitId"),
     unitType: formData.get("unitType"),
+    stellplatzTyp: formData.get("stellplatzTyp"),
     mea: formData.get("mea"),
     livingArea: formData.get("livingArea"),
     personCount: formData.get("personCount"),
@@ -167,6 +177,8 @@ export async function saveUnitFinanceData(formData: FormData) {
     where: { id: parsed.data.unitId },
     data: {
       unitType: parsed.data.unitType,
+      stellplatzTyp:
+        parsed.data.unitType === "STELLPLATZ" ? parsed.data.stellplatzTyp : null,
       mea: parsed.data.mea,
       livingArea: parsed.data.livingArea,
       personCount: parsed.data.personCount,
@@ -174,6 +186,10 @@ export async function saveUnitFinanceData(formData: FormData) {
   });
   // Stimmgewichte der Eigentümer aus den (neuen) Einheiten-MEA ableiten.
   await syncOwnerVotingWeights(property.id);
+  // Der Einheiten-Typ entscheidet über die Abo-Position (Tarif je Einheit
+  // oder Stellplatz-Pauschale) — ein Typwechsel verschiebt die Mengen und
+  // muss das Stripe-Abo nachziehen. Fehler brechen das Speichern nie ab.
+  await aboMengeSynchronisieren(verwalter.organizationId);
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_UNIT_SAVED,

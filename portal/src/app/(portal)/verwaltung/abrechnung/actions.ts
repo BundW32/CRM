@@ -4,9 +4,16 @@ import { redirect } from "next/navigation";
 import { MAX_EINHEITEN } from "@/app/preise/preise-daten";
 import { checkoutJeEinheitCents, isBillingEnabled } from "@/lib/billing";
 import { parseTarif, starteCheckout } from "@/lib/billing-checkout";
+import { zaehleWegMengen } from "@/lib/billing-mengen";
 import { db } from "@/lib/db";
 import { getOrganization, requireVerwalter } from "@/lib/session";
-import { createPortalUrl, stripeOrNull, stripePriceBasic, stripePricePlus } from "@/lib/stripe";
+import {
+  createPortalUrl,
+  istStellplatzPosten,
+  stripeOrNull,
+  stripePriceBasic,
+  stripePricePlus,
+} from "@/lib/stripe";
 import { portalUrlFromRequest } from "@/lib/url-server";
 
 // Startet den Stripe-Checkout. Nur SuperAdmin, nur wenn Billing konfiguriert
@@ -56,17 +63,21 @@ export async function wechsleTarif(formData: FormData) {
     redirect("/verwaltung/abrechnung?fehler=kein_kunde");
   }
 
-  const quantity = await db.unit.count({
-    where: { property: { organizationId: org.id, managementType: "WEG" } },
-  });
+  // Nur die Wohn-/Gewerbeeinheiten — Stellplätze haben ihren eigenen flachen
+  // Abo-Posten, der beim Tarifwechsel unangetastet bleibt.
+  const { einheiten: quantity } = await zaehleWegMengen(org.id);
   if (quantity < 1) redirect("/verwaltung/abrechnung?fehler=keine_einheiten");
   if (quantity > MAX_EINHEITEN) redirect("/verwaltung/abrechnung?fehler=zu_viele_einheiten");
 
   const preisId = ziel === "basic" ? stripePriceBasic() : stripePricePlus();
   let ok = false;
   try {
-    const sub = await stripe.subscriptions.retrieve(org.stripeSubscriptionId);
-    const item = sub.items.data[0];
+    // Produkt-Expansion, um den Tarif-Posten vom Stellplatz-Posten zu
+    // unterscheiden — items[0] wäre bei einem Abo mit Stellplätzen mehrdeutig.
+    const sub = await stripe.subscriptions.retrieve(org.stripeSubscriptionId, {
+      expand: ["items.data.price.product"],
+    });
+    const item = sub.items.data.find((i) => !istStellplatzPosten(i));
     if (item) {
       await stripe.subscriptions.update(sub.id, {
         items: [

@@ -52,7 +52,10 @@ dortigen Resttreffer betreffen das ganze Portal, nicht diese Seiten.
 - **Preise haben EINE Quelle:** `src/app/preise/preise-daten.ts`. Das Modell:
   BEIDE Tarife je Einheit/Monat (Basic 10 €, Verwalter-Plus 13,90 € mit
   Ticket-Weg zu einem zertifizierten Verwalter nach § 26a WEG), alle Zugänge
-  immer inklusive — keine Preisspaltung nach Nutzern. Mengenstaffel: je mehr
+  immer inklusive — keine Preisspaltung nach Nutzern. Stellplätze & Garagen
+  (Einheiten vom Typ STELLPLATZ): pauschal 1 € je Stellplatz/Monat in beiden
+  Bezahltarifen, ohne Staffel, ohne Einfluss auf Rabattstufen und
+  12er-Grenze; im Start-Tarif kostenlos. Mengenstaffel: je mehr
   Einheiten, desto günstiger je Einheit (Sätze in `RABATT_STAFFEL`, vom
   Auftraggeber noch zu bestätigen). Grenze 12 Einheiten; darüber Hinweisfeld
   mit Kontakt zur Verwaltung hinter dem Portal (ohne Namensnennung). Start

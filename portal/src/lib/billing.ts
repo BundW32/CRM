@@ -7,6 +7,7 @@
 import {
   BASIC_JE_EINHEIT_EUR,
   PLUS_JE_EINHEIT_EUR,
+  STELLPLATZ_JE_MONAT_EUR,
   jeEinheitNachStaffel,
 } from "@/app/preise/preise-daten";
 
@@ -83,6 +84,14 @@ export function checkoutJeEinheitCents(tarif: "basic" | "plus", einheiten: numbe
   const basis = tarif === "basic" ? BASIC_JE_EINHEIT_EUR : PLUS_JE_EINHEIT_EUR;
   return Math.round(jeEinheitNachStaffel(basis, einheiten) * 100);
 }
+
+/**
+ * Preis je Stellplatz und Monat in Cent — flach, ohne Staffel, in beiden
+ * Bezahltarifen gleich (Quelle: `preise-daten.ts`). Stellplätze sind Einheiten
+ * vom Typ STELLPLATZ; sie zählen in Checkout und Mengenabgleich als eigene
+ * Position und nie in die Einheiten-Menge der Tarif-Position.
+ */
+export const STELLPLATZ_CENTS = Math.round(STELLPLATZ_JE_MONAT_EUR * 100);
 
 export type SubscriptionStatus =
   | "trialing"

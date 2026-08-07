@@ -50,6 +50,14 @@ jobs:
       - name: Abhängigkeiten installieren
         run: npm ci
 
+      # Bekannte Schwachstellen in Produktions-Abhängigkeiten färben den Pull
+      # Request rot. Bewusst NICHT in `npm run pruefung`: Das Skript läuft auch
+      # im Vercel-Build, und ein frisch veröffentlichter CVE brächte dort den
+      # Deploy zum Stehen, ohne dass jemand etwas geändert hat
+      # (docs/SICHERHEIT-Restarbeiten.md, P0-4).
+      - name: Abhängigkeits-Audit (Produktion, ab Schweregrad hoch)
+        run: npm audit --omit=dev --audit-level=high
+
       # Genau der Befehl, den auch Vercel ausführt.
       - name: Typprüfung, Linter und Tests
         run: npm run pruefung

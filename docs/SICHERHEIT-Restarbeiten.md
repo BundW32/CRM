@@ -20,23 +20,16 @@ Priorität sortiert.
 
 ## P0 — noch offen
 
-### P0-4 Abhängigkeiten aktualisieren, Audit in die CI
+### ~~P0-4 Abhängigkeiten aktualisieren, Audit in die CI~~ — erledigt am 06.08.2026
 
-`npm audit --omit=dev` meldet unverändert **11 Schwachstellen (6 hoch)**:
-Next.js 16.2.9 (Middleware/Proxy-Bypass — trifft die Mandantenauflösung in
-`src/proxy.ts`), `undici`, `fast-uri`, `hono`/`@hono/node-server` über Prisma.
-
-**Wichtig beim Einbauen:** Der Audit-Schritt darf **nicht** in `npm run pruefung`.
-Dieses Skript läuft laut `portal/vercel.json` auch im Produktions-Build — ein neu
-veröffentlichter CVE brächte damit den Deploy zum Stehen, ohne dass jemand etwas
-geändert hat. Er gehört als eigener Schritt in `.github/workflows/pruefung.yml`,
-wo er nur den Pull Request rot färbt.
-
-Aufwand: 0,5 Tag + Regressionsdurchlauf.
-**Kollision:** `package.json`/`package-lock.json` werden derzeit von
-`claude/pdf-generation-analysis-229u0r` und `claude/weg-accounting-review-dch465`
-angefasst. Erst nach deren Merge angehen, sonst wird die Lock-Datei zweimal
-aufgelöst.
+`npm audit --omit=dev` meldet **0 Schwachstellen**: `npm audit fix` eingespielt,
+dazu gezielt `next`/`eslint-config-next` auf 16.3.0, `sharp` auf 0.35.3 und
+`nodemailer` auf 9.x angehoben (`npm run pruefung` und `npm run test:db` danach
+grün). Der Audit-Schritt läuft jetzt als eigener Schritt im Prüfungs-Job
+(`npm audit --omit=dev --audit-level=high` in `.github/workflows/pruefung.yml`)
+— bewusst NICHT in `npm run pruefung`, das auch im Vercel-Build läuft; ein neu
+veröffentlichter CVE färbt so nur den Pull Request rot, statt den Deploy zu
+blockieren.
 
 ### P0-5 Zugriffskontroll-Tests ausbauen
 
@@ -62,8 +55,8 @@ Aufwand: 2–4 Tage. Kollidiert mit nichts.
 |---|---|---|---|
 | ~~P1-6~~ | ~~Passwort-Reset-Token nur noch gehasht speichern~~ | **erledigt am 29.07.2026** | — |
 | P1-7 | Erstpasswort nicht mehr über die URL (`/zugangsschreiben/[id]?pw=…`) — kurzlebiges Server-Token oder direkte Ausgabe | 2 Std. | `nutzer/actions.ts` — `email-interfaces` |
-| P1-6b | Rate-Limit auf das **Einlösen** eines Reset-/Bestätigungslinks (bisher nur auf das Anfordern). Bei 256 Bit Zufall im Token akademisch, aber billig nachzuziehen | 1 Std. | keine |
-| P1-9 | Rate-Limit atomar (ein `UPDATE … RETURNING` statt Lesen-Prüfen-Erhöhen), für die Anmeldung fail-closed, IP-Quelle an die Plattform binden statt an frei setzbare Header | 0,5 Tag | keine |
+| ~~P1-6b~~ | ~~Rate-Limit auf das **Einlösen** eines Reset-/Bestätigungslinks~~ | **erledigt am 06.08.2026** (Einlösen von Reset- und Bestätigungslinks je 10/h pro IP) | — |
+| P1-9 | ~~Rate-Limit atomar, für die Anmeldung fail-closed~~ **erledigt am 06.08.2026** (ein `INSERT … ON CONFLICT … RETURNING`, Anmeldung fail-closed). **Offen bleibt:** IP-Quelle an die Plattform binden statt an frei setzbare Header | 2 Std. Rest | keine |
 | P1-10 | **MFA** (TOTP + Wiederherstellungscodes), Pflicht für Plattform-Betreiber und Verwalter-SuperAdmins | 3–5 Tage | keine |
 | P1-11 | `organizationId` am `AuditLog` (fehlgeschlagene Anmeldungen sind für Kunden heute unsichtbar), Fehler-/Sicherheitsmonitoring, Schwellwert-Alarme | 3–5 Tage | keine |
 | P1-12 | CSP mit Nonce statt `script-src 'unsafe-inline'`, dazu `object-src 'none'` | 0,5 Tag | `next.config.ts` — geringfügig |

@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 const errorMessages: Record<string, string> = {
   eingabe: "Bitte geben Sie ein Passwort mit mindestens 10 Zeichen ein. Beide Felder müssen übereinstimmen.",
   abgelaufen: "Dieser Link ist ungültig oder abgelaufen. Bitte fordern Sie einen neuen an.",
+  limit: "Zu viele Versuche von diesem Anschluss. Bitte warten Sie eine Stunde und versuchen Sie es erneut.",
 };
 
 export default async function ResetPasswordPage({

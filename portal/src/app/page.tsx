@@ -718,6 +718,34 @@ export default async function Home() {
           Wohnungseigentumsgesetz bei gesetze-im-internet.de
         </a>
       </p>
+      {/* Weitergeben: Der haeufigste Weg zu diesem Portal ist der Hinweis eines
+          Miteigentuemers an die eigene Gemeinschaft. Drei Wege dafuer — als reine
+          Links, ohne fremdes Skript und ohne Tracking. */}
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-wp-ink/60">
+        <span>Kennen Sie eine Gemeinschaft ohne Verwaltung? Seite weitergeben:</span>
+        <a
+          href="https://wa.me/?text=WEG%20selbst%20verwalten%20ohne%20Hausverwaltung%3A%20https%3A%2F%2Fwww.wegportal24.de%2F"
+          target="_blank"
+          rel="noopener"
+          className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
+        >
+          Über WhatsApp teilen
+        </a>
+        <a
+          href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fwww.wegportal24.de%2F"
+          target="_blank"
+          rel="noopener"
+          className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
+        >
+          Auf LinkedIn teilen
+        </a>
+        <a
+          href="mailto:?subject=WEG%20selbst%20verwalten%20ohne%20Hausverwaltung&body=https%3A%2F%2Fwww.wegportal24.de%2F"
+          className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
+        >
+          Per E-Mail weitergeben
+        </a>
+      </div>
       </section>
 
       {/* ── Element 10: Abschluss-CTA ─────────────────────────────────────── */}

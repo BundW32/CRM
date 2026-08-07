@@ -36,6 +36,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Kein `X-Powered-By: Next.js` im Antwort-Header. Der Header nennt
+  // Angreifern das Framework samt Hauptversion, ohne irgendetwas zu leisten —
+  // und Pruefwerkzeuge werten ihn als vermeidbare Preisgabe.
+  poweredByHeader: false,
   // Die PDF-Erzeugung liest Schriften und Logo zur Laufzeit von der Platte
   // (lib/documents/kit/fonts.ts, lib/handover-pdf.ts). Die Ablauf-Verfolgung
   // erkennt das nicht von selbst — ohne diesen Eintrag fehlen die Dateien im

@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { PublicBrand } from "@/components/public-brand";
 import { isWegSaas } from "@/lib/app-mode";
+import type { Metadata } from "next";
 
 export const dynamic = "force-static";
+
+export const metadata: Metadata = { title: "Impressum und Anbieterkennzeichnung | wegportal24", description: "Anbieterkennzeichnung nach § 5 DDG: Betreiber, Vertretung, Kontakt und Registereintrag des Portals wegportal24." };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

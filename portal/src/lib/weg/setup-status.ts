@@ -36,6 +36,16 @@ export type SetupStep = {
   manual: boolean;
   /** Zusatzhinweis, wenn etwas angelegt, aber noch nicht stimmig ist. */
   warnung?: string;
+  /**
+   * Der Schritt ist angestoßen, aber noch nicht abgeschlossen — etwa eine
+   * laufende Abstimmung über die Verwalterbestellung.
+   *
+   * Bewusst getrennt von `done` und `warnung`: Dass der Schritt offen ist, ist
+   * inhaltlich richtig, und ein Warnton wäre falsch. Es fehlte nur die
+   * Rückmeldung. Ohne sie sieht eine Gemeinschaft, die gerade abstimmt, einen
+   * unveränderten Punkt und fragt sich, ob das Portal ihre Abstimmung kennt.
+   */
+  zwischenstand?: { text: string; href: string };
 };
 
 /** Schritte, die außerhalb des Systems stattfinden und abgehakt werden. */
@@ -85,8 +95,16 @@ export async function loadSetupStatusAlle(
 
 async function ladeEinen(propertyId: string): Promise<SetupStatus> {
 
-  const [property, unitAgg, unitCount, ownedUnits, konten, kostenarten, manuell] =
-    await Promise.all([
+  const [
+    property,
+    unitAgg,
+    unitCount,
+    ownedUnits,
+    konten,
+    kostenarten,
+    manuell,
+    bestellungsBeschluss,
+  ] = await Promise.all([
       db.property.findUnique({
         where: { id: propertyId },
         select: { meaTotal: true },
@@ -103,6 +121,30 @@ async function ladeEinen(propertyId: string): Promise<SetupStatus> {
       }),
       db.costType.count({ where: { propertyId, active: true } }),
       db.wegSetupStep.findMany({ where: { propertyId }, select: { key: true } }),
+      // Läuft gerade eine Abstimmung über die Verwalterbestellung?
+      //
+      // Erkannt wird sie am Titel — das Modell `Resolution` kennt kein Thema,
+      // und eines einzuführen hieße, jeden Bestand nachzupflegen. Die Suche ist
+      // deshalb bewusst großzügig und dient nur der Anzeige: Ein Treffer hakt
+      // nichts ab, er zeigt einen Hinweis. Ein verpasster Treffer kostet diesen
+      // Hinweis, ein falscher stiftet keinen Schaden.
+      db.resolution.findFirst({
+        where: {
+          propertyId,
+          status: "OFFEN",
+          AND: [
+            { title: { contains: "verwalt", mode: "insensitive" } },
+            {
+              OR: [
+                { title: { contains: "bestell", mode: "insensitive" } },
+                { title: { contains: "wahl", mode: "insensitive" } },
+              ],
+            },
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, createdAt: true },
+      }),
     ]);
 
   const meaSumme = unitAgg._sum.mea ?? 0;
@@ -119,6 +161,7 @@ async function ladeEinen(propertyId: string): Promise<SetupStatus> {
     ohneStichtag: konten.filter((k) => !k.openingBalanceDate).length,
     kostenarten,
     manuellErledigt: new Set(manuell.map((m) => m.key)),
+    bestellungsBeschluss,
   });
 }
 
@@ -132,6 +175,8 @@ type Befunde = {
   ohneStichtag: number;
   kostenarten: number;
   manuellErledigt: Set<string>;
+  /** Laufende Abstimmung über die Verwalterbestellung, falls es eine gibt. */
+  bestellungsBeschluss?: { id: string; createdAt: Date } | null;
 };
 
 function leereBefunde(): Befunde {
@@ -241,8 +286,23 @@ function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
         "ein Eigentümer das Amt übernimmt und kein Drittel der Eigentümer die " +
         "Zertifizierung verlangt (§ 19 Abs. 2 Nr. 6 WEG).",
       done: b.manuellErledigt.has("bestellung"),
-      href: "/beschluesse",
+      href: b.bestellungsBeschluss
+        ? `/beschluesse/${b.bestellungsBeschluss.id}`
+        : "/beschluesse",
       manual: true,
+      // Läuft die Abstimmung schon, sagt der Schritt das — abgehakt wird er
+      // trotzdem erst mit dem Ergebnis. Ohne diesen Hinweis sah der Punkt
+      // unverändert aus, obwohl genau dafür bereits ein Umlaufbeschluss lief.
+      zwischenstand:
+        !b.manuellErledigt.has("bestellung") && b.bestellungsBeschluss
+          ? {
+              text: `Abstimmung läuft seit ${new Intl.DateTimeFormat("de-DE", {
+                dateStyle: "medium",
+                timeZone: "Europe/Berlin",
+              }).format(b.bestellungsBeschluss.createdAt)}`,
+              href: `/beschluesse/${b.bestellungsBeschluss.id}`,
+            }
+          : undefined,
     },
     {
       key: "konten",

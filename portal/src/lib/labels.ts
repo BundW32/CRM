@@ -279,6 +279,16 @@ export function formatDateOnly(date: Date) {
   }).format(date);
 }
 
+// Monat und Jahr ausgeschrieben („Oktober 2026") – für Zeiträume, die keinen
+// Tag haben: Abrechnungsperioden, Sollstellungsmonate, Fahrpläne.
+export function formatMonatJahr(year: number, month: number) {
+  return new Intl.DateTimeFormat("de-DE", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
 export function formatBytes(size: number) {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`;

@@ -103,7 +103,7 @@ export function BauabzugHinweis({
         Handwerker (optional)
         <select
           name="craftsmanId"
-          className={`${inputClass} w-48`}
+          className={`${inputClass} w-full`}
           value={gewaehlt}
           onChange={(e) => setGewaehlt(e.target.value)}
         >
@@ -116,8 +116,11 @@ export function BauabzugHinweis({
         </select>
       </label>
 
+      {/* Im Raster des Formulars belegt der Hinweis eine ganze Zeile. Vorher
+          war es `w-full` in einer `flex-wrap`-Reihe: Beim Ein- und Ausblenden
+          brach die gesamte Feldfolge neu um und alles darunter sprang. */}
       {warnt && pruefung.pflicht ? (
-        <div className="w-full">
+        <div className="col-span-full">
           <Alert variant="warning" title={`Bauabzugsteuer: ${formatCents(pruefung.einbehaltCents)} einbehalten`}>
             <p>
               {pruefung.grund === "FREISTELLUNG_ABGELAUFEN"

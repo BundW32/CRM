@@ -95,12 +95,12 @@ export function PushToggle() {
   }
 
   if (state === "laden") return null;
-  if (state === "nicht_konfiguriert")
-    return (
-      <p className="text-xs text-gray-400">
-        Push-Benachrichtigungen sind noch nicht eingerichtet (VAPID-Schlüssel fehlt).
-      </p>
-    );
+  // Ist Push serverseitig nicht eingerichtet, verschwindet der Abschnitt ganz.
+  // Vorher stand hier „(VAPID-Schlüssel fehlt)" — eine Notiz an den Betreiber,
+  // die beim Kunden ankam und nach halb fertiger Installation aussieht. Ein
+  // Hinweis auf ein Feature, das es nicht gibt, hilft ihm ohnehin nicht; er
+  // kann nichts damit anfangen und nichts daran ändern.
+  if (state === "nicht_konfiguriert") return null;
   if (state === "nicht_unterstuetzt")
     return (
       <p className="text-xs text-gray-400">

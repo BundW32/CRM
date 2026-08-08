@@ -6,9 +6,12 @@
 // Mobilgeräten ist das Auswahlrad bzw. der System-Kalender die bessere Bedienung
 // als jeder Nachbau. Vereinheitlicht wird nur das Aussehen.
 //
-// Beide Felder rendern serverseitig und brauchen kein Client-JS.
+// Das Auswahlfeld rendert serverseitig. Das Datumsfeld reicht seinen nativen
+// Eingabeteil an `DateInput` weiter — die einzige Stelle mit Client-JS, und zwar
+// für die Fokus-Korrektur beim leeren Feld (siehe dort).
 
 import type { ReactNode } from "react";
+import { DateInput } from "@/components/date-input";
 import { inputClass } from "@/components/ui";
 
 /** Gemeinsame Hülle: Beschriftung und Hilfetext. */
@@ -71,8 +74,11 @@ export function DateField({
 >) {
   return (
     <FieldShell label={label} hint={hint} htmlFor={id}>
-      <input
-        type="date"
+      {/* `DateInput` ist der native Eingabeteil mit einer Zutat: Bei einem
+          leeren Feld landet der Fokus immer auf dem Tag, egal wo geklickt
+          wurde. Sonst schreibt ein Klick in die rechte Feldhälfte die erste
+          Ziffer in den Monat, und aus „15072026" wird „tt.12.72026". */}
+      <DateInput
         id={id}
         name={name}
         defaultValue={defaultValue}

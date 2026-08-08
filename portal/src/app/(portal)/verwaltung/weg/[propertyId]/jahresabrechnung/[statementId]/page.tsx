@@ -38,8 +38,6 @@ const FEHLER_TEXTE: Record<string, string> = {
   zaehlerart: "Bitte eine gültige Zählerart wählen.",
   nichtfertig:
     "Dokumente lassen sich erst bereitstellen, wenn die Abrechnung fertiggestellt ist.",
-  ablage:
-    "Die Dokumente konnten nicht bereitgestellt werden. Bitte später erneut versuchen — die Abrechnung selbst bleibt unverändert.",
   heizanteil:
     "Der Verbrauchsanteil muss zwischen 50 und 70 Prozent liegen (§§ 7, 8 HeizkostenV). Der Rest wird als Grundkosten nach Wohnfläche verteilt.",
   flaeche:
@@ -69,6 +67,8 @@ export default async function JahresabrechnungDetailPage({
     offen?: string;
     abgelegt?: string;
     ablage?: string;
+    /** Bei `ablage=fehler`: der Grund im Klartext (siehe `ablageFehlerText`). */
+    grund?: string;
     ohne?: string;
   }>;
 }) {
@@ -212,7 +212,8 @@ Muster — ersetzt keine Rechtsberatung.`;
       {sp.ablage === "fehler" ? (
         <Alert variant="warning" title="Dokumente nicht abgelegt" className="mb-4">
           Die Abrechnung ist fertiggestellt, aber die Einzelabrechnungen konnten nicht in den
-          Dokumenten abgelegt werden. Die PDFs sind weiterhin über die Tabelle unten abrufbar.
+          Dokumenten abgelegt werden.{sp.grund ? <> Grund: {sp.grund}</> : null} Die PDFs sind
+          weiterhin über die Tabelle unten abrufbar.
           {ablageWiederholen}
         </Alert>
       ) : sp.abgelegt ? (

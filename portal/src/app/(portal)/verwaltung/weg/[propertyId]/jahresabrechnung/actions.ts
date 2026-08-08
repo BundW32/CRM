@@ -11,6 +11,7 @@ import { requireVerwalter } from "@/lib/session";
 import { planErlaubt } from "@/lib/plan-guard";
 import { computeStatementView } from "@/lib/weg/statement-service";
 import { buildEinzelabrechnungPdf } from "@/lib/weg/einzelabrechnung-pdf";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 import { legeEigentuemerDokumenteAb } from "@/lib/weg/owner-documents";
 import { matchHeatingRows, parseHeatingCsv } from "@/lib/weg/heating-import";
 import { loadWegProperty } from "@/lib/weg/scope";
@@ -456,10 +457,12 @@ export async function finalizeStatement(formData: FormData) {
   // Verwalter sieht eine Warnung und kann sie über `wiederholeAblage` erneut
   // anstoßen — dank `refPrefix` entstehen dabei keine Dubletten.
   let ablage: Awaited<ReturnType<typeof legeEigentuemerDokumenteAb>> | null = null;
+  let ablageFehler: string | null = null;
   try {
     ablage = await verteileEinzelabrechnungen(property, statement.id, statement.year, view, finalizedAt, verwalter.id);
   } catch (err) {
     console.error("Ablage der Einzelabrechnungen fehlgeschlagen", err);
+    ablageFehler = ablageFehlerText(err);
   }
   await logAudit({
     actorId: verwalter.id,
@@ -479,7 +482,7 @@ export async function finalizeStatement(formData: FormData) {
     `/${statement.id}`,
     ablage
       ? `fertig=1&abgelegt=${ablage.erstellt + ablage.ersetzt}&ohne=${ablage.uebersprungen.length}`
-      : "fertig=1&ablage=fehler",
+      : `fertig=1&ablage=fehler&grund=${encodeURIComponent(ablageFehler ?? "")}`,
   );
 }
 
@@ -523,7 +526,11 @@ export async function wiederholeAblage(formData: FormData) {
     );
   } catch (err) {
     console.error("Wiederholte Ablage der Einzelabrechnungen fehlgeschlagen", err);
-    back(property.id, `/${statement.id}`, "fehler=ablage");
+    back(
+      property.id,
+      `/${statement.id}`,
+      `ablage=fehler&grund=${encodeURIComponent(ablageFehlerText(err))}`,
+    );
   }
   await logAudit({
     actorId: verwalter.id,

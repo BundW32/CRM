@@ -12,6 +12,7 @@ import { planErlaubt } from "@/lib/plan-guard";
 import { computeUnitAdvances, fiscalYearRange } from "@/lib/weg/economic-plan";
 import { synchronisiereSollstellungen } from "@/lib/weg/due-postings";
 import { faelligkeitsText, monatsBeginn } from "@/lib/weg/plan-validity";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 import { legeEigentuemerDokumenteAb } from "@/lib/weg/owner-documents";
 import { loadWegProperty } from "@/lib/weg/scope";
 import { buildEinzelwirtschaftsplanPdf, ownerNamesByUnit } from "@/lib/weg/wirtschaftsplan-pdf";
@@ -401,42 +402,23 @@ export async function resolvePlan(formData: FormData) {
   //
   // Ein Fehler bei der Ablage nimmt den Beschluss nicht zurück: Der Beschluss
   // und seine Sollstellungen sind der fachliche Vorgang, die Ablage die Folge.
+  //
+  // Der Grund des Fehlschlags geht als Klartext mit zurück. Vorher stand er
+  // allein im Server-Log: Die Oberfläche meldete „konnten nicht abgelegt
+  // werden" — ohne Ursache und ohne Weg nach vorn. Über `wiederholeAblage`
+  // lässt sich der Schritt nachholen, ohne erneut zu beschließen.
   let ablage: Awaited<ReturnType<typeof legeEigentuemerDokumenteAb>> | null = null;
+  let ablageFehler: string | null = null;
   try {
-    const beschlossen = await db.economicPlan.findFirstOrThrow({
-      where: { id: plan.id },
-      include: { items: { include: { costType: true }, orderBy: { costType: { orderIndex: "asc" } } } },
-    });
-    const alleEinheiten = await db.unit.findMany({
-      where: { propertyId: property.id },
-      orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
-    });
-    const namen = await ownerNamesByUnit(alleEinheiten.map((u) => u.id));
-    ablage = await legeEigentuemerDokumenteAb({
-      organizationId: verwalter.organizationId,
-      propertyId: property.id,
-      uploadedById: verwalter.id,
-      category: "ABRECHNUNG",
-      refPrefix: `weg-einzelwirtschaftsplan:${plan.id}`,
-      documents: await Promise.all(
-        alleEinheiten.map(async (u) => ({
-          unitId: u.id,
-          unitLabel: u.label,
-          title: `Einzelwirtschaftsplan ${plan.year} — ${u.label}`,
-          fileName: `Einzelwirtschaftsplan_${plan.year}_${u.label.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
-          pdf: await buildEinzelwirtschaftsplanPdf({
-            propertyName: property.name,
-            organizationId: verwalter.organizationId,
-            plan: beschlossen,
-            units: alleEinheiten,
-            ownerNamesByUnit: namen,
-            onlyUnitIds: [u.id],
-          }),
-        })),
-      ),
-    });
+    ablage = await verteileEinzelwirtschaftsplaene(
+      { id: property.id, name: property.name },
+      verwalter.organizationId,
+      plan.id,
+      verwalter.id,
+    );
   } catch (err) {
     console.error("Ablage der Einzelwirtschaftspläne fehlgeschlagen", err);
+    ablageFehler = ablageFehlerText(err);
   }
 
   await logAudit({
@@ -458,7 +440,114 @@ export async function resolvePlan(formData: FormData) {
     `/${plan.id}`,
     ablage
       ? `beschlossen=1&abgelegt=${ablage.erstellt + ablage.ersetzt}&ohne=${ablage.uebersprungen.length}`
-      : "beschlossen=1&ablage=fehler",
+      : `beschlossen=1&ablage=fehler&grund=${encodeURIComponent(ablageFehler ?? "")}`,
+  );
+}
+
+/**
+ * Erzeugt je Einheit den Einzelwirtschaftsplan und legt ihn bei den aktuellen
+ * Eigentümern ab.
+ *
+ * Ausgelagert, weil zwei Wege hierher führen: das Beschließen und die
+ * Wiederholung. Gerechnet wird dabei bewusst aus dem **beschlossenen** Plan,
+ * frisch aus der Datenbank — ein Entwurfsstand hat in einem Dokument nichts zu
+ * suchen, das der Eigentümer aufbewahrt.
+ */
+async function verteileEinzelwirtschaftsplaene(
+  property: { id: string; name: string },
+  organizationId: string,
+  planId: string,
+  uploadedById: string,
+) {
+  const beschlossen = await db.economicPlan.findFirstOrThrow({
+    where: { id: planId },
+    include: { items: { include: { costType: true }, orderBy: { costType: { orderIndex: "asc" } } } },
+  });
+  const alleEinheiten = await db.unit.findMany({
+    where: { propertyId: property.id },
+    orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
+  });
+  const namen = await ownerNamesByUnit(alleEinheiten.map((u) => u.id));
+  return legeEigentuemerDokumenteAb({
+    organizationId,
+    propertyId: property.id,
+    uploadedById,
+    category: "ABRECHNUNG",
+    refPrefix: `weg-einzelwirtschaftsplan:${planId}`,
+    documents: await Promise.all(
+      alleEinheiten.map(async (u) => ({
+        unitId: u.id,
+        unitLabel: u.label,
+        title: `Einzelwirtschaftsplan ${beschlossen.year} — ${u.label}`,
+        fileName: `Einzelwirtschaftsplan_${beschlossen.year}_${u.label.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+        pdf: await buildEinzelwirtschaftsplanPdf({
+          propertyName: property.name,
+          organizationId,
+          plan: beschlossen,
+          units: alleEinheiten,
+          ownerNamesByUnit: namen,
+          onlyUnitIds: [u.id],
+        }),
+      })),
+    ),
+  });
+}
+
+// ── Ablage der Einzelwirtschaftspläne wiederholen ────────────────────────────
+// Die Ablage ist die Folge des Beschlusses, nicht sein Kern. Schlägt sie fehl
+// (Dateiablage weg, Verbindung ab), bleibt der Plan beschlossen und die
+// Dokumente fehlen — und `resolvePlan` läuft nur für Entwürfe, es gäbe also
+// keinen Weg zurück. Dieselbe Lage entsteht, wenn beim Beschließen für eine
+// Einheit kein Eigentümer erfasst war: nachtragen und hier erneut auslösen.
+//
+// Dank `refPrefix` ersetzt ein zweiter Lauf die vorhandenen Dokumente, statt
+// sie zu verdoppeln — die Wiederholung ist damit gefahrlos.
+export async function wiederholeAblage(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  if (!(await planErlaubt("vollerUmfang"))) redirect("/verwaltung/weg?flash=nur-mit-tarif");
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const planId = String(formData.get("planId") ?? "");
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+  const plan = await db.economicPlan.findFirst({
+    where: { id: planId, propertyId: property.id },
+    select: { id: true, year: true, status: true },
+  });
+  if (!plan) back(property.id);
+  if (plan.status !== "BESCHLOSSEN") back(property.id, `/${plan.id}`, "fehler=nichtbeschlossen");
+
+  let ablage: Awaited<ReturnType<typeof legeEigentuemerDokumenteAb>>;
+  try {
+    ablage = await verteileEinzelwirtschaftsplaene(
+      { id: property.id, name: property.name },
+      verwalter.organizationId,
+      plan.id,
+      verwalter.id,
+    );
+  } catch (err) {
+    console.error("Wiederholte Ablage der Einzelwirtschaftspläne fehlgeschlagen", err);
+    back(
+      property.id,
+      `/${plan.id}`,
+      `ablage=fehler&grund=${encodeURIComponent(ablageFehlerText(err))}`,
+    );
+  }
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_PLAN_DOCUMENTS_RETRIED,
+    targetType: "EconomicPlan",
+    targetId: plan.id,
+    meta: {
+      year: plan.year,
+      abgelegt: ablage.erstellt + ablage.ersetzt,
+      ohneEigentuemer: ablage.uebersprungen.length,
+    },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/wirtschaftsplan/${plan.id}`);
+  back(
+    property.id,
+    `/${plan.id}`,
+    `abgelegt=${ablage.erstellt + ablage.ersetzt}&ohne=${ablage.uebersprungen.length}`,
   );
 }
 

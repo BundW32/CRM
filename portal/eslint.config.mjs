@@ -36,7 +36,10 @@ const eslintConfig = defineConfig([
   // Ausnahmeliste für den Bestand – beides in eslint.oberflaeche.mjs erklärt.
   oberflaecheRegeln,
   oberflaecheBaustein,
-  oberflaecheBestand,
+  // Die Bestandsliste ist leer, sobald die letzte Datei umgestellt ist — und
+  // ein Eintrag mit leerem `files` ist für ESLint ein Konfigurationsfehler.
+  // Deshalb kommt sie nur dazu, solange sie etwas enthält.
+  ...(oberflaecheBestand.files.length > 0 ? [oberflaecheBestand] : []),
 ]);
 
 export default eslintConfig;

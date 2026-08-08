@@ -70,7 +70,6 @@ export function ObjektForm({
   defaultManagementType = "MIETVERWALTUNG",
   lockWeg = false,
   aiImportEnabled = false,
-  defaultName = "",
   existing = [],
 }: {
   defaultManagementType?: "MIETVERWALTUNG" | "WEG";
@@ -78,8 +77,6 @@ export function ObjektForm({
   lockWeg?: boolean;
   // KI-PDF-Import aktiv (Server: AI_OBJEKT_IMPORT_ENABLED + GEMINI_API_KEY).
   aiImportEnabled?: boolean;
-  // Vorbelegung der Bezeichnung (z. B. WEG-Name aus der Registrierung).
-  defaultName?: string;
   existing?: ExistingProperty[];
 }) {
   const [managementType, setManagementType] = useState(defaultManagementType);
@@ -92,7 +89,10 @@ export function ObjektForm({
   const [stellplatzAnzahl, setStellplatzAnzahl] = useState("");
   const [tenants, setTenants] = useState<Array<TenantRow & { key: string }>>([]);
   const [owners, setOwners] = useState<Array<OwnerRow & { key: string }>>([]);
-  const [name, setName] = useState(defaultName);
+  // Bewusst leer: Eine Vorbelegung mit dem Mandantennamen führte dazu, dass
+  // Objekte unter dem Kontonamen angelegt wurden — und der stand danach als
+  // Absender in jedem Dokument.
+  const [name, setName] = useState("");
   const [street, setStreet] = useState("");
   const [zip, setZip] = useState("");
   const [city, setCity] = useState("");
@@ -284,7 +284,7 @@ export function ObjektForm({
               minLength={2}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="z. B. Goethestraße 42"
+              placeholder={isWeg ? "z. B. WEG Musterstraße 1" : "z. B. Goethestraße 42"}
               className={inputClass}
             />
           </Field>

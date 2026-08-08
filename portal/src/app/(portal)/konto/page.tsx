@@ -23,6 +23,9 @@ export default async function AccountPage({
   const user = await requireUser();
   const { fehler, gespeichert } = await searchParams;
   const org = await getOrganization();
+  // Derselbe Schlüssel, den `PushToggle` im Browser braucht — `NEXT_PUBLIC_`
+  // steht auch dem Server zur Verfügung.
+  const pushEingerichtet = Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
 
   return (
     <>
@@ -133,14 +136,22 @@ export default async function AccountPage({
           </Card>
         ) : null}
 
-        <Card title="Benachrichtigungen">
-          <p className="mb-3 text-sm text-gray-600">
-            Erhalten Sie Push-Benachrichtigungen auf diesem Gerät, z. B. bei neuen Antworten,
-            Nachrichten oder Vorgängen. Am besten funktioniert das, wenn Sie das Portal über
-            „Zum Startbildschirm hinzufügen“ installieren.
-          </p>
-          <PushToggle />
-        </Card>
+        {/* Ohne eingerichteten Push-Dienst entfällt der Abschnitt vollständig —
+            samt seiner Einleitung. Nur die Meldung darin auszutauschen genügte
+            nicht: Der Text verspricht eine Funktion, die es dann nicht gibt,
+            und der Kunde kann weder etwas damit anfangen noch etwas daran
+            ändern. Die Prüfung steht hier serverseitig, damit die Karte gar
+            nicht erst ausgeliefert wird. */}
+        {pushEingerichtet ? (
+          <Card title="Benachrichtigungen">
+            <p className="mb-3 text-sm text-gray-600">
+              Erhalten Sie Push-Benachrichtigungen auf diesem Gerät, z. B. bei neuen Antworten,
+              Nachrichten oder Vorgängen. Am besten funktioniert das, wenn Sie das Portal über
+              „Zum Startbildschirm hinzufügen“ installieren.
+            </p>
+            <PushToggle />
+          </Card>
+        ) : null}
 
         {/* Hinweise ein/aus. Bewusst hier und nicht in den
             Verwalter-Einstellungen: Es ist eine Vorliebe der Person, nicht der

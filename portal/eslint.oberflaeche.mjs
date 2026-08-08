@@ -90,11 +90,18 @@ export const oberflaecheRegeln = {
 export const oberflaecheBaustein = {
   // `DateField` selbst muss ein rohes `<input type="date">` enthalten – es ist
   // der Baustein, den alle anderen benutzen sollen. Dauerhafte Ausnahme.
-  files: ["src/components/fields.tsx"],
+  //
+  // `date-input.tsx` trägt den Input inzwischen: Er braucht Client-JS für die
+  // Fokus-Korrektur, und `fields.tsx` rendert serverseitig. Beide Dateien sind
+  // zusammen der Baustein.
+  files: ["src/components/fields.tsx", "src/components/date-input.tsx"],
   rules: { "no-restricted-syntax": "off" },
 };
 
 export const oberflaecheBestand = {
+  // Bleibt für die nachgebaute Karte und das Handetikett auf dieser Seite —
+  // das rohe Datumsfeld ist inzwischen `DateInput` und nicht mehr der Grund.
+  // Die Seite gehört in die nächste Welle der Design-Vereinheitlichung.
   files: [
     "src/app/auftraege/\\[token\\]/page.tsx",
   ],

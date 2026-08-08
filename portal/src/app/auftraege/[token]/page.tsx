@@ -1,4 +1,5 @@
 import { PublicBrand } from "@/components/public-brand";
+import { DateInput } from "@/components/date-input";
 import { FileInput } from "@/components/file-input";
 import { Alert } from "@/components/ui";
 import { db } from "@/lib/db";
@@ -298,7 +299,9 @@ export default async function AuftraegePage({
                     <input type="hidden" name="ticketId" value={t.id} />
                     <input type="text" inputMode="decimal" name="amount" placeholder="Betrag brutto, z. B. 350,00" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                     <input type="text" name="invoiceNumber" placeholder="Rechnungsnummer (optional)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                    <input type="date" name="invoiceDate" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                    {/* `DateInput` statt eines rohen Feldes: gleiche Optik, aber der Fokus
+                        landet im leeren Feld immer auf dem Tag (siehe date-input.tsx). */}
+                    <DateInput name="invoiceDate" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                     <input type="text" name="note" placeholder="Notiz (optional)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                     <FileInput
                       name="file"

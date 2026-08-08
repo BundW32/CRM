@@ -13,6 +13,7 @@ import {
   stellplatzTypLabels,
   unitTypeLabels,
 } from "@/lib/labels";
+import { AufklappFormular } from "@/components/aufklapp-formular";
 import { DateField, SelectField, toDateInputValue } from "@/components/fields";
 import { formatCents } from "@/lib/money";
 import { anteilSummeStatus } from "@/lib/weg/anteil";
@@ -895,23 +896,24 @@ export default async function WegStammdatenPage({
             </div>
           )}
 
-          <details>
-            <summary className="cursor-pointer text-sm font-medium text-gray-700">
-              Neues Konto anlegen
-            </summary>
-            <form action={saveAccount} className="mt-3 flex flex-wrap items-end gap-2">
+          {/* Festes Raster statt `flex-wrap`: Bei umbrechenden Zeilen ändert
+              jedes wachsende Feld die Zeilenhöhe, und alles darunter rutscht
+              weg — mitten in der Eingabe. Im Raster hat jedes Feld seinen
+              Platz, unabhängig vom Inhalt der Nachbarn. */}
+          <AufklappFormular titel="Neues Konto anlegen">
+            <form action={saveAccount} className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <input type="hidden" name="propertyId" value={property.id} />
               <Field label="Name">
                 <input
                   name="name"
-                  className={`${inputClass} w-48`}
+                  className={`${inputClass} w-full`}
                   placeholder="z. B. Girokonto WEG"
                   required
                   minLength={2}
                 />
               </Field>
               <Field label="Kontoart">
-                <select name="kind" className={`${inputClass} w-auto`} defaultValue="GIRO">
+                <select name="kind" className={`${inputClass} w-full`} defaultValue="GIRO">
                   {Object.entries(ledgerAccountKindLabels).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
@@ -920,14 +922,14 @@ export default async function WegStammdatenPage({
                 </select>
               </Field>
               <Field label="IBAN (optional)">
-                <input name="iban" className={`${inputClass} w-64`} placeholder="DE.." />
+                <input name="iban" className={`${inputClass} w-full`} placeholder="DE.." />
               </Field>
               <Field label="Anfangsbestand (€)">
                 <input
                   name="openingBalance"
                   inputMode="decimal"
                   required
-                  className={`${inputClass} w-28`}
+                  className={`${inputClass} w-full`}
                   placeholder="0,00"
                 />
               </Field>
@@ -935,11 +937,11 @@ export default async function WegStammdatenPage({
                 label="Stichtag"
                 name="openingBalanceDate"
                 required
-                className="w-auto"
+                className="w-full"
               />
-              <PendingButton className={buttonClass}>Anlegen</PendingButton>
+              <PendingButton className={`${buttonClass} w-full sm:w-auto`}>Anlegen</PendingButton>
             </form>
-          </details>
+          </AufklappFormular>
         </Card>
       </div>
     </>

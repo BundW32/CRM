@@ -24,9 +24,14 @@ export default async function NeuesObjektPage({
     orderBy: { name: "asc" },
   });
 
-  // Selbstverwalter haben bei der Registrierung schon einen WEG-Namen vergeben –
-  // beim ersten Objekt die Bezeichnung damit vorbelegen (spart Doppeleingabe).
-  const defaultName = selfManaged && existing.length === 0 ? (org?.name ?? "") : "";
+  // Die Bezeichnung wird bewusst **nicht** vorbelegt.
+  //
+  // Bis hierher stand beim ersten Objekt eines Selbstverwalters der Name des
+  // Mandanten im Feld — gedacht als Zeitersparnis. Der Preis dafür ist zu hoch:
+  // Wer das Feld überliest, legt das Objekt unter dem Kontonamen an („Final
+  // Test"), und dieser Name steht danach als Absender in jedem erzeugten
+  // Dokument. Genau dieser Fehler ist schon einmal aufgetreten. Ein leeres Feld
+  // mit Platzhalter kostet eine Eingabe und kann nichts Falsches behaupten.
 
   return (
     <>
@@ -51,7 +56,6 @@ export default async function NeuesObjektPage({
         defaultManagementType={selfManaged ? "WEG" : "MIETVERWALTUNG"}
         lockWeg={selfManaged}
         aiImportEnabled={isObjektImportEnabled()}
-        defaultName={defaultName}
         existing={existing}
       />
     </>

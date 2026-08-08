@@ -429,10 +429,15 @@ export default async function WegBuchhaltungPage({
           {accounts.length === 0 ? (
             <EmptyState>Zuerst in den Stammdaten ein Konto anlegen.</EmptyState>
           ) : (
-            <form action={createBooking} className="flex flex-wrap items-end gap-2">
+            <form action={createBooking} className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Festes Raster statt `flex-wrap`. Bei umbrechenden Zeilen
+                  verschiebt jeder eingeblendete Block (hier der Bauabzug-Hinweis)
+                  die gesamte Feldfolge — mitten in der Eingabe. So landete
+                  „15012026" im Lohnanteil § 35a statt im Buchungstag. Im Raster
+                  behält jedes Feld seinen Platz. */}
               <input type="hidden" name="propertyId" value={property.id} />
               <Field label="Konto">
-                <select name="accountId" className={`${inputClass} w-auto`} required>
+                <select name="accountId" className={`${inputClass} w-full`} required>
                   {accounts.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name} ({ledgerAccountKindLabels[a.kind]})
@@ -441,7 +446,7 @@ export default async function WegBuchhaltungPage({
                 </select>
               </Field>
               <Field label="Art">
-                <select name="kind" className={`${inputClass} w-auto`} defaultValue="AUSGABE">
+                <select name="kind" className={`${inputClass} w-full`} defaultValue="AUSGABE">
                   <option value="EINNAHME">Einnahme</option>
                   <option value="AUSGABE">Ausgabe</option>
                 </select>
@@ -457,12 +462,12 @@ export default async function WegBuchhaltungPage({
                   name="amount"
                   inputMode="decimal"
                   placeholder="0,00"
-                  className={`${inputClass} w-28`}
+                  className={`${inputClass} w-full`}
                   required
                 />
               </Field>
               <Field label="Kostenart">
-                <select name="costTypeId" className={`${inputClass} w-auto`} defaultValue="">
+                <select name="costTypeId" className={`${inputClass} w-full`} defaultValue="">
                   <option value="">— keine —</option>
                   {costTypes.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -479,20 +484,20 @@ export default async function WegBuchhaltungPage({
                   name="laborShare"
                   inputMode="decimal"
                   placeholder="0,00"
-                  className={`${inputClass} w-28`}
+                  className={`${inputClass} w-full`}
                 />
               </Field>
               <Field label="Buchungstext">
                 <input
                   name="text"
-                  className={`${inputClass} w-64`}
+                  className={`${inputClass} w-full`}
                   placeholder="z. B. Rechnung Hausmeister März"
                   required
                   minLength={2}
                 />
               </Field>
               <Field label="Zahlungspartner (optional)">
-                <input name="counterparty" className={`${inputClass} w-48`} />
+                <input name="counterparty" className={`${inputClass} w-full`} />
               </Field>
               {/* Der Handwerker als Verknüpfung — Grundlage der Prüfung nach
                   § 48 EStG. Über den Freitext daneben ließe sich nicht
@@ -508,7 +513,7 @@ export default async function WegBuchhaltungPage({
                   accept="image/*,application/pdf"
                 />
               </Field>
-              <PendingButton className={buttonClass}>Buchen</PendingButton>
+              <PendingButton className={`${buttonClass} w-full sm:w-auto`}>Buchen</PendingButton>
             </form>
           )}
         </Card>

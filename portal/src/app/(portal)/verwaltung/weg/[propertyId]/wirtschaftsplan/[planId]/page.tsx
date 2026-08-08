@@ -6,7 +6,7 @@ import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, input
 import { Badge } from "@/components/data-display";
 import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
-import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
+import { distributionKeyLabels, formatDateOnly, formatMonatJahr } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import {
   computeUnitAdvances,
@@ -25,7 +25,13 @@ const FELD_TEXT: Record<"flaeche" | "personen" | "mea", string> = {
 import { requireWegProperty } from "@/lib/weg/scope";
 import { DateField } from "@/components/fields";
 import { faelligkeitsText } from "@/lib/weg/plan-validity";
-import { deletePlan, planZurAbstimmung, resolvePlan, updatePlanItems } from "../actions";
+import {
+  deletePlan,
+  planZurAbstimmung,
+  resolvePlan,
+  updatePlanItems,
+  wiederholeAblage,
+} from "../actions";
 import { FilePreviewLink } from "@/components/file-preview-link";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +44,8 @@ const FEHLER_TEXTE: Record<string, string> = {
   stammdaten:
     "Die Verteilung ist nicht möglich — bitte in den Stammdaten die Miteigentumsanteile (MEA) aller Einheiten vervollständigen.",
   leer: "Alle Planwerte sind 0 € — es gibt nichts zu beschließen.",
+  nichtbeschlossen:
+    "Einzelwirtschaftspläne lassen sich erst ablegen, wenn der Plan beschlossen ist.",
   versammlung:
     "Diese Versammlung gehört nicht zum Objekt oder ist bereits abgeschlossen — bitte erneut auswählen.",
   geltungsbeginn:
@@ -59,6 +67,8 @@ export default async function WirtschaftsplanDetailPage({
     positionen?: string;
     abgelegt?: string;
     ablage?: string;
+    /** Bei `ablage=fehler`: der Grund im Klartext (siehe `ablageFehlerText`). */
+    grund?: string;
     ohne?: string;
   }>;
 }) {
@@ -81,6 +91,18 @@ export default async function WirtschaftsplanDetailPage({
   ]);
   if (!plan) notFound();
 
+  // Bis zu welchem Monat Sollstellungen bestehen. Ohne diese Angabe wirkt die
+  // Anzahl unplausibel: Bei neun Einheiten und einem Jahresplan erwartet man
+  // 108, es sind aber 90 — weil bewusst nur bis zum laufenden Monat plus zwei
+  // erzeugt wird (`sollHorizont`). Eine Forderung, die erst in zwei Jahren
+  // fällig wird, hat in den offenen Posten nichts zu suchen. Der Rechenkern
+  // stimmt also; es fehlte nur der Satz, der die Zahl erklärt.
+  const letzteSollstellung = await db.duePosting.findFirst({
+    where: { planId: plan.id },
+    orderBy: [{ periodYear: "desc" }, { periodMonth: "desc" }],
+    select: { periodYear: true, periodMonth: true },
+  });
+
   // Versammlungen, in die sich der Plan noch als TOP eintragen lässt.
   const offeneVersammlungen =
     plan.status === "ENTWURF"
@@ -92,6 +114,18 @@ export default async function WirtschaftsplanDetailPage({
       : [];
 
   const isDraft = plan.status === "ENTWURF";
+  // Einmal gebaut, an drei Stellen gezeigt: bei fehlgeschlagener Ablage, bei
+  // übersprungenen Einheiten und dauerhaft im Hinweis zum beschlossenen Plan.
+  const ablageWiederholen = (
+    <form action={wiederholeAblage} className="mt-2">
+      <input type="hidden" name="propertyId" value={property.id} />
+      <input type="hidden" name="planId" value={plan.id} />
+      <PendingButton className={buttonSecondaryClass}>
+        Ablage erneut versuchen
+      </PendingButton>
+    </form>
+  );
+
   // Vorschussbedarf = geplante Ausgaben − geplante Einnahmen (§ 28 Abs. 1 WEG).
   // Die rohe Summe aller Positionen wäre falsch, sobald es Erträge gibt.
   const ausgabenCents = plan.items
@@ -199,16 +233,29 @@ Muster — ersetzt keine Rechtsberatung.`;
           Planwerte gespeichert.
         </Alert>
       ) : null}
+      {/* Der Grund gehört sichtbar dazu: Ohne ihn weiß der Verwalter nicht, ob
+          er etwas nachtragen muss oder ob das System hakt — und ohne den Knopf
+          gäbe es keinen Weg zurück, weil `resolvePlan` nur für Entwürfe läuft. */}
       {sp.ablage === "fehler" ? (
         <Alert variant="warning" title="Dokumente nicht abgelegt" className="mb-4">
           Der Plan ist beschlossen und die Sollstellungen sind erzeugt, aber die
           Einzelwirtschaftspläne konnten nicht in den Dokumenten abgelegt werden.
+          {sp.grund ? <> Grund: {sp.grund}</> : null} Die PDFs sind weiterhin über die
+          Tabelle unten abrufbar.
+          {ablageWiederholen}
         </Alert>
       ) : null}
       {sp.beschlossen ? (
         <Alert variant="success" className="mb-4">
           Wirtschaftsplan beschlossen — {plan._count.duePostings} monatliche Sollstellungen wurden
-          erzeugt{sp.abgelegt ? `, ${sp.abgelegt} Einzelwirtschaftspläne für die Eigentümer abgelegt` : ""}.
+          erzeugt
+          {letzteSollstellung
+            ? `, zunächst bis ${formatMonatJahr(letzteSollstellung.periodYear, letzteSollstellung.periodMonth)}`
+            : ""}
+          {sp.abgelegt ? `, ${sp.abgelegt} Einzelwirtschaftspläne für die Eigentümer abgelegt` : ""}.
+          {letzteSollstellung
+            ? " Die weiteren Monate des Geltungszeitraums entstehen laufend nach — offene Posten sollen erst kurz vor ihrer Fälligkeit in der Liste stehen."
+            : ""}
           {sp.ohne && sp.ohne !== "0"
             ? ` Für ${sp.ohne} ${sp.ohne === "1" ? "Einheit" : "Einheiten"} ist kein Eigentümer erfasst — dort wurde nichts abgelegt.`
             : ""} Die offenen Posten finden Sie unter{" "}
@@ -216,6 +263,19 @@ Muster — ersetzt keine Rechtsberatung.`;
             Hausgeld
           </Link>
           .
+        </Alert>
+      ) : sp.abgelegt ? (
+        /* Rückmeldung der Wiederholung — dort gibt es kein `beschlossen=1`. */
+        <Alert variant={sp.ohne && sp.ohne !== "0" ? "warning" : "success"} className="mb-4">
+          {sp.abgelegt}{" "}
+          {sp.abgelegt === "1" ? "Einzelwirtschaftsplan wurde" : "Einzelwirtschaftspläne wurden"} den
+          jeweiligen Eigentümern unter &bdquo;Dokumente&ldquo; bereitgestellt.
+          {sp.ohne && sp.ohne !== "0" ? (
+            <>
+              {` Für ${sp.ohne} ${sp.ohne === "1" ? "Einheit" : "Einheiten"} ist kein Eigentümer erfasst — dort wurde nichts abgelegt, damit der Plan nicht für alle sichtbar wird. Eigentümer in den Stammdaten nachtragen, dann hier erneut ablegen.`}
+              {ablageWiederholen}
+            </>
+          ) : null}
         </Alert>
       ) : null}
       {sp.fehler ? (
@@ -248,7 +308,14 @@ Muster — ersetzt keine Rechtsberatung.`;
           {plan.validUntil
             ? ` bis ${formatDateOnly(new Date(plan.validUntil.getTime() - 86400000))}`
             : ", fortgeltend bis ein neuer Plan beschlossen ist (§ 28 Abs. 1 Satz 2 WEG)"}
-          .
+          {letzteSollstellung
+            ? ` Sollstellungen bestehen bis ${formatMonatJahr(letzteSollstellung.periodYear, letzteSollstellung.periodMonth)}; die folgenden Monate entstehen laufend nach.`
+            : "."}{" "}
+          Die Einzelwirtschaftspläne liegen bei den jeweiligen Eigentümern unter
+          &bdquo;Dokumente&ldquo;; sie lassen sich jederzeit erneut ablegen — etwa nach einem
+          Eigentümerwechsel oder wenn ein Eigentümer nachgetragen wurde. Vorhandene Dokumente
+          werden dabei ersetzt, nicht verdoppelt.
+          {ablageWiederholen}
         </Alert>
       ) : null}
 

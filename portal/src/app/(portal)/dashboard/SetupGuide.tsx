@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Check, CircleAlert } from "lucide-react";
+import { ArrowRight, Check, CircleAlert, Hourglass } from "lucide-react";
 import { PendingButton } from "@/components/pending-button";
 import { Card } from "@/components/ui";
 import type { SetupStatus, SetupStep } from "@/lib/weg/setup-status";
@@ -158,6 +158,14 @@ function SchrittZeile({
           <span className="mt-1 flex items-start gap-1.5 text-xs text-amber-700">
             <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
             {step.warnung}
+          </span>
+        ) : null}
+        {/* Der Schritt ist angestoßen, aber noch offen — sachlicher Ton, keine
+            Warnfarbe: Dass er noch nicht abgehakt ist, ist richtig so. */}
+        {step.zwischenstand ? (
+          <span className="mt-1 flex items-start gap-1.5 text-xs text-brand-green">
+            <Hourglass className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            {step.zwischenstand.text}
           </span>
         ) : null}
         {step.done && step.href ? (

@@ -11,10 +11,16 @@ export async function PropertyStats({
   propertyId: string;
   name: string;
 }) {
-  const [unitCount, activeTenancies, openTickets, byStatus, byTrade, resolved] =
+  const [unitCount, stellplatzCount, activeTenancies, openTickets, byStatus, byTrade, resolved] =
     await Promise.all([
-      db.unit.count({ where: { propertyId } }),
-      db.tenancy.count({ where: { active: true, unit: { propertyId } } }),
+      // Stellplätze getrennt: Sie sind keine „Einheiten" (Preisseite, Abo,
+      // Umlage sagen dasselbe) und würden vor allem die Vermietungsquote
+      // verwässern — ein Stellplatz hat fast nie einen Mietvertrag.
+      db.unit.count({ where: { propertyId, unitType: { not: "STELLPLATZ" } } }),
+      db.unit.count({ where: { propertyId, unitType: "STELLPLATZ" } }),
+      db.tenancy.count({
+        where: { active: true, unit: { propertyId, unitType: { not: "STELLPLATZ" } } },
+      }),
       db.ticket.count({
         where: { propertyId, status: { notIn: ["ERLEDIGT", "GESCHLOSSEN"] } },
       }),
@@ -52,6 +58,7 @@ export async function PropertyStats({
 
   const kpis: { label: string; value: number | string; href?: string }[] = [
     { label: "Einheiten", value: unitCount },
+    ...(stellplatzCount > 0 ? [{ label: "Stellplätze", value: stellplatzCount }] : []),
     { label: "Vermietungsquote", value: occupancy !== null ? `${occupancy} %` : "–" },
     { label: "Offene Vorgänge", value: openTickets, href: `/vorgaenge?propertyId=${propertyId}` },
     { label: "Vorgänge gesamt", value: totalTickets, href: `/vorgaenge?propertyId=${propertyId}` },

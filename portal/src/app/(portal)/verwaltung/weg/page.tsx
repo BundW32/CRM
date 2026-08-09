@@ -22,7 +22,10 @@ export default async function WegOverviewPage() {
       zip: true,
       city: true,
       meaTotal: true,
-      _count: { select: { units: true, ledgerAccounts: true } },
+      // Einheiten und Stellplätze getrennt zählen — „N Einheiten" inklusive
+      // Stellplätzen widerspräche der eigenen Abrechnungslogik.
+      units: { select: { unitType: true } },
+      _count: { select: { ledgerAccounts: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -108,7 +111,15 @@ export default async function WegOverviewPage() {
                   {p.street}, {p.zip} {p.city}
                 </span>
                 <span className="block text-xs text-gray-400">
-                  {p._count.units} Einheit{p._count.units !== 1 ? "en" : ""}
+                  {(() => {
+                    const einheiten = p.units.filter((u) => u.unitType !== "STELLPLATZ").length;
+                    const stellplaetze = p.units.length - einheiten;
+                    return `${einheiten} Einheit${einheiten !== 1 ? "en" : ""}${
+                      stellplaetze > 0
+                        ? ` · ${stellplaetze} ${stellplaetze === 1 ? "Stellplatz" : "Stellplätze"}`
+                        : ""
+                    }`;
+                  })()}
                   {p.meaTotal == null ? " · MEA-Nenner fehlt" : ""}
                 </span>
               </div>

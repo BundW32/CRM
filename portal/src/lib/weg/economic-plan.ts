@@ -39,13 +39,20 @@ export function advanceWeightsForKey(units: UnitForDistribution[], key: Distribu
   switch (effective) {
     case "MEA":
       return units.map((u) => {
-        if (u.mea == null) throw new Error(`Einheit ohne Miteigentumsanteil (MEA): ${u.id}`);
+        if (u.mea == null) throw new Error(`Einheit ohne Miteigentumsanteil (MEA): ${u.label}`);
         return { unitId: u.id, weight: u.mea };
       });
     case "FLAECHE":
       return units.map((u) => ({ unitId: u.id, weight: Math.round((u.livingArea ?? 0) * 10000) }));
     case "EINHEITEN":
-      return units.map((u) => ({ unitId: u.id, weight: 1 }));
+      // Wie in der strikten Abrechnungs-Gewichtung: Stellplätze sind keine
+      // „Einheiten" im Sinne dieses Schlüssels (siehe weightsForKey).
+      if (!units.some((u) => u.unitType !== "STELLPLATZ")) {
+        throw new Error(
+          "Der Schlüssel „je Einheit“ braucht mindestens eine Wohn- oder Gewerbeeinheit.",
+        );
+      }
+      return units.map((u) => ({ unitId: u.id, weight: u.unitType === "STELLPLATZ" ? 0 : 1 }));
     case "PERSONEN":
       return units.map((u) => ({ unitId: u.id, weight: u.personCount ?? 0 }));
     case "JE_STELLPLATZ":
@@ -108,7 +115,12 @@ export function einheitenOhneFeld<T extends UnitForDistribution>(
 ): T[] {
   const wert = (u: UnitForDistribution) =>
     feld === "flaeche" ? u.livingArea : feld === "personen" ? u.personCount : u.mea;
-  return units.filter((u) => wert(u) == null);
+  // Stellplätze fehlen Fläche und Personenzahl zu Recht — sie tragen bei diesen
+  // Schlüsseln Gewicht 0 und gehören deshalb nicht in die Fehlerliste. MEA
+  // bleibt auch für Stellplätze Pflicht (jedes Sondereigentum hat einen Anteil).
+  return units.filter(
+    (u) => wert(u) == null && (feld === "mea" || u.unitType !== "STELLPLATZ"),
+  );
 }
 
 /** Welches Feld ein Schlüssel braucht – für die Fehlermeldung und die Vorprüfung. */

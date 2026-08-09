@@ -12,12 +12,12 @@ import type { UnitForDistribution } from "./distribution";
 
 // Testfall aus dem Build-Auftrag: 6 Einheiten, gemischte Schlüssel
 const units: UnitForDistribution[] = [
-  { id: "we1", mea: 180, livingArea: 72.5, personCount: 2, unitType: "WOHNUNG" as const },
-  { id: "we2", mea: 175, livingArea: 70.2, personCount: 1, unitType: "WOHNUNG" as const },
-  { id: "we3", mea: 180, livingArea: 72.5, personCount: 3, unitType: "WOHNUNG" as const },
-  { id: "we4", mea: 175, livingArea: 70.2, personCount: 2, unitType: "WOHNUNG" as const },
-  { id: "we5", mea: 240, livingArea: 96.4, personCount: 4, unitType: "WOHNUNG" as const },
-  { id: "te6", mea: 50, livingArea: null, personCount: null, unitType: "STELLPLATZ" as const },
+  { id: "we1", label: "we1", mea: 180, livingArea: 72.5, personCount: 2, unitType: "WOHNUNG" as const },
+  { id: "we2", label: "we2", mea: 175, livingArea: 70.2, personCount: 1, unitType: "WOHNUNG" as const },
+  { id: "we3", label: "we3", mea: 180, livingArea: 72.5, personCount: 3, unitType: "WOHNUNG" as const },
+  { id: "we4", label: "we4", mea: 175, livingArea: 70.2, personCount: 2, unitType: "WOHNUNG" as const },
+  { id: "we5", label: "we5", mea: 240, livingArea: 96.4, personCount: 4, unitType: "WOHNUNG" as const },
+  { id: "te6", label: "te6", mea: 50, livingArea: null, personCount: null, unitType: "STELLPLATZ" as const },
 ];
 
 const B = "BETRIEBSKOSTEN" as const;
@@ -68,15 +68,57 @@ describe("computeStatement", () => {
     expect(r.totalExpenseCents).toBe(480_000 + 620_000 + 12_000);
   });
 
-  it("Aufzug (FLAECHE) scheitert am Stellplatz ohne Fläche → Prüffehler, kein Absturz", () => {
+  it("Aufzug (FLAECHE): der Stellplatz ohne Fläche trägt 0, statt die Abrechnung zu blockieren", () => {
     const input = baseInput({
       expenseByCostType: new Map([["aufzug", 90_000]]),
       manualAmounts: new Map(),
     });
     const r = computeStatement(input);
+    expect(r.errors).toEqual([]);
+    const row = r.rows.find((x) => x.costTypeId === "aufzug");
+    expect(row?.perUnit?.get("te6")).toBe(0);
+    expect([...(row?.perUnit ?? new Map()).values()].reduce((a, b) => a + b, 0)).toBe(90_000);
+  });
+
+  it("FLAECHE scheitert weiter an einer WOHNUNG ohne Fläche — mit Namen", () => {
+    const input = baseInput({
+      units: [...units, { id: "we7", label: "WE 07", mea: 100, livingArea: null, personCount: 1, unitType: "WOHNUNG" as const }],
+      expenseByCostType: new Map([["aufzug", 90_000]]),
+      manualAmounts: new Map(),
+    });
+    const r = computeStatement(input);
     expect(r.errors).toHaveLength(1);
-    expect(r.rows[0].perUnit).toBeNull();
     expect(r.errors[0]).toMatch(/Aufzug/);
+    expect(r.errors[0]).toMatch(/WE 07/);
+  });
+
+  it("Kontoführung (EINHEITEN): Stellplätze zählen nicht als Einheit", () => {
+    const input = baseInput({
+      expenseByCostType: new Map([["konto", 12_000]]),
+      manualAmounts: new Map(),
+    });
+    const r = computeStatement(input);
+    expect(r.errors).toEqual([]);
+    const row = r.rows.find((x) => x.costTypeId === "konto");
+    // 5 Wohneinheiten à 2.400 — der Stellplatz te6 trägt nichts.
+    expect(row?.perUnit?.get("te6")).toBe(0);
+    expect(row?.perUnit?.get("we1")).toBe(2_400);
+  });
+
+  it("JE_STELLPLATZ verteilt in der Abrechnung ausschließlich auf Stellplätze", () => {
+    const input = baseInput({
+      costTypes: [
+        ...costTypes,
+        { id: "tor", name: "Garagentor", category: B, distributionKey: "JE_STELLPLATZ" as const, laborShareType: "KEINE" as const },
+      ],
+      expenseByCostType: new Map([["tor", 45_600]]),
+      manualAmounts: new Map(),
+    });
+    const r = computeStatement(input);
+    expect(r.errors).toEqual([]);
+    const row = r.rows.find((x) => x.costTypeId === "tor");
+    expect(row?.perUnit?.get("te6")).toBe(45_600);
+    expect(row?.perUnit?.get("we1")).toBe(0);
   });
 
   it("manuelle Verteilung muss centgenau der Kostenart entsprechen", () => {

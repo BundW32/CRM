@@ -1,15 +1,25 @@
-# Folgetickets zur Stellplatz-Logik (Stand 07.08.2026)
+# Folgetickets zur Stellplatz-Logik (Stand 09.08.2026)
 
 Die Stellplatz-Logik (1 € je Stellplatz/Monat, Einheiten vom Typ STELLPLATZ
 als eigene Abo-Position) ist umgesetzt. Verbleibende Punkte:
 
-## 1. ✅ Erledigt (07.08.2026): Umlageschlüssel „je Stellplatz"
+## 1. ✅ Erledigt (09.08.2026): Umlageschlüssel „je Stellplatz" — jetzt wirklich überall wählbar
 
 `DistributionKey.JE_STELLPLATZ` verteilt gleichmäßig und ausschließlich auf
 Einheiten vom Typ STELLPLATZ — in Wirtschaftsplan, Jahresabrechnung und
-Sonderumlagen wählbar (Kostenarten- und Sonderumlage-Formular). Ohne
+Sonderumlagen wählbar. **Korrektur zum Stand 07.08.:** Im Sonderumlage-Formular
+war der Schlüssel entgegen der damaligen Erledigt-Meldung NICHT wählbar (die
+Seite führte eine eigene Schlüsselliste ohne JE_STELLPLATZ — Doppellisten-
+Fehler). Formular und Action lesen seit dem 09.08. dieselbe Konstante
+(`sonderumlagen/keys.ts`), ein Test hält den Inhalt fest. Ohne
 Stellplatz-Einheit meldet die Verteilung verständlich, was fehlt; bei
 Sonderumlagen entstehen keine 0-€-Sollstellungen für Wohneinheiten.
+
+Am 09.08.2026 außerdem umgesetzt (Details in DECISIONS.md Nr. 297–307):
+Stellplätze zählen beim Schlüssel „je Einheit" nicht mit, blockieren die
+Jahresabrechnung nicht mehr bei Fläche/Personen, sind im Einheiten-Editor
+anleg- und änderbar, werden in Kennzahlen/Verwaltervertrag getrennt gezählt,
+und der Abo-Mengenabgleich läuft täglich im Cron sowie nach jedem Checkout.
 
 ## 2. AGB / Preisverzeichnis (Betreiber-Aufgabe, kein Code)
 
@@ -27,3 +37,6 @@ bitte durch die Betreiberin — nicht aus dem Code heraus formulieren.
 - Wer Stripe Tax nutzt: `tax_behavior: inclusive` gilt dann für ALLE
   Positionen (auch die Tarif-Preise) — einheitlich im Dashboard bzw. an den
   Env-Preisen pflegen, nicht nur an der Stellplatz-Position.
+- Wird die Env-Variable nachträglich geändert, erkennt der Mengenabgleich den
+  Tarif-Posten seit dem 09.08. bevorzugt über die Tarif-Preis-Ids
+  (`STRIPE_PRICE_BASIC`/`_PLUS`) — diese sollten dann ebenfalls gepflegt sein.

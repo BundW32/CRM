@@ -69,6 +69,10 @@ export function distributeByWeight(totalCents: number, shares: Share[]): Map<str
 
 export type UnitForDistribution = {
   id: string;
+  // Für Fehlermeldungen: Eine Verteilung, die scheitert, nennt die Einheit
+  // beim Namen — „WE 03" schickt den Verwalter hin, eine Datenbank-Id lässt
+  // ihn suchen. Pflichtfeld aus demselben Grund wie unitType.
+  label: string;
   mea: number | null;
   livingArea: number | null;
   personCount: number | null;
@@ -85,26 +89,46 @@ export type UnitForDistribution = {
  *
  * Fehlende Stammdaten (mea/Fläche/Personen = null) → verständlicher Fehler,
  * damit keine Abrechnung mit stillschweigend falschen Gewichten entsteht.
+ * Ausnahme Stellplätze: Ein Stellplatz hat zu Recht keine Wohnfläche und keine
+ * Personenzahl — er trägt bei FLAECHE/PERSONEN Gewicht 0, statt die Abrechnung
+ * zu blockieren (dieselbe Überlegung wie bei der Vorschuss-Gewichtung,
+ * DECISIONS Nr. 125). MEA bleibt auch für Stellplätze Pflicht: Jedes
+ * Sondereigentum hat einen Miteigentumsanteil.
  */
 export function weightsForKey(units: UnitForDistribution[], key: DistributionKey): Share[] {
   if (units.length === 0) throw new Error("Mindestens eine Einheit erforderlich.");
   switch (key) {
     case "MEA":
       return units.map((u) => {
-        if (u.mea == null) throw new Error(`Einheit ohne Miteigentumsanteil (MEA): ${u.id}`);
+        if (u.mea == null) throw new Error(`Einheit ohne Miteigentumsanteil (MEA): ${u.label}`);
         return { unitId: u.id, weight: u.mea };
       });
     case "FLAECHE":
       return units.map((u) => {
-        if (u.livingArea == null) throw new Error(`Einheit ohne Wohnfläche: ${u.id}`);
+        if (u.livingArea == null) {
+          if (u.unitType === "STELLPLATZ") return { unitId: u.id, weight: 0 };
+          throw new Error(`Einheit ohne Wohnfläche: ${u.label}`);
+        }
         // Ganzzahl-Gewichte in cm² — vermeidet Fließkomma-Artefakte
         return { unitId: u.id, weight: Math.round(u.livingArea * 10000) };
       });
     case "EINHEITEN":
-      return units.map((u) => ({ unitId: u.id, weight: 1 }));
+      // Stellplätze sind keine „Einheiten" im Sinne dieses Schlüssels: Wer die
+      // Verwaltervergütung „je Einheit" umlegt, meint Wohn- und Gewerbe-
+      // einheiten — sonst zahlte ein Tiefgaragenplatz so viel wie eine Wohnung.
+      // Für stellplatzbezogene Kosten gibt es JE_STELLPLATZ.
+      if (!units.some((u) => u.unitType !== "STELLPLATZ")) {
+        throw new Error(
+          "Der Schlüssel „je Einheit“ braucht mindestens eine Wohn- oder Gewerbeeinheit.",
+        );
+      }
+      return units.map((u) => ({ unitId: u.id, weight: u.unitType === "STELLPLATZ" ? 0 : 1 }));
     case "PERSONEN":
       return units.map((u) => {
-        if (u.personCount == null) throw new Error(`Einheit ohne Personenzahl: ${u.id}`);
+        if (u.personCount == null) {
+          if (u.unitType === "STELLPLATZ") return { unitId: u.id, weight: 0 };
+          throw new Error(`Einheit ohne Personenzahl: ${u.label}`);
+        }
         return { unitId: u.id, weight: u.personCount };
       });
     case "JE_STELLPLATZ": {

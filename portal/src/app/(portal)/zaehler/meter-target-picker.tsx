@@ -88,7 +88,7 @@ export function MeterTargetPicker({ properties }: { properties: Prop[] }) {
           )}
           {units.map((u) => (
             <option key={u.id} value={`unit:${u.id}`}>
-              Einheit: {u.label}
+              Einheit: {u.istStellplatz ? `${u.label} (Stellplatz)` : u.label}
             </option>
           ))}
         </select>

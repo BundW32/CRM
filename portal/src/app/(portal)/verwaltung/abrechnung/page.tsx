@@ -6,12 +6,14 @@ import {
   PLANS,
   STELLPLATZ_CENTS,
   aktiverPlan,
+  checkoutJeEinheitCents,
   isBillingEnabled,
   istTestphaseAbgelaufen,
   planLabel,
   subscriptionStatusLabel,
   type Plan,
 } from "@/lib/billing";
+import { MAX_EINHEITEN } from "@/app/preise/preise-daten";
 import { zaehleWegMengen } from "@/lib/billing-mengen";
 import { isWegSaas } from "@/lib/app-mode";
 import { formatDate } from "@/lib/labels";
@@ -46,7 +48,7 @@ const FEHLER_TEXTE: Record<string, string> = {
     "Es sind noch keine Einheiten angelegt – der Preis rechnet je Einheit. " +
     "Bitte legen Sie zuerst Ihr WEG-Objekt mit seinen Einheiten an.",
   zu_viele_einheiten:
-    "Ihre Gemeinschaft hat mehr als 12 Einheiten – dafür gibt es keinen " +
+    `Ihre Gemeinschaft hat mehr als ${MAX_EINHEITEN} Einheiten – dafür gibt es keinen ` +
     "Self-Service-Tarif. Bitte wenden Sie sich an uns, wir melden uns mit " +
     "einem Angebot.",
   checkout_fehlgeschlagen:
@@ -137,6 +139,27 @@ export default async function BillingPage({
               </dt>
               <dd className="text-gray-800">
                 {stellplaetze} · je {euro(STELLPLATZ_CENTS)} / Monat
+              </dd>
+            </div>
+          ) : null}
+          {/* Der Gesamtbetrag, den die Preisseite verspricht („58 €"), gehört
+              auch HIER hin — nach der Buchung sah man sonst nur Mengen, nie
+              die Summe. Dieselbe Rechnung wie im Checkout: Staffelpreis je
+              Einheit × Einheiten + 1 € je Stellplatz. */}
+          {weg &&
+          (hervorgehoben === "basic" || hervorgehoben === "plus") &&
+          einheiten >= 1 &&
+          einheiten <= MAX_EINHEITEN ? (
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-gray-400">
+                {hatAktivesAbo ? "Monatlicher Gesamtbetrag" : "Gesamtbetrag bei Buchung"}
+              </dt>
+              <dd className="text-gray-800">
+                {euro(
+                  checkoutJeEinheitCents(hervorgehoben, einheiten) * einheiten +
+                    stellplaetze * STELLPLATZ_CENTS,
+                )}{" "}
+                / Monat
               </dd>
             </div>
           ) : null}

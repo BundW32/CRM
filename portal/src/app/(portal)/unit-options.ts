@@ -8,6 +8,8 @@ export type UnitOption = {
   id: string;
   label: string;
   floor: string | null;
+  /** Stellplätze sollen in Auswahllisten als solche erkennbar sein. */
+  istStellplatz: boolean;
   tenantNames: string[];
 };
 
@@ -36,14 +38,23 @@ export async function loadUnitsForProperty(propertyId: string): Promise<UnitOpti
     const myUnits = await tenantUnits(user.id);
     return myUnits
       .filter((u) => u.propertyId === propertyId)
-      .map((u) => ({ id: u.id, label: u.label, floor: u.floor, tenantNames: [] }));
+      .map((u) => ({
+        id: u.id,
+        label: u.label,
+        floor: u.floor,
+        istStellplatz: u.unitType === "STELLPLATZ",
+        tenantNames: [],
+      }));
   } else {
     return [];
   }
 
   const units = await db.unit.findMany({
     where: { propertyId },
-    orderBy: { label: "asc" },
+    // orderIndex zuerst: Die Anlage sortiert Stellplätze bewusst ans Ende
+    // (orderIndex 1000+) — rein alphabetisch stünden sie zwischen den
+    // Wohnungen. label bleibt als Feinsortierung.
+    orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
     include: {
       tenancies: {
         where: { active: true },
@@ -55,6 +66,7 @@ export async function loadUnitsForProperty(propertyId: string): Promise<UnitOpti
     id: u.id,
     label: u.label,
     floor: u.floor,
+    istStellplatz: u.unitType === "STELLPLATZ",
     tenantNames: u.tenancies.map((t) => t.user.name),
   }));
 }

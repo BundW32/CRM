@@ -1929,3 +1929,75 @@ Daten** hängen, nicht an ihrer Form.
 **Zum zweiten Mal in dieser Sitzung** ging ein `cat >> DECISIONS.md` verloren,
 weil es an einen Befehl gekettet war, der das Verzeichnis wechselte. Prüfen,
 **bevor** committet wird — `grep -c "^## Schritt N"`.
+
+## Stellplatz-Logik über alle Bereiche (09.08.2026)
+
+Ein Audit über Abo/Billing, WEG-Finanzen und Oberfläche hat die Stellplatz-
+Logik an den Rändern unvollständig gefunden. Die Grundregel bleibt: Preis-
+relevant ist allein `unitType = STELLPLATZ` (1 € je Stellplatz/Monat, keine
+Einheit im Sinne von Staffel und 12er-Grenze), der Untertyp ist beschreibend.
+
+297. **„Je Einheit" (EINHEITEN) zählt Stellplätze nicht mit.** Der Schlüssel
+     verteilt Verwaltervergütung und Kontoführung; ein Tiefgaragenplatz, der so
+     viel trägt wie eine Wohnung, widerspräche der überall dokumentierten
+     Aussage „Stellplätze zählen nicht als Einheiten". Für stellplatzbezogene
+     Kosten gibt es JE_STELLPLATZ. Nur Stellplätze im Objekt → verständlicher
+     Fehler. Gilt in Plan (advanceWeightsForKey) und Abrechnung (weightsForKey)
+     gleichermaßen — Plan und Abrechnung dürfen nicht verschieden verteilen.
+298. **Die strikte Abrechnungs-Gewichtung ist für Stellplätze nachsichtig bei
+     FLAECHE/PERSONEN.** Ein Stellplatz hat zu Recht keine Wohnfläche und keine
+     Personenzahl (Nr. 125) — vorher blockierte jede WEG mit einem Stellplatz
+     ihre Jahresabrechnung am Standardkatalog (fünf Prüffehler, nicht
+     fertigstellbar), während der Wirtschaftsplan derselben WEG rechnete.
+     Wohn-/Gewerbeeinheiten bleiben strikt; ist am Stellplatz doch eine Fläche
+     gepflegt, zählt sie. **MEA bleibt auch für Stellplätze Pflicht** — jedes
+     Sondereigentum hat einen Anteil; die Massenanlage weist deshalb im
+     Formular darauf hin, MEA und Nenner nachzupflegen.
+299. **Verteilungs-Fehlermeldungen nennen die Einheit beim Namen.**
+     `UnitForDistribution` trägt jetzt ein Pflichtfeld `label`; „Einheit ohne
+     Wohnfläche: WE 03" schickt den Verwalter hin, `cmb3k…` ließ ihn suchen.
+     Pflichtfeld aus demselben Grund wie `unitType`: Der Compiler zwingt jede
+     Ladestelle, es mitzuselektieren.
+300. **Archivierte Objekte zählen nicht zur Abo-Menge.** Archivieren heißt
+     „wird nicht mehr verwaltet" — ein Abo über Einheiten, an denen niemand
+     arbeitet, wäre eine stille Kostenfalle. `zaehleWegMengen` filtert auf
+     `active`, Archivieren/Reaktivieren stoßen den Mengenabgleich an.
+301. **Der Mengenabgleich hat jetzt sein versprochenes Sicherheitsnetz.**
+     `billing-sync.ts` versprach „der nächste Abgleich holt es nach" — den gab
+     es nicht: Der tägliche Cron verglich nur den Status, der Checkout-Webhook
+     synchronisierte nie. Beide rufen jetzt `aboMengeSynchronisieren`. Außerdem:
+     Der Stellplatz-Posten wird auch außerhalb des Self-Service-Rahmens der
+     Einheiten nachgezogen (nur der Tarif-Posten bleibt dort unangetastet),
+     Preisdrift am Stellplatz-Posten wird wie beim Tarif-Posten korrigiert, und
+     der Tarif-Posten wird bevorzugt über die Tarif-Preis-Id erkannt — eine
+     verstellte STRIPE_PRICE_STELLPLATZ-Variable kann den Stellplatz-Posten
+     nicht mehr zum Tarif-Posten erklären.
+302. **Keine 0-€-Sollstellungen aus dem Wirtschaftsplan.** Dieselbe Regel, die
+     die Sonderumlage ausdrücklich hatte: Eine künftige Forderung über 0 €
+     (Stellplatz, der bei jedem Schlüssel des Plans 0 trägt) ist Lärm in
+     Hausgeld-Liste und offenen Posten. Fällige bleiben unangetastet.
+303. **Der Messdienst-Abgleich kennt keine Stellplätze.** Ein Stellplatz wird
+     nicht beheizt: Er zieht keine CSV-Zeile über den Nummern-Abgleich an
+     („Zeile 6" auf „TE 06, Stellplatz") und wird nicht als „Einheit ohne
+     Zeile" gemeldet — das war bei jedem Import falscher Alarm.
+304. **„N Einheiten" heißt überall: ohne Stellplätze.** Objektliste,
+     WEG-Übersicht, Dashboard-Kacheln (inkl. Vermietungsquote — Stellplätze
+     haben fast nie eine Tenancy), Plattform-Statistik und der Verwaltervertrag
+     (Vergütungsbasis!) zählen Wohn-/Gewerbeeinheiten und weisen Stellplätze
+     separat aus. In Einheiten-Auswahllisten sind Stellplätze gekennzeichnet
+     und stehen ans Ende sortiert (orderIndex vor label).
+305. **Der zentrale Einheiten-Editor kennt die Art.** `objekte/[id]/bearbeiten`
+     legte jede Einheit als WOHNUNG an — ein dort angelegter Stellplatz wurde
+     als volle Einheit (10/13,90 €) berechnet statt mit 1 €, und in
+     Mietobjekten gab es gar keinen Weg zu einem Stellplatz. Anlegen und
+     Bearbeiten führen jetzt Art + Untertyp, der Typwechsel nullt den Untertyp
+     und stößt den Abo-Abgleich an (wie in den WEG-Stammdaten).
+306. **Sonderumlage-Schlüssel kommen aus EINER Quelle** (`sonderumlagen/keys.ts`),
+     gelesen von Formular und Action. Die Doppelliste hatte JE_STELLPLATZ in der
+     Action erlaubt und im Formular verschwiegen — „umgesetzt", aber nicht
+     wählbar; FOLGETICKETS führte den Punkt bereits als erledigt. Der Fehlerfall
+     „kein Stellplatz im Objekt" hat einen eigenen Fehlercode statt der
+     irreführenden Stammdaten-Meldung.
+307. **Übergabeprotokoll folgt der Art der Einheit.** Für STELLPLATZ-Einheiten
+     heißt das Dokument „Übergabeprotokoll Stellplatz/Garage" und die allgemeine
+     Checkliste prüft Zufahrt/Tor/Boden statt Warmwasser und Rauchmelder.

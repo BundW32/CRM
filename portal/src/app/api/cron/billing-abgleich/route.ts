@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isWegSaas } from "@/lib/app-mode";
 import { isBillingEnabled } from "@/lib/billing";
 import { alertBetreiber, mailOrgSuperAdmins } from "@/lib/billing-notify";
+import { aboMengeSynchronisieren } from "@/lib/billing-sync";
 import { db } from "@/lib/db";
 import { mapStripeStatus, planFromPriceId, stripeOrNull } from "@/lib/stripe";
 import { portalUrl } from "@/lib/url";
@@ -71,6 +72,13 @@ export async function GET(request: Request) {
         });
         korrigiert.push(`${org.name} (${org.id}): ${org.subscriptionStatus} → ${status}`);
       }
+      // Mengen-Rückkopplung: billing-sync verspricht „der nächste Abgleich
+      // holt es nach", wenn ein Stripe-Aufruf beim Anlegen/Löschen einer
+      // Einheit scheitert — DIESER Lauf ist der Abgleich. Ohne ihn bliebe
+      // z. B. eine fehlende Stellplatz-Position dauerhaft fehlend, bis
+      // zufällig wieder eine Einheit angefasst wird. Die Funktion prüft
+      // Plan/Status selbst und fängt eigene Stripe-Fehler ab.
+      await aboMengeSynchronisieren(org.id);
     } catch (err) {
       // Auch eine bei Stripe gelöschte Subscription landet hier — das ist eine
       // Drift, die der Betreiber sehen muss, keine, die still korrigiert wird.

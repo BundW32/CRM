@@ -8,13 +8,16 @@ export function PropertyRow({
   address,
   managementTypeBadge,
   unitCount,
+  stellplatzCount = 0,
   imageUrl,
   children,
 }: {
   name: string;
   address: string;
   managementTypeBadge: ReactNode;
+  /** Wohn-/Gewerbeeinheiten — Stellplätze zählen hier nicht mit. */
   unitCount: number;
+  stellplatzCount?: number;
   imageUrl?: string | null;
   children: ReactNode;
 }) {
@@ -53,6 +56,9 @@ export function PropertyRow({
             {managementTypeBadge}
             <span className="text-xs text-gray-400">
               {unitCount} Einheit{unitCount !== 1 ? "en" : ""}
+              {stellplatzCount > 0
+                ? ` · ${stellplatzCount} ${stellplatzCount === 1 ? "Stellplatz" : "Stellplätze"}`
+                : ""}
             </span>
           </span>
           <span className="mt-0.5 block truncate text-xs text-gray-500">{address}</span>

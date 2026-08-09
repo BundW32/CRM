@@ -45,8 +45,11 @@ export default async function OrganisationDetailPage({
   });
   if (!org) notFound();
 
-  const [unitCount, roleGroups] = await Promise.all([
-    db.unit.count({ where: { property: { organizationId: id } } }),
+  const [unitCount, stellplatzCount, roleGroups] = await Promise.all([
+    db.unit.count({
+      where: { property: { organizationId: id }, unitType: { not: "STELLPLATZ" } },
+    }),
+    db.unit.count({ where: { property: { organizationId: id }, unitType: "STELLPLATZ" } }),
     db.user.groupBy({ by: ["role"], where: { organizationId: id }, _count: { _all: true } }),
   ]);
   const roleCount = (r: string) => roleGroups.find((g) => g.role === r)?._count._all ?? 0;
@@ -100,6 +103,7 @@ export default async function OrganisationDetailPage({
                 ["Nutzer", org._count.users],
                 ["Objekte", org._count.properties],
                 ["Einheiten", unitCount],
+                ["Stellplätze", stellplatzCount],
                 ["Verwalter", roleCount("VERWALTER")],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-xl border border-gray-100 p-3 text-center">

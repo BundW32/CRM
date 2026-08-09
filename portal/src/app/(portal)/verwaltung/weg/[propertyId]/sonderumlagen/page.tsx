@@ -8,11 +8,10 @@ import { distributionKeyLabels, formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { createSonderumlage, deleteSonderumlage } from "./actions";
+import { SONDERUMLAGE_KEYS } from "./keys";
 import { DateField } from "@/components/fields";
 
 export const dynamic = "force-dynamic";
-
-const KEYS = ["MEA", "FLAECHE", "EINHEITEN", "PERSONEN"] as const;
 
 export default async function SonderumlagenPage({
   params,
@@ -42,6 +41,8 @@ export default async function SonderumlagenPage({
     einheiten: "Dieses Objekt hat keine Einheiten.",
     stammdaten:
       "Die Verteilung ist nicht möglich — bei mindestens einer Einheit fehlen MEA, Wohnfläche oder Personenzahl.",
+    stellplatz:
+      "Der Schlüssel „je Stellplatz“ braucht mindestens eine Einheit vom Typ Stellplatz — im Objekt ist keine angelegt.",
     nichtgefunden: "Sonderumlage nicht gefunden.",
   };
 
@@ -75,7 +76,7 @@ export default async function SonderumlagenPage({
         <Alert variant="error" className="mb-4">
           {FEHLER[sp.fehler] ?? "Die Eingabe konnte nicht gespeichert werden."}
           {/* Wer auf fehlende Stammdaten hinweist, führt auch hin. */}
-          {sp.fehler === "stammdaten" ? (
+          {sp.fehler === "stammdaten" || sp.fehler === "stellplatz" ? (
             <>
               {" "}
               <Link href={`/verwaltung/weg/${property.id}/stammdaten#einheiten`} className="underline">
@@ -113,7 +114,7 @@ export default async function SonderumlagenPage({
               }
             >
               <select name="distributionKey" defaultValue="MEA" className={inputClass}>
-                {KEYS.map((k) => (
+                {SONDERUMLAGE_KEYS.map((k) => (
                   <option key={k} value={k}>
                     {distributionKeyLabels[k]}
                   </option>

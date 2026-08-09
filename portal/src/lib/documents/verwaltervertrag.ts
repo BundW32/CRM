@@ -54,8 +54,15 @@ export type VerwaltervertragInput = {
   propertyName: string;
   /** Straße und Ort des Objekts, sofern erfasst. */
   propertyAddress?: string | null;
-  /** Zahl der Einheiten — für den Kopf und den Zertifizierungs-Hinweis. */
+  /**
+   * Zahl der Wohn-/Gewerbeeinheiten — für den Kopf und den
+   * Zertifizierungs-Hinweis. OHNE Stellplätze: Der Vertrag weist die
+   * Vergütung je Einheit aus, und Stellplätze sind keine Einheiten im Sinne
+   * dieser Zählung (dieselbe Abgrenzung wie in billing-mengen.ts).
+   */
   unitsCount?: number | null;
+  /** Zahl der Stellplatz-/Garagen-Einheiten — separat ausgewiesen. */
+  stellplaetzeCount?: number | null;
   issuer: LetterIssuer;
   brand?: RGB;
   /** Pfad zu einer PNG-Datei oder die Bilddaten selbst (Mandantenlogo). */
@@ -121,6 +128,9 @@ export async function generateVerwaltervertrag(input: VerwaltervertragInput): Pr
     meta: [
       ["Stand", fmtDate(input.generatedAt)],
       ...(input.unitsCount ? ([["Einheiten", String(input.unitsCount)]] as [string, string][]) : []),
+      ...(input.stellplaetzeCount
+        ? ([["Stellplätze/Garagen", String(input.stellplaetzeCount)]] as [string, string][])
+        : []),
     ],
   });
 

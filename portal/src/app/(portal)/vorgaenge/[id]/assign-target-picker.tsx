@@ -95,7 +95,8 @@ export function AssignTargetPicker({
           )}
           {units.map((u) => (
             <option key={u.id} value={`${propertyId}|${u.id}`}>
-              {u.tenantNames.length > 0 ? `${u.label}  ·  ${u.tenantNames.join(", ")}` : u.label}
+              {(u.istStellplatz ? `${u.label} (Stellplatz)` : u.label) +
+                (u.tenantNames.length > 0 ? `  ·  ${u.tenantNames.join(", ")}` : "")}
             </option>
           ))}
         </select>

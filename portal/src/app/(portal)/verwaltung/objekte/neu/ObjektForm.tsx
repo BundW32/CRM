@@ -7,6 +7,7 @@ import { DateField } from "@/components/fields";
 import { SubmitButton } from "@/components/submit-button";
 import { createObjekt } from "./actions";
 import { extractObjektFields } from "./import-actions";
+import { stellplatzTypLabels } from "@/lib/labels";
 import { splitName } from "@/lib/person-name";
 import { anteilSummeStatus, namensSchluessel, parseAnteil } from "@/lib/weg/anteil";
 import { type GewaehltePerson, PersonVorschlag } from "./PersonVorschlag";
@@ -509,25 +510,44 @@ export function ObjektForm({
         </button>
         {isWeg ? (
           <div className="mt-4 border-t border-gray-100 pt-4">
-            <div className="max-w-xs">
-              <Field label="Stellplätze & Garagen (Anzahl, optional)">
-                <input
-                  type="number"
-                  name="stellplatzAnzahl"
-                  min={0}
-                  max={99}
-                  value={stellplatzAnzahl}
-                  onChange={(e) => setStellplatzAnzahl(e.target.value)}
-                  placeholder="z. B. 4"
-                  className={inputClass}
-                />
-              </Field>
+            <div className="flex flex-wrap gap-3">
+              <div className="max-w-xs">
+                <Field label="Stellplätze & Garagen (Anzahl, optional)">
+                  <input
+                    type="number"
+                    name="stellplatzAnzahl"
+                    min={0}
+                    max={99}
+                    value={stellplatzAnzahl}
+                    onChange={(e) => setStellplatzAnzahl(e.target.value)}
+                    placeholder="z. B. 4"
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+              {Number(stellplatzAnzahl) > 0 ? (
+                <div className="max-w-xs">
+                  <Field label="Typ (gilt für alle, optional)">
+                    <select name="stellplatzTyp" defaultValue="" className={inputClass}>
+                      <option value="">– kein Typ –</option>
+                      {Object.entries(stellplatzTypLabels).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+              ) : null}
             </div>
             <p className="mt-1 text-xs text-gray-500">
               Sie werden als Einheiten vom Typ „Stellplatz&ldquo; angelegt
               (Stellplatz 1, 2, …) und lassen sich in den WEG-Stammdaten
               umbenennen und Eigentümern zuordnen. Stellplätze zählen nicht
-              als Wohn-/Gewerbeeinheiten.
+              als Wohn-/Gewerbeeinheiten. Tragen sie laut Teilungserklärung
+              eigene Miteigentumsanteile, diese nach dem Anlegen in den
+              WEG-Stammdaten nachpflegen und den MEA-Nenner entsprechend
+              anpassen.
             </p>
           </div>
         ) : null}

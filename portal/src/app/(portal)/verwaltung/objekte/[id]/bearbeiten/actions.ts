@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import type { User } from "@/generated/prisma/client";
+import type { StellplatzTyp, UnitType, User } from "@/generated/prisma/client";
 import { canVerwalterAccessProperty, canVerwalterManageUser } from "@/lib/access";
 import { encodeBelegung } from "@/lib/belegung";
 import { aboMengeSynchronisieren } from "@/lib/billing-sync";
@@ -33,6 +33,27 @@ function optFloat(raw: FormDataEntryValue | null): number | null {
 function optStr(raw: FormDataEntryValue | null, max = 200): string | null {
   const v = String(raw ?? "").trim();
   return v ? v.slice(0, max) : null;
+}
+
+// Art der Einheit aus dem Formular — preisrelevant: STELLPLATZ kostet 1 €/Monat
+// statt des Einheitenpreises und zählt nicht zur Tarif-Staffel. Der Untertyp
+// ist rein beschreibend und wird beim Wechsel weg von STELLPLATZ genullt,
+// damit kein „Garage"-Rest an einer Wohnung hängen bleibt (wie in den
+// WEG-Stammdaten, stammdaten/actions.ts).
+const UNIT_TYPES = ["WOHNUNG", "TEILEIGENTUM", "STELLPLATZ", "SONSTIGES"] as const;
+const STELLPLATZ_TYPEN = ["AUSSENSTELLPLATZ", "CARPORT", "GARAGE", "TIEFGARAGE"] as const;
+
+function parseUnitArt(formData: FormData): { unitType: UnitType; stellplatzTyp: StellplatzTyp | null } {
+  const rawArt = String(formData.get("unitType") ?? "").trim();
+  const unitType = (UNIT_TYPES as readonly string[]).includes(rawArt)
+    ? (rawArt as UnitType)
+    : "WOHNUNG";
+  const rawTyp = String(formData.get("stellplatzTyp") ?? "").trim();
+  const stellplatzTyp =
+    unitType === "STELLPLATZ" && (STELLPLATZ_TYPEN as readonly string[]).includes(rawTyp)
+      ? (rawTyp as StellplatzTyp)
+      : null;
+  return { unitType, stellplatzTyp };
 }
 
 // Stammdaten eines bestehenden Objekts bearbeiten. Bewusst NUR die Objekt-Stammdaten
@@ -138,6 +159,7 @@ export async function addUnit(formData: FormData) {
       label: label.slice(0, 200),
       externalLabel: optStr(formData.get("externalLabel")),
       floor: optStr(formData.get("floor"), 50),
+      ...parseUnitArt(formData),
       livingArea: optFloat(formData.get("livingArea")),
       mea: optInt(formData.get("mea")),
       personCount: optInt(formData.get("personCount")),
@@ -165,11 +187,15 @@ export async function updateUnit(formData: FormData) {
       label: label.slice(0, 200),
       externalLabel: optStr(formData.get("externalLabel")),
       floor: optStr(formData.get("floor"), 50),
+      ...parseUnitArt(formData),
       livingArea: optFloat(formData.get("livingArea")),
       mea: optInt(formData.get("mea")),
       personCount: optInt(formData.get("personCount")),
     },
   });
+  // Ein Wechsel Wohnung ↔ Stellplatz verschiebt die Abo-Mengen (Einheiten-
+  // gegen Stellplatz-Posten) — das Abo zieht sofort nach.
+  await aboMengeSynchronisieren(actor.organizationId);
   revalidatePath(`/verwaltung/objekte/${propertyId}/bearbeiten`);
   redirect(`/verwaltung/objekte/${propertyId}/bearbeiten?einheit=gespeichert`);
 }
@@ -244,6 +270,8 @@ export async function archiveProperty(formData: FormData) {
     where: { id, organizationId: actor.organizationId },
     data: { active: false },
   });
+  // Archivierte Objekte zählen nicht mehr zur Abo-Menge (zaehleWegMengen).
+  await aboMengeSynchronisieren(actor.organizationId);
   revalidatePath("/verwaltung/objekte");
   redirect("/verwaltung/objekte?archiviert=1");
 }
@@ -256,6 +284,8 @@ export async function unarchiveProperty(formData: FormData) {
     where: { id, organizationId: actor.organizationId },
     data: { active: true },
   });
+  // Reaktiviert heißt: die Einheiten zählen wieder — Abo nachziehen.
+  await aboMengeSynchronisieren(actor.organizationId);
   revalidatePath("/verwaltung/objekte");
   redirect("/verwaltung/objekte?reaktiviert=1");
 }

@@ -127,7 +127,7 @@ export async function computeStatementView(
       db.unit.findMany({
         where: { propertyId: property.id },
         orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
-        select: { id: true, mea: true, livingArea: true, personCount: true, unitType: true },
+        select: { id: true, label: true, mea: true, livingArea: true, personCount: true, unitType: true },
       }),
       db.booking.groupBy({
         by: ["costTypeId", "accountId"],

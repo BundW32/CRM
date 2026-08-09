@@ -47,7 +47,14 @@ type HandoverData = {
   type: string;
   handoverDate: Date;
   moveDate: Date | null;
-  unit: { label: string; floor: string | null; property: { name: string; street: string | null; zip: string | null; city: string | null } };
+  unit: {
+    label: string;
+    floor: string | null;
+    // Für den Titel: Die Übergabe eines Stellplatzes ist kein
+    // „Wohnungsübergabeprotokoll".
+    unitType?: string;
+    property: { name: string; street: string | null; zip: string | null; city: string | null };
+  };
   livingArea: number | null;
   roomCount: number | null;
   personCount: number | null;
@@ -164,8 +171,13 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
     ? `${prop.street}, ${prop.zip ?? ""} ${prop.city ?? ""}`.trim()
     : "";
 
+  const protokollTitel =
+    data.unit.unitType === "STELLPLATZ"
+      ? "Übergabeprotokoll Stellplatz/Garage"
+      : "Wohnungsübergabeprotokoll";
+
   const doc = await Doc.create({
-    title: `Wohnungsübergabeprotokoll — ${prop.name}, ${data.unit.label}`,
+    title: `${protokollTitel} — ${prop.name}, ${data.unit.label}`,
     author: company,
     subject: `${TYPE_LABELS[data.type] ?? data.type} am ${fmt(data.handoverDate)}`,
     brand: data.brand,
@@ -180,7 +192,7 @@ export async function generateHandoverPdfBuffer(data: HandoverData): Promise<Buf
     // gehört. Farbe, Logo und Kontaktzeilen kommen dagegen aus dem Branding.
     issuer: { legalName: company, lines: data.issuerLines ?? [] },
     logo: data.logo,
-    title: "Wohnungsübergabeprotokoll",
+    title: protokollTitel,
     subtitle: [`${prop.name} · ${data.unit.label}`, objektAnschrift].filter(Boolean).join("\n"),
     status: { text: TYPE_LABELS[data.type] ?? data.type, tone: "neutral" },
     meta: [

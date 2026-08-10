@@ -96,6 +96,11 @@ export async function starteCheckout(
           currency: "eur",
           unit_amount: checkoutJeEinheitCents(tarif as "basic" | "plus", quantity),
           recurring: { interval: "month" },
+          // Bruttopreis: Die Beträge aus preise-daten sind Gesamtpreise
+          // einschließlich Umsatzsteuer (AGB Ziffer 6) — Stripe Tax weist die
+          // enthaltene MwSt aus, statt sie aufzuschlagen. Ohne tax_behavior
+          // lehnt Stripe die Session bei aktivierter Steuerberechnung ab.
+          tax_behavior: "inclusive",
           product_data: {
             name: tarif === "basic" ? "wegportal24 Basic" : "wegportal24 Verwalter-Plus",
           },
@@ -117,6 +122,7 @@ export async function starteCheckout(
               currency: "eur",
               unit_amount: STELLPLATZ_CENTS,
               recurring: { interval: "month" },
+              tax_behavior: "inclusive",
               product_data: {
                 name: "wegportal24 Stellplatz/Garage",
                 metadata: { ...STELLPLATZ_PRODUKT_METADATUM },
@@ -140,6 +146,16 @@ export async function starteCheckout(
       // erzeugten Preisen sagt ihnen auch die Preis-Id nichts.
       metadata: { tarif },
       subscription_data: { metadata: { tarif } },
+      // Gleiche Einstellungen wie an den Zahlungslinks im Stripe-Dashboard:
+      // Gutscheincodes einlösbar, MwSt automatisch berechnet (Stripe Tax).
+      // Die Links selbst nutzt das Portal nicht — dieser Checkout ist der
+      // einzige Buchungsweg, deshalb müssen die Schalter hier stehen.
+      allow_promotion_codes: true,
+      automatic_tax: { enabled: true },
+      // Stripe Tax rechnet nach Kundenadresse. Bei einem BESTEHENDEN Kunden
+      // verlangt Stripe die ausdrückliche Erlaubnis, die im Checkout erfasste
+      // Adresse am Kunden zu speichern — ohne sie wirft die Session-Erstellung.
+      customer_update: org.stripeCustomerId ? { address: "auto" } : undefined,
       success_url: successUrl,
       cancel_url: cancelUrl,
     });

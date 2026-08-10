@@ -66,8 +66,9 @@ export const ingestQuellen: readonly IngestQuelleInfo[] = [
     key: "stripe",
     label: "Geschäftszahlen (DB + Stripe)",
     zeitplan: "stündlich",
-    runner: null,
-    folgt: "Anbindung folgt in Phase 3.",
+    // Dynamischer Import: Der Runner zieht Stripe-SDK und Mengenzählung mit —
+    // das soll nicht jede Seite laden, die nur die Registry-Liste anzeigt.
+    runner: () => import("./business-ingest").then((m) => m.businessIngestRunner()),
   },
   {
     key: "newsletter",

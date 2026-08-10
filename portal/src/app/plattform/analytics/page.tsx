@@ -9,7 +9,7 @@ import {
   vorperiodeLabel,
 } from "@/lib/analytics/zeitraum";
 import { db } from "@/lib/db";
-import { requirePlatformAdmin } from "@/lib/platform";
+import { formatCents, requirePlatformAdmin } from "@/lib/platform";
 import { AnalyticsShell } from "./analytics-shell";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,13 @@ const TAG_MS = 86_400_000;
 // fehlt, statt Nullen als Messwert auszugeben.
 async function UebersichtDaten({ zeitraum }: { zeitraum: Zeitraum }) {
   const fenster = (von: Date, bis: Date) => ({ gte: von, lt: new Date(bis.getTime() + TAG_MS) });
-  const [pageviews, vorPageviews, signups, vorSignups] = await Promise.all([
+  const letzterStand = (bis: Date) =>
+    db.businessDaily.findFirst({
+      where: { date: { lte: bis } },
+      orderBy: { date: "desc" },
+      select: { activeSubs: true, mrrCents: true },
+    });
+  const [pageviews, vorPageviews, signups, vorSignups, stand, vorStand] = await Promise.all([
     db.trackEvent.findMany({
       where: { type: "pageview", ts: fenster(zeitraum.von, zeitraum.bis) },
       select: {
@@ -46,6 +52,8 @@ async function UebersichtDaten({ zeitraum }: { zeitraum: Zeitraum }) {
     db.trackEvent.count({
       where: { type: "signup_done", ts: fenster(zeitraum.vorVon, zeitraum.vorBis) },
     }),
+    letzterStand(zeitraum.bis),
+    letzterStand(zeitraum.vorBis),
   ]);
 
   const s = summen(pageviews);
@@ -66,8 +74,24 @@ async function UebersichtDaten({ zeitraum }: { zeitraum: Zeitraum }) {
             value={signups}
             hint={vergleichsText(signups, vorSignups) ?? "abgeschlossene Registrierungen"}
           />
-          <KeyFigure label="Aktive Abos" value="–" hint="Geschäftszahlen (Phase 3)" />
-          <KeyFigure label="MRR (brutto)" value="–" hint="Geschäftszahlen (Phase 3)" />
+          <KeyFigure
+            label="Aktive Abos"
+            value={stand?.activeSubs ?? "–"}
+            hint={
+              stand && vorStand
+                ? (vergleichsText(stand.activeSubs, vorStand.activeSubs) ?? "unverändert")
+                : "Stand: noch kein Ingest-Lauf"
+            }
+          />
+          <KeyFigure
+            label="MRR (brutto)"
+            value={stand ? formatCents(stand.mrrCents) : "–"}
+            hint={
+              stand && vorStand
+                ? (vergleichsText(stand.mrrCents, vorStand.mrrCents) ?? "inkl. 19 % USt.")
+                : "inkl. 19 % USt."
+            }
+          />
           <KeyFigure label="Ads-Kosten" value="–" hint="Google Ads (Phase 4)" />
           <KeyFigure label="CAC pro Abo" value="–" hint="Ads + Attribution (Phase 4/5)" />
         </KeyFigures>

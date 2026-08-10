@@ -3,6 +3,7 @@ import { PendingButton } from "@/components/pending-button";
 import { PublicBrand } from "@/components/public-brand";
 import { Alert, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { isWegSaas } from "@/lib/app-mode";
+import { MAX_EINHEITEN } from "@/app/preise/preise-daten";
 import { isBillingEnabled, zugriffsStatus } from "@/lib/billing";
 import { logout } from "@/app/login/actions";
 import { getOrganization, requireUser } from "@/lib/session";
@@ -15,8 +16,7 @@ const FEHLER_TEXTE: Record<string, string> = {
     "Für diese Organisation ist noch kein Zahlungskonto hinterlegt. Bitte nutzen Sie die Buchung — oder wenden Sie sich an den Support.",
   keine_einheiten:
     "Es sind noch keine Einheiten angelegt – der Preis rechnet je Einheit. Bitte wenden Sie sich an den Support.",
-  zu_viele_einheiten:
-    "Ihre Gemeinschaft hat mehr als 12 Einheiten – dafür gibt es keinen Self-Service-Tarif. Bitte wenden Sie sich an uns, wir melden uns mit einem Angebot.",
+  zu_viele_einheiten: `Ihre Gemeinschaft hat mehr als ${MAX_EINHEITEN} Einheiten – dafür gibt es keinen Self-Service-Tarif. Bitte wenden Sie sich an uns, wir melden uns mit einem Angebot.`,
   checkout_fehlgeschlagen:
     "Die Weiterleitung zur Zahlung ist fehlgeschlagen. Bitte versuchen Sie es erneut – bleibt der Fehler, prüfen wir die Konfiguration (die Ursache steht in unseren Logs).",
 };

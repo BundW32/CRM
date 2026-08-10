@@ -9,12 +9,7 @@ import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
 import { distributeByWeight, weightsForKey } from "@/lib/weg/distribution";
 import { loadWegProperty } from "@/lib/weg/scope";
-
-// Sonderumlagen nutzen die strikten Verteilungsschlüssel (die manuellen
-// VERBRAUCH/FESTBETRAG/INDIVIDUELL sind hier nicht sinnvoll).
-// JE_STELLPLATZ auch hier: Eine Sonderumlage für die Toranlage trifft nur
-// die Stellplätze — derselbe strikte Schlüssel wie in Plan und Abrechnung.
-const SONDERUMLAGE_KEYS = ["MEA", "FLAECHE", "EINHEITEN", "PERSONEN", "JE_STELLPLATZ"] as const;
+import { SONDERUMLAGE_KEYS } from "./keys";
 
 function back(propertyId: string, param?: string): never {
   redirect(`/verwaltung/weg/${propertyId}/sonderumlagen${param ? `?${param}` : ""}`);
@@ -54,17 +49,22 @@ export async function createSonderumlage(formData: FormData) {
 
   const units = await db.unit.findMany({
     where: { propertyId: property.id },
-    select: { id: true, mea: true, livingArea: true, personCount: true, unitType: true },
+    select: { id: true, label: true, mea: true, livingArea: true, personCount: true, unitType: true },
   });
   if (units.length === 0) back(property.id, "fehler=einheiten");
 
   // Verteilung nach Schlüssel (centgenau, Restcent-Regel); fehlende Stammdaten
-  // (z. B. MEA) → verständlicher Fehler statt Absturz.
+  // (z. B. MEA) → verständlicher Fehler statt Absturz. JE_STELLPLATZ scheitert
+  // nicht an Stammdaten, sondern am fehlenden Stellplatz — eigener Fehlercode,
+  // damit die Meldung nicht fälschlich von MEA/Fläche/Personen spricht.
   let shares;
   try {
     shares = distributeByWeight(totalCents, weightsForKey(units, parsed.data.distributionKey));
   } catch {
-    back(property.id, "fehler=stammdaten");
+    back(
+      property.id,
+      parsed.data.distributionKey === "JE_STELLPLATZ" ? "fehler=stellplatz" : "fehler=stammdaten",
+    );
   }
 
   const created = await db.$transaction(async (tx) => {

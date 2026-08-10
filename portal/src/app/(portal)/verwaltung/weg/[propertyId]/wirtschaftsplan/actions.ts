@@ -132,7 +132,7 @@ async function abgleicheVorgaenger(
   if (vorgaenger.length === 0) return;
   const units = await db.unit.findMany({
     where: { propertyId: property.id },
-    select: { id: true, mea: true, livingArea: true, personCount: true, unitType: true },
+    select: { id: true, label: true, mea: true, livingArea: true, personCount: true, unitType: true },
   });
   for (const v of vorgaenger) {
     try {
@@ -328,7 +328,7 @@ export async function resolvePlan(formData: FormData) {
 
   const units = await db.unit.findMany({
     where: { propertyId: property.id },
-    select: { id: true, mea: true, livingArea: true, personCount: true, unitType: true },
+    select: { id: true, label: true, mea: true, livingArea: true, personCount: true, unitType: true },
   });
   if (units.length === 0) back(property.id, `/${plan.id}`, "fehler=einheiten");
 

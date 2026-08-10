@@ -29,6 +29,7 @@ export default async function PlattformDashboard() {
     usersByRole,
     properties,
     units,
+    stellplaetze,
     statusGroups,
   ] = await Promise.all([
     db.organization.count(),
@@ -39,7 +40,10 @@ export default async function PlattformDashboard() {
     db.user.count(),
     db.user.groupBy({ by: ["role"], _count: { _all: true } }),
     db.property.count(),
-    db.unit.count(),
+    // Getrennt: „Einheiten" ist die Abrechnungsgröße (Umsatz je Einheit) —
+    // Stellplätze kosten 1 € und dürfen die Zahl nicht aufblähen.
+    db.unit.count({ where: { unitType: { not: "STELLPLATZ" } } }),
+    db.unit.count({ where: { unitType: "STELLPLATZ" } }),
     db.organization.groupBy({ by: ["subscriptionStatus"], _count: { _all: true } }),
   ]);
 
@@ -52,6 +56,7 @@ export default async function PlattformDashboard() {
     { label: "Nutzer gesamt", value: usersTotal },
     { label: "Objekte", value: properties },
     { label: "Einheiten", value: units },
+    { label: "Stellplätze", value: stellplaetze },
   ];
 
   const roleCount = (role: string) =>

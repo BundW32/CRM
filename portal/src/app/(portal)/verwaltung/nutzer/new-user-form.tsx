@@ -131,7 +131,10 @@ export function NewUserForm({
             <Combobox
               label="Wohnung"
               placeholder={pending ? "Wohnungen werden geladen …" : "Wohnung suchen …"}
-              options={units.map((u) => ({ value: u.id, label: u.label }))}
+              options={units.map((u) => ({
+                value: u.id,
+                label: u.istStellplatz ? `${u.label} · Stellplatz` : u.label,
+              }))}
               value={unitId || undefined}
               onSelect={setUnitId}
               onClear={() => setUnitId("")}

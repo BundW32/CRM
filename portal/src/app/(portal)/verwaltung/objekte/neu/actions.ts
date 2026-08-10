@@ -210,11 +210,19 @@ export async function createObjekt(formData: FormData) {
   if (managementType === "WEG") {
     const anzahl = Math.min(Math.max(optInt(String(formData.get("stellplatzAnzahl") ?? "")) ?? 0, 0), 99);
     if (anzahl > 0) {
+      // Untertyp (Außenstellplatz/Carport/Garage/Tiefgarage) gilt für alle
+      // hier angelegten Plätze — gemischte Bestände werden in den Stammdaten
+      // je Einheit nachgepflegt. Beschreibend, ohne Preiswirkung.
+      const typRaw = String(formData.get("stellplatzTyp") ?? "").trim();
+      const stellplatzTyp = (
+        ["AUSSENSTELLPLATZ", "CARPORT", "GARAGE", "TIEFGARAGE"] as const
+      ).find((t) => t === typRaw);
       await db.unit.createMany({
         data: Array.from({ length: anzahl }, (_, i) => ({
           propertyId: property.id,
           label: `Stellplatz ${i + 1}`,
           unitType: "STELLPLATZ" as const,
+          stellplatzTyp: stellplatzTyp ?? null,
           orderIndex: 1000 + i,
         })),
       });

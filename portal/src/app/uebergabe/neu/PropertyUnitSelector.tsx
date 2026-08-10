@@ -87,7 +87,7 @@ export function PropertyUnitSelector({ properties }: { properties: Property[] })
           placeholder={pending ? "Einheiten werden geladen …" : "Einheit suchen …"}
           options={units.map((u) => ({
             value: u.id,
-            label: u.label,
+            label: u.istStellplatz ? `${u.label} · Stellplatz` : u.label,
             sublabel: u.tenantNames.length > 0 ? u.tenantNames.join(", ") : undefined,
           }))}
           value={unitId || undefined}

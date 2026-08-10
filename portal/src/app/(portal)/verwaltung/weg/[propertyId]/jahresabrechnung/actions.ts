@@ -200,7 +200,7 @@ export async function distributeByMeters(formData: FormData) {
   // Einheit werden summiert). Allgemeinzähler (ohne unitId) zählen hier nicht.
   const units = await db.unit.findMany({
     where: { propertyId: property.id },
-    select: { id: true, mea: true, livingArea: true, personCount: true, unitType: true },
+    select: { id: true, label: true, mea: true, livingArea: true, personCount: true, unitType: true },
   });
   const meters = await db.meter.findMany({
     where: { unitId: { in: units.map((u) => u.id) }, type: meterType },
@@ -310,7 +310,9 @@ export async function importHeatingAmounts(formData: FormData) {
 
   const units = await db.unit.findMany({
     where: { propertyId: property.id },
-    select: { id: true, label: true },
+    // unitType für den Abgleich: Stellplätze ziehen keine Messdienst-Zeilen
+    // an und gelten nicht als „Einheit ohne Zeile".
+    select: { id: true, label: true, unitType: true },
   });
   const match = matchHeatingRows(units, parsed.rows);
   if (match.matched.length > 0) {

@@ -72,4 +72,29 @@ describe("zaehleWegMengen", () => {
     // still auf eine feste Organisation gezeigt, fiele genau das hier auf.
     expect(await zaehleWegMengen(a.org.id)).not.toEqual(await zaehleWegMengen(b.org.id));
   });
+
+  it("archivierte Objekte zählen nicht — weder Einheiten noch Stellplätze", async () => {
+    // Ein zweites WEG-Objekt mit 1 Wohnung + 1 Stellplatz zählt zunächst mit …
+    const archiv = await db.property.create({
+      data: {
+        organizationId: a.org.id,
+        name: "Archiv-WEG A",
+        street: "Teststraße 3",
+        zip: "12345",
+        city: "Teststadt",
+        managementType: "WEG",
+      },
+    });
+    await db.unit.createMany({
+      data: [
+        { propertyId: archiv.id, label: "WE 1" },
+        { propertyId: archiv.id, label: "Stellplatz", unitType: "STELLPLATZ" },
+      ],
+    });
+    expect(await zaehleWegMengen(a.org.id)).toEqual({ einheiten: 3, stellplaetze: 4 });
+
+    // … und fällt mit dem Archivieren aus beiden Zahlen heraus.
+    await db.property.update({ where: { id: archiv.id }, data: { active: false } });
+    expect(await zaehleWegMengen(a.org.id)).toEqual({ einheiten: 2, stellplaetze: 3 });
+  });
 });

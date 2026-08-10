@@ -10,6 +10,7 @@ import { getOrganization, requireVerwalter } from "@/lib/session";
 import {
   createPortalUrl,
   istStellplatzPosten,
+  planFromPriceId,
   stripeOrNull,
   stripePriceBasic,
   stripePricePlus,
@@ -74,10 +75,14 @@ export async function wechsleTarif(formData: FormData) {
   try {
     // Produkt-Expansion, um den Tarif-Posten vom Stellplatz-Posten zu
     // unterscheiden — items[0] wäre bei einem Abo mit Stellplätzen mehrdeutig.
+    // Bevorzugt über die Tarif-Preis-Id, Rückfall „alles außer Stellplatz"
+    // (siehe billing-sync.ts — schützt vor einer verstellten Env-Preis-Id).
     const sub = await stripe.subscriptions.retrieve(org.stripeSubscriptionId, {
       expand: ["items.data.price.product"],
     });
-    const item = sub.items.data.find((i) => !istStellplatzPosten(i));
+    const item =
+      sub.items.data.find((i) => planFromPriceId(i.price.id) === org.plan) ??
+      sub.items.data.find((i) => !istStellplatzPosten(i));
     if (item) {
       await stripe.subscriptions.update(sub.id, {
         items: [

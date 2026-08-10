@@ -75,7 +75,14 @@ export async function GET(request: Request) {
       zip: true,
       city: true,
       organizationId: true,
-      _count: { select: { units: true } },
+      // Einheiten ohne Stellplätze — der Vertrag rechnet die Vergütung je
+      // Einheit; Stellplätze werden separat ausgewiesen.
+      _count: {
+        select: {
+          units: { where: { unitType: { not: "STELLPLATZ" } } },
+        },
+      },
+      units: { where: { unitType: "STELLPLATZ" }, select: { id: true } },
     },
   });
   if (!property) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
@@ -86,6 +93,7 @@ export async function GET(request: Request) {
       propertyName: property.name,
       propertyAddress: `${property.street}, ${property.zip} ${property.city}`,
       unitsCount: property._count.units,
+      stellplaetzeCount: property.units.length,
       issuer: kopf.issuer,
       brand: kopf.brand,
       logo: kopf.logo,

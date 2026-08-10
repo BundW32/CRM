@@ -10,12 +10,17 @@
 //
 // Alle Aufrufer (Checkout, Mengenabgleich, Tarifwechsel, Abo-Anzeige) zählen
 // über diese Funktion — vier eigene Zählungen liefen auseinander.
+//
+// Archivierte Objekte zählen NICHT: Archivieren heißt „wird nicht mehr
+// verwaltet", und ein Abo über Einheiten, an denen niemand mehr arbeitet,
+// wäre eine stille Kostenfalle. Wer ein Objekt reaktiviert, zahlt ab dann
+// wieder — beide Aktionen stoßen den Mengenabgleich an.
 import { db } from "./db";
 
 export type WegMengen = { einheiten: number; stellplaetze: number };
 
 export async function zaehleWegMengen(organizationId: string): Promise<WegMengen> {
-  const property = { organizationId, managementType: "WEG" as const };
+  const property = { organizationId, managementType: "WEG" as const, active: true };
   const [einheiten, stellplaetze] = await Promise.all([
     db.unit.count({ where: { property, unitType: { not: "STELLPLATZ" } } }),
     db.unit.count({ where: { property, unitType: "STELLPLATZ" } }),

@@ -55,16 +55,26 @@ export type HeatingMatch = {
   unmatchedUnits: { id: string; label: string }[]; // WEG-Einheiten ohne Zeile
 };
 
+type UnitForHeatingMatch = { id: string; label: string; unitType?: string };
+
 // Ordnet die CSV-Zeilen den WEG-Einheiten zu: zuerst exakter (normalisierter)
 // Label-Abgleich, dann eindeutiger Nummern-Abgleich. Mehrdeutige oder fehlende
 // Treffer bleiben „unmatched".
+//
+// Stellplätze sind vom Abgleich ausgenommen: Ein Stellplatz wird nicht beheizt
+// und steht in keiner Messdienst-Abrechnung. Ohne die Ausnahme zöge der
+// Nummern-Abgleich eine Zeile „6" auf „TE 06, Stellplatz", wenn keine Wohnung
+// dieselbe Nummer trägt — Heizkosten auf einem unbeheizten Stellplatz. Und
+// jeder Import meldete sämtliche Stellplätze als „Einheiten ohne Zeile",
+// obwohl genau das der Normalfall ist.
 export function matchHeatingRows(
-  units: { id: string; label: string }[],
+  units: UnitForHeatingMatch[],
   rows: HeatingRow[],
 ): HeatingMatch {
-  const byLabel = new Map<string, { id: string; label: string }>();
-  const byNumber = new Map<number, { id: string; label: string } | null>(); // null = mehrdeutig
-  for (const u of units) {
+  const beheizbar = units.filter((u) => u.unitType !== "STELLPLATZ");
+  const byLabel = new Map<string, UnitForHeatingMatch>();
+  const byNumber = new Map<number, UnitForHeatingMatch | null>(); // null = mehrdeutig
+  for (const u of beheizbar) {
     byLabel.set(normalizeLabel(u.label), u);
     const n = leadingNumber(u.label);
     if (n !== null) byNumber.set(n, byNumber.has(n) ? null : u);
@@ -88,6 +98,8 @@ export function matchHeatingRows(
     }
   }
 
-  const unmatchedUnits = units.filter((u) => !usedUnitIds.has(u.id));
+  const unmatchedUnits = beheizbar
+    .filter((u) => !usedUnitIds.has(u.id))
+    .map((u) => ({ id: u.id, label: u.label }));
   return { matched, unmatchedRows, unmatchedUnits };
 }

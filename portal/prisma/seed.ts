@@ -137,7 +137,7 @@ async function main() {
           { label: "WE 03, 1. OG links", floor: "1. OG", unitType: "WOHNUNG", mea: 180, livingArea: 72.5, personCount: 3, orderIndex: 3 },
           { label: "WE 04, 1. OG rechts", floor: "1. OG", unitType: "WOHNUNG", mea: 175, livingArea: 70.2, personCount: 2, orderIndex: 4 },
           { label: "WE 05, DG", floor: "DG", unitType: "WOHNUNG", mea: 240, livingArea: 96.4, personCount: 4, orderIndex: 5 },
-          { label: "TE 06, Stellplatz", floor: "Außen", unitType: "STELLPLATZ", mea: 50, livingArea: null, personCount: null, orderIndex: 6 },
+          { label: "TE 06, Stellplatz", floor: "Außen", unitType: "STELLPLATZ", stellplatzTyp: "AUSSENSTELLPLATZ", mea: 50, livingArea: null, personCount: null, orderIndex: 6 },
         ],
       },
     },

@@ -90,4 +90,21 @@ describe("matchHeatingRows", () => {
     expect(m.matched).toHaveLength(1);
     expect(m.unmatchedRows).toHaveLength(1);
   });
+
+  it("Stellplätze ziehen keine Zeilen an und fehlen nicht als „ohne Zeile“", () => {
+    const mitStellplatz = [
+      ...units,
+      { id: "st6", label: "TE 06, Stellplatz", unitType: "STELLPLATZ" },
+    ];
+    // Zeile „6" darf NICHT auf den Stellplatz matchen — ein Stellplatz wird
+    // nicht beheizt; die Zeile bleibt als nicht zuordenbar gemeldet.
+    const m = matchHeatingRows(mitStellplatz, [
+      { unitLabel: "WE 01, EG links", amountCents: 300 },
+      { unitLabel: "6", amountCents: 999 },
+    ]);
+    expect(m.matched.map((x) => x.unitId)).toEqual(["u1"]);
+    expect(m.unmatchedRows).toEqual([{ unitLabel: "6", amountCents: 999 }]);
+    // Und der Stellplatz erscheint nicht in der „Einheiten ohne Zeile"-Liste.
+    expect(m.unmatchedUnits.map((u) => u.id).sort()).toEqual(["u2", "u3"]);
+  });
 });

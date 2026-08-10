@@ -306,7 +306,7 @@ function VerwalterTargetFields({ properties }: { properties: VerwalterProperty[]
           placeholder={pending ? "Einheiten werden geladen …" : "Einheit suchen …"}
           options={units.map((u) => ({
             value: `${propertyId}|${u.id}`,
-            label: u.label,
+            label: u.istStellplatz ? `${u.label} · Stellplatz` : u.label,
             sublabel: u.tenantNames.length > 0 ? u.tenantNames.join(", ") : undefined,
           }))}
           value={target && target !== `${propertyId}|` ? target : undefined}

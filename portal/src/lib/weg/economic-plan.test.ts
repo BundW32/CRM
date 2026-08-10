@@ -11,12 +11,12 @@ import type { UnitForDistribution } from "./distribution";
 
 // Demo-WEG: 5 Wohnungen + 1 Stellplatz (ohne Fläche/Personen), MEA-Summe 1000
 const units: UnitForDistribution[] = [
-  { id: "we1", mea: 180, livingArea: 72.5, personCount: 2, unitType: "WOHNUNG" as const },
-  { id: "we2", mea: 175, livingArea: 70.2, personCount: 1, unitType: "WOHNUNG" as const },
-  { id: "we3", mea: 180, livingArea: 72.5, personCount: 3, unitType: "WOHNUNG" as const },
-  { id: "we4", mea: 175, livingArea: 70.2, personCount: 2, unitType: "WOHNUNG" as const },
-  { id: "we5", mea: 240, livingArea: 96.4, personCount: 4, unitType: "WOHNUNG" as const },
-  { id: "te6", mea: 50, livingArea: null, personCount: null, unitType: "STELLPLATZ" as const },
+  { id: "we1", label: "we1", mea: 180, livingArea: 72.5, personCount: 2, unitType: "WOHNUNG" as const },
+  { id: "we2", label: "we2", mea: 175, livingArea: 70.2, personCount: 1, unitType: "WOHNUNG" as const },
+  { id: "we3", label: "we3", mea: 180, livingArea: 72.5, personCount: 3, unitType: "WOHNUNG" as const },
+  { id: "we4", label: "we4", mea: 175, livingArea: 70.2, personCount: 2, unitType: "WOHNUNG" as const },
+  { id: "we5", label: "we5", mea: 240, livingArea: 96.4, personCount: 4, unitType: "WOHNUNG" as const },
+  { id: "te6", label: "te6", mea: 50, livingArea: null, personCount: null, unitType: "STELLPLATZ" as const },
 ];
 
 describe("fiscalYearMonths / fiscalYearRange", () => {
@@ -64,7 +64,7 @@ describe("advanceWeightsForKey", () => {
   });
 
   it("MEA bleibt strikt (null → Fehler)", () => {
-    const broken = [...units, { id: "x", mea: null, livingArea: 10, personCount: 1, unitType: "WOHNUNG" as const }];
+    const broken = [...units, { id: "x", label: "x", mea: null, livingArea: 10, personCount: 1, unitType: "WOHNUNG" as const }];
     expect(() => advanceWeightsForKey(broken, "MEA")).toThrow(/MEA/);
   });
 });
@@ -82,10 +82,17 @@ describe("computeUnitAdvances", () => {
     expect(totalCents).toBe(2_062_568);
     const sum = [...perUnit.values()].reduce((a, b) => a + b, 0);
     expect(sum).toBe(totalCents);
-    // Stellplatz: kein Flächen-/Personenanteil, aber MEA- und Einheiten-Anteile
+    // Stellplatz: kein Flächen-/Personen-/Einheiten-Anteil, aber MEA-Anteil
     const te6Flaeche = perItem.get("reinigung")?.get("te6");
     expect(te6Flaeche).toBe(0);
-    expect(perItem.get("konto")?.get("te6")).toBeGreaterThan(0);
+    expect(perItem.get("konto")?.get("te6")).toBe(0);
+    expect(perItem.get("hausmeister")?.get("te6")).toBeGreaterThan(0);
+  });
+
+  it("EINHEITEN: Stellplätze zählen auch beim Vorschuss nicht als Einheit", () => {
+    const w = advanceWeightsForKey(units, "EINHEITEN");
+    expect(w.find((s) => s.unitId === "te6")?.weight).toBe(0);
+    expect(w.filter((s) => s.weight === 1)).toHaveLength(5);
   });
 
   it("Positionen mit 0 € werden ignoriert, negative abgelehnt", () => {
@@ -109,8 +116,8 @@ describe("computeUnitAdvances", () => {
    * sagen, wo anzusetzen ist.
    */
   const ohneZusatzdaten = [
-    { id: "we1", mea: 400, livingArea: null, personCount: null, unitType: "WOHNUNG" as const },
-    { id: "we2", mea: 600, livingArea: null, personCount: null, unitType: "WOHNUNG" as const },
+    { id: "we1", label: "we1", mea: 400, livingArea: null, personCount: null, unitType: "WOHNUNG" as const },
+    { id: "we2", label: "we2", mea: 600, livingArea: null, personCount: null, unitType: "WOHNUNG" as const },
   ];
 
   it("nennt Kostenart und fehlendes Feld, wenn die Personenzahl fehlt", () => {
@@ -144,8 +151,8 @@ describe("computeUnitAdvances", () => {
 
   it("verteilt weiter, sobald eine einzige Einheit den Wert trägt", () => {
     const gemischt = [
-      { id: "we1", mea: 400, livingArea: null, personCount: 2, unitType: "WOHNUNG" as const },
-      { id: "we2", mea: 600, livingArea: null, personCount: null, unitType: "WOHNUNG" as const },
+      { id: "we1", label: "we1", mea: 400, livingArea: null, personCount: 2, unitType: "WOHNUNG" as const },
+      { id: "we2", label: "we2", mea: 600, livingArea: null, personCount: null, unitType: "WOHNUNG" as const },
     ];
     const { perItem } = computeUnitAdvances(
       [{ costTypeId: "muell", distributionKey: "PERSONEN", amountCents: 96_000 }],

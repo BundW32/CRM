@@ -82,7 +82,9 @@ export function PropertyUnitFields({
           placeholder={pending ? "Einheiten werden geladen …" : "Einheit suchen …"}
           options={units.map((u) => ({
             value: u.id,
-            label: u.label,
+            // Stellplätze als solche kennzeichnen — sonst stehen sie
+            // ununterscheidbar zwischen den Wohnungen.
+            label: u.istStellplatz ? `${u.label} · Stellplatz` : u.label,
             // Der Mietername macht die Einheit auffindbar, wenn man die Nummer
             // nicht im Kopf hat – im Alltag der häufigere Fall.
             sublabel: u.tenantNames.length > 0 ? u.tenantNames.join(", ") : undefined,

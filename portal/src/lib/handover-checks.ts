@@ -93,8 +93,40 @@ export const GENERAL_CHECKLIST_SECTIONS: { title: string; items: CheckPoint[] }[
   },
 ];
 
+// Allgemeine Checkliste für die Übergabe einer STELLPLATZ-Einheit. Die
+// Wohnungs-Punkte (Warmwasser, Rauchmelder, „Wohnung besenrein") passen dort
+// nicht — wer einen Tiefgaragenplatz übergibt, prüft Zufahrt, Tor und
+// Bodenfläche, nicht den Sicherungskasten der Wohnung.
+export const STELLPLATZ_CHECKLIST_SECTIONS: { title: string; items: CheckPoint[] }[] = [
+  {
+    title: "Zustand",
+    items: [
+      { key: "sp_boden", label: "Bodenfläche / Markierung in Ordnung" },
+      { key: "sp_tor", label: "Tor / Schranke funktioniert" },
+      { key: "sp_beleuchtung", label: "Beleuchtung funktioniert" },
+      { key: "sp_frei", label: "Stellplatz geräumt und besenrein" },
+    ],
+  },
+  {
+    title: "Übergabe",
+    items: [
+      { key: "sp_schluessel", label: "Schlüssel / Handsender / Zufahrtskarte übergeben" },
+      { key: "benutzungshinweise", label: "Einweisungen / Bedienungsanleitungen übergeben" },
+    ],
+  },
+];
+
+/** Checkliste passend zur Art der übergebenen Einheit. */
+export function generalChecklistSectionsFor(
+  unitType?: string | null,
+): { title: string; items: CheckPoint[] }[] {
+  return unitType === "STELLPLATZ" ? STELLPLATZ_CHECKLIST_SECTIONS : GENERAL_CHECKLIST_SECTIONS;
+}
+
 export const GENERAL_CHECKLIST_LABELS: Record<string, string> = Object.fromEntries(
-  GENERAL_CHECKLIST_SECTIONS.flatMap((s) => s.items).map((i) => [i.key, i.label]),
+  [...GENERAL_CHECKLIST_SECTIONS, ...STELLPLATZ_CHECKLIST_SECTIONS]
+    .flatMap((s) => s.items)
+    .map((i) => [i.key, i.label]),
 );
 
 export const CHECK_STATE_META: Record<CheckState, { label: string; short: string }> = {

@@ -72,7 +72,10 @@ export function AddTenancyForm({
                   ? "keine freie Einheit"
                   : "Einheit suchen …"
             }
-            options={available.map((u) => ({ value: u.id, label: u.label }))}
+            options={available.map((u) => ({
+              value: u.id,
+              label: u.istStellplatz ? `${u.label} · Stellplatz` : u.label,
+            }))}
             value={unitId || undefined}
             onSelect={setUnitId}
             onClear={() => setUnitId("")}

@@ -107,6 +107,13 @@ export async function synchronisiereSollstellungen(args: {
       continue;
     }
     if (bereitsFaellig) continue; // Vergangenes bleibt, wie es war.
+    if (ziel.cents === 0) {
+      // Eine künftige Forderung über 0 € ist keine Forderung — weg damit
+      // (z. B. Stellplatz, der bei jedem Schlüssel des Plans 0 trägt).
+      // Dieselbe Regel wie bei der Sonderumlage; Fälliges bleibt unberührt.
+      entfernen.push(p.id);
+      continue;
+    }
     const faellig = faelligkeitFuer(ziel.m, property.dueDayRule, property.dueDayOfMonth);
     if (p.amountCents !== ziel.cents || p.dueDate.getTime() !== faellig.getTime()) {
       aendern.push({ id: p.id, amountCents: ziel.cents, dueDate: faellig });
@@ -114,6 +121,10 @@ export async function synchronisiereSollstellungen(args: {
   }
   for (const [key, ziel] of soll) {
     if (gesehen.has(key)) continue;
+    // Keine 0-€-Sollstellungen anlegen: Sie stünden nur als Lärm in
+    // Hausgeld-Liste, offenen Posten und Historie (SEPA und Mahnwesen
+    // überspringen sie ohnehin).
+    if (ziel.cents === 0) continue;
     anlegen.push({
       organizationId,
       propertyId: property.id,

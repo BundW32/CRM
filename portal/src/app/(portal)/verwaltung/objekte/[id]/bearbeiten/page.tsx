@@ -18,7 +18,7 @@ import { AddPersonForm } from "./AddPersonForm";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { belegungHinweis, belegungText, decodeBelegung } from "@/lib/belegung";
 import { db } from "@/lib/db";
-import { managementTypeLabels } from "@/lib/labels";
+import { managementTypeLabels, stellplatzTypLabels, unitTypeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
 import { FilePreviewLink } from "@/components/file-preview-link";
 import {
@@ -463,6 +463,35 @@ export default async function ObjektBearbeitenPage({
                       <Field label="Etage">
                         <input type="text" name="floor" defaultValue={u.floor ?? ""} className={inputClass} placeholder="z. B. EG" />
                       </Field>
+                      <Field label="Art">
+                        {/* Preisrelevant: Einheiten vom Typ Stellplatz kosten
+                            1 €/Monat statt des Einheitenpreises und zählen
+                            nicht zur Tarif-Staffel. Der Untertyp erscheint —
+                            wie in den WEG-Stammdaten — nach dem Speichern
+                            der Art. */}
+                        <select name="unitType" defaultValue={u.unitType} className={inputClass}>
+                          {Object.entries(unitTypeLabels).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                        {u.unitType === "STELLPLATZ" ? (
+                          <select
+                            name="stellplatzTyp"
+                            defaultValue={u.stellplatzTyp ?? ""}
+                            className={`${inputClass} mt-1`}
+                            aria-label={`Stellplatz-Typ der Einheit ${u.label}`}
+                          >
+                            <option value="">Typ (optional)</option>
+                            {Object.entries(stellplatzTypLabels).map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : null}
+                      </Field>
                       <Field label="Fläche (m²)">
                         <input type="text" inputMode="decimal" name="livingArea" defaultValue={u.livingArea ?? ""} className={inputClass} placeholder="z. B. 72,5" />
                       </Field>
@@ -590,6 +619,15 @@ export default async function ObjektBearbeitenPage({
               </Field>
               <Field label="Etage">
                 <input type="text" name="floor" className={inputClass} placeholder="z. B. 2. OG" />
+              </Field>
+              <Field label="Art">
+                <select name="unitType" defaultValue="WOHNUNG" className={inputClass}>
+                  {Object.entries(unitTypeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="Fläche (m²)">
                 <input type="text" inputMode="decimal" name="livingArea" className={inputClass} placeholder="z. B. 65" />

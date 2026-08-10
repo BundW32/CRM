@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessHandover } from "@/lib/access";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
-import { GENERAL_CHECKLIST_SECTIONS } from "@/lib/handover-checks";
+import { generalChecklistSectionsFor } from "@/lib/handover-checks";
 import { ChecklisteForm } from "./ChecklisteForm";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,10 @@ export default async function ChecklistePage({
   const { id } = await params;
   if (!(await canVerwalterAccessHandover(verwalter, id))) notFound();
 
-  const handover = await db.handover.findUnique({ where: { id } });
+  const handover = await db.handover.findUnique({
+    where: { id },
+    include: { unit: { select: { unitType: true } } },
+  });
   if (!handover) notFound();
 
   const saved = (handover.checklist ?? {}) as Record<string, string>;
@@ -27,7 +30,7 @@ export default async function ChecklistePage({
       <StepHeader currentStep={3} backHref={`/uebergabe/${id}/raeume`} handoverId={id} />
       <ChecklisteForm
         handoverId={id}
-        sections={GENERAL_CHECKLIST_SECTIONS}
+        sections={generalChecklistSectionsFor(handover.unit?.unitType)}
         saved={saved}
         generalNotes={handover.generalNotes}
         agreements={handover.agreements}

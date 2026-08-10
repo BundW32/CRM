@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { db } from "@/lib/db";
 import { isBillingEnabled } from "@/lib/billing";
 import { alertBetreiber, mailOrgSuperAdmins } from "@/lib/billing-notify";
+import { aboMengeSynchronisieren } from "@/lib/billing-sync";
 import { mapStripeStatus, planFromPriceId, stripeOrNull, stripeWebhookSecret } from "@/lib/stripe";
 import { portalUrl } from "@/lib/url";
 
@@ -70,6 +71,11 @@ export async function POST(request: Request) {
                 : {}),
             },
           });
+          // Mengen sofort abgleichen: Zwischen Klick auf „Buchen" und der
+          // Rückkehr aus Stripe können Einheiten oder Stellplätze angelegt
+          // bzw. gelöscht worden sein — das Abo startete dann mit veralteten
+          // Positionen. Die Funktion fängt eigene Stripe-Fehler ab.
+          await aboMengeSynchronisieren(organizationId);
         }
         break;
       }

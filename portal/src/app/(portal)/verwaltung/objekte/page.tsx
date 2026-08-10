@@ -5,7 +5,7 @@ import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-b
 import { Badge } from "@/components/data-display";
 import { propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
-import { managementTypeLabels } from "@/lib/labels";
+import { managementTypeLabels, stellplatzTypLabels } from "@/lib/labels";
 import { optionsFrom } from "@/lib/list-filters";
 import { parsePage, resolveSort, toOrderBy, pageHrefFor } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
@@ -197,7 +197,8 @@ export default async function PropertiesPage({
                       managementTypeBadge={
                         <Badge tone="accent">{managementTypeLabels[p.managementType]}</Badge>
                       }
-                      unitCount={p.units.length}
+                      unitCount={p.units.filter((u) => u.unitType !== "STELLPLATZ").length}
+                      stellplatzCount={p.units.filter((u) => u.unitType === "STELLPLATZ").length}
                       imageUrl={
                         p.titleImageStoredName ? `/api/files/property-image/${p.id}` : null
                       }
@@ -230,11 +231,20 @@ export default async function PropertiesPage({
                                 <span className="text-gray-900">
                                   {u.label}
                                   {u.floor ? ` (${u.floor})` : ""}
+                                  {u.unitType === "STELLPLATZ" ? (
+                                    <span className="ml-1.5 text-xs text-gray-400">
+                                      {u.stellplatzTyp
+                                        ? stellplatzTypLabels[u.stellplatzTyp]
+                                        : "Stellplatz"}
+                                    </span>
+                                  ) : null}
                                 </span>
                                 <span className="text-gray-500">
                                   {u.tenancies.length > 0
                                     ? u.tenancies.map((t) => t.user.name).join(", ")
-                                    : "leer / kein Mieter"}
+                                    : u.unitType === "STELLPLATZ"
+                                      ? "" // „leer / kein Mieter" ist bei einem Stellplatz kein Mangel
+                                      : "leer / kein Mieter"}
                                 </span>
                               </li>
                             ))}

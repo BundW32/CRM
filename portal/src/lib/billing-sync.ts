@@ -6,6 +6,7 @@ import { db } from "./db";
 import {
   STELLPLATZ_PRODUKT_METADATUM,
   istStellplatzPosten,
+  planFromPriceId,
   stripeOrNull,
   stripePriceStellplatz,
 } from "./stripe";
@@ -43,35 +44,52 @@ export async function aboMengeSynchronisieren(organizationId: string): Promise<v
   if (org.subscriptionStatus !== "active" && org.subscriptionStatus !== "past_due") return;
 
   const { einheiten, stellplaetze } = await zaehleWegMengen(organizationId);
-  // Außerhalb des Self-Service-Rahmens wird NICHT automatisch geändert: Bei 0
-  // Einheiten wäre die stille Folge ein Abo über nichts, oberhalb der Grenze
-  // gehört die Gemeinschaft ins Angebotsgespräch (wie beim Checkout). Die
-  // Grenzen zählen nur die Einheiten — Stellplätze sind keine.
-  if (einheiten < 1 || einheiten > MAX_EINHEITEN) return;
+  // Außerhalb des Self-Service-Rahmens wird der TARIF-Posten nicht automatisch
+  // geändert: Bei 0 Einheiten wäre die stille Folge ein Abo über nichts,
+  // oberhalb der Grenze gehört die Gemeinschaft ins Angebotsgespräch (wie beim
+  // Checkout). Die Grenzen zählen nur die Einheiten — Stellplätze sind keine.
+  // Der STELLPLATZ-Posten wird trotzdem nachgezogen: Wer alle Wohnungen
+  // löscht, aber Stellplätze behält, soll nicht weiter für gelöschte
+  // Stellplatz-Mengen (oder einen verwaisten Posten) zahlen.
+  const einheitenImRahmen = einheiten >= 1 && einheiten <= MAX_EINHEITEN;
 
   try {
     const sub = await stripe.subscriptions.retrieve(org.stripeSubscriptionId, {
       expand: ["items.data.price.product"],
     });
     const stellplatzItem = sub.items.data.find((item) => istStellplatzPosten(item));
-    const tarifItem = sub.items.data.find((item) => !istStellplatzPosten(item));
-    if (!tarifItem) return;
-
-    const unitAmount = checkoutJeEinheitCents(org.plan, einheiten);
-    const preisStimmt =
-      tarifItem.price.billing_scheme === "tiered" || tarifItem.price.unit_amount === unitAmount;
+    // Den Tarif-Posten bevorzugt über die Tarif-Preis-Id erkennen. Der Umweg
+    // über „alles außer Stellplatz" bleibt als Rückfall (inline erzeugte
+    // Preise haben keine Env-Id) — aber wenn eine Preis-Id eindeutig zum
+    // gebuchten Tarif gehört, gewinnt sie. Sonst könnte eine verstellte
+    // STRIPE_PRICE_STELLPLATZ-Variable den Stellplatz-Posten zum Tarif-Posten
+    // erklären, und der bekäme Einheitenmenge und Einheitenpreis geschrieben.
+    const tarifItem =
+      sub.items.data.find((item) => planFromPriceId(item.price.id) === org.plan) ??
+      sub.items.data.find((item) => !istStellplatzPosten(item));
 
     const updates: Stripe.SubscriptionUpdateParams.Item[] = [];
-    if (tarifItem.quantity !== einheiten || !preisStimmt) {
-      updates.push(aboPosten(tarifItem, einheiten, unitAmount));
+    if (tarifItem && einheitenImRahmen) {
+      const unitAmount = checkoutJeEinheitCents(org.plan, einheiten);
+      const preisStimmt =
+        tarifItem.price.billing_scheme === "tiered" || tarifItem.price.unit_amount === unitAmount;
+      if (tarifItem.quantity !== einheiten || !preisStimmt) {
+        updates.push(aboPosten(tarifItem, einheiten, unitAmount));
+      }
     }
     if (stellplatzItem) {
+      // Preisprüfung symmetrisch zum Tarif-Posten: Ändert sich der
+      // Stellplatzpreis in preise-daten.ts, ziehen Bestandsabos mit
+      // Inline-Preis nach. Der Env-Preis (Dashboard) bleibt maßgeblich.
+      const preisStimmt =
+        stellplatzItem.price.id === stripePriceStellplatz() ||
+        stellplatzItem.price.unit_amount === STELLPLATZ_CENTS;
       if (stellplaetze === 0) {
         // Kein Stellplatz mehr im Bestand — der Posten verschwindet, statt mit
         // Menge 0 als toter Eintrag auf jeder Rechnung zu stehen.
         updates.push({ id: stellplatzItem.id, deleted: true });
-      } else if (stellplatzItem.quantity !== stellplaetze) {
-        updates.push({ id: stellplatzItem.id, quantity: stellplaetze });
+      } else if (stellplatzItem.quantity !== stellplaetze || !preisStimmt) {
+        updates.push(stellplatzPosten(stellplatzItem, stellplaetze, preisStimmt));
       }
     } else if (stellplaetze > 0) {
       updates.push(await neuerStellplatzPosten(stripe, stellplaetze));
@@ -112,6 +130,30 @@ function aboPosten(
       product,
       recurring: { interval: "month" },
       unit_amount: unitAmount,
+    },
+  };
+}
+
+// Der aktualisierte Stellplatz-Posten. Stimmt nur die Menge nicht, genügt sie;
+// weicht der Inline-Preis vom aktuellen Stellplatzpreis ab, wird er wie beim
+// Tarif-Posten neu gesetzt (Produkt bleibt — Rechnungen tragen weiter
+// denselben Namen und das Kennzeichen-Metadatum bleibt am Produkt).
+function stellplatzPosten(
+  item: Stripe.SubscriptionItem,
+  quantity: number,
+  preisStimmt: boolean,
+): Stripe.SubscriptionUpdateParams.Item {
+  if (preisStimmt) return { id: item.id, quantity };
+  const product =
+    typeof item.price.product === "string" ? item.price.product : item.price.product.id;
+  return {
+    id: item.id,
+    quantity,
+    price_data: {
+      currency: "eur",
+      product,
+      recurring: { interval: "month" },
+      unit_amount: STELLPLATZ_CENTS,
     },
   };
 }

@@ -6,8 +6,10 @@ import { decryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { INTEGRATION_AREAS } from "@/lib/integrations";
 import { assistentStatus } from "@/lib/assistant";
+import { indexStatus } from "@/lib/ki/wissensindex";
 import { requireVerwalter } from "@/lib/session";
-import { clearIntegration, saveIntegration } from "./actions";
+import { PendingButton } from "@/components/pending-button";
+import { clearIntegration, saveIntegration, wissensindexAufbauen } from "./actions";
 import { AssistentTest } from "./assistent-test";
 
 export const dynamic = "force-dynamic";
@@ -20,11 +22,20 @@ const FEHLER: Record<string, string> = {
 export default async function IntegrationenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ gespeichert?: string; geloescht?: string; fehler?: string }>;
+  searchParams: Promise<{
+    gespeichert?: string;
+    geloescht?: string;
+    fehler?: string;
+    index?: string;
+    neu?: string;
+    unveraendert?: string;
+    entfernt?: string;
+  }>;
 }) {
   const verwalter = await requireVerwalter();
   const sp = await searchParams;
   const assistent = assistentStatus();
+  const wissensindex = await indexStatus(verwalter.organizationId);
 
   const settings = await db.integrationSetting.findMany({
     where: { organizationId: verwalter.organizationId },
@@ -64,6 +75,29 @@ export default async function IntegrationenPage({
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">{FEHLER[sp.fehler] ?? "Eingabe konnte nicht verarbeitet werden."}</Alert>
       ) : null}
+      {sp.index === "ok" ? (
+        <Alert variant="success" className="mb-4">
+          Wissensindex abgeglichen: {sp.neu ?? "0"} Quellen neu eingebettet,{" "}
+          {sp.unveraendert ?? "0"} unverändert, {sp.entfernt ?? "0"} entfernt.
+        </Alert>
+      ) : null}
+      {sp.index === "fehler" ? (
+        <Alert variant="error" className="mb-4">
+          Der Wissensindex konnte nicht aufgebaut werden — entweder fehlt der Datenbank die
+          pgvector-Erweiterung oder die Einbettung bei Google schlug fehl (Details im
+          Server-Protokoll).
+        </Alert>
+      ) : null}
+      {sp.index === "aus" ? (
+        <Alert variant="error" className="mb-4">
+          Der Assistent ist nicht aktiviert — ohne Google-Zugang lässt sich kein Index aufbauen.
+        </Alert>
+      ) : null}
+      {sp.index === "recht" ? (
+        <Alert variant="error" className="mb-4">
+          Den Wissensindex darf nur der Administrator der Organisation aufbauen.
+        </Alert>
+      ) : null}
 
       {/* Der KI-Assistent hängt nicht an einem hier hinterlegten Schlüssel,
           sondern an zwei Server-Variablen. Fehlt eine, rendert das Layout die
@@ -78,6 +112,11 @@ export default async function IntegrationenPage({
           </Badge>
           <span className="text-xs text-gray-400">
             Sprechblase unten rechts · Modell {assistent.modell}
+            {assistent.plattform === "vertex"
+              ? ` · Vertex AI, Region ${assistent.region}`
+              : assistent.plattform === "developer"
+                ? " · Gemini Developer API"
+                : null}
           </span>
         </div>
         {assistent.aktiv ? (
@@ -122,6 +161,53 @@ export default async function IntegrationenPage({
             </p>
           </div>
         )}
+        {/* Wissensindex (Vektorsuche, KI-Berater-Konzept Phase 1): Der Aufbau
+            ist ein bewusster Betreiber-Schritt, kein Automatismus beim ersten
+            Chat — er sendet Portaltexte zur Einbettung an Google. Nächtlich
+            gleicht /api/cron/ki-index ab; der Knopf ist für den Erst-Aufbau
+            und für „ich will es jetzt sehen". */}
+        <div className="mt-4 border-t border-gray-100 pt-3">
+          <p className="text-sm font-medium text-gray-800">Wissensindex (Vektorsuche)</p>
+          {wissensindex.verfuegbar ? (
+            <>
+              <p className="mt-1 text-sm text-gray-600">
+                {wissensindex.chunks > 0 ? (
+                  <>
+                    {wissensindex.quellen} Quellen in {wissensindex.chunks} Abschnitten
+                    indexiert
+                    {wissensindex.stand
+                      ? ` · Stand ${wissensindex.stand.toLocaleDateString("de-DE")}`
+                      : null}
+                    .
+                  </>
+                ) : (
+                  <>
+                    Noch nichts indexiert — der Assistent nutzt bis dahin die einfache
+                    Schlüsselwortsuche über die jüngsten Einträge.
+                  </>
+                )}
+              </p>
+              {assistent.aktiv && verwalter.isSuperAdmin ? (
+                <form action={wissensindexAufbauen} className="mt-2">
+                  <PendingButton className={buttonSecondaryClass} pendingLabel="Wird aufgebaut …">
+                    Index aufbauen / abgleichen
+                  </PendingButton>
+                </form>
+              ) : null}
+              <p className="mt-2 text-xs text-gray-500">
+                Indexiert werden Beschlüsse, Versammlungen, Anträge, Aushänge und
+                Dokument-Titel — keine Dateiinhalte. Unveränderte Einträge werden beim
+                Abgleich übersprungen; nachts läuft der Abgleich automatisch.
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-gray-600">
+              In dieser Datenbank nicht verfügbar (pgvector-Erweiterung fehlt). Der
+              Assistent nutzt die einfache Schlüsselwortsuche.
+            </p>
+          )}
+        </div>
+
         {/* Auch bei „Nicht aktiv" sinnvoll: Wer den Schlüssel gerade einträgt,
             will wissen, ob er taugt — bevor er ein Deployment dafür aufwendet. */}
         {assistent.schluesselGesetzt ? <AssistentTest /> : null}

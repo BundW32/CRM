@@ -350,6 +350,7 @@ model Organization {
   co2Allocations        Co2Allocation[]
   craftsmanInvoices     CraftsmanInvoice[]
   beiratTasks           BeiratTask[]
+  kiChunks              KiChunk[]
 }
 
 model User {
@@ -576,6 +577,7 @@ model Property {
   co2Allocations        Co2Allocation[]
   beiratTasks           BeiratTask[]
   setupSteps            WegSetupStep[]
+  kiChunks              KiChunk[]
 
   @@index([organizationId])
 }
@@ -2169,4 +2171,42 @@ model VerwalterAnfrageNachricht {
   createdAt    DateTime         @default(now())
 
   @@index([anfrageId, createdAt])
+}
+
+// ── KI-Wissensindex (RAG, Konzept „KI-Berater" Phase 1) ───────────────────────
+// Vektorindex über portalinterne Texte (Beschlüsse, Versammlungen, Anträge,
+// Aushänge, Dokument-Titel — KEINE Dateiinhalte, das bleibt die Zusage der
+// KI-Transparenzseite bis Phase 4). Geschrieben und gelesen wird die Tabelle
+// AUSSCHLIESSLICH über src/lib/ki/ (rohes SQL): Sie steht unter Row-Level-
+// Security mit FORCE — ohne die Transaktionsvariable app.current_org_id
+// liefert jede Abfrage null Zeilen, auch über den Prisma-Client. Die
+// Migration ist handgeschrieben und überspringt die Tabelle, wenn die
+// pgvector-Erweiterung fehlt (Details in der Migrationsdatei
+// 20260810120000_ki_wissensindex).
+model KiChunk {
+  id             String       @id @default(dbgenerated("(gen_random_uuid())::text"))
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // Objektbezug; NULL = organisationsweit (z. B. Dokument ohne Objekt) und
+  // damit nur für Verwalter sichtbar — Eigentümer und Mieter sehen im Portal
+  // ausschließlich objektgebundene Inhalte (siehe access.ts).
+  propertyId     String?
+  property       Property?    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  quelleTyp      String // 'beschluss' | 'versammlung' | 'antrag' | 'aushang' | 'dokument'
+  quelleId       String
+  titel          String // für die Quellenangabe unter der Antwort
+  abschnitt      String? // Abschnittsüberschrift (z. B. "TOP 3") für die Zitierung
+  reihenfolge    Int          @default(0)
+  // Sichtbarkeitsstufe, gefiltert in der SQL-WHERE-Klausel (nie im Prompt):
+  // Rolle → { ALLE, eigene Stufe }, BEIRAT nur je Beirats-Objekt, Verwalter alles.
+  sichtbarkeit   Audience
+  // Hash über den Quelltext — unveränderte Quellen werden beim Neuaufbau
+  // übersprungen (keine erneute Einbettung, keine Kosten).
+  inhaltHash     String
+  text           String
+  embedding      Unsupported("vector(768)")
+  erstelltAm     DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([organizationId, quelleTyp])
+  @@index([quelleTyp, quelleId])
 }

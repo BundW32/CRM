@@ -160,6 +160,13 @@ export function AssistantWidget() {
               <Send className="h-4 w-4" />
             </button>
           </form>
+          {/* Fest verdrahtet, nicht generiert (Art. 50 KI-VO + Konzept 3.5):
+              Die Kennzeichnung als KI und der Rechtsberatungs-Hinweis dürfen
+              nicht davon abhängen, ob das Modell daran denkt. */}
+          <p className="border-t border-gray-100 bg-white px-3 pb-2 pt-1.5 text-center text-[11px] leading-snug text-gray-400">
+            Antworten werden automatisiert mit KI erstellt, können Fehler enthalten und sind
+            keine Rechtsberatung.
+          </p>
         </div>
       ) : null}
     </>

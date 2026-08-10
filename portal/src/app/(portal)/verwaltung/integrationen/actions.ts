@@ -7,7 +7,8 @@ import { encryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { integrationArea } from "@/lib/integrations";
 import { requireVerwalter } from "@/lib/session";
-import { pruefeVerbindung, type VerbindungsErgebnis } from "@/lib/assistant";
+import { isAssistantEnabled, pruefeVerbindung, type VerbindungsErgebnis } from "@/lib/assistant";
+import { indexiereOrganisation } from "@/lib/ki/wissensindex";
 
 function back(param?: string): never {
   redirect(`/verwaltung/integrationen${param ? `?${param}` : ""}`);
@@ -84,6 +85,35 @@ export async function clearIntegration(formData: FormData) {
  * den Zustand der Betreiber-Einrichtung — das geht einen eingeschränkten
  * Verwalter nichts an.
  */
+/**
+ * Baut den KI-Wissensindex der eigenen Organisation auf bzw. gleicht ihn ab.
+ *
+ * Nur für SuperAdmins — der Aufbau sendet Portaltexte zur Einbettung an
+ * Google und ist damit eine Betreiber-Entscheidung, kein Alltagsknopf.
+ * Unveränderte Quellen werden übersprungen; der Knopf ist beliebig oft
+ * drückbar, ohne doppelte Kosten zu erzeugen.
+ */
+export async function wissensindexAufbauen() {
+  const verwalter = await requireVerwalter();
+  if (!verwalter.isSuperAdmin) back("index=recht");
+  if (!isAssistantEnabled()) back("index=aus");
+
+  const ergebnis = await indexiereOrganisation(verwalter.organizationId);
+  if (!ergebnis) back("index=fehler");
+
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.KI_INDEX_AUFGEBAUT,
+    targetType: "KiWissensindex",
+    targetId: verwalter.organizationId,
+    meta: { ...ergebnis },
+  });
+  revalidatePath("/verwaltung/integrationen");
+  back(
+    `index=ok&neu=${ergebnis.neu}&unveraendert=${ergebnis.unveraendert}&entfernt=${ergebnis.entfernt}`,
+  );
+}
+
 export async function testeAssistentVerbindung(): Promise<VerbindungsErgebnis> {
   const verwalter = await requireVerwalter();
   if (!verwalter.isSuperAdmin) {

@@ -83,7 +83,14 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        # pgvector-Variante des offiziellen Postgres-Images: Der KI-Wissensindex
+        # (KiChunk, Migration 20260810120000) braucht die vector-Erweiterung.
+        # Mit dem nackten postgres:16 würde die Migration die Tabelle still
+        # überspringen und die Isolationstests in ki/wissensindex.dbtest.ts
+        # liefen gegen nichts — genau der Zustand „sieht nach Abdeckung aus und
+        # ist keine", vor dem der Kommentar oben warnt. Ein Test dort schlägt
+        # deshalb fehl, wenn pgvector in der CI fehlt.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_PASSWORD: pruefung
           POSTGRES_DB: pruefung

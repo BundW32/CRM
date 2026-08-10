@@ -1929,3 +1929,47 @@ Daten** hängen, nicht an ihrer Form.
 **Zum zweiten Mal in dieser Sitzung** ging ein `cat >> DECISIONS.md` verloren,
 weil es an einen Befehl gekettet war, der das Verzeichnis wechselte. Prüfen,
 **bevor** committet wird — `grep -c "^## Schritt N"`.
+
+## Schritt 48 — KI-Berater Phase 1: Wissensindex mit pgvector (10.08.2026)
+
+Umsetzung von Phase 1 des Konzepts `docs/KONZEPT-KI-Berater.md`; Stand und
+Abweichungen im Detail: `docs/UMSETZUNG-KI-Berater-Phase1.md`.
+
+297. **pgvector in der bestehenden Datenbank statt eines Vektordienstes** (wie
+     im Konzept begründet): Der Index ist eine gewöhnliche Tabelle, die
+     bestehende Mandantentrennung samt Isolationstests gilt weiter. Zusätzlich
+     Row-Level-Security mit FORCE über `app.current_org_id` — ein vergessener
+     Filter fällt als leeres Ergebnis auf, nicht als Datenleck.
+298. **Die Migration bricht ohne pgvector nicht ab.** Ohne Erweiterung entsteht
+     die Tabelle nicht, der Assistent läuft mit der Schlüsselwortsuche weiter,
+     `npm run ki:schema` zieht das Schema nach. Ein harter Fehler hätte jeden
+     Deploy an die Verfügbarkeit der Erweiterung gekettet. Kehrseite bewusst in
+     Kauf genommen: Das CI-Datenbank-Image musste auf `pgvector/pgvector:pg16`
+     umgestellt werden, und ein Test schlägt fehl, wenn die Erweiterung in der
+     CI fehlt — sonst prüften die Isolationstests still nichts (die Falle aus
+     Schritt 46).
+299. **Sichtbarkeit als Audience-Stufe statt der `min_rolle`-Hierarchie des
+     Konzepts:** Die Zugriffslogik des Portals ist nicht hierarchisch (ein
+     Eigentümer sieht Mieter-Aushänge nicht). Der Index spiegelt
+     `access.ts` — Rolle → {ALLE, eigene Stufe}, BEIRAT je Mandats-Objekt,
+     Verwalter alles im Scope — abgeleitet an genau einer Stelle (`scopeFuer`).
+300. **Vorgänge und zielgerichtete Dokumente bleiben draußen:** personengebundene
+     Sichtbarkeit passt in kein Stufenmodell; sie bleiben im Live-Retrieval.
+301. **RLS-Test mit unprivilegierter Rolle:** Der erste Testlauf zeigte, dass
+     der Harnisch als Superuser jede Policy umgeht (Superuser stehen über
+     FORCE). Die Policy wird jetzt mit einer eigens angelegten Rolle geprüft —
+     so, wie sich die Anwendung in Produktion verbinden muss.
+302. **Vertex AI als konfigurierbarer Weg, Developer API als Fallback**, beides
+     hinter `lib/ki/gemini.ts`; `VERTEX_LOCATION=global` ist gesperrt (keine
+     Data-Residency-Zusage — der einzige Grund für Vertex). Die Modellwahl
+     bleibt Umgebungsvariable: Das Konzept verlangt die Fixierung bei Kickoff
+     nach GA-/Residency-/Tool-Kriterien, das ist eine Betreiber-Entscheidung.
+303. **Sperrthemen als Code vor dem Modellaufruf**, nicht nur als Prompt-Regel:
+     Bonität, Mahnentscheidung, Beschlussfeststellung, Rechtevergabe →
+     feste Antwort mit Verweis. Eng geschnitten (Entscheidungsfragen, nicht
+     Wissensfragen); die Negativfälle stehen ausdrücklich im Test. Gelernt
+     dabei: JavaScripts `\b` kennt keine Umlaute, und `[^.?!]`-Fenster reißen
+     an Datumspunkten — beide Fallen stehen jetzt als Kommentar im Muster.
+304. **KI-Kennzeichnung und Rechtsberatungs-Hinweis fest im Widget** (Art. 50
+     KI-VO, Konzept 3.5) — nicht generiert, damit sie nicht davon abhängen, ob
+     das Modell daran denkt.

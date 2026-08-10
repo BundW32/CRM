@@ -310,6 +310,35 @@ Die Sperre steht **serverseitig** in `beschluesse/actions.ts` (`istVersammlungsB
 in `castVote` **und** `castVoteForOwner`); das Ausblenden des Formulars allein genügt
 nicht. `src/lib/versammlungsbeschluss.test.ts` hält beide Aufrufe fest.
 
+## KI-Wissensindex: Rechte stehen in SQL, nie im Prompt
+
+Der Assistent holt sich Kontext aus zwei Wegen: der Vektorsuche über `KiChunk`
+(`src/lib/ki/`) und dem Schlüsselwort-Retrieval in `lib/assistant.ts`. Für
+beide gilt dieselbe Regel wie überall im Portal: **Die Rechte-Grenze ist die
+Datenbankabfrage.** Ein Prompt ist keine Zugriffskontrolle — was das Modell
+nicht im Kontext hat, kann es nicht verraten.
+
+Drei Dinge, die nicht verhandelbar sind:
+
+1. **`KiChunk` wird ausschließlich über `src/lib/ki/` angesprochen** (rohes
+   SQL in einer Transaktion mit `set_config('app.current_org_id', …, true)`).
+   Die Tabelle steht unter Row-Level-Security mit FORCE: Ohne die Variable
+   liefert jede Abfrage null Zeilen — auch über den Prisma-Client. Wer das
+   „repariert", indem er die Policy lockert, öffnet die Mandantenwand.
+2. **Die Sichtbarkeitsmenge einer Rolle wird an genau einer Stelle abgeleitet**
+   (`scopeFuer` in `lib/ki/retrieval.ts`) und in der SQL-WHERE-Klausel
+   gefiltert. Sie spiegelt die `access.ts`-Semantik: Rolle → {ALLE, eigene
+   Stufe}, BEIRAT nur je Mandats-Objekt, Verwalter alles im Objekt-Scope.
+3. **Wer eine neue Quelle indexiert, erweitert `wissensindex.dbtest.ts`.**
+   Vorgänge und Dokumente mit gezielten Empfängern sind bewusst NICHT im
+   Index — ihre Sichtbarkeit hängt an der einzelnen Person und passt in kein
+   Stufenmodell. Nicht „kurz mit reinnehmen".
+
+Die Guardrails des Assistenten (Sperrthemen in `lib/ki/sperrthemen.ts`,
+Prompt-Struktur mit `<kontext>`-Block in `bauePrompt`) sind durch Tests
+festgehalten; Konzept und Umsetzungsstand stehen in
+`docs/KONZEPT-KI-Berater.md` und `docs/UMSETZUNG-KI-Berater-Phase1.md`.
+
 ## Zwei Türen, zwei Marken
 
 Eine Codebasis bedient zwei Produkte: **B&W Kundenportal**

@@ -5,14 +5,17 @@ import { revalidatePath } from "next/cache";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { decryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
-import { loeseRecoveryCodeEin } from "@/lib/mfa";
+import { loeseRecoveryCodeEin, pruefeEmailMfaCode } from "@/lib/mfa";
+import { loescheEmailMfaCode, sendeEmailMfaCode } from "@/lib/mfa-email";
 import { checkRateLimit, getClientIp, resetRateLimit } from "@/lib/rate-limit";
 import { clearMfaPending, createSession, readMfaPending } from "@/lib/session";
 import { verifyTotp } from "@/lib/totp";
 
 // Zweiter Faktor prüfen und erst DANN die Sitzung anlegen. Das Passwort ist zu
 // diesem Zeitpunkt bereits geprüft (login/actions.ts) — hier entscheidet sich,
-// ob aus dem Zwischenschritt eine Anmeldung wird.
+// ob aus dem Zwischenschritt eine Anmeldung wird. Je nach gewähltem Verfahren
+// zählt der Code aus der Authenticator-App oder der zugesandte E-Mail-Code;
+// Wiederherstellungscodes gelten für beide.
 export async function verifyMfa(formData: FormData) {
   const userId = await readMfaPending();
   if (!userId) redirect("/login");
@@ -32,24 +35,34 @@ export async function verifyMfa(formData: FormData) {
     where: { id: userId },
     include: { organization: { select: { active: true } } },
   });
+  const totpAktiv = Boolean(user?.totpEnabledAt && user.totpSecret);
+  const emailAktiv = Boolean(user?.mfaEmailEnabledAt);
   // Zwischenzeitlich deaktiviert oder MFA abgeschaltet → sauber zur Anmeldung.
-  if (!user || !user.active || !user.totpEnabledAt || !user.totpSecret) {
+  if (!user || !user.active || (!totpAktiv && !emailAktiv)) {
     await clearMfaPending();
     redirect("/login");
   }
 
   const eingabe = String(formData.get("code") ?? "").trim();
-  const istTotp = /^\d{6}$/.test(eingabe.replace(/\s/g, ""));
+  const istZifferncode = /^\d{6}$/.test(eingabe.replace(/\s/g, ""));
 
-  if (istTotp) {
-    if (!verifyTotp(decryptSecret(user.totpSecret), eingabe)) {
+  if (istZifferncode && totpAktiv) {
+    if (!verifyTotp(decryptSecret(user.totpSecret!), eingabe)) {
       await logAudit({ actorId: user.id, action: AUDIT.MFA_FAILED, ip });
       redirect("/login/mfa?fehler=1");
     }
+  } else if (istZifferncode && emailAktiv) {
+    if (!pruefeEmailMfaCode(user, eingabe)) {
+      await logAudit({ actorId: user.id, action: AUDIT.MFA_FAILED, ip });
+      redirect("/login/mfa?fehler=1");
+    }
+    // Jeder Code gilt genau einmal.
+    await loescheEmailMfaCode(user.id);
   } else {
     // Wiederherstellungscode: genau einmal einlösbar, der Rest wird
     // zurückgeschrieben. Das Audit-Log hält den Notfallweg fest — zehnmal
-    // „Recovery" statt App ist ein Signal, das der Betreiber sehen soll.
+    // „Recovery" statt des gewählten Verfahrens ist ein Signal, das der
+    // Betreiber sehen soll.
     const rest = loeseRecoveryCodeEin(user.mfaRecoveryCodes, eingabe);
     if (rest === null) {
       await logAudit({ actorId: user.id, action: AUDIT.MFA_FAILED, ip });
@@ -72,4 +85,21 @@ export async function verifyMfa(formData: FormData) {
 
   if (user.mustChangePassword) redirect("/passwort-festlegen");
   redirect("/dashboard");
+}
+
+/**
+ * E-Mail-Verfahren: Code erneut anfordern (verlegt, Spamordner, abgelaufen).
+ * Ein neuer Versand entwertet den vorigen Code. Eigene, weite Bremse — der
+ * Versand kostet den Betreiber Mail-Kontingent, aber niemandes Sicherheit.
+ */
+export async function sendeLoginMfaCodeErneut() {
+  const userId = await readMfaPending();
+  if (!userId) redirect("/login");
+  if (!(await checkRateLimit(`mfa-mail:${userId}`, 3, 900))) {
+    redirect("/login/mfa?fehler=limit");
+  }
+  const user = await db.user.findUnique({ where: { id: userId } });
+  if (!user || !user.active || !user.mfaEmailEnabledAt) redirect("/login");
+  await sendeEmailMfaCode(user);
+  redirect("/login/mfa?gesendet=1");
 }

@@ -367,14 +367,22 @@ model User {
   role                        Role
   active                      Boolean                     @default(true)
   mustChangePassword          Boolean                     @default(false)
-  // ── Zwei-Faktor-Anmeldung (TOTP, P1-10) ───────────────────────────────────
-  // totpSecret liegt NIE im Klartext in der DB (encryptSecret, lib/crypto.ts).
-  // Es wird beim Einrichtungsbeginn gesetzt; scharf ist MFA erst mit
-  // totpEnabledAt — bis dahin ist das Secret ein unbestätigter Entwurf.
+  // ── Zwei-Faktor-Anmeldung (P1-10, optional) ───────────────────────────────
+  // Zwei Verfahren, je Konto höchstens eines aktiv:
+  // App (TOTP): totpSecret liegt NIE im Klartext in der DB (encryptSecret,
+  // lib/crypto.ts); scharf erst mit totpEnabledAt — bis dahin ist das Secret
+  // ein unbestätigter Entwurf.
   totpSecret                  String?
   totpEnabledAt               DateTime?
+  // E-Mail: ein 6-stelliger Code je Anmeldung, gespeichert nur als Hash mit
+  // Ablauf (10 Min., lib/mfa.ts) — dieselben Felder tragen auch den
+  // Bestätigungscode während der Einrichtung.
+  mfaEmailEnabledAt           DateTime?
+  mfaEmailCodeHash            String?
+  mfaEmailCodeExpiresAt       DateTime?
   // Wiederherstellungscodes als SHA-256-Hashes (wie Reset-Tokens): je Code
-  // genau einmal einlösbar, der eingelöste wird entfernt.
+  // genau einmal einlösbar, der eingelöste wird entfernt. Gelten für beide
+  // Verfahren.
   mfaRecoveryCodes            String[]                    @default([])
   // Erklärende Hinweise in der Oberfläche anzeigen. Standardmäßig AN: Wer sie
   // nicht braucht, schaltet sie ab — die umgekehrte Voreinstellung erreicht

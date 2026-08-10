@@ -1,30 +1,50 @@
-// Zwei-Faktor-Anmeldung (P1-10): Pflicht-Regel und Wiederherstellungscodes.
+// Zwei-Faktor-Anmeldung (P1-10): Wiederherstellungscodes und E-Mail-Codes.
 // Der TOTP-Algorithmus selbst liegt in lib/totp.ts, die Ver-/Entschlüsselung
 // des Secrets in lib/crypto.ts — hier steht die fachliche Klammer.
+//
+// MFA ist OPTIONAL (Entscheidung des Betreibers vom 10.08.2026): Jede Person
+// wählt in den Einstellungen selbst, ob und mit welchem Verfahren —
+// Authenticator-App (TOTP) oder Code per E-Mail. Es gibt keinen Zwang beim
+// Login; die frühere Pflicht-Regel für Betreiber/SuperAdmins wurde bewusst
+// zurückgenommen. Empfohlen bleibt sie für diese Konten trotzdem.
 
-import { randomBytes } from "node:crypto";
-import { isPlatformAdminUser } from "@/lib/platform-admin";
+import { randomBytes, randomInt } from "node:crypto";
 import { hashToken } from "@/lib/token-hash";
 
 export const RECOVERY_CODE_ANZAHL = 10;
 
-/**
- * Für wen ist MFA Pflicht? Betreiber-Konten und Verwalter-SuperAdmins — die
- * Konten, deren Übernahme die Daten VIELER Menschen öffnet (Betreiber: alle
- * Organisationen; SuperAdmin: die ganze Gemeinschaft samt Bankdaten). Für
- * alle anderen ist MFA freiwillig über die Konto-Seite.
- */
-export function istMfaPflicht(user: {
-  email: string | null;
-  isPlatformAdmin?: boolean;
-  role: string;
-  isSuperAdmin: boolean;
+export function hatMfa(user: {
+  totpEnabledAt: Date | null;
+  mfaEmailEnabledAt: Date | null;
 }): boolean {
-  return isPlatformAdminUser(user) || (user.role === "VERWALTER" && user.isSuperAdmin);
+  return user.totpEnabledAt != null || user.mfaEmailEnabledAt != null;
 }
 
-export function hatMfa(user: { totpEnabledAt: Date | null }): boolean {
-  return user.totpEnabledAt != null;
+// ── E-Mail-Codes ─────────────────────────────────────────────────────────────
+// Ein 6-stelliger Zahlencode je Anmeldung bzw. Bestätigung — kryptographisch
+// zufällig, kurzlebig und nur als Hash gespeichert. Bewusst dieselbe Länge
+// und Optik wie der App-Code, damit das Eingabefeld für beide Verfahren
+// dasselbe sein kann.
+
+export const EMAIL_CODE_GUELTIG_MINUTEN = 10;
+
+export function neuerEmailMfaCode(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+export function hashEmailMfaCode(code: string): string {
+  return hashToken(code.replace(/\s/g, ""));
+}
+
+/** Passt die Eingabe zum gespeicherten, noch nicht abgelaufenen Code? */
+export function pruefeEmailMfaCode(
+  user: { mfaEmailCodeHash: string | null; mfaEmailCodeExpiresAt: Date | null },
+  eingabe: string,
+  now: Date = new Date(),
+): boolean {
+  if (!user.mfaEmailCodeHash || !user.mfaEmailCodeExpiresAt) return false;
+  if (user.mfaEmailCodeExpiresAt.getTime() < now.getTime()) return false;
+  return hashEmailMfaCode(eingabe) === user.mfaEmailCodeHash;
 }
 
 /**

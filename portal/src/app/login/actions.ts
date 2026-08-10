@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { createMfaPending, createSession, destroySession } from "@/lib/session";
+import { hatMfa } from "@/lib/mfa";
+import { sendeEmailMfaCode } from "@/lib/mfa-email";
 import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { checkRateLimit, getClientIp, resetRateLimit } from "@/lib/rate-limit";
@@ -88,12 +90,15 @@ export async function login(formData: FormData) {
   // Erfolg: beide Zähler abräumen, damit nur Fehlversuche zur Sperre führen.
   await Promise.all([resetRateLimit(kennungKey), resetRateLimit(ipKey)]);
 
-  // Zwei-Faktor aktiv? Dann gibt es hier noch KEINE Sitzung — nur den
-  // kurzlebigen Zwischenschritt-Merker. LOGIN_SUCCESS wird erst nach dem
-  // zweiten Faktor protokolliert (login/mfa/actions.ts); das Passwort allein
-  // ist bei diesen Konten kein erfolgreicher Login.
-  if (user.totpEnabledAt) {
+  // Zwei-Faktor aktiv (App oder E-Mail)? Dann gibt es hier noch KEINE
+  // Sitzung — nur den kurzlebigen Zwischenschritt-Merker. LOGIN_SUCCESS wird
+  // erst nach dem zweiten Faktor protokolliert (login/mfa/actions.ts); das
+  // Passwort allein ist bei diesen Konten kein erfolgreicher Login.
+  if (hatMfa(user)) {
     await createMfaPending(user.id);
+    // Beim E-Mail-Verfahren geht der Code sofort raus — die nächste Seite
+    // fordert nur noch die Eingabe.
+    if (!user.totpEnabledAt) await sendeEmailMfaCode(user);
     redirect("/login/mfa");
   }
 

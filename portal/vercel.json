@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run pruefung && (prisma db execute --file prisma/repair_failed_migration.sql || true) && prisma migrate deploy && next build",
+  "buildCommand": "npm run pruefung && (prisma db execute --file prisma/repair_failed_migration.sql || true) && (prisma migrate deploy || (sleep 30 && prisma migrate deploy) || (sleep 60 && prisma migrate deploy)) && next build",
   "regions": [
     "fra1"
   ],

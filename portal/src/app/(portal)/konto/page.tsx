@@ -4,10 +4,14 @@ import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { PushToggle } from "@/components/push-toggle";
 import { formatDate, roleLabels } from "@/lib/labels";
-import { istMfaPflicht } from "@/lib/mfa";
 import { getOrganization, requireUser } from "@/lib/session";
-import { erneuereRecoveryCodes } from "../../mfa-einrichten/actions";
-import { changePassword, deaktiviereMfa, saveShowHints } from "./actions";
+import {
+  deaktiviereMfa,
+  erneuereRecoveryCodes,
+  sendeKontoMfaCode,
+  starteEmailMfa,
+} from "../../mfa-einrichten/actions";
+import { changePassword, saveShowHints } from "./actions";
 import { tourNeuStarten } from "./tour-actions";
 import { VollmachtKarte } from "./vollmacht";
 
@@ -139,11 +143,15 @@ export default async function AccountPage({
             </Alert>
           ) : null}
 
-          {user.totpEnabledAt ? (
+          {user.totpEnabledAt || user.mfaEmailEnabledAt ? (
             <>
               <p className="text-sm text-gray-600">
-                Aktiv seit {formatDate(user.totpEnabledAt)}. Zusätzlich zum Passwort
-                schützt ein Code aus Ihrer Authenticator-App die Anmeldung.
+                Aktiv seit {formatDate(user.totpEnabledAt ?? user.mfaEmailEnabledAt!)}.
+                Zusätzlich zum Passwort schützt{" "}
+                {user.totpEnabledAt
+                  ? "ein Code aus Ihrer Authenticator-App"
+                  : "ein per E-Mail zugesandter Code"}{" "}
+                die Anmeldung.
               </p>
               <p className="mt-2 text-sm text-gray-600">
                 Verbleibende Wiederherstellungscodes:{" "}
@@ -152,11 +160,24 @@ export default async function AccountPage({
                   ? " — bitte bald neue erzeugen."
                   : null}
               </p>
-              {/* Beide Handgriffe verlangen einen frischen App-Code: Eine offene
-                  Sitzung allein darf weder den Schutz abschalten noch sich einen
-                  Satz Ersatzcodes ausstellen. */}
+              {user.mfaEmailEnabledAt ? (
+                // Beim E-Mail-Verfahren muss der Code für die Handgriffe unten
+                // erst ins Postfach — eigenes Formular, damit der Knopf nicht
+                // an der Pflicht-Prüfung des (noch leeren) Code-Feldes hängt.
+                <form action={sendeKontoMfaCode} className="mt-2">
+                  <PendingButton
+                    className="text-xs text-brand-green hover:underline"
+                    pendingLabel="Wird gesendet…"
+                  >
+                    Code für Änderungen anfordern
+                  </PendingButton>
+                </form>
+              ) : null}
+              {/* Beide Handgriffe verlangen einen frischen Code des gewählten
+                  Verfahrens: Eine offene Sitzung allein darf weder den Schutz
+                  abschalten noch sich einen Satz Ersatzcodes ausstellen. */}
               <form action={erneuereRecoveryCodes} className="mt-4 space-y-3 border-t border-gray-100 pt-4">
-                <Field label="Code aus der App">
+                <Field label={user.totpEnabledAt ? "Code aus der App" : "Code aus der E-Mail"}>
                   <input
                     type="text"
                     name="code"
@@ -171,36 +192,38 @@ export default async function AccountPage({
                   <PendingButton className={buttonSecondaryClass}>
                     Neue Wiederherstellungscodes
                   </PendingButton>
-                  {istMfaPflicht(user) ? (
-                    <span className="text-xs text-gray-500">
-                      Für Ihr Konto ist die Zwei-Faktor-Anmeldung Pflicht und lässt
-                      sich nicht abschalten.
-                    </span>
-                  ) : (
-                    // Zielt per formAction auf die Abschalt-Action — derselbe
-                    // App-Code, ein Formular, zwei Ausgänge.
-                    <ConfirmActionButton
-                      className="text-xs text-red-600 hover:underline"
-                      confirmLabel="Schutz wirklich abschalten?"
-                      pendingLabel="Wird abgeschaltet…"
-                      formAction={deaktiviereMfa}
-                    >
-                      Abschalten
-                    </ConfirmActionButton>
-                  )}
+                  {/* Zielt per formAction auf die Abschalt-Action — derselbe
+                      Code, ein Formular, zwei Ausgänge. */}
+                  <ConfirmActionButton
+                    className="text-xs text-red-600 hover:underline"
+                    confirmLabel="Schutz wirklich abschalten?"
+                    pendingLabel="Wird abgeschaltet…"
+                    formAction={deaktiviereMfa}
+                  >
+                    Abschalten
+                  </ConfirmActionButton>
                 </div>
               </form>
             </>
           ) : (
             <>
               <p className="mb-4 text-sm text-gray-600">
-                Schützen Sie Ihre Anmeldung zusätzlich zum Passwort mit einem
-                6-stelligen Code aus einer Authenticator-App auf Ihrem Handy.
-                Eingerichtet in zwei Minuten.
+                Optional: Schützen Sie Ihre Anmeldung zusätzlich zum Passwort mit
+                einem 6-stelligen Code — aus einer Authenticator-App auf Ihrem
+                Handy oder bequem per E-Mail.
               </p>
-              <Link href="/mfa-einrichten" className={buttonClass}>
-                Jetzt einrichten
-              </Link>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link href="/mfa-einrichten" className={buttonClass}>
+                  Mit App einrichten
+                </Link>
+                {user.email ? (
+                  <form action={starteEmailMfa}>
+                    <PendingButton className={buttonSecondaryClass} pendingLabel="Code wird gesendet…">
+                      Per E-Mail aktivieren
+                    </PendingButton>
+                  </form>
+                ) : null}
+              </div>
             </>
           )}
         </Card>

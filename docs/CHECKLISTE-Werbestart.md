@@ -89,7 +89,8 @@ der Datei-Endpunkte (P0-5). P1-7, P1-9, P1-10 (MFA) und P1-13 sind erledigt.
 Wer vor deren Abschluss startet, sollte das als bewusste Entscheidung hier
 vermerken: Entschieden am ______ von ______: ____________________
 
-**Deploy-Hinweis MFA:** Mit dem nächsten Deploy werden Betreiber-Konten und
-Verwalter-SuperAdmins beim ersten Portal-Aufruf zur Einrichtung der
-Zwei-Faktor-Anmeldung geführt (2 Minuten, Authenticator-App bereithalten).
-Die Wiederherstellungscodes dabei ausdrucken/sichern.
+**Hinweis MFA:** Die Zwei-Faktor-Anmeldung ist OPTIONAL (Entscheidung des
+Betreibers vom 10.08.2026) und wird unter „Konto" gewählt — Authenticator-App
+oder Code per E-Mail. Kein Zwang beim Login. Empfehlung: Für Betreiber- und
+SuperAdmin-Konten eines der beiden Verfahren aktivieren und die
+Wiederherstellungscodes sichern.

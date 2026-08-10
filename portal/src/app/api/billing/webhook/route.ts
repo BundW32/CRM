@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import { trackFunnelEventFuerOrg } from "@/lib/analytics/tracking-server";
 import { db } from "@/lib/db";
 import { isBillingEnabled } from "@/lib/billing";
 import { alertBetreiber, mailOrgSuperAdmins } from "@/lib/billing-notify";
@@ -76,6 +77,9 @@ export async function POST(request: Request) {
           // bzw. gelöscht worden sein — das Abo startete dann mit veralteten
           // Positionen. Die Funktion fängt eigene Stripe-Fehler ab.
           await aboMengeSynchronisieren(organizationId);
+          // Funnel: Abo aktiv. Hier telefoniert Stripe, nicht die Kundin —
+          // deshalb das Org-Pseudonym statt IP/User-Agent. Fängt eigene Fehler.
+          await trackFunnelEventFuerOrg("subscribed", organizationId, { plan });
         }
         break;
       }
@@ -101,10 +105,21 @@ export async function POST(request: Request) {
             ? tarifMeta
             : null);
         // Zuordnung über die Subscription-Id, ersatzweise über die Customer-Id.
+        const where = customerId
+          ? { OR: [{ stripeSubscriptionId: sub.id }, { stripeCustomerId: customerId }] }
+          : { stripeSubscriptionId: sub.id };
+        // Vor dem Update lesen, wer WIRKLICH neu gekündigt ist: Stripe meldet
+        // eine Kündigung oft doppelt (subscription.updated auf "canceled" UND
+        // subscription.deleted) — das Funnel-Ereignis darf nur einmal zählen.
+        const neuGekuendigt =
+          status === "canceled"
+            ? await db.organization.findMany({
+                where: { ...where, subscriptionStatus: { not: "canceled" } },
+                select: { id: true },
+              })
+            : [];
         const result = await db.organization.updateMany({
-          where: customerId
-            ? { OR: [{ stripeSubscriptionId: sub.id }, { stripeCustomerId: customerId }] }
-            : { stripeSubscriptionId: sub.id },
+          where,
           data: {
             subscriptionStatus: status,
             // Gekündigt heißt Start-Umfang — das gewinnt gegen Preis und Metadatum.
@@ -115,6 +130,9 @@ export async function POST(request: Request) {
                 : {}),
           },
         });
+        for (const org of neuGekuendigt) {
+          await trackFunnelEventFuerOrg("canceled", org.id);
+        }
         if (result.count === 0) {
           // Kein Treffer heißt: Das Event kam vor dem checkout.completed an
           // (Reihenfolge ist bei Stripe nicht garantiert) oder die Zuordnung

@@ -11,6 +11,7 @@ import { hinweiseVoreinstellung } from "@/lib/access";
 import { fallbackBranding } from "@/lib/branding-server";
 import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { createSession } from "@/lib/session";
+import { trackFunnelEvent } from "@/lib/analytics/tracking-server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { isReservedSlug } from "@/lib/slug";
 import { trialDays } from "@/lib/platform";
@@ -89,6 +90,12 @@ export async function registerOrganization(formData: FormData) {
     redirect("/registrieren?fehler=limit");
   }
 
+  // Funnel: Registrierung ernsthaft begonnen — nach Honeypot und Rate-Limit,
+  // damit Bots und Fluten die Quote nicht verzerren, aber VOR der Validierung:
+  // Auch ein abgebrochener Versuch (Tippfehler, zu kurzes Passwort) ist ein
+  // begonnener. Fängt eigene Fehler; bricht die Registrierung nie.
+  await trackFunnelEvent("signup_start", { path: "/registrieren" });
+
   const salutationRaw = String(formData.get("salutation") ?? "");
   const parsed = registerSchema.safeParse({
     company: formData.get("company"),
@@ -127,7 +134,7 @@ export async function registerOrganization(formData: FormData) {
   const trialEndsAt = new Date(Date.now() + trialDays(referralSource) * 86_400_000);
 
   // Org + Gründer-SuperAdmin atomisch anlegen.
-  const { user } = await db.$transaction(async (tx) => {
+  const { user, org } = await db.$transaction(async (tx) => {
     const org = await tx.organization.create({
       data: {
         slug,
@@ -191,6 +198,10 @@ export async function registerOrganization(formData: FormData) {
     undefined,
     branding
   );
+
+  // Funnel: Konto und Organisation stehen. Die Org-Id in `meta` verbindet
+  // das Ereignis später (Phase 5) mit dem Abo-Abschluss derselben Kundin.
+  await trackFunnelEvent("signup_done", { path: "/registrieren", meta: { orgId: org.id } });
 
   await createSession(user.id);
   redirect("/onboarding");

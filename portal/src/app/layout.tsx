@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegister } from "@/components/sw-register";
+import { TrackingSnippet } from "@/components/tracking-snippet";
 import { isWegSaas } from "@/lib/app-mode";
 import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
@@ -87,6 +88,9 @@ export default function RootLayout({
       </head>
       <body className="bw-shell-bg flex min-h-full flex-col text-gray-100">
         <ServiceWorkerRegister />
+        {/* Cookiefreies First-Party-Tracking (kein Consent nötig, siehe
+            components/tracking-snippet.tsx) — läuft unabhängig von einem CMP. */}
+        <TrackingSnippet />
         {children}
       </body>
     </html>

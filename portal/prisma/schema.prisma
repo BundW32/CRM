@@ -2355,3 +2355,14 @@ model IngestRun {
 
   @@index([source, startedAt])
 }
+
+// Tages-Salt des First-Party-Trackings. Genau eine Zeile je Kalendertag
+// (UTC), erzeugt beim ersten Ereignis des Tages. Der Cleanup-Cron löscht
+// alle Zeilen vor dem heutigen Tag — danach lässt sich aus IP + User-Agent
+// kein gestriger visitorHash mehr nachrechnen: Wiedererkennung über den Tag
+// hinaus ist technisch unmöglich, nicht nur unterlassen.
+model TrackingSalt {
+  id   String   @id @default(cuid())
+  day  DateTime @unique @db.Date
+  salt String
+}

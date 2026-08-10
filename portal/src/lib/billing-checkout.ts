@@ -9,6 +9,7 @@
 //   als Volumen-Preisstufen am Stripe-Preis selbst.
 // - `pro` (B&W-Variante): pauschal je Organisation, Menge 1.
 import type Stripe from "stripe";
+import { trackFunnelEvent } from "@/lib/analytics/tracking-server";
 import { MAX_EINHEITEN } from "@/app/preise/preise-daten";
 import { STELLPLATZ_CENTS, checkoutJeEinheitCents, type PlanId } from "@/lib/billing";
 import { zaehleWegMengen } from "@/lib/billing-mengen";
@@ -159,7 +160,18 @@ export async function starteCheckout(
       success_url: successUrl,
       cancel_url: cancelUrl,
     });
-    return session.url ? { url: session.url } : { fehler: "checkout_fehlgeschlagen" };
+    if (session.url) {
+      // Funnel: Checkout eröffnet (beide Buchungswege laufen hier durch, und
+      // starteCheckout wird immer aus einer Server-Action gerufen — der
+      // Request-Kontext des Handelnden ist da). Ob daraus ein Abo wird, sagt
+      // erst der Webhook (Ereignis "subscribed").
+      await trackFunnelEvent("checkout_start", {
+        path: "/abo",
+        meta: { orgId: org.id, tarif, einheiten: quantity, stellplaetze },
+      });
+      return { url: session.url };
+    }
+    return { fehler: "checkout_fehlgeschlagen" };
   } catch (err) {
     console.error(`Stripe-Checkout fehlgeschlagen (tarif=${tarif}, quantity=${quantity})`, err);
     return { fehler: "checkout_fehlgeschlagen" };

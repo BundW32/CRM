@@ -13,6 +13,7 @@ export function PendingButton({
   value,
   title,
   spinnerClassName = "h-3.5 w-3.5",
+  formAction,
 }: {
   children: React.ReactNode;
   pendingLabel?: string;
@@ -29,6 +30,11 @@ export function PendingButton({
   title?: string;
   /** Optik des Spinners – `SubmitButton` nutzt einen etwas größeren. */
   spinnerClassName?: string;
+  /**
+   * Andere Server-Action als die des umgebenden Formulars — für Formulare mit
+   * mehreren Ausgängen aus denselben Feldern (wie bei `ConfirmActionButton`).
+   */
+  formAction?: (formData: FormData) => void | Promise<void>;
 }) {
   const { pending } = useFormStatus();
   return (
@@ -39,6 +45,7 @@ export function PendingButton({
       name={name}
       value={value}
       title={title}
+      formAction={formAction}
     >
       {pending ? (
         <span className="inline-flex items-center gap-1.5">

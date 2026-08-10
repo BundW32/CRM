@@ -5,27 +5,31 @@ import { Alert, buttonClass, buttonSecondaryClass, inputClass, Field } from "@/c
 import { PublicBrand } from "@/components/public-brand";
 import { productName } from "@/lib/app-mode";
 import { decryptSecret } from "@/lib/crypto";
-import { istMfaPflicht } from "@/lib/mfa";
+import { hatMfa } from "@/lib/mfa";
 import { liesRecoveryCodes } from "@/lib/mfa-anzeige";
 import { requireUser } from "@/lib/session";
 import { otpauthUrl } from "@/lib/totp";
-import { logout } from "../login/actions";
-import { bestaetigeMfa, starteMfaEinrichtung } from "./actions";
+import {
+  bestaetigeEmailMfa,
+  bestaetigeMfa,
+  starteEmailMfa,
+  starteMfaEinrichtung,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
-// Einrichtung der Zwei-Faktor-Anmeldung (P1-10). Liegt wie /passwort-festlegen
-// AUSSERHALB der Portal-Shell: Für Betreiber und SuperAdmins ist MFA Pflicht,
-// das Portal-Layout leitet sie hierher, bis die Einrichtung steht — die Seite
-// selbst muss dabei erreichbar bleiben.
+// Einrichtung der Zwei-Faktor-Anmeldung (P1-10, optional). Liegt wie
+// /passwort-festlegen außerhalb der Portal-Shell — die Seite gehört zum
+// Konto, nicht zu einem Arbeitsbereich. Zwei Verfahren zur Wahl:
+// Authenticator-App (QR-Code + Bestätigung) oder Code per E-Mail
+// (Bestätigungscode ins Postfach).
 export default async function MfaEinrichtenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; fertig?: string }>;
+  searchParams: Promise<{ fehler?: string; fertig?: string; methode?: string }>;
 }) {
   const user = await requireUser();
-  const { fehler, fertig } = await searchParams;
-  const pflicht = istMfaPflicht(user);
+  const { fehler, fertig, methode } = await searchParams;
 
   // Frisch erzeugte Wiederherstellungscodes (einmalige Anzeige über das
   // kurzlebige Cookie) — hat Vorrang vor allen anderen Zuständen.
@@ -45,9 +49,9 @@ export default async function MfaEinrichtenPage({
               <p className="mb-4 text-sm text-gray-600">
                 Geschafft — die Zwei-Faktor-Anmeldung ist aktiv. Bewahren Sie diese
                 Wiederherstellungscodes sicher auf (ausdrucken oder in den
-                Passwort-Manager): Jeder Code ersetzt <strong>einmal</strong> die
-                App, falls das Handy verloren geht. <strong>Sie werden nur jetzt
-                angezeigt.</strong>
+                Passwort-Manager): Jeder Code ersetzt <strong>einmal</strong> den
+                zweiten Faktor, falls er nicht verfügbar ist. <strong>Sie werden nur
+                jetzt angezeigt.</strong>
               </p>
               <ul className="mb-5 grid grid-cols-2 gap-x-6 gap-y-1 rounded-lg border border-gray-200 bg-gray-50 p-4 font-mono text-sm text-gray-800">
                 {codes.map((code) => (
@@ -58,51 +62,59 @@ export default async function MfaEinrichtenPage({
                 Weiter zum Portal
               </Link>
             </>
-          ) : user.totpEnabledAt ? (
+          ) : hatMfa(user) ? (
             <>
               <p className="mb-5 text-sm text-gray-600">
                 Die Zwei-Faktor-Anmeldung ist für Ihr Konto aktiv. Verwalten können Sie
                 sie unter „Konto“ — dort lassen sich auch neue Wiederherstellungscodes
-                erzeugen.
+                erzeugen oder der Schutz abschalten.
               </p>
               <Link href="/dashboard" className={`${buttonClass} block w-full text-center`}>
                 Zum Portal
               </Link>
             </>
+          ) : methode === "email" ? (
+            <EmailBestaetigen fehler={fehler} email={user.email} />
           ) : user.totpSecret ? (
             <SchrittZwei fehler={fehler} user={user} />
           ) : (
             <>
               <p className="mb-3 text-sm text-gray-600">
-                {pflicht
-                  ? "Ihr Konto kann besonders viel: Es verwaltet die Daten Ihrer " +
-                    "Gemeinschaften. Deshalb ist hier ein zweiter Faktor Pflicht — " +
-                    "neben dem Passwort ein 6-stelliger Code aus einer App auf Ihrem Handy."
-                  : "Schützen Sie Ihr Konto zusätzlich zum Passwort mit einem " +
-                    "6-stelligen Code aus einer App auf Ihrem Handy."}
+                Optional: Schützen Sie Ihr Konto zusätzlich zum Passwort mit einem
+                6-stelligen Code. Sie haben die Wahl zwischen einer Authenticator-App
+                auf Ihrem Handy (z. B. Google Authenticator, Aegis oder Ihr
+                Passwort-Manager) und einem Code, der Ihnen bei jeder Anmeldung per
+                E-Mail zugeschickt wird.
               </p>
-              <p className="mb-5 text-sm text-gray-600">
-                Sie brauchen eine Authenticator-App (z. B. Google Authenticator, Aegis
-                oder den Passwort-Manager Ihrer Wahl). Die Einrichtung dauert etwa zwei
-                Minuten.
-              </p>
-              <form action={starteMfaEinrichtung}>
+              <form action={starteMfaEinrichtung} className="mb-3">
                 <PendingButton className={`${buttonClass} w-full`} pendingLabel="Einen Moment…">
-                  Einrichtung starten
+                  Mit Authenticator-App einrichten
                 </PendingButton>
               </form>
+              {user.email ? (
+                <form action={starteEmailMfa}>
+                  <PendingButton
+                    className={`${buttonSecondaryClass} w-full`}
+                    pendingLabel="Code wird gesendet…"
+                  >
+                    Code per E-Mail erhalten
+                  </PendingButton>
+                </form>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  Das E-Mail-Verfahren steht nur Konten mit hinterlegter
+                  E-Mail-Adresse offen.
+                </p>
+              )}
             </>
           )}
 
-          {!user.totpEnabledAt && codes.length === 0 ? (
-            <form action={logout} className="mt-4 text-center">
-              <PendingButton
-                className="text-xs text-gray-500 hover:underline"
-                pendingLabel="Wird abgemeldet…"
-              >
-                Abmelden
-              </PendingButton>
-            </form>
+          {!hatMfa(user) && codes.length === 0 ? (
+            <p className="mt-4 text-center text-xs text-gray-500">
+              <Link href="/dashboard" className="hover:underline">
+                Später — zurück zum Portal
+              </Link>
+            </p>
           ) : null}
         </div>
       </div>
@@ -110,9 +122,62 @@ export default async function MfaEinrichtenPage({
   );
 }
 
-// Schritt 2: QR-Code scannen und mit dem ersten Code bestätigen. Eigene
-// Komponente nur der Lesbarkeit halber — sie rendert serverseitig den QR als
-// Daten-URL, das Secret verlässt den Server nie im Klartext Richtung Datenbank.
+// E-Mail-Verfahren, Schritt 2: den zugesandten Code bestätigen. Erst die
+// richtige Eingabe schaltet das Verfahren scharf — sie beweist, dass das
+// Postfach wirklich erreichbar ist.
+function EmailBestaetigen({ fehler, email }: { fehler?: string; email: string | null }) {
+  return (
+    <>
+      <p className="mb-4 text-sm text-gray-600">
+        Wir haben einen 6-stelligen Code an <strong>{email}</strong> geschickt.
+        Geben Sie ihn hier ein, um das E-Mail-Verfahren zu aktivieren.
+      </p>
+
+      {fehler === "limit" ? (
+        <Alert variant="error" className="mb-4">
+          Zu viele Versuche. Bitte warten Sie 15 Minuten und versuchen Sie es erneut.
+        </Alert>
+      ) : fehler ? (
+        <Alert variant="error" className="mb-4">
+          Der Code hat nicht gepasst oder ist abgelaufen. Fordern Sie bei Bedarf
+          einen neuen an.
+        </Alert>
+      ) : null}
+
+      <form action={bestaetigeEmailMfa} className="space-y-4">
+        <Field label="Code aus der E-Mail">
+          <input
+            type="text"
+            name="code"
+            required
+            autoFocus
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="123456"
+            className={inputClass}
+          />
+        </Field>
+        <PendingButton className={`${buttonClass} w-full`} pendingLabel="Wird geprüft…">
+          Aktivieren
+        </PendingButton>
+      </form>
+
+      <form action={starteEmailMfa} className="mt-3 text-center">
+        <PendingButton
+          className="text-xs text-gray-500 hover:underline"
+          pendingLabel="Wird gesendet…"
+        >
+          Code erneut senden
+        </PendingButton>
+      </form>
+    </>
+  );
+}
+
+// App-Verfahren, Schritt 2: QR-Code scannen und mit dem ersten Code bestätigen.
+// Eigene Komponente nur der Lesbarkeit halber — sie rendert serverseitig den QR
+// als Daten-URL, das Secret verlässt den Server nie im Klartext Richtung
+// Datenbank.
 async function SchrittZwei({
   fehler,
   user,

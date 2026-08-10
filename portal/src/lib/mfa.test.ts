@@ -1,30 +1,49 @@
 import { describe, expect, it } from "vitest";
 import {
+  hashEmailMfaCode,
   hashRecoveryCode,
-  istMfaPflicht,
   loeseRecoveryCodeEin,
   neueRecoveryCodes,
+  neuerEmailMfaCode,
   neuerRecoveryCode,
   normalisiereRecoveryCode,
+  pruefeEmailMfaCode,
 } from "./mfa";
 
-describe("istMfaPflicht", () => {
-  const basis = { email: "x@example.de", isPlatformAdmin: false };
+describe("E-Mail-Codes", () => {
+  const jetzt = new Date("2026-08-10T12:00:00Z");
 
-  it("gilt für Verwalter-SuperAdmins", () => {
-    expect(istMfaPflicht({ ...basis, role: "VERWALTER", isSuperAdmin: true })).toBe(true);
+  it("sind 6 Ziffern, auch mit führenden Nullen", () => {
+    for (let i = 0; i < 50; i++) {
+      expect(neuerEmailMfaCode()).toMatch(/^\d{6}$/);
+    }
   });
 
-  it("gilt nicht für gewöhnliche Verwalter, Eigentümer, Mieter", () => {
-    expect(istMfaPflicht({ ...basis, role: "VERWALTER", isSuperAdmin: false })).toBe(false);
-    expect(istMfaPflicht({ ...basis, role: "EIGENTUEMER", isSuperAdmin: false })).toBe(false);
-    expect(istMfaPflicht({ ...basis, role: "MIETER", isSuperAdmin: false })).toBe(false);
+  it("passen gegen ihren Hash, solange der Ablauf nicht erreicht ist", () => {
+    const code = "042137";
+    const user = {
+      mfaEmailCodeHash: hashEmailMfaCode(code),
+      mfaEmailCodeExpiresAt: new Date(jetzt.getTime() + 60_000),
+    };
+    expect(pruefeEmailMfaCode(user, code, jetzt)).toBe(true);
+    // Leerzeichen aus der Mail kopiert: „042 137".
+    expect(pruefeEmailMfaCode(user, "042 137", jetzt)).toBe(true);
+    expect(pruefeEmailMfaCode(user, "042138", jetzt)).toBe(false);
   });
 
-  it("gilt nicht für einen SuperAdmin-MIETER (den es nicht geben sollte)", () => {
-    // Die Pflicht hängt an Rolle UND Flag — ein fehlerhaft gesetztes Flag auf
-    // einer Nicht-Verwalter-Rolle erzwingt keine MFA-Sackgasse für Laien.
-    expect(istMfaPflicht({ ...basis, role: "EIGENTUEMER", isSuperAdmin: true })).toBe(false);
+  it("lehnen abgelaufene Codes ab", () => {
+    const code = "042137";
+    const user = {
+      mfaEmailCodeHash: hashEmailMfaCode(code),
+      mfaEmailCodeExpiresAt: new Date(jetzt.getTime() - 1_000),
+    };
+    expect(pruefeEmailMfaCode(user, code, jetzt)).toBe(false);
+  });
+
+  it("lehnen ab, wenn kein Code gespeichert ist", () => {
+    expect(
+      pruefeEmailMfaCode({ mfaEmailCodeHash: null, mfaEmailCodeExpiresAt: null }, "042137", jetzt),
+    ).toBe(false);
   });
 });
 

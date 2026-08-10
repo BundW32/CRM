@@ -16,10 +16,6 @@
     {
       "path": "/api/cron/billing-abgleich",
       "schedule": "0 5 * * *"
-    },
-    {
-      "path": "/api/cron/ingest/business",
-      "schedule": "0 * * * *"
     }
   ]
 }

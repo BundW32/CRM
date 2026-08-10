@@ -65,7 +65,10 @@ export const ingestQuellen: readonly IngestQuelleInfo[] = [
   {
     key: "stripe",
     label: "Geschäftszahlen (DB + Stripe)",
-    zeitplan: "stündlich",
+    // Läuft huckepack im täglichen Billing-Abgleich (05:00) — der
+    // Vercel-Hobby-Plan kann keinen Stundentakt. Nach dem Plan-Upgrade:
+    // eigenen Cron-Eintrag in vercel.json aufnehmen, dann hier "stündlich".
+    zeitplan: "täglich 05:00 (stündlich nach Vercel-Upgrade)",
     // Dynamischer Import: Der Runner zieht Stripe-SDK und Mengenzählung mit —
     // das soll nicht jede Seite laden, die nur die Registry-Liste anzeigt.
     runner: () => import("./business-ingest").then((m) => m.businessIngestRunner()),

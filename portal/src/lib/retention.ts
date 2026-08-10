@@ -12,6 +12,10 @@ export const AUDIT_IP_RETENTION_DAYS = 90;
 // dient die Zeile keinem Duplikatschutz mehr und wächst nur die Tabelle.
 export const STRIPE_EVENT_RETENTION_DAYS = 30;
 
+// First-Party-Tracking: Roh-Ereignisse nach 90 Tagen löschen (Zusage der
+// Datenschutzerklärung; Tagesaggregate in den Fact-Tabellen bleiben).
+export const TRACK_EVENT_RETENTION_DAYS = 90;
+
 export async function runRetentionCleanup(now: Date = new Date()) {
   const ipCutoff = new Date(now.getTime() - AUDIT_IP_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
@@ -32,9 +36,28 @@ export async function runRetentionCleanup(now: Date = new Date()) {
     where: { createdAt: { lt: stripeCutoff } },
   });
 
+  // 4) First-Party-Tracking: Roh-Ereignisse nach 90 Tagen entfernen.
+  const trackCutoff = new Date(
+    now.getTime() - TRACK_EVENT_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+  );
+  const trackEvents = await db.trackEvent.deleteMany({
+    where: { ts: { lt: trackCutoff } },
+  });
+
+  // 5) Tracking-Salts vergangener Tage löschen. Das ist KEIN bloßes
+  // Aufräumen, sondern die technische Zusage des cookiefreien Trackings:
+  // Erst mit dem gelöschten Salt ist der gestrige visitorHash aus IP und
+  // User-Agent nicht mehr nachrechenbar (lib/analytics/tracking-server.ts).
+  const heute = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const trackingSalts = await db.trackingSalt.deleteMany({
+    where: { day: { lt: heute } },
+  });
+
   return {
     auditIpCleared: auditIp.count,
     rateLimitDeleted: rateLimit.count,
     stripeEventsDeleted: stripeEvents.count,
+    trackEventsDeleted: trackEvents.count,
+    trackingSaltsDeleted: trackingSalts.count,
   };
 }

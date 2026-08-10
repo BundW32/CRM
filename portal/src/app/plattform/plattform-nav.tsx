@@ -9,6 +9,7 @@ const nav = [
   { href: "/plattform/anfragen", label: "Anfragen" },
   { href: "/plattform/rechnungen", label: "Rechnungen" },
   { href: "/plattform/statistik", label: "Auswertungen" },
+  { href: "/plattform/analytics", label: "Analytics" },
   { href: "/plattform/audit", label: "Audit-Log" },
 ];
 

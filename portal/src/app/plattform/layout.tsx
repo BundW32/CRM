@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { ToastHost } from "@/components/toast-host";
 import { BackLink } from "@/components/ui";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { requirePlatformAdmin } from "@/lib/platform";
@@ -20,6 +22,13 @@ export default async function PlattformLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
+      {/* Kurzmeldungen nach Server-Actions (`?flash=…`) — wie in der Portal-
+          Shell. Liest die URL-Parameter und braucht deshalb eine Suspense-
+          Grenze. Ohne den Host verpuffte jede Flash-Rückmeldung im
+          Betreiber-Bereich stumm. */}
+      <Suspense fallback={null}>
+        <ToastHost />
+      </Suspense>
       <header className="sticky top-0 z-30 px-3 pt-3 sm:px-4 sm:pt-4">
         <div className="mx-auto max-w-6xl">
           <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/95 px-3 py-2 shadow-xl shadow-black/20 backdrop-blur sm:px-4">

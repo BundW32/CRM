@@ -2190,3 +2190,179 @@ model VerwalterAnfrageNachricht {
 
   @@index([anfrageId, createdAt])
 }
+
+// ── Analytics-Dashboard (Betreiber-Ebene, /plattform/analytics) ──────────────
+//
+// Fact-Tabellen für das Analytics-Dashboard von wegportal24. Grundprinzip:
+// Die Oberfläche fragt NIE live bei Google/Stripe an — nächtliche Cron-Jobs
+// (api/cron/ingest/*) holen die Daten und schreiben sie tagesgenau aggregiert
+// hierher. Alle Fact-Tabellen tragen ein @@unique auf ihrer natürlichen
+// Schlüsselkombination, damit ein erneuter Lauf für denselben Tag per upsert
+// idempotent bleibt und keine Duplikate erzeugt.
+//
+// Beträge nie als Float: Ads-Kosten in Micros (BigInt, wie die Google Ads API
+// sie liefert), MRR in Cent. Die Tabellen sind bewusst OHNE organizationId —
+// sie beschreiben das Produkt (die Website/das Deployment), nicht einen
+// Mandanten, und liegen damit auf derselben Ebene wie PlatformInvoice.
+
+// GA4-Tagesaggregat je Quelle/Medium/Kampagne (Analytics Data API, runReport).
+model AnalyticsDaily {
+  id           String   @id @default(cuid())
+  date         DateTime @db.Date
+  source       String // "google", "(direct)", …
+  medium       String // "organic", "cpc", "referral", …
+  // Schlüsselspalten des @@unique sind non-null mit "" statt optional:
+  // Postgres wertet NULL in Unique-Indizes als je verschieden, und Prisma-
+  // upsert kann einen zusammengesetzten Schlüssel mit null nicht ansprechen —
+  // der Re-Ingest wäre nicht idempotent. "" heißt: ohne Kampagne.
+  campaign     String   @default("")
+  sessions     Int
+  users        Int
+  newUsers     Int
+  pageviews    Int
+  engagedSess  Int
+  avgDurationS Float // Ø Sitzungsdauer in Sekunden (Messwert, kein Geld)
+  bounceRate   Float
+
+  @@unique([date, source, medium, campaign])
+  @@index([date])
+}
+
+// GA4-Tagesaggregat je Seite (Pfad).
+model PageDaily {
+  id           String   @id @default(cuid())
+  date         DateTime @db.Date
+  path         String
+  pageviews    Int
+  users        Int
+  avgDurationS Float
+  entrances    Int // Einstiege über diese Seite
+  exits        Int // Ausstiege von dieser Seite
+
+  @@unique([date, path])
+  @@index([date])
+}
+
+// Search-Console-Tagesdaten je Suchanfrage (searchanalytics.query).
+// Achtung beim Ingest: Die API liefert 2–3 Tage verzögert — der Job holt
+// deshalb immer die letzten Tage erneut und aktualisiert per upsert.
+model SearchQueryDaily {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  query       String
+  // "" statt null — Schlüsselspalten des @@unique, siehe AnalyticsDaily.
+  page        String   @default("")
+  country     String   @default("")
+  device      String   @default("")
+  clicks      Int
+  impressions Int
+  ctr         Float
+  position    Float // Ø-Position (gebrochen, weil über Impressionen gemittelt)
+
+  @@unique([date, query, page, country, device])
+  @@index([date])
+  @@index([query])
+}
+
+// Google-Ads-Tagesdaten je Kampagne/Anzeigengruppe/Keyword (GAQL).
+model AdsDaily {
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date
+  campaignId      String
+  campaignName    String
+  // adGroupId/keyword/matchType: "" statt null — Schlüsselspalten des
+  // @@unique, siehe AnalyticsDaily. adGroupName ist reine Anzeige und darf leer sein.
+  adGroupId       String   @default("")
+  adGroupName     String?
+  keyword         String   @default("")
+  matchType       String   @default("")
+  impressions     Int
+  clicks          Int
+  costMicros      BigInt // Geld nie als Float; Micros wie von der API geliefert
+  conversions     Float // Google modelliert Conversions gebrochen
+  convValueMicros BigInt?
+
+  @@unique([date, campaignId, adGroupId, keyword, matchType])
+  @@index([date])
+}
+
+// First-Party-Tracking, Roh-Ereignisse (POST /api/t). Cookiefrei:
+// visitorHash = SHA-256(IP + User-Agent + täglich rotierender Server-Salt);
+// der Salt des Vortags wird gelöscht, Wiedererkennung über den Tag hinaus ist
+// damit technisch unmöglich. IP wird NIE gespeichert. Rohdaten löscht der
+// Cleanup-Cron nach 90 Tagen — die Tagesaggregate bleiben.
+model TrackEvent {
+  id          String   @id @default(cuid())
+  ts          DateTime @default(now())
+  visitorHash String
+  sessionHash String
+  type        String // "pageview" | "signup_start" | "signup_done" | "checkout_start" | "subscribed" | …
+  path        String
+  referrer    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  country     String?
+  device      String?
+  meta        Json?
+
+  @@index([ts])
+  @@index([type, ts])
+}
+
+// Geschäftszahlen je Tag, aus der eigenen DB befüllt und stündlich gegen
+// Stripe abgeglichen (Stripe ist die Wahrheit für Geld). MRR in Cent, brutto
+// inkl. 19 % USt — die Preisseite nennt Bruttopreise, das Dashboard
+// beschriftet sie entsprechend.
+model BusinessDaily {
+  id                 String   @id @default(cuid())
+  date               DateTime @unique @db.Date
+  signups            Int // neue Organisationen an diesem Tag
+  activeTrials       Int // Bestand laufender Testphasen (Stichtag Tagesende)
+  activeSubs         Int // Bestand aktiver Bezahl-Abos
+  newSubs            Int // an diesem Tag neu aktiv gewordene Abos
+  canceledSubs       Int // an diesem Tag gekündigte Abos
+  billedUnits        Int // abgerechnete Wohn-/Gewerbeeinheiten
+  billedStellplaetze Int // abgerechnete Stellplätze (eigene Position, 1 €)
+  mrrCents           Int // brutto inkl. 19 % USt
+
+  @@index([date])
+}
+
+// Newsletter-Bestand je Tag. Bleibt leer, bis ein Provider feststeht
+// (offener Punkt) — dann befüllt ihn der Ingest-Job aus dessen API oder
+// aus einer eigenen Abonnenten-Tabelle.
+model NewsletterDaily {
+  id           String   @id @default(cuid())
+  date         DateTime @unique @db.Date
+  subscribers  Int
+  newSubs      Int
+  unsubscribes Int
+}
+
+// Betriebs-Transparenz: ein Eintrag je Ingest-Lauf. Ohne diese Tabelle fällt
+// erst nach Wochen auf, dass ein Job seit einem Token-Ablauf leer läuft — und
+// die Nullen sähen aus wie ein Marketingproblem. Sichtbar unter
+// /plattform/analytics/system, samt manuellem Re-Sync.
+model IngestRun {
+  id          String    @id @default(cuid())
+  source      String // "ga4" | "gsc" | "ads" | "stripe" | "newsletter"
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+  status      String // "laeuft" | "ok" | "partial" | "error"
+  rowsWritten Int       @default(0)
+  message     String?
+
+  @@index([source, startedAt])
+}
+
+// Tages-Salt des First-Party-Trackings. Genau eine Zeile je Kalendertag
+// (UTC), erzeugt beim ersten Ereignis des Tages. Der Cleanup-Cron löscht
+// alle Zeilen vor dem heutigen Tag — danach lässt sich aus IP + User-Agent
+// kein gestriger visitorHash mehr nachrechnen: Wiedererkennung über den Tag
+// hinaus ist technisch unmöglich, nicht nur unterlassen.
+model TrackingSalt {
+  id   String   @id @default(cuid())
+  day  DateTime @unique @db.Date
+  salt String
+}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { runIngest } from "@/lib/analytics/ingest";
 import { isWegSaas } from "@/lib/app-mode";
 import { isBillingEnabled } from "@/lib/billing";
 import { alertBetreiber, mailOrgSuperAdmins } from "@/lib/billing-notify";
@@ -30,7 +31,15 @@ export async function GET(request: Request) {
 
   const stripe = stripeOrNull();
   if (!isBillingEnabled() || !stripe) {
-    return NextResponse.json({ ok: true, skipped: "Billing nicht konfiguriert" });
+    // Der Geschäftszahlen-Ingest läuft auch ohne Stripe (dann nur aus der
+    // eigenen DB, mit Vermerk im Protokoll) — er darf am fehlenden Key
+    // nicht mit scheitern.
+    const ingest = await runIngest("stripe");
+    return NextResponse.json({
+      ok: true,
+      skipped: "Billing nicht konfiguriert",
+      businessIngest: ingest?.status ?? "kein Runner",
+    });
   }
 
   const orgs = await db.organization.findMany({
@@ -126,11 +135,22 @@ export async function GET(request: Request) {
     }
   }
 
+  // Geschäftszahlen-Ingest (BusinessDaily) im Anschluss — bewusst NACH dem
+  // Abgleich, damit der Tagesschnappschuss die eben korrigierten Abo-Status
+  // sieht. Huckepack statt eigenem Cron-Eintrag: Der Vercel-Hobby-Plan
+  // erlaubt weder Stundentakt noch weitere Crons. Nach dem Plan-Upgrade den
+  // Eintrag {"path": "/api/cron/ingest/business", "schedule": "0 * * * *"}
+  // in vercel.json aufnehmen (der Endpoint existiert schon) — dieser Aufruf
+  // hier darf dann trotzdem bleiben. Fehler fängt runIngest selbst und
+  // protokolliert sie als IngestRun (/plattform/analytics/system).
+  const ingest = await runIngest("stripe");
+
   return NextResponse.json({
     ok: true,
     geprueft: orgs.length,
     korrigiert: korrigiert.length,
     fehler: fehler.length,
     trialErinnerungen: erinnert,
+    businessIngest: ingest?.status ?? "kein Runner",
   });
 }

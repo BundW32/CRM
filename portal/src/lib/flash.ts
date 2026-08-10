@@ -129,6 +129,24 @@ export const flashMessages = {
     text: "Tarif gewechselt. Die Differenz wird anteilig mit der nächsten Rechnung verrechnet.",
     tone: "success",
   },
+  // Analytics (/plattform/analytics/system): Der manuelle Re-Sync endet auf
+  // derselben Seite, und das Ergebnis steht im Protokoll darunter — die
+  // Meldung sagt deshalb, WO man nachsieht, nicht nur „hat geklappt".
+  "sync-fertig": {
+    text: "Abgleich ausgeführt. Das Ergebnis steht im Protokoll.",
+    tone: "success",
+  },
+  "sync-fehlgeschlagen": {
+    text: "Abgleich fehlgeschlagen. Die Fehlermeldung steht im Protokoll.",
+    tone: "error",
+  },
+  // Wächter-Code wie „keine-berechtigung": Die Quelle hat noch keinen
+  // Ingest-Runner — der Knopf ist zwar ausgeblendet, aber die Action prüft
+  // serverseitig nach und darf nicht stumm zurückleiten.
+  "quelle-nicht-angebunden": {
+    text: "Diese Datenquelle ist noch nicht angebunden.",
+    tone: "error",
+  },
 } as const satisfies Record<string, FlashMessage>;
 
 export type FlashCode = keyof typeof flashMessages;

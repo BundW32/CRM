@@ -1,6 +1,7 @@
 import { PublicBrand } from "@/components/public-brand";
 import { FileInput } from "@/components/file-input";
 import { Alert } from "@/components/ui";
+import { istCraftsmanTokenGueltig } from "@/lib/craftsman-token";
 import { db } from "@/lib/db";
 import { formatDate, ticketStatusLabels, tradeLabels } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -34,14 +35,19 @@ export default async function AuftraegePage({
 
   const craftsman = await db.craftsman.findUnique({ where: { accessToken: token } });
 
-  if (!craftsman || !craftsman.active) {
+  // Abgelaufene Links (P1-13) landen in derselben Sackgasse wie ungültige —
+  // ein abgelaufenes Token ist kein Zugang mehr, auch nicht „nur zum Lesen".
+  // Die Marke bleibt neutral: Der Absender ist die jeweilige Verwaltung, nicht
+  // der Betreiber (Zwei-Türen-Regel, AGENTS.md).
+  if (!craftsman || !craftsman.active || !istCraftsmanTokenGueltig(craftsman)) {
     return (
       <main className="flex flex-1 items-center justify-center p-4">
         <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white p-8 text-center shadow-2xl shadow-black/30">
           <PublicBrand />
           <p className="text-sm text-gray-600">
-            Dieser Auftrags-Link ist ungültig oder nicht mehr aktiv. Bitte wenden Sie sich
-            an die B&amp;W Immobilien Management UG.
+            Dieser Auftrags-Link ist ungültig oder abgelaufen. Bitte wenden Sie sich an
+            die Verwaltung, die Sie beauftragt hat — mit der nächsten Beauftragung
+            erhalten Sie automatisch einen neuen Link.
           </p>
         </div>
       </main>

@@ -8,6 +8,7 @@ import {
   ownsProperty,
 } from "@/lib/access";
 import { get } from "@vercel/blob";
+import { istCraftsmanTokenGueltig } from "@/lib/craftsman-token";
 import { db } from "@/lib/db";
 import { contentDisposition, wantsDownload } from "@/lib/documents/pdf-response";
 import { isBlobUrl, readUpload } from "@/lib/storage";
@@ -26,7 +27,9 @@ export async function GET(
   let craftsman = null;
   if (!user && token) {
     const found = await db.craftsman.findUnique({ where: { accessToken: token } });
-    if (found && found.active) craftsman = found;
+    // Gültigkeit wie in /auftraege (P1-13): Ein abgelaufener Link öffnet auch
+    // keine Anhänge mehr.
+    if (found && found.active && istCraftsmanTokenGueltig(found)) craftsman = found;
   }
 
   if (!user && !craftsman) {

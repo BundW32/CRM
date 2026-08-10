@@ -52,6 +52,14 @@ export const flashMessages = {
   },
   "kontakt-angelegt": { text: "Kontakt angelegt.", tone: "success" },
   "kontakt-gespeichert": { text: "Kontakt gespeichert.", tone: "success" },
+  "link-erneuert": {
+    text: "Neuer Auftragsportal-Link erzeugt. Der bisherige Link ist ungültig.",
+    tone: "success",
+  },
+  "link-widerrufen": {
+    text: "Auftragsportal-Link widerrufen. Die nächste Beauftragung erzeugt einen neuen.",
+    tone: "info",
+  },
   "stammdaten-gespeichert": { text: "Stammdaten gespeichert.", tone: "success" },
   "passwort-geaendert": { text: "Passwort geändert.", tone: "success" },
   "unterschrift-gespeichert": { text: "Unterschrift gespeichert.", tone: "success" },

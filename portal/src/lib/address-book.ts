@@ -12,6 +12,7 @@
 
 import type { ContactKind, ContactMethod, Role, Trade, User } from "@/generated/prisma/client";
 import { craftsmanWhereForVerwalter, userWhereForVerwalter } from "@/lib/access";
+import { istCraftsmanTokenGueltig } from "@/lib/craftsman-token";
 import { db } from "@/lib/db";
 import { hasCertMandate } from "@/lib/cert-mandate";
 
@@ -282,7 +283,10 @@ export async function loadAddressBook(
       notes: c.notes,
       active: c.active,
       isInternal: c.isInternal,
-      accessToken: c.accessToken,
+      // Nur gültige Links wandern in die Oberfläche (P1-13): Ein abgelaufenes
+      // Token verlinkt sonst auf die „ungültig"-Sackgasse und sieht dabei aus
+      // wie ein Zugang.
+      accessToken: istCraftsmanTokenGueltig(c) ? c.accessToken : null,
       vollmacht: null,
       zuordnungen: [],
     })),

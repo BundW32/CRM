@@ -1,10 +1,11 @@
 "use server";
 
-import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { canVerwalterManageUser, canVerwalterUseCraftsman } from "@/lib/access";
+import { AUDIT, logAudit } from "@/lib/audit";
+import { neuesCraftsmanToken } from "@/lib/craftsman-token";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
@@ -96,8 +97,9 @@ export async function createCraftsman(formData: FormData) {
       notes: parsed.data.notes || null,
       // Interner Handwerker (Eigenleistung)
       isInternal: formData.get("isInternal") === "on",
-      // Magic-Link-Token für das Auftragsportal
-      accessToken: crypto.randomBytes(24).toString("hex"),
+      // Magic-Link-Token für das Auftragsportal (läuft ab, s. craftsman-token.ts)
+      accessToken: neuesCraftsmanToken(),
+      accessTokenIssuedAt: new Date(),
       organizationId: verwalter.organizationId,
     },
   });
@@ -144,6 +146,50 @@ export async function deleteCraftsman(formData: FormData) {
   }
   revalidatePath("/verwaltung/kontakte");
   redirect(zurueckZu(formData, "?flash=geloescht"));
+}
+
+// ── Magic-Link verwalten (P1-13) ─────────────────────────────────────────────
+// Der Link ist der einzige Zugang des Handwerkers — erneuern und widerrufen
+// gehören deshalb in die Hand des Verwalters und ins Audit-Log: Wenn ein Link
+// in falsche Hände gerät (weitergeleitete Mail genügt), muss er sich sofort
+// entwerten lassen, nicht erst nach Ablauf der Frist.
+
+export async function erneuereMagicLink(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const id = String(formData.get("id") ?? "");
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id)))
+    redirect(zurueckZu(formData, "?flash=keine-berechtigung"));
+  await db.craftsman.update({
+    where: { id },
+    data: { accessToken: neuesCraftsmanToken(), accessTokenIssuedAt: new Date() },
+  });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.CRAFTSMAN_LINK_ROTATED,
+    targetType: "Craftsman",
+    targetId: id,
+  });
+  revalidatePath("/verwaltung/kontakte");
+  redirect(zurueckZu(formData, "?flash=link-erneuert"));
+}
+
+export async function widerrufeMagicLink(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const id = String(formData.get("id") ?? "");
+  if (!id || !(await canVerwalterUseCraftsman(verwalter, id)))
+    redirect(zurueckZu(formData, "?flash=keine-berechtigung"));
+  await db.craftsman.update({
+    where: { id },
+    data: { accessToken: null, accessTokenIssuedAt: null },
+  });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.CRAFTSMAN_LINK_REVOKED,
+    targetType: "Craftsman",
+    targetId: id,
+  });
+  revalidatePath("/verwaltung/kontakte");
+  redirect(zurueckZu(formData, "?flash=link-widerrufen"));
 }
 
 const personSchema = z.object({

@@ -10,6 +10,10 @@ export const AUDIT = {
   TICKET_CLOSED: "TICKET_CLOSED",
   TICKET_REOPENED: "TICKET_REOPENED",
   TICKET_EXTERNAL_RELEASED: "TICKET_EXTERNAL_RELEASED",
+  // Handwerker-Magic-Link (P1-13): Der Link ist der einzige Zugang des
+  // Handwerkers — jede Erneuerung und jeder Widerruf ist nachweispflichtig.
+  CRAFTSMAN_LINK_ROTATED: "CRAFTSMAN_LINK_ROTATED",
+  CRAFTSMAN_LINK_REVOKED: "CRAFTSMAN_LINK_REVOKED",
   DSGVO_EXPORT: "DSGVO_EXPORT",
   // Bescheinigungen im Namen des Eigentümers (§ 19 Abs. 5 BMG): Erteilung,
   // Widerruf und jede erzeugte Bescheinigung sind nachweispflichtig.

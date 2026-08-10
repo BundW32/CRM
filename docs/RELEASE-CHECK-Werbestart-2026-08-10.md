@@ -12,6 +12,22 @@ meldet 0 Schwachstellen.
 
 ---
 
+## Nachtrag vom selben Tag — Umsetzungsstand
+
+Die code-behebbaren Teile des Plans aus Abschnitt 4 wurden am 10.08.2026
+umgesetzt (Branch `claude/wegportal24-release-scaling-i6195z`):
+
+| Punkt | Stand |
+|---|---|
+| B-4 (Code-Anteil) | ✅ `/api/health` (prüft DB, Ziel für den externen Uptime-Check) und Fehler-Alarmierung: `src/instrumentation.ts` meldet unbehandelte Serverfehler per Mail an die Betreiber-Alarmadresse (`lib/fehler-alarm.ts`, gedrosselt auf 1 Mail je Fehler und Stunde, max. 5/Stunde). |
+| B-4/B-5 (Betriebs-Anteil) | 📋 Als abarbeitbare Checklisten angelegt: `CHECKLISTE-Werbestart.md` (Alarm-Adresse, Uptime-Dienst, Sentry, Stripe-Livegang, Anzeigen-Start) und `RUNBOOK-Backup-Wiederherstellung.md` (PITR klären, Probe-Restore, Export außerhalb des Kontos). **Diese Häkchen kann nur der Betreiber setzen.** |
+| P1-9-Rest | ✅ IP-Quelle an die Plattform gebunden (`getClientIp`), drei Kopien der Header-Auswertung vereinheitlicht. |
+| P1-13 | ✅ Handwerker-Magic-Link läuft nach 90 Tagen ab (Migration mit Bestand-Backfill), jede Beauftragung erneuert/rotiert, Erneuern + Widerruf auf der Kontakt-Detailseite, alles im Audit-Log; Sperre in Seite, Actions und Datei-Endpunkt. |
+| P1-7 | ✅ war bereits am 04.08. behoben (Cookie statt `?pw=` in der URL) — Statusliste nachgezogen. |
+| P1-10 (MFA), P1-12 (CSP-Nonce), P0-5 (Kreuztests) | ⏳ offen — eigene Arbeitspakete (MFA 3–5 Tage), siehe „Bewusst offen" in der Werbestart-Checkliste. |
+
+---
+
 ## Antwort in einem Satz
 
 **Fachlich und technisch ist das Produkt releasefähig — die Billing-Kette steht

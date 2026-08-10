@@ -781,8 +781,11 @@ model Craftsman {
   // Interner Handwerker (Eigenleistung). Wird bei der Zuordnung zuerst angeboten;
   // externe Handwerker dürfen erst nach Verwalter-Freigabe beauftragt werden.
   isInternal           Boolean               @default(false)
-  // Magic-Link-Token für das schlanke Handwerker-Portal (ohne Passwort)
+  // Magic-Link-Token für das schlanke Handwerker-Portal (ohne Passwort).
+  // Läuft ab: Gültigkeit = accessTokenIssuedAt + MAGIC_LINK_GUELTIG_TAGE
+  // (lib/craftsman-token.ts); jede Beauftragung erneuert das Datum.
   accessToken          String?               @unique
+  accessTokenIssuedAt  DateTime?
   // ── Bauabzugsteuer (§ 48 EStG) ────────────────────────────────────────────
   // Wer eine Bauleistung bezieht, muss 15 % des Rechnungsbetrags einbehalten
   // und ans Finanzamt abführen — es sei denn, der Leistende legt eine gültige

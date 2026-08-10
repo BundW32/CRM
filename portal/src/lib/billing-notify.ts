@@ -5,14 +5,22 @@ import { db } from "@/lib/db";
 import { sendMail } from "@/lib/mailer";
 import { parseAdminAllowlist } from "@/lib/platform-admin";
 
+// DIE Alarm-Adresse des Betreibers — BILLING_ALERT_EMAIL, ersatzweise die
+// erste Betreiber-Adresse. Auch die Fehler-Alarmierung (lib/fehler-alarm.ts)
+// nutzt sie: Es gibt genau eine Adresse, auf der Alarme ankommen, nicht je
+// Alarmweg eine eigene Env-Variable, die dann halb gepflegt ist.
+export function betreiberAlarmAdresse(): string | undefined {
+  return (
+    process.env.BILLING_ALERT_EMAIL ||
+    parseAdminAllowlist(process.env.PLATFORM_ADMIN_EMAILS)[0]
+  );
+}
+
 // Alarm an den Betreiber. Billing-Fehler sind STILLE Umsatz-/Zugriffsfehler:
 // Kein Kunde meldet sie, sie fallen erst beim Zahlenabgleich auf. Deshalb geht
-// jeder Verarbeitungsfehler und jede Drift per Mail raus — an
-// BILLING_ALERT_EMAIL, ersatzweise an die erste Betreiber-Adresse.
+// jeder Verarbeitungsfehler und jede Drift per Mail raus.
 export async function alertBetreiber(subject: string, text: string): Promise<void> {
-  const to =
-    process.env.BILLING_ALERT_EMAIL ||
-    parseAdminAllowlist(process.env.PLATFORM_ADMIN_EMAILS)[0];
+  const to = betreiberAlarmAdresse();
   if (!to) return;
   try {
     await sendMail(to, `[Billing-Alarm] ${subject}`, text);

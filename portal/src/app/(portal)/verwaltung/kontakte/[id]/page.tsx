@@ -6,9 +6,15 @@ import {
   canVerwalterUseCraftsman,
   propertyWhereForVerwalter,
 } from "@/lib/access";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import {
+  MAGIC_LINK_GUELTIG_TAGE,
+  istCraftsmanTokenGueltig,
+} from "@/lib/craftsman-token";
 import { db } from "@/lib/db";
-import { contactKindLabels, roleLabels, tradeLabels } from "@/lib/labels";
+import { contactKindLabels, formatDate, roleLabels, tradeLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
+import { erneuereMagicLink, widerrufeMagicLink } from "../actions";
 import {
   PersonEinstellungen,
   loadPerson,
@@ -175,18 +181,63 @@ export default async function KontaktDetailPage({
               isInternal: kontakt.isInternal,
             }}
           />
-          {kontakt.accessToken ? (
-            <p className="mt-4 border-t border-gray-100 pt-3 text-xs">
-              <a
-                href={`/auftraege/${kontakt.accessToken}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-brand-green hover:underline"
+          {/* Magic-Link-Verwaltung (P1-13): Der Link ist der einzige Zugang des
+              Handwerkers. Er läuft ab und jede Beauftragung erneuert ihn; hier
+              stehen die beiden Handgriffe für den Ausnahmefall — Erneuern
+              (alter Link sofort ungültig) und Widerrufen (gar kein Zugang mehr,
+              etwa nach einer versehentlich weitergeleiteten Mail). */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gray-100 pt-3 text-xs">
+            {istCraftsmanTokenGueltig(kontakt) ? (
+              <>
+                <a
+                  href={`/auftraege/${kontakt.accessToken}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-brand-green hover:underline"
+                >
+                  Auftragsportal-Link öffnen ↗
+                </a>
+                <span className="text-gray-400">
+                  gültig bis{" "}
+                  {formatDate(
+                    new Date(
+                      kontakt.accessTokenIssuedAt!.getTime() +
+                        MAGIC_LINK_GUELTIG_TAGE * 86_400_000,
+                    ),
+                  )}
+                  {" — "}jede Beauftragung verlängert
+                </span>
+              </>
+            ) : (
+              <span className="text-gray-400">
+                {kontakt.accessToken
+                  ? "Auftragsportal-Link abgelaufen — die nächste Beauftragung erzeugt einen neuen."
+                  : "Kein Auftragsportal-Link — die nächste Beauftragung erzeugt einen."}
+              </span>
+            )}
+            <form action={erneuereMagicLink} className="inline">
+              <input type="hidden" name="id" value={kontakt.id} />
+              <input type="hidden" name="zurueck" value={`/verwaltung/kontakte/${kontakt.id}`} />
+              <ConfirmActionButton
+                className="text-gray-500 hover:underline"
+                confirmLabel="Alten Link entwerten?"
               >
-                Auftragsportal-Link öffnen ↗
-              </a>
-            </p>
-          ) : null}
+                Neuen Link erzeugen
+              </ConfirmActionButton>
+            </form>
+            {kontakt.accessToken ? (
+              <form action={widerrufeMagicLink} className="inline">
+                <input type="hidden" name="id" value={kontakt.id} />
+                <input type="hidden" name="zurueck" value={`/verwaltung/kontakte/${kontakt.id}`} />
+                <ConfirmActionButton
+                  className="text-red-600 hover:underline"
+                  confirmLabel="Zugang wirklich sperren?"
+                >
+                  Link widerrufen
+                </ConfirmActionButton>
+              </form>
+            ) : null}
+          </div>
         </Card>
       </>
     );

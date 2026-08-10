@@ -6,7 +6,7 @@ import { portalUrl, sendMail } from "@/lib/mailer";
 import { notifyVerwalterNewTicket } from "@/lib/notify";
 import { IMAGE_TYPES, saveBuffer } from "@/lib/storage";
 import { applyTriage } from "@/lib/triage";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -99,10 +99,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Inbound nicht konfiguriert" }, { status: 503 });
   }
 
-  const ip =
-    request.headers.get("x-real-ip") ??
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    "unknown";
+  // Eine IP-Quelle für alle: getClientIp bindet den Header an die Plattform
+  // (P1-9) — drei handgeschriebene Kopien davon liefen vorher auseinander.
+  const ip = await getClientIp();
 
   // Rate limit: 60 Webhook-Aufrufe pro IP pro Minute
   if (!(await checkRateLimit(`inbound:${ip}`, 60, 60))) {

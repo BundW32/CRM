@@ -4,9 +4,12 @@ import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { AUDIT, logAudit } from "@/lib/audit";
+import { decryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
-import { getClientIp } from "@/lib/rate-limit";
-import { createSession, requireUser, revokeSessions } from "@/lib/session";
+import { istMfaPflicht } from "@/lib/mfa";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { createSession, getSession, requireUser, revokeSessions } from "@/lib/session";
+import { verifyTotp } from "@/lib/totp";
 import { IMAGE_TYPES, deleteBlob, saveBuffer } from "@/lib/storage";
 
 export async function changePassword(formData: FormData) {
@@ -35,6 +38,41 @@ export async function changePassword(formData: FormData) {
   await createSession(user.id);
 
   redirect("/konto?flash=passwort-geaendert");
+}
+
+/**
+ * Zwei-Faktor-Anmeldung abschalten (P1-10). Verlangt einen frischen App-Code:
+ * Eine offene Sitzung allein darf den zweiten Faktor nicht entfernen können —
+ * sonst wäre er nur so stark wie ein unbeaufsichtigter Bildschirm. Für
+ * Pflicht-Konten (Betreiber, Verwalter-SuperAdmins) ist die Abschaltung
+ * gesperrt; das Portal-Layout erzwänge ohnehin sofort die Wiedereinrichtung.
+ */
+export async function deaktiviereMfa(formData: FormData) {
+  const session = await getSession();
+  if (!session.user) redirect("/login");
+  // Während einer Impersonation ist `user` der Kunde — dessen Schutz schaltet
+  // der Betreiber nicht ab.
+  if (session.impersonating) redirect("/konto?flash=keine-berechtigung");
+  const user = session.user;
+
+  if (!user.totpEnabledAt || !user.totpSecret) redirect("/konto");
+  if (istMfaPflicht(user)) redirect("/konto?flash=keine-berechtigung");
+
+  if (!(await checkRateLimit(`mfa-setup:${user.id}`, 5, 900, { failClosed: true }))) {
+    redirect("/konto?fehler=mfa-limit");
+  }
+  const eingabe = String(formData.get("code") ?? "");
+  if (!verifyTotp(decryptSecret(user.totpSecret), eingabe)) {
+    redirect("/konto?fehler=mfa-code");
+  }
+
+  await db.user.update({
+    where: { id: user.id },
+    data: { totpSecret: null, totpEnabledAt: null, mfaRecoveryCodes: [] },
+  });
+  await logAudit({ actorId: user.id, action: AUDIT.MFA_DISABLED, ip: await getClientIp() });
+  revalidatePath("/konto");
+  redirect("/konto?flash=mfa-deaktiviert");
 }
 
 // ── Unterschrift und Vollmacht des Eigentümers ──────────────────────────────

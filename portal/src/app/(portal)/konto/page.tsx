@@ -1,9 +1,13 @@
+import Link from "next/link";
 import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { PushToggle } from "@/components/push-toggle";
 import { formatDate, roleLabels } from "@/lib/labels";
+import { istMfaPflicht } from "@/lib/mfa";
 import { getOrganization, requireUser } from "@/lib/session";
-import { changePassword, saveShowHints } from "./actions";
+import { erneuereRecoveryCodes } from "../../mfa-einrichten/actions";
+import { changePassword, deaktiviereMfa, saveShowHints } from "./actions";
 import { tourNeuStarten } from "./tour-actions";
 import { VollmachtKarte } from "./vollmacht";
 
@@ -83,8 +87,9 @@ export default async function AccountPage({
 
         <Card title="Passwort ändern">
           {/* Erfolg meldet der ToastHost (`?flash=…`). Fehler bleiben hier als
-              Banner am Formular stehen, bis sie behoben sind. */}
-          {fehler && fehler !== "signatur" ? (
+              Banner am Formular stehen, bis sie behoben sind. `signatur` und
+              `mfa-…` gehören zu den anderen Karten. */}
+          {fehler && fehler !== "signatur" && !fehler.startsWith("mfa-") ? (
             <Alert variant="error" className="mb-3">
               {errorMessages[fehler] ?? "Passwortänderung fehlgeschlagen."}
             </Alert>
@@ -121,6 +126,83 @@ export default async function AccountPage({
             </Field>
             <PendingButton className={buttonClass}>Passwort ändern</PendingButton>
           </form>
+        </Card>
+
+        <Card title="Zwei-Faktor-Anmeldung">
+          {fehler === "mfa-limit" ? (
+            <Alert variant="error" className="mb-3">
+              Zu viele Versuche. Bitte warten Sie 15 Minuten.
+            </Alert>
+          ) : fehler === "mfa-code" ? (
+            <Alert variant="error" className="mb-3">
+              Der Code aus der App hat nicht gepasst — er wechselt alle 30 Sekunden.
+            </Alert>
+          ) : null}
+
+          {user.totpEnabledAt ? (
+            <>
+              <p className="text-sm text-gray-600">
+                Aktiv seit {formatDate(user.totpEnabledAt)}. Zusätzlich zum Passwort
+                schützt ein Code aus Ihrer Authenticator-App die Anmeldung.
+              </p>
+              <p className="mt-2 text-sm text-gray-600">
+                Verbleibende Wiederherstellungscodes:{" "}
+                <strong>{user.mfaRecoveryCodes.length}</strong>
+                {user.mfaRecoveryCodes.length <= 3
+                  ? " — bitte bald neue erzeugen."
+                  : null}
+              </p>
+              {/* Beide Handgriffe verlangen einen frischen App-Code: Eine offene
+                  Sitzung allein darf weder den Schutz abschalten noch sich einen
+                  Satz Ersatzcodes ausstellen. */}
+              <form action={erneuereRecoveryCodes} className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+                <Field label="Code aus der App">
+                  <input
+                    type="text"
+                    name="code"
+                    required
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="123456"
+                    className={inputClass}
+                  />
+                </Field>
+                <div className="flex flex-wrap items-center gap-4">
+                  <PendingButton className={buttonSecondaryClass}>
+                    Neue Wiederherstellungscodes
+                  </PendingButton>
+                  {istMfaPflicht(user) ? (
+                    <span className="text-xs text-gray-500">
+                      Für Ihr Konto ist die Zwei-Faktor-Anmeldung Pflicht und lässt
+                      sich nicht abschalten.
+                    </span>
+                  ) : (
+                    // Zielt per formAction auf die Abschalt-Action — derselbe
+                    // App-Code, ein Formular, zwei Ausgänge.
+                    <ConfirmActionButton
+                      className="text-xs text-red-600 hover:underline"
+                      confirmLabel="Schutz wirklich abschalten?"
+                      pendingLabel="Wird abgeschaltet…"
+                      formAction={deaktiviereMfa}
+                    >
+                      Abschalten
+                    </ConfirmActionButton>
+                  )}
+                </div>
+              </form>
+            </>
+          ) : (
+            <>
+              <p className="mb-4 text-sm text-gray-600">
+                Schützen Sie Ihre Anmeldung zusätzlich zum Passwort mit einem
+                6-stelligen Code aus einer Authenticator-App auf Ihrem Handy.
+                Eingerichtet in zwei Minuten.
+              </p>
+              <Link href="/mfa-einrichten" className={buttonClass}>
+                Jetzt einrichten
+              </Link>
+            </>
+          )}
         </Card>
 
         {/* Unterschrift und Vollmacht führt nur der Eigentümer selbst – er ist

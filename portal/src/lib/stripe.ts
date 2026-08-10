@@ -39,6 +39,14 @@ export function stripeOrNull(): Stripe | null {
 //   STRIPE_PRICE_STELLPLATZ – Preis-ID der Stellplatz-Position (1 €/Monat je
 //                            Stellplatz, flach); ohne sie wird der Preis wie
 //                            bei den Tarifen inline aus preise-daten erzeugt
+//
+// Der Checkout rechnet die MwSt automatisch (Stripe Tax) und nimmt
+// Gutscheincodes an — dieselben Schalter wie an den Zahlungslinks im
+// Dashboard, die das Portal selbst nicht nutzt. Zwei Folgen für die Pflege:
+// Stripe Tax muss im Konto eingerichtet sein (Ursprungsadresse und
+// Registrierung), und jede über STRIPE_PRICE_* gepflegte Preis-ID braucht im
+// Dashboard ein gesetztes Steuerverhalten („inklusive" — die Seiten nennen
+// Bruttopreise). Inline erzeugte Preise bringen ihr tax_behavior im Code mit.
 //   PORTAL_BASE_URL        – Basis-URL für Success/Cancel/Return
 //   BILLING_ALERT_EMAIL    – Empfänger der Billing-Alarme (Webhook-Fehler,
 //                            Drift im täglichen Abgleich); ersatzweise geht der

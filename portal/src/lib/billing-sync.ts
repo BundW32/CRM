@@ -130,6 +130,9 @@ function aboPosten(
       product,
       recurring: { interval: "month" },
       unit_amount: unitAmount,
+      // Bruttopreis wie beim Checkout — bei Abos mit automatischer
+      // Steuerberechnung lehnt Stripe Preise ohne tax_behavior ab.
+      tax_behavior: "inclusive",
     },
   };
 }
@@ -180,6 +183,7 @@ async function neuerStellplatzPosten(
       product: product.id,
       recurring: { interval: "month" },
       unit_amount: STELLPLATZ_CENTS,
+      tax_behavior: "inclusive",
     },
   };
 }

@@ -102,6 +102,9 @@ export async function wechsleTarif(formData: FormData) {
                   ).id,
                   recurring: { interval: "month" },
                   unit_amount: checkoutJeEinheitCents(ziel, quantity),
+                  // Bruttopreis wie beim Checkout — bei Abos mit automatischer
+                  // Steuerberechnung lehnt Stripe Preise ohne tax_behavior ab.
+                  tax_behavior: "inclusive",
                 },
               },
         ],

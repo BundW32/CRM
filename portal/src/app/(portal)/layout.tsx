@@ -26,6 +26,7 @@ import { canSeeSettings, navFor, settingsItems, usesCounts } from "@/lib/app-nav
 import { aboHinweis } from "@/lib/billing";
 import { canUseAssistant, isAssistantEnabled } from "@/lib/assistant";
 import { db } from "@/lib/db";
+import { hatMfa, istMfaPflicht } from "@/lib/mfa";
 import { loadNavCounts } from "@/lib/nav-counts";
 import { isPlatformAdminUser } from "@/lib/platform";
 import { orgLogoUrl } from "@/lib/branding";
@@ -48,6 +49,15 @@ export default async function PortalLayout({
   ]);
   const selfManaged = isSelfManaged(org);
   const isPlatformAdmin = isPlatformAdminUser(user);
+
+  // MFA-Pflicht (P1-10): Betreiber und Verwalter-SuperAdmins arbeiten erst
+  // weiter, wenn der zweite Faktor eingerichtet ist — dieselbe Stelle und
+  // Mechanik wie mustChangePassword oben. NICHT während einer Impersonation:
+  // Dort ist `user` der Kunde, und der Betreiber darf auf dessen Konto keine
+  // Einrichtung beginnen.
+  if (!session.impersonating && istMfaPflicht(user) && !hatMfa(user)) {
+    redirect("/mfa-einrichten");
+  }
 
   // Abo-Durchsetzung: bewusst KEINE Sperrseite (Festlegung 06.08.2026).
   // Nach abgelaufener Testphase oder Kündigung gilt der Start-Umfang der

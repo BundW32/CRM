@@ -6,10 +6,21 @@ export const AUDIT = {
   LOGIN_SUCCESS: "LOGIN_SUCCESS",
   LOGIN_FAILED: "LOGIN_FAILED",
   PASSWORD_RESET_REQUEST: "PASSWORD_RESET_REQUEST",
+  // Zwei-Faktor-Anmeldung (P1-10): Aktivierung, Abschaltung und jeder
+  // fehlgeschlagene zweite Faktor sind nachweispflichtig; eingelöste
+  // Wiederherstellungscodes erst recht — sie sind der Notfallweg.
+  MFA_ENABLED: "MFA_ENABLED",
+  MFA_DISABLED: "MFA_DISABLED",
+  MFA_FAILED: "MFA_FAILED",
+  MFA_RECOVERY_USED: "MFA_RECOVERY_USED",
   USER_ANONYMIZED: "USER_ANONYMIZED",
   TICKET_CLOSED: "TICKET_CLOSED",
   TICKET_REOPENED: "TICKET_REOPENED",
   TICKET_EXTERNAL_RELEASED: "TICKET_EXTERNAL_RELEASED",
+  // Handwerker-Magic-Link (P1-13): Der Link ist der einzige Zugang des
+  // Handwerkers — jede Erneuerung und jeder Widerruf ist nachweispflichtig.
+  CRAFTSMAN_LINK_ROTATED: "CRAFTSMAN_LINK_ROTATED",
+  CRAFTSMAN_LINK_REVOKED: "CRAFTSMAN_LINK_REVOKED",
   DSGVO_EXPORT: "DSGVO_EXPORT",
   // Bescheinigungen im Namen des Eigentümers (§ 19 Abs. 5 BMG): Erteilung,
   // Widerruf und jede erzeugte Bescheinigung sind nachweispflichtig.

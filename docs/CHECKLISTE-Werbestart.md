@@ -84,8 +84,12 @@ Mahnseite im Stripe-Dashboard:
 ## Bewusst offen (Entscheidung des Betreibers, eigener Bericht)
 
 Aus `SICHERHEIT-Restarbeiten.md`, dort als „vor Marktstart" (P1) eingestuft,
-Stand 10.08. noch offen: **MFA** für Betreiber/SuperAdmins (P1-10, 3–5 Tage),
-**CSP-Nonce** (P1-12), **Kreuztest-Ausbau** der Datei-Endpunkte (P0-5),
-**Erstpasswort-Restpunkte** — P1-7, P1-9 und P1-13 sind erledigt. Wer vor deren
-Abschluss startet, sollte das als bewusste Entscheidung hier vermerken:
-Entschieden am ______ von ______: ____________________
+Stand 10.08. noch offen: **CSP-Nonce** (P1-12) und der **Kreuztest-Ausbau**
+der Datei-Endpunkte (P0-5). P1-7, P1-9, P1-10 (MFA) und P1-13 sind erledigt.
+Wer vor deren Abschluss startet, sollte das als bewusste Entscheidung hier
+vermerken: Entschieden am ______ von ______: ____________________
+
+**Deploy-Hinweis MFA:** Mit dem nächsten Deploy werden Betreiber-Konten und
+Verwalter-SuperAdmins beim ersten Portal-Aufruf zur Einrichtung der
+Zwei-Faktor-Anmeldung geführt (2 Minuten, Authenticator-App bereithalten).
+Die Wiederherstellungscodes dabei ausdrucken/sichern.

@@ -31,6 +31,13 @@ function secret() {
 // seinen Zweck, und geprüft wird gegen den erwarteten.
 const TYP_SESSION = "session";
 const TYP_IMPERSONATION = "impersonation";
+// Zwischenzustand der Zwei-Faktor-Anmeldung: Passwort war richtig, der zweite
+// Faktor fehlt noch. Bewusst ein EIGENER Typ und ein eigener Cookie — ein
+// mfa-pending-Token darf nie als Sitzung durchgehen, sonst wäre der zweite
+// Faktor nur Dekoration (dieselbe Überlegung wie bei der Impersonation oben).
+const TYP_MFA_PENDING = "mfa-pending";
+const MFA_COOKIE = "bw_mfa";
+const MFA_PENDING_MINUTES = 10;
 
 export async function createSession(userId: string) {
   const token = await new SignJWT({ sub: userId, typ: TYP_SESSION })
@@ -52,6 +59,40 @@ export async function destroySession() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
   cookieStore.delete(IMPERSONATE_COOKIE);
+  cookieStore.delete(MFA_COOKIE);
+}
+
+// ── Zwei-Faktor-Zwischenschritt (P1-10) ──────────────────────────────────────
+
+/** Nach richtiger Passworteingabe: kurzlebiger Merker „zweiter Faktor fehlt". */
+export async function createMfaPending(userId: string) {
+  const token = await new SignJWT({ sub: userId, typ: TYP_MFA_PENDING })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${MFA_PENDING_MINUTES}m`)
+    .sign(secret());
+  const cookieStore = await cookies();
+  cookieStore.set(MFA_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    // Nur an die MFA-Seite senden, nicht an jede Anfrage des Portals.
+    path: "/login/mfa",
+    maxAge: 60 * MFA_PENDING_MINUTES,
+  });
+}
+
+/** Liefert die Nutzer-Kennung des laufenden Zwischenschritts — oder null. */
+export async function readMfaPending(): Promise<string | null> {
+  const cookieStore = await cookies();
+  const verified = await verifyToken(cookieStore.get(MFA_COOKIE)?.value, TYP_MFA_PENDING);
+  return verified?.sub ?? null;
+}
+
+export async function clearMfaPending() {
+  const cookieStore = await cookies();
+  // Pfadgebundene Cookies löschen sich nur mit demselben Pfad.
+  cookieStore.set(MFA_COOKIE, "", { path: "/login/mfa", maxAge: 0 });
 }
 
 // Lädt einen Nutzer inkl. Org-Aktiv-Status. `requireOrgActive=false` erlaubt das

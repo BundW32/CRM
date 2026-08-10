@@ -17,6 +17,7 @@ export function ConfirmActionButton({
   pendingLabel = "Wird ausgeführt…",
   className = "",
   confirmClassName,
+  formAction,
 }: {
   children: React.ReactNode;
   confirmLabel?: string;
@@ -25,6 +26,13 @@ export function ConfirmActionButton({
   className?: string;
   /** Optik der Rückfrage; ohne Angabe wie `className`, nur fett. */
   confirmClassName?: string;
+  /**
+   * Andere Server-Action als die des umgebenden Formulars. Für Formulare mit
+   * ZWEI Ausgängen aus denselben Feldern (z. B. Konto → Zwei-Faktor: derselbe
+   * App-Code erneuert die Wiederherstellungscodes ODER schaltet ab) — ein
+   * zweites Formular hieße, denselben Code zweimal einzutippen.
+   */
+  formAction?: (formData: FormData) => void | Promise<void>;
 }) {
   const [confirming, setConfirming] = useState(false);
 
@@ -46,6 +54,7 @@ export function ConfirmActionButton({
         confirmLabel={confirmLabel}
         pendingLabel={pendingLabel}
         className={confirmClassName ?? `font-semibold ${className}`}
+        formAction={formAction}
       />
       <button
         type="button"
@@ -62,15 +71,18 @@ function ConfirmSubmit({
   confirmLabel,
   pendingLabel,
   className,
+  formAction,
 }: {
   confirmLabel: string;
   pendingLabel: string;
   className: string;
+  formAction?: (formData: FormData) => void | Promise<void>;
 }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
+      formAction={formAction}
       disabled={pending}
       // Bewusst kein `disabled:cursor-wait`: Windows zeichnet dafür seinen
       // Wartekringel neben den Zeiger, was wie ein hängendes Fenster aussieht.

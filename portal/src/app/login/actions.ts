@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { createSession, destroySession } from "@/lib/session";
+import { createMfaPending, createSession, destroySession } from "@/lib/session";
 import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { checkRateLimit, getClientIp, resetRateLimit } from "@/lib/rate-limit";
@@ -87,6 +87,15 @@ export async function login(formData: FormData) {
 
   // Erfolg: beide Zähler abräumen, damit nur Fehlversuche zur Sperre führen.
   await Promise.all([resetRateLimit(kennungKey), resetRateLimit(ipKey)]);
+
+  // Zwei-Faktor aktiv? Dann gibt es hier noch KEINE Sitzung — nur den
+  // kurzlebigen Zwischenschritt-Merker. LOGIN_SUCCESS wird erst nach dem
+  // zweiten Faktor protokolliert (login/mfa/actions.ts); das Passwort allein
+  // ist bei diesen Konten kein erfolgreicher Login.
+  if (user.totpEnabledAt) {
+    await createMfaPending(user.id);
+    redirect("/login/mfa");
+  }
 
   await logAudit({ actorId: user.id, action: AUDIT.LOGIN_SUCCESS, ip });
   await createSession(user.id);

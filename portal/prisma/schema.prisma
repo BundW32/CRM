@@ -367,6 +367,15 @@ model User {
   role                        Role
   active                      Boolean                     @default(true)
   mustChangePassword          Boolean                     @default(false)
+  // ── Zwei-Faktor-Anmeldung (TOTP, P1-10) ───────────────────────────────────
+  // totpSecret liegt NIE im Klartext in der DB (encryptSecret, lib/crypto.ts).
+  // Es wird beim Einrichtungsbeginn gesetzt; scharf ist MFA erst mit
+  // totpEnabledAt — bis dahin ist das Secret ein unbestätigter Entwurf.
+  totpSecret                  String?
+  totpEnabledAt               DateTime?
+  // Wiederherstellungscodes als SHA-256-Hashes (wie Reset-Tokens): je Code
+  // genau einmal einlösbar, der eingelöste wird entfernt.
+  mfaRecoveryCodes            String[]                    @default([])
   // Erklärende Hinweise in der Oberfläche anzeigen. Standardmäßig AN: Wer sie
   // nicht braucht, schaltet sie ab — die umgekehrte Voreinstellung erreicht
   // genau die nicht, für die sie da sind. Eine Vorliebe der **Person**, nicht

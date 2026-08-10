@@ -62,6 +62,10 @@ export const flashMessages = {
   },
   "stammdaten-gespeichert": { text: "Stammdaten gespeichert.", tone: "success" },
   "passwort-geaendert": { text: "Passwort geändert.", tone: "success" },
+  "mfa-deaktiviert": {
+    text: "Zwei-Faktor-Anmeldung abgeschaltet. Ihr Konto ist nur noch durch das Passwort geschützt.",
+    tone: "info",
+  },
   "unterschrift-gespeichert": { text: "Unterschrift gespeichert.", tone: "success" },
   "vollmacht-erteilt": {
     text: "Vollmacht erteilt. Die Verwaltung darf Bescheinigungen für Ihre vermieteten Einheiten ausstellen.",

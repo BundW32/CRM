@@ -24,7 +24,8 @@ umgesetzt (Branch `claude/wegportal24-release-scaling-i6195z`):
 | P1-9-Rest | ✅ IP-Quelle an die Plattform gebunden (`getClientIp`), drei Kopien der Header-Auswertung vereinheitlicht. |
 | P1-13 | ✅ Handwerker-Magic-Link läuft nach 90 Tagen ab (Migration mit Bestand-Backfill), jede Beauftragung erneuert/rotiert, Erneuern + Widerruf auf der Kontakt-Detailseite, alles im Audit-Log; Sperre in Seite, Actions und Datei-Endpunkt. |
 | P1-7 | ✅ war bereits am 04.08. behoben (Cookie statt `?pw=` in der URL) — Statusliste nachgezogen. |
-| P1-10 (MFA), P1-12 (CSP-Nonce), P0-5 (Kreuztests) | ⏳ offen — eigene Arbeitspakete (MFA 3–5 Tage), siehe „Bewusst offen" in der Werbestart-Checkliste. |
+| P1-10 (MFA) | ✅ ebenfalls am 10.08. umgesetzt: TOTP + Wiederherstellungscodes, Pflicht für Betreiber und Verwalter-SuperAdmins, freiwillig für alle anderen (Details in `SICHERHEIT-Restarbeiten.md`). **Deploy-Hinweis: Pflicht-Konten werden beim nächsten Aufruf zur 2-Minuten-Einrichtung geführt.** |
+| P1-12 (CSP-Nonce), P0-5 (Kreuztests) | ⏳ offen — eigene Arbeitspakete, siehe „Bewusst offen" in der Werbestart-Checkliste. |
 
 ---
 

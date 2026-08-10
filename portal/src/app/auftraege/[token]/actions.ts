@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import type { Craftsman, Ticket } from "@/generated/prisma/client";
 import { AUDIT, logAudit } from "@/lib/audit";
+import { istCraftsmanTokenGueltig } from "@/lib/craftsman-token";
 import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
@@ -17,7 +18,9 @@ async function authorize(
 ): Promise<{ craftsman: Craftsman; ticket: Ticket } | null> {
   if (!token || !ticketId) return null;
   const craftsman = await db.craftsman.findUnique({ where: { accessToken: token } });
-  if (!craftsman || !craftsman.active) return null;
+  // Ablauf wie auf der Seite (P1-13): Die Sperre muss in den Actions stehen,
+  // nicht nur im Rendering — ein gemerkter Endpunkt-Aufruf käme sonst vorbei.
+  if (!craftsman || !craftsman.active || !istCraftsmanTokenGueltig(craftsman)) return null;
   const ticket = await db.ticket.findUnique({ where: { id: ticketId } });
   if (!ticket || ticket.craftsmanId !== craftsman.id) return null;
   return { craftsman, ticket };

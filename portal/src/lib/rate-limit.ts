@@ -1,8 +1,17 @@
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 
+// IP-Quelle an die Plattform gebunden (P1-9): Auf Vercel setzt die Plattform
+// `x-real-ip` selbst und überschreibt dabei, was ein Client mitschickt — dieser
+// Header ist dort verlässlich. Der Rückfall auf `x-forwarded-for` gilt nur
+// AUSSERHALB der Plattform (lokal, Selbst-Hosting hinter eigenem Proxy): Dort
+// ist der erste Eintrag frei setzbar, und ein Angreifer würde sich mit jedem
+// Request eine frische „IP" geben — jedes IP-Rate-Limit liefe ins Leere.
 export async function getClientIp(): Promise<string> {
   const h = await headers();
+  if (process.env.VERCEL) {
+    return h.get("x-real-ip") ?? "unknown";
+  }
   return (
     h.get("x-real-ip") ??
     h.get("x-forwarded-for")?.split(",")[0]?.trim() ??

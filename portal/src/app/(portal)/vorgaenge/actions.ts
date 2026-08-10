@@ -1,7 +1,7 @@
 "use server";
 
-import crypto from "crypto";
 import { signOffName } from "@/lib/branding";
+import { istCraftsmanTokenGueltig, neuesCraftsmanToken } from "@/lib/craftsman-token";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -773,21 +773,20 @@ export async function notifyCraftsman(formData: FormData) {
     ? `${ticket.craftsman.company} / ${ticket.craftsman.name}`
     : ticket.craftsman.name;
 
-  // Magic-Link-Token sicherstellen (ggf. neu erzeugen)
-  let token = ticket.craftsman.accessToken;
-  if (!token) {
-    token = crypto.randomBytes(24).toString("hex");
-  }
-  const missingToken = !ticket.craftsman.accessToken;
+  // Magic-Link sicherstellen: fehlt das Token oder ist es abgelaufen, kommt
+  // ein frisches — und JEDE Beauftragung erneuert das Ausstellungsdatum, damit
+  // ein aktiv beauftragter Handwerker nie vor einem abgelaufenen Link steht
+  // (P1-13, lib/craftsman-token.ts).
+  const token = istCraftsmanTokenGueltig(ticket.craftsman)
+    ? ticket.craftsman.accessToken!
+    : neuesCraftsmanToken();
 
   // DB-Schreibvorgänge atomisch: Token setzen + Kommentar + Statuswechsel
   await db.$transaction(async (tx) => {
-    if (missingToken) {
-      await tx.craftsman.update({
-        where: { id: ticket.craftsman!.id },
-        data: { accessToken: token },
-      });
-    }
+    await tx.craftsman.update({
+      where: { id: ticket.craftsman!.id },
+      data: { accessToken: token, accessTokenIssuedAt: new Date() },
+    });
     await tx.ticketComment.create({
       data: {
         ticketId,

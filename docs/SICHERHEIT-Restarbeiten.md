@@ -54,13 +54,13 @@ Aufwand: 2–4 Tage. Kollidiert mit nichts.
 | # | Was | Aufwand | Kollision |
 |---|---|---|---|
 | ~~P1-6~~ | ~~Passwort-Reset-Token nur noch gehasht speichern~~ | **erledigt am 29.07.2026** | — |
-| P1-7 | Erstpasswort nicht mehr über die URL (`/zugangsschreiben/[id]?pw=…`) — kurzlebiges Server-Token oder direkte Ausgabe | 2 Std. | `nutzer/actions.ts` — `email-interfaces` |
+| ~~P1-7~~ | ~~Erstpasswort nicht mehr über die URL~~ **erledigt am 04.08.2026** (kurzlebiges, pfadgebundenes HttpOnly-Cookie statt `?pw=…`, `lib/zugangsschreiben.ts`) | — | — |
 | ~~P1-6b~~ | ~~Rate-Limit auf das **Einlösen** eines Reset-/Bestätigungslinks~~ | **erledigt am 06.08.2026** (Einlösen von Reset- und Bestätigungslinks je 10/h pro IP) | — |
-| P1-9 | ~~Rate-Limit atomar, für die Anmeldung fail-closed~~ **erledigt am 06.08.2026** (ein `INSERT … ON CONFLICT … RETURNING`, Anmeldung fail-closed). **Offen bleibt:** IP-Quelle an die Plattform binden statt an frei setzbare Header | 2 Std. Rest | keine |
-| P1-10 | **MFA** (TOTP + Wiederherstellungscodes), Pflicht für Plattform-Betreiber und Verwalter-SuperAdmins | 3–5 Tage | keine |
-| P1-11 | `organizationId` am `AuditLog` (fehlgeschlagene Anmeldungen sind für Kunden heute unsichtbar), Fehler-/Sicherheitsmonitoring, Schwellwert-Alarme | 3–5 Tage | keine |
+| ~~P1-9~~ | ~~Rate-Limit atomar, für die Anmeldung fail-closed~~ **erledigt am 06.08.2026**; ~~IP-Quelle an die Plattform binden~~ **erledigt am 10.08.2026** (`getClientIp` vertraut auf Vercel nur dem plattform-gesetzten `x-real-ip`; die drei Kopien der Header-Auswertung auf die eine Funktion zusammengezogen) | — | — |
+| ~~P1-10~~ | ~~**MFA** (TOTP + Wiederherstellungscodes), Pflicht für Plattform-Betreiber und Verwalter-SuperAdmins~~ **erledigt am 10.08.2026:** TOTP nach RFC 6238 ohne Fremdbibliothek (`lib/totp.ts`, gegen die RFC-Testvektoren geprüft), Secret AES-verschlüsselt in der DB, 10 einmal einlösbare Wiederherstellungscodes (gehasht). Login in zwei Schritten (`/login/mfa`, eigener kurzlebiger Token-Typ, fail-closed-Rate-Limit), Einrichtung mit QR-Code unter `/mfa-einrichten`, Verwaltung unter „Konto“ (Abschalten nur mit App-Code, für Pflicht-Konten gesperrt). Pflicht-Durchsetzung im Portal-Layout wie `mustChangePassword`; während Impersonation ausgesetzt (kein Schreiben am Kundenkonto). Alles im Audit-Log (`MFA_ENABLED/DISABLED/FAILED/RECOVERY_USED`). **Deploy-Hinweis: Betreiber und SuperAdmins werden beim nächsten Aufruf zur Einrichtung geführt — Authenticator-App bereithalten.** | — | — |
+| P1-11 | `organizationId` am `AuditLog` (fehlgeschlagene Anmeldungen sind für Kunden heute unsichtbar), Schwellwert-Alarme. **Teilweise erledigt am 10.08.2026:** unbehandelte Serverfehler alarmieren jetzt den Betreiber (`src/instrumentation.ts` + `lib/fehler-alarm.ts`, gedrosselt), dazu `/api/health` für den externen Uptime-Check | 2–4 Tage Rest | keine |
 | P1-12 | CSP mit Nonce statt `script-src 'unsafe-inline'`, dazu `object-src 'none'` | 0,5 Tag | `next.config.ts` — geringfügig |
-| P1-13 | Handwerker-Magic-Link: Ablauf, Rotation, Widerruf in der Oberfläche, alles protokolliert | 1 Tag | keine |
+| ~~P1-13~~ | ~~Handwerker-Magic-Link: Ablauf, Rotation, Widerruf in der Oberfläche, alles protokolliert~~ **erledigt am 10.08.2026** (Token läuft nach 90 Tagen ab — `accessTokenIssuedAt` + `lib/craftsman-token.ts`, fail closed; jede Beauftragung erneuert, abgelaufene Tokens werden dabei rotiert; Erneuern/Widerrufen auf der Kontakt-Detailseite mit Rückfrage, beides im Audit-Log; Sperre greift in Seite, Actions UND Datei-Endpunkt) | — | — |
 
 Zusätzlich als Sofortmaßnahme (kleine Ergänzung, heute bewusst zurückgestellt,
 weil `nutzer/actions.ts` gerade von einem anderen Branch bearbeitet wird):

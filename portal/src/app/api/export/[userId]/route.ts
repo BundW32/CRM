@@ -3,6 +3,7 @@ import { canVerwalterManageUser } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/session";
 import { AUDIT, logAudit } from "@/lib/audit";
+import { getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -95,10 +96,7 @@ export async function GET(
     action: AUDIT.DSGVO_EXPORT,
     targetType: "User",
     targetId: userId,
-    ip:
-      _request.headers.get("x-real-ip") ??
-      _request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      "unknown",
+    ip: await getClientIp(),
   });
 
   return new NextResponse(JSON.stringify(payload, null, 2), {

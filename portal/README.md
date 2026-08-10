@@ -88,6 +88,12 @@ eingerichtet werden – bis dahin läuft dort keine Anfrage auf.
    Datenbank in **derselben Region wie die Functions** (fra1) halten – die App
    pinnt die Functions per `vercel.json` (`"regions": ["fra1"]`) bereits auf
    Frankfurt, damit DB-Abfragen nicht über den Atlantik laufen.
+   Die **Migrationen** beim Build laufen dagegen automatisch über die
+   **direkte** (ungepoolte) Verbindung — `prisma.config.ts` nimmt
+   `DATABASE_URL_UNPOOLED`/`POSTGRES_URL_NON_POOLING` (setzt die
+   Neon-Integration mit) oder schneidet ersatzweise `-pooler` aus dem Host.
+   Über den Pooler bliebe die Advisory-Sperre von `migrate deploy` an einer
+   gepoolten Verbindung hängen, und jeder weitere Deploy scheiterte mit P1002.
 4. Unter **Storage** einen **Blob**-Store anlegen und dabei **Access: Private**
    wählen (per CLI: `vercel blob create-store <name> --access private`) → setzt
    `BLOB_READ_WRITE_TOKEN` automatisch (nötig für Foto-/Dokument-Uploads).

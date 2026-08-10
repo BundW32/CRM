@@ -3,12 +3,31 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+// Die Prisma-CLI (migrate deploy, db execute, …) läuft über die DIREKTE
+// Verbindung, nicht über den Pooler: `migrate deploy` hält während der
+// Migration eine sitzungsgebundene Advisory-Sperre (pg_advisory_lock), und
+// über PgBouncer bleibt die an einer gepoolten Backend-Verbindung hängen,
+// die nie schließt. Jeder weitere Deploy scheitert dann mit P1002 (Timeout
+// beim Erwerb der Sperre). Die App selbst (src/lib/db.ts) nutzt weiterhin
+// die gepoolte DATABASE_URL — das hier betrifft nur die CLI.
+function directDatabaseUrl(): string | undefined {
+  const direct =
+    process.env.DIRECT_DATABASE_URL ??
+    process.env.DATABASE_URL_UNPOOLED ??
+    process.env.POSTGRES_URL_NON_POOLING;
+  if (direct) return direct;
+  // Neon: der gepoolte Host trägt "-pooler" (ep-xxx-pooler.region.…);
+  // herausgeschnitten ergibt er den direkten Host. Bei Hosts ohne diesen
+  // Bestandteil (lokales Postgres) ändert sich nichts.
+  return process.env.DATABASE_URL?.replace("-pooler.", ".");
+}
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: directDatabaseUrl(),
   },
 });

@@ -141,6 +141,7 @@ export default function ImpressumPage() {
               fahrlässiges Verschulden vorliegt.
             </p>
           </Section>
+          <p className="text-xs text-gray-500">Stand: 11. August 2026</p>
         </div>
 
         <div className="mt-8 flex gap-4 text-sm">

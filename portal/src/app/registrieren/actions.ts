@@ -25,7 +25,12 @@ import { hashToken } from "@/lib/token-hash";
 // erklärung auf die zwei Verantwortlichkeiten getrennt. Inhaltliche Änderung →
 // neue Version, damit sich die Zustimmung der Altkunden von der neuen
 // unterscheiden lässt.
-const TERMS_VERSION = "2026-08-05";
+// 11.08.2026: AVV Ziffer 4 und 5 ergänzt — Stripe als Zahlungsdienstleister
+// ausdrücklich eingeordnet (kein Subprozessor, weil er keine Auftragsdaten
+// erhält) und der Übermittlungsumfang der KI-Funktionen aufgeschlüsselt,
+// einschließlich des Objekt-Imports, der bis dahin in keinem Rechtstext stand.
+// Der AVV ist Teil der Zustimmung bei der Registrierung → neue Version.
+const TERMS_VERSION = "2026-08-11";
 
 const registerSchema = z.object({
   company: z.string().trim().min(2).max(200),

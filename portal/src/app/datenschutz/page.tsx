@@ -36,7 +36,7 @@ export default function DatenschutzPage() {
             Diese Erklärung informiert nach Art. 13 und 14 DSGVO über die Verarbeitung
             personenbezogener Daten bei der Nutzung von <strong>{productName()}</strong>.
           </p>
-          <p className="mt-2 text-gray-500">Stand: 5. August 2026</p>
+          <p className="mt-2 text-gray-500">Stand: 11. August 2026</p>
         </>
       }
     >
@@ -155,9 +155,16 @@ export default function DatenschutzPage() {
           <li>Datei-Speicher: Vercel Blob (Dokumente, Fotos, Unterschriften)</li>
           <li>E-Mail-Versand: Google (Gmail / Google Workspace)</li>
           <li>
-            KI-Funktionen (Assistent, Vorqualifizierung eingehender Meldungen) – optional,
-            nur bei Aktivierung durch die Verwaltung: Google (Gemini API); Einzelheiten
-            unter{" "}
+            Zahlungsabwicklung kostenpflichtiger Tarife: Stripe. Übermittelt werden dabei
+            eine interne Kennnummer Ihrer Organisation und die gewählte Tarifbezeichnung;
+            Rechnungsanschrift und Zahlungsdaten geben Sie direkt bei Stripe ein, sie
+            durchlaufen unsere Anwendung nicht. Zurück erhalten wir Kundennummer,
+            Abo-Kennung, Tarif, Abo-Status und das Ende einer Testphase.
+          </li>
+          <li>
+            KI-Funktionen (Assistent, Vorqualifizierung eingehender Meldungen,
+            Objekt-Import aus PDF) – optional, nur bei Aktivierung durch die Verwaltung:
+            Google (Gemini API); Einzelheiten unter{" "}
             <Link href="/ki-transparenz" className="text-brand-green hover:underline">
               KI-Transparenz
             </Link>
@@ -169,9 +176,16 @@ export default function DatenschutzPage() {
           </li>
         </ul>
         <p className="mt-2">
-          Einzelne Dienste (u. a. Google) können Daten außerhalb der EU (USA) verarbeiten.
-          Soweit dies der Fall ist, erfolgt die Übermittlung auf Grundlage geeigneter
-          Garantien nach Kapitel V DSGVO — Standardvertragsklauseln bzw.
+          Stripe verarbeitet die Zahlungsdaten zugleich <strong>in eigener
+          Verantwortung</strong>, soweit das Unternehmen dazu gesetzlich verpflichtet ist
+          (Zahlungsdiensteaufsicht, Geldwäscheprävention, Betrugsabwehr). Insoweit ist
+          Stripe nicht unser Auftragsverarbeiter, sondern eigener Verantwortlicher; es
+          gelten die Datenschutzhinweise von Stripe.
+        </p>
+        <p className="mt-2">
+          Einzelne Dienste (u. a. Google und Stripe) können Daten außerhalb der EU (USA)
+          verarbeiten. Soweit dies der Fall ist, erfolgt die Übermittlung auf Grundlage
+          geeigneter Garantien nach Kapitel V DSGVO — Standardvertragsklauseln bzw.
           Angemessenheitsbeschluss (EU-U.S. Data Privacy Framework).
         </p>
       </LegalSection>
@@ -205,13 +219,24 @@ export default function DatenschutzPage() {
 
       <LegalSection title={weg ? "8. Einsatz von KI-Systemen" : "7. Einsatz von KI-Systemen"}>
         <p>
-          Das Portal enthält zwei optionale KI-Funktionen: einen Assistenten, der Fragen
-          aus den für Sie freigegebenen Unterlagen beantwortet, und eine Vorqualifizierung
-          eingehender Schadensmeldungen (Vorschlag für Gewerk und Dringlichkeit). Beide
-          sind standardmäßig deaktiviert und werden nur aktiv, wenn die Verwaltung sie
-          ausdrücklich freischaltet. Ist eine Funktion aktiv, werden die jeweils benötigten
-          Textinhalte an die Gemini-API von Google übermittelt; eine Verarbeitung außerhalb
-          der EU ist dabei möglich.
+          Das Portal enthält <strong>drei</strong> optionale KI-Funktionen: einen
+          Assistenten, der Fragen aus den für Sie freigegebenen Unterlagen beantwortet,
+          eine Vorqualifizierung eingehender Schadensmeldungen (Vorschlag für Gewerk und
+          Dringlichkeit) und einen Objekt-Import, der beim Anlegen eines Objekts die
+          Stammdaten aus einem hochgeladenen PDF vorschlägt. Alle drei sind standardmäßig
+          deaktiviert und werden nur aktiv, wenn die Verwaltung sie ausdrücklich
+          freischaltet. Ist eine Funktion aktiv, werden die dafür benötigten Inhalte an die
+          Gemini-API von Google übermittelt; eine Verarbeitung außerhalb der EU ist dabei
+          möglich.
+        </p>
+        <p>
+          <strong>Der Umfang unterscheidet sich je Funktion.</strong> Die
+          Vorqualifizierung übermittelt Titel und Beschreibung der Meldung. Der Assistent
+          übermittelt Ihre Frage, Ihre Rolle im Portal und die dazu gefundenen
+          Textauszüge — bei Fragen zu Geld auch Angaben zu Kontostand, Rückständen und
+          Hausgeld. Der Objekt-Import übermittelt das hochgeladene PDF{" "}
+          <strong>vollständig</strong>; laden Sie dort daher nur Unterlagen hoch, deren
+          Weitergabe an Google Sie verantworten können.
         </p>
         <p>
           Die KI trifft <strong>keine automatisierte Entscheidung im Einzelfall</strong> im

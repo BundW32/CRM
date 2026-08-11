@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { EinwilligungBanner } from "@/components/einwilligung-banner";
+import { GoogleAds } from "@/components/google-ads";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { TrackingSnippet } from "@/components/tracking-snippet";
 import { isWegSaas } from "@/lib/app-mode";
@@ -78,6 +80,14 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Werbe-Tag und Einwilligungs-Banner gehören zusammen und gehören nur an die
+  // wegportal24-Tür: Dort werden Anzeigen geschaltet. Das B&W-Kundenportal
+  // wirbt nicht, ist nicht indexiert und bekäme mit dem Banner nur eine
+  // Rückfrage ohne Anlass. In der Vorschau bleibt beides weg — sie soll weder
+  // Konversionen melden noch Testklicks in die Kampagnenzahlen tragen (dieselbe
+  // Regel gilt für das eigene Zählwerk, siehe tracking-snippet.tsx).
+  const werbung = isWegSaas() && process.env.VERCEL_ENV !== "preview";
+
   return (
     <html lang="de" className="h-full antialiased">
       <head>
@@ -89,9 +99,13 @@ export default function RootLayout({
       <body className="bw-shell-bg flex min-h-full flex-col text-gray-100">
         <ServiceWorkerRegister />
         {/* Cookiefreies First-Party-Tracking (kein Consent nötig, siehe
-            components/tracking-snippet.tsx) — läuft unabhängig von einem CMP. */}
+            components/tracking-snippet.tsx) — läuft unabhängig vom Banner. */}
         <TrackingSnippet />
+        {/* Vor {children}: Das Tag muss sein `config` abgesetzt haben, bevor
+            eine Seite darunter eine Konversion meldet. */}
+        {werbung ? <GoogleAds /> : null}
         {children}
+        {werbung ? <EinwilligungBanner /> : null}
       </body>
     </html>
   );

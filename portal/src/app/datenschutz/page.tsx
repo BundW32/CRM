@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EinwilligungAendernButton } from "@/components/einwilligung-banner";
 import { LegalPage, LegalSection } from "@/components/legal-page";
 import { isWegSaas, productName } from "@/lib/app-mode";
 
@@ -136,12 +137,25 @@ export default function DatenschutzPage() {
           Abstimmungen, Zählerstände) sowie technische Daten (Zeitstempel, IP-Adresse in
           Sicherheitsprotokollen).
         </p>
-        <p>
-          Ein Nutzungsprofil wird nicht gebildet. Die Anwendung setzt{" "}
-          <strong>keine Analyse- oder Werbe-Cookies</strong> ein; gesetzt werden
-          ausschließlich technisch erforderliche Cookies für die Anmeldesitzung
-          (§ 25 Abs. 2 Nr. 2 TDDDG — insoweit ist keine Einwilligung erforderlich).
-        </p>
+        {weg ? (
+          <p>
+            Ein Nutzungsprofil wird nicht gebildet. Ohne Ihre Einwilligung setzen wir{" "}
+            <strong>keine Analyse- oder Werbe-Cookies</strong> ein; gesetzt werden dann
+            ausschließlich technisch erforderliche Cookies für die Anmeldesitzung
+            (§ 25 Abs. 2 Nr. 2 TDDDG — insoweit ist keine Einwilligung erforderlich).
+            Die Besuchszählung unserer Website kommt dauerhaft ohne Cookies aus; sie
+            speichert keine IP-Adresse, sondern nur eine tagesweise wechselnde,
+            nicht rückrechenbare Prüfsumme. Werbe-Cookies kommen ausschließlich hinzu,
+            wenn Sie in Ziffer 6 zustimmen.
+          </p>
+        ) : (
+          <p>
+            Ein Nutzungsprofil wird nicht gebildet. Die Anwendung setzt{" "}
+            <strong>keine Analyse- oder Werbe-Cookies</strong> ein; gesetzt werden
+            ausschließlich technisch erforderliche Cookies für die Anmeldesitzung
+            (§ 25 Abs. 2 Nr. 2 TDDDG — insoweit ist keine Einwilligung erforderlich).
+          </p>
+        )}
       </LegalSection>
 
       <LegalSection title={weg ? "5. Empfänger und Auftragsverarbeiter" : "4. Empfänger / Auftragsverarbeiter"}>
@@ -174,6 +188,14 @@ export default function DatenschutzPage() {
             Push-Benachrichtigungen (optional, je nach Gerät/Browser): Push-Dienste von
             Google, Apple oder Mozilla
           </li>
+          {weg ? (
+            <li>
+              Werbung auf unseren öffentlichen Seiten – <strong>nur nach Ihrer
+              Einwilligung</strong>: Google Ireland Limited (Google Ads). Einzelheiten und
+              Widerruf in Ziffer 6. Google ist hierfür nicht unser Auftragsverarbeiter,
+              sondern eigener Verantwortlicher.
+            </li>
+          ) : null}
         </ul>
         <p className="mt-2">
           Stripe verarbeitet die Zahlungsdaten zugleich <strong>in eigener
@@ -190,7 +212,47 @@ export default function DatenschutzPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title={weg ? "6. Speicherdauer" : "5. Speicherdauer"}>
+      {weg ? (
+        <LegalSection title="6. Werbung — nur mit Ihrer Einwilligung">
+          <p>
+            Wir schalten Anzeigen bei Google. Um zu erkennen, welche Anzeige tatsächlich
+            zu einer Registrierung führt, setzen wir auf unseren{" "}
+            <strong>öffentlichen Seiten</strong> das Werbe-Tag von Google Ads ein
+            („gtag.js“, Konversionsmessung und Remarketing).
+          </p>
+          <p>
+            <strong>Das Tag wird erst geladen, nachdem Sie zugestimmt haben.</strong>{" "}
+            Vorher wird keine Verbindung zu Google aufgebaut und kein Cookie gesetzt.
+            Stimmen Sie zu, setzt Google Cookies (u. a. <code>_gcl_au</code>) und erhält
+            Ihre IP-Adresse, Angaben zu Browser und Gerät, die aufgerufene Seite sowie
+            gegebenenfalls die Kennung des Anzeigenklicks, über den Sie gekommen sind.
+          </p>
+          <p>
+            Rechtsgrundlage für das Speichern und Auslesen der Cookies ist{" "}
+            <strong>§ 25 Abs. 1 TDDDG</strong>, für die anschließende Verarbeitung{" "}
+            <strong>Art. 6 Abs. 1 lit. a DSGVO</strong> — allein Ihre Einwilligung.
+            Anbieter ist Google Ireland Limited, Gordon House, Barrow Street, Dublin 4,
+            Irland; eine Verarbeitung durch Google LLC in den USA ist dabei möglich, auf
+            Grundlage des Angemessenheitsbeschlusses zum EU-U.S. Data Privacy Framework
+            und ergänzender Standardvertragsklauseln. Google verarbeitet diese Daten
+            zugleich für eigene Zwecke und ist insoweit eigener Verantwortlicher.
+          </p>
+          <p>
+            <strong>Innerhalb des Portals — also nach dem Anmelden — läuft das Tag
+            nicht.</strong> Inhalte, Objekte, Vorgänge und Dokumente sind davon zu keinem
+            Zeitpunkt betroffen.
+          </p>
+          <p>
+            Sie können Ihre Einwilligung <strong>jederzeit mit Wirkung für die Zukunft
+            widerrufen</strong>, ohne dass Ihnen daraus Nachteile entstehen; die
+            Rechtmäßigkeit der bis dahin erfolgten Verarbeitung bleibt unberührt. Beim
+            Widerruf löschen wir die gesetzten Werbe-Cookies und laden das Tag nicht mehr:
+          </p>
+          <EinwilligungAendernButton />
+        </LegalSection>
+      ) : null}
+
+      <LegalSection title={weg ? "7. Speicherdauer" : "5. Speicherdauer"}>
         <p>
           Daten werden für die Dauer des Vertrags- bzw. Verwaltungsverhältnisses und im
           Rahmen gesetzlicher Aufbewahrungsfristen gespeichert und anschließend gelöscht
@@ -207,7 +269,7 @@ export default function DatenschutzPage() {
         ) : null}
       </LegalSection>
 
-      <LegalSection title={weg ? "7. Datensicherheit" : "6. Datensicherheit"}>
+      <LegalSection title={weg ? "8. Datensicherheit" : "6. Datensicherheit"}>
         <p>
           Die Übertragung erfolgt verschlüsselt (TLS/HTTPS). Passwörter werden
           ausschließlich als kryptografischer Hash gespeichert. Der Zugriff erfolgt
@@ -217,7 +279,7 @@ export default function DatenschutzPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title={weg ? "8. Einsatz von KI-Systemen" : "7. Einsatz von KI-Systemen"}>
+      <LegalSection title={weg ? "9. Einsatz von KI-Systemen" : "7. Einsatz von KI-Systemen"}>
         <p>
           Das Portal enthält <strong>drei</strong> optionale KI-Funktionen: einen
           Assistenten, der Fragen aus den für Sie freigegebenen Unterlagen beantwortet,
@@ -251,7 +313,7 @@ export default function DatenschutzPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title={weg ? "9. Ihre Rechte" : "8. Ihre Rechte"}>
+      <LegalSection title={weg ? "10. Ihre Rechte" : "8. Ihre Rechte"}>
         <p>
           Sie haben das Recht auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung
           (Art. 17), Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit

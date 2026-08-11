@@ -1,5 +1,24 @@
 import type { NextConfig } from "next";
 
+// Google Ads (gtag.js) — die Gegenstellen, die das Tag braucht.
+//
+// Die Freigabe steht hier für BEIDE Türen, obwohl nur wegportal24 wirbt: Die
+// Header werden beim Bauen festgeschrieben, während `APP_MODE` erst zur
+// Laufzeit gilt (siehe AGENTS.md, „Zwei Türen, zwei Marken"). Eine Weiche, die
+// als Einzige am Build hängt, läuft früher oder später auseinander — und sie
+// wäre hier folgenlos: Ohne Einwilligung wird das Skript nie eingehängt, eine
+// Freigabe ohne Anfrage ist kein offener Weg. Zwei getrennte CSP-Header je
+// Pfad gehen nicht: Der Browser wendet mehrere Richtlinien als Schnittmenge
+// an, die schärfere gewänne und blockierte doch.
+const GOOGLE_ADS_SKRIPT = "https://www.googletagmanager.com";
+const GOOGLE_ADS_ZIELE = [
+  "https://www.googletagmanager.com",
+  "https://www.googleadservices.com",
+  "https://googleads.g.doubleclick.net",
+  "https://www.google.com",
+  "https://www.google.de",
+].join(" ");
+
 // Sicherheits-Header für alle Routen. CSP bewusst pragmatisch gehalten,
 // damit Next.js (inline-Styles/Scripts) funktioniert, aber externe Quellen
 // blockiert werden.
@@ -7,14 +26,18 @@ const contentSecurityPolicy = [
   "default-src 'self'",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline' ${GOOGLE_ADS_SKRIPT}`,
   // pdf.js rendert die Dokumentvorschau in einem Web Worker. Ohne worker-src
   // greift die Vorschau auf script-src zurück; der Blob-Fallback von pdf.js
   // bräuchte dann blob: und würde sonst still scheitern.
   "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  `connect-src 'self' ${GOOGLE_ADS_ZIELE}`,
+  // Die Konversionsmessung hängt ein unsichtbares iframe ein. Ohne eigene
+  // Angabe fiele frame-src auf default-src 'self' zurück und die Messung
+  // schlüge still fehl — sichtbar wäre nur, dass keine Konversionen ankommen.
+  "frame-src 'self' https://td.doubleclick.net https://www.googletagmanager.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

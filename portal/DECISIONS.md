@@ -2076,3 +2076,65 @@ hat weiterhin keine Überwachung: Fällt er still aus, laufen alle Löschfristen
 ins Leere. Das `draft`-Etikett auf `/datenschutz-saas` und `/ki-transparenz`
 bleibt stehen — es zu entfernen ist eine Freigabeentscheidung, keine
 technische.
+
+## Schritt 49 — Google Ads: das Tag hängt an einer Einwilligung (11.08.2026)
+
+Für wegportal24.de sollen Anzeigen geschaltet werden. Das dafür gelieferte
+Snippet (`gtag.js`, Konversions-ID `AW-18381571736`) fest ins Layout zu
+schreiben, wäre in diesem Repo gleich dreifach falsch gewesen: Es hätte in
+der B&W-Tür mitgeschaltet, es wäre an der eigenen CSP gescheitert, und es
+hätte die Aussage der Datenschutzerklärung („keine Analyse- oder
+Werbe-Cookies") zu einer unwahren gemacht.
+
+314. **Das Tag lädt erst nach der Einwilligung, nicht davor mit gedrosseltem
+     Consent-Mode.** Google schlägt vor, `gtag.js` sofort zu laden und den
+     Consent-Mode auf `denied` zu stellen („advanced"). Dabei geht bereits ein
+     cookieloser Ping an Google — eine Übermittlung, die § 25 Abs. 1 TDDDG
+     nicht deckt, weil sie vor der Einwilligung stattfindet. Hier steht deshalb
+     zunächst nur ein Grundgerüst im Browser (`dataLayer`, `gtag`, Consent-Mode
+     auf `denied`), das **keine einzige Anfrage** auslöst; `gtag.js` selbst
+     hängt `google-ads.tsx` erst nach der Zustimmung ein.
+315. **Positivliste statt Negativliste für die Pfade** (`istWerbeseite` in
+     `lib/einwilligung.ts`). Hinter der Anmeldung steht in fast jedem Pfad eine
+     Objekt-, Einheiten- oder Vorgangs-Kennung, die als `page_path` an Google
+     ginge; `/auftraege/<token>` trägt sogar den Magic-Link des Handwerkers in
+     der Adresse. Eine Ausschlussliste wäre genau dann still undicht, wenn
+     jemand eine neue Route anlegt — die Positivliste ist im Zweifel zu eng,
+     und zu eng ist hier die richtige Richtung. `einwilligung.test.ts` prüft
+     beide Seiten, die Gegenprobe zuerst.
+316. **Der Stand liegt in `localStorage`, nicht in einem Cookie.** Ein Cookie
+     liefe bei jeder Anfrage mit; ausgerechnet die Einwilligung würde damit
+     mehr übertragen, als ihr Zweck trägt. Mitgespeichert wird die Fassung
+     (`EINWILLIGUNG_FASSUNG`): Kommt ein Dienst oder Zweck dazu, wird sie
+     hochgesetzt und alle alten Zustimmungen gelten als nicht erteilt — sonst
+     deckte eine Zustimmung von heute stillschweigend einen Dienst von morgen.
+317. **Beide Knöpfe sind gleich groß und gleich weit vorn, es gibt kein
+     Schließkreuz.** Ein grauer Verzichts-Link neben einem fetten
+     Zustimmungs-Knopf ist keine freiwillige Entscheidung (Art. 4 Nr. 11
+     DSGVO), und ein Wegklicken ohne Wahl wäre Zustimmung durch Schweigen. Wer
+     nichts wählt, bekommt kein Tag. Der Widerruf steht in `/datenschutz`
+     Ziffer 6 und löscht die gesetzten `_gcl_*`-Cookies — das Tag nicht mehr zu
+     laden allein ließe sie stehen.
+318. **Die CSP-Freigabe gilt für beide Türen, obwohl nur eine wirbt.** Header
+     werden beim Bauen festgeschrieben, `APP_MODE` gilt erst zur Laufzeit — eine
+     Weiche, die als Einzige am Build hängt, läuft auseinander (AGENTS.md, „Zwei
+     Türen"). Zwei CSP-Header je Pfad sind keine Alternative: Der Browser wendet
+     mehrere Richtlinien als Schnittmenge an, die schärfere gewänne. Folgenlos
+     ist die Freigabe, weil ohne Einwilligung nie eine Anfrage entsteht.
+     Dazugekommen sind `script-src` (googletagmanager.com), `connect-src` und
+     ein eigenes `frame-src` — ohne Letzteres fiele es auf `default-src 'self'`
+     zurück und die Konversionsmessung schlüge **still** fehl.
+319. **Die Konversion meldet die bestätigte E-Mail, nicht das abgeschickte
+     Formular.** Eine unbestätigte Adresse ist keine Registrierung; Google würde
+     sonst auf Tippfehler und Wegwerf-Adressen hin optimieren. Das Ziel
+     (`AW-…/<Label>`) entsteht erst im Ads-Konto und steht deshalb in
+     `NEXT_PUBLIC_GOOGLE_ADS_KONVERSION_REGISTRIERUNG`; fehlt die Variable,
+     meldet der Baustein nichts und bleibt folgenlos.
+
+**Offen geblieben:** Das Ads-Konto muss die Konversionsaktion noch anlegen und
+das Label eintragen — bis dahin misst die Kampagne Klicks, keine
+Registrierungen. Der AVV ist bewusst **nicht** angefasst: Google Ads verarbeitet
+Besucherdaten der öffentlichen Seiten, für die die Anbieterin selbst
+Verantwortliche ist, nicht die Inhaltsdaten der Gemeinschaften — die
+Subprozessorenliste in Ziffer 4 betrifft nur Letztere. Ob die Einwilligung in
+dieser Form trägt, gehört wie die übrigen Rechtstexte anwaltlich bestätigt.

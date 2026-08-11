@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { AdsKonversion } from "@/components/ads-konversion";
+import { isWegSaas } from "@/lib/app-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,13 @@ export default async function VerifyResultPage({
 
   return (
     <main className="flex flex-1 items-center justify-center p-4">
+      {/* Der Punkt, an dem aus einem Anzeigenklick eine echte Anmeldung
+          geworden ist: E-Mail bestätigt. Das Absenden des Formulars wäre zu
+          früh — eine unbestätigte Adresse ist keine Registrierung, und Google
+          würde auf Tippfehler und Wegwerf-Adressen hin optimieren. Meldet nur
+          nach Einwilligung und nur, wenn im Ads-Konto eine Konversionsaktion
+          hinterlegt ist. */}
+      {status === "ok" && isWegSaas() ? <AdsKonversion ereignis="registrierung" /> : null}
       <div className="w-full max-w-sm animate-page-in">
         <div className="rounded-2xl border border-white/10 bg-white p-8 text-center shadow-2xl shadow-black/30">
           <h1 className={`mb-2 text-xl font-bold ${result.tone}`}>{result.title}</h1>

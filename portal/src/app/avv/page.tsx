@@ -59,7 +59,7 @@ export default function AvvPage() {
               beschäftigt.
             </p>
           ) : null}
-          <p className="mt-2 text-gray-500">Stand: 5. August 2026</p>
+          <p className="mt-2 text-gray-500">Stand: 11. August 2026</p>
         </>
       }
     >
@@ -156,8 +156,9 @@ export default function AvvPage() {
           <li>E-Mail-Versand: Google (Gmail / Google Workspace);</li>
           <li>Optionaler Dokumenten-Import: Google Drive;</li>
           <li>
-            Optionale KI-Funktionen (Assistent, Vorqualifizierung von Vorgängen): Google
-            (Gemini API) — nur, wenn die Verantwortliche sie ausdrücklich aktiviert;
+            Optionale KI-Funktionen (Assistent, Vorqualifizierung von Vorgängen,
+            Objekt-Import aus PDF): Google (Gemini API) — nur, wenn die Verantwortliche
+            sie ausdrücklich aktiviert;
           </li>
           <li>
             Push-Benachrichtigungen: geräteabhängige Push-Dienste von Google, Apple bzw.
@@ -168,6 +169,20 @@ export default function AvvPage() {
           Die Auftragsverarbeiterin schließt mit jedem Subprozessor einen Vertrag, der
           diesem im Wesentlichen dieselben Pflichten auferlegt, die hier vereinbart sind,
           und bleibt der Verantwortlichen gegenüber für dessen Verhalten verantwortlich.
+        </p>
+        <p className="text-gray-500">
+          <strong>Kein Subprozessor ist der Zahlungsdienstleister Stripe.</strong> Über
+          ihn wird das Entgelt für den Nutzungsvertrag abgerechnet. Dabei verarbeitet er
+          ausschließlich Vertragsdaten der Verantwortlichen — eine interne Kennnummer
+          ihrer Organisation, die gewählte Tarifbezeichnung und die von ihr selbst bei
+          Stripe hinterlegten Rechnungs- und Zahlungsdaten. Im Auftrag verarbeitete Daten
+          (Eigentümer, Mieter, Vorgänge, Dokumente, Beschlüsse, Belege) erreichen Stripe
+          nicht. Für diese Zahlungsabwicklung ist die Auftragsverarbeiterin daher eigene
+          Verantwortliche und nicht Auftragsverarbeiterin; Einzelheiten dazu in der{" "}
+          <Link href="/datenschutz" className="text-brand-green hover:underline">
+            Datenschutzerklärung
+          </Link>
+          .
         </p>
         <p>
           <strong>Änderungen werden angekündigt.</strong> Beabsichtigt die
@@ -193,8 +208,11 @@ export default function AvvPage() {
         </p>
         <p>
           Die KI-Funktionen sind <strong>standardmäßig ausgeschaltet</strong>. Erst wenn die
-          Verantwortliche sie aktiviert, werden die dafür benötigten Textinhalte an Google
-          übermittelt. Einzelheiten unter{" "}
+          Verantwortliche sie aktiviert, werden die dafür benötigten Inhalte an Google
+          übermittelt: bei der Vorqualifizierung Titel und Beschreibung des Vorgangs, beim
+          Assistenten die Frage samt der dazu gefundenen Textauszüge, beim Objekt-Import
+          das hochgeladene PDF <strong>vollständig</strong>. Welche Unterlagen sie dort
+          einstellt, entscheidet allein die Verantwortliche. Einzelheiten unter{" "}
           <Link href="/ki-transparenz" className="text-brand-green hover:underline">
             KI-Transparenz
           </Link>

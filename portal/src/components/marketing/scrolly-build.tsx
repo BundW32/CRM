@@ -417,9 +417,12 @@ function Building({
 function Stufen({
   stage,
   statisch,
+  registrierenHref,
 }: {
   stage: number;
   statisch: boolean;
+  /** Ziel des Abschluss-CTA – mit Aktionscode, solange die Aktion läuft. */
+  registrierenHref: string;
 }) {
   const N = STAGES.length;
   const ueberlagert = !statisch;
@@ -469,7 +472,7 @@ function Stufen({
             </p>
             {i === N - 1 ? (
               <div className="mt-6 hidden lg:block">
-                <Link href="/registrieren" className={`${wpButtonClass} px-6 py-3 text-base`}>
+                <Link href={registrierenHref} className={`${wpButtonClass} px-6 py-3 text-base`}>
                   Selbstverwaltung einrichten
                   <ArrowRight className="h-4 w-4" />
                 </Link>
@@ -492,7 +495,15 @@ function Stufen({
   );
 }
 
-export function ScrollyBuild() {
+// `registrierenHref` kommt von der Seite (Server): Während der
+// Willkommensaktion trägt der Knopf am Ende der Bau-Szene den Aktionscode mit —
+// eine Client-Komponente kann ihn nicht selbst ermitteln (siehe
+// `lib/aktion-server.ts`).
+export function ScrollyBuild({
+  registrierenHref = "/registrieren",
+}: {
+  registrierenHref?: string;
+}) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [stage, setStage] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -544,7 +555,7 @@ export function ScrollyBuild() {
           So bauen Sie Ihre Selbstverwaltung auf
         </h2>
         <div className="mt-8">
-          <Stufen stage={0} statisch />
+          <Stufen stage={0} statisch registrierenHref={registrierenHref} />
         </div>
       </section>
     );
@@ -601,7 +612,7 @@ export function ScrollyBuild() {
             </div>
 
             <div className="mt-8 lg:mt-6">
-              <Stufen stage={stage} statisch={false} />
+              <Stufen stage={stage} statisch={false} registrierenHref={registrierenHref} />
             </div>
 
             {/* Scroll-Hinweis (verblasst nach Beginn) */}

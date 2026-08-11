@@ -148,7 +148,15 @@ function Kartenpreis({
   );
 }
 
-export function TarifBereich() {
+// `registrierenHref` kommt von der Seite (Server): Während der
+// Willkommensaktion tragen die Tarif-Knöpfe den Aktionscode mit. Eine
+// Client-Komponente kann das nicht selbst entscheiden — `registrierenLink()`
+// liest `APP_MODE` und den Stand der Aktion aus der Datenbank.
+export function TarifBereich({
+  registrierenHref = "/registrieren",
+}: {
+  registrierenHref?: string;
+}) {
   const [einheiten, setEinheiten] = useState(START_EINHEITEN);
   // Stellplätze & Garagen: eigene Position, 1 € je Stellplatz — ohne Staffel
   // und ohne Einfluss auf die Einheiten-Grenzen des Reglers.
@@ -277,7 +285,7 @@ export function TarifBereich() {
               ))}
             </ul>
             <Link
-              href={tarif.cta.href}
+              href={tarif.cta.href === "/registrieren" ? registrierenHref : tarif.cta.href}
               className={`${tarif.cta.primaer ? wpButtonClass : wpButtonSecondaryClass} mt-6 w-full py-3`}
             >
               {tarif.cta.text}

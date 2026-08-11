@@ -16,6 +16,13 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { isReservedSlug } from "@/lib/slug";
 import { trialDays } from "@/lib/platform";
 import { registrationEnabled } from "@/lib/app-mode";
+import {
+  AKTIONS_CODE,
+  AKTIONS_QUELLE,
+  AKTION_GRATIS_MONATE,
+  AKTION_TRIAL_TAGE,
+} from "@/lib/aktion";
+import { aktionGewaehrt } from "@/lib/aktion-server";
 import { hashToken } from "@/lib/token-hash";
 
 // Version der bei der Registrierung akzeptierten Rechtsdokumente (AGB/AVV).
@@ -121,7 +128,7 @@ export async function registerOrganization(formData: FormData) {
   const verifyToken = crypto.randomBytes(32).toString("hex");
   const verifyExpiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3); // 3 Tage
   // Herkunft nur in eng begrenzter, unbedenklicher Form übernehmen.
-  const referralSource =
+  const herkunft =
     String(formData.get("ref") ?? "")
       .toLowerCase()
       .replace(/[^a-z0-9_-]/g, "")
@@ -130,8 +137,17 @@ export async function registerOrganization(formData: FormData) {
   // (Die B&W-Variante erreicht diese Action ohnehin nicht, s. Sperre oben.)
   const accountType = "selbstverwalter";
 
-  // Testphase: 30 Tage, über HausMatch 90 Tage ("drei Monate gratis").
-  const trialEndsAt = new Date(Date.now() + trialDays(referralSource) * 86_400_000);
+  // Willkommensaktion: Der Code aus dem Formular (oder aus dem Werbelink) zieht
+  // nur, wenn der Server Zeitraum UND Plätze bestätigt — ein Feld im Browser
+  // hält keine Grenze ein. Die Herkunft trägt danach die Aktion, denn sie ist
+  // zugleich der Zähler der Platzgrenze (siehe lib/aktion.ts).
+  const mitAktion = await aktionGewaehrt(String(formData.get("aktionscode") ?? ""), herkunft);
+  const referralSource = mitAktion ? AKTIONS_QUELLE : herkunft;
+
+  // Testphase: 30 Tage, über HausMatch 90 Tage ("drei Monate gratis"), mit
+  // Willkommensaktion die beworbenen Aktions-Tage.
+  const testTage = mitAktion ? AKTION_TRIAL_TAGE : trialDays(referralSource);
+  const trialEndsAt = new Date(Date.now() + testTage * 86_400_000);
 
   // Org + Gründer-SuperAdmin atomisch anlegen.
   const { user, org } = await db.$transaction(async (tx) => {
@@ -186,11 +202,20 @@ export async function registerOrganization(formData: FormData) {
   const nextStepLine = selfManaged
     ? `Danach legen Sie unter „WEG-Verwaltung" Ihr Objekt an und tragen die Eigentümer mit ihren Miteigentumsanteilen ein.\n\n`
     : `Danach können Sie Ihr Portal unter „Verwaltung → Branding" vollständig einrichten.\n\n`;
+  // Eingelöste Aktion gehört bestätigt: Sonst ist das einzige Zeugnis der
+  // verlängerten Testphase eine Zahl auf der Abrechnungsseite, und wer den Code
+  // eingegeben hat, weiß nicht, ob er gezählt hat.
+  const aktionsLine = mitAktion
+    ? `Ihr Aktionscode ${AKTIONS_CODE} ist eingelöst: Die ersten ${AKTION_GRATIS_MONATE} Monate ` +
+      `nutzen Sie den vollen Funktionsumfang kostenlos – ohne Bindung und ohne Zahlungsdaten. ` +
+      `Danach entscheiden Sie selbst, ob Sie einen Tarif buchen.\n\n`
+    : "";
   await sendMail(
     email,
     "Willkommen – bitte bestätigen Sie Ihre E-Mail-Adresse",
     `Guten Tag ${fullName},\n\n` +
       introLine +
+      aktionsLine +
       `Bitte bestätigen Sie Ihre E-Mail-Adresse über diesen Link (gültig 3 Tage):\n` +
       `${verifyLink}\n\n` +
       nextStepLine +

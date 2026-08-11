@@ -11,13 +11,14 @@ export const dynamic = "force-dynamic";
 export default async function OnboardingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; neu?: string }>;
 }) {
   const verwalter = await requireVerwalter();
   if (!verwalter.isSuperAdmin) redirect("/dashboard");
 
   const org = await getOrganization();
   if (!org) redirect("/dashboard");
+  const { fehler, neu } = await searchParams;
   // Selbstverwaltete WEGs überspringen die Branding-Einrichtung (kein eigenes
   // Logo/Firmenname) und gehen direkt zum geführten Erststart auf der Übersicht.
   //
@@ -26,8 +27,11 @@ export default async function OnboardingPage({
   // es gibt ja noch kein Objekt. Genau dieser erste Eindruck war der Anlass für
   // den Einrichtungs-Assistenten; ihn dann nicht anzusteuern, hieße den Weg zu
   // bauen und die Weiche stehen zu lassen.
-  if (isSelfManaged(org)) redirect("/dashboard");
-  const { fehler } = await searchParams;
+  //
+  // "neu=1" (s. registrieren/actions.ts) wird an /dashboard weitergereicht,
+  // damit dort eine URL-basierte Conversion-Erkennung nur die tatsächliche
+  // Erst-Registrierung sieht, nicht jeden späteren Login auf derselben Seite.
+  if (isSelfManaged(org)) redirect(neu === "1" ? "/dashboard?neu=1" : "/dashboard");
 
   const defaults: BrandingDefaults = {
     name: org.name ?? "",

@@ -204,5 +204,10 @@ export async function registerOrganization(formData: FormData) {
   await trackFunnelEvent("signup_done", { path: "/registrieren", meta: { orgId: org.id } });
 
   await createSession(user.id);
-  redirect("/onboarding");
+  // "neu=1" markiert genau diesen einen Aufruf als frische Registrierung –
+  // wird bis zur tatsächlich gerenderten Seite (bei Selbstverwaltern /dashboard,
+  // s. onboarding/page.tsx) durchgereicht. Ohne diesen Marker wäre die Zielseite
+  // identisch mit der, die jeder Nutzer bei jedem Login sieht – eine URL-basierte
+  // Conversion-Erkennung (Google Ads o. Ä.) würde dann jeden Login mitzählen.
+  redirect("/onboarding?neu=1");
 }

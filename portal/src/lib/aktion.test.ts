@@ -1,6 +1,7 @@
 // Die Willkommensaktion hat drei Grenzen (Code, Zeitraum, Plätze). Jede einzelne
 // davon kann eine Aktion still zu einem Dauerrabatt machen, wenn sie nicht hält
 // — deshalb steht hier für jede eine Gegenprobe.
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   AKTIONS_CODE,
@@ -97,6 +98,27 @@ describe("Plätze", () => {
       process.env.AKTION_PLAETZE = murks;
       expect(aktionsPlaetze()).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("Was die Seiten zeigen", () => {
+  it("nennt die Platzgrenze, nicht den Verbrauch", () => {
+    // Entscheidung des Auftraggebers vom 11.08.2026: „nur 50 Plätze" — kein
+    // „noch 37 von 50 frei". Der Zähler bleibt Mechanik der Sperre; stünde er
+    // wieder im Text, verriete die Seite ihre Anmeldezahlen, und eine hohe
+    // Restzahl arbeitete gegen die beworbene Knappheit. Ein Blick auf den
+    // Quelltext genügt hier: `restplaetze` ist die EINE Größe, aus der sich ein
+    // solcher Text bauen lässt.
+    const quelle = readFileSync(
+      new URL("../components/marketing/aktion.tsx", import.meta.url),
+      "utf8",
+    );
+    // Der Warnhinweis im Kopf der Datei nennt den Namen bewusst — gezählt wird
+    // deshalb nur, was außerhalb von Kommentaren steht.
+    const ohneKommentare = quelle
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/(^|[^:])\/\/.*$/gm, "$1");
+    expect(ohneKommentare).not.toMatch(/restplaetze/);
   });
 });
 

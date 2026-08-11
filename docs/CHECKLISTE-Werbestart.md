@@ -100,8 +100,9 @@ Start-Umfang, bis die Gemeinschaft selbst einen Tarif bucht.
   Code-Aufruf, der zu spät kommt, wird auf der Registrierungsseite offen
   benannt („Aktion ist beendet") statt still ignoriert.
 - [ ] **Verbrauchte Plätze prüfen:** `/plattform/organisationen` → Spalte
-  „Herkunft"; gezählt werden die Einträge `portal24`. Der Banner zeigt
-  denselben Stand live als „noch N Plätze frei" und verschwindet beim letzten.
+  „Herkunft"; gezählt werden die Einträge `portal24`. Nach außen zeigt der
+  Banner diesen Stand **nicht** — die Seiten nennen nur die Grenze („nur 50
+  Plätze"), und beim letzten Platz verschwindet die Aktion von selbst.
 - [ ] Beim Verlängern beachten: Ein späteres `AKTION_ENDE` verlängert die
   Testphase **bereits registrierter** Gemeinschaften nicht — jede hat ihre 90
   Tage beim Anlegen erhalten. Das ist Absicht (sonst wäre die Frist beweglich).

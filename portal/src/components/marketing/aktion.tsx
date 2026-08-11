@@ -26,8 +26,14 @@ import { wpButtonClass } from "./brand";
 // automatisch, und die AGB (Ziffer 8) kennen keine Mindestlaufzeit.
 const TITEL = "Willkommensangebot";
 
+// Die Seiten nennen die GRENZE („nur 50 Plätze"), nicht den Verbrauch — kein
+// „noch 37 von 50 frei" (Entscheidung des Auftraggebers vom 11.08.2026). Der
+// Zähler bleibt im Hintergrund: Er schließt die Aktion beim letzten Platz, aber
+// ein laufender Stand verrät nach außen, wie viele sich angemeldet haben, und
+// eine hohe Restzahl arbeitet gegen die Knappheit, mit der geworben wird.
+// `stand.restplaetze` gehört deshalb NICHT in diese Datei.
 function plaetzeText(stand: AktionsStand): string {
-  return stand.restplaetze === 1 ? "noch 1 Platz frei" : `noch ${stand.restplaetze} Plätze frei`;
+  return `nur ${stand.plaetze} Plätze`;
 }
 
 /**
@@ -62,7 +68,7 @@ export async function AktionsBanner() {
           Code {stand.code}
         </span>
         <span className="hidden text-white/70 lg:inline">
-          nur bis {stand.endeText} · {plaetzeText(stand)}
+          bis {stand.endeText} · {plaetzeText(stand)}
         </span>
         <span className="inline-flex items-center gap-1 font-semibold text-wp-accent-bright underline decoration-wp-accent-bright/40 underline-offset-4 transition-colors group-hover:decoration-wp-accent-bright">
           Einlösen
@@ -125,7 +131,7 @@ export async function AktionsAngebot({
         {/* Kein führender Trenner: Bricht die Zeile hinter dem Code-Chip um,
             stünde sonst ein „·" am Zeilenanfang. */}
         <span>
-          gültig bis {stand.endeText} · für die ersten {stand.plaetze} Gemeinschaften ({plaetzeText(stand)})
+          gültig bis {stand.endeText} · nur für die ersten {stand.plaetze} Gemeinschaften
         </span>
       </p>
       {/* Einen EIGENEN Knopf trägt nur die helle Fassung. Im Hero steht der

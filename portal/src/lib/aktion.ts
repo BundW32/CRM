@@ -120,7 +120,17 @@ export type AktionsStand = {
   /** Angebrochene Tage bis zum Ende, mindestens 1 („nur noch heute"). */
   tageBisEnde: number;
   plaetze: number;
-  /** Freie Plätze, nie negativ. */
+  /**
+   * Freie Plätze, nie negativ — **nicht für die Anzeige**.
+   *
+   * Die Seiten nennen die Grenze („nur 50 Plätze"), nie den Verbrauch
+   * (Entscheidung des Auftraggebers vom 11.08.2026): Ein laufender Stand verrät
+   * nach außen, wie viele sich angemeldet haben, und eine hohe Restzahl
+   * arbeitet gegen die Knappheit, mit der geworben wird. Gebraucht wird der
+   * Wert für die Sperre (0 freie Plätze ⇒ `aktionsStand()` liefert `null`) und
+   * für die Prüfungen; `aktion.test.ts` hält fest, dass er nicht in den
+   * Marken-Seiten auftaucht.
+   */
   restplaetze: number;
 };
 

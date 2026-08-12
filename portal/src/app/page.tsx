@@ -30,6 +30,7 @@ import {
   Users,
   Vote,
 } from "lucide-react";
+import { AktionsAngebot } from "@/components/marketing/aktion";
 import { wpButtonClass } from "@/components/marketing/brand";
 import {
   buttonOnPhotoClass,
@@ -43,6 +44,7 @@ import { MobileCtaBar } from "@/components/marketing/mobile-cta-bar";
 import { KenBurnsBackdrop } from "@/components/marketing/photo-hero";
 import { Reveal } from "@/components/marketing/reveal";
 import { ScrollyBuild } from "@/components/marketing/scrolly-build";
+import { registrierenLink } from "@/lib/aktion-server";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
 import { isWegSaas } from "@/lib/app-mode";
@@ -370,6 +372,11 @@ export default async function Home() {
   // die Landing-Page gehört auf die Hauptdomain.
   if (await getTenantOrg()) redirect("/login");
 
+  // Weg zur Registrierung – mit Aktionscode, solange die Willkommensaktion
+  // läuft. Eine Quelle für alle Knöpfe dieser Seite; die Angebots-Blöcke holen
+  // ihren Stand selbst aus demselben, je Anfrage gecachten Aufruf.
+  const registrieren = await registrierenLink();
+
   return (
     <main className="mk-light flex-1">
       <StrukturierteDaten />
@@ -406,10 +413,12 @@ export default async function Home() {
                 einfach, gemeinsam und rechtssicher selbst zu verwalten.
               </span>
             </p>
-            {/* Element 4: Haupt-CTA */}
+            {/* Element 4: Haupt-CTA. Läuft die Willkommensaktion, nimmt der
+                Knopf den Code mit — wer hier klickt, muss ihn nicht
+                abschreiben. */}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link
-                href="/registrieren"
+                href={registrieren}
                 className={`${wpButtonClass} w-full px-6 py-3 text-base sm:w-auto`}
               >
                 Portal kostenlos einrichten
@@ -435,12 +444,18 @@ export default async function Home() {
                 </li>
               ))}
             </ul>
+            {/* Willkommensaktion — unter den Vertrauens-Fakten und damit UNTER
+                dem Haupt-CTA: Auf 375×667 muss der Knopf ohne Scrollen im Bild
+                liegen (Falz-Regel der Marken-Seiten), und ein Block darüber
+                hätte ihn hinausgeschoben. Ohne laufende Aktion rendert der
+                Block nichts. */}
+            <AktionsAngebot variant="hero" className="mt-7 max-w-xl" />
           </div>
         </div>
       </section>
 
       {/* ── Element 6: das Produkt in Bewegung – der Scroll-Aufbau ────────── */}
-      <ScrollyBuild />
+      <ScrollyBuild registrierenHref={registrieren} />
 
       {/* ── Element 7: Kern-Nutzen ────────────────────────────────────────── */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
@@ -854,7 +869,7 @@ export default async function Home() {
       <MarketingFooter />
       </div>
       {/* A7: dauerhaft erreichbarer Registrieren-Weg auf Mobil */}
-      <MobileCtaBar />
+      <MobileCtaBar href={registrieren} />
     </main>
   );
 }

@@ -13,9 +13,11 @@
 // (AGB Ziffer 8). Die Brutto-Transparenz wird aktiv ausgespielt — Wettbewerber
 // werben mit Nettopreisen, der Endbetrag ist das ehrliche Vergleichsmaß.
 import type { Metadata } from "next";
+import { AktionsAngebot } from "@/components/marketing/aktion";
 import { BRAND_EMAIL } from "@/components/marketing/brand";
 import { CtaBand, MarketingFooter, MarketingHeader } from "@/components/marketing/site";
 import { Reveal } from "@/components/marketing/reveal";
+import { registrierenLink } from "@/lib/aktion-server";
 import { assertMainDomain } from "@/lib/marketing";
 import { TarifBereich } from "./tarif-bereich";
 import {
@@ -154,10 +156,19 @@ export default async function PreisePage() {
           </p>
         </Reveal>
 
+        {/* Willkommensaktion — ÜBER den Tarifkarten, aber unter den Preisen im
+            Fließtext: Wer auf diese Seite kommt, will zuerst wissen, was es
+            kostet; das Angebot ist die Antwort darauf, nicht ihr Ersatz. Ohne
+            laufende Aktion rendert der Block nichts, und die Seite sieht aus
+            wie vorher. */}
+        <Reveal>
+          <AktionsAngebot variant="hell" className="mt-8" />
+        </Reveal>
+
         {/* ── Regler und Tarife: eine Einheit, drei Stufen ── */}
         <div className="mt-10">
           <Reveal>
-            <TarifBereich />
+            <TarifBereich registrierenHref={await registrierenLink()} />
           </Reveal>
         </div>
 

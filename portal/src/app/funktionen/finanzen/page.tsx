@@ -44,11 +44,13 @@ export default async function FinanzenPage() {
           // Hausgeld bis zur fertigen Jahresabrechnung"). Vorher standen sie
           // nur in der H1 und in keiner Zeile Fließtext — eine Suchmaschine
           // sieht dann eine Überschrift, die die Seite nicht einlöst.
+          // Bewusst KÜRZER als der Absatz, der hier vorher stand: Bei 375 × 667
+          // endete der Haupt-CTA sonst bei 666 von 667 Pixeln — eine Zeile mehr
+          // und er läge unter der Falz.
           "Zwischen dem ersten Hausgeld und der fertigen Jahresabrechnung liegt " +
           "ein Jahr Buchhaltung – der Teil der Selbstverwaltung, vor dem die " +
-          "meisten Eigentümer Respekt haben. Assistenten führen durch " +
-          "Wirtschaftsplan, Buchhaltung und Jahresabrechnung, rechnen centgenau " +
-          "und prüfen, ob am Ende alles aufgeht."
+          "meisten Eigentümer Respekt haben. Assistenten führen hindurch, " +
+          "rechnen centgenau und prüfen, ob alles aufgeht."
         }
         image={{
           src: "/images/marketing/finanzen.jpg",

@@ -212,7 +212,7 @@ export async function registerOrganization(formData: FormData) {
   // eingegeben hat, weiß nicht, ob er gezählt hat.
   const aktionsLine = mitAktion
     ? `Ihr Aktionscode ${AKTIONS_CODE} ist eingelöst: Die ersten ${AKTION_GRATIS_MONATE} Monate ` +
-      `nutzen Sie den vollen Funktionsumfang kostenlos – ohne Bindung und ohne Zahlungsdaten. ` +
+      `nutzen Sie den vollen Funktionsumfang kostenlos – ohne Bindung. ` +
       `Danach entscheiden Sie selbst, ob Sie einen Tarif buchen.\n\n`
     : "";
   await sendMail(

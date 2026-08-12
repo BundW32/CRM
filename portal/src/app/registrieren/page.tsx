@@ -7,7 +7,7 @@ import { registerOrganization } from "./actions";
 import { isWegSaas, registrationEnabled } from "@/lib/app-mode";
 import { AKTIONS_CODE, istAktionsCode, normalisiereAktionsCode } from "@/lib/aktion";
 import { aktuellerAktionsStand } from "@/lib/aktion-server";
-import { AktionsAngebot } from "@/components/marketing/aktion";
+import { AktionsHinweis } from "@/components/marketing/aktion";
 import { Wordmark } from "@/components/marketing/wordmark";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +62,7 @@ export default async function RegisterPage({
           {/* Willkommensaktion: Wer über die Werbung hierher kommt, muss sie
               vor dem Absenden wiederfinden — sonst wirkt die Startseite wie
               ein anderes Angebot als die Registrierung. */}
-          <AktionsAngebot variant="formular" className="mb-5" />
+          <AktionsHinweis className="mb-5" />
           {/* Kam ein Code an, die Aktion ist aber vorbei: sagen, was gilt.
               Stumm auf die reguläre Testphase zu schalten wäre die Variante,
               bei der sich jemand hinterher getäuscht fühlt. */}

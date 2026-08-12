@@ -30,7 +30,6 @@ import {
   Users,
   Vote,
 } from "lucide-react";
-import { AktionsAngebot } from "@/components/marketing/aktion";
 import { wpButtonClass } from "@/components/marketing/brand";
 import {
   buttonOnPhotoClass,
@@ -444,12 +443,11 @@ export default async function Home() {
                 </li>
               ))}
             </ul>
-            {/* Willkommensaktion — unter den Vertrauens-Fakten und damit UNTER
-                dem Haupt-CTA: Auf 375×667 muss der Knopf ohne Scrollen im Bild
-                liegen (Falz-Regel der Marken-Seiten), und ein Block darüber
-                hätte ihn hinausgeschoben. Ohne laufende Aktion rendert der
-                Block nichts. */}
-            <AktionsAngebot variant="hero" className="mt-7 max-w-xl" />
+            {/* Die Willkommensaktion steht NICHT im Hero (Entscheidung vom
+                12.08.2026): Sie läuft als mitlaufende Leiste über der
+                Kopfzeile — der Hero bleibt für sich, weil er eigenständig
+                weiterentwickelt wird. Der Haupt-CTA oben nimmt den Aktionscode
+                trotzdem mit (`registrierenLink()`). */}
           </div>
         </div>
       </section>

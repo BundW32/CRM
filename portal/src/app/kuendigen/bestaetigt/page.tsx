@@ -2,8 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicBrand } from "@/components/public-brand";
 import { isWegSaas } from "@/lib/app-mode";
+import { NICHT_INDEXIEREN } from "@/lib/seo";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Kündigung eingegangen",
+  description: "Bestätigung des Eingangs Ihrer Kündigungserklärung nach § 312k BGB.",
+  robots: NICHT_INDEXIEREN,
+};
 
 /**
  * Bestätigung nach § 312k Abs. 4 BGB.

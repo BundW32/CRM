@@ -13,11 +13,10 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Eigentümerversammlung & Beschlüsse digital organisieren",
+  title: "Eigentümerversammlung & Beschlüsse",
   description:
-    "Versammlungen mit Ladefrist einberufen, Anwesenheit und Vertretung erfassen, " +
-    "abstimmen nach dem Stimmprinzip Ihrer Gemeinschaft (Kopf, MEA oder Objekt) " +
-    "und Beschlüsse dauerhaft dokumentieren – für selbstverwaltete WEGs.",
+    "Versammlung mit Ladungsfrist einberufen, Anwesenheit und Vollmachten " +
+    "erfassen, nach Ihrem Stimmprinzip abstimmen und Beschlüsse dokumentieren.",
 };
 
 export default async function VersammlungPage() {

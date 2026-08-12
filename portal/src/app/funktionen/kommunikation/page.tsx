@@ -18,11 +18,10 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Schäden, Dokumente & Kommunikation in der WEG",
+  title: "Schäden, Dokumente & Aushänge in der WEG",
   description:
-    "Schäden mit Fotos melden und bis zur Erledigung verfolgen, Dokumente und " +
-    "Aushänge zentral teilen: So bleibt in der selbstverwalteten WEG jeder " +
-    "informiert – mit eigenem Zugang für Eigentümer, Beirat und Mieter.",
+    "Schäden mit Foto melden und bis zur Erledigung verfolgen, Dokumente und " +
+    "Aushänge zentral teilen – eigener Zugang für Eigentümer, Beirat und Mieter.",
 };
 
 export default async function KommunikationPage() {

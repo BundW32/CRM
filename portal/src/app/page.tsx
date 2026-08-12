@@ -65,8 +65,8 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "WEG selbst verwalten ohne Hausverwaltung",
   description:
-    "Keine Hausverwaltung gefunden? Verwalten Sie Ihre WEG selbst: Wirtschaftsplan, " +
-    "Hausgeld, Jahresabrechnung und Versammlung – jetzt kostenlos starten.",
+    "Keine Hausverwaltung gefunden? Verwalten Sie Ihre WEG selbst – Wirtschaftsplan, " +
+    "Hausgeld und Jahresabrechnung inklusive. Jetzt kostenlos starten.",
   keywords: [
     "WEG selbst verwalten",
     "WEG Selbstverwaltung",

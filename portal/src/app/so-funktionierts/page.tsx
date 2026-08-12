@@ -12,11 +12,10 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "So funktioniert die WEG-Selbstverwaltung mit dem Portal",
+  title: "WEG-Selbstverwaltung in fünf Schritten",
   description:
-    "Schritt für Schritt von der Registrierung zur laufenden Selbstverwaltung: " +
-    "WEG anlegen, Konten und Einheiten erfassen, Wirtschaftsplan beschließen, " +
-    "Eigentümer einladen – plus rechtlicher Rahmen und häufige Fragen.",
+    "Von der Registrierung bis zur laufenden WEG-Selbstverwaltung: WEG anlegen, " +
+    "Einheiten erfassen, Wirtschaftsplan beschließen, Eigentümer einladen.",
 };
 
 const steps = [

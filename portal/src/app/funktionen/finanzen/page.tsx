@@ -18,11 +18,10 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "WEG-Finanzen: Wirtschaftsplan, Buchhaltung & Jahresabrechnung",
+  title: "WEG-Finanzen: Wirtschaftsplan & Abrechnung",
   description:
-    "So verwaltet Ihre WEG die Finanzen selbst: Wirtschaftsplan nach § 28 WEG mit " +
-    "Assistent, Buchhaltung mit CSV-Bankimport, getrennte Erhaltungsrücklage und " +
-    "revisionssichere Jahresabrechnung.",
+    "Wirtschaftsplan nach § 28 WEG, Buchhaltung mit CSV-Bankimport, getrennte " +
+    "Erhaltungsrücklage und eine Jahresabrechnung, die nachweislich aufgeht.",
 };
 
 export default async function FinanzenPage() {

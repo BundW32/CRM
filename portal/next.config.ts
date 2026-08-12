@@ -3,18 +3,37 @@ import type { NextConfig } from "next";
 // Sicherheits-Header für alle Routen. CSP bewusst pragmatisch gehalten,
 // damit Next.js (inline-Styles/Scripts) funktioniert, aber externe Quellen
 // blockiert werden.
+// Google-Ads-Tag (gtag.js). Ohne diese Freigaben wird das Skript von der CSP
+// blockiert — und zwar lautlos für alle außer der Browser-Konsole. Bewusst nur
+// die Hosts, die das Tag wirklich anspricht: das Skript selbst von
+// googletagmanager.com, die Conversion-Meldungen an die Google-Domains. Sie
+// stehen hier auch dann, wenn das Tag mangels Einwilligung nie lädt — eine
+// nach Modus verzweigende CSP wäre schwerer zu prüfen als sie nützt.
+const GOOGLE_ADS_SKRIPT = "https://www.googletagmanager.com";
+const GOOGLE_ADS_ZIELE = [
+  "https://www.googletagmanager.com",
+  "https://www.google.com",
+  "https://www.google.de",
+  "https://googleads.g.doubleclick.net",
+  "https://www.google-analytics.com",
+].join(" ");
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline' ${GOOGLE_ADS_SKRIPT}`,
   // pdf.js rendert die Dokumentvorschau in einem Web Worker. Ohne worker-src
   // greift die Vorschau auf script-src zurück; der Blob-Fallback von pdf.js
   // bräuchte dann blob: und würde sonst still scheitern.
   "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  `connect-src 'self' ${GOOGLE_ADS_ZIELE}`,
+  // Das Conversion-Tag hängt für die Klick-Zuordnung einen unsichtbaren Rahmen
+  // ein. Ohne eigenen `frame-src` griffe `default-src 'self'` und der Rahmen
+  // bliebe leer.
+  "frame-src 'self' https://td.doubleclick.net https://www.googletagmanager.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

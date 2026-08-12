@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CookieEinstellungen } from "@/components/cookie-consent";
 import { LegalPage, LegalSection } from "@/components/legal-page";
 import { isWegSaas, productName } from "@/lib/app-mode";
 
@@ -47,7 +48,7 @@ export default function DatenschutzPage() {
             Verarbeitung personenbezogener Daten bei der Nutzung von{" "}
             <strong>{productName()}</strong>.
           </p>
-          <p className="mt-2 text-gray-500">Stand: 11. August 2026</p>
+          <p className="mt-2 text-gray-500">Stand: 12. August 2026</p>
         </>
       }
     >
@@ -147,12 +148,24 @@ export default function DatenschutzPage() {
           Abstimmungen, Zählerstände) sowie technische Daten (Zeitstempel, IP-Adresse in
           Sicherheitsprotokollen).
         </p>
-        <p>
-          Ein Nutzungsprofil wird nicht gebildet. Die Anwendung setzt{" "}
-          <strong>keine Analyse- oder Werbe-Cookies</strong> ein; gesetzt werden
-          ausschließlich technisch erforderliche Cookies für die Anmeldesitzung
-          (§ 25 Abs. 2 Nr. 2 TDDDG — insoweit ist keine Einwilligung erforderlich).
-        </p>
+        {weg ? (
+          <p>
+            Ein Nutzungsprofil wird nicht gebildet. Ohne Ihre Einwilligung setzt die
+            Anwendung <strong>keine Analyse- oder Werbe-Cookies</strong> ein; gesetzt
+            werden dann ausschließlich technisch erforderliche Cookies für die
+            Anmeldesitzung (§ 25 Abs. 2 Nr. 2 TDDDG — insoweit ist keine Einwilligung
+            erforderlich). Auf den öffentlichen Seiten bieten wir Ihnen zusätzlich eine
+            Werbemessung an, die ein Cookie setzt; sie läuft ausschließlich, wenn Sie
+            zustimmen — Einzelheiten unter Nummer 7.
+          </p>
+        ) : (
+          <p>
+            Ein Nutzungsprofil wird nicht gebildet. Die Anwendung setzt{" "}
+            <strong>keine Analyse- oder Werbe-Cookies</strong> ein; gesetzt werden
+            ausschließlich technisch erforderliche Cookies für die Anmeldesitzung
+            (§ 25 Abs. 2 Nr. 2 TDDDG — insoweit ist keine Einwilligung erforderlich).
+          </p>
+        )}
       </LegalSection>
 
       <LegalSection title={weg ? "5. Empfänger und Auftragsverarbeiter" : "4. Empfänger / Auftragsverarbeiter"}>
@@ -218,7 +231,45 @@ export default function DatenschutzPage() {
         ) : null}
       </LegalSection>
 
-      <LegalSection title={weg ? "7. Datensicherheit" : "6. Datensicherheit"}>
+      {weg ? (
+        <LegalSection title="7. Werbemessung mit Google Ads (nur mit Ihrer Einwilligung)">
+          <p>
+            Wir bewerben {productName()} über Google Ads. Um zu erkennen, welche Anzeige
+            tatsächlich zu einer Registrierung geführt hat, können wir das Google-Tag
+            (gtag.js) der Google Ireland Limited, Gordon House, Barrow Street, Dublin 4,
+            Irland einsetzen.
+          </p>
+          <p>
+            <strong>Das geschieht ausschließlich, wenn Sie zustimmen.</strong> Ohne Ihre
+            Einwilligung wird das Skript nicht geladen und es werden keine Daten an Google
+            übertragen. Rechtsgrundlage ist Ihre Einwilligung nach Art. 6 Abs. 1 lit. a
+            DSGVO und § 25 Abs. 1 TDDDG.
+          </p>
+          <p>
+            Stimmen Sie zu, werden verarbeitet: die Klick-Kennung Ihrer Anzeige
+            (<em>gclid</em>) aus der aufgerufenen Adresse, die aufgerufene Seite, Datum und
+            Uhrzeit sowie Ihre IP-Adresse. Google setzt dabei ein Cookie
+            (<em>_gcl_au</em>, Laufzeit 90 Tage), um Ihren Klick auf die Anzeige mit der
+            späteren Registrierung zu verbinden. Google verarbeitet diese Daten auch in den
+            USA; Grundlage sind der Angemessenheitsbeschluss (EU-U.S. Data Privacy
+            Framework) und Standardvertragsklauseln.
+          </p>
+          <p>
+            <strong>Nur auf den öffentlichen Seiten.</strong> Das Tag läuft auf der
+            Startseite, den Funktions- und Preisseiten, der Registrierung und den
+            Rechtsseiten. Im <strong>angemeldeten Portalbereich läuft es nicht</strong> —
+            die dort verarbeiteten Daten Ihrer Gemeinschaft gehen Google nichts an.
+          </p>
+          <p>
+            Sie können Ihre Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen;
+            die bis dahin erfolgte Verarbeitung bleibt rechtmäßig. Beim Widerruf löschen wir
+            die gesetzten Google-Cookies:{" "}
+            <CookieEinstellungen />
+          </p>
+        </LegalSection>
+      ) : null}
+
+      <LegalSection title={weg ? "8. Datensicherheit" : "6. Datensicherheit"}>
         <p>
           Die Übertragung erfolgt verschlüsselt (TLS/HTTPS). Passwörter werden
           ausschließlich als kryptografischer Hash gespeichert. Der Zugriff erfolgt
@@ -228,7 +279,7 @@ export default function DatenschutzPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title={weg ? "8. Einsatz von KI-Systemen" : "7. Einsatz von KI-Systemen"}>
+      <LegalSection title={weg ? "9. Einsatz von KI-Systemen" : "7. Einsatz von KI-Systemen"}>
         <p>
           Das Portal enthält <strong>drei</strong> optionale KI-Funktionen: einen
           Assistenten, der Fragen aus den für Sie freigegebenen Unterlagen beantwortet,
@@ -262,7 +313,7 @@ export default function DatenschutzPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title={weg ? "9. Ihre Rechte" : "8. Ihre Rechte"}>
+      <LegalSection title={weg ? "10. Ihre Rechte" : "8. Ihre Rechte"}>
         <p>
           Sie haben das Recht auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung
           (Art. 17), Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit

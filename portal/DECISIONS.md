@@ -2076,3 +2076,28 @@ hat weiterhin keine Überwachung: Fällt er still aus, laufen alle Löschfristen
 ins Leere. Das `draft`-Etikett auf `/datenschutz-saas` und `/ki-transparenz`
 bleibt stehen — es zu entfernen ist eine Freigabeentscheidung, keine
 technische.
+314. **Das Google-Ads-Tag läuft erst nach Einwilligung — und nur draußen.**
+     Google gibt gtag.js als zwei Zeilen „direkt hinter dem `<head>`-Element,
+     auf allen Seiten Ihrer Website" aus. Beides wäre hier falsch gewesen.
+     *Erstens die Reihenfolge:* Das Tag setzt `_gcl_au` und überträgt die
+     IP-Adresse an Google, bevor irgendjemand gefragt wurde — § 25 Abs. 1
+     TDDDG, und keiner der Ausnahmefälle des Abs. 2. Das Skript wird deshalb
+     zur Laufzeit nachgeladen (`components/cookie-consent.tsx`), erst nach
+     „Einverstanden". Für die Messung kostet das nichts: Die Klick-Kennung
+     `gclid` steht in der Landing-URL und wird von gtag.js beim Start gelesen,
+     gleich wann dieser Start erfolgt. *Zweitens der Ort:* gtag.js meldet bei
+     jedem Aufruf `page_location` **und** `page_title`. Im angemeldeten Bereich
+     wären das Kennungen und Namen von Eigentümern und Mietern — Daten, für die
+     B&W nur Auftragsverarbeiterin ist; eine Übermittlung in die USA ohne
+     Weisung der Gemeinschaft. Deshalb entscheidet eine **Allowlist**
+     öffentlicher Pfade (`lib/consent.ts`), keine Sperrliste: Eine neue Seite
+     wird anfangs nicht gemessen, statt still zu verraten.
+315. **Und der Text sagt es, weil eine Prüfung ihn dazu zwingt.**
+     `/datenschutz` versprach pauschal „keine Analyse- oder Werbe-Cookies" —
+     ein Satz, der in dem Moment zur Falschangabe nach Art. 13 DSGVO wird, in
+     dem jemand ein Tag einbaut und den Text vergisst. `rechtstexte-abgleich.
+     test.ts` verlangt jetzt: Solange eine Tag-ID in `lib/google-ads.ts` steht,
+     muss die Erklärung Dienst, Cookie-Namen, beide Rechtsgrundlagen, das
+     Drittland und den Widerrufsknopf nennen — und die Zusage „im angemeldeten
+     Portalbereich läuft es nicht" wird gegen `istTrackingPfad()` geprüft, nicht
+     gegen sich selbst. Gegen den alten Stand gegengeprüft: fällt durch.

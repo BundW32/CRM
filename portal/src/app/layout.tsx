@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import { CookieConsent } from "@/components/cookie-consent";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { TrackingSnippet } from "@/components/tracking-snippet";
 import { isWegSaas } from "@/lib/app-mode";
+import { googleAdsTagId } from "@/lib/google-ads";
 import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
@@ -109,6 +111,11 @@ export default function RootLayout({
         {/* Cookiefreies First-Party-Tracking (kein Consent nötig, siehe
             components/tracking-snippet.tsx) — läuft unabhängig von einem CMP. */}
         <TrackingSnippet />
+        {/* Google-Ads-Tag: NUR nach Einwilligung und nur auf den öffentlichen
+            Seiten (Allowlist in lib/consent.ts). Die Tag-ID wird hier auf dem
+            Server ermittelt — `googleAdsTagId()` liest APP_MODE und dürfte
+            deshalb nicht in der Client-Komponente selbst stehen. */}
+        <CookieConsent tagId={googleAdsTagId()} />
         {children}
       </body>
     </html>

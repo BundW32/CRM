@@ -40,10 +40,15 @@ export default async function FinanzenPage() {
           </>
         }
         intro={
-          "Die Finanzen sind der Teil der Selbstverwaltung, vor dem die meisten " +
-          "Eigentümer Respekt haben – und genau dafür ist dieses Portal gebaut. " +
-          "Assistenten führen durch Wirtschaftsplan, Buchhaltung und " +
-          "Jahresabrechnung, rechnen centgenau und prüfen, ob am Ende alles aufgeht."
+          // Der Absatz greift die Begriffe der Überschrift auf („vom ersten
+          // Hausgeld bis zur fertigen Jahresabrechnung"). Vorher standen sie
+          // nur in der H1 und in keiner Zeile Fließtext — eine Suchmaschine
+          // sieht dann eine Überschrift, die die Seite nicht einlöst.
+          "Zwischen dem ersten Hausgeld und der fertigen Jahresabrechnung liegt " +
+          "ein Jahr Buchhaltung – der Teil der Selbstverwaltung, vor dem die " +
+          "meisten Eigentümer Respekt haben. Assistenten führen durch " +
+          "Wirtschaftsplan, Buchhaltung und Jahresabrechnung, rechnen centgenau " +
+          "und prüfen, ob am Ende alles aufgeht."
         }
         image={{
           src: "/images/marketing/finanzen.jpg",

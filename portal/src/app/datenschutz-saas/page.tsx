@@ -20,8 +20,9 @@ export default function SaasDatenschutzPage() {
       draft
       intro={
         <p>
-          Diese Erklärung betrifft die Nutzung der Software durch Hausverwaltungen und
-          Vermieter (Kunden). Sie ergänzt die{" "}
+          Diese Erklärung betrifft die Verwaltungs-Kunden des Portals: Hausverwaltungen
+          und Vermieter, die die Software als SaaS (Software as a Service) nutzen. Sie
+          ergänzt die{" "}
           <a href="/datenschutz" className="text-brand-green hover:underline">
             allgemeine Datenschutzerklärung
           </a>{" "}

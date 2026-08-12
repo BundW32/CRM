@@ -124,9 +124,10 @@ export default async function SoFunktioniertsPage() {
           </>
         }
         intro={
-          "Sie brauchen kein Buchhaltungswissen und keine Software-Schulung. " +
-          "Das Portal führt Ihre WEG der Reihe nach durch die Einrichtung – " +
-          "und prüft an den kritischen Stellen automatisch mit."
+          "Von null auf verwaltet: In fünf Schritten steht Ihre WEG im Portal – " +
+          "ohne Buchhaltungswissen und ohne Software-Schulung. Das Portal führt " +
+          "Ihre Gemeinschaft der Reihe nach durch die Einrichtung und prüft an " +
+          "den kritischen Stellen automatisch mit."
         }
         image={{
           src: "/images/marketing/so-funktionierts.jpg",

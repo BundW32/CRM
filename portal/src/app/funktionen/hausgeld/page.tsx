@@ -41,9 +41,9 @@ export default async function HausgeldPage() {
         }
         intro={
           "Wer zahlt wie viel, wer ist im Rückstand, und wie mahnt man den " +
-          "Nachbarn, ohne das Verhältnis zu ruinieren? Das Portal beantwortet " +
-          "diese Fragen mit klaren Zahlen und einem Mahnwesen, das fair und " +
-          "formal korrekt abläuft."
+          "Nachbarn, ohne Streit im Haus? Das Portal hält das Hausgeld ohne " +
+          "Zettelwirtschaft im Griff: Soll, Ist und Saldo stehen je Einheit " +
+          "fest, und das Mahnwesen läuft fair und formal korrekt ab."
         }
         image={{
           src: "/images/marketing/hausgeld.jpg",

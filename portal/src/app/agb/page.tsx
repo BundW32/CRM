@@ -59,10 +59,10 @@ function AgbWegPortal() {
       intro={
         <>
           <p>
-            Diese AGB regeln die Nutzung von <strong>{productName()}</strong>, einer
-            internetbasierten Anwendung für die Verwaltung von
-            Wohnungseigentümergemeinschaften. Anbieterin ist die B&amp;W Immobilien
-            Management UG (haftungsbeschränkt), Goethestraße 42, 45964 Gladbeck
+            Diese Allgemeinen Geschäftsbedingungen regeln die Nutzung von{" "}
+            <strong>{productName()}</strong>, einer internetbasierten Anwendung für die
+            Verwaltung von Wohnungseigentümergemeinschaften. Anbieterin ist die B&amp;W
+            Immobilien Management UG (haftungsbeschränkt), Goethestraße 42, 45964 Gladbeck
             (nachfolgend „Anbieterin“). Kundin ist die Wohnungseigentümergemeinschaft, die
             sich registriert.
           </p>

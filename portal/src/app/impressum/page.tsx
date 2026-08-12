@@ -1,8 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicBrand } from "@/components/public-brand";
-import { isWegSaas } from "@/lib/app-mode";
+import { isWegSaas, productName } from "@/lib/app-mode";
 
 export const dynamic = "force-static";
+
+// Ohne eigenen Titel fiel diese Seite auf den Rückfall aus `layout.tsx`
+// zurück — genau wie sieben weitere. Die Marke hängt am `title.template`
+// dort; hier steht nur, was die Seite ist.
+export function generateMetadata(): Metadata {
+  return {
+    title: "Impressum und Anbieterkennzeichnung",
+    description:
+      `Anbieterkennzeichnung nach § 5 DDG: Betreiberin, Vertretung, Anschrift, ` +
+      `Kontakt und Registereintrag des Portals ${productName()}.`,
+  };
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

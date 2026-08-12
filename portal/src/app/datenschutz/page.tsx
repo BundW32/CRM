@@ -1,8 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, LegalSection } from "@/components/legal-page";
 import { isWegSaas, productName } from "@/lib/app-mode";
 
 export const dynamic = "force-dynamic";
+
+export function generateMetadata(): Metadata {
+  return {
+    title: "Datenschutzerklärung nach Art. 13 DSGVO",
+    description:
+      `Welche Daten ${productName()} verarbeitet, auf welcher Rechtsgrundlage, ` +
+      `wie lange – und welche Rechte Sie als betroffene Person haben.`,
+  };
+}
 
 /**
  * Datenschutzerklärung — für BEIDE Türen, mit einem entscheidenden Unterschied.

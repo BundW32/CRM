@@ -9,8 +9,16 @@ import { AKTIONS_CODE, istAktionsCode, normalisiereAktionsCode } from "@/lib/akt
 import { aktuellerAktionsStand } from "@/lib/aktion-server";
 import { AktionsHinweis } from "@/components/marketing/aktion";
 import { Wordmark } from "@/components/marketing/wordmark";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "WEG kostenlos anlegen und selbst verwalten",
+  description:
+    "Legen Sie Ihre Eigentümergemeinschaft in wenigen Minuten an: kostenlos " +
+    "starten, keine Zahlungsdaten, sofort mit der Selbstverwaltung beginnen.",
+};
 
 const errorMessages: Record<string, string> = {
   eingabe: "Bitte alle Felder ausfüllen (Passwort mind. 10 Zeichen).",

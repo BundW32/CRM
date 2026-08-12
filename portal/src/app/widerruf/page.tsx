@@ -1,9 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LegalPage, LegalSection } from "@/components/legal-page";
 import { isWegSaas, productName } from "@/lib/app-mode";
 
 export const dynamic = "force-dynamic";
+
+export function generateMetadata(): Metadata {
+  return {
+    title: "Widerrufsbelehrung und Muster-Formular",
+    description:
+      "Ihr Widerrufsrecht als Gemeinschaft: Frist, Form, Folgen des Widerrufs " +
+      "und das Muster-Widerrufsformular zum Ausfüllen.",
+  };
+}
 
 /**
  * Widerrufsbelehrung nach Art. 246a § 1 Abs. 2 EGBGB, samt Muster-

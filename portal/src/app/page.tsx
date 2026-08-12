@@ -59,8 +59,11 @@ import {
 export const dynamic = "force-dynamic";
 
 // Element 3: SEO-Titel mit den Suchbegriffen, unter denen Betroffene suchen.
+// Die Marke steht NICHT mehr im Titel selbst: Das `title.template` in
+// `layout.tsx` hängt sie an jeden Seitentitel an. Stünde sie hier weiter drin,
+// hieße die Seite „… – wegportal24 | wegportal24".
 export const metadata: Metadata = {
-  title: "WEG selbst verwalten ohne Hausverwaltung – wegportal24",
+  title: "WEG selbst verwalten ohne Hausverwaltung",
   description:
     "Keine Hausverwaltung gefunden? Verwalten Sie Ihre WEG selbst: Wirtschaftsplan, " +
     "Hausgeld, Jahresabrechnung und Versammlung – jetzt kostenlos starten.",

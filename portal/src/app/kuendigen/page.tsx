@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicBrand } from "@/components/public-brand";
@@ -8,6 +9,15 @@ import { isWegSaas } from "@/lib/app-mode";
 import { erklaereKuendigung } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+export function generateMetadata(): Metadata {
+  return {
+    title: "Vertrag kündigen – Kündigungsformular",
+    description:
+      "Kündigen Sie Ihren Tarif direkt online nach § 312k BGB: Formular ausfüllen, " +
+      "absenden, Bestätigung erhalten – ohne Anmeldung möglich.",
+  };
+}
 
 /**
  * Kündigungsschaltfläche nach § 312k BGB.

@@ -23,7 +23,7 @@ export const dynamic = "force-static";
 
 export function generateMetadata(): Metadata {
   return {
-    title: `KI-Transparenz nach Art. 50 KI-Verordnung | ${productName()}`,
+    title: "KI-Transparenz nach Art. 50 KI-Verordnung",
     description:
       `Welche KI-Funktionen ${productName()} einsetzt, wozu, mit welchem Modell und ` +
       "wo die Grenzen liegen – offengelegt nach Artikel 50 der EU-KI-Verordnung.",

@@ -1,6 +1,17 @@
+import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal-page";
+import { productName } from "@/lib/app-mode";
 
 export const dynamic = "force-static";
+
+export function generateMetadata(): Metadata {
+  return {
+    title: "Datenschutz für Verwaltungs-Kunden",
+    description:
+      `Datenschutzhinweise für Hausverwaltungen und Vermieter, die ${productName()} ` +
+      `als Software nutzen – mit den beiden Rollen des Anbieters.`,
+  };
+}
 
 export default function SaasDatenschutzPage() {
   return (

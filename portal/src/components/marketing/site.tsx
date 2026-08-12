@@ -45,14 +45,21 @@ export async function MarketingHeader({ active }: { active?: string }) {
       >
         Zum Inhalt springen
       </a>
-      {/* Die Aktionsleiste hängt HIER und nicht in den Seiten: So trägt sie
-          jede Marken-Seite, keine kann sie vergessen, und sie endet überall
-          zur selben Sekunde. Sie läuft NICHT mit — die Kopfzeile darunter
-          bleibt die klebende Leiste, sonst kostete die Werbung dauerhaft
-          Bildhöhe. Ohne laufende Aktion rendert sie nichts. */}
-      <AktionsBanner />
-      <header className="sticky top-0 z-40 border-b border-wp-ink/15 bg-[#faf8f4]/92 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
+      {/* Aktionsleiste UND Kopfzeile kleben gemeinsam in EINEM Rahmen.
+          Getrennte `sticky`-Elemente gingen nicht: Die Kopfzeile müsste dann
+          die Höhe der Leiste als `top` kennen, und die ist je Breite anders
+          beschriftet (auf schmalen Geräten kürzer) — ein fester Wert wäre auf
+          einer Breite immer falsch, und zwischen beiden entstünde eine Lücke,
+          durch die der Inhalt sichtbar durchscrollt.
+
+          Die Leiste hängt HIER und nicht in den Seiten: So trägt sie jede
+          Marken-Seite, keine kann sie vergessen, und sie endet überall zur
+          selben Sekunde. Ohne laufende Aktion rendert sie nichts — dann klebt
+          die Kopfzeile allein, genau wie vorher. */}
+      <div className="sticky top-0 z-40">
+        <AktionsBanner />
+        <header className="border-b border-wp-ink/15 bg-[#faf8f4]/92 backdrop-blur-md">
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
           <Link href="/" className="shrink-0" aria-label={`${BRAND_NAME} – zur Startseite`}>
             <Wordmark className="text-lg sm:text-xl" />
           </Link>
@@ -94,8 +101,9 @@ export async function MarketingHeader({ active }: { active?: string }) {
             </Link>
             <MobileMenu items={navItems} registrierenHref={await registrierenLink()} />
           </div>
-        </div>
-      </header>
+          </div>
+        </header>
+      </div>
     </>
   );
 }

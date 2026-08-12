@@ -5,8 +5,16 @@ import { PublicBrand } from "@/components/public-brand";
 import { isWegSaas, productName } from "@/lib/app-mode";
 import { getTenantOrg } from "@/lib/tenant";
 import { resetPassword } from "./actions";
+import { NICHT_INDEXIEREN_STRENG } from "@/lib/seo";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+// Die Adresse selbst ist das Geheimnis — hier gehört auch `follow` aus.
+export const metadata: Metadata = {
+  title: "Neues Passwort festlegen",
+  robots: NICHT_INDEXIEREN_STRENG,
+};
 
 const errorMessages: Record<string, string> = {
   eingabe: "Bitte geben Sie ein Passwort mit mindestens 10 Zeichen ein. Beide Felder müssen übereinstimmen.",

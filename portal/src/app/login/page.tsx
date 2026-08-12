@@ -11,8 +11,31 @@ import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
 import { isWegSaas, registrationEnabled } from "@/lib/app-mode";
 import { login } from "./actions";
+import { NICHT_INDEXIEREN } from "@/lib/seo";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+// Die Anmeldeseite gibt es in beiden Türen — und auf Mandanten-Subdomains
+// dazu. Der Titel folgt deshalb dem App-Modus; die Marke hängt am
+// `title.template` in `layout.tsx`.
+export function generateMetadata(): Metadata {
+  return isWegSaas()
+    ? {
+        title: "Anmelden im Portal Ihrer WEG",
+        description:
+          "Melden Sie sich an und verwalten Sie Hausgeld, Beschlüsse und Dokumente " +
+          "Ihrer Wohnungseigentümergemeinschaft – sicher, mit eigenem Zugang je Rolle.",
+        robots: NICHT_INDEXIEREN,
+      }
+    : {
+        title: "Anmelden im Kundenportal",
+        description:
+          "Melden Sie sich an und sehen Sie Vorgänge, Dokumente und Nachrichten " +
+          "zu Ihrer Wohnung – mit eigenem Zugang für Mieter und Eigentümer.",
+        robots: NICHT_INDEXIEREN,
+      };
+}
 
 export default async function LoginPage({
   searchParams,

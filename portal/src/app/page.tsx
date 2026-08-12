@@ -59,11 +59,16 @@ import {
 export const dynamic = "force-dynamic";
 
 // Element 3: SEO-Titel mit den Suchbegriffen, unter denen Betroffene suchen.
+// Diese eine Seite trägt die Marke im Titel SELBST — anders als jede andere.
+// Grund: `title.template` aus `layout.tsx` greift nur für Kind-Segmente, und
+// die Startseite liegt im selben Segment wie die Wurzel. Ohne den Zusatz hier
+// hieße ausgerechnet die wichtigste Seite im Suchergebnis markenlos
+// „WEG selbst verwalten ohne Hausverwaltung".
 export const metadata: Metadata = {
-  title: "WEG selbst verwalten ohne Hausverwaltung – wegportal24",
+  title: "WEG selbst verwalten ohne Hausverwaltung | wegportal24",
   description:
-    "Keine Hausverwaltung gefunden? Verwalten Sie Ihre WEG selbst: Wirtschaftsplan, " +
-    "Hausgeld, Jahresabrechnung und Versammlung – jetzt kostenlos starten.",
+    "Keine Hausverwaltung gefunden? Verwalten Sie Ihre WEG selbst – Wirtschaftsplan, " +
+    "Hausgeld und Jahresabrechnung inklusive. Jetzt kostenlos starten.",
   keywords: [
     "WEG selbst verwalten",
     "WEG Selbstverwaltung",

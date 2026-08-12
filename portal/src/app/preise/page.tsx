@@ -31,12 +31,10 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Preise – WEG-Selbstverwaltung je Einheit, alle Zugänge inklusive | wegportal24",
+  title: "Preise je Einheit – alle Zugänge inklusive",
   description:
     "Kostenlos starten, dann je Einheit und Monat: Basic 10 €, Verwalter-Plus " +
-    "13,90 € mit Ticket-System zu einem zertifizierten Verwalter (§ 26a WEG). " +
-    "Endpreise inkl. MwSt., alle Zugänge inklusive, Mengenrabatt ab 5 Einheiten, " +
-    "keine Mindestlaufzeit.",
+    "13,90 € mit zertifiziertem Verwalter. Endpreise inkl. MwSt., ohne Mindestlaufzeit.",
 };
 
 // Rechenbeispiele je WEG-Größe: eine kleine, eine mittlere und eine große

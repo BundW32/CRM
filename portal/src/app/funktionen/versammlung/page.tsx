@@ -8,17 +8,69 @@ import {
   MarketingHero,
 } from "@/components/marketing/site";
 import { MeetingVisual, RolesVisual, VoteVisual } from "@/components/marketing/visuals";
+import { Reveal } from "@/components/marketing/reveal";
 import { assertMainDomain } from "@/lib/marketing";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Eigentümerversammlung & Beschlüsse digital organisieren",
+  title: "Eigentümerversammlung & Beschlüsse",
   description:
-    "Versammlungen mit Ladefrist einberufen, Anwesenheit und Vertretung erfassen, " +
-    "abstimmen nach dem Stimmprinzip Ihrer Gemeinschaft (Kopf, MEA oder Objekt) " +
-    "und Beschlüsse dauerhaft dokumentieren – für selbstverwaltete WEGs.",
+    "Versammlung mit Ladungsfrist einberufen, Anwesenheit und Vollmachten " +
+    "erfassen, nach Ihrem Stimmprinzip abstimmen und Beschlüsse dokumentieren.",
 };
+
+const VERSAMMLUNGS_FRAGEN = [
+  {
+    f: "Wie lange vorher müssen wir zur Versammlung einladen?",
+    a:
+      "Mindestens drei Wochen, in Textform und mit vollständiger Tagesordnung " +
+      "(§ 24 Abs. 4 WEG) – eine kürzere Frist ist nur bei besonderer Dringlichkeit " +
+      "zulässig. Im Portal rechnet ein Fristenrechner mit: Liegt der Termin zu " +
+      "nah, warnt er, bevor die Einladung herausgeht. Das ist der häufigste " +
+      "Grund, aus dem ein Beschluss später angefochten wird.",
+  },
+  {
+    f: "Ist unsere Versammlung beschlussfähig, wenn nur wenige kommen?",
+    a:
+      "Ja. Das frühere Quorum – mehr als die Hälfte der Miteigentumsanteile – " +
+      "ist mit dem Wohnungseigentumsmodernisierungsgesetz zum 1. Dezember 2020 " +
+      "entfallen. Seither ist jede ordnungsgemäß einberufene Versammlung " +
+      "beschlussfähig, gleich wie viele Eigentümer erscheinen. Eine Versammlung " +
+      "mangels Beteiligung abzusagen, ist also nicht nötig.",
+  },
+  {
+    f: "Können wir auch ohne Versammlung beschließen?",
+    a:
+      "Ja, als Umlaufbeschluss nach § 23 Abs. 3 WEG in Textform. Der Regelfall " +
+      "ist dabei Allstimmigkeit: Alle Eigentümer müssen zustimmen, wer nicht " +
+      "antwortet, blockiert. Die Gemeinschaft kann für einen einzelnen " +
+      "Gegenstand vorher beschließen, dass eine geringere Mehrheit genügt " +
+      "(§ 23 Abs. 3 Satz 2 WEG). Das Portal ist deshalb auf Allstimmigkeit " +
+      "voreingestellt und weist darauf hin, sobald jemand davon abweicht.",
+  },
+  {
+    f: "Was gilt für Vollmachten, wenn jemand nicht kommen kann?",
+    a:
+      "Wer verhindert ist, kann sich vertreten lassen; die Vollmacht braucht " +
+      "dafür Textform (§ 25 Abs. 3 WEG). Ihre Gemeinschaftsordnung kann den " +
+      "Kreis der Bevollmächtigten einschränken – häufig auf andere " +
+      "Miteigentümer, Ehegatten oder den Verwalter. Wer für wen aufgetreten " +
+      "ist, halten Sie im Portal im Anwesenheits- und Vertretungsvermerk fest; " +
+      "er wird Teil des Protokolls.",
+  },
+  {
+    f: "Dürfen Eigentümer online teilnehmen?",
+    a:
+      "Die Versammlung kann per Beschluss zulassen, dass Eigentümer online " +
+      "teilnehmen (§ 23 Abs. 1a WEG). Das Portal nimmt den Zuschaltungs-Link " +
+      "in die Einladung auf und hält die Online-Teilnahme im " +
+      "Anwesenheitsvermerk fest. Die Videokonferenz selbst und die Abstimmung " +
+      "laufen bewusst außerhalb: Das Portal ist kein Konferenzdienst, und eine " +
+      "Live-Abstimmung, deren Technik im entscheidenden Moment klemmt, macht " +
+      "den Beschluss angreifbar.",
+  },
+];
 
 export default async function VersammlungPage() {
   await assertMainDomain();
@@ -44,10 +96,10 @@ export default async function VersammlungPage() {
           // eine Versammlung mangels Beteiligung absagen, die längst
           // beschließen dürfte.
           "Die Eigentümerversammlung ist das Herz jeder WEG – und ihre größte " +
-          "Fehlerquelle. Angreifbar wird ein Beschluss vor allem durch die " +
-          "Einladung: Textform, drei Wochen Frist, vollständige Tagesordnung " +
-          "(§ 24 Abs. 4 WEG). Das Portal führt Sie so durch die Versammlung, " +
-          "dass am Ende alles sauber dokumentiert ist."
+          "Fehlerquelle. Ob ein Beschluss später Bestand hat, entscheidet sich " +
+          "meist schon bei der Einladung: Textform, drei Wochen Frist, " +
+          "vollständige Tagesordnung (§ 24 Abs. 4 WEG). Das Portal führt Sie so " +
+          "durch die Versammlung, dass am Ende alles sauber dokumentiert ist."
         }
         image={{
           src: "/images/marketing/versammlung.jpg",
@@ -89,15 +141,20 @@ export default async function VersammlungPage() {
         reverse
         visual={<VoteVisual />}
         points={[
-          "Anwesenheit digital erfassen – das Portal rechnet die vertretenen Anteile zusammen",
+          // Vorher stand hier „das Portal rechnet die vertretenen Anteile
+          // zusammen". Das kann es nicht: Anwesenheit und Vertretung sind ein
+          // Vermerk fürs Protokoll (`Meeting.attendanceNote`), keine Erfassung
+          // je Eigentümer. Eine Zusage, die das Produkt nicht einlöst, fällt
+          // spätestens in der ersten Versammlung auf.
+          "Anwesenheit und Vertretung als Vermerk fürs Protokoll festhalten",
           "Stimmgewichte nach dem Prinzip Ihrer Gemeinschaft: Kopf, MEA oder Objekt",
           "Angenommen oder abgelehnt: das Ergebnis wird direkt festgehalten",
         ]}
       >
         <p>
-          Während der Versammlung haken Sie einfach ab, wer da ist – das Portal
-          zeigt live, wie viele Anteile vertreten sind. Bei jeder Abstimmung
-          zählen Sie Ja, Nein und Enthaltung, und das System gewichtet die
+          Während der Versammlung halten Sie fest, wer anwesend und wer
+          vertreten ist – der Vermerk geht so ins Protokoll ein. Bei jeder
+          Abstimmung zählen Sie Ja, Nein und Enthaltung, und das System gewichtet die
           Stimmen nach dem Prinzip, das in Ihrer Gemeinschaft gilt: Gesetzlicher
           Regelfall ist das Kopfprinzip – eine Stimme je Eigentümer (§ 25 WEG).
           Sieht Ihre Gemeinschaftsordnung stattdessen Miteigentumsanteile
@@ -158,6 +215,40 @@ export default async function VersammlungPage() {
           E-Mail-Verlauf.
         </p>
       </FeatureSection>
+
+      {/* ── Häufige Fragen ──────────────────────────────────────────────────
+          Die vier Fragen, an denen Beschlüsse in der Praxis scheitern. Native
+          <details>, wie auf /so-funktionierts – kein Client-JS, kein
+          Accordion-Paket. Jede Angabe ist am geltenden WEG geprüft: Das
+          Beschlussfähigkeits-Quorum ist mit dem WEMoG entfallen, und § 25
+          Abs. 3 WEG trägt seither die Textform-Regel für Vollmachten. */}
+      <section className="mx-auto w-full max-w-3xl px-4 pt-20 sm:px-6 sm:pt-24">
+        <Reveal>
+          <h2 className="text-balance text-2xl font-bold text-wp-ink sm:text-3xl">
+            Häufige Fragen zur Eigentümerversammlung
+          </h2>
+          <p className="mt-3 text-wp-ink/70">
+            Vier Punkte entscheiden darüber, ob ein Beschluss später Bestand
+            hat – Ladungsfrist, Beschlussfähigkeit, Umlaufbeschluss und
+            Vollmacht. Allgemeine Information, keine Rechtsberatung.
+          </p>
+        </Reveal>
+        <div className="mt-6 space-y-3">
+          {VERSAMMLUNGS_FRAGEN.map((faq, i) => (
+            <Reveal key={faq.f} delay={i * 60}>
+              <details className="group rounded-2xl border border-gray-200 bg-white shadow-e1 open:bg-wp-accent-light/30">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 font-medium text-gray-900 [&::-webkit-details-marker]:hidden">
+                  {faq.f}
+                  <span className="text-wp-accent-ink transition-transform group-open:rotate-45">
+                    +
+                  </span>
+                </summary>
+                <p className="px-5 pb-4 text-sm leading-relaxed text-gray-600">{faq.a}</p>
+              </details>
+            </Reveal>
+          ))}
+        </div>
+      </section>
 
       <CtaBand
         title="Die nächste Versammlung souverän leiten"

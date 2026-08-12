@@ -1,9 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LegalPage, LegalSection } from "@/components/legal-page";
 import { isWegSaas, productName } from "@/lib/app-mode";
 
 export const dynamic = "force-dynamic";
+
+export function generateMetadata(): Metadata {
+  return {
+    title: "Widerrufsbelehrung und Muster-Formular",
+    description:
+      "Ihr Widerrufsrecht als Gemeinschaft: Frist, Form, Folgen des Widerrufs " +
+      "und das Muster-Widerrufsformular zum Ausfüllen.",
+  };
+}
 
 /**
  * Widerrufsbelehrung nach Art. 246a § 1 Abs. 2 EGBGB, samt Muster-
@@ -28,7 +38,8 @@ export default function WiderrufPage() {
       title="Widerrufsbelehrung"
       intro={
         <p>
-          Diese Belehrung gilt für Verbraucherinnen und Verbraucher im Sinne des § 13 BGB.
+          Diese Widerrufsbelehrung gilt für Verbraucherinnen und Verbraucher im Sinne des
+          § 13 BGB.
           Eine Wohnungseigentümergemeinschaft ist als Verbraucherin anzusehen, wenn ihr
           mindestens eine natürliche Person angehört und der Vertrag weder gewerblichen
           noch selbständigen beruflichen Zwecken dient (BGH, Urteil vom 25. März 2015 –

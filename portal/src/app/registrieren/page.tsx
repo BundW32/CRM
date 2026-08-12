@@ -9,8 +9,22 @@ import { AKTIONS_CODE, istAktionsCode, normalisiereAktionsCode } from "@/lib/akt
 import { aktuellerAktionsStand } from "@/lib/aktion-server";
 import { AktionsHinweis } from "@/components/marketing/aktion";
 import { Wordmark } from "@/components/marketing/wordmark";
+import { NICHT_INDEXIEREN } from "@/lib/seo";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+// Nicht im Index: Die Seite ist ein Formular mit 89 Wörtern Text. Wer nach
+// „WEG selbst verwalten" sucht, soll auf der Startseite oder auf
+// /so-funktionierts landen — dort steht die Antwort. Der Weg von dort in die
+// Registrierung ist einen Klick lang und steht auf jeder Marken-Seite.
+export const metadata: Metadata = {
+  title: "WEG kostenlos anlegen und selbst verwalten",
+  description:
+    "Legen Sie Ihre Eigentümergemeinschaft in wenigen Minuten an: kostenlos " +
+    "starten, keine Zahlungsdaten, sofort mit der Selbstverwaltung beginnen.",
+  robots: NICHT_INDEXIEREN,
+};
 
 const errorMessages: Record<string, string> = {
   eingabe: "Bitte alle Felder ausfüllen (Passwort mind. 10 Zeichen).",

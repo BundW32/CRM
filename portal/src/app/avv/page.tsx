@@ -1,8 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, LegalSection } from "@/components/legal-page";
 import { isWegSaas, productName } from "@/lib/app-mode";
 
 export const dynamic = "force-dynamic";
+
+export function generateMetadata(): Metadata {
+  return {
+    title: "Auftragsverarbeitung nach Art. 28 DSGVO (AVV)",
+    description:
+      "Vertrag zur Auftragsverarbeitung: Gegenstand, Weisungen, Subunternehmer, " +
+      "Schutzmaßnahmen und Löschung der Daten nach Vertragsende.",
+  };
+}
 
 /**
  * Vertrag zur Auftragsverarbeitung nach Art. 28 DSGVO.
@@ -41,9 +51,9 @@ export default function AvvPage() {
       intro={
         <>
           <p>
-            Dieser Vertrag konkretisiert die Pflichten nach Art. 28 DSGVO für die
-            Verarbeitung personenbezogener Daten im Auftrag bei der Nutzung von{" "}
-            <strong>{productName()}</strong>.
+            Dieser Vertrag zur Auftragsverarbeitung konkretisiert die Pflichten nach
+            Art. 28 DSGVO für die Verarbeitung personenbezogener Daten im Auftrag bei der
+            Nutzung von <strong>{productName()}</strong>.
           </p>
           <p className="mt-2">
             <strong>Verantwortliche</strong> ist {verantwortlich} als Kundin (nachfolgend

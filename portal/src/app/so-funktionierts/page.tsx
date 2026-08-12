@@ -12,11 +12,10 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "So funktioniert die WEG-Selbstverwaltung mit dem Portal",
+  title: "WEG-Selbstverwaltung in fünf Schritten",
   description:
-    "Schritt für Schritt von der Registrierung zur laufenden Selbstverwaltung: " +
-    "WEG anlegen, Konten und Einheiten erfassen, Wirtschaftsplan beschließen, " +
-    "Eigentümer einladen – plus rechtlicher Rahmen und häufige Fragen.",
+    "Von der Registrierung bis zur laufenden WEG-Selbstverwaltung: WEG anlegen, " +
+    "Einheiten erfassen, Wirtschaftsplan beschließen, Eigentümer einladen.",
 };
 
 const steps = [
@@ -125,9 +124,10 @@ export default async function SoFunktioniertsPage() {
           </>
         }
         intro={
-          "Sie brauchen kein Buchhaltungswissen und keine Software-Schulung. " +
-          "Das Portal führt Ihre WEG der Reihe nach durch die Einrichtung – " +
-          "und prüft an den kritischen Stellen automatisch mit."
+          "Von null auf verwaltet: In fünf Schritten steht Ihre WEG im Portal – " +
+          "ohne Buchhaltungswissen und ohne Software-Schulung. Das Portal führt " +
+          "Ihre Gemeinschaft der Reihe nach durch die Einrichtung und prüft an " +
+          "den kritischen Stellen automatisch mit."
         }
         image={{
           src: "/images/marketing/so-funktionierts.jpg",

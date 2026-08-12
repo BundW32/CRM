@@ -1,8 +1,28 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, LegalSection } from "@/components/legal-page";
 import { isWegSaas, productName } from "@/lib/app-mode";
 
 export const dynamic = "force-dynamic";
+
+// Zwei Fassungen, zwei Kundenkreise (siehe Kommentar unten) — dann auch zwei
+// Beschreibungen. Eine gemeinsame hätte auf der B&W-Tür von
+// „selbstverwalteten Gemeinschaften" gesprochen, die es dort nicht gibt.
+export function generateMetadata(): Metadata {
+  return isWegSaas()
+    ? {
+        title: "AGB für die WEG-Selbstverwaltung",
+        description:
+          "Allgemeine Geschäftsbedingungen von wegportal24: Leistungen, Tarife, " +
+          "Bruttopreise, Laufzeit und Kündigung – für selbstverwaltete Gemeinschaften.",
+      }
+    : {
+        title: "Allgemeine Geschäftsbedingungen",
+        description:
+          `Allgemeine Geschäftsbedingungen für die Nutzung des ${productName()}s ` +
+          `durch gewerbliche Kunden: Leistungen, Laufzeit, Vergütung und Kündigung.`,
+      };
+}
 
 /**
  * Zwei Türen, zwei Kundenkreise — und deshalb zwei Fassungen.
@@ -39,10 +59,10 @@ function AgbWegPortal() {
       intro={
         <>
           <p>
-            Diese AGB regeln die Nutzung von <strong>{productName()}</strong>, einer
-            internetbasierten Anwendung für die Verwaltung von
-            Wohnungseigentümergemeinschaften. Anbieterin ist die B&amp;W Immobilien
-            Management UG (haftungsbeschränkt), Goethestraße 42, 45964 Gladbeck
+            Diese Allgemeinen Geschäftsbedingungen regeln die Nutzung von{" "}
+            <strong>{productName()}</strong>, einer internetbasierten Anwendung für die
+            Verwaltung von Wohnungseigentümergemeinschaften. Anbieterin ist die B&amp;W
+            Immobilien Management UG (haftungsbeschränkt), Goethestraße 42, 45964 Gladbeck
             (nachfolgend „Anbieterin“). Kundin ist die Wohnungseigentümergemeinschaft, die
             sich registriert.
           </p>

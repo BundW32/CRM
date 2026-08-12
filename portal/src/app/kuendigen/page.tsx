@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicBrand } from "@/components/public-brand";
@@ -8,6 +9,15 @@ import { isWegSaas } from "@/lib/app-mode";
 import { erklaereKuendigung } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+export function generateMetadata(): Metadata {
+  return {
+    title: "Vertrag kündigen – Kündigungsformular",
+    description:
+      "Kündigen Sie Ihren Tarif direkt online nach § 312k BGB: Formular ausfüllen, " +
+      "absenden, Bestätigung erhalten – ohne Anmeldung möglich.",
+  };
+}
 
 /**
  * Kündigungsschaltfläche nach § 312k BGB.
@@ -47,7 +57,7 @@ export default async function KuendigenPage({
         <PublicBrand />
         <h1 className="mb-2 text-2xl font-bold text-gray-900">Verträge hier kündigen</h1>
         <p className="mb-6 text-sm text-gray-600">
-          Hier können Sie Ihren Vertrag über wegportal24 kündigen — ohne Anmeldung. Sie
+          Verträge über wegportal24 können Sie hier kündigen — ohne Anmeldung. Sie
           erhalten den Zugang Ihrer Kündigung unverzüglich per E-Mail bestätigt.
         </p>
 

@@ -4,8 +4,18 @@ import { PublicBrand } from "@/components/public-brand";
 import { isWegSaas } from "@/lib/app-mode";
 import { getTenantOrg } from "@/lib/tenant";
 import { requestPasswordReset } from "./actions";
+import { NICHT_INDEXIEREN } from "@/lib/seo";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Passwort zurücksetzen für Ihren Zugang",
+  description:
+    "Passwort für Ihren Zugang vergessen? Fordern Sie hier einen Link zum " +
+    "Zurücksetzen an – er geht an die im Portal hinterlegte E-Mail-Adresse.",
+  robots: NICHT_INDEXIEREN,
+};
 
 export default async function ForgotPasswordPage({
   searchParams,

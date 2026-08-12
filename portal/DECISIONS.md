@@ -2001,3 +2001,78 @@ Einheit im Sinne von Staffel und 12er-Grenze), der Untertyp ist beschreibend.
 307. **Übergabeprotokoll folgt der Art der Einheit.** Für STELLPLATZ-Einheiten
      heißt das Dokument „Übergabeprotokoll Stellplatz/Garage" und die allgemeine
      Checkliste prüft Zufahrt/Tor/Boden statt Warmwasser und Rauchmelder.
+
+## Schritt 48 — Rechtstexte an den Code gebunden (11.08.2026)
+
+Vier belegte Abweichungen zwischen dem, was die Rechtstexte behaupten, und dem,
+was die Software tut. Alle vier sind auf demselben Weg entstanden: Eine Funktion
+wurde gebaut, der Text blieb stehen. Kein Typfehler, kein roter Build — nur eine
+Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
+
+308. **Stripe steht jetzt in `/datenschutz`, `/avv` und `/datenschutz-saas`.**
+     Die gesamte Zahlungsabwicklung lief über Stripe, genannt war er nur in
+     `/datenschutz-saas` — einer Seite mit `draft`-Etikett, die im
+     Registrierungsformular bewusst nicht verlinkt ist. In `/datenschutz` steht
+     jetzt feldgenau, was hinausgeht (interne Organisations-Kennnummer und
+     Tarifbezeichnung) und was nicht: Rechnungsanschrift und Zahlungsdaten gibt
+     der Kunde direkt bei Stripe ein, sie durchlaufen die Anwendung nie
+     (`billing-checkout.ts`, `customer_update: { address: "auto" }`; ein
+     `customer_email` oder `customers.create` gibt es im Code nicht).
+309. **Stripe ist im AVV ausdrücklich KEIN Subprozessor** — anders als in
+     `docs/`-Notizen vorgeschlagen. Der AVV regelt die **Auftragsdaten**
+     (Eigentümer, Mieter, Vorgänge, Belege); Stripe erhält davon nichts,
+     sondern ausschließlich Vertragsdaten der Kundin. Ihn in die
+     Subprozessorenliste zu setzen, hätte der Verantwortlichen das Falsche
+     gesagt — nämlich, ihre Bewohnerdaten gingen dorthin — und die
+     4-Wochen-Widerspruchsfrist an einen Dienst gehängt, der die
+     Auftragsverarbeitung nicht berührt. Ziffer 4 trägt stattdessen eine
+     Klarstellung, die die Rollentrennung durchhält. Zusätzlich in
+     `/datenschutz`: Soweit Stripe Zahlungsdaten aufgrund eigener gesetzlicher
+     Pflichten verarbeitet, ist er eigener Verantwortlicher — der
+     Einleitungssatz „mit denen Verträge zur Auftragsverarbeitung bestehen"
+     deckte ihn sonst mit der falschen Kategorie ab.
+310. **Die KI-Funktionen sind drei, nicht zwei — und der Umfang steht dabei.**
+     `/datenschutz`, `/avv` und `/ki-transparenz` nannten Assistent und Triage;
+     der Objekt-Import (`objekt-extraction.ts`) fehlte überall. Gravierender:
+     `/ki-transparenz` versprach „Dokumente werden nicht ausgelesen", während
+     genau diese Funktion das hochgeladene PDF als `inline_data` **vollständig**
+     an Google sendet — z. B. eine Teilungserklärung mit Namen. Eine
+     ausdrückliche Verneinung, die nicht stimmt, ist schlimmer als eine Lücke.
+     Die Texte schlüsseln den Umfang jetzt je Funktion auf, einschließlich der
+     Finanzdaten, die der Assistent bei Geldfragen mitschickt
+     (`assistant.ts:473-500`).
+311. **`TERMS_VERSION` auf `2026-08-11`.** Der AVV ist Teil der Zustimmung bei
+     der Registrierung; ändert sich sein Inhalt, muss die gespeicherte Version
+     sich unterscheiden, sonst ist nicht mehr feststellbar, wem welche Fassung
+     vorlag. Stand-Daten auf allen fünf Rechtsseiten hochgesetzt — `/impressum`
+     und `/datenschutz-saas` trugen bisher gar keines.
+312. **Das Blob-Token verlässt die Anwendung nur noch über `readUpload`.**
+     `api/branding/[slug]/logo/route.ts` rief die gespeicherte URL mit
+     `Authorization: Bearer BLOB_READ_WRITE_TOKEN` ab, ohne die
+     `isBlobUrl()`-Prüfung, die `storage.ts` für **jeden** tokenbehafteten
+     Abruf vorschreibt — auf einer Route, die ohne Anmeldung erreichbar ist.
+     `logoStoredName` kommt aus der Datenbank; eine dort eingeschleuste fremde
+     URL hätte Lese- und Schreibrecht auf sämtliche Kundendateien aller
+     Mandanten an einen beliebigen Server geschickt. Die Route hat jetzt keinen
+     eigenen Abrufpfad mehr. Dieselbe Prüfung war zuvor schon einmal an der
+     zweiten Abrufstelle (`api/files/[kind]/[id]`, Teilbereichsanfragen)
+     vergessen worden — deshalb hält `blob-abruf.test.ts` sie jetzt fest.
+313. **Zwei Prüfungen gehen vom Code aus, nicht vom Wortlaut.**
+     `rechtstexte-abgleich.test.ts` zählt die `AI_…_ENABLED`-Schalter in
+     `src/lib` und verlangt, dass die Texte dieselbe Zahl nennen — eine vierte
+     KI-Funktion lässt die Prüfung fehlschlagen, bis die Texte nachgezogen
+     sind. `blob-abruf.test.ts` verlangt für jede Route, die
+     `BLOB_READ_WRITE_TOKEN` selbst mitschickt, eine sichtbare
+     `isBlobUrl()`-Prüfung. Beide gegen den alten Stand gegengeprüft: sechs
+     Fehlschläge, also greifen sie.
+
+**Offen geblieben** (bewusst, nicht vergessen): Die Nachdokumentation eines
+bereits eingesetzten Subprozessors gehört anwaltlich bewertet — die
+4-Wochen-Ankündigung nach AVV Ziffer 4 ist auf künftige Wechsel zugeschnitten.
+Ebenso offen: IBAN/BIC liegen weiterhin im Klartext (`SepaMandate`,
+`LedgerAccount`), obwohl `crypto.ts` das Verfahren hätte — das braucht eine
+Migration über Produktivdaten. Und der Retention-Cron (`/api/cron/cleanup`)
+hat weiterhin keine Überwachung: Fällt er still aus, laufen alle Löschfristen
+ins Leere. Das `draft`-Etikett auf `/datenschutz-saas` und `/ki-transparenz`
+bleibt stehen — es zu entfernen ist eine Freigabeentscheidung, keine
+technische.

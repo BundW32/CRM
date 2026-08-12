@@ -35,6 +35,18 @@ const IMPRESSUM = lies(src("app", "impressum", "page.tsx"));
 const ohneKommentare = (q: string) =>
   q.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
 
+// Für Prüfungen auf den gelesenen Satz, nicht auf seine Auszeichnung: Ob die
+// Zahl fett steht oder nicht, ist eine Frage der Gestaltung — dass sie
+// dasteht, ist die Frage dieser Datei. Die Prüfung hing zuvor am Literal
+// `<strong>drei</strong>` und schlug fehl, als die Fettungen auf
+// /ki-transparenz ausgedünnt wurden, obwohl der Satz unverändert „drei"
+// sagt. Ein Test, der an der Auszeichnung hängt, schützt den Text nicht.
+const nurText = (q: string) =>
+  ohneKommentare(q)
+    .replace(/<\/?(?:strong|em|b|i)>/g, "")
+    .replace(/\s*\{"\s*"\}\s*/g, " ")
+    .replace(/\s+/g, " ");
+
 describe("KI-Funktionen: Text und Code stimmen überein", () => {
   // Jede KI-Funktion hängt an einem eigenen Env-Schalter `AI_…_ENABLED`.
   const schalter = new Set<string>();
@@ -60,8 +72,8 @@ describe("KI-Funktionen: Text und Code stimmen überein", () => {
     expect(schalter.size).toBe(3);
     // Die Texte schreiben die Zahl aus. „zwei" stand dort, als es längst drei
     // waren — der teuerste Zustand, weil er nach Vollständigkeit aussieht.
-    expect(ohneKommentare(DATENSCHUTZ)).toContain("<strong>drei</strong> optionale KI-Funktionen");
-    expect(ohneKommentare(KI_TRANSPARENZ)).toContain("<strong>drei</strong> KI-Funktionen");
+    expect(nurText(DATENSCHUTZ)).toContain("drei optionale KI-Funktionen");
+    expect(nurText(KI_TRANSPARENZ)).toContain("drei KI-Funktionen");
     expect(ohneKommentare(DATENSCHUTZ)).not.toMatch(/zwei optionale KI-Funktionen/);
   });
 

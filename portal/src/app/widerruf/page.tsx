@@ -38,7 +38,8 @@ export default function WiderrufPage() {
       title="Widerrufsbelehrung"
       intro={
         <p>
-          Diese Belehrung gilt für Verbraucherinnen und Verbraucher im Sinne des § 13 BGB.
+          Diese Widerrufsbelehrung gilt für Verbraucherinnen und Verbraucher im Sinne des
+          § 13 BGB.
           Eine Wohnungseigentümergemeinschaft ist als Verbraucherin anzusehen, wenn ihr
           mindestens eine natürliche Person angehört und der Vertrag weder gewerblichen
           noch selbständigen beruflichen Zwecken dient (BGH, Urteil vom 25. März 2015 –

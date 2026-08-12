@@ -46,7 +46,8 @@ export default function ImpressumPage() {
                 geben. Auf portal.bundwimmobilien.de wäre der Satz sinnlos. */}
             {isWegSaas() ? (
               <p className="mb-2 text-gray-600">
-                Betreiberin der Website und des Portals <strong>wegportal24</strong>:
+                Dieses Impressum gilt für die Website und das Portal{" "}
+                <strong>wegportal24</strong>. Betreiberin ist:
               </p>
             ) : null}
             <p>

@@ -81,6 +81,8 @@ const settingsSchema = z.object({
     (v) => (typeof v === "string" && v.trim() !== "" ? Number(v.trim()) : null),
     z.number().int().min(1).max(28).nullable(),
   ),
+  /** Rundungsstufe der Monatsrate — wirkt erst mit dem nächsten Beschluss. */
+  hausgeldRounding: z.enum(["CENT", "ZEHN_CENT", "EURO"]),
   /** Tatsächliche Mahnkosten je Mahnung, als Euro-Zeichenkette. */
   mahnkosten: z.string().optional(),
 });
@@ -93,6 +95,7 @@ export async function saveFinanceSettings(formData: FormData) {
     fiscalYearStartMonth: formData.get("fiscalYearStartMonth"),
     dueDayRule: formData.get("dueDayRule"),
     dueDayOfMonth: formData.get("dueDayOfMonth"),
+    hausgeldRounding: formData.get("hausgeldRounding"),
     mahnkosten: String(formData.get("mahnkosten") ?? "") || undefined,
   });
   if (!parsed.success) redirect("/verwaltung/weg");
@@ -118,6 +121,12 @@ export async function saveFinanceSettings(formData: FormData) {
       // Ein fester Tag ohne die passende Regel wäre ein stiller Blindgänger:
       // Er stünde im Feld, wirkte aber nirgends.
       dueDayOfMonth: parsed.data.dueDayRule === "FREIER_TAG" ? parsed.data.dueDayOfMonth : null,
+      // Wirkt bewusst nur nach vorn: Die Sollstellungen beschlossener Pläne
+      // rechnen gegen `EconomicPlan.hausgeldRounding`, das beim Beschluss
+      // festgeschrieben wurde. Sonst änderte dieser Klick, was ein Eigentümer
+      // im nächsten Monat schuldet — nach einem Beschluss, der etwas anderes
+      // sagt und ihm bereits zugestellt wurde.
+      hausgeldRounding: parsed.data.hausgeldRounding,
       mahnkostenCents,
     },
   });

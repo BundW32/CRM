@@ -23,6 +23,7 @@ import sharp from "sharp";
 import { generateHandoverPdfBuffer } from "@/lib/handover-pdf";
 import { fotoVorbereiten } from "./photo";
 import { generateEinzelwirtschaftsplaene } from "./einzelwirtschaftsplan";
+import { monthlyInstallmentPlan } from "@/lib/weg/economic-plan";
 import {
   generateMietbescheinigung,
   generateWohnungsgeberbescheinigung,
@@ -356,10 +357,9 @@ describe("Wirtschaftsplan: Satzspiegel", () => {
       totalCents: positionen.reduce((sum, p) => sum + p.amountCents, 0),
       units: Array.from({ length: 30 }, (_, i) => ({
         label: `WE ${String(i + 1).padStart(2, "0")} · Dachgeschoss links, Stellplatz 3`,
-        annualCents: 445000,
-        monthlyMinCents: 37083,
-        monthlyMaxCents: 37090,
+        raten: monthlyInstallmentPlan(445000, "ZEHN_CENT"),
       })),
+      rounding: "ZEHN_CENT",
       generatedAt: new Date(2026, 6, 29),
     });
     const items = await drawnTexts(pdf);
@@ -386,8 +386,7 @@ describe("Wirtschaftsplan: Satzspiegel", () => {
             totalCents: p.amountCents,
             shareCents: Math.round(p.amountCents / 12),
           })),
-          annualCents: 445750,
-          monthlyCents: Array.from({ length: 12 }, () => 37146),
+          raten: monthlyInstallmentPlan(445750, "ZEHN_CENT"),
         },
       ],
       generatedAt: new Date(2026, 6, 29),

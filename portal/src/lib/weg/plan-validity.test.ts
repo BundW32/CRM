@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { monthlyInstallmentPlan } from "./economic-plan";
 import { faelligkeitFuer, faelligkeitsText, sollMonate, sollHorizont } from "./plan-validity";
 
 const utc = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d));
@@ -85,6 +86,47 @@ describe("sollMonate (Fortgeltung, § 28 Abs. 1 Satz 2 WEG)", () => {
       utc(2099, 1, 1),
     );
     expect(m.length).toBeLessThanOrEqual(72); // sechs Wirtschaftsjahre
+  });
+});
+
+// ── Fortgeltung × Rundung ───────────────────────────────────────────────────
+//
+// `rateIndex` beginnt je Wirtschaftsjahr wieder bei 0. Diese Prüfungen halten
+// fest, was das für die beiden Rundungen bedeutet — und dass die Fortgeltung
+// über die Jahresgrenze in beiden Fällen den richtigen Jahresbetrag stellt.
+
+describe("Monatsraten über die Jahresgrenze", () => {
+  const kalenderjahr = 1;
+  // Zwei volle Wirtschaftsjahre eines fortgeltenden Plans (2026 + 2027).
+  const monate = sollMonate(
+    { validFrom: utc(2026, 1, 1), validUntil: null, year: 2026 },
+    kalenderjahr,
+    utc(2028, 1, 1),
+  );
+
+  it("centgenau: der Neustart bei 0 hält den Jahresbetrag — sonst summierte 2027 falsch", () => {
+    // 3.000,05 € gehen nicht glatt durch zwölf — fünf Restcents bleiben übrig.
+    const raten = monthlyInstallmentPlan(300_005, "CENT").rates;
+    const proJahr = new Map<number, number>();
+    for (const m of monate) {
+      proJahr.set(m.fiscalYear, (proJahr.get(m.fiscalYear) ?? 0) + raten[m.rateIndex]);
+    }
+    expect([...proJahr.values()]).toEqual([300_005, 300_005]);
+    // Die Restcents liegen auf den ersten Monaten — in jedem Jahr neu.
+    expect(raten[0]).toBeGreaterThan(raten[11]);
+  });
+
+  it("gerundet: alle zwölf Raten sind gleich, der Index wird gleichgültig", () => {
+    const raten = monthlyInstallmentPlan(300_036, "ZEHN_CENT").rates;
+    expect(new Set(raten).size).toBe(1);
+    // Damit stellt jeder Monat denselben Betrag, egal an welcher Position im
+    // Wirtschaftsjahr er steht — der Dauerauftrag passt auch im Januar.
+    expect(new Set(monate.map((m) => raten[m.rateIndex])).size).toBe(1);
+    // Und was im Jahr gestellt wird, ist der gerundete Betrag, nicht der Plan.
+    const jahr2027 = monate
+      .filter((m) => m.fiscalYear === 2027)
+      .reduce((s, m) => s + raten[m.rateIndex], 0);
+    expect(jahr2027).toBe(300_120);
   });
 });
 

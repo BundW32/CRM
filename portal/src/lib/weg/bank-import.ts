@@ -331,6 +331,9 @@ const SPALTEN_MUSTER: Record<"date" | "amount" | "debit" | "credit" | "purpose" 
     /^buchungstag$/,
     /buchungstag/,
     /buchungsdatum/,
+    // ING nennt die Spalte schlicht „Buchung" und daneben „Valuta". Ohne diese
+    // Zeile gewinnt die Valuta — ein Datum, das ein bis zwei Tage danebenliegt.
+    /^buchung$/,
     /^datum$/,
     /^belegdatum$/,
     /^valuta( ?datum)?$/,
@@ -349,15 +352,22 @@ const SPALTEN_MUSTER: Record<"date" | "amount" | "debit" | "credit" | "purpose" 
   ],
   debit: [/^soll$/, /^soll /, /^belastung/, /^abgang/],
   credit: [/^haben$/, /^gutschrift/, /^zugang/],
-  purpose: [/verwendungszweck/, /^vwz/, /^verwendung/, /^vorgang/, /buchungstext/],
+  // Kein bloßes /^vorgang/: Bei comdirect ist „Vorgang" die *Umsatzart*
+  // („Übertrag", „Lastschrift"), der Zweck steht in „Buchungstext". Die
+  // zusammengesetzte Sparkassen-Spalte „Vorgang/Verwendungszweck" trifft
+  // ohnehin schon das erste Muster.
+  purpose: [/verwendungszweck/, /^vwz/, /^verwendung/, /buchungstext/, /umsatzart/],
   counterparty: [
     /beguenstigter/,
     /zahlungsempfaenger/,
     /zahlungspflichtiger/,
     /zahlungsbeteiligter/,
     /zahlungspartner/,
-    /auftraggeber/,
-    /empfaenger/,
+    // „Auftraggeberkonto" ist das *eigene* Konto, nicht die Gegenseite — die
+    // Commerzbank führt es gleich zweimal. Ein konstanter Wert als
+    // Zahlungspartner macht jeden Vorschlag daraus wertlos.
+    /auftraggeber(?!konto)/,
+    /empfaenger(?!konto)/,
     /^name/,
   ],
 };
@@ -591,8 +601,18 @@ export function parseSignedEuroToCents(input: string): number | null {
   } else if (normalized.startsWith("+")) {
     normalized = normalized.slice(1);
   }
-  if (normalized.includes(",")) {
+  // Welches Zeichen trennt die Nachkommastellen? Das **letzte** von beiden.
+  // „1.234,56" ist deutsch, „1,234.56" englisch (so exportieren manche Banken
+  // und jeder Excel-Umweg mit englischem Gebietsschema). Wer stets den Punkt
+  // als Tausendertrenner wegwirft, macht aus 1.234,56 € eben mal 1,23 €.
+  const letztesKomma = normalized.lastIndexOf(",");
+  const letzterPunkt = normalized.lastIndexOf(".");
+  if (letztesKomma >= 0 && letztesKomma > letzterPunkt) {
     normalized = normalized.replace(/\./g, "").replace(",", ".");
+  } else if (letzterPunkt >= 0 && letztesKomma >= 0) {
+    normalized = normalized.replace(/,/g, "");
+  } else if (letztesKomma >= 0) {
+    normalized = normalized.replace(",", ".");
   }
   if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
   const value = Number.parseFloat(normalized);

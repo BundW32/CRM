@@ -345,3 +345,78 @@ describe("Trennzeichen und Dezimaltrenner", () => {
     expect(parseSignedEuroToCents("1.234,56 €")).toBe(123456);
   });
 });
+
+// ── Kopfzeilen weiterer Banken ───────────────────────────────────────────────
+//
+// Drei Fehler, die dieser Durchgang zutage gefördert hat und die diese Prüfung
+// festhält: „Vorgang" ist bei comdirect die Umsatzart und nicht der Zweck,
+// „Auftraggeberkonto" ist das eigene Konto und nicht die Gegenseite, und ING
+// nennt den Buchungstag schlicht „Buchung".
+describe("weitere Bank-Kopfzeilen", () => {
+  it("ING: Buchung schlaegt Valuta", () => {
+    const m = guessMapping([
+      "Buchung", "Valuta", "Auftraggeber/Empfänger", "Buchungstext",
+      "Verwendungszweck", "Saldo", "Währung", "Betrag", "Währung",
+    ]);
+    expect(m).toEqual({ date: 0, purpose: 4, counterparty: 2, amount: 7 });
+  });
+
+  it("comdirect: der Zweck steht in Buchungstext, nicht in Vorgang", () => {
+    const m = guessMapping(["Buchungstag", "Wertstellung (Valuta)", "Vorgang", "Buchungstext", "Umsatz in EUR"]);
+    expect(m.date).toBe(0);
+    expect(m.purpose).toBe(3);
+    expect(m.amount).toBe(4);
+  });
+
+  it("Commerzbank: Auftraggeberkonto ist kein Zahlungspartner", () => {
+    const m = guessMapping([
+      "Buchungstag", "Wertstellung", "Umsatzart", "Buchungstext", "Betrag",
+      "Währung", "Auftraggeberkonto", "IBAN Auftraggeberkonto",
+    ]);
+    expect(m.counterparty).toBeUndefined();
+    expect(m.purpose).toBe(3);
+  });
+
+  it("DKB und Postbank", () => {
+    const dkb = guessMapping([
+      "Buchungsdatum", "Wertstellung", "Status", "Zahlungspflichtige*r",
+      "Zahlungsempfänger*in", "Verwendungszweck", "Umsatztyp", "IBAN", "Betrag (€)",
+    ]);
+    expect(dkb.date).toBe(0);
+    expect(dkb.purpose).toBe(5);
+    expect(dkb.amount).toBe(8);
+
+    const postbank = guessMapping([
+      "Buchungstag", "Wertstellung", "Umsatzart", "Begünstigter / Auftraggeber",
+      "Verwendungszweck", "IBAN", "BIC", "Betrag", "Soll", "Haben", "Währung",
+    ]);
+    expect(postbank).toEqual({ date: 0, purpose: 4, counterparty: 3, amount: 7 });
+  });
+
+  it("englische Kopfzeilen (N26) fallen auf die Inhaltserkennung zurück", () => {
+    const csv = [
+      "Booking Date,Value Date,Partner Name,Partner Iban,Type,Payment Reference,Amount (EUR)",
+      "02.01.2026,02.01.2026,Erika Mustermann,DE02120300000000202051,Credit,Hausgeld WE 01 Januar 2026,245.50",
+      "05.01.2026,05.01.2026,Stadtwerke Nord,DE44100110012345678901,Debit,Abschlag Allgemeinstrom Januar,-89.00",
+      "09.01.2026,09.01.2026,Versicherung AG,DE87200500001234567890,Debit,Jahresbeitrag Police 4711 Gebaeude,-1234.56",
+    ].join("\n");
+    const parsed = parseCsv(csv);
+    const m = detectMapping(parsed);
+    expect(mappingComplete(m)).toBe(true);
+    const buchungen = mapRows(parsed.rows, m as never, "acc1");
+    expect(buchungen).toHaveLength(3);
+    expect(buchungen[2].amountCents).toBe(123456);
+  });
+});
+
+describe("Dezimaltrenner", () => {
+  it("das letzte Trennzeichen entscheidet — deutsch wie englisch", () => {
+    expect(parseSignedEuroToCents("1.234,56")).toBe(123456);
+    expect(parseSignedEuroToCents("1,234.56")).toBe(123456); // englischer Export
+    expect(parseSignedEuroToCents("1.234.567,89")).toBe(123456789);
+    expect(parseSignedEuroToCents("1,234,567.89")).toBe(123456789);
+    expect(parseSignedEuroToCents("-1.234,56")).toBe(-123456);
+    expect(parseSignedEuroToCents("245,50")).toBe(24550);
+    expect(parseSignedEuroToCents("245.50")).toBe(24550);
+  });
+});

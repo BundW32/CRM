@@ -9,6 +9,27 @@
 // Serverstart muss dieses Modul nichts laden.
 import type { Instrumentation } from "next";
 
+/**
+ * Läuft einmal beim Start des Servers, vor der ersten Anfrage.
+ *
+ * Hier wird geprüft, ob die Dateiablage in Produktion überhaupt eingerichtet
+ * ist. Ohne diese Prüfung fällt eine fehlende `BLOB_READ_WRITE_TOKEN` erst auf,
+ * wenn ein Kunde seinen ersten Beleg hochlädt oder einen Wirtschaftsplan
+ * beschließt — und dann ist der Beschluss gefasst und die Dokumente fehlen.
+ * Genau so ist es passiert.
+ *
+ * `console.error` und nicht der E-Mail-Alarm: Der Start ist der falsche Moment
+ * für einen Mailversand (Cold Start, unvollständige Umgebung), und die Meldung
+ * steht so in jedem Vercel-Log der Bereitstellung. Wer genauer messen will,
+ * öffnet die Selbstprüfung unter /verwaltung/ablage.
+ */
+export async function register() {
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const { warnungAblageKonfiguration } = await import("@/lib/ablage-check");
+  const warnung = warnungAblageKonfiguration(process.env);
+  if (warnung) console.error(warnung);
+}
+
 export const onRequestError: Instrumentation.onRequestError = async (
   err,
   request,

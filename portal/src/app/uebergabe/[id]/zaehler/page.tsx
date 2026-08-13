@@ -3,6 +3,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessHandover } from "@/lib/access";
+import { AblageAlert } from "@/components/ablage-alert";
 import { buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { StepHeader } from "@/app/uebergabe/_components/StepHeader";
 import { ZaehlerClient } from "./ZaehlerClient";
@@ -11,11 +12,15 @@ export const dynamic = "force-dynamic";
 
 export default async function ZaehlerPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  /** `ablage=fehler&grund=…` kommt von einem fehlgeschlagenen Zählerfoto. */
+  searchParams: Promise<{ ablage?: string; grund?: string }>;
 }) {
   const verwalter = await requireVerwalter();
   const { id } = await params;
+  const { ablage, grund } = await searchParams;
   if (!(await canVerwalterAccessHandover(verwalter, id))) notFound();
 
   const handover = await db.handover.findUnique({
@@ -33,6 +38,12 @@ export default async function ZaehlerPage({
           <h2 className="font-semibold text-white">Zählerstände erfassen</h2>
           <p className="text-sm text-white/60">Erfassen Sie alle Zählerstände und fotografieren Sie die Zähler.</p>
         </div>
+
+        {ablage === "fehler" ? (
+          <AblageAlert titel="Das Zählerfoto wurde nicht gespeichert." grund={grund}>
+            Der Zählerstand selbst ist unverändert — bitte das Foto erneut aufnehmen.
+          </AblageAlert>
+        ) : null}
 
         <ZaehlerClient handoverId={id} initialMeters={handover.meters} />
 

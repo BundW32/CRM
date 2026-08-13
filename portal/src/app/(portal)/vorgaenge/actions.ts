@@ -28,6 +28,7 @@ import {
 import { computeDueAt } from "@/lib/sla";
 import { parseEuroToCents } from "@/lib/money";
 import { MEDIA_TYPES, DOCUMENT_TYPES, deleteBlob, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { requireUser, requireVerwalter } from "@/lib/session";
 import { AUDIT, logAudit } from "@/lib/audit";
@@ -68,6 +69,12 @@ const createTicketSchema = z.object({
   target: z.string().min(1),
 });
 
+/**
+ * `redirectTo` trägt bereits `?fehler=dateien`. Bei einem Fehlschlag der Ablage
+ * kommt der Grund dazu: Vorher stand dort für jeden Fall derselbe Satz („nur
+ * Bilder oder Videos bis 100 MB, maximal 10 Stück") — auch dann, wenn die
+ * Dateien einwandfrei waren und schlicht die Ablage fehlte.
+ */
 async function collectPhotoUploads(formData: FormData, redirectTo: string) {
   const files = formData
     .getAll("photos")
@@ -79,8 +86,9 @@ async function collectPhotoUploads(formData: FormData, redirectTo: string) {
   for (const file of files) {
     try {
       uploads.push(await saveUpload(file, MEDIA_TYPES));
-    } catch {
-      redirect(redirectTo);
+    } catch (err) {
+      console.error("Ablage eines Vorgangs-Fotos fehlgeschlagen", err);
+      redirect(`${redirectTo}&ablage=fehler&grund=${encodeURIComponent(ablageFehlerText(err))}`);
     }
   }
   return uploads;
@@ -858,8 +866,11 @@ export async function uploadRequestedDocument(formData: FormData) {
   let upload;
   try {
     upload = await saveUpload(file, DOCUMENT_TYPES);
-  } catch {
-    redirect(`/vorgaenge/${ticketId}?fehler=datei`);
+  } catch (err) {
+    console.error("Ablage eines Vorgangs-Dokuments fehlgeschlagen", err);
+    redirect(
+      `/vorgaenge/${ticketId}?fehler=ablage&grund=${encodeURIComponent(ablageFehlerText(err))}`,
+    );
   }
 
   // Sichtbarkeit am Anfragenden ausrichten
@@ -1067,7 +1078,18 @@ export async function generateCertificate(formData: FormData) {
     });
   }
 
-  const upload = await saveBuffer(pdf, `${title}.pdf`, "application/pdf", ["application/pdf"]);
+  // Die Bescheinigung ist erzeugt, aber noch nirgends abgelegt. Schlägt die
+  // Ablage fehl, entsteht KEIN Dokument — und der Weg nach vorn ist derselbe
+  // Knopf: Die Erzeugung ist wiederholbar, sie rechnet aus den Stammdaten.
+  let upload;
+  try {
+    upload = await saveBuffer(pdf, `${title}.pdf`, "application/pdf", ["application/pdf"]);
+  } catch (err) {
+    console.error("Ablage einer Bescheinigung fehlgeschlagen", err);
+    redirect(
+      `/vorgaenge/${ticketId}?fehler=ablage&grund=${encodeURIComponent(ablageFehlerText(err))}`,
+    );
+  }
 
   await db.$transaction([
     db.document.create({

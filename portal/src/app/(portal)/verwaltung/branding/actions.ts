@@ -8,6 +8,7 @@ import { IMAGE_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 import { normalizeHex } from "@/lib/branding";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { RESERVED_SLUGS } from "@/lib/slug";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 
 function normalizeSlug(input: string): string {
   return input
@@ -73,7 +74,17 @@ async function saveBranding(formData: FormData): Promise<void> {
   // Logo nur ersetzen, wenn ein neues hochgeladen wurde.
   const file = formData.get("logo");
   if (file instanceof File && file.size > 0) {
-    const upload = await saveUpload(file, IMAGE_TYPES);
+    // Der rohe Fehler wanderte bisher unverändert in die Adresszeile und von
+    // dort ins Banner — samt Store-Namen und Anleitung für Vercel, die einer
+    // Hausverwaltung nichts sagt. `ablageFehlerText` macht daraus einen Satz,
+    // der zwischen „liegt am System" und „liegt an dieser Datei" unterscheidet.
+    let upload;
+    try {
+      upload = await saveUpload(file, IMAGE_TYPES);
+    } catch (err) {
+      console.error("Ablage eines Logos fehlgeschlagen", err);
+      throw new Error(ablageFehlerText(err));
+    }
     const current = await db.organization.findUnique({
       where: { id: actor.organizationId },
       select: { logoStoredName: true },

@@ -10,6 +10,7 @@ import { formatCents, parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
 import { planErlaubt } from "@/lib/plan-guard";
 import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 import {
   guessMapping,
   mapRows,
@@ -148,8 +149,13 @@ export async function createBooking(formData: FormData) {
   if (file instanceof File && file.size > 0) {
     try {
       beleg = await saveUpload(file, DOCUMENT_TYPES);
-    } catch {
-      back(property.id, "fehler=beleg");
+    } catch (err) {
+      // Der Beleg ist der Nachweis der Buchung — schlägt seine Ablage fehl,
+      // wird die Buchung bewusst nicht angelegt. Warum, stand bisher nur im
+      // Log; „erlaubt: Foto oder PDF" war die Antwort auf eine Frage, die
+      // niemand gestellt hatte.
+      console.error("Ablage eines Belegs fehlgeschlagen", err);
+      back(property.id, `fehler=beleg&grund=${encodeURIComponent(ablageFehlerText(err))}`);
     }
   }
 

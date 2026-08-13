@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AblageAlert } from "@/components/ablage-alert";
 import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
@@ -26,10 +27,10 @@ const errorMessages: Record<string, string> = {
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
+  searchParams: Promise<{ fehler?: string; gespeichert?: string; grund?: string }>;
 }) {
   const user = await requireUser();
-  const { fehler, gespeichert } = await searchParams;
+  const { fehler, gespeichert, grund } = await searchParams;
   const org = await getOrganization();
   // Derselbe Schlüssel, den `PushToggle` im Browser braucht — `NEXT_PUBLIC_`
   // steht auch dem Server zur Verfügung.
@@ -232,10 +233,14 @@ export default async function AccountPage({
             der Wohnungsgeber, in dessen Namen die Bescheinigung entsteht. */}
         {user.role === "EIGENTUEMER" ? (
           <Card title="Unterschrift & Vollmacht">
+            {/* „Bitte erneut versuchen" war der falsche Rat, wenn die
+                Dateiablage fehlt: Dann hilft kein zweiter Versuch. */}
             {fehler === "signatur" ? (
-              <Alert variant="error" className="mb-3">
-                Die Unterschrift konnte nicht gespeichert werden. Bitte erneut versuchen.
-              </Alert>
+              <AblageAlert
+                titel="Die Unterschrift wurde nicht gespeichert."
+                grund={grund}
+                className="mb-3"
+              />
             ) : null}
             <VollmachtKarte user={user} />
           </Card>

@@ -13,6 +13,7 @@ import {
 } from "@/lib/craftsman-token";
 import { db } from "@/lib/db";
 import { contactKindLabels, formatDate, roleLabels, tradeLabels } from "@/lib/labels";
+import { AblageAlert } from "@/components/ablage-alert";
 import { requireVerwalter } from "@/lib/session";
 import { erneuereMagicLink, widerrufeMagicLink } from "../actions";
 import {
@@ -41,7 +42,7 @@ export default async function KontaktDetailPage({
 }) {
   const verwalter = await requireVerwalter();
   const { id } = await params;
-  const { fehler } = await searchParams;
+  const { fehler, grund, msg } = await searchParams;
 
   // ── Person? ───────────────────────────────────────────────────────────────
   // Zuerst die Berechtigung prüfen, dann laden – nie umgekehrt.
@@ -151,11 +152,22 @@ export default async function KontaktDetailPage({
             verschwände die Meldung, bevor jemand sie gelesen hat. Ohne dieses
             Banner liefe der Rücksprung mit `?fehler=…` ins Leere: Die Aktion
             kehrt hierher zurück, nicht in die Liste. */}
-        {fehler ? (
+        {fehler === "bescheinigung" ? (
+          <AblageAlert
+            titel="Die Freistellungsbescheinigung wurde nicht gespeichert."
+            grund={grund}
+          >
+            Nummer und Gültigkeitsdatum wurden ebenfalls nicht übernommen — bitte erneut
+            speichern.
+          </AblageAlert>
+        ) : fehler === "stammdaten" ? (
+          // Der Rücksprung trug `msg` schon immer mit — gezeigt wurde er nie,
+          // und damit stand hier „Bitte Pflichtfelder korrekt ausfüllen", wenn
+          // in Wahrheit die Unterschrift nicht abgelegt werden konnte.
+          <AblageAlert titel="Die Stammdaten wurden nicht gespeichert." grund={msg} />
+        ) : fehler ? (
           <Alert variant="error" className="mb-4">
-            {fehler === "bescheinigung"
-              ? "Die Freistellungsbescheinigung konnte nicht gespeichert werden (erlaubt: Foto oder PDF). Nummer und Gültigkeitsdatum wurden ebenfalls nicht übernommen — bitte erneut speichern."
-              : fehler === "email"
+            {fehler === "email"
                 ? "Diese E-Mail-Adresse wird bereits von einer anderen Person verwendet."
                 : "Bitte Pflichtfelder (Name, Art) korrekt ausfüllen."}
           </Alert>

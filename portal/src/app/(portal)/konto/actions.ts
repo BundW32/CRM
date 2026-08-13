@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { getClientIp } from "@/lib/rate-limit";
 import { createSession, requireUser, revokeSessions } from "@/lib/session";
 import { IMAGE_TYPES, deleteBlob, saveBuffer } from "@/lib/storage";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 
 export async function changePassword(formData: FormData) {
   const user = await requireUser();
@@ -70,8 +71,9 @@ export async function saveOwnSignature(formData: FormData) {
         signatureSelfSigned: true,
       },
     });
-  } catch {
-    redirect("/konto?fehler=signatur");
+  } catch (err) {
+    console.error("Ablage der eigenen Unterschrift fehlgeschlagen", err);
+    redirect(`/konto?fehler=signatur&grund=${encodeURIComponent(ablageFehlerText(err))}`);
   }
 
   revalidatePath("/konto");

@@ -1,6 +1,7 @@
 import { PublicBrand } from "@/components/public-brand";
 import { DateInput } from "@/components/date-input";
 import { FileInput } from "@/components/file-input";
+import { AblageAlert } from "@/components/ablage-alert";
 import { Alert } from "@/components/ui";
 import { istCraftsmanTokenGueltig } from "@/lib/craftsman-token";
 import { db } from "@/lib/db";
@@ -29,7 +30,7 @@ export default async function AuftraegePage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ fehler?: string; rechnung?: string }>;
+  searchParams: Promise<{ fehler?: string; rechnung?: string; grund?: string }>;
 }) {
   const { token } = await params;
   const sp = await searchParams;
@@ -87,7 +88,11 @@ export default async function AuftraegePage({
       {sp.rechnung ? (
         <Alert variant="success" className="mb-4">Rechnung eingereicht — die Verwaltung prüft sie.</Alert>
       ) : null}
-      {sp.fehler ? (
+      {sp.fehler === "ablage" ? (
+        <AblageAlert grund={sp.grund}>
+          Ihre Eingabe wurde nicht gespeichert — bitte erneut absenden.
+        </AblageAlert>
+      ) : sp.fehler ? (
         <Alert variant="error" className="mb-4">
           {sp.fehler === "betrag"
             ? "Bitte einen gültigen Rechnungsbetrag angeben."

@@ -11,6 +11,7 @@ import { getBrandingForOrg } from "@/lib/branding-server";
 import { briefkopfAus } from "@/lib/documents/briefkopf";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { deleteBlob, saveBuffer } from "@/lib/storage";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 import { requireVerwalter } from "@/lib/session";
 import { planErlaubt } from "@/lib/plan-guard";
 import { generateMeetingProtocol } from "@/lib/documents/meeting-protocol";
@@ -513,8 +514,15 @@ export async function generateProtocol(formData: FormData) {
   try {
     await buildAndStoreProtocol(verwalter, meeting);
   } catch (err) {
+    // Der häufigste Grund ist nicht die Erzeugung, sondern ihre Ablage — und
+    // dann liegt es an der Konfiguration, nicht an der Versammlung. Der Grund
+    // geht deshalb im Klartext mit zurück. Die Wiederholung ist derselbe Knopf:
+    // Die Versammlung wird erst NACH erfolgreicher Ablage als durchgeführt
+    // vermerkt, ein zweiter Lauf ist also gefahrlos.
     console.error("Protokoll-Erzeugung fehlgeschlagen", err);
-    redirect(`/versammlungen/${meetingId}?fehler=protokoll`);
+    redirect(
+      `/versammlungen/${meetingId}?fehler=protokoll&grund=${encodeURIComponent(ablageFehlerText(err))}`,
+    );
   }
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}?protokoll=1`);

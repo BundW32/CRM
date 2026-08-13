@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 import { describe, expect, it } from "vitest";
 import {
   decodeBankFile,
+  normHeader,
   dedupeHash,
   detectMapping,
   guessMapping,
@@ -418,5 +419,68 @@ describe("Dezimaltrenner", () => {
     expect(parseSignedEuroToCents("-1.234,56")).toBe(-123456);
     expect(parseSignedEuroToCents("245,50")).toBe(24550);
     expect(parseSignedEuroToCents("245.50")).toBe(24550);
+  });
+});
+
+// ── Zwei Partnerspalten (DKB u. a.) ──────────────────────────────────────────
+//
+// Bei einer Gutschrift steht die Gegenseite in „Zahlungspflichtige*r", bei
+// einer Belastung in „Zahlungsempfänger*in" — in der jeweils anderen Spalte
+// steht das eigene Konto. Eine feste Spalte zu nehmen hieße, bei der Hälfte
+// der Zeilen den eigenen Namen als Zahlungspartner zu buchen.
+describe("richtungsabhängiger Zahlungspartner", () => {
+  const DKB = [
+    "Buchungsdatum;Wertstellung;Status;Zahlungspflichtige*r;Zahlungsempfänger*in;Verwendungszweck;Umsatztyp;IBAN;Betrag (€)",
+    "02.01.2026;02.01.2026;Gebucht;Mustermann, Erika;WEG Musterstr. 12;Hausgeld WE 01 Januar;Eingang;DE02120300000000202051;245,50",
+    "08.01.2026;08.01.2026;Gebucht;WEG Musterstr. 12;Gebäudeversicherung AG;Jahresbeitrag Police 4711;Ausgang;DE87200500001234567890;-1.234,56",
+  ].join("\n");
+
+  it("erkennt das Paar statt einer festen Spalte", () => {
+    const m = guessMapping(parseCsv(DKB).header);
+    expect(m.counterpartyIn).toBe(3); // Zahlungspflichtige*r
+    expect(m.counterpartyOut).toBe(4); // Zahlungsempfänger*in
+    expect(m.counterparty).toBeUndefined();
+  });
+
+  it("nimmt je Zeile die Spalte, die zur Richtung passt", () => {
+    const parsed = parseCsv(DKB);
+    const m = detectMapping(parsed);
+    expect(mappingComplete(m)).toBe(true);
+    const buchungen = mapRows(parsed.rows, m as never, "acc1");
+    expect(buchungen[0].kind).toBe("EINNAHME");
+    expect(buchungen[0].counterparty).toBe("Mustermann, Erika"); // der Zahler
+    expect(buchungen[1].kind).toBe("AUSGABE");
+    expect(buchungen[1].counterparty).toBe("Gebäudeversicherung AG"); // der Empfänger
+  });
+
+  it("ist die passende Spalte leer, wird die andere genommen", () => {
+    const mapping = { date: 0, amount: 1, purpose: 2, counterpartyIn: 3, counterpartyOut: 4 };
+    const [ein] = mapRows([["02.01.2026", "10,00", "Test", "", "Notfallname"]], mapping, "acc1");
+    expect(ein.counterparty).toBe("Notfallname");
+  });
+
+  it("eine gemeinsame Spalte bleibt eine gemeinsame", () => {
+    // Sparkasse und Postbank führen beide Rollen in **einer** Spalte — dort
+    // darf die Paar-Erkennung nicht zuschlagen.
+    const sparkasse = guessMapping(["Buchungstag", "Verwendungszweck", "Beguenstigter/Zahlungspflichtiger", "Betrag"]);
+    expect(sparkasse.counterparty).toBe(2);
+    expect(sparkasse.counterpartyIn).toBeUndefined();
+
+    const postbank = guessMapping(["Buchungstag", "Begünstigter / Auftraggeber", "Verwendungszweck", "Betrag"]);
+    expect(postbank.counterparty).toBe(1);
+    expect(postbank.counterpartyIn).toBeUndefined();
+
+    const ing = guessMapping(["Buchung", "Auftraggeber/Empfänger", "Verwendungszweck", "Betrag"]);
+    expect(ing.counterparty).toBe(1);
+    expect(ing.counterpartyIn).toBeUndefined();
+  });
+
+  it("gendergerechte Schreibweisen treffen dieselben Muster", () => {
+    // „Zahlungspflichtige*r" traf /zahlungspflichtiger/ vorher nicht — der
+    // Stern stand im Weg.
+    expect(normHeader("Zahlungspflichtige*r")).toBe("zahlungspflichtige r");
+    const m = guessMapping(["Datum", "Zahlungspflichtige:r", "Zahlungsempfänger:in", "Betrag", "Verwendungszweck"]);
+    expect(m.counterpartyIn).toBe(1);
+    expect(m.counterpartyOut).toBe(2);
   });
 });

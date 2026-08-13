@@ -19,7 +19,10 @@ export type BankImportProfil = {
   gespeichertAm?: string;
 };
 
-const SPALTEN = ["date", "amount", "debit", "credit", "purpose", "counterparty"] as const;
+const SPALTEN = [
+  "date", "amount", "debit", "credit", "purpose",
+  "counterparty", "counterpartyIn", "counterpartyOut",
+] as const;
 const ZEICHENSAETZE: Zeichensatz[] = ["utf-8", "utf-8-bom", "utf-16le", "utf-16be", "windows-1252"];
 
 /**

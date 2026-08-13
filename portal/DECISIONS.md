@@ -2143,6 +2143,22 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      MT940-Import gespeichertes Mapping würde beim nächsten CSV-Import eine
      Zuordnung vortäuschen, die nie bestätigt wurde.
 
+319. **Der Zahlungspartner hängt an der Richtung, wo die Bank ihn in zwei
+     Spalten führt.** Die DKB schreibt die Gegenseite bei einer Gutschrift in
+     „Zahlungspflichtige\*r" und bei einer Belastung in „Zahlungsempfänger\*in" —
+     in der jeweils anderen steht das eigene Konto. Eine feste Spalte zu nehmen
+     hieß, bei der Hälfte der Zeilen den eigenen WEG-Namen als Zahlungspartner
+     zu buchen; für die Einheiten-Zuordnung ist das genauso wertlos wie gar kein
+     Name, sieht aber nach einem Treffer aus. `ColumnMapping` kennt dafür jetzt
+     `counterpartyIn`/`counterpartyOut`; ist die passende Spalte leer, wird die
+     andere genommen. Erkannt wird das Paar nur, wenn beide Muster **verschiedene**
+     Spalten treffen — bei „Beguenstigter/Zahlungspflichtiger" (Sparkasse),
+     „Begünstigter / Auftraggeber" (Postbank) und „Auftraggeber/Empfänger" (ING)
+     ist es eine gemeinsame Spalte, und es bleibt beim einfachen Weg.
+     Nebenbei behoben: Die Normalisierung trennte an `*` und `:` nicht, weshalb
+     „Zahlungspflichtige\*r" das Muster `/zahlungspflichtiger/` nie traf —
+     gendergerechte Schreibweisen fielen still durch.
+
 **Offen geblieben** (bewusst, nicht vergessen): Die Nachdokumentation eines
 bereits eingesetzten Subprozessors gehört anwaltlich bewertet — die
 4-Wochen-Ankündigung nach AVV Ziffer 4 ist auf künftige Wechsel zugeschnitten.

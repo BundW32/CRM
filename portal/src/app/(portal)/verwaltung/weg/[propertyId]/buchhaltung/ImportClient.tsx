@@ -71,6 +71,13 @@ export function ImportClient({
   // MT940 und CAMT benennen ihre Felder selbst — dort gibt es nichts
   // zuzuordnen, und der Schritt entfällt vollständig.
   const ohneSpalten = analysis?.ok && analysis.mappingQuelle === "format";
+  // Getrennte Partnerspalten: entweder erkannt, oder gar keine Partnerspalte
+  // gefunden — dann sind sie das, was von Hand zu setzen wäre.
+  const getrenntePartner =
+    analysis?.ok &&
+    (analysis.mapping.counterpartyIn !== undefined ||
+      analysis.mapping.counterpartyOut !== undefined ||
+      analysis.mapping.counterparty === undefined);
   const mappingReady =
     analysis?.ok &&
     (ohneSpalten ||
@@ -149,6 +156,16 @@ export function ImportClient({
             <MappingSelect header={analysis.header} name="col_credit" label="Spalte Haben (optional)" value={analysis.mapping.credit} optional />
             <MappingSelect header={analysis.header} name="col_purpose" label="Spalte Verwendungszweck" value={analysis.mapping.purpose} />
             <MappingSelect header={analysis.header} name="col_counterparty" label="Spalte Zahlungspartner (optional)" value={analysis.mapping.counterparty} optional />
+            {/* Zwei getrennte Partnerspalten (DKB u. a.): Bei einer Gutschrift
+                steht die Gegenseite in der einen, bei einer Belastung in der
+                anderen. Angeboten wird das nur, wo es gebraucht wird — sonst
+                stehen hier zwei Auswahllisten ohne Zweck. */}
+            {getrenntePartner ? (
+              <>
+                <MappingSelect header={analysis.header} name="col_counterparty_in" label="Spalte Zahler (bei Einnahmen)" value={analysis.mapping.counterpartyIn} optional />
+                <MappingSelect header={analysis.header} name="col_counterparty_out" label="Spalte Empfänger (bei Ausgaben)" value={analysis.mapping.counterpartyOut} optional />
+              </>
+            ) : null}
             <button type="submit" className={buttonSecondaryClass} disabled={analyzing}>
               Vorschau aktualisieren
             </button>
@@ -160,6 +177,9 @@ export function ImportClient({
                 ? "Spalten von Hand gesetzt."
                 : "Spalten automatisch erkannt."}{" "}
             Entweder eine Betragsspalte oder Soll und Haben — nicht beides.
+            {getrenntePartner
+              ? " Diese Datei führt den Zahlungspartner in zwei Spalten; genommen wird je Zeile die zur Richtung passende."
+              : ""}
           </p>
           </>
           )}
@@ -226,6 +246,12 @@ export function ImportClient({
                 ) : null}
                 {analysis.mapping.counterparty !== undefined ? (
                   <input type="hidden" name="col_counterparty" value={analysis.mapping.counterparty} />
+                ) : null}
+                {analysis.mapping.counterpartyIn !== undefined ? (
+                  <input type="hidden" name="col_counterparty_in" value={analysis.mapping.counterpartyIn} />
+                ) : null}
+                {analysis.mapping.counterpartyOut !== undefined ? (
+                  <input type="hidden" name="col_counterparty_out" value={analysis.mapping.counterpartyOut} />
                 ) : null}
 
                 {/* KI-Vorschläge reisen zurück, weil sie sich nicht

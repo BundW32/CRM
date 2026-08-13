@@ -27,7 +27,18 @@ export type ColumnMapping = {
   /** Getrennte Haben-Spalte (Gutschrift). */
   credit?: number;
   purpose: number;
+  /** Zahlungspartner, wenn **eine** Spalte beide Richtungen trägt. */
   counterparty?: number;
+  /**
+   * Getrennte Partnerspalten, wie sie die DKB führt: Bei einer Gutschrift steht
+   * die Gegenseite in „Zahlungspflichtige*r", bei einer Belastung in
+   * „Zahlungsempfänger*in" — in der jeweils anderen steht das eigene Konto.
+   * Eine feste Spalte zu nehmen hieße, bei der Hälfte der Zeilen den eigenen
+   * Namen als Zahlungspartner zu buchen; für die Einheiten-Zuordnung ist das
+   * genauso wertlos wie gar kein Name.
+   */
+  counterpartyIn?: number;
+  counterpartyOut?: number;
 };
 
 /** Trägt das Mapping alles, was `mapRows` braucht? */
@@ -319,14 +330,19 @@ export function normHeader(s: string): string {
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
     .replace(/ß/g, "ss")
-    .replace(/[._\-/]+/g, " ")
+    // Auch „*" und „:" trennen: „Zahlungspflichtige*r" muss dasselbe Muster
+    // treffen wie „Zahlungspflichtiger".
+    .replace(/[._\-/*:]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 // Reihenfolge = Vorrang. „Buchungstag" schlägt „Valutadatum", „Verwendungszweck"
 // schlägt „Buchungstext" — beides steht in Sparkassen-Exporten nebeneinander.
-const SPALTEN_MUSTER: Record<"date" | "amount" | "debit" | "credit" | "purpose" | "counterparty", RegExp[]> = {
+const SPALTEN_MUSTER: Record<
+  "date" | "amount" | "debit" | "credit" | "purpose" | "payer" | "payee" | "counterparty",
+  RegExp[]
+> = {
   date: [
     /^buchungstag$/,
     /buchungstag/,
@@ -357,6 +373,10 @@ const SPALTEN_MUSTER: Record<"date" | "amount" | "debit" | "credit" | "purpose" 
   // zusammengesetzte Sparkassen-Spalte „Vorgang/Verwendungszweck" trifft
   // ohnehin schon das erste Muster.
   purpose: [/verwendungszweck/, /^vwz/, /^verwendung/, /buchungstext/, /umsatzart/],
+  // Wer gezahlt hat (Gegenseite bei Einnahmen).
+  payer: [/zahlungspflichtige/, /auftraggeber(?!konto)/, /^zahler$/, /einzahler/],
+  // Wer bezahlt wurde (Gegenseite bei Ausgaben).
+  payee: [/zahlungsempfaenger/, /beguenstigter/, /empfaenger(?!konto)/],
   counterparty: [
     /beguenstigter/,
     /zahlungsempfaenger/,
@@ -391,10 +411,22 @@ export function guessMapping(header: string[]): Partial<ColumnMapping> {
   const date = find(SPALTEN_MUSTER.date);
   const amount = find(SPALTEN_MUSTER.amount);
   const purpose = find(SPALTEN_MUSTER.purpose);
-  const counterparty = find(SPALTEN_MUSTER.counterparty);
   if (date !== undefined) mapping.date = date;
   if (purpose !== undefined) mapping.purpose = purpose;
-  if (counterparty !== undefined) mapping.counterparty = counterparty;
+
+  // Zwei getrennte Partnerspalten oder eine gemeinsame? Treffen beide Muster
+  // dieselbe Spalte, ist es eine gemeinsame („Beguenstigter/Zahlungspflichtiger"
+  // der Sparkasse, „Begünstigter / Auftraggeber" der Postbank) — dann gilt der
+  // einfache Weg.
+  const zahler = find(SPALTEN_MUSTER.payer);
+  const empfaenger = find(SPALTEN_MUSTER.payee);
+  if (zahler !== undefined && empfaenger !== undefined && zahler !== empfaenger) {
+    mapping.counterpartyIn = zahler;
+    mapping.counterpartyOut = empfaenger;
+  } else {
+    const counterparty = find(SPALTEN_MUSTER.counterparty);
+    if (counterparty !== undefined) mapping.counterparty = counterparty;
+  }
   if (amount !== undefined) {
     mapping.amount = amount;
     return mapping;
@@ -533,12 +565,21 @@ export function detectMapping(parsed: ParsedCsv): Partial<ColumnMapping> {
     delete roh.debit;
     delete roh.credit;
   }
+  // Zwei getrennte Partnerspalten schlagen die eine Spalte aus der
+  // Inhaltserkennung — sonst stünde beides nebeneinander, und der Dedup-Schritt
+  // unten würde die richtungsabhängige Wahl wieder verwerfen.
+  if (roh.counterpartyIn !== undefined || roh.counterpartyOut !== undefined) {
+    delete roh.counterparty;
+  }
   // Keine Spalte zweimal: Die Reihenfolge ist die Rangfolge. Ohne diese Stufe
   // wandert eine halb gefüllte Haben-Spalte zusätzlich in den Zahlungspartner,
   // und im Vorschlag steht ein Betrag, wo ein Name stehen müsste.
   const mapping: Partial<ColumnMapping> = {};
   const belegt = new Set<number>();
-  for (const rolle of ["date", "amount", "debit", "credit", "purpose", "counterparty"] as const) {
+  for (const rolle of [
+    "date", "amount", "debit", "credit", "purpose",
+    "counterpartyIn", "counterpartyOut", "counterparty",
+  ] as const) {
     const idx = roh[rolle];
     if (idx === undefined || belegt.has(idx)) continue;
     mapping[rolle] = idx;
@@ -622,6 +663,26 @@ export function parseSignedEuroToCents(input: string): number | null {
 }
 
 /**
+ * Der Zahlungspartner einer Zeile — bei getrennten Spalten die zur Richtung
+ * passende. Ist die gewählte Spalte leer (kommt vor, wenn die Bank sie nur bei
+ * SEPA-Umsätzen füllt), wird die andere genommen: ein Name aus der falschen
+ * Spalte ist immer noch mehr als keiner.
+ */
+export function rowCounterparty(
+  row: RawRow,
+  mapping: ColumnMapping,
+  kind: BookingKind,
+): string | undefined {
+  const lies = (idx?: number) => (idx === undefined ? "" : (row[idx] ?? "").trim());
+  if (mapping.counterpartyIn !== undefined || mapping.counterpartyOut !== undefined) {
+    const eigene = kind === "AUSGABE" ? mapping.counterpartyOut : mapping.counterpartyIn;
+    const andere = kind === "AUSGABE" ? mapping.counterpartyIn : mapping.counterpartyOut;
+    return lies(eigene) || lies(andere) || undefined;
+  }
+  return lies(mapping.counterparty) || undefined;
+}
+
+/**
  * Der vorzeichenbehaftete Betrag einer Zeile — aus einer Betragsspalte oder
  * aus getrennten Soll-/Haben-Spalten.
  */
@@ -654,9 +715,8 @@ export function mapRows(rows: RawRow[], mapping: ColumnMapping, accountId: strin
     const signedCents = rowAmountCents(row, mapping);
     if (!date || signedCents === null || signedCents === 0) continue;
     const reference = (row[mapping.purpose] ?? "").trim();
-    const counterparty =
-      mapping.counterparty !== undefined ? (row[mapping.counterparty] ?? "").trim() || undefined : undefined;
     const kind: BookingKind = signedCents < 0 ? "AUSGABE" : "EINNAHME";
+    const counterparty = rowCounterparty(row, mapping, kind);
     const amountCents = Math.abs(signedCents);
     result.push({
       bookingDate: date,

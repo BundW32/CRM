@@ -378,6 +378,8 @@ function readMappingOverride(formData: FormData): { mapping: Partial<ColumnMappi
     credit: num("col_credit"),
     purpose: num("col_purpose"),
     counterparty: num("col_counterparty"),
+    counterpartyIn: num("col_counterparty_in"),
+    counterpartyOut: num("col_counterparty_out"),
   };
   return {
     mapping: Object.fromEntries(Object.entries(roh).filter(([, v]) => v !== undefined)),

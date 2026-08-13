@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   pruefeAblage,
   warnungAblageKonfiguration,
@@ -6,16 +6,17 @@ import {
   type PruefSchluessel,
   type PruefStatus,
 } from "./ablage-check";
+import { ablageZugang } from "./storage";
 
 // Diese Prüfung ist ein Diagnosewerkzeug: Ihr einziger Wert liegt darin, dass
-// sie die RICHTIGE Ursache nennt. Sagt sie „Store ist öffentlich", wo das Token
-// fehlt, ist sie schlimmer als keine Prüfung — dann wird stundenlang am
+// sie die RICHTIGE Ursache nennt. Sagt sie „Store ist öffentlich", wo der
+// Zugang fehlt, ist sie schlimmer als keine Prüfung — dann wird stundenlang am
 // falschen Ende gesucht, mit einem grünen Häkchen als Rückendeckung.
 //
-// Deshalb steht hier jeder Ausgang einzeln: die beiden Produktionsfälle, die
-// diesen Auftrag ausgelöst haben (kein Token / öffentlicher Store), und die
-// Wege, auf denen ein übersprungener Punkt fälschlich als „in Ordnung"
-// durchgehen könnte.
+// Deshalb steht hier jeder Ausgang einzeln: die Fälle, die diesen Auftrag
+// ausgelöst haben (kein Store verbunden / öffentlicher Store / per OIDC
+// verbunden, aber vom Code nicht erkannt), und die Wege, auf denen ein
+// übersprungener Punkt fälschlich als „in Ordnung" durchgehen könnte.
 
 const TOKEN_URL = "https://abc.public.blob.vercel-storage.com/selbsttest/x.txt";
 
@@ -23,7 +24,7 @@ const TOKEN_URL = "https://abc.public.blob.vercel-storage.com/selbsttest/x.txt";
 function heileSonden(ueberschreiben: Partial<AblageSonden> = {}): AblageSonden {
   let abgelegt: Buffer = Buffer.alloc(0);
   return {
-    tokenGesetzt: () => true,
+    zugangsart: () => "oidc",
     umgebung: () => "production",
     schreibe: async (inhalt) => {
       abgelegt = inhalt;
@@ -85,25 +86,25 @@ describe("pruefeAblage", () => {
   });
 
   // ── Produktionsfall 1: kein Token ─────────────────────────────────────────
-  describe("ohne Token", () => {
+  describe("ohne verbundenen Store", () => {
     it("ist in Produktion ein Fehler — dort schlägt jeder Upload fehl", async () => {
-      const ergebnis = await pruefeAblage(heileSonden({ tokenGesetzt: () => false }));
-      expect(punkt(ergebnis, "token").status).toBe("fehler");
+      const ergebnis = await pruefeAblage(heileSonden({ zugangsart: () => "keiner" }));
+      expect(punkt(ergebnis, "zugang").status).toBe("fehler");
       expect(ergebnis.gesamt).toBe("fehler");
     });
 
     it("ist außerhalb der Produktion nur eine Warnung (Data-URL-Fallback)", async () => {
       const ergebnis = await pruefeAblage(
-        heileSonden({ tokenGesetzt: () => false, umgebung: () => "preview" }),
+        heileSonden({ zugangsart: () => "keiner", umgebung: () => "preview" }),
       );
-      expect(punkt(ergebnis, "token").status).toBe("warnung");
+      expect(punkt(ergebnis, "zugang").status).toBe("warnung");
     });
 
     it("weist die übrigen Punkte als NICHT GEPRÜFT aus, nicht als in Ordnung", async () => {
       // Der gefährlichere Fehler wäre ein grünes Häkchen für etwas, das
       // niemand gemessen hat: Man liest „Store ist privat: in Ordnung" und
       // schließt daraus, dass es an etwas anderem liegt.
-      const ergebnis = await pruefeAblage(heileSonden({ tokenGesetzt: () => false }));
+      const ergebnis = await pruefeAblage(heileSonden({ zugangsart: () => "keiner" }));
       for (const s of ["schreiben", "lesen", "privat"] as const) {
         expect(punkt(ergebnis, s).status).toBe("warnung");
         expect(ergebnis.punkte.find((p) => p.schluessel === s)!.befund).toMatch(/Nicht geprüft/);
@@ -114,7 +115,7 @@ describe("pruefeAblage", () => {
       let versuche = 0;
       await pruefeAblage(
         heileSonden({
-          tokenGesetzt: () => false,
+          zugangsart: () => "keiner",
           schreibe: async () => {
             versuche += 1;
             return TOKEN_URL;
@@ -124,15 +125,48 @@ describe("pruefeAblage", () => {
       expect(versuche).toBe(0);
     });
 
-    it("nennt den Behebungsschritt, ohne das Token selbst zu zeigen", async () => {
-      const ergebnis = await pruefeAblage(heileSonden({ tokenGesetzt: () => false }));
-      const p = ergebnis.punkte.find((x) => x.schluessel === "token")!;
+    it("nennt den Behebungsschritt, ohne Zugangsdaten selbst zu zeigen", async () => {
+      const ergebnis = await pruefeAblage(heileSonden({ zugangsart: () => "keiner" }));
+      const p = ergebnis.punkte.find((x) => x.schluessel === "zugang")!;
       expect(p.behebung).toMatch(/Private/);
-      expect(p.befund).toMatch(/nicht gesetzt/);
+      expect(p.befund).toMatch(/kein Blob-Store mit diesem Projekt verbunden/);
+      // Beide Wege müssen genannt sein — sonst sucht der Betreiber nach einer
+      // Variablen, die seine Verbindung gar nicht setzt.
+      expect(p.befund).toMatch(/BLOB_STORE_ID/);
+      expect(p.befund).toMatch(/BLOB_READ_WRITE_TOKEN/);
     });
   });
 
-  // ── Produktionsfall 2: öffentlicher Store ─────────────────────────────────
+  // ── Produktionsfall 2: verbunden, aber nicht erkannt ──────────────────────
+  // Der Fall, der tatsächlich eintrat. Der Store war privat angelegt und mit
+  // beiden Projekten verbunden — nur setzt „Connect Project" heute kein
+  // statisches Token mehr, sondern BLOB_STORE_ID plus OIDC. Wer allein nach dem
+  // Token fragt, hält diesen Store für nicht vorhanden und meldet „nicht
+  // verfügbar", während daneben alles bereitsteht.
+  describe("per OIDC verbundener Store", () => {
+    it("gilt als vollwertiger Zugang", async () => {
+      const ergebnis = await pruefeAblage(heileSonden({ zugangsart: () => "oidc" }));
+      expect(punkt(ergebnis, "zugang").status).toBe("ok");
+      expect(ergebnis.gesamt).toBe("ok");
+    });
+
+    it("nennt den Weg, damit niemand das statische Token sucht", async () => {
+      const ergebnis = await pruefeAblage(heileSonden({ zugangsart: () => "oidc" }));
+      const befund = ergebnis.punkte.find((p) => p.schluessel === "zugang")!.befund;
+      expect(befund).toMatch(/OIDC/);
+      expect(befund).toMatch(/BLOB_STORE_ID/);
+    });
+
+    it("gilt auch das statische Token weiterhin als Zugang", async () => {
+      // Ältere Projekte laufen noch darüber; ein Umbau, der sie ausschließt,
+      // hätte den Fehler nur auf die andere Seite verschoben.
+      const ergebnis = await pruefeAblage(heileSonden({ zugangsart: () => "token" }));
+      expect(punkt(ergebnis, "zugang").status).toBe("ok");
+      expect(ergebnis.gesamt).toBe("ok");
+    });
+  });
+
+  // ── Produktionsfall 3: öffentlicher Store ─────────────────────────────────
   describe("öffentlicher Store", () => {
     it("erkennt ihn daran, dass `access: private` abgewiesen wird", async () => {
       // So äußert er sich zuerst: Das Token ist gesetzt, alles sieht
@@ -197,18 +231,28 @@ describe("pruefeAblage", () => {
 });
 
 describe("warnungAblageKonfiguration", () => {
-  it("warnt in Produktion ohne Token", () => {
+  it("warnt in Produktion, wenn gar kein Zugang besteht", () => {
     const warnung = warnungAblageKonfiguration({ VERCEL_ENV: "production" });
     expect(warnung).toMatch(/BLOB_READ_WRITE_TOKEN/);
+    expect(warnung).toMatch(/BLOB_STORE_ID/);
     expect(warnung).toMatch(/Private/);
   });
 
-  it("schweigt, wenn das Token gesetzt ist", () => {
+  it("schweigt, wenn das statische Token gesetzt ist", () => {
     expect(
       warnungAblageKonfiguration({
         VERCEL_ENV: "production",
         BLOB_READ_WRITE_TOKEN: "vercel_blob_rw_geheim",
       }),
+    ).toBeNull();
+  });
+
+  it("schweigt auch bei einem per OIDC verbundenen Store", () => {
+    // Ohne diese Zeile schlüge die Startprüfung bei JEDEM Start eines korrekt
+    // eingerichteten Projekts Alarm — und ein Alarm, der ohne Anlass feuert,
+    // wird nach einer Woche überlesen. Dann auch der echte.
+    expect(
+      warnungAblageKonfiguration({ VERCEL_ENV: "production", BLOB_STORE_ID: "store_abc123" }),
     ).toBeNull();
   });
 
@@ -220,9 +264,65 @@ describe("warnungAblageKonfiguration", () => {
     expect(warnungAblageKonfiguration({})).toBeNull();
   });
 
-  it("gibt den Wert des Tokens nirgends preis", () => {
+  it("gibt keine Zugangsdaten preis", () => {
     // Die Warnung landet im Vercel-Log; Logs werden geteilt und weitergeleitet.
     const warnung = warnungAblageKonfiguration({ VERCEL_ENV: "production" });
     expect(warnung).not.toMatch(/vercel_blob_rw/);
+  });
+});
+
+// ── Woran „verbunden" erkannt wird ──────────────────────────────────────────
+// Diese Auskunft entscheidet, ob `saveUpload` überhaupt zum Blob-Store greift.
+// Sie hat in Produktion falsch geantwortet, und niemand konnte es sehen: Der
+// Store war da, die Antwort lautete „nichts da". Deshalb steht sie jetzt an
+// einer Stelle (storage.ts) und wird hier für jeden Fall festgehalten.
+describe("ablageZugang", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("erkennt den OIDC-Weg in einer Vercel-Laufzeit", () => {
+    // Der Fall, den das Portal nicht kannte: Store verbunden, aber ohne
+    // statisches Token — so verbindet „Connect Project" heute.
+    vi.stubEnv("BLOB_STORE_ID", "store_abc123");
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
+    vi.stubEnv("VERCEL", "1");
+    expect(ablageZugang()).toBe("oidc");
+  });
+
+  it("lässt das statische Token weiterhin gelten, auch ohne Vercel-Laufzeit", () => {
+    vi.stubEnv("BLOB_STORE_ID", "");
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "vercel_blob_rw_geheim");
+    vi.stubEnv("VERCEL", "");
+    expect(ablageZugang()).toBe("token");
+  });
+
+  it("greift NICHT nach dem Produktions-Store, nur weil `vercel env pull` lief", () => {
+    // `vercel env pull` schreibt BLOB_STORE_ID mit auf den Entwicklerrechner.
+    // Zählte das als Zugang, verlöre `next dev` seinen Dateisystem-Fallback und
+    // liefe in einen Fehler, sobald das mitgezogene OIDC-Token abgelaufen ist —
+    // ein Ärgernis, das erst beim ersten Upload auffiele und wie ein Fehler des
+    // Portals aussähe.
+    vi.stubEnv("BLOB_STORE_ID", "store_abc123");
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("VERCEL_OIDC_TOKEN", "");
+    expect(ablageZugang()).toBe("keiner");
+  });
+
+  it("erlaubt den OIDC-Weg lokal, wenn ein gültiges Token vorliegt", () => {
+    // Wer sich eines zieht, will bewusst gegen den echten Store arbeiten.
+    vi.stubEnv("BLOB_STORE_ID", "store_abc123");
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("VERCEL_OIDC_TOKEN", "eyJhbGciOi...");
+    expect(ablageZugang()).toBe("oidc");
+  });
+
+  it("meldet „keiner“, wenn nichts davon gesetzt ist", () => {
+    vi.stubEnv("BLOB_STORE_ID", "");
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
+    vi.stubEnv("VERCEL", "");
+    expect(ablageZugang()).toBe("keiner");
   });
 });

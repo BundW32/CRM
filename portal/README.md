@@ -73,8 +73,9 @@ eingerichtet werden – bis dahin läuft dort keine Anfrage auf.
 - [Next.js 16](https://nextjs.org) (App Router, Server Actions), TypeScript, Tailwind CSS
 - PostgreSQL mit [Prisma 7](https://prisma.io) (`@prisma/adapter-pg`)
 - Sessions: signierte JWT-Cookies (`jose`), Passwörter: `bcryptjs`
-- Datei-Uploads: **Vercel Blob** (wenn `BLOB_READ_WRITE_TOKEN` gesetzt ist),
-  sonst lokales Dateisystem (`UPLOAD_DIR`)
+- Datei-Uploads: **Vercel Blob** (sobald ein Zugang zum Store besteht —
+  `BLOB_STORE_ID` per OIDC oder `BLOB_READ_WRITE_TOKEN`), sonst lokales
+  Dateisystem (`UPLOAD_DIR`)
 - E-Mail: `nodemailer` (optional per `SMTP_*`-Variablen)
 
 ## Deployment auf Vercel
@@ -89,11 +90,17 @@ eingerichtet werden – bis dahin läuft dort keine Anfrage auf.
    pinnt die Functions per `vercel.json` (`"regions": ["fra1"]`) bereits auf
    Frankfurt, damit DB-Abfragen nicht über den Atlantik laufen.
 4. Unter **Storage** einen **Blob**-Store anlegen und dabei **Access: Private**
-   wählen (per CLI: `vercel blob create-store <name> --access private`) → setzt
-   `BLOB_READ_WRITE_TOKEN` automatisch (nötig für Foto-/Dokument-Uploads).
+   wählen (per CLI: `vercel blob create-store <name> --access private`), dann
+   über **Connect Project** mit dem Projekt verbinden (Production **und**
+   Preview) → setzt die Zugangsvariablen automatisch, nötig für Foto- und
+   Dokument-Uploads. Neuere Verbindungen setzen `BLOB_STORE_ID` und
+   authentifizieren über OIDC; ältere ein statisches `BLOB_READ_WRITE_TOKEN`.
+   Das Portal nimmt beide — von Hand einzutragen ist nichts.
    **Wichtig:** Die App speichert alle Uploads privat (`access: "private"`); ein
    *öffentlicher* Store weist private Uploads ab → Fotos/Dokumente lassen sich
-   dann nicht hochladen.
+   dann nicht hochladen. Ob es wirklich läuft, sagt die Selbstprüfung unter
+   *Einstellungen → Dateiablage* (Betreiber-Konten); Einzelheiten in
+   `docs/BETRIEB-Dateiablage.md`.
 5. Environment Variable **`SESSION_SECRET`** setzen (zufällig, mind. 32 Zeichen,
    z. B. aus `openssl rand -base64 48`)
 6. Optional: `PORTAL_BASE_URL` (z. B. `https://portal.bundwimmobilien.de`) und

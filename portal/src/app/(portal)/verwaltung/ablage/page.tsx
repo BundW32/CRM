@@ -14,7 +14,13 @@ import { CheckCircle2, CircleAlert, XCircle } from "lucide-react";
 import { Alert, Card, PageTitle, buttonClass, cardSurfaceClass } from "@/components/ui";
 import { PendingButton } from "@/components/pending-button";
 import { stack } from "@/components/data-display";
-import { TOKEN_NAME, pruefeAblage, type PruefPunkt, type PruefStatus } from "@/lib/ablage-check";
+import {
+  STORE_ID_NAME,
+  TOKEN_NAME,
+  pruefeAblage,
+  type PruefPunkt,
+  type PruefStatus,
+} from "@/lib/ablage-check";
 import { requirePlatformAdmin } from "@/lib/platform";
 import { starteAblagePruefung } from "./actions";
 
@@ -71,8 +77,8 @@ export default async function AblagePruefungPage({
           <p className="text-sm text-gray-600">
             Diese Prüfung legt eine kleine Testdatei im Blob-Store ab, liest sie zurück,
             versucht sie ohne Zugangsdaten abzurufen und löscht sie wieder. Sie sagt damit,
-            ob Uploads im Portal funktionieren — und woran es liegt, wenn nicht. Der Wert
-            des Tokens wird nirgends angezeigt, nur ob es gesetzt ist.
+            ob Uploads im Portal funktionieren — und woran es liegt, wenn nicht. Zugangsdaten
+            werden nirgends angezeigt, nur ob und auf welchem Weg ein Zugang besteht.
           </p>
           <form action={starteAblagePruefung} className="mt-4">
             <PendingButton className={buttonClass} pendingLabel="Wird geprüft…">
@@ -112,10 +118,14 @@ export default async function AblagePruefungPage({
         <Card title="Was die Ablage braucht">
           <ul className="list-disc space-y-2 pl-5 text-sm text-gray-600">
             <li>
-              <code className="rounded bg-gray-100 px-1">{TOKEN_NAME}</code> — wird
-              gesetzt, sobald ein Blob-Store mit dem Projekt verbunden ist. Fehlt sie in
-              Produktion, bricht jeder Upload ab (der Data-URL-Fallback in die Datenbank ist
-              dort absichtlich gesperrt).
+              <strong>Einen Zugang zum Store</strong> — entweder{" "}
+              <code className="rounded bg-gray-100 px-1">{STORE_ID_NAME}</code> (so verbindet
+              Vercel heute: Das Zugriffstoken wird je Anfrage über OIDC gestellt, ein
+              statisches gibt es nicht) oder das ältere{" "}
+              <code className="rounded bg-gray-100 px-1">{TOKEN_NAME}</code>. Beides setzt
+              Vercel selbst, sobald der Store über „Connect Project“ mit dem Projekt
+              verbunden ist. Fehlt beides in Produktion, bricht jeder Upload ab — der
+              Data-URL-Fallback in die Datenbank ist dort absichtlich gesperrt.
             </li>
             <li>
               Der Store muss <strong>privat</strong> angelegt sein. Das Portal schreibt mit{" "}

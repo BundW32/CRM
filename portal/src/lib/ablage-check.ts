@@ -1,19 +1,20 @@
 // Selbstprüfung der Dateiablage — Diagnose statt Raten.
 //
 // Anlass: In Produktion schlug **jeder** Upload fehl. Die Oberfläche sagte „Die
-// Dateiablage ist nicht verfügbar", und damit endete die Spur. Ob nun das Token
-// fehlte oder der Blob-Store öffentlich statt privat angelegt war, ließ sich von
-// außen nicht unterscheiden — beide Ursachen sehen für den Nutzer gleich aus,
-// brauchen aber gegensätzliche Handgriffe. Wer das nicht messen kann, probiert.
+// Dateiablage ist nicht verfügbar", und damit endete die Spur. Drei Ursachen
+// sehen von außen gleich aus und verlangen gegensätzliche Handgriffe: kein
+// Store verbunden, ein öffentlich statt privat angelegter Store — oder, wie es
+// hier tatsächlich war, ein fertig eingerichteter Store, dessen Zugangsart der
+// Code nicht kannte. Wer das nicht messen kann, probiert.
 //
-// Diese Prüfung misst: Token gesetzt? Testupload möglich? Wieder lesbar? Store
-// wirklich privat? Und sie nennt bei jedem Fehlschlag den Behebungsschritt.
+// Diese Prüfung misst: Zugang vorhanden (und welcher)? Testupload möglich?
+// Wieder lesbar? Store wirklich privat? Und sie nennt bei jedem Fehlschlag den
+// Behebungsschritt.
 //
-// **Keine Geheimnisse.** Der Befund zum Token lautet „gesetzt" oder „nicht
-// gesetzt" — nie ein Präfix, nie eine Länge, nie ein Ausschnitt. Ein
-// Diagnosewerkzeug, das Zugangsdaten in die Oberfläche schreibt, verwandelt
-// jeden Screenshot in ein Leck; und für die Frage, ob die Ablage geht, ist der
-// Wert des Tokens ohne Belang.
+// **Keine Geheimnisse.** Der Befund lautet „gesetzt" oder „nicht gesetzt" — nie
+// ein Präfix, nie eine Länge, nie ein Ausschnitt. Ein Diagnosewerkzeug, das
+// Zugangsdaten in die Oberfläche schreibt, verwandelt jeden Screenshot in ein
+// Leck; und für die Frage, ob die Ablage geht, ist der Wert ohne Belang.
 //
 // Die Prüfung schreibt eine echte Datei. Anders geht es nicht: Ob ein Store
 // `access: "private"` annimmt, steht in keiner Umgebungsvariablen — das sagt
@@ -21,6 +22,7 @@
 
 import crypto from "crypto";
 import { del, get, put } from "@vercel/blob";
+import { ablageZugang } from "@/lib/storage";
 import { ablageFehler } from "@/lib/weg/ablage-fehler";
 
 /**
@@ -33,10 +35,29 @@ import { ablageFehler } from "@/lib/weg/ablage-fehler";
  * Beschriftung aufzuweichen wäre der falsche Handel.
  */
 export const TOKEN_NAME = "BLOB_READ_WRITE_TOKEN";
+export const STORE_ID_NAME = "BLOB_STORE_ID";
 
 export type PruefStatus = "ok" | "warnung" | "fehler";
 
-export type PruefSchluessel = "token" | "schreiben" | "lesen" | "privat";
+export type PruefSchluessel = "zugang" | "schreiben" | "lesen" | "privat";
+
+/**
+ * Wie das Portal an den Store kommt. Beide Wege trägt das SDK
+ * (@vercel/blob 2.4, `resolveBlobCredentials`) — und genau diese Unterscheidung
+ * hat in Produktion gefehlt:
+ *
+ * - `oidc` — Vercel stellt je Anfrage ein kurzlebiges Token, der Store wird
+ *   über `BLOB_STORE_ID` benannt. So verbindet „Connect Project" heute; ein
+ *   statisches Token entsteht dabei **nicht**, und Vercel rät sogar, ein
+ *   vorhandenes zu widerrufen.
+ * - `token` — das ältere, statische `BLOB_READ_WRITE_TOKEN`.
+ * - `keiner` — kein Store verbunden.
+ *
+ * Wer nur auf `token` prüft, hält einen fertig eingerichteten Store für nicht
+ * vorhanden. Das war der Befund: privat angelegt, mit beiden Projekten
+ * verbunden, Preview und Production — und trotzdem schlug jeder Upload fehl.
+ */
+export type Zugangsart = "oidc" | "token" | "keiner";
 
 export type PruefPunkt = {
   schluessel: PruefSchluessel;
@@ -65,7 +86,7 @@ export type AblagePruefung = {
  * herbeiführen — als Attrappe dagegen in einer Zeile.
  */
 export type AblageSonden = {
-  tokenGesetzt: () => boolean;
+  zugangsart: () => Zugangsart;
   umgebung: () => string;
   /** Legt die Testdatei ab und liefert ihre URL. */
   schreibe: (inhalt: Buffer, pfad: string) => Promise<string>;
@@ -76,7 +97,11 @@ export type AblageSonden = {
 };
 
 export const echteSonden: AblageSonden = {
-  tokenGesetzt: () => Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+  // Bewusst dieselbe Auskunft, die auch `saveUpload` benutzt (`ablageZugang` in
+  // storage.ts) — und nicht eine zweite Auslegung derselben Variablen. Eine
+  // Diagnose, die den Zugang anders beurteilt als der Code, den sie diagnostiziert,
+  // führt genau von der Ursache weg.
+  zugangsart: ablageZugang,
   umgebung: () => process.env.VERCEL_ENV ?? (process.env.VERCEL ? "unbekannt" : "lokal"),
   schreibe: async (inhalt, pfad) => {
     const blob = await put(pfad, inhalt, { access: "private", contentType: "text/plain" });
@@ -102,7 +127,7 @@ export const echteSonden: AblageSonden = {
 };
 
 const TITEL: Record<PruefSchluessel, string> = {
-  token: "Zugangs-Token der Ablage",
+  zugang: "Zugang zur Ablage",
   schreiben: "Testupload",
   lesen: "Rücklesen der Testdatei",
   privat: "Store ist privat",
@@ -111,8 +136,10 @@ const TITEL: Record<PruefSchluessel, string> = {
 /** Behebungsschritt für den häufigsten Fall — an drei Stellen wortgleich nötig. */
 const STORE_ANLEGEN =
   "In Vercel einen Blob-Store mit Access „Private“ anlegen (Dashboard → Storage → " +
-  "Create → Blob, oder `vercel blob create-store --access private`), mit dem Projekt " +
-  "verbinden und neu deployen. Siehe docs/BETRIEB-Dateiablage.md.";
+  "Create → Blob, oder `vercel blob create-store --access private`), über „Connect " +
+  "Project“ mit dem Projekt verbinden (Production UND Preview) und neu deployen. " +
+  "Die Verbindung setzt die nötigen Variablen selbst — von Hand einzutragen ist " +
+  "nichts. Siehe docs/BETRIEB-Dateiablage.md.";
 
 function schlechtester(punkte: PruefPunkt[]): PruefStatus {
   if (punkte.some((p) => p.status === "fehler")) return "fehler";
@@ -135,32 +162,43 @@ export async function pruefeAblage(sonden: AblageSonden = echteSonden): Promise<
   const umgebung = sonden.umgebung();
   const punkte: PruefPunkt[] = [];
 
-  // ── 1. Token ──────────────────────────────────────────────────────────────
-  if (!sonden.tokenGesetzt()) {
+  // ── 1. Zugang ─────────────────────────────────────────────────────────────
+  const zugang = sonden.zugangsart();
+  if (zugang === "keiner") {
     const inProduktion = umgebung === "production";
     punkte.push({
-      schluessel: "token",
-      titel: TITEL.token,
+      schluessel: "zugang",
+      titel: TITEL.zugang,
       status: inProduktion ? "fehler" : "warnung",
-      befund: inProduktion
-        ? `${TOKEN_NAME} ist nicht gesetzt. In Produktion bricht damit jeder ` +
-          "Upload ab — Belege, Fotos, Wirtschaftspläne, Jahresabrechnungen."
-        : `${TOKEN_NAME} ist nicht gesetzt. Außerhalb der Produktion greift der ` +
-          "Data-URL-Fallback (Datei in der Datenbank, höchstens 5 MB); in Produktion " +
-          "wäre dieselbe Lage ein harter Abbruch.",
+      befund:
+        `Weder ${STORE_ID_NAME} (OIDC) noch ${TOKEN_NAME} ist gesetzt — es ist kein ` +
+        "Blob-Store mit diesem Projekt verbunden. " +
+        (inProduktion
+          ? "In Produktion bricht damit jeder Upload ab: Belege, Fotos, " +
+            "Wirtschaftspläne, Jahresabrechnungen."
+          : "Außerhalb der Produktion greift der Data-URL-Fallback (Datei in der " +
+            "Datenbank, höchstens 5 MB); in Produktion wäre dieselbe Lage ein harter " +
+            "Abbruch."),
       behebung: STORE_ANLEGEN,
     });
-    const grund = "ohne Token gibt es keinen Blob-Store, an dem sich etwas messen ließe.";
+    const grund = "ohne verbundenen Store gibt es nichts, woran sich etwas messen ließe.";
     punkte.push(uebersprungen("schreiben", grund), uebersprungen("lesen", grund), uebersprungen("privat", grund));
     return { gesamt: schlechtester(punkte), umgebung, punkte };
   }
 
   punkte.push({
-    schluessel: "token",
-    titel: TITEL.token,
+    schluessel: "zugang",
+    titel: TITEL.zugang,
     status: "ok",
-    // Bewusst nur „gesetzt" — kein Wert, kein Präfix, keine Länge.
-    befund: `${TOKEN_NAME} ist gesetzt.`,
+    // Bewusst nur „gesetzt" — kein Wert, kein Präfix, keine Länge. Genannt wird
+    // die Zugangsart, weil sie die Fehlersuche lenkt: Wer „über OIDC verbunden"
+    // liest, sucht das statische Token gar nicht erst.
+    befund:
+      zugang === "oidc"
+        ? `Über OIDC verbunden (${STORE_ID_NAME} ist gesetzt). Vercel stellt das ` +
+          "Zugriffstoken je Anfrage selbst; ein statisches Token ist dabei weder " +
+          "nötig noch erwünscht."
+        : `${TOKEN_NAME} ist gesetzt (statisches Token).`,
   });
 
   // ── 2. Testupload ─────────────────────────────────────────────────────────
@@ -272,12 +310,18 @@ export async function pruefeAblage(sonden: AblageSonden = echteSonden): Promise<
  * `src/instrumentation.ts`. Eine Fehlkonfiguration, die erst beim ersten Upload
  * eines Kunden auffällt, fällt zu spät auf: Bis dahin hat jemand einen
  * Wirtschaftsplan beschlossen, dessen Dokumente nie ankamen.
+ *
+ * Geprüft wird auf **beide** Zugangsarten. Nur nach dem statischen Token zu
+ * fragen hieße, bei jedem Start eines korrekt per OIDC verbundenen Stores
+ * falschen Alarm zu schlagen — und ein Alarm, der regelmäßig ohne Anlass
+ * feuert, wird nach einer Woche überlesen. Dann auch der echte.
  */
 export function warnungAblageKonfiguration(env: Record<string, string | undefined>): string | null {
   if (env.VERCEL_ENV !== "production") return null;
-  if (env.BLOB_READ_WRITE_TOKEN) return null;
+  if (env.BLOB_READ_WRITE_TOKEN || env.BLOB_STORE_ID) return null;
   return (
-    `[Ablage] ${TOKEN_NAME} ist in Produktion NICHT gesetzt. ` +
+    `[Ablage] Kein Zugang zur Dateiablage: weder ${STORE_ID_NAME} (OIDC) noch ` +
+    `${TOKEN_NAME} ist in Produktion gesetzt. ` +
     "Jeder Upload wird fehlschlagen (Belege, Fotos, Wirtschaftspläne, Jahresabrechnungen), " +
     "und der Data-URL-Fallback ist in Produktion absichtlich gesperrt. " +
     STORE_ANLEGEN

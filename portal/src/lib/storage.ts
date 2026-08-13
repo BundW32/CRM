@@ -1,4 +1,4 @@
-// Datei-Ablage: Vercel Blob (wenn BLOB_READ_WRITE_TOKEN gesetzt ist) oder
+// Datei-Ablage: Vercel Blob (wenn ein Zugang zum Store besteht) oder
 // Base64-Data-URL in der Datenbank (Fallback für Preview-Deployments / lokale
 // Entwicklung ohne Blob). Lokale UUID-Dateinamen (Altdaten) werden weiterhin
 // aus dem Dateisystem gelesen.
@@ -31,8 +31,40 @@ export const MEDIA_TYPES = [...IMAGE_TYPES, ...VIDEO_TYPES];
 
 export const DOCUMENT_TYPES = [...IMAGE_TYPES, "application/pdf"];
 
+/**
+ * Auf welchem Weg das Portal an den Blob-Store kommt.
+ *
+ * Zwei Wege führen dorthin, und beide genügen dem SDK (@vercel/blob 2.4,
+ * `resolveBlobCredentials`): ein statisches `BLOB_READ_WRITE_TOKEN` — oder
+ * **OIDC**, wo Vercel je Anfrage ein kurzlebiges Token stellt und der Store
+ * über `BLOB_STORE_ID` benannt wird. `put`, `get` und `del` können beides.
+ *
+ * Nur auf das Token zu prüfen war der eigentliche Produktionsfehler: Ein über
+ * „Connect Project" verbundener Store setzt heute **kein** statisches Token
+ * mehr, sondern `BLOB_STORE_ID` — Vercel rät im Dashboard sogar ausdrücklich,
+ * das Token zu widerrufen. Der Store war also fertig eingerichtet, privat und
+ * mit beiden Projekten verbunden; das Portal fragte nur nach dem einen Weg,
+ * den diese Verbindung nicht geht, und rief das SDK deshalb gar nicht erst
+ * auf. Jeder Upload lief in den Data-URL-Zweig und dort in den harten Abbruch.
+ *
+ * Die Zusatzbedingung beim OIDC-Weg ist kein Zierrat: Das kurzlebige Token
+ * stellt **Vercel** je Anfrage. `vercel env pull` holt `BLOB_STORE_ID` aber mit
+ * auf den Entwicklerrechner. Ohne die Bedingung hielte ein schlichtes
+ * `next dev` den Produktions-Store für erreichbar, ließe den
+ * Dateisystem-Fallback fallen — und bräche bei jedem Upload ab, sobald das
+ * mitgezogene OIDC-Token abgelaufen ist. `vercel dev` setzt `VERCEL`, ein
+ * frisch gezogenes Token setzt `VERCEL_OIDC_TOKEN`; beides ist eine bewusste
+ * Entscheidung für den echten Store.
+ */
+export function ablageZugang(): "oidc" | "token" | "keiner" {
+  const oidcMoeglich = Boolean(process.env.VERCEL || process.env.VERCEL_OIDC_TOKEN);
+  if (process.env.BLOB_STORE_ID && oidcMoeglich) return "oidc";
+  if (process.env.BLOB_READ_WRITE_TOKEN) return "token";
+  return "keiner";
+}
+
 function blobEnabled() {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  return ablageZugang() !== "keiner";
 }
 
 // Legt einen Upload privat im Vercel-Blob-Store ab. Private Uploads funktionieren
@@ -66,7 +98,8 @@ function assertDataUrlFallbackAllowed() {
   if (process.env.VERCEL_ENV === "production") {
     throw new Error(
       "Dateien können nicht gespeichert werden: In Produktion muss Vercel Blob " +
-        "konfiguriert sein (BLOB_READ_WRITE_TOKEN). Der Data-URL-Fallback in die " +
+        "konfiguriert sein — entweder BLOB_READ_WRITE_TOKEN oder ein per OIDC " +
+        "verbundener Store (BLOB_STORE_ID). Der Data-URL-Fallback in die " +
         "Datenbank ist Preview-Umgebungen vorbehalten."
     );
   }
@@ -98,7 +131,8 @@ export async function saveUpload(file: File, allowedTypes: string[]) {
     // Vercel ohne Blob: als Data-URL in der DB ablegen (max. 5 MB)
     if (file.size > DATA_URL_MAX_SIZE) {
       throw new Error(
-        `Für Dateien über 5 MB muss Vercel Blob konfiguriert sein (BLOB_READ_WRITE_TOKEN).`
+        "Für Dateien über 5 MB muss Vercel Blob konfiguriert sein " +
+          "(BLOB_READ_WRITE_TOKEN oder ein per OIDC verbundener Store)."
       );
     }
     const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
@@ -145,7 +179,8 @@ export async function saveBuffer(
     // Vercel ohne Blob: als Data-URL in der DB ablegen (max. 5 MB)
     if (size > DATA_URL_MAX_SIZE) {
       throw new Error(
-        `Für Dateien über 5 MB muss Vercel Blob konfiguriert sein (BLOB_READ_WRITE_TOKEN).`
+        "Für Dateien über 5 MB muss Vercel Blob konfiguriert sein " +
+          "(BLOB_READ_WRITE_TOKEN oder ein per OIDC verbundener Store)."
       );
     }
     const base64 = buffer.toString("base64");
@@ -187,8 +222,11 @@ export async function readUpload(storedName: string): Promise<Buffer> {
     if (commaIdx === -1) throw new Error("Ungültiger Data-URL.");
     return Buffer.from(storedName.slice(commaIdx + 1), "base64");
   }
-  // Vercel Blob (https://) – private Blobs offiziell über das SDK abrufen
-  // (get() authentifiziert automatisch per OIDC bzw. BLOB_READ_WRITE_TOKEN).
+  // Vercel Blob (https://) – private Blobs offiziell über das SDK abrufen.
+  // `get()` wählt die Zugangsart selbst: OIDC (kurzlebiges Token je Anfrage,
+  // Store über BLOB_STORE_ID) oder BLOB_READ_WRITE_TOKEN. Genau deshalb ist
+  // das SDK hier der richtige Weg und nicht ein eigener `fetch` mit
+  // Bearer-Header — der kennt nur den zweiten Weg.
   if (storedName.startsWith("https://")) {
     // Zugriff NUR auf Vercel-Blob-Hosts. Sollte je eine fremde URL in storedName
     // gelangen (Import/DB-Manipulation), würde das Zugriffs-Token sonst an einen

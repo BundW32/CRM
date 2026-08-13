@@ -1,8 +1,13 @@
+import { readFileSync } from "fs";
 import { describe, expect, it } from "vitest";
 import {
+  decodeBankFile,
   dedupeHash,
+  detectMapping,
   guessMapping,
+  guessMappingFromRows,
   mapRows,
+  mappingComplete,
   parseCsv,
   parseGermanDate,
   parseSignedEuroToCents,
@@ -157,5 +162,186 @@ describe("dedupeHash", () => {
     const b = mapRows(rows, mapping, "acc1");
     expect(a[0].dedupeHash).toBe(b[0].dedupeHash);
     expect(a[0].dedupeHash).not.toBe(a[1].dedupeHash);
+  });
+});
+
+// ── Echte Bankdatei: ohne Kopfzeile, Windows-1252 ────────────────────────────
+//
+// Anonymisierte Kopie einer Volksbank-Datei (Kontoumsätze 2023) mit identischer
+// Byte-Struktur: 391 Zeilen, je 9 Felder, CRLF, Trennzeichen ";", gemischte
+// Anführungszeichen, Beträge mit führendem + und Tausenderpunkt, Umlaute und ß
+// als Einzelbytes, das Euro-Zeichen als 0x80. An dieser Datei ist der Import
+// gescheitert; sie ist deshalb der Kern dieser Prüfung.
+const VR_BYTES = readFileSync(new URL("../../test/fixtures/vr-umsatz-ohne-kopfzeile.csv", import.meta.url));
+
+describe("decodeBankFile", () => {
+  it("Windows-1252 wird erkannt, Umlaute und € kommen unversehrt an", () => {
+    const { text, encoding } = decodeBankFile(VR_BYTES);
+    expect(encoding).toBe("windows-1252");
+    expect(text).toContain("Augenärzte");
+    expect(text).toContain("Schließgesellschaft");
+    expect(text).toContain("€");
+    // Kein einziges Ersetzungszeichen: Genau daran erkennt man die kaputte
+    // UTF-8-Annahme — 73 von 391 Zeilen trugen sie zuvor.
+    expect(text).not.toContain("�");
+  });
+
+  it("feste UTF-8-Annahme wäre falsch — die Datei ist kein gültiges UTF-8", () => {
+    expect(() => new TextDecoder("utf-8", { fatal: true }).decode(VR_BYTES)).toThrow();
+    expect(Buffer.from(VR_BYTES).toString("utf-8")).toContain("�");
+  });
+
+  it("UTF-8 mit BOM, UTF-16LE und UTF-16BE über die BOM", () => {
+    const text = "Buchungstag;Betrag;Verwendungszweck\r\n02.01.2026;245,50;Hausgeld WE 01 März\r\n";
+    const utf8Bom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(text, "utf-8")]);
+    expect(decodeBankFile(utf8Bom)).toEqual({ text, encoding: "utf-8-bom" });
+
+    const le = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, "utf16le")]);
+    expect(decodeBankFile(le)).toEqual({ text, encoding: "utf-16le" });
+
+    const beBody = Buffer.from(text, "utf16le");
+    beBody.swap16();
+    expect(decodeBankFile(Buffer.concat([Buffer.from([0xfe, 0xff]), beBody]))).toEqual({
+      text,
+      encoding: "utf-16be",
+    });
+  });
+
+  it("reines UTF-8 bleibt UTF-8", () => {
+    const { encoding, text } = decodeBankFile(Buffer.from("Buchungstag;Betrag\r\n02.01.2026;1,00\r\n", "utf-8"));
+    expect(encoding).toBe("utf-8");
+    expect(text).toContain("Buchungstag");
+  });
+});
+
+describe("Datei ohne Kopfzeile", () => {
+  const { text } = decodeBankFile(VR_BYTES);
+  const parsed = parseCsv(text);
+
+  it("erkennt, dass keine Kopfzeile da ist — und verliert keine Zeile", () => {
+    expect(parsed.hasHeader).toBe(false);
+    expect(parsed.delimiter).toBe(";");
+    expect(parsed.skippedBefore).toBe(0);
+    // 391 Zeilen in der Datei, 391 Datensätze. Die erste Buchung des Jahres
+    // ging zuvor still als vermeintliche Kopfzeile verloren (390 statt 391).
+    expect(parsed.rows).toHaveLength(391);
+    expect(parsed.rows[0][1]).toBe("01.01.2023");
+    expect(parsed.header).toHaveLength(9);
+    expect(parsed.header[0]).toBe("Spalte 1");
+  });
+
+  it("ordnet die Spalten über den Inhalt zu", () => {
+    expect(detectMapping(parsed)).toEqual({ date: 1, amount: 2, purpose: 6, counterparty: 5 });
+  });
+
+  it("alle 391 Zeilen werden zu Buchungen", () => {
+    const mapping = detectMapping(parsed);
+    expect(mappingComplete(mapping)).toBe(true);
+    const buchungen = mapRows(parsed.rows, mapping as never, "acc1");
+    expect(buchungen).toHaveLength(391);
+    expect(buchungen.some((b) => b.counterparty === "Augenärzte Dr. Wagner MVZ")).toBe(true);
+    expect(buchungen.some((b) => b.reference.includes("€"))).toBe(true);
+    expect(buchungen.every((b) => !b.reference.includes("�"))).toBe(true);
+    expect(buchungen.some((b) => b.kind === "EINNAHME")).toBe(true);
+    expect(buchungen.some((b) => b.kind === "AUSGABE")).toBe(true);
+    // Tausenderpunkt (…;+7.945,36;…) muss als Euro ankommen, nicht als Cent.
+    expect(buchungen.some((b) => b.amountCents > 100_000)).toBe(true);
+  });
+
+  it("Datumsspalte: die frühere der beiden ist der Buchungstag", () => {
+    const m = guessMappingFromRows([
+      ["ref1", "02.01.2023", "+10,00", "03.01.2023", "", "Meier", "Hausgeld Januar 2023 WE 01"],
+      ["ref2", "05.01.2023", "-20,00", "06.01.2023", "", "Schulz", "Abschlag Strom Februar 2023"],
+      ["ref3", "09.01.2023", "+30,00", "09.01.2023", "", "Kunze", "Hausgeld Januar 2023 WE 02"],
+    ]);
+    expect(m.date).toBe(1); // nicht 3 (Valuta)
+  });
+});
+
+describe("Kopfzeile steht nicht in Zeile 1", () => {
+  // Sparkassen-Internetbanking stellt Titel- und Zeitraumzeilen voran.
+  const MIT_TITEL = [
+    "Umsatzanzeige;;",
+    "Zeitraum: 01.01.2026 - 31.01.2026;Konto: DE11500105170000000001;",
+    "Buchungstag;Verwendungszweck;Betrag",
+    "02.01.2026;Hausgeld WE 01 Januar;245,50",
+    "05.01.2026;Stadtwerke Abschlag;-89,00",
+  ].join("\r\n");
+
+  it("findet die Kopfzeile und überspringt den Vorspann", () => {
+    const parsed = parseCsv(MIT_TITEL);
+    expect(parsed.hasHeader).toBe(true);
+    expect(parsed.skippedBefore).toBe(2);
+    expect(parsed.delimiter).toBe(";"); // nicht "," — die Titelzeile kippt nichts
+    expect(parsed.rows).toHaveLength(2);
+    expect(detectMapping(parsed)).toEqual({ date: 0, purpose: 1, amount: 2 });
+  });
+
+  it("die ersten Rohzeilen bleiben für die Anzeige erhalten", () => {
+    expect(parseCsv(MIT_TITEL).rawLines[0]).toBe("Umsatzanzeige;;");
+  });
+});
+
+describe("getrennte Soll-/Haben-Spalten", () => {
+  const SOLL_HABEN = [
+    "Buchungstag;Verwendungszweck;Soll;Haben",
+    "02.01.2026;Hausgeld WE 01;;245,50",
+    "05.01.2026;Stadtwerke Abschlag;89,00;",
+  ].join("\n");
+
+  it("führt Soll und Haben zu einem vorzeichenbehafteten Betrag zusammen", () => {
+    const parsed = parseCsv(SOLL_HABEN);
+    const m = detectMapping(parsed);
+    expect(m).toEqual({ date: 0, purpose: 1, debit: 2, credit: 3 });
+    expect(mappingComplete(m)).toBe(true);
+    const buchungen = mapRows(parsed.rows, m as never, "acc1");
+    expect(buchungen).toHaveLength(2);
+    expect(buchungen[0].kind).toBe("EINNAHME");
+    expect(buchungen[0].amountCents).toBe(24550);
+    expect(buchungen[1].kind).toBe("AUSGABE");
+    expect(buchungen[1].amountCents).toBe(8900);
+  });
+});
+
+describe("Synonyme und Umlaut-Schreibweisen", () => {
+  it("erkennt Umsatz in EUR, Wertstellung, Zahlungsempfänger", () => {
+    const m = guessMapping(["Wertstellung", "Vorgang/Verwendungszweck", "Umsatz in EUR", "Zahlungsempfänger"]);
+    expect(m).toEqual({ date: 0, purpose: 1, amount: 2, counterparty: 3 });
+  });
+
+  it("Umlaut und ae-Schreibweise treffen dasselbe Muster", () => {
+    expect(guessMapping(["Buchungstag", "Begünstigter", "Betrag"]).counterparty).toBe(1);
+    expect(guessMapping(["Buchungstag", "Beguenstigter", "Betrag"]).counterparty).toBe(1);
+  });
+
+  it("Betrag in EUR und Wert als Betragsspalte", () => {
+    expect(guessMapping(["Datum", "Betrag in EUR", "Verwendungszweck"]).amount).toBe(1);
+    expect(guessMapping(["Datum", "Wert", "Verwendungszweck"]).amount).toBe(1);
+  });
+
+  it("Auftraggeber/Empfänger als Zahlungspartner", () => {
+    expect(guessMapping(["Buchungstag", "Auftraggeber/Empfänger", "Betrag"]).counterparty).toBe(1);
+  });
+});
+
+describe("Trennzeichen und Dezimaltrenner", () => {
+  it("Komma-Dezimaltrenner bei Semikolon-Feldtrenner", () => {
+    const parsed = parseCsv("Buchungstag;Betrag;Verwendungszweck\n02.01.2026;1.234,56;Test\n");
+    expect(parsed.delimiter).toBe(";");
+    const buchungen = mapRows(parsed.rows, detectMapping(parsed) as never, "acc1");
+    expect(buchungen[0].amountCents).toBe(123456);
+  });
+
+  it("Tabulator-getrennt", () => {
+    const parsed = parseCsv("Buchungstag\tBetrag\tVerwendungszweck\n02.01.2026\t-12,00\tTest\n");
+    expect(parsed.delimiter).toBe("\t");
+    expect(parsed.rows[0]).toEqual(["02.01.2026", "-12,00", "Test"]);
+  });
+
+  it("Unicode-Minus, führendes Plus und Tausenderpunkt", () => {
+    expect(parseSignedEuroToCents("−1.234,56")).toBe(-123456);
+    expect(parseSignedEuroToCents("+8880,46")).toBe(888046);
+    expect(parseSignedEuroToCents("-583,10")).toBe(-58310);
+    expect(parseSignedEuroToCents("1.234,56 €")).toBe(123456);
   });
 });

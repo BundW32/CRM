@@ -18,6 +18,7 @@ import { isMailEnabled, portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { createSession, requireUser, revokeSessions } from "@/lib/session";
 import { IMAGE_TYPES, deleteBlob, saveBuffer } from "@/lib/storage";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 
 /** Rücksprung auf die Kontoseite; der Anker führt zur bearbeiteten Karte. */
 function backTo(suffix = ""): string {
@@ -210,8 +211,12 @@ export async function saveOwnSignature(formData: FormData) {
         signatureSelfSigned: true,
       },
     });
-  } catch {
-    redirect(backTo("?fehler=signatur"));
+  } catch (err) {
+    // Der Rücksprung läuft über `backTo`; der Grund reist als Klartext mit,
+    // weil „bitte erneut versuchen" der falsche Rat ist, wenn die Dateiablage
+    // fehlt — dann scheitert auch der zehnte Versuch.
+    console.error("Ablage der eigenen Unterschrift fehlgeschlagen", err);
+    redirect(backTo(`?fehler=signatur&grund=${encodeURIComponent(ablageFehlerText(err))}`));
   }
 
   revalidatePath("/konto");

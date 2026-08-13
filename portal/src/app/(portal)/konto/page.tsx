@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AblageAlert } from "@/components/ablage-alert";
 import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { SelectField } from "@/components/fields";
@@ -47,10 +48,10 @@ const emailFehler: Record<string, string> = {
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; gespeichert?: string }>;
+  searchParams: Promise<{ fehler?: string; gespeichert?: string; grund?: string }>;
 }) {
   const user = await requireUser();
-  const { fehler, gespeichert } = await searchParams;
+  const { fehler, gespeichert, grund } = await searchParams;
   const org = await getOrganization();
   // Ohne SMTP führt der Doppel-Opt-in nicht ans Ziel: Der Bestätigungslink käme
   // nie an, und die Vormerkung stünde für immer offen. Dann wird das Formular
@@ -421,10 +422,14 @@ export default async function AccountPage({
             der Wohnungsgeber, in dessen Namen die Bescheinigung entsteht. */}
         {user.role === "EIGENTUEMER" ? (
           <Card title="Unterschrift & Vollmacht">
+            {/* „Bitte erneut versuchen" war der falsche Rat, wenn die
+                Dateiablage fehlt: Dann hilft kein zweiter Versuch. */}
             {fehler === "signatur" ? (
-              <Alert variant="error" className="mb-3">
-                Die Unterschrift konnte nicht gespeichert werden. Bitte erneut versuchen.
-              </Alert>
+              <AblageAlert
+                titel="Die Unterschrift wurde nicht gespeichert."
+                grund={grund}
+                className="mb-3"
+              />
             ) : null}
             <VollmachtKarte user={user} />
           </Card>

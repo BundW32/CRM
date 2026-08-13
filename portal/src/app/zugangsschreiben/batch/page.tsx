@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { AblageAlert } from "@/components/ablage-alert";
 import { BackLink, Alert } from "@/components/ui";
 import { LetterHead, letterFooterLine } from "@/components/letter-branding";
 import { db } from "@/lib/db";
@@ -11,8 +12,16 @@ import { PrintButton } from "../[id]/print-button";
 
 export const dynamic = "force-dynamic";
 
-export default async function BatchZugangsschreibenPage() {
+export default async function BatchZugangsschreibenPage({
+  searchParams,
+}: {
+  // Kommt von der Ersteinrichtung, wenn dort das Titelbild nicht abgelegt
+  // werden konnte. Der Weg führt direkt hierher (Zugangsschreiben werden nur
+  // einmal angezeigt) — ohne diesen Durchreicher erführe es niemand.
+  searchParams: Promise<{ ablage?: string; grund?: string }>;
+}) {
   const verwalter = await requireVerwalter();
+  const { ablage, grund } = await searchParams;
   // Früher `?u=id~pw~id~pw~…`: ein ganzes Objekt voller Klartext-Passwörter in
   // der Adresszeile, und damit in jedem Zugriffsprotokoll auf dem Weg dorthin.
   // Jetzt aus dem kurzlebigen Cookie — siehe `lib/zugangsschreiben.ts`.
@@ -52,6 +61,18 @@ export default async function BatchZugangsschreibenPage() {
           <PrintButton />
         </div>
       </div>
+
+      {ablage === "fehler" ? (
+        <AblageAlert
+          variant="warning"
+          titel="Das Titelbild des Objekts wurde nicht abgelegt."
+          grund={grund}
+          className="no-print mx-auto mb-4 max-w-3xl"
+        >
+          Objekt und Zugänge sind angelegt. Das Bild lässt sich unter &bdquo;Objekte →
+          Bearbeiten&ldquo; nachtragen.
+        </AblageAlert>
+      ) : null}
 
       <Alert variant="warning" className="no-print mx-auto mb-4 max-w-3xl">
         Drucken Sie alle Schreiben jetzt aus. Die Erst-Passwörter werden aus

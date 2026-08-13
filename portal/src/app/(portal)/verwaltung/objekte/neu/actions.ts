@@ -15,6 +15,7 @@ import {
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, saveUpload } from "@/lib/storage";
 import { inviteOrLetter } from "@/lib/user-invite";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 import { parseAnteil } from "@/lib/weg/anteil";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 
@@ -109,13 +110,21 @@ export async function createObjekt(formData: FormData) {
   const votingPrinciple = vpRaw === "MEA" ? "MEA" : vpRaw === "OBJEKT" ? "OBJEKT" : "KOPF";
 
   // Titelbild (optional) – ein Fehler beim Bild darf die Objektanlage nie blockieren.
+  //
+  // Er darf aber auch nicht verschwinden: Bisher fiel das Bild lautlos weg, das
+  // Objekt stand da, und niemand erfuhr, warum es kein Bild hat. Der Grund
+  // reist deshalb bis zur Zielseite mit und erscheint dort als Hinweis —
+  // nachtragen lässt sich das Bild jederzeit unter „Bearbeiten".
   let titleImageStoredName: string | null = null;
+  let bildFehler: string | null = null;
   const titleImageFile = formData.get("titleImage");
   if (titleImageFile instanceof File && titleImageFile.size > 0) {
     try {
       titleImageStoredName = (await saveUpload(titleImageFile, IMAGE_TYPES)).storedName;
-    } catch {
+    } catch (err) {
+      console.error("Ablage des Titelbilds fehlgeschlagen", err);
       titleImageStoredName = null;
+      bildFehler = ablageFehlerText(err);
     }
   }
 
@@ -396,10 +405,14 @@ export async function createObjekt(formData: FormData) {
   // Die Passwörter reisen nicht mehr in der Adresszeile mit (`?u=id~pw~id~pw`) —
   // ein ganzes Objekt voller Klartext-Passwörter in einer URL stand in jedem
   // Zugriffsprotokoll auf dem Weg dorthin.
+  // Der Hinweis zum Titelbild reist auf beiden Wegen mit. Ihn nur an einen zu
+  // hängen hieße: Wer Zugangsschreiben druckt — der Normalfall bei einer
+  // Ersteinrichtung — erfährt nie, dass sein Bild nicht angekommen ist.
+  const bildParam = bildFehler ? `&ablage=fehler&grund=${encodeURIComponent(bildFehler)}` : "";
   if (letterUsers.length > 0) {
     await merkeErstzugaenge(letterUsers.map((l) => ({ id: l.id, pw: l.pw! })));
-    redirect("/zugangsschreiben/batch");
+    redirect(`/zugangsschreiben/batch${bildParam ? `?${bildParam.slice(1)}` : ""}`);
   }
 
-  redirect("/verwaltung/objekte?eingerichtet=1");
+  redirect(`/verwaltung/objekte?eingerichtet=1${bildParam}`);
 }

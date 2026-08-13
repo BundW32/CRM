@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AblageAlert } from "@/components/ablage-alert";
 import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
@@ -393,7 +394,13 @@ export default async function WegBuchhaltungPage({
           {sp.importzurueck === "1" ? "Buchung" : "Buchungen"} entfernt.
         </Alert>
       ) : null}
-      {sp.fehler ? (
+      {/* Der Beleg-Fehler nennt seinen Grund; die Buchung wurde dann NICHT
+          angelegt und ist mit derselben Eingabe erneut zu erfassen. */}
+      {sp.fehler === "beleg" ? (
+        <AblageAlert titel="Der Beleg wurde nicht gespeichert." grund={sp.grund}>
+          Die Buchung wurde deshalb nicht angelegt — bitte erneut erfassen.
+        </AblageAlert>
+      ) : sp.fehler ? (
         <Alert variant="error" className="mb-4">
           {FEHLER_TEXTE[sp.fehler] ?? "Die Eingabe konnte nicht gespeichert werden."}
         </Alert>

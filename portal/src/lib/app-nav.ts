@@ -37,6 +37,7 @@ export type NavIcon =
   | "integrationen"
   | "quellen"
   | "abrechnung"
+  | "ablage"
   | "audit";
 
 export type NavItem = {
@@ -86,7 +87,14 @@ export type NavContext = {
 // Hauptliste scrollen – und eine scrollende Navigation frisst ihren Vorteil auf.
 export const SETTINGS_HREF = "/verwaltung/einstellungen";
 
-export function settingsItems(selfManaged: boolean): NavItem[] {
+/**
+ * @param platformAdmin Betreiber-Konto (`isPlatformAdminUser`). Schaltet die
+ *   Selbstprüfung der Dateiablage frei — eine Betriebsdiagnose, die einen
+ *   Testupload schreibt und den Zustand des Blob-Stores nennt. Für eine
+ *   Verwaltung wäre der Punkt nutzlos: Beheben kann ihn nur, wer an die
+ *   Umgebungsvariablen kommt.
+ */
+export function settingsItems(selfManaged: boolean, platformAdmin = false): NavItem[] {
   return [
     ...(selfManaged
       ? [
@@ -157,6 +165,17 @@ export function settingsItems(selfManaged: boolean): NavItem[] {
         : "Tarif, Status und Abonnement Ihrer Hausverwaltung",
       icon: "abrechnung",
     },
+    ...(platformAdmin
+      ? [
+          {
+            href: "/verwaltung/ablage",
+            title: "Dateiablage",
+            desc: "Selbstprüfung: Token, Testupload, privater Blob-Store — mit Behebungsschritt",
+            nurWenn: "Sie den Betrieb dieses Portals verantworten",
+            icon: "ablage" as const,
+          },
+        ]
+      : []),
     {
       href: "/verwaltung/audit",
       title: "Audit-Log",

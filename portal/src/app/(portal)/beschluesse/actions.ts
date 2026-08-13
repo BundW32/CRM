@@ -10,6 +10,7 @@ import { portalUrl, sendMail } from "@/lib/mailer";
 import { requireUser, requireVerwalter } from "@/lib/session";
 import { planErlaubt } from "@/lib/plan-guard";
 import { DOCUMENT_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 
 const MAJORITIES = ["EINFACH", "DREIVIERTEL", "DOPPELT_QUALIFIZIERT", "ALLSTIMMIG"] as const;
 
@@ -227,10 +228,21 @@ export async function castVoteForOwner(formData: FormData) {
   let proofMimeType: string | null = null;
   const file = formData.get("proof");
   if (file instanceof File && file.size > 0) {
-    const saved = await saveUpload(file, DOCUMENT_TYPES);
-    proofStoredName = saved.storedName;
-    proofFileName = saved.fileName;
-    proofMimeType = saved.mimeType;
+    // Der Fehler flog vorher ungefangen bis zur Fehlerseite: Die Stimme war
+    // nicht eingetragen, und warum, stand allein im Server-Log. Jetzt geht der
+    // Grund an die Liste zurück — der Weg zum erneuten Versuch ist das Formular
+    // am Beschluss, das dort ohnehin wieder steht.
+    try {
+      const saved = await saveUpload(file, DOCUMENT_TYPES);
+      proofStoredName = saved.storedName;
+      proofFileName = saved.fileName;
+      proofMimeType = saved.mimeType;
+    } catch (err) {
+      console.error("Ablage eines Stimm-Nachweises fehlgeschlagen", err);
+      redirect(
+        `/beschluesse?fehler=ablage&grund=${encodeURIComponent(ablageFehlerText(err))}#${resolutionId}`,
+      );
+    }
   }
 
   // Vorhandenen Nachweis merken, um ihn nach erfolgreichem Ersetzen zu löschen.

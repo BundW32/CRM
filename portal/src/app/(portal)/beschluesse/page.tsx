@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AblageAlert } from "@/components/ablage-alert";
 import { FileInput } from "@/components/file-input";
 import { redirect } from "next/navigation";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
@@ -177,7 +178,7 @@ export default async function BeschluessePage({
     redirect("/dashboard");
   }
   const params = await searchParams;
-  const { fehler } = params;
+  const { fehler, grund } = params;
   const currentPage = parsePage(params.page);
   const sort = resolveSort(params.sort, params.dir, SORT_FIELDS, "datum", "desc");
   const isVerwalter = user.role === "VERWALTER";
@@ -388,7 +389,13 @@ export default async function BeschluessePage({
         Stimmabgabe zu.
       </Tipp>
 
-      {fehler ? (
+      {/* Die Ablage des Stimm-Nachweises nennt ihren Grund selbst — vorher warf
+          sie den rohen Fehler und die Seite zeigte gar nichts Verwertbares. */}
+      {fehler === "ablage" ? (
+        <AblageAlert grund={grund}>
+          Die Stimme wurde nicht eingetragen. Bitte erneut abgeben — der Nachweis ist optional.
+        </AblageAlert>
+      ) : fehler ? (
         <Alert variant="error" className="mb-4">
           {fehler === "keinweg"
             ? "Umlaufbeschlüsse sind nur für WEG-Objekte möglich."

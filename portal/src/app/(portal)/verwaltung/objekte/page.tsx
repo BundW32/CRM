@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Prisma } from "@/generated/prisma/client";
+import { AblageAlert } from "@/components/ablage-alert";
 import { Pagination, Alert, EmptyState, PageTitle, buttonClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import { Badge } from "@/components/data-display";
@@ -30,6 +31,9 @@ export default async function PropertiesPage({
   searchParams: Promise<{
     fehler?: string;
     eingerichtet?: string;
+    /** Titelbild konnte nicht abgelegt werden (siehe `neu/actions.ts`). */
+    ablage?: string;
+    grund?: string;
     gespeichert?: string;
     archiviert?: string;
     reaktiviert?: string;
@@ -43,7 +47,8 @@ export default async function PropertiesPage({
 }) {
   const verwalter = await requireVerwalter();
   const sp = await searchParams;
-  const { fehler, eingerichtet, gespeichert, archiviert, reaktiviert, geloescht, q, page } = sp;
+  const { fehler, eingerichtet, ablage, grund, gespeichert, archiviert, reaktiviert, geloescht, q, page } =
+    sp;
   // Objekte bearbeiten dürfen alle Verwalter in ihrem Zuständigkeitsbereich
   // (die Liste zeigt ohnehin nur Objekte im Scope). Löschen/Archivieren bleibt
   // separat abgesichert (SuperAdmin) und kommt an eigener Stelle.
@@ -127,6 +132,15 @@ export default async function PropertiesPage({
         <Alert variant="success" className="mb-4">
           Objekt wurde angelegt. Mieter können Sie jetzt unter „Nutzer“ hinzufügen.
         </Alert>
+      ) : null}
+      {/* Das Objekt steht — nur sein Titelbild kam nicht an. Deshalb `warning`
+          und nicht `error`: Es ist kein verlorener Vorgang, sondern eine
+          fehlende Beigabe, die sich jederzeit nachtragen lässt. */}
+      {ablage === "fehler" ? (
+        <AblageAlert variant="warning" titel="Das Titelbild wurde nicht abgelegt." grund={grund}>
+          Das Objekt selbst ist angelegt. Das Bild lässt sich unter &bdquo;Bearbeiten&ldquo;
+          nachtragen.
+        </AblageAlert>
       ) : null}
       {gespeichert ? (
         <Alert variant="success" className="mb-4">

@@ -20,6 +20,7 @@ import {
   type Zeichensatz,
 } from "@/lib/weg/bank-import";
 import { baueImportProfil, leseImportProfil } from "@/lib/weg/import-profil";
+import { bereinigeZweck, kiKostenartAktiv, klassifiziereKostenarten } from "@/lib/weg/kostenart-ki";
 import { ladeZuordnungsKontext } from "@/lib/weg/zuordnung-kontext";
 import { schlageVorschlagVor, type Guete } from "@/lib/weg/zuordnung-vorschlag";
 import { pruefeZahlung } from "@/lib/weg/bauabzugsteuer-service";
@@ -286,9 +287,18 @@ export type ImportVorschlag = {
   art: "einheit" | "kostenart";
   guete: Guete;
   grund: string;
+  /**
+   * Aus der KI-Stufe. Muss gekennzeichnet werden (Art. 50 KI-VO) — und reist
+   * als einziger Vorschlag über das Formular zurück, weil er sich nicht
+   * wiederholbar nachrechnen lässt.
+   */
+  ki?: true;
+  costTypeId?: string;
 };
 
 export type ImportPreviewRow = {
+  /** Duplikat-Hash der Zeile — verbindet Vorschau und Import ohne Zeilennummern. */
+  hash: string;
   date: string;
   kind: "EINNAHME" | "AUSGABE";
   amountCents: number;
@@ -443,6 +453,7 @@ async function analyzeInternal(
     const roh = duplicate ? null : schlageVorschlagVor(r, kontext);
     if (roh) vorschlaege[roh.guete]++;
     return {
+      hash: r.dedupeHash,
       date: r.bookingDate.toISOString().slice(0, 10),
       kind: r.kind as "EINNAHME" | "AUSGABE",
       amountCents: r.amountCents,
@@ -456,11 +467,56 @@ async function analyzeInternal(
             art: roh.unitId ? "einheit" : "kostenart",
             guete: roh.guete,
             grund: roh.gruende.join(", "),
+            costTypeId: roh.costTypeId,
           }
         : undefined,
     };
   });
+
+  await ergaenzeKiVorschlaege(propertyId, preview, vorschlaege);
   return { ...base, parseable: parsedRows.length, duplicates, preview, vorschlaege };
+}
+
+/**
+ * Zweite Stufe: Was die Regeln nicht kennen, geht — wenn freigegeben — an die
+ * KI. Ergänzt die Vorschau an Ort und Stelle.
+ *
+ * Nur Ausgaben ohne Regel-Treffer, nur der bereinigte Verwendungszweck, immer
+ * Gütegrad „unsicher": Ein Vorschlag, der sich nicht nachrechnen lässt, ist
+ * kein sicherer Vorschlag, egal wie überzeugt das Modell klingt.
+ */
+async function ergaenzeKiVorschlaege(
+  propertyId: string,
+  preview: ImportPreviewRow[],
+  zaehler: Record<Guete, number>,
+): Promise<void> {
+  if (!kiKostenartAktiv()) return;
+  const offene = preview.filter((r) => !r.vorschlag && !r.duplicate && r.kind === "AUSGABE");
+  if (offene.length === 0) return;
+  const kostenarten = await db.costType.findMany({
+    where: { propertyId },
+    select: { id: true, name: true },
+  });
+  if (kostenarten.length === 0) return;
+  const treffer = await klassifiziereKostenarten(
+    offene.map((r) => r.text),
+    kostenarten,
+  );
+  if (treffer.size === 0) return;
+  const nachId = new Map(kostenarten.map((k) => [k.id, k.name]));
+  for (const zeile of offene) {
+    const costTypeId = treffer.get(bereinigeZweck(zeile.text));
+    if (!costTypeId) continue;
+    zeile.vorschlag = {
+      label: nachId.get(costTypeId) ?? "",
+      art: "kostenart",
+      guete: "unsicher",
+      grund: "KI-Vorschlag aus dem Verwendungszweck",
+      ki: true,
+      costTypeId,
+    };
+    zaehler.unsicher++;
+  }
 }
 
 export async function analyzeCsvAction(
@@ -567,6 +623,31 @@ export async function importCsvAction(formData: FormData) {
       const v = schlageVorschlagVor(r, kontext);
       if (!v || !bestaetigt.has(v.guete)) continue;
       zuordnung.set(r.dedupeHash, { unitId: v.unitId, costTypeId: v.costTypeId });
+    }
+    // KI-Vorschläge sind die einzige Ausnahme von „auf dem Server nachrechnen":
+    // Dieselbe Anfrage kann eine andere Antwort geben, und dann stünde in der
+    // Buchung etwas anderes als in der Vorschau. Sie reisen deshalb aus der
+    // Vorschau zurück — geprüft wird trotzdem: Die Kostenart muss zu **diesem**
+    // Objekt gehören, und übernommen wird nur mit bestätigtem „unsicher".
+    if (bestaetigt.has("unsicher")) {
+      const paare = formData
+        .getAll("ki")
+        .map((v) => String(v).split("|"))
+        .filter((t) => t.length === 2);
+      if (paare.length > 0) {
+        const erlaubt = new Set(
+          (
+            await db.costType.findMany({
+              where: { propertyId: property.id, id: { in: paare.map((t) => t[1]) } },
+              select: { id: true },
+            })
+          ).map((k) => k.id),
+        );
+        for (const [hash, costTypeId] of paare) {
+          if (!erlaubt.has(costTypeId) || zuordnung.has(hash)) continue;
+          zuordnung.set(hash, { costTypeId });
+        }
+      }
     }
   }
 

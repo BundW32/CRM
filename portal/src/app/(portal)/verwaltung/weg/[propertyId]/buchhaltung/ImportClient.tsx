@@ -200,6 +200,20 @@ export function ImportClient({
                   <input type="hidden" name="col_counterparty" value={analysis.mapping.counterparty} />
                 ) : null}
 
+                {/* KI-Vorschläge reisen zurück, weil sie sich nicht
+                    wiederholbar nachrechnen lassen; der Server prüft, dass die
+                    Kostenart zu diesem Objekt gehört. */}
+                {analysis.preview
+                  .filter((r) => r.vorschlag?.ki && r.vorschlag.costTypeId)
+                  .map((r) => (
+                    <input
+                      key={r.hash}
+                      type="hidden"
+                      name="ki"
+                      value={`${r.hash}|${r.vorschlag?.costTypeId}`}
+                    />
+                  ))}
+
                 <VorschlagsBestaetigung vorschlaege={analysis.vorschlaege} />
 
                 <div>
@@ -261,6 +275,8 @@ function VorschlagZelle({ vorschlag }: { vorschlag: ImportVorschlag }) {
     <span className="inline-flex flex-wrap items-center gap-1.5">
       <span title={vorschlag.grund}>{truncate(vorschlag.label, 28)}</span>
       <Badge tone={GUETE_TON[vorschlag.guete]}>{vorschlag.guete}</Badge>
+      {/* KI-Ausgaben werden als solche gekennzeichnet (Art. 50 KI-VO). */}
+      {vorschlag.ki ? <Badge tone="info">KI</Badge> : null}
     </span>
   );
 }

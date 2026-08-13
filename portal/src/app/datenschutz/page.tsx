@@ -47,7 +47,7 @@ export default function DatenschutzPage() {
             Verarbeitung personenbezogener Daten bei der Nutzung von{" "}
             <strong>{productName()}</strong>.
           </p>
-          <p className="mt-2 text-gray-500">Stand: 11. August 2026</p>
+          <p className="mt-2 text-gray-500">Stand: 13. August 2026</p>
         </>
       }
     >
@@ -174,7 +174,8 @@ export default function DatenschutzPage() {
           </li>
           <li>
             KI-Funktionen (Assistent, Vorqualifizierung eingehender Meldungen,
-            Objekt-Import aus PDF) – optional, nur bei Aktivierung durch die Verwaltung:
+            Objekt-Import aus PDF, Kostenart-Vorschlag beim Bankimport) – optional, nur
+            bei Aktivierung durch die Verwaltung:
             Google (Gemini API); Einzelheiten unter{" "}
             <Link href="/ki-transparenz" className="text-brand-green hover:underline">
               KI-Transparenz
@@ -230,11 +231,12 @@ export default function DatenschutzPage() {
 
       <LegalSection title={weg ? "8. Einsatz von KI-Systemen" : "7. Einsatz von KI-Systemen"}>
         <p>
-          Das Portal enthält <strong>drei</strong> optionale KI-Funktionen: einen
+          Das Portal enthält <strong>vier</strong> optionale KI-Funktionen: einen
           Assistenten, der Fragen aus den für Sie freigegebenen Unterlagen beantwortet,
           eine Vorqualifizierung eingehender Schadensmeldungen (Vorschlag für Gewerk und
-          Dringlichkeit) und einen Objekt-Import, der beim Anlegen eines Objekts die
-          Stammdaten aus einem hochgeladenen PDF vorschlägt. Alle drei sind standardmäßig
+          Dringlichkeit), einen Objekt-Import, der beim Anlegen eines Objekts die
+          Stammdaten aus einem hochgeladenen PDF vorschlägt, und einen Vorschlag für die
+          Kostenart einer importierten Bankausgabe. Alle vier sind standardmäßig
           deaktiviert und werden nur aktiv, wenn die Verwaltung sie ausdrücklich
           freischaltet. Ist eine Funktion aktiv, werden die dafür benötigten Inhalte an die
           Gemini-API von Google übermittelt; eine Verarbeitung außerhalb der EU ist dabei
@@ -247,13 +249,21 @@ export default function DatenschutzPage() {
           Textauszüge — bei Fragen zu Geld auch Angaben zu Kontostand, Rückständen und
           Hausgeld. Der Objekt-Import übermittelt das hochgeladene PDF{" "}
           <strong>vollständig</strong>; laden Sie dort daher nur Unterlagen hoch, deren
-          Weitergabe an Google Sie verantworten können.
+          Weitergabe an Google Sie verantworten können. Der Kostenart-Vorschlag beim
+          Bankimport übermittelt am wenigsten: nur den Verwendungszweck, aus dem zuvor
+          alle Wörter mit Ziffern entfernt wurden — also ohne Beträge, Kontonummern,
+          Rechnungs- und Referenznummern — dazu die Bezeichnungen der Kostenarten Ihres
+          Objekts. Zahlungspartner, Kontostände und Einheiten werden dabei nicht
+          übermittelt.
         </p>
         <p>
           Die KI trifft <strong>keine automatisierte Entscheidung im Einzelfall</strong> im
           Sinne von Art. 22 DSGVO: Sie erzeugt Vorschläge und Auskünfte, über die Menschen
-          entscheiden. Bei Finanzen, Hausgeld, Mahnwesen, Abrechnungen und Abstimmungen
-          kommt keine KI zum Einsatz. Welche Systeme wir mit welcher Risikoeinstufung nach
+          entscheiden. Bei Hausgeld, Zahlungszuordnung, Mahnwesen, Abrechnungen und
+          Abstimmungen kommt keine KI zum Einsatz. Der Kostenart-Vorschlag beim
+          Bankimport ist der einzige Berührungspunkt im Finanzbereich: Er ordnet einer
+          Ausgabe eine Kostenart zu, ist als KI-Vorschlag gekennzeichnet und wird erst
+          gebucht, wenn die Verwaltung ihn bestätigt. Welche Systeme wir mit welcher Risikoeinstufung nach
           der EU-KI-Verordnung betreiben, legen wir unter{" "}
           <Link href="/ki-transparenz" className="text-brand-green hover:underline">
             KI-Transparenz

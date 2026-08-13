@@ -2,6 +2,13 @@
 // nach Rolle gefiltert. Werden als zusätzliche „Quellen" in den Assistenten-Kontext
 // gegeben, damit er Fragen wie „wie erstelle ich einen Beschluss?" beantworten kann.
 import type { Role } from "@/generated/prisma/client";
+import { isSepaLastschriftEnabled } from "@/lib/features";
+
+// Der Assistent darf keinen Weg beschreiben, den es gerade nicht gibt: Ein
+// Hinweis auf einen Menüpunkt, den der Nutzer nicht findet, kostet ihn die Zeit
+// des Suchens und den Glauben an die Auskunft. Der Schalter zieht den Satz
+// deshalb mit (`lib/features.ts`) — statt ihn dauerhaft aus dem Text zu nehmen.
+const SEPA_HINWEIS = isSepaLastschriftEnabled() ? ", SEPA-Lastschrift" : "";
 
 export type HelpTopic = {
   title: string;
@@ -46,7 +53,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     title: "WEG-Finanzen: Buchhaltung, Wirtschaftsplan, Jahresabrechnung, Hausgeld",
     roles: ["VERWALTER"],
     href: "/verwaltung/weg",
-    body: `Die WEG-Finanzen finden Sie unter Verwaltung → WEG-Finanzen, gegliedert in Stammdaten & Konten, Laufendes Jahr (Buchhaltung, Hausgeld & offene Posten, Sonderumlagen, SEPA), Planung & Abrechnung (Wirtschaftsplan, Jahresabrechnung, Betriebskosten, CO₂) sowie Pflichten & Erhaltung. Verbrauchskosten lassen sich in der Jahresabrechnung automatisch aus den Zählern verteilen.`,
+    body: `Die WEG-Finanzen finden Sie unter Verwaltung → WEG-Finanzen, gegliedert in Stammdaten & Konten, Laufendes Jahr (Buchhaltung, Hausgeld & offene Posten, Sonderumlagen, Verbindlichkeiten${SEPA_HINWEIS}), Planung & Abrechnung (Wirtschaftsplan, Jahresabrechnung, Betriebskosten, CO₂) sowie Pflichten & Erhaltung. Verbrauchskosten lassen sich in der Jahresabrechnung automatisch aus den Zählern verteilen.`,
   },
   {
     title: "Meine Finanzen: Jahresabrechnung und Wirtschaftsplan ansehen",

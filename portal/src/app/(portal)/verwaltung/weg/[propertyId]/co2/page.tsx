@@ -67,7 +67,9 @@ export default async function Co2Page({
       <p className="mb-4 max-w-3xl text-sm text-gray-300">
         Aufteilung des CO₂-Preises der Heizkosten zwischen Vermieter und Mieter nach dem
         10-Stufen-Modell des CO₂KostAufG (Wohngebäude). Datenbasis für vermietende
-        Eigentümer. <strong>Muster — ersetzt keine Rechtsberatung.</strong>
+        Eigentümer. Die Stufe ergibt sich aus dem CO₂-Ausstoß je Quadratmeter
+        Wohnfläche und Jahr; Kilogramm CO₂ und CO₂-Kostenanteil weist die
+        Rechnung des Brennstofflieferanten aus.
       </p>
 
       {sp.fehler ? (

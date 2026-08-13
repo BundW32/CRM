@@ -13,6 +13,7 @@ import {
   DunningVisual,
   UnitPlanVisual,
 } from "@/components/marketing/visuals";
+import { isSepaLastschriftEnabled } from "@/lib/features";
 import { assertMainDomain } from "@/lib/marketing";
 
 export const dynamic = "force-dynamic";
@@ -126,6 +127,12 @@ export default async function HausgeldPage() {
         </p>
       </FeatureSection>
 
+      {/* Der SEPA-Lastschrifteinzug ist vorerst abgeschaltet (`lib/features.ts`).
+          Der Abschnitt verschwindet mit dem Schalter statt aus dem Quelltext:
+          Eine Funktion zu bewerben, die im Portal nicht auffindbar ist, ist
+          schlimmer, als sie wegzulassen — und beim Wiedereinschalten steht die
+          Werbung wieder, ohne dass sie jemand neu schreiben muss. */}
+      {isSepaLastschriftEnabled() ? (
       <FeatureSection
         id="lastschrift"
         eyebrow="SEPA-Lastschrift"
@@ -151,6 +158,7 @@ export default async function HausgeldPage() {
           bekommt Zugriff auf das Gemeinschaftskonto.
         </p>
       </FeatureSection>
+      ) : null}
 
       <CtaBand
         title="Nie wieder offenen Posten hinterhertelefonieren"

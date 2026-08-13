@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { db } from "@/lib/db";
+import { isSepaLastschriftEnabled } from "@/lib/features";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
@@ -35,6 +37,12 @@ export default async function LastschriftPage({
   searchParams: Promise<{ gespeichert?: string; fehler?: string }>;
 }) {
   const { propertyId } = await params;
+  // Abgeschaltet? Dann führt auch ein Lesezeichen nicht ins Leere, sondern
+  // dorthin, wo die Arbeit stattdessen stattfindet. Die Sperre steht VOR jeder
+  // Abfrage — die Seite soll im abgeschalteten Zustand nichts laden.
+  if (!isSepaLastschriftEnabled()) {
+    redirect(`/verwaltung/weg/${propertyId}/hausgeld?flash=sepa-abgeschaltet`);
+  }
   const { property } = await requireWegProperty(propertyId);
   const sp = await searchParams;
   const now = new Date();
@@ -89,7 +97,7 @@ export default async function LastschriftPage({
       <p className="mb-4 max-w-3xl text-sm text-gray-300">
         Hausgeld per SEPA-Basislastschrift einziehen — die App erzeugt eine
         <strong> pain.008-XML-Datei</strong> zum Selbst-Upload ins Online-Banking. Kein
-        externer Zugang nötig. <strong>Muster — ersetzt keine Rechtsberatung.</strong>
+        externer Zugang nötig.
       </p>
 
       {sp.fehler ? (

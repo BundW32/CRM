@@ -3,13 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import type { DueDayRule } from "@/generated/prisma/client";
+import type { DueDayRule, HausgeldRounding } from "@/generated/prisma/client";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
 import { planErlaubt } from "@/lib/plan-guard";
-import { computeUnitAdvances, fiscalYearRange } from "@/lib/weg/economic-plan";
+import { computeUnitAdvances, fiscalYearRange, rundungFuerPlan } from "@/lib/weg/economic-plan";
 import { synchronisiereSollstellungen } from "@/lib/weg/due-postings";
 import { faelligkeitsText, monatsBeginn } from "@/lib/weg/plan-validity";
 import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
@@ -116,6 +116,7 @@ async function abgleicheVorgaenger(
     fiscalYearStartMonth: number;
     dueDayRule: DueDayRule;
     dueDayOfMonth: number | null;
+    hausgeldRounding: HausgeldRounding;
   },
   neuerPlanId: string,
 ) {
@@ -148,6 +149,10 @@ async function abgleicheVorgaenger(
           category: i.costType.category,
         })),
         units,
+        // Die Rundung des Vorgängers, nicht die des Objekts: Sein Abgleich soll
+        // nur Monate wegräumen, die er nicht mehr trägt — nicht die Beträge der
+        // Monate ändern, die er noch trägt.
+        rounding: rundungFuerPlan(v, property),
       });
     } catch (err) {
       // Ein alter Plan, dessen Verteilung sich heute nicht mehr rechnen lässt
@@ -363,6 +368,13 @@ export async function resolvePlan(formData: FormData) {
     data: { validUntil: validFrom },
   });
 
+  // Die Rundung der Monatsraten wird **hier** festgeschrieben, nicht bei jeder
+  // Berechnung neu aus den Stammdaten gelesen. Genau das ist der Bestandsschutz:
+  // Was der Plan stellt, steht ab jetzt im Beschluss und in den
+  // Einzelwirtschaftsplänen der Eigentümer; eine spätere Umstellung des Objekts
+  // gilt erst für den nächsten Beschluss.
+  const rounding = property.hausgeldRounding;
+
   await db.economicPlan.update({
     where: { id: plan.id },
     data: {
@@ -371,6 +383,7 @@ export async function resolvePlan(formData: FormData) {
       resolutionNote: parsed.data.resolutionNote ?? null,
       validFrom,
       validUntil: null,
+      hausgeldRounding: rounding,
     },
   });
 
@@ -389,6 +402,7 @@ export async function resolvePlan(formData: FormData) {
       category: i.costType.category,
     })),
     units,
+    rounding,
   });
 
   // Der Vorgänger trägt seine Monate ab dem Wechsel nicht mehr. Sein Abgleich
@@ -411,7 +425,7 @@ export async function resolvePlan(formData: FormData) {
   let ablageFehler: string | null = null;
   try {
     ablage = await verteileEinzelwirtschaftsplaene(
-      { id: property.id, name: property.name },
+      { id: property.id, name: property.name, hausgeldRounding: property.hausgeldRounding },
       verwalter.organizationId,
       plan.id,
       verwalter.id,
@@ -454,7 +468,7 @@ export async function resolvePlan(formData: FormData) {
  * suchen, das der Eigentümer aufbewahrt.
  */
 async function verteileEinzelwirtschaftsplaene(
-  property: { id: string; name: string },
+  property: { id: string; name: string; hausgeldRounding: HausgeldRounding },
   organizationId: string,
   planId: string,
   uploadedById: string,
@@ -485,6 +499,9 @@ async function verteileEinzelwirtschaftsplaene(
           organizationId,
           plan: beschlossen,
           units: alleEinheiten,
+          // Die abgelegte Fassung muss dieselben Raten zeigen wie die erzeugten
+          // Sollstellungen — deshalb die Rundung des Plans, nicht die des Objekts.
+          rounding: rundungFuerPlan(beschlossen, property),
           ownerNamesByUnit: namen,
           onlyUnitIds: [u.id],
         }),
@@ -519,7 +536,7 @@ export async function wiederholeAblage(formData: FormData) {
   let ablage: Awaited<ReturnType<typeof legeEigentuemerDokumenteAb>>;
   try {
     ablage = await verteileEinzelwirtschaftsplaene(
-      { id: property.id, name: property.name },
+      { id: property.id, name: property.name, hausgeldRounding: property.hausgeldRounding },
       verwalter.organizationId,
       plan.id,
       verwalter.id,

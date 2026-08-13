@@ -9,6 +9,7 @@ import {
   type StatementInput,
 } from "./annual-statement";
 import type { UnitForDistribution } from "./distribution";
+import { monthlyInstallmentPlan } from "./economic-plan";
 
 // Testfall aus dem Build-Auftrag: 6 Einheiten, gemischte Schlüssel
 const units: UnitForDistribution[] = [
@@ -197,6 +198,25 @@ describe("computePeakAmounts (Abrechnungsspitze)", () => {
     );
     expect(peak.get("we1")).toBe(10_000); // Nachschuss
     expect(peak.get("we2")).toBe(-20_000); // Guthaben
+  });
+
+  it("die Überdeckung der gerundeten Monatsrate kommt als Guthaben zurück", () => {
+    // Der stille Fehler, den diese Prüfung ausschließt: gegen den *geplanten*
+    // Jahresvorschuss zu rechnen statt gegen das gestellte Soll. Bei
+    // aufgerundeten Raten sind das zwei verschiedene Zahlen — die Überdeckung
+    // verschwände dann spurlos, und der Eigentümer bekäme sein Guthaben nie.
+    //
+    // `duePerUnit` kommt in `computeStatementView` aus den DuePosting-Zeilen
+    // des Jahres, also aus dem, was tatsächlich gestellt wurde. Genau das wird
+    // hier nachgestellt: Plan 3.000,36 €, gestellt 12 × 250,10 € = 3.001,20 €.
+    const raten = monthlyInstallmentPlan(300_036, "ZEHN_CENT");
+    const kostenanteil = 300_036; // Kosten treffen den Plan punktgenau
+    const peak = computePeakAmounts(
+      new Map([["we1", kostenanteil]]),
+      new Map([["we1", raten.billedCents]]),
+    );
+    expect(peak.get("we1")).toBe(-raten.overpayCents);
+    expect(peak.get("we1")).toBe(-84);
   });
 });
 

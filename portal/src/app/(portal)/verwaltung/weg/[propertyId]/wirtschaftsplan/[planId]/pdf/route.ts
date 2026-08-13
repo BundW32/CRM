@@ -8,6 +8,7 @@ import {
   ownerNamesByUnit,
 } from "@/lib/weg/wirtschaftsplan-pdf";
 import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
+import { rundungFuerPlan } from "@/lib/weg/economic-plan";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export async function GET(
   }
   const property = await db.property.findFirst({
     where: { id: propertyId, organizationId: verwalter.organizationId, managementType: "WEG" },
-    select: { id: true, name: true, organizationId: true },
+    select: { id: true, name: true, organizationId: true, hausgeldRounding: true },
   });
   if (!property) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
@@ -53,6 +54,10 @@ export async function GET(
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   }
 
+  // Beschlossene Pläne tragen ihre Rundung selbst; ein Entwurf zeigt in der
+  // Vorschau, was die Objekt-Einstellung beim Beschluss festschreiben wird.
+  const rounding = rundungFuerPlan(plan, property);
+
   try {
     const pdf = einzelplan
       ? await buildEinzelwirtschaftsplanPdf({
@@ -60,6 +65,7 @@ export async function GET(
           organizationId: property.organizationId,
           plan,
           units,
+          rounding,
           ownerNamesByUnit: await ownerNamesByUnit(units.map((u) => u.id)),
           onlyUnitIds: einheitId ? [einheitId] : undefined,
         })
@@ -68,6 +74,7 @@ export async function GET(
           organizationId: property.organizationId,
           plan,
           units,
+          rounding,
         });
 
     const einheitLabel = einheitId ? units.find((u) => u.id === einheitId)?.label : undefined;

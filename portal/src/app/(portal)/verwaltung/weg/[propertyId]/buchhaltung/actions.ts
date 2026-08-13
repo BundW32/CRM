@@ -12,17 +12,28 @@ import { planErlaubt } from "@/lib/plan-guard";
 import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
 import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 import {
-  guessMapping,
+  decodeBankFile,
+  detectMapping,
   mapRows,
+  mappingComplete,
   parseCsv,
   type ColumnMapping,
+  type ParsedBooking,
+  type Zeichensatz,
 } from "@/lib/weg/bank-import";
+import { erkenneFormat, leseBankdatei, type BankDateiFormat } from "@/lib/weg/bank-datei";
+import { baueImportProfil, leseImportProfil } from "@/lib/weg/import-profil";
+import { bereinigeZweck, kiKostenartAktiv, klassifiziereKostenarten } from "@/lib/weg/kostenart-ki";
+import { ladeZuordnungsKontext } from "@/lib/weg/zuordnung-kontext";
+import { schlageVorschlagVor, type Guete } from "@/lib/weg/zuordnung-vorschlag";
 import { pruefeZahlung } from "@/lib/weg/bauabzugsteuer-service";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { loadWegProperty } from "@/lib/weg/scope";
 import { allDatesEditable } from "@/lib/weg/statement-lock";
 
-const MAX_CSV_SIZE = 2 * 1024 * 1024; // 2 MB — Bank-CSVs sind klein
+// Bank-CSVs sind klein; CAMT.053 ist als XML deutlich gesprächiger — ein
+// Jahresauszug mit 400 Umsätzen liegt dort schnell bei einem Megabyte.
+const MAX_DATEI_GROESSE = 5 * 1024 * 1024;
 
 function back(propertyId: string, param?: string): never {
   redirect(`/verwaltung/weg/${propertyId}/buchhaltung${param ? `?${param}` : ""}`);
@@ -273,14 +284,35 @@ export async function createTransfer(formData: FormData) {
   back(property.id, "gespeichert=umbuchung");
 }
 
-// ── CSV-Import (Zero-Key-Adapter) ────────────────────────────────────────────
+// ── Dateiimport (Zero-Key-Adapter) ───────────────────────────────────────────
+// Drei Formate, ein Weg: CSV (mit Spaltenzuordnung), MT940 und CAMT.053 (beide
+// benennen ihre Felder selbst). Alle drei münden in dieselben ParsedBooking-
+// Objekte — Duplikaterkennung, Vorschau, Zuordnungsvorschläge und Import hängen
+// damit an einer Stelle.
 // Schritt 1 (analyzeCsvAction): Datei parsen, Mapping raten/übernehmen, Vorschau
 // mit Duplikat-Markierung liefern. Der Dateiinhalt wandert als Base64 in die
 // Antwort und kommt in Schritt 2 als Hidden-Field zurück — nichts wird
 // zwischengespeichert (Zero-Key, kein Aufräum-Job).
 // Schritt 2 (importCsvAction): endgültiger Import als BankImportBatch.
 
+export type ImportVorschlag = {
+  /** Was vorgeschlagen wird — Einheit (Einnahme) oder Kostenart (Ausgabe). */
+  label: string;
+  art: "einheit" | "kostenart";
+  guete: Guete;
+  grund: string;
+  /**
+   * Aus der KI-Stufe. Muss gekennzeichnet werden (Art. 50 KI-VO) — und reist
+   * als einziger Vorschlag über das Formular zurück, weil er sich nicht
+   * wiederholbar nachrechnen lässt.
+   */
+  ki?: true;
+  costTypeId?: string;
+};
+
 export type ImportPreviewRow = {
+  /** Duplikat-Hash der Zeile — verbindet Vorschau und Import ohne Zeilennummern. */
+  hash: string;
   date: string;
   kind: "EINNAHME" | "AUSGABE";
   amountCents: number;
@@ -288,6 +320,23 @@ export type ImportPreviewRow = {
   text: string;
   counterparty?: string;
   duplicate: boolean;
+  vorschlag?: ImportVorschlag;
+};
+
+/**
+ * Was beim Lesen der Datei erkannt wurde. Wandert **immer** in die Oberfläche,
+ * nicht nur im Fehlerfall: Ohne diese Angaben ist der Unterschied zwischen
+ * „falsche Zeile als Kopfzeile" und „Zeichensatz kaputt" von außen nicht zu
+ * sehen, und der Verwalter kann nur „geht nicht" melden.
+ */
+export type ImportDiagnose = {
+  /** CSV, MT940 oder CAMT.053 — am Inhalt erkannt, nicht an der Endung. */
+  format: BankDateiFormat;
+  encoding: Zeichensatz;
+  delimiter: string;
+  hasHeader: boolean;
+  skippedBefore: number;
+  rawLines: string[];
 };
 
 export type ImportAnalysis =
@@ -296,73 +345,200 @@ export type ImportAnalysis =
       accountId: string;
       fileName: string;
       contentBase64: string;
+      diagnose: ImportDiagnose;
+      /**
+       * Woher das gezeigte Mapping stammt. `format` heißt: Die Datei benennt
+       * ihre Felder selbst (MT940, CAMT) — es gibt nichts zuzuordnen.
+       */
+      mappingQuelle: "gespeichert" | "erkannt" | "manuell" | "format";
       header: string[];
       mapping: Partial<ColumnMapping>;
       rowsTotal: number;
       parseable: number;
       duplicates: number;
       preview: ImportPreviewRow[];
+      /** Anzahl Vorschläge je Gütegrad — Grundlage der Bestätigungs-Häkchen. */
+      vorschlaege: Record<Guete, number>;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; diagnose?: ImportDiagnose };
 
-function readMappingOverride(formData: FormData): Partial<ColumnMapping> {
+/**
+ * Das von Hand gesetzte Mapping aus dem Formular.
+ *
+ * `gesetzt` unterscheidet „das Formular trug keine Spaltenfelder" von „der
+ * Verwalter hat eine Spalte auf ‚keine' gestellt". Ohne diese Unterscheidung
+ * ließe sich eine einmal erkannte Spalte nicht mehr abwählen: Der leere Wert
+ * käme als `undefined` an und der alte Vorschlag stünde wieder da.
+ */
+function readMappingOverride(formData: FormData): { mapping: Partial<ColumnMapping>; gesetzt: boolean } {
   const num = (name: string) => {
     const v = String(formData.get(name) ?? "").trim();
     if (v === "") return undefined;
     const n = Number(v);
     return Number.isInteger(n) && n >= 0 ? n : undefined;
   };
-  return {
+  const roh: Record<string, number | undefined> = {
     date: num("col_date"),
     amount: num("col_amount"),
+    debit: num("col_debit"),
+    credit: num("col_credit"),
     purpose: num("col_purpose"),
     counterparty: num("col_counterparty"),
+    counterpartyIn: num("col_counterparty_in"),
+    counterpartyOut: num("col_counterparty_out"),
+  };
+  return {
+    mapping: Object.fromEntries(Object.entries(roh).filter(([, v]) => v !== undefined)),
+    gesetzt: formData.has("col_date"),
   };
 }
 
+/** Der Zeichensatz reist zwischen den Schritten mit — nur zur Anzeige. */
+function readEncoding(formData: FormData): Zeichensatz {
+  const roh = String(formData.get("encoding") ?? "");
+  const bekannt: Zeichensatz[] = ["utf-8", "utf-8-bom", "utf-16le", "utf-16be", "windows-1252"];
+  return bekannt.includes(roh as Zeichensatz) ? (roh as Zeichensatz) : "utf-8";
+}
+
 async function analyzeInternal(
-  accountId: string,
+  propertyId: string,
+  account: { id: string; importProfile: unknown },
   fileName: string,
   content: string,
-  override: Partial<ColumnMapping>,
+  encoding: Zeichensatz,
+  override: { mapping: Partial<ColumnMapping>; gesetzt: boolean },
 ): Promise<ImportAnalysis> {
-  const { header, rows } = parseCsv(content);
-  if (header.length === 0 || rows.length === 0) {
-    return { ok: false, error: "Die Datei enthält keine auswertbaren Zeilen." };
+  const format = erkenneFormat(content);
+  const leer: Record<Guete, number> = { sicher: 0, wahrscheinlich: 0, unsicher: 0 };
+
+  // MT940 und CAMT.053 benennen ihre Felder selbst — es gibt keine Spalten, die
+  // man zuordnen könnte, und damit auch nichts zu raten oder zu merken.
+  if (format !== "csv") {
+    const diagnose: ImportDiagnose = {
+      encoding,
+      format,
+      delimiter: "",
+      hasHeader: false,
+      skippedBefore: 0,
+      rawLines: content.split(/\r?\n/).filter((l) => l.trim() !== "").slice(0, 3),
+    };
+    const buchungen = leseBankdatei(format, content, account.id);
+    if (buchungen.length === 0) {
+      return { ok: false, error: "Die Datei enthält keine auswertbaren Umsätze.", diagnose };
+    }
+    return vorschau({
+      propertyId,
+      accountId: account.id,
+      fileName,
+      content,
+      diagnose,
+      mappingQuelle: "format",
+      header: [],
+      mapping: {},
+      rowsTotal: buchungen.length,
+      buchungen,
+    });
   }
-  const guessed = guessMapping(header);
-  const mapping: Partial<ColumnMapping> = {
-    date: override.date ?? guessed.date,
-    amount: override.amount ?? guessed.amount,
-    purpose: override.purpose ?? guessed.purpose,
-    counterparty: override.counterparty ?? guessed.counterparty,
+
+  const parsed = parseCsv(content);
+  const diagnose: ImportDiagnose = {
+    encoding,
+    format,
+    delimiter: parsed.delimiter,
+    hasHeader: parsed.hasHeader,
+    skippedBefore: parsed.skippedBefore,
+    rawLines: parsed.rawLines,
   };
-  const base = {
-    ok: true as const,
-    accountId,
+  if (parsed.header.length === 0 || parsed.rows.length === 0) {
+    return { ok: false, error: "Die Datei enthält keine auswertbaren Zeilen.", diagnose };
+  }
+
+  // Rangfolge: Was der Verwalter von Hand gesetzt hat, dann die gemerkte Lesart
+  // dieses Kontos, dann die Erkennung. Ein gespeichertes Profil darf die
+  // Erkennung überstimmen — es ist die einzige Angabe, die ein Mensch bestätigt
+  // hat.
+  const profil = leseImportProfil(account.importProfile);
+  const erkannt = detectMapping(parsed);
+  const passtNochAufDieDatei =
+    profil !== null &&
+    Object.values(profil.mapping).every((idx) => typeof idx === "number" && idx < parsed.header.length);
+  const basis = passtNochAufDieDatei ? profil.mapping : erkannt;
+  const mapping: Partial<ColumnMapping> = override.gesetzt ? override.mapping : basis;
+  const mappingQuelle = (
+    override.gesetzt ? "manuell" : passtNochAufDieDatei ? "gespeichert" : "erkannt"
+  ) as "manuell" | "gespeichert" | "erkannt";
+
+  const leerVorschlaege: Record<Guete, number> = { ...leer };
+  if (!mappingComplete(mapping)) {
+    return {
+      ok: true,
+      accountId: account.id,
+      fileName,
+      contentBase64: Buffer.from(content, "utf-8").toString("base64"),
+      diagnose,
+      mappingQuelle,
+      header: parsed.header,
+      mapping,
+      rowsTotal: parsed.rows.length,
+      parseable: 0,
+      duplicates: 0,
+      preview: [],
+      vorschlaege: leerVorschlaege,
+    };
+  }
+
+  return vorschau({
+    propertyId,
+    accountId: account.id,
     fileName,
-    contentBase64: Buffer.from(content, "utf-8").toString("base64"),
-    header,
+    content,
+    diagnose,
+    mappingQuelle,
+    header: parsed.header,
     mapping,
-    rowsTotal: rows.length,
-  };
-  if (mapping.date === undefined || mapping.amount === undefined || mapping.purpose === undefined) {
-    return { ...base, parseable: 0, duplicates: 0, preview: [] };
-  }
-  const parsedRows = mapRows(rows, mapping as ColumnMapping, accountId);
-  // Duplikate: gegen den Bestand UND innerhalb der Datei
-  const existing = await db.booking.findMany({
-    where: { accountId, dedupeHash: { in: parsedRows.map((r) => r.dedupeHash) } },
-    select: { dedupeHash: true },
+    rowsTotal: parsed.rows.length,
+    buchungen: mapRows(parsed.rows, mapping, account.id),
   });
+}
+
+/**
+ * Der gemeinsame Teil aller Formate: Duplikate suchen, Zuordnungen vorschlagen,
+ * Vorschau bauen. Ab hier weiß niemand mehr, ob die Zeilen aus einer CSV, einem
+ * MT940-Auszug oder einer CAMT-Datei stammen — genau wie es ein späterer
+ * Open-Banking-Adapter vorfinden wird.
+ */
+async function vorschau(eingabe: {
+  propertyId: string;
+  accountId: string;
+  fileName: string;
+  content: string;
+  diagnose: ImportDiagnose;
+  mappingQuelle: "manuell" | "gespeichert" | "erkannt" | "format";
+  header: string[];
+  mapping: Partial<ColumnMapping>;
+  rowsTotal: number;
+  buchungen: ParsedBooking[];
+}): Promise<ImportAnalysis> {
+  const { accountId, buchungen } = eingabe;
+  const [existing, kontext] = await Promise.all([
+    db.booking.findMany({
+      where: { accountId, dedupeHash: { in: buchungen.map((r) => r.dedupeHash) } },
+      select: { dedupeHash: true },
+    }),
+    ladeZuordnungsKontext(eingabe.propertyId),
+  ]);
   const known = new Set(existing.map((e) => e.dedupeHash));
   const seen = new Set<string>();
   let duplicates = 0;
-  const preview: ImportPreviewRow[] = parsedRows.map((r) => {
+  const vorschlaege: Record<Guete, number> = { sicher: 0, wahrscheinlich: 0, unsicher: 0 };
+  const preview: ImportPreviewRow[] = buchungen.map((r) => {
     const duplicate = known.has(r.dedupeHash) || seen.has(r.dedupeHash);
     seen.add(r.dedupeHash);
     if (duplicate) duplicates++;
+    const roh = duplicate ? null : schlageVorschlagVor(r, kontext);
+    if (roh) vorschlaege[roh.guete]++;
     return {
+      hash: r.dedupeHash,
       date: r.bookingDate.toISOString().slice(0, 10),
       kind: r.kind as "EINNAHME" | "AUSGABE",
       amountCents: r.amountCents,
@@ -370,9 +546,79 @@ async function analyzeInternal(
       text: r.text,
       counterparty: r.counterparty,
       duplicate,
+      vorschlag: roh
+        ? {
+            label: roh.unitLabel ?? roh.costTypeName ?? "",
+            art: (roh.unitId ? "einheit" : "kostenart") as "einheit" | "kostenart",
+            guete: roh.guete,
+            grund: roh.gruende.join(", "),
+            costTypeId: roh.costTypeId,
+          }
+        : undefined,
     };
   });
-  return { ...base, parseable: parsedRows.length, duplicates, preview };
+
+  await ergaenzeKiVorschlaege(eingabe.propertyId, preview, vorschlaege);
+  return {
+    ok: true,
+    accountId,
+    fileName: eingabe.fileName,
+    // Der bereits dekodierte Text reist als UTF-8 weiter. Würde hier der
+    // Rohinhalt zurückgereicht, käme im zweiten Schritt wieder die feste
+    // UTF-8-Annahme zum Zug — und die Korrektur wäre weg.
+    contentBase64: Buffer.from(eingabe.content, "utf-8").toString("base64"),
+    diagnose: eingabe.diagnose,
+    mappingQuelle: eingabe.mappingQuelle,
+    header: eingabe.header,
+    mapping: eingabe.mapping,
+    rowsTotal: eingabe.rowsTotal,
+    parseable: buchungen.length,
+    duplicates,
+    preview,
+    vorschlaege,
+  };
+}
+
+/**
+ * Zweite Stufe: Was die Regeln nicht kennen, geht — wenn freigegeben — an die
+ * KI. Ergänzt die Vorschau an Ort und Stelle.
+ *
+ * Nur Ausgaben ohne Regel-Treffer, nur der bereinigte Verwendungszweck, immer
+ * Gütegrad „unsicher": Ein Vorschlag, der sich nicht nachrechnen lässt, ist
+ * kein sicherer Vorschlag, egal wie überzeugt das Modell klingt.
+ */
+async function ergaenzeKiVorschlaege(
+  propertyId: string,
+  preview: ImportPreviewRow[],
+  zaehler: Record<Guete, number>,
+): Promise<void> {
+  if (!kiKostenartAktiv()) return;
+  const offene = preview.filter((r) => !r.vorschlag && !r.duplicate && r.kind === "AUSGABE");
+  if (offene.length === 0) return;
+  const kostenarten = await db.costType.findMany({
+    where: { propertyId },
+    select: { id: true, name: true },
+  });
+  if (kostenarten.length === 0) return;
+  const treffer = await klassifiziereKostenarten(
+    offene.map((r) => r.text),
+    kostenarten,
+  );
+  if (treffer.size === 0) return;
+  const nachId = new Map(kostenarten.map((k) => [k.id, k.name]));
+  for (const zeile of offene) {
+    const costTypeId = treffer.get(bereinigeZweck(zeile.text));
+    if (!costTypeId) continue;
+    zeile.vorschlag = {
+      label: nachId.get(costTypeId) ?? "",
+      art: "kostenart",
+      guete: "unsicher",
+      grund: "KI-Vorschlag aus dem Verwendungszweck",
+      ki: true,
+      costTypeId,
+    };
+    zaehler.unsicher++;
+  }
 }
 
 export async function analyzeCsvAction(
@@ -390,19 +636,33 @@ export async function analyzeCsvAction(
   // Datei aus Schritt 1 ODER Base64 aus einer erneuten Analyse (Mapping geändert)
   let fileName = "";
   let content = "";
+  let encoding: Zeichensatz;
   const file = formData.get("csv");
   if (file instanceof File && file.size > 0) {
-    if (file.size > MAX_CSV_SIZE) return { ok: false, error: "Die Datei ist größer als 2 MB." };
+    if (file.size > MAX_DATEI_GROESSE) return { ok: false, error: "Die Datei ist größer als 5 MB." };
     fileName = file.name;
-    content = Buffer.from(await file.arrayBuffer()).toString("utf-8");
+    // Genau **einmal** dekodieren, hier. Bank-Exporte sind oft Windows-1252,
+    // manche Excel-Umwege liefern UTF-16 — eine feste UTF-8-Annahme zerlegt die
+    // Umlaute in Zahlungspartner und Verwendungszweck.
+    const dekodiert = decodeBankFile(new Uint8Array(await file.arrayBuffer()));
+    content = dekodiert.text;
+    encoding = dekodiert.encoding;
   } else {
     const b64 = String(formData.get("contentBase64") ?? "");
     fileName = String(formData.get("fileName") ?? "import.csv");
-    if (!b64) return { ok: false, error: "Bitte eine CSV-Datei auswählen." };
-    if (b64.length > MAX_CSV_SIZE * 1.4) return { ok: false, error: "Die Datei ist größer als 2 MB." };
+    if (!b64) return { ok: false, error: "Bitte eine Datei auswählen." };
+    if (b64.length > MAX_DATEI_GROESSE * 1.4) return { ok: false, error: "Die Datei ist größer als 5 MB." };
     content = Buffer.from(b64, "base64").toString("utf-8");
+    encoding = readEncoding(formData);
   }
-  return analyzeInternal(account.id, fileName, content, readMappingOverride(formData));
+  return analyzeInternal(
+    property.id,
+    account,
+    fileName,
+    content,
+    encoding,
+    readMappingOverride(formData),
+  );
 }
 
 export async function importCsvAction(formData: FormData) {
@@ -417,16 +677,26 @@ export async function importCsvAction(formData: FormData) {
 
   const b64 = String(formData.get("contentBase64") ?? "");
   const fileName = String(formData.get("fileName") ?? "import.csv").slice(0, 200);
-  if (!b64 || b64.length > MAX_CSV_SIZE * 1.4) back(property.id, "fehler=datei");
+  if (!b64 || b64.length > MAX_DATEI_GROESSE * 1.4) back(property.id, "fehler=datei");
   const content = Buffer.from(b64, "base64").toString("utf-8");
 
-  const override = readMappingOverride(formData);
-  if (override.date === undefined || override.amount === undefined || override.purpose === undefined) {
-    back(property.id, "fehler=mapping");
+  // Dasselbe Format wie in der Vorschau — erkannt am Inhalt, nicht am
+  // Formular. Bei MT940 und CAMT gibt es kein Spalten-Mapping zu prüfen.
+  const format = erkenneFormat(content);
+  const { mapping } = readMappingOverride(formData);
+  let parsedRows: ParsedBooking[];
+  let gelesen: number;
+  let csvAufbau: { delimiter: string; hasHeader: boolean } | null = null;
+  if (format === "csv") {
+    if (!mappingComplete(mapping)) back(property.id, "fehler=mapping");
+    const parsed = parseCsv(content);
+    csvAufbau = { delimiter: parsed.delimiter, hasHeader: parsed.hasHeader };
+    gelesen = parsed.rows.length;
+    parsedRows = mapRows(parsed.rows, mapping, account.id);
+  } else {
+    parsedRows = leseBankdatei(format, content, account.id);
+    gelesen = parsedRows.length;
   }
-  const mapping = override as ColumnMapping;
-  const { rows } = parseCsv(content);
-  const parsedRows = mapRows(rows, mapping, account.id);
   if (parsedRows.length === 0) back(property.id, "fehler=keinezeilen");
 
   // Duplikate (Bestand + innerhalb der Datei) überspringen und zählen
@@ -442,6 +712,59 @@ export async function importCsvAction(formData: FormData) {
     toImport.push(r);
   }
 
+  // ── Zuordnungsvorschläge ───────────────────────────────────────────────────
+  //
+  // Übernommen wird nur, was der Verwalter in der Vorschau bestätigt hat — je
+  // Gütegrad ein Häkchen. Die Vorschläge werden hier **neu berechnet** statt
+  // aus dem Formular gelesen: Eine mitgeschickte Kostenart oder Einheit wäre
+  // eine Angabe aus dem Browser, und die gehört nicht ungeprüft in eine
+  // Buchung. Bestätigt wird der Gütegrad, gerechnet wird auf dem Server.
+  //
+  // Gesetzt wird ausschließlich `unitId` bzw. `costTypeId` — also dieselbe
+  // Angabe, die auch die Zuordnungs-Hilfe auf der Hausgeld-Seite schreibt.
+  // Keine Anrechnung auf offene Forderungen: Wohin eine Zahlung tilgt,
+  // entscheidet der Verwalter (§ 366 BGB), nicht der Import.
+  const bestaetigt = new Set(
+    formData
+      .getAll("uebernehmen")
+      .map((v) => String(v))
+      .filter((v): v is Guete => v === "sicher" || v === "wahrscheinlich" || v === "unsicher"),
+  );
+  const zuordnung = new Map<string, { unitId?: string; costTypeId?: string }>();
+  if (bestaetigt.size > 0) {
+    const kontext = await ladeZuordnungsKontext(property.id);
+    for (const r of toImport) {
+      const v = schlageVorschlagVor(r, kontext);
+      if (!v || !bestaetigt.has(v.guete)) continue;
+      zuordnung.set(r.dedupeHash, { unitId: v.unitId, costTypeId: v.costTypeId });
+    }
+    // KI-Vorschläge sind die einzige Ausnahme von „auf dem Server nachrechnen":
+    // Dieselbe Anfrage kann eine andere Antwort geben, und dann stünde in der
+    // Buchung etwas anderes als in der Vorschau. Sie reisen deshalb aus der
+    // Vorschau zurück — geprüft wird trotzdem: Die Kostenart muss zu **diesem**
+    // Objekt gehören, und übernommen wird nur mit bestätigtem „unsicher".
+    if (bestaetigt.has("unsicher")) {
+      const paare = formData
+        .getAll("ki")
+        .map((v) => String(v).split("|"))
+        .filter((t) => t.length === 2);
+      if (paare.length > 0) {
+        const erlaubt = new Set(
+          (
+            await db.costType.findMany({
+              where: { propertyId: property.id, id: { in: paare.map((t) => t[1]) } },
+              select: { id: true },
+            })
+          ).map((k) => k.id),
+        );
+        for (const [hash, costTypeId] of paare) {
+          if (!erlaubt.has(costTypeId) || zuordnung.has(hash)) continue;
+          zuordnung.set(hash, { costTypeId });
+        }
+      }
+    }
+  }
+
   const batch = await db.$transaction(async (tx) => {
     const created = await tx.bankImportBatch.create({
       data: {
@@ -450,9 +773,9 @@ export async function importCsvAction(formData: FormData) {
         accountId: account.id,
         fileName,
         source: "CSV",
-        rowsTotal: rows.length,
+        rowsTotal: gelesen,
         rowsImported: toImport.length,
-        rowsSkipped: rows.length - toImport.length,
+        rowsSkipped: gelesen - toImport.length,
         createdById: verwalter.id,
       },
     });
@@ -470,9 +793,27 @@ export async function importCsvAction(formData: FormData) {
           reference: r.reference || null,
           dedupeHash: r.dedupeHash,
           importBatchId: created.id,
+          unitId: zuordnung.get(r.dedupeHash)?.unitId ?? null,
+          costTypeId: zuordnung.get(r.dedupeHash)?.costTypeId ?? null,
           createdById: verwalter.id,
         })),
         skipDuplicates: true, // DB-Unique (accountId, dedupeHash) als letzte Wand
+      });
+    }
+    // Die bestätigte Lesart der Datei am Konto merken — beim nächsten Import
+    // derselben Bank ist sie vorbelegt. Nur für CSV: MT940 und CAMT benennen
+    // ihre Felder selbst, und ein hier gespeichertes Spalten-Mapping würde beim
+    // nächsten CSV-Import eine Zuordnung vortäuschen, die nie bestätigt wurde.
+    if (csvAufbau) {
+      await tx.ledgerAccount.update({
+        where: { id: account.id },
+        data: {
+          importProfile: baueImportProfil(mapping, {
+            encoding: readEncoding(formData),
+            delimiter: csvAufbau.delimiter,
+            hasHeader: csvAufbau.hasHeader,
+          }),
+        },
       });
     }
     return created;
@@ -483,10 +824,18 @@ export async function importCsvAction(formData: FormData) {
     action: AUDIT.WEG_BANK_IMPORT,
     targetType: "BankImportBatch",
     targetId: batch.id,
-    meta: { fileName, imported: toImport.length, skipped: rows.length - toImport.length },
+    meta: {
+      fileName,
+      imported: toImport.length,
+      skipped: gelesen - toImport.length,
+      // Wie viele Buchungen mit einem bestätigten Vorschlag hereinkamen — bei
+      // einer späteren Rückfrage ist genau das die Frage.
+      zugeordnet: zuordnung.size,
+      guetegrade: [...bestaetigt].sort(),
+    },
   });
   revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
-  back(property.id, `import=${toImport.length}&uebersprungen=${rows.length - toImport.length}`);
+  back(property.id, `import=${toImport.length}&uebersprungen=${gelesen - toImport.length}`);
 }
 
 // ── Kostenart nachträglich zuordnen ──────────────────────────────────────────

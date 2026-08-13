@@ -1552,6 +1552,11 @@ model LedgerAccount {
   iban                String?
   openingBalanceCents Int                     @default(0) // Anfangsbestand in Cent
   openingBalanceDate  DateTime? // Stichtag des Anfangsbestands
+  // Zuletzt bestätigte Lesart der Bankdatei dieses Kontos: Spalten-Mapping,
+  // Zeichensatz, Trennzeichen und „ohne Kopfzeile" (Aufbau: BankImportProfil in
+  // lib/weg/import-profil.ts). Ein Verwalter importiert monatlich aus derselben
+  // Quelle — er soll die Spalten genau einmal zuordnen.
+  importProfile       Json?
   active              Boolean                 @default(true)
   createdAt           DateTime                @default(now())
   bookings            Booking[]

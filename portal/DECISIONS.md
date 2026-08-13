@@ -2115,6 +2115,34 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      und hätte diese vierte Funktion nicht bemerkt; die Suche läuft jetzt
      rekursiv.
 
+318. **Drei Formate, ein Weg: CSV, MT940 und CAMT.053.** Beide Nicht-CSV-Formate
+     benennen ihre Felder selbst — es gibt nichts zuzuordnen, und der
+     Spaltenschritt entfällt für sie vollständig. Alle drei münden in dieselben
+     `ParsedBooking`-Objekte, weshalb Duplikaterkennung, Vorschau,
+     Zuordnungsvorschläge und Import nicht wissen müssen, woher die Zeilen
+     kamen; ein späterer Open-Banking-Adapter dockt an derselben Stelle an. Der
+     Duplikat-Hash ist formatunabhängig: Wer denselben Zeitraum einmal als CSV
+     und einmal als MT940 einliest, bekommt keine Dubletten.
+     Vier Fallen, die beim Lesen dieser Formate zuschlagen und die
+     `bank-datei.test.ts` festhält: In MT940 läuft ein Feld über beliebig viele
+     Zeilen weiter (wer je Zeile liest, verliert jeden längeren
+     Verwendungszweck), die `:86:`-Häppchen gehören **ohne** Trennzeichen
+     aneinander (sonst steht „Ja nuar" im Zweck), `RC` ist die Stornierung
+     einer Gutschrift und wirkt wie eine Belastung, und das Buchungsdatum steht
+     nur als MMTT da — über den Jahreswechsel liegt es ein Jahr vor der Valuta.
+     In CAMT ist der Betrag immer positiv (die Richtung steht in `CdtDbtInd`,
+     `RvslInd` dreht sie um), und die Gegenseite hängt an der Richtung: bei
+     einer Belastung der Empfänger, bei einer Gutschrift der Zahler. Immer
+     dieselbe Seite zu nehmen hieße, bei der Hälfte der Zeilen den eigenen
+     Namen einzutragen. Sammelbuchungen (mehrere `TxDtls` mit eigenem Betrag)
+     werden in ihre Einzelzahlungen zerlegt — als ein Betrag gebucht wäre das
+     Hausgeld mehrerer Eigentümer keiner Einheit zuzuordnen.
+     Der XML-Teil kommt ohne Parser-Abhängigkeit aus: gelesen werden gezielt
+     `<Ntry>`-Blöcke, mit beliebigem Namensraum-Präfix. Das gemerkte
+     Spalten-Mapping wird **nur** bei CSV geschrieben — ein aus einem
+     MT940-Import gespeichertes Mapping würde beim nächsten CSV-Import eine
+     Zuordnung vortäuschen, die nie bestätigt wurde.
+
 **Offen geblieben** (bewusst, nicht vergessen): Die Nachdokumentation eines
 bereits eingesetzten Subprozessors gehört anwaltlich bewertet — die
 4-Wochen-Ankündigung nach AVV Ziffer 4 ist auf künftige Wechsel zugeschnitten.

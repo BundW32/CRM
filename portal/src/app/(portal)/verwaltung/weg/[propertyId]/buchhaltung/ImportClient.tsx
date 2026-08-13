@@ -1,14 +1,19 @@
 "use client";
 
-// CSV-Import-Assistent (Zero-Key): Schritt 1 Datei + Konto → Analyse mit
-// Mapping-Vorschlag, Duplikat- und Zuordnungs-Vorschau, Schritt 2 bestätigen →
-// Import. Der Dateiinhalt reist als Base64 im Formular mit — nichts wird
-// serverseitig zwischengespeichert.
+// Import-Assistent für Kontoauszüge (Zero-Key): Schritt 1 Datei + Konto →
+// Analyse mit Mapping-Vorschlag, Duplikat- und Zuordnungs-Vorschau, Schritt 2
+// bestätigen → Import. Der Dateiinhalt reist als Base64 im Formular mit —
+// nichts wird serverseitig zwischengespeichert.
 //
-// Der Assistent zeigt **immer**, was er gelesen hat: Zeichensatz, Trennzeichen,
-// ob eine Kopfzeile gefunden wurde, und die ersten Rohzeilen. Ohne diese
-// Angaben unterscheidet niemand „falsche Zeile als Kopfzeile" von „Zeichensatz
-// kaputt" — beide sehen von außen gleich aus, und beide sind schon vorgekommen.
+// Drei Formate: CSV, MT940 (.sta) und CAMT.053 (.xml). Nur CSV braucht eine
+// Spaltenzuordnung; die anderen beiden benennen ihre Felder selbst, und der
+// Schritt entfällt für sie ganz.
+//
+// Der Assistent zeigt **immer**, was er gelesen hat: Format, Zeichensatz, bei
+// CSV zusätzlich Trennzeichen und ob eine Kopfzeile gefunden wurde, dazu die
+// ersten Rohzeilen. Ohne diese Angaben unterscheidet niemand „falsche Zeile als
+// Kopfzeile" von „Zeichensatz kaputt" — beide sehen von außen gleich aus, und
+// beide sind schon vorgekommen.
 import { useActionState } from "react";
 import { Badge } from "@/components/data-display";
 import { FileInput } from "@/components/file-input";
@@ -39,6 +44,12 @@ const TRENNZEICHEN_TEXT: Record<string, string> = {
   "|": "Senkrechter Strich (|)",
 };
 
+const FORMAT_TEXT: Record<string, string> = {
+  csv: "CSV",
+  mt940: "MT940 (SWIFT-Auszug)",
+  camt: "CAMT.053 (ISO 20022)",
+};
+
 const GUETE_TON: Record<Guete, "success" | "warning" | "neutral"> = {
   sicher: "success",
   wahrscheinlich: "warning",
@@ -57,13 +68,17 @@ export function ImportClient({
     null,
   );
 
+  // MT940 und CAMT benennen ihre Felder selbst — dort gibt es nichts
+  // zuzuordnen, und der Schritt entfällt vollständig.
+  const ohneSpalten = analysis?.ok && analysis.mappingQuelle === "format";
   const mappingReady =
     analysis?.ok &&
-    analysis.mapping.date !== undefined &&
-    analysis.mapping.purpose !== undefined &&
-    (analysis.mapping.amount !== undefined ||
-      analysis.mapping.debit !== undefined ||
-      analysis.mapping.credit !== undefined);
+    (ohneSpalten ||
+      (analysis.mapping.date !== undefined &&
+        analysis.mapping.purpose !== undefined &&
+        (analysis.mapping.amount !== undefined ||
+          analysis.mapping.debit !== undefined ||
+          analysis.mapping.credit !== undefined)));
 
   return (
     <div className="grid gap-4">
@@ -82,11 +97,11 @@ export function ImportClient({
         </label>
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-gray-700">
-            CSV-Datei (Sparkasse, Volksbank, generisch)
+            Kontoauszug (CSV, MT940/.sta, CAMT.053/.xml)
           </span>
           <FileInput
             name="csv"
-            accept=".csv,text/csv"
+            accept=".csv,.txt,.sta,.mt940,.xml,text/csv,text/plain,application/xml,text/xml"
             required
           />
         </label>
@@ -114,6 +129,13 @@ export function ImportClient({
 
           <Diagnose diagnose={analysis.diagnose} className="mt-3" />
 
+          {ohneSpalten ? (
+            <p className="mt-3 text-sm text-gray-600">
+              {FORMAT_TEXT[analysis.diagnose.format]} benennt seine Felder selbst — eine
+              Spaltenzuordnung ist nicht nötig.
+            </p>
+          ) : (
+          <>
           <form action={analyzeAction} className="mt-3 flex flex-wrap items-end gap-2">
             {/* erneute Analyse mit angepasstem Mapping */}
             <input type="hidden" name="propertyId" value={propertyId} />
@@ -139,6 +161,8 @@ export function ImportClient({
                 : "Spalten automatisch erkannt."}{" "}
             Entweder eine Betragsspalte oder Soll und Haben — nicht beides.
           </p>
+          </>
+          )}
 
           {mappingReady ? (
             <>
@@ -185,8 +209,12 @@ export function ImportClient({
                 <input type="hidden" name="contentBase64" value={analysis.contentBase64} />
                 <input type="hidden" name="fileName" value={analysis.fileName} />
                 <input type="hidden" name="encoding" value={analysis.diagnose.encoding} />
-                <input type="hidden" name="col_date" value={analysis.mapping.date} />
-                <input type="hidden" name="col_purpose" value={analysis.mapping.purpose} />
+                {analysis.mapping.date !== undefined ? (
+                  <input type="hidden" name="col_date" value={analysis.mapping.date} />
+                ) : null}
+                {analysis.mapping.purpose !== undefined ? (
+                  <input type="hidden" name="col_purpose" value={analysis.mapping.purpose} />
+                ) : null}
                 {analysis.mapping.amount !== undefined ? (
                   <input type="hidden" name="col_amount" value={analysis.mapping.amount} />
                 ) : null}
@@ -246,17 +274,27 @@ function Diagnose({ diagnose, className = "" }: { diagnose: ImportDiagnose; clas
     <div className={`rounded-xl bg-gray-50 p-3 text-xs text-gray-600 ${className}`}>
       <div className="flex flex-wrap gap-x-4 gap-y-1">
         <span>
+          Format: <strong>{FORMAT_TEXT[diagnose.format] ?? diagnose.format}</strong>
+        </span>
+        <span>
           Zeichensatz: <strong>{ZEICHENSATZ_TEXT[diagnose.encoding] ?? diagnose.encoding}</strong>
         </span>
-        <span>
-          Trennzeichen: <strong>{TRENNZEICHEN_TEXT[diagnose.delimiter] ?? diagnose.delimiter}</strong>
-        </span>
-        <span>
-          Kopfzeile vorhanden: <strong>{diagnose.hasHeader ? "ja" : "nein"}</strong>
-          {diagnose.hasHeader && diagnose.skippedBefore > 0
-            ? ` (${diagnose.skippedBefore} Zeile(n) davor übersprungen)`
-            : ""}
-        </span>
+        {/* Trennzeichen und Kopfzeile gibt es nur bei CSV — bei MT940 und CAMT
+            wären sie eine Angabe über etwas, das es dort nicht gibt. */}
+        {diagnose.format === "csv" ? (
+          <>
+            <span>
+              Trennzeichen:{" "}
+              <strong>{TRENNZEICHEN_TEXT[diagnose.delimiter] ?? diagnose.delimiter}</strong>
+            </span>
+            <span>
+              Kopfzeile vorhanden: <strong>{diagnose.hasHeader ? "ja" : "nein"}</strong>
+              {diagnose.hasHeader && diagnose.skippedBefore > 0
+                ? ` (${diagnose.skippedBefore} Zeile(n) davor übersprungen)`
+                : ""}
+            </span>
+          </>
+        ) : null}
       </div>
       {diagnose.rawLines.length > 0 ? (
         <div className="mt-2">

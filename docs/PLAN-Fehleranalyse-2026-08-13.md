@@ -14,35 +14,77 @@ können — die Dateizuständigkeiten überschneiden sich bewusst nicht.
 **Wo:** `src/lib/weg/bank-import.ts` (`parseCsv`, `guessMapping`),
 `…/buchhaltung/actions.ts` (`analyzeCsvAction`), `…/buchhaltung/ImportClient.tsx:147`.
 
-**Was der Zustand verrät:** Die Meldung erscheint nur, wenn `analysis.ok === true`
-ist — die Datei wurde also gelesen, geparst, und es gab Kopfzeile *und*
-Datenzeilen. Es ist **kein** Lese- oder Upload-Fehler, sondern ausschließlich die
-Kopfzeilen-Erkennung. Damit fallen die meisten Verdächtigen weg und vier bleiben:
+**Ursache — belegt, nicht vermutet.** Am 13.08.2026 wurde die tatsächliche
+Datei nachgereicht (`Konto_MO32_136866700_2023.numbers`, in Numbers geöffnete
+Fassung von `Konto_MO32_136866700_2023.csv`). Das Numbers-Paket enthält die
+Originaldatei byteweise; sie wurde entpackt und gegen den heutigen Parser
+laufen gelassen. Ergebnis:
 
-1. **Die Kopfzeile ist nicht Zeile 1.** `parseCsv` nimmt kompromisslos die erste
-   Zeile als Header (`const [header, ...body] = rows`). Sparkassen-Exporte aus
-   dem Internet-Banking tragen häufig eine Titel-/Zeitraumzeile („Umsatzanzeige;
-   Zeitraum …; Konto …") davor. Dann ist „Umsatzanzeige" der Header, und
-   `guessMapping` findet nichts. **Wahrscheinlichster Kandidat.**
-2. **Zeichensatz.** `Buffer.from(await file.arrayBuffer()).toString("utf-8")` —
-   fest UTF-8. Bank-Exporte sind oft Windows-1252/ISO-8859-1, manche
-   Excel-Umwege liefern UTF-16LE. Bei UTF-16 zerfällt jede Kopfspalte
-   (`B\0u\0c\0h…`) und nichts trifft mehr.
-3. **Trennzeichen-Autodetect nur über die erste Zeile.** Steht dort ein Titel
-   ohne `;`, kippt die Erkennung auf `,` — und danach ist die ganze Datei eine
-   einzige Spalte.
-4. **Getrennte Soll-/Haben-Spalten** (manche Volksbank-/DATEV-nahen Exporte
-   haben kein Feld „Betrag", sondern „Soll" und „Haben"). `guessMapping` kennt
-   diesen Fall nicht.
+```
+Trennzeichen erkannt: ";"
+Kopfzeile (= in Wahrheit die erste DATENZEILE):
+  ['412920230102U06030979746858737000', '02.01.2023', '+8880,46',
+   '02.01.2023', '', 'MVZ RHR Augen<?>rzte GmbH', 'MO 32 Miete + NK …', '', '']
+Datenzeilen danach: 390 (von 391)
+guessMapping: { date: undefined, amount: undefined, purpose: undefined }
+```
 
-Dazu kommt: Der Bildschirm zeigt **nicht**, was erkannt wurde. Es gibt keinen
-Blick auf die gelesene Kopfzeile und die ersten Rohzeilen — genau die Angabe,
-die den Unterschied zwischen „falsche Zeile als Header" und „Zeichensatz kaputt"
-sichtbar machen würde.
+**Zwei Befunde, beide reproduziert:**
 
-> **Offene Frage an den Betrieb:** Eine echte (anonymisierte) Export-Datei wäre
-> die Abkürzung. Ohne sie wird der Import robust gemacht statt gezielt repariert
-> — das ist ohnehin richtig, dauert aber länger bis zur Bestätigung.
+1. **Die Datei hat gar keine Kopfzeile.** Sie beginnt unmittelbar mit der ersten
+   Buchung. `parseCsv` nimmt aber kompromisslos die erste Zeile als Header
+   (`const [header, ...body] = rows`). Also wird eine *Buchung* zur Kopfzeile
+   erklärt, `guessMapping` findet dort naturgemäß weder „Buchungstag" noch
+   „Betrag" noch „Verwendungszweck" — und **die erste Buchung des Jahres wäre
+   auch bei manueller Zuordnung still verloren** (390 statt 391). Das ist der
+   schwerwiegendere Teil: Er fällt nicht auf.
+2. **Die Datei ist Windows-1252-kodiert, nicht UTF-8.**
+   `Buffer.from(await file.arrayBuffer()).toString("utf-8")` in
+   `analyzeCsvAction:391` ist fest verdrahtet. Gezählt wurden `0xE4` (ä) 51 ×,
+   `0xFC` (ü) 38 ×, `0xDF` (ß) 9 ×, `0xF6` (ö) 5 × und `0x80` 2 ×. Das `0x80`
+   ist beweisend: In Windows-1252 ist es das **Euro-Zeichen**, in ISO-8859-1 ein
+   Steuerzeichen, in UTF-8 überhaupt kein gültiges Byte. **73 von 391 Zeilen**
+   tragen nach der UTF-8-Dekodierung Ersatzzeichen im Zahlungspartner oder
+   Verwendungszweck — also in genau den Feldern, über die später die
+   Einheiten-Zuordnung läuft.
+
+**Das tatsächliche Format** (Volksbank Bochum-Witten, `GENODEM1BOC` — die
+Vermutung „Sparkassenformat" beim Erzeugen der Musterdatei war der Grund, warum
+das Muster funktionierte und die echte Datei nicht):
+
+| Spalte | Inhalt | Anführungszeichen |
+|---|---|---|
+| 0 | Umsatzreferenz `412920230102U0603…` | ja |
+| 1 | **Buchungstag** `02.01.2023` | nein |
+| 2 | **Betrag** `+8880,46` / `-583,10` / `-1.234,56` | nein |
+| 3 | Valutadatum `02.01.2023` | nein |
+| 4 | leer | ja (`""`) |
+| 5 | Zahlungspartner (auf ~27 Zeichen gekürzt) | ja |
+| 6 | **Verwendungszweck** | ja |
+| 7, 8 | leer | nein |
+
+Alle 391 Zeilen haben exakt 9 Felder, Zeilenende CRLF, Trennzeichen `;`,
+gemischte Anführungszeichen, Beträge mit **ausdrücklichem Vorzeichen** (`+`) und
+Tausenderpunkt. Datum und Betrag parsen mit den vorhandenen Funktionen
+fehlerfrei — `parseSignedEuroToCents` verkraftet das führende `+` bereits.
+Gegenprobe über alle Zeilen: 578.891,11 € Einnahmen, 559.007,40 € Ausgaben,
+**keine unlesbare Zeile**. Es fehlt also ausschließlich die Erkennung.
+
+Dazu kommt: Der Bildschirm zeigt **nicht**, was erkannt wurde. Ein Blick auf die
+gelesene Kopfzeile und die ersten Rohzeilen hätte beide Befunde in Sekunden
+sichtbar gemacht.
+
+**Weitere Varianten**, die derselbe Umbau mitnehmen sollte, weil sie im Bestand
+deutscher Bankexporte häufig sind: eine Titel-/Zeitraumzeile **vor** der
+Kopfzeile (Sparkassen-Internetbanking), UTF-16LE aus Excel-Umwegen,
+Trennzeichen-Erkennung nur über die erste Zeile, und getrennte
+**Soll-/Haben-Spalten** statt eines Feldes „Betrag".
+
+> **Datenschutz:** Die Originaldatei enthält Klarnamen, IBANs und Beträge einer
+> realen Gemeinschaft. Sie liegt **nicht** im Repository. Stattdessen wurde eine
+> anonymisierte Fassung mit identischer Byte-Struktur (Windows-1252, ohne
+> Kopfzeile, 9 Spalten, CRLF, `+`/`−`-Beträge, `€`-Zeichen als `0x80`) als
+> Testdatei abgelegt: `portal/src/test/fixtures/vr-umsatz-ohne-kopfzeile.csv`.
 
 ---
 
@@ -357,43 +399,99 @@ nichts anderes im Betrieb gegenprüfen.
 **Branch:** `claude/bankimport-erkennung`
 **Deckt ab:** Notizpunkte 1 und 7
 
-> Im Portal (`/home/user/CRM/portal`) schlägt der CSV-Bankimport fehl: Nach dem
-> Analysieren einer echten Sparkassen-Exportdatei erscheint „Die Spalten für
-> Buchungstag, Betrag und Verwendungszweck konnten nicht automatisch erkannt
-> werden". Eine künstlich erzeugte Musterdatei im Sparkassenformat funktioniert.
-> Die Meldung erscheint nur, wenn das Parsen an sich geklappt hat — es ist also
-> ausschließlich die Kopfzeilen-Erkennung in `guessMapping`/`parseCsv`
-> (`src/lib/weg/bank-import.ts`).
+> Im Portal (`/home/user/CRM/portal`) schlägt der CSV-Bankimport bei einer echten
+> Bankdatei fehl: „Die Spalten für Buchungstag, Betrag und Verwendungszweck
+> konnten nicht automatisch erkannt werden". Eine erzeugte Musterdatei im
+> Sparkassenformat funktioniert.
 >
-> Mach den Import robust statt eine einzelne Bank zu flicken:
+> **Die Ursache ist bereits ermittelt und reproduziert** — du musst nicht mehr
+> suchen. Die Originaldatei (Volksbank Bochum-Witten, Kontoumsätze 2023) hat
+> **zwei** Eigenschaften, mit denen `src/lib/weg/bank-import.ts` nicht umgeht:
+>
+> 1. **Sie hat überhaupt keine Kopfzeile.** Die Datei beginnt unmittelbar mit der
+>    ersten Buchung. `parseCsv` nimmt aber kompromisslos die erste Zeile als
+>    Header (`const [header, ...body] = rows`). Deshalb findet `guessMapping`
+>    nichts — und, schwerwiegender, **die erste Buchung des Jahres geht still
+>    verloren** (390 statt 391 Zeilen), auch wenn der Verwalter die Spalten von
+>    Hand zuordnet. Das fällt niemandem auf.
+> 2. **Sie ist Windows-1252-kodiert.** `analyzeCsvAction:391` dekodiert fest als
+>    UTF-8. Gezählt wurden `0xE4` (ä) 51 ×, `0xFC` (ü) 38 ×, `0xDF` (ß) 9 ×,
+>    `0xF6` (ö) 5 × und zweimal `0x80` — das Euro-Zeichen in Windows-1252 und in
+>    UTF-8 überhaupt kein gültiges Byte. **73 von 391 Zeilen** tragen danach
+>    Ersatzzeichen in Zahlungspartner und Verwendungszweck, also genau in den
+>    Feldern, über die später die Einheiten-Zuordnung läuft.
+>
+> Das tatsächliche Format, 391 Zeilen mit je exakt 9 Feldern, CRLF, Trennzeichen
+> `;`, gemischte Anführungszeichen:
+>
+> | Spalte | Inhalt | in Anführungszeichen |
+> |---|---|---|
+> | 0 | Umsatzreferenz `412920230102U0603…` | ja |
+> | 1 | **Buchungstag** `02.01.2023` | nein |
+> | 2 | **Betrag** `+8880,46` / `-583,10` / `-1.234,56` | nein |
+> | 3 | Valutadatum | nein |
+> | 4 | leer | ja (`""`) |
+> | 5 | Zahlungspartner (auf ~27 Zeichen gekürzt) | ja |
+> | 6 | **Verwendungszweck** | ja |
+> | 7, 8 | leer | nein |
+>
+> Datum und Betrag parsen mit den vorhandenen Funktionen bereits fehlerfrei —
+> `parseSignedEuroToCents` verkraftet das führende `+`. Es fehlt ausschließlich
+> die Erkennung.
+>
+> **Eine anonymisierte Testdatei mit identischer Byte-Struktur liegt bereit:**
+> `src/test/fixtures/vr-umsatz-ohne-kopfzeile.csv` — Windows-1252, ohne
+> Kopfzeile, 9 Spalten, CRLF, `+`/`−`-Beträge, Tausenderpunkt, `€` als `0x80`,
+> Umlaute und ß. Die Originaldatei enthält Klarnamen und IBANs einer realen
+> Gemeinschaft und liegt bewusst **nicht** im Repository; lade keine echten
+> Kontodaten dorthin nach.
+>
+> Bau den Import robust, statt nur diese eine Bank zu flicken:
 >
 > 1. **Zeichensatz erkennen** statt fest UTF-8 (`buchhaltung/actions.ts:391`):
->    BOM für UTF-8/UTF-16LE/BE auswerten, sonst UTF-8 versuchen und bei
->    Ersetzungszeichen (U+FFFD) auf Windows-1252 zurückfallen. Deutsche
->    Bank-Exporte sind regelmäßig Latin-1.
-> 2. **Kopfzeile suchen statt annehmen.** Nicht blind Zeile 1 nehmen: die ersten
->    ~15 Zeilen durchsehen und die nehmen, die am meisten bekannte Spaltennamen
->    trifft; Titel-/Zeitraum-/Saldo-Vorzeilen überspringen. Das ist der
->    wahrscheinlichste Grund des gemeldeten Fehlers.
-> 3. **Trennzeichen über mehrere Zeilen** bestimmen (Median der Feldanzahl),
->    nicht nur über die erste Zeile — sonst kippt eine Titelzeile die Erkennung.
-> 4. **Synonyme erweitern**: „Umsatz in EUR", „Betrag in EUR", „Wert",
->    „Vorgang/Verwendungszweck", „Zahlungsempfänger", „Auftraggeber/Empfänger",
->    „Wertstellung"; Umlaut-Varianten normalisieren (ä/ae, ü/ue …).
-> 5. **Getrennte Soll-/Haben-Spalten** unterstützen: erkennt der Mapper kein
->    „Betrag", aber „Soll" und „Haben", werden beide zu einem vorzeichenbehafteten
->    Betrag zusammengeführt. `ColumnMapping` entsprechend erweitern.
-> 6. **Inhaltsbasierter Rückfall:** Findet die Kopfzeile nichts, die ersten
->    Datenzeilen abtasten — welche Spalte parst durchgängig als Datum, welche als
->    Betrag, welche ist die längste Textspalte. Lieber ein Vorschlag zum
->    Bestätigen als eine leere Zuordnung.
-> 7. **Sichtbar machen, was gelesen wurde.** In `ImportClient.tsx` bei
->    fehlgeschlagener Erkennung die erkannte Kopfzeile und die ersten drei
->    Rohzeilen anzeigen, dazu erkannter Zeichensatz und Trennzeichen. Dann sieht
->    der Verwalter selbst, ob die falsche Zeile als Kopf gelesen wurde.
-> 8. **Zuordnung merken:** Das bestätigte Mapping je `LedgerAccount` speichern
->    und beim nächsten Import derselben Bank vorbelegen (neues Feld auf
->    `LedgerAccount` oder eine kleine Tabelle; Migration nicht vergessen).
+>    BOM für UTF-8/UTF-16LE/BE auswerten; sonst als UTF-8 versuchen und bei
+>    Ersetzungszeichen (U+FFFD) oder ungültigen Sequenzen auf **Windows-1252**
+>    zurückfallen (nicht ISO-8859-1 — nur CP1252 kennt `0x80` als `€`). Achtung:
+>    Der Inhalt reist zwischen den beiden Schritten als Base64 durch das Formular
+>    (`contentBase64`); dekodier **einmal** beim Einlesen und reich danach den
+>    schon dekodierten Text weiter, sonst wird beim zweiten Durchlauf erneut
+>    UTF-8 angenommen und die Korrektur ist wieder weg.
+> 2. **Erkennen, dass eine Kopfzeile fehlt.** Trifft die erste Zeile keinen
+>    einzigen bekannten Spaltennamen und lässt sie sich zugleich als Datensatz
+>    lesen (Datum und Betrag parsen), dann ist sie **keine** Kopfzeile: Alle
+>    Zeilen sind Daten, die Spalten heißen „Spalte 1…n". `parseCsv` muss das
+>    zurückgeben können — heute kann seine Signatur „ohne Kopfzeile" gar nicht
+>    ausdrücken. **Kein Datensatz darf dabei verloren gehen**; sichere das mit
+>    einem Test ab, der die Zeilenzahl prüft.
+> 3. **Kopfzeile suchen statt annehmen.** Gibt es eine, steht sie nicht immer in
+>    Zeile 1: Sparkassen-Internetbanking stellt Titel- und Zeitraumzeilen voran.
+>    Die ersten ~15 Zeilen durchsehen und die nehmen, die die meisten bekannten
+>    Spaltennamen trifft.
+> 4. **Trennzeichen über mehrere Zeilen** bestimmen (häufigste Feldanzahl), nicht
+>    nur über die erste — sonst kippt eine Titelzeile die Erkennung auf `,`.
+> 5. **Inhaltsbasierte Zuordnung** als vollwertiger Weg, nicht als Notnagel: Über
+>    die ersten ~20 Datenzeilen abtasten, welche Spalte durchgängig als Datum
+>    parst (bei zweien ist die frühere der Buchungstag, die zweite Valuta),
+>    welche durchgängig als vorzeichenbehafteter Betrag, und welche die längste
+>    Textspalte ist (Verwendungszweck). Für die vorliegende Datei muss dabei
+>    `{ date: 1, amount: 2, purpose: 6, counterparty: 5 }` herauskommen — **das
+>    ist dein Abnahmetest.**
+> 6. **Synonyme erweitern** für Dateien, die doch eine Kopfzeile haben:
+>    „Umsatz in EUR", „Betrag in EUR", „Wert", „Vorgang/Verwendungszweck",
+>    „Zahlungsempfänger", „Auftraggeber/Empfänger", „Wertstellung";
+>    Umlaut-Varianten normalisieren (ä/ae, ü/ue, ö/oe, ß/ss).
+> 7. **Getrennte Soll-/Haben-Spalten** unterstützen: kein Feld „Betrag", aber
+>    „Soll" und „Haben" → beide zu einem vorzeichenbehafteten Betrag
+>    zusammenführen. `ColumnMapping` entsprechend erweitern.
+> 8. **Sichtbar machen, was gelesen wurde.** In `ImportClient.tsx` immer (nicht
+>    nur im Fehlerfall) anzeigen: erkannter Zeichensatz, Trennzeichen, „Kopfzeile
+>    vorhanden: ja/nein", die ersten drei Rohzeilen. Bei fehlender Erkennung ist
+>    das der Unterschied zwischen „ich sehe das Problem" und „es geht nicht".
+> 9. **Zuordnung merken:** Das bestätigte Mapping je `LedgerAccount` speichern
+>    (samt Zeichensatz und „ohne Kopfzeile") und beim nächsten Import derselben
+>    Bank vorbelegen. Neues Feld auf `LedgerAccount` oder eine kleine Tabelle;
+>    Migration nicht vergessen. Ein Verwalter importiert monatlich aus derselben
+>    Quelle — er soll das genau einmal zuordnen.
 >
 > **Zweiter Teil — Zuordnungsvorschläge nach dem Import.** Heute liegt die
 > Einheiten-Erkennung (`suggestUnit`) auf der Hausgeld-Seite und greift erst
@@ -419,12 +517,24 @@ nichts anderes im Betrieb gegenprüfen.
 >   Datenschutzerklärung und `/ki-transparenz` mitziehen (siehe Skill
 >   `wegportal24-datenschutz`).
 >
-> Tests: `src/lib/weg/bank-import.test.ts` um echte Kopfzeilen-Varianten
-> erweitern (Vorzeilen, Latin-1, UTF-16, Soll/Haben, Komma-Dezimaltrenner mit
-> Semikolon-Feldtrenner). Neue Tests für das Vorschlagsmodul.
+> **Tests.** `src/lib/weg/bank-import.test.ts` erweitern, mit der bereitgelegten
+> Testdatei als Kern:
+> - Datei ohne Kopfzeile → Mapping `{ date: 1, amount: 2, purpose: 6,
+>   counterparty: 5 }`, und **alle** Zeilen kommen als Buchung an (keine geht als
+>   vermeintliche Kopfzeile verloren).
+> - Windows-1252 → „Augenärzte", „Schließgesellschaft", „€" kommen unversehrt
+>   an; kein U+FFFD im Ergebnis.
+> - Beträge mit führendem `+`, mit Tausenderpunkt, mit Unicode-Minus.
+> - Weiter abzudecken: Titel-/Zeitraumzeile vor der Kopfzeile, UTF-16LE mit BOM,
+>   Soll/Haben-Spalten, Komma-Dezimaltrenner bei Semikolon-Feldtrenner.
 >
-> **Bitte melde am Ende zurück, welche Varianten du jetzt abdeckst** — der
-> Betrieb hält eine echte Exportdatei bereit, gegen die wir gegenprüfen können.
+> Zum Nachvollziehen der Diagnose: Das Numbers-Paket ist ein ZIP; die
+> Originaldatei liegt byteweise in `Index/CalculationEngine-*.iwa`
+> (Snappy-komprimiertes Protobuf). Du brauchst das für die Umsetzung nicht — die
+> Befunde oben sind vollständig.
+>
+> **Melde am Ende zurück, welche Varianten du abdeckst.** Der Betrieb kann dann
+> gegen die Originaldatei gegenprüfen.
 
 ---
 
@@ -811,8 +921,12 @@ nichts anderes im Betrieb gegenprüfen.
 
 ## Teil C — Was in dieser Analyse offen bleibt
 
-- **Die echte CSV-Datei** (anonymisiert) würde Chat 1 von „robust bauen" auf
-  „gezielt beheben" verkürzen.
+- ~~**Die echte CSV-Datei** würde Chat 1 von „robust bauen" auf „gezielt
+  beheben" verkürzen.~~ **Erledigt am 13.08.2026:** Datei nachgereicht, Ursache
+  reproduziert (keine Kopfzeile + Windows-1252), anonymisierte Testdatei unter
+  `portal/src/test/fixtures/vr-umsatz-ohne-kopfzeile.csv` abgelegt. Offen bleibt
+  nur, ob im Bestand weitere Bankformate vorkommen — die Umsetzung deckt die
+  gängigen mit ab.
 - **Die Produktions-Konfiguration der Dateiablage** kann von hier aus nicht
   eingesehen werden. Chat 2 baut die Diagnose; das Setzen von
   `BLOB_READ_WRITE_TOKEN` bzw. das Anlegen eines privaten Blob-Stores bleibt ein

@@ -6,9 +6,21 @@
 // sichtbar wird — erst bei langen Objektnamen oder vielen Positionen. Der Test
 // prüft deshalb jeden Brief zweimal: mit normalen und mit absichtlich
 // überlangen Daten.
+//
+// **Zeitgrenze.** Diese Prüfungen erzeugen echte PDFs samt eingebetteter
+// Schriften und Fotos; die längste lag bei etwa 4,8 Sekunden — gegen Vitests
+// Vorgabe von 5. Unter Last kippte sie damit gelegentlich um, und weil
+// `npm run pruefung` auch den Vercel-Build absichert, hätte das einen Deploy
+// grundlos blockiert. Ein Test, der mal durchgeht und mal nicht, wird nach dem
+// zweiten Mal ignoriert — und dann fällt der echte Fehler mit ihm durch.
+// Deshalb hier ausdrücklich mehr Zeit statt einer stillen Flackerstelle. Die
+// Grenze steht bewusst nur in dieser Datei: Anderswo wäre eine Laufzeit von
+// Sekunden ein Befund, keine Eigenart.
 import fs from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.setConfig({ testTimeout: 30_000 });
 import { PDFDocument } from "pdf-lib";
 import { generateMahnung } from "./mahnung";
 import { generateBetriebskosten } from "./betriebskosten";

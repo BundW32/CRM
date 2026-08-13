@@ -450,6 +450,21 @@ model User {
   emailVerifiedAt             DateTime?
   emailVerifyToken            String?                     @unique
   emailVerifyExpiry           DateTime?
+  // Selbst angestoßener Wechsel der E-Mail-Adresse (Doppel-Opt-in).
+  //
+  // `email` ist @unique UND der Anmeldename: Ein Tippfehler sperrt den Zugang
+  // aus, und ohne Bestätigung ließe sich eine fremde Adresse eintragen. Die
+  // neue Adresse steht deshalb bis zur Bestätigung NUR hier und wird erst beim
+  // Einlösen des Tokens nach `email` übernommen.
+  //
+  // Bewusst OHNE @unique auf `pendingEmail`: Zwei Personen dürfen dieselbe
+  // Adresse anfragen (nur eine kann sie einlösen — dafür sorgt `email`), und
+  // eine Sperre hier verriete über die Fehlermeldung, dass jemand anderes
+  // gerade dieselbe Adresse beantragt hat. Der Token dagegen ist @unique wie
+  // die übrigen Token und steht nur als Hash in der Datenbank (lib/token-hash).
+  pendingEmail                String?
+  emailChangeToken            String?                     @unique
+  emailChangeExpiry           DateTime?
   // DSGVO-Löschung durch Anonymisierung (Art. 17): markiert einen entpersonalisierten
   // Datensatz, damit er aus Kontakt-/Eigentümerlisten ausgeblendet werden kann.
   anonymizedAt                DateTime?

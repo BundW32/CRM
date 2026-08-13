@@ -49,32 +49,59 @@ const nurText = (q: string) =>
 
 describe("KI-Funktionen: Text und Code stimmen überein", () => {
   // Jede KI-Funktion hängt an einem eigenen Env-Schalter `AI_…_ENABLED`.
+  // Rekursiv: Die Suche lief bis zum 13.08.2026 nur über die oberste Ebene von
+  // `src/lib` — eine KI-Funktion in einem Unterordner (`lib/weg/kostenart-ki.ts`)
+  // wäre der Zählung entgangen, und genau davor soll diese Prüfung schützen.
   const schalter = new Set<string>();
-  for (const datei of readdirSync(src("lib"))) {
-    if (!datei.endsWith(".ts") || datei.includes(".test.")) continue;
-    for (const m of lies(src("lib", datei)).matchAll(/process\.env\.(AI_[A-Z0-9_]+_ENABLED)/g)) {
-      schalter.add(m[1]);
+  const durchsuche = (ordner: string) => {
+    for (const eintrag of readdirSync(ordner, { withFileTypes: true })) {
+      const pfad = join(ordner, eintrag.name);
+      if (eintrag.isDirectory()) {
+        durchsuche(pfad);
+        continue;
+      }
+      if (!eintrag.name.endsWith(".ts") || eintrag.name.includes(".test.")) continue;
+      for (const m of lies(pfad).matchAll(/process\.env\.(AI_[A-Z0-9_]+_ENABLED)/g)) {
+        schalter.add(m[1]);
+      }
     }
-  }
+  };
+  durchsuche(src("lib"));
 
-  it("kennt genau die drei dokumentierten Schalter", () => {
+  it("kennt genau die vier dokumentierten Schalter", () => {
     // Schlägt diese Zusicherung fehl, ist eine KI-Funktion dazugekommen oder
     // weggefallen. Dann gehören /datenschutz, /avv und /ki-transparenz
     // nachgezogen — und die Zahl unten in dieser Datei.
     expect([...schalter].sort()).toEqual([
       "AI_ASSISTANT_ENABLED",
+      "AI_KOSTENART_ENABLED",
       "AI_OBJEKT_IMPORT_ENABLED",
       "AI_TRIAGE_ENABLED",
     ]);
   });
 
   it("nennt in Datenschutzerklärung und KI-Transparenz dieselbe Anzahl", () => {
-    expect(schalter.size).toBe(3);
+    expect(schalter.size).toBe(4);
     // Die Texte schreiben die Zahl aus. „zwei" stand dort, als es längst drei
     // waren — der teuerste Zustand, weil er nach Vollständigkeit aussieht.
-    expect(nurText(DATENSCHUTZ)).toContain("drei optionale KI-Funktionen");
-    expect(nurText(KI_TRANSPARENZ)).toContain("drei KI-Funktionen");
-    expect(ohneKommentare(DATENSCHUTZ)).not.toMatch(/zwei optionale KI-Funktionen/);
+    expect(nurText(DATENSCHUTZ)).toContain("vier optionale KI-Funktionen");
+    expect(nurText(KI_TRANSPARENZ)).toContain("vier KI-Funktionen");
+    expect(ohneKommentare(DATENSCHUTZ)).not.toMatch(/(zwei|drei) optionale KI-Funktionen/);
+  });
+
+  it("nennt den Kostenart-Vorschlag überall, wo die anderen stehen", () => {
+    // Er läuft im Finanzbereich — dort, wo die Texte sonst ausdrücklich
+    // versprechen, dass keine KI mitwirkt. Eine Lücke wäre hier besonders teuer.
+    for (const [name, text] of [
+      ["/datenschutz", DATENSCHUTZ],
+      ["/avv", AVV],
+      ["/ki-transparenz", KI_TRANSPARENZ],
+      ["/datenschutz-saas", DATENSCHUTZ_SAAS],
+    ] as const) {
+      expect(ohneKommentare(text), `${name} nennt den Kostenart-Vorschlag nicht`).toMatch(
+        /Kostenart-Vorschlag/,
+      );
+    }
   });
 
   it("nennt den Objekt-Import überall, wo die anderen beiden stehen", () => {
@@ -148,7 +175,7 @@ describe("Stand-Daten", () => {
     const REGISTRIEREN = lies(src("app", "registrieren", "actions.ts"));
     const version = REGISTRIEREN.match(/const TERMS_VERSION = "(\d{4}-\d{2}-\d{2})"/)?.[1];
     expect(version, "TERMS_VERSION nicht gefunden").toBeDefined();
-    expect(ohneKommentare(AVV)).toContain("Stand: 11. August 2026");
-    expect(version).toBe("2026-08-11");
+    expect(ohneKommentare(AVV)).toContain("Stand: 13. August 2026");
+    expect(version).toBe("2026-08-13");
   });
 });

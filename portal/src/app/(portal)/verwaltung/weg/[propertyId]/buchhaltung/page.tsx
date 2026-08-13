@@ -637,8 +637,8 @@ export default async function WegBuchhaltungPage({
           </Card>
         ) : null}
 
-        {/* CSV-Import */}
-        <Card title="Bankumsätze importieren (CSV — ohne Bankanbindung)">
+        {/* Dateiimport: CSV, MT940, CAMT.053 */}
+        <Card title="Bankumsätze importieren (CSV, MT940, CAMT.053 — ohne Bankanbindung)">
           {accounts.length === 0 ? (
             <EmptyState>Zuerst in den Stammdaten ein Konto anlegen.</EmptyState>
           ) : (

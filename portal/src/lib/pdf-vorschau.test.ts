@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   BUDGET_DESKTOP,
@@ -211,5 +213,46 @@ describe("renderSchlange", () => {
     await expect(kaputt).rejects.toThrow("abgebrochen");
     // Der Platz muss wieder frei sein, sonst rendert die Vorschau nie wieder.
     await expect(anstellen(async () => "fertig")).resolves.toBe("fertig");
+  });
+});
+
+// ── Aufräumen beim Schließen ────────────────────────────────────────────────
+// Die Rechnungen oben halten den laufenden Betrieb im Rahmen. Sie genügten
+// nicht: Der Tab starb weiterhin beim SCHLIESSEN der Vorschau. Beim Verlassen
+// nimmt React die Leinwände aus dem Dokument, ihre Bitmaps gibt der Browser
+// aber erst frei, wenn er die Elemente einsammelt — bis dahin liegen die Seiten
+// des Fensters weiter im Prozess (beim Desktop-Budget mehrere hundert Megabyte)
+// und addieren sich über mehrere Vorschauen auf.
+//
+// Was dieser Test kann und was nicht: Er hält fest, dass der Handgriff
+// **dasteht** — nicht, dass der Speicher tatsächlich sinkt. Das ließe sich nur
+// in einem echten Browser messen, und genau dort merkt man den Fehler erst,
+// wenn der Tab weg ist. Für die Frage „ist das Freigeben beim nächsten Umbau
+// versehentlich verschwunden?" ist er trotzdem die richtige Wache — dieselbe
+// Bauart wie `versammlungsbeschluss.test.ts`.
+describe("Vorschau gibt ihren Speicher beim Schließen frei", () => {
+  const quelle = readFileSync(
+    join(__dirname, "..", "components", "file-preview.tsx"),
+    "utf8",
+  );
+
+  it("setzt die Leinwand beim Verlassen auf 0×0", () => {
+    // Der Effekt muss OHNE Abhängigkeiten stehen: Mit `sichtbar`/`rendern`
+    // liefe er bei jeder Zoomänderung mit und schaltete die sichtbare Seite
+    // kurz auf weiß.
+    const entlassEffekt = /useEffect\(\(\) => \{\s*const canvas = canvasRef\.current;\s*return \(\) => \{[^}]*canvas\.width = 0;[^}]*canvas\.height = 0;[^}]*\};\s*\},\s*\[\]\);/;
+    expect(quelle).toMatch(entlassEffekt);
+  });
+
+  it("schließt Dokument und Worker beim Verlassen", () => {
+    // `destroy()` beendet den pdf.js-Worker. Ohne den Aufruf bliebe je
+    // geöffneter Vorschau ein Worker samt Dokumentpuffer stehen.
+    expect(quelle).toMatch(/loaded\?\.destroy\(\)/);
+  });
+
+  it("fängt die Ablehnung aus `destroy` ab", () => {
+    // Läuft beim Schließen noch ein Auftrag, lehnt `destroy()` ab. Unbehandelt
+    // stünde das als Fehler in der Konsole und sähe aus wie ein Defekt.
+    expect(quelle).toMatch(/destroy\(\)\.catch\(/);
   });
 });

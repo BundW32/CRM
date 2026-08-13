@@ -28,6 +28,14 @@
 //  - `imFenster` — nur Seiten in Sichtweite behalten ihre Leinwand,
 //  - `renderAufloesung` — Gerätepixel und Zoom bleiben im Pixelbudget,
 //  - `anstellen` + `task.cancel()` — höchstens zwei Aufträge, alte weichen.
+//
+// Diese drei halten den LAUFENDEN Betrieb im Rahmen. Sie genügten nicht: Der
+// Tab starb weiterhin, und zwar beim SCHLIESSEN. Beim Verlassen nimmt React die
+// Leinwände aus dem Dokument, ihre Bitmaps gibt der Browser aber erst frei,
+// wenn er die Elemente einsammelt — bis dahin liegen die Seiten des Fensters
+// weiter im Prozess und addieren sich über mehrere Vorschauen auf. Deshalb gibt
+// jede Seite ihre Bitmap beim Verlassen ausdrücklich frei (`canvas.width = 0`),
+// und das Dokument wird samt Worker geschlossen (`destroy()`).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download, Loader2, Minus, Plus, X } from "lucide-react";
 import {
@@ -50,7 +58,13 @@ type Props = {
 type PdfDoc = {
   numPages: number;
   getPage: (n: number) => Promise<PdfPage>;
-  destroy: () => void;
+  /**
+   * Schließt das Dokument UND beendet den Worker. Liefert ein Promise: Läuft
+   * beim Schließen noch ein Renderauftrag, lehnt es ab — beim Aufräumen ist das
+   * belanglos, ohne `catch` stünde es aber als unbehandelte Ablehnung in der
+   * Konsole und sähe aus wie ein Fehler.
+   */
+  destroy: () => Promise<void>;
 };
 type PdfPage = {
   getViewport: (opts: { scale: number }) => { width: number; height: number };
@@ -161,7 +175,7 @@ export function FilePreview({ src, title, onClose }: Props) {
         ).toString();
         const result = (await pdfjs.getDocument({ data: bytes }).promise) as unknown as PdfDoc;
         if (cancelled) {
-          result.destroy();
+          result.destroy().catch(() => {});
           return;
         }
 
@@ -176,7 +190,7 @@ export function FilePreview({ src, title, onClose }: Props) {
           // Kein Beinbruch: dann bleibt A4 hoch die Vorgabe.
         }
         if (cancelled) {
-          result.destroy();
+          result.destroy().catch(() => {});
           return;
         }
 
@@ -193,7 +207,7 @@ export function FilePreview({ src, title, onClose }: Props) {
 
     return () => {
       cancelled = true;
-      loaded?.destroy();
+      loaded?.destroy().catch(() => {});
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [src]);
@@ -437,6 +451,32 @@ function PdfPageCanvas({
     const beobachter = new ResizeObserver(() => setPlatzBreite(el.clientWidth));
     beobachter.observe(el);
     return () => beobachter.disconnect();
+  }, []);
+
+  // Die Bitmap beim VERLASSEN freigeben — nicht nur beim Hinausscrollen.
+  //
+  // Das war die Lücke, die nach den Speichergrenzen blieb. Die Grenzen halten
+  // den laufenden Betrieb im Rahmen; beim Schließen der Vorschau nimmt React
+  // die Leinwände zwar aus dem Dokument, ihre Bitmaps gibt der Browser aber
+  // erst frei, wenn er die Elemente einsammelt. Bis dahin liegen bis zu
+  // FENSTER_SEITEN Seiten in voller Auflösung im Prozess — beim Desktop-Budget
+  // mehrere hundert Megabyte. Wer zwei, drei Dokumente nacheinander ansieht und
+  // schließt, sammelt sie auf, und irgendwann beendet das System den Tab:
+  // „This page couldn't load", ohne Fehlermeldung und ohne Spur im JS-Heap,
+  // weil Leinwand-Bitmaps nicht darin liegen.
+  //
+  // Eine Leinwand auf 0×0 zu setzen gibt ihre Bitmap sofort frei — derselbe
+  // Handgriff, den der Renderer-Effekt beim Hinausscrollen schon macht. Er
+  // gehört in einen EIGENEN Effekt ohne Abhängigkeiten: Im Renderer-Effekt
+  // liefe er bei jeder Zoom- und Fensteränderung mit und schaltete die
+  // sichtbare Seite kurz auf weiß.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    return () => {
+      if (!canvas) return;
+      canvas.width = 0;
+      canvas.height = 0;
+    };
   }, []);
 
   const cssBreite = platzBreite * zoom;

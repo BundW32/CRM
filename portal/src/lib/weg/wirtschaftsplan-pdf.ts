@@ -2,26 +2,37 @@
 // Einzelwirtschaftspläne. Wird sowohl von der Verwalter-Route als auch von der
 // eigentümer-gescopten Route auf /finanzen genutzt, damit beide exakt dasselbe
 // Dokument erzeugen.
-import type { EconomicPlan, EconomicPlanItem, CostType, Unit } from "@/generated/prisma/client";
+import type {
+  EconomicPlan,
+  EconomicPlanItem,
+  CostType,
+  HausgeldRounding,
+  Unit,
+} from "@/generated/prisma/client";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { briefkopfAus } from "@/lib/documents/briefkopf";
 import { db } from "@/lib/db";
 import { distributionKeyLabels } from "@/lib/labels";
 import { generateEinzelwirtschaftsplaene } from "@/lib/documents/einzelwirtschaftsplan";
 import { generateWirtschaftsplan, type WirtschaftsplanUnit } from "@/lib/documents/wirtschaftsplan";
-import { computeUnitAdvances, monthlyInstallments } from "@/lib/weg/economic-plan";
+import { computeUnitAdvances, monthlyInstallmentPlan } from "@/lib/weg/economic-plan";
 
 type PlanWithItems = EconomicPlan & {
   items: (EconomicPlanItem & { costType: CostType })[];
 };
+
+// Rundung der Monatsraten. Aufrufer reichen `rundungFuerPlan(plan, property)`
+// durch; fehlt sie, bleibt es beim centgenauen Altverhalten.
+type MitRundung = { rounding?: HausgeldRounding };
 
 export async function buildWirtschaftsplanPdf(args: {
   propertyName: string;
   organizationId: string;
   plan: PlanWithItems;
   units: Unit[];
-}): Promise<Buffer> {
+} & MitRundung): Promise<Buffer> {
   const { propertyName, organizationId, plan, units } = args;
+  const rounding = args.rounding ?? "CENT";
 
   const advances = computeUnitAdvances(
     plan.items.map((i) => ({
@@ -35,16 +46,10 @@ export async function buildWirtschaftsplanPdf(args: {
   // Vorschussbedarf = Ausgaben − Einnahmen (§ 28 Abs. 1 WEG).
   const totalCents = advances.totalCents;
 
-  const planUnits: WirtschaftsplanUnit[] = units.map((u) => {
-    const annual = advances.perUnit.get(u.id) ?? 0;
-    const rates = monthlyInstallments(annual);
-    return {
-      label: u.label,
-      annualCents: annual,
-      monthlyMinCents: Math.min(...rates),
-      monthlyMaxCents: Math.max(...rates),
-    };
-  });
+  const planUnits: WirtschaftsplanUnit[] = units.map((u) => ({
+    label: u.label,
+    raten: monthlyInstallmentPlan(advances.perUnit.get(u.id) ?? 0, rounding),
+  }));
 
   const kopf = await briefkopfAus(await getBrandingForOrg(organizationId));
   return generateWirtschaftsplan({
@@ -64,6 +69,7 @@ export async function buildWirtschaftsplanPdf(args: {
     })),
     totalCents,
     units: planUnits,
+    rounding,
     generatedAt: new Date(),
   });
 }
@@ -83,8 +89,9 @@ export async function buildEinzelwirtschaftsplanPdf(args: {
   units: Unit[];
   ownerNamesByUnit?: Map<string, string[]>;
   onlyUnitIds?: string[];
-}): Promise<Buffer> {
+} & MitRundung): Promise<Buffer> {
   const { propertyName, organizationId, plan, units, ownerNamesByUnit, onlyUnitIds } = args;
+  const rounding = args.rounding ?? "CENT";
 
   const advances = computeUnitAdvances(
     plan.items.map((i) => ({
@@ -111,7 +118,7 @@ export async function buildEinzelwirtschaftsplanPdf(args: {
         ? { date: plan.resolvedAt, note: plan.resolutionNote }
         : null,
     units: gewaehlt.map((u) => {
-      const annual = advances.perUnit.get(u.id) ?? 0;
+      const raten = monthlyInstallmentPlan(advances.perUnit.get(u.id) ?? 0, rounding);
       return {
         label: u.label,
         ownerNames: ownerNamesByUnit?.get(u.id) ?? [],
@@ -125,8 +132,7 @@ export async function buildEinzelwirtschaftsplanPdf(args: {
           }))
           // Positionen ohne Planwert würden die Seite mit Nullzeilen füllen.
           .filter((p) => p.totalCents > 0),
-        annualCents: annual,
-        monthlyCents: monthlyInstallments(annual),
+        raten,
       };
     }),
     generatedAt: new Date(),

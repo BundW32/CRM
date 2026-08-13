@@ -4,13 +4,17 @@ import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { Alert, Card, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { Badge } from "@/components/data-display";
 import { Begriff } from "@/components/begriff";
 import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import { distributionKeyLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
-import { MANUAL_KEYS } from "@/lib/weg/annual-statement";
+import { MANUAL_KEYS, type Pruefziel } from "@/lib/weg/annual-statement";
 import { computeStatementView, type StatementView } from "@/lib/weg/statement-service";
+import { stimmeKontenDerAbrechnungAb } from "@/lib/weg/kontendiagnose-service";
+import { bauePruefliste, type Pruefliste, type Pruefpunkt } from "@/lib/weg/pruefliste";
+import type { Verdacht } from "@/lib/weg/kontenabstimmung";
 import { einheitenOhneFeld } from "@/lib/weg/economic-plan";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { FilePreviewLink } from "@/components/file-preview-link";
@@ -53,6 +57,175 @@ const FEHLER_TEXTE: Record<string, string> = {
     "In der Datei wurden keine Spalten für Einheit und Betrag erkannt. Erwartet werden Spaltenüberschriften wie Einheit/Wohnung/Nr. und Betrag/Kosten/Summe.",
   import_leer: "Die Datei enthält keine lesbaren Beträge.",
 };
+
+// ── Prüfliste ───────────────────────────────────────────────────────────────
+
+const GRUPPEN = [
+  {
+    status: "blockierend" as const,
+    titel: "Blockierend — verhindert das Fertigstellen",
+    tone: "danger" as const,
+    zeichen: "✗",
+    farbe: "text-critical",
+  },
+  {
+    status: "zuklaeren" as const,
+    titel: "Zu klären — hält nichts auf, gehört aber angesehen",
+    tone: "warning" as const,
+    zeichen: "!",
+    farbe: "text-warn",
+  },
+  {
+    status: "erledigt" as const,
+    titel: "Erledigt",
+    tone: "success" as const,
+    zeichen: "✓",
+    farbe: "text-good",
+  },
+];
+
+/**
+ * Die Prüfliste als eine Karte.
+ *
+ * Ganz oben der Satz, der die Frage des Verwalters beantwortet („liegt es am
+ * Programm oder an mir?"), darunter der Fortschritt, dann die drei Gruppen.
+ * Jeder Punkt trägt seinen Weg zur betroffenen Stelle bei sich — eine Meldung,
+ * die eine Summe nennt und den Verwalter suchen lässt, ist eine halbe Meldung.
+ */
+function PrueflisteKarte({
+  pruefliste,
+  zielHref,
+}: {
+  pruefliste: Pruefliste;
+  zielHref: (ziel: Pruefziel) => string;
+}) {
+  const fertig = pruefliste.offen === 0;
+  return (
+    <Card title="Prüfliste vor dem Fertigstellen">
+      <div
+        className={`mb-4 rounded-xl px-4 py-3 text-sm ${
+          fertig ? "bg-good-light text-good" : "bg-gray-50 text-gray-800"
+        }`}
+      >
+        <p>{pruefliste.antwort}</p>
+        <p className="mt-1 font-medium">{pruefliste.handgriff}</p>
+      </div>
+
+      <div className="mb-4 flex items-center gap-3">
+        <div
+          className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100"
+          role="presentation"
+        >
+          <div
+            className={`h-full rounded-full ${fertig ? "bg-good" : "bg-brand-orange"}`}
+            style={{
+              width: `${pruefliste.gesamt === 0 ? 100 : ((pruefliste.gesamt - pruefliste.offen) / pruefliste.gesamt) * 100}%`,
+            }}
+          />
+        </div>
+        <span className="shrink-0 text-xs font-medium text-gray-500">
+          {pruefliste.fortschritt}
+        </span>
+      </div>
+
+      <div className="grid gap-4">
+        {GRUPPEN.map((gruppe) => {
+          const punkte = pruefliste.punkte.filter((p) => p.status === gruppe.status);
+          if (punkte.length === 0) return null;
+          return (
+            <div key={gruppe.status}>
+              <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+                {gruppe.titel}
+                <Badge tone={gruppe.tone}>{punkte.length}</Badge>
+              </h3>
+              <ul className="grid gap-2">
+                {punkte.map((punkt) => (
+                  <PrueflistePunkt
+                    key={punkt.id}
+                    punkt={punkt}
+                    zeichen={gruppe.zeichen}
+                    farbe={gruppe.farbe}
+                    zielHref={zielHref}
+                  />
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function PrueflistePunkt({
+  punkt,
+  zeichen,
+  farbe,
+  zielHref,
+}: {
+  punkt: Pruefpunkt;
+  zeichen: string;
+  farbe: string;
+  zielHref: (ziel: Pruefziel) => string;
+}) {
+  return (
+    <li className="flex gap-2.5 rounded-xl border border-gray-100 px-3 py-2.5">
+      <span aria-hidden className={`mt-0.5 shrink-0 font-semibold ${farbe}`}>
+        {zeichen}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-gray-900">{punkt.titel}</p>
+        <p className="mt-0.5 text-sm text-gray-600">{punkt.text}</p>
+        {punkt.ziel ? (
+          <Link
+            href={zielHref(punkt.ziel)}
+            className="mt-1 inline-block text-sm font-medium text-gray-700 underline hover:text-brand-green"
+          >
+            {punkt.ziel.label}
+          </Link>
+        ) : null}
+        {punkt.verdachte && punkt.verdachte.length > 0 ? (
+          <div className="mt-2 border-t border-gray-100 pt-2">
+            <p className="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+              {punkt.verdachte.length === 1 ? "Mögliche Ursache" : "Mögliche Ursachen"}
+            </p>
+            <ul className="grid gap-1.5">
+              {punkt.verdachte.map((verdacht, i) => (
+                <VerdachtZeile key={i} verdacht={verdacht} zielHref={zielHref} />
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
+function VerdachtZeile({
+  verdacht,
+  zielHref,
+}: {
+  verdacht: Verdacht;
+  zielHref: (ziel: Pruefziel) => string;
+}) {
+  return (
+    <li className="text-sm text-gray-600">
+      <span className="mr-1.5 text-gray-300">→</span>
+      {verdacht.text}
+      {verdacht.ziel ? (
+        <>
+          {" "}
+          <Link
+            href={zielHref(verdacht.ziel)}
+            className="font-medium whitespace-nowrap text-gray-700 underline hover:text-brand-green"
+          >
+            {verdacht.ziel.label}
+          </Link>
+        </>
+      ) : null}
+    </li>
+  );
+}
 
 export default async function JahresabrechnungDetailPage({
   params,
@@ -99,6 +272,11 @@ export default async function JahresabrechnungDetailPage({
       ? (statement.snapshot as unknown as StatementView)
       : await computeStatementView(property, statement.year, statement.id);
 
+  // Letzter Tag des Wirtschaftsjahres — `fyEnd` ist exklusiv. Einmal gerechnet
+  // statt an vier Stellen mit derselben Millisekunden-Subtraktion.
+  const letzterTagDatum = new Date(new Date(view.fyEnd).getTime() - 86_400_000);
+  const letzterTag = letzterTagDatum.toISOString().slice(0, 10);
+
   const [units, manualRows, checks] = await Promise.all([
     db.unit.findMany({
       where: { propertyId: property.id },
@@ -117,6 +295,44 @@ export default async function JahresabrechnungDetailPage({
     manualByCostType.set(row.costTypeId, inner);
   }
   const reportedByAccount = new Map(checks.map((c) => [c.accountId, c.reportedEndCents]));
+
+  // Kontenabstimmung samt Diagnose — nur für Entwürfe. Eine fertige Abrechnung
+  // ist eingefroren; eine Ursachensuche an ihr wäre eine Aussage über den
+  // heutigen Datenbestand, nicht über das, was beschlossen wurde.
+  const abstimmung = isDraft
+    ? await stimmeKontenDerAbrechnungAb(property, statement, view)
+    : [];
+  const pruefliste = bauePruefliste({
+    befunde: view.befunde ?? [],
+    abstimmung,
+    hatPositionen: view.hatPositionen,
+  });
+  /**
+   * Aus einem Prüfziel einen Link machen.
+   *
+   * Der Zeitraum des Wirtschaftsjahres wird hier zentral angehängt und nicht an
+   * jeder Fundstelle einzeln: Der Jahresfilter der Buchhaltung meint das
+   * **Kalender**jahr und ginge bei abweichendem Wirtschaftsjahr daneben.
+   */
+  const zielHref = (ziel: Pruefziel): string => {
+    switch (ziel.art) {
+      case "abschnitt":
+        return `#${ziel.anker}`;
+      case "stammdaten":
+        return `/verwaltung/weg/${property.id}/stammdaten#${ziel.anker}`;
+      case "buchhaltung": {
+        const params = new URLSearchParams(ziel.filter);
+        // Eine einzelne Buchung braucht keinen Zeitraum — sie kann außerhalb
+        // des Wirtschaftsjahres liegen, das ist bei „Buchung am Jahresrand"
+        // gerade der Befund.
+        if (!ziel.filter.buchung) {
+          params.set("von", view.fyStart);
+          params.set("bis", letzterTag);
+        }
+        return `/verwaltung/weg/${property.id}/buchhaltung?${params.toString()}`;
+      }
+    }
+  };
 
   // Einheiten ohne Wohnfläche — Grundlage der Fehlermeldung oben.
   const ohneFlaeche = einheitenOhneFeld(
@@ -243,53 +459,20 @@ Muster — ersetzt keine Rechtsberatung.`;
           Vorhandene Dokumente werden dabei ersetzt, nicht verdoppelt.
           {ablageWiederholen}
         </Alert>
-      ) : view.errors.length > 0 ? (
-        <Alert variant="warning" title="Prüfliste — vor dem Fertigstellen zu klären" className="mb-4">
-          <ul className="list-disc pl-4">
-            {view.errors.map((e, i) => (
-              <li key={i}>{e}</li>
-            ))}
-          </ul>
-        </Alert>
-      ) : !view.hatPositionen ? (
-        // Ohne Positionen ist die Gleichung „Summe der Einzelabrechnungen =
-        // Gesamtabrechnung" 0 = 0 und damit trivial erfüllt. Grün zu melden
-        // hieße, eine Prüfung zu bestätigen, die nichts geprüft hat — und die
-        // Suche nach dem eigentlichen Fehler zu beenden, statt sie auszulösen.
-        <Alert variant="warning" className="mb-4">
-          Für dieses Wirtschaftsjahr ist nichts zu verteilen — es sind keine Buchungen
-          erfasst. Die Abrechnung wäre rechnerisch richtig und inhaltlich leer. Prüfen Sie,
-          ob die Kontoauszüge des Jahres eingelesen und den Kostenarten zugeordnet sind.
-        </Alert>
       ) : (
-        // „Vollständig" versprach mehr, als hier geprüft wird: Nachgerechnet
-        // wird die VERTEILUNG (Σ Einzelabrechnungen = Gesamtabrechnung), nicht
-        // ob alle Kosten des Jahres gebucht sind. Bei einer einzigen erfassten
-        // Buchung ging der Satz genauso grün durch — und wer ihn liest, hört
-        // auf zu suchen.
-        <Alert variant="success" className="mb-4">
-          Die Verteilung geht centgenau auf: Die Summe der Einzelabrechnungen entspricht der
-          Gesamtabrechnung. Ob alle Kosten des Jahres gebucht sind, prüft das nicht — dazu
-          ein Blick auf die Kontoauszüge.
-        </Alert>
+        // EINE Prüfliste statt zweier unverbundener Kästen: Fehler standen in
+        // einem gelben Alert, Hinweise in einem blauen, und das „✗" je Konto
+        // wieder woanders. Wer wissen wollte, wie viel noch offen ist, musste
+        // drei Stellen zusammenzählen — und erfuhr nirgends, ob das Programm
+        // etwas vermisst oder der Bestand etwas nicht hergibt.
+        <PrueflisteKarte pruefliste={pruefliste} zielHref={zielHref} />
       )}
-
-      {/* Hinweise halten das Fertigstellen nicht auf — sie zeigen etwas, das
-          richtig sein kann, aber geprüft gehört. */}
-      {isDraft && view.warnings.length > 0 ? (
-        <Alert variant="info" title="Zur Kenntnis" className="mb-4">
-          <ul className="list-disc pl-4">
-            {view.warnings.map((w, i) => (
-              <li key={i}>{w}</li>
-            ))}
-          </ul>
-        </Alert>
-      ) : null}
 
       <div className="grid gap-4">
         {/* Gesamtabrechnung */}
         <Card
-          title={`Gesamtabrechnung ${view.fyStart.split("-").reverse().join(".")} – ${new Date(new Date(view.fyEnd).getTime() - 86400000).toISOString().slice(0, 10).split("-").reverse().join(".")}`}
+          id="konten"
+          title={`Gesamtabrechnung ${view.fyStart.split("-").reverse().join(".")} – ${letzterTag.split("-").reverse().join(".")}`}
         >
           <dl className="mb-4 grid gap-3 sm:grid-cols-3">
             <div>
@@ -327,7 +510,7 @@ Muster — ersetzt keine Rechtsberatung.`;
             <input type="hidden" name="propertyId" value={property.id} />
             <input type="hidden" name="statementId" value={statement.id} />
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+              <table className="w-full min-w-[880px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
                     <th className="py-2 pr-3">Konto</th>
@@ -337,12 +520,15 @@ Muster — ersetzt keine Rechtsberatung.`;
                     <th className="py-2 pr-3 text-right">Umbuchungen</th>
                     <th className="py-2 pr-3 text-right">Endbestand (rechn.)</th>
                     <th className="py-2 pr-3 text-right">laut Kontoauszug</th>
+                    <th className="py-2 pr-3 text-right">Abweichung</th>
                   </tr>
                 </thead>
                 <tbody>
                   {view.accounts.map((a) => {
                     const reported = reportedByAccount.get(a.id);
-                    const match = reported === a.endCents;
+                    // Nur die Zahl. Der Satz dazu — Richtung und mögliche
+                    // Ursache — steht in der Prüfliste, wo Platz dafür ist.
+                    const diff = reported === undefined ? null : reported - a.endCents;
                     return (
                       <tr key={a.id} className="border-b border-gray-100">
                         <td className="py-2 pr-3 font-medium text-gray-900">
@@ -351,35 +537,48 @@ Muster — ersetzt keine Rechtsberatung.`;
                             {ledgerAccountKindLabels[a.kind]}
                           </span>
                         </td>
-                        <td className="py-2 pr-3 text-right">{euro(a.startCents)}</td>
-                        <td className="py-2 pr-3 text-right">{euro(a.inCents)}</td>
-                        <td className="py-2 pr-3 text-right">{euro(a.outCents)}</td>
-                        <td className="py-2 pr-3 text-right">
+                        <td className="py-2 pr-3 text-right text-gray-700">{euro(a.startCents)}</td>
+                        <td className="py-2 pr-3 text-right text-gray-700">{euro(a.inCents)}</td>
+                        <td className="py-2 pr-3 text-right text-gray-700">{euro(a.outCents)}</td>
+                        <td className="py-2 pr-3 text-right text-gray-700">
                           {a.transferNetCents === 0
                             ? "—"
                             : `${a.transferNetCents < 0 ? "−" : "+"}${euro(Math.abs(a.transferNetCents))}`}
                         </td>
-                        <td className="py-2 pr-3 text-right font-semibold">{euro(a.endCents)}</td>
-                        <td className="py-2 pr-3 text-right">
+                        <td className="py-2 pr-3 text-right font-semibold text-gray-900">{euro(a.endCents)}</td>
+                        <td className="py-2 pr-3 text-right text-gray-700">
                           {isDraft ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              <input
-                                name={`check_${a.id}`}
-                                defaultValue={cellInput(reported)}
-                                inputMode="decimal"
-                                placeholder="0,00"
-                                className={`${inputClass} w-28 text-right`}
-                                aria-label={`Endbestand laut Kontoauszug für ${a.name}`}
-                              />
-                              <span aria-hidden>
-                                {reported === undefined ? "" : match ? "✓" : "✗"}
-                              </span>
-                            </span>
+                            <input
+                              name={`check_${a.id}`}
+                              defaultValue={cellInput(reported)}
+                              inputMode="decimal"
+                              placeholder="0,00"
+                              className={`${inputClass} w-28 text-right`}
+                              aria-label={`Endbestand laut Kontoauszug für ${a.name}`}
+                            />
                           ) : (
-                            <span>
-                              {euro(reported)} {match ? "✓" : ""}
-                            </span>
+                            // Kein Eintrag ist nicht „0,00 €": Bei einer
+                            // fertigen Abrechnung steht hier normalerweise
+                            // immer ein Wert (das Fertigstellen verlangt ihn) —
+                            // eine erfundene Null wäre eine Aussage über den
+                            // Kontoauszug, die niemand getroffen hat.
+                            <span>{reported === undefined ? "—" : euro(reported)}</span>
                           )}
+                        </td>
+                        <td
+                          className={`py-2 pr-3 text-right font-semibold whitespace-nowrap ${
+                            diff === null
+                              ? "text-gray-400"
+                              : diff === 0
+                                ? "text-good"
+                                : "text-critical"
+                          }`}
+                        >
+                          {diff === null
+                            ? "—"
+                            : diff === 0
+                              ? "✓ stimmt"
+                              : `${diff > 0 ? "+" : "−"}${euro(Math.abs(diff))}`}
                         </td>
                       </tr>
                     );
@@ -388,14 +587,31 @@ Muster — ersetzt keine Rechtsberatung.`;
               </table>
             </div>
             {isDraft ? (
-              <div className="mt-3 flex items-center gap-3">
-                <PendingButton className={buttonSecondaryClass}>Kontenprüfung speichern</PendingButton>
-                <span className={`text-sm ${checksOk ? "text-green-700" : "text-amber-700"}`}>
-                  {checksOk
-                    ? "Alle Endbestände stimmen mit den Kontoauszügen überein."
-                    : "Endbestand je Konto laut Kontoauszug eintragen — Pflicht fürs Fertigstellen (Anfangsbestand + Einnahmen − Ausgaben ± Umbuchungen = Endbestand)."}
-                </span>
-              </div>
+              <>
+                <div className="mt-3 flex items-center gap-3">
+                  <PendingButton className={buttonSecondaryClass}>
+                    Kontenprüfung speichern
+                  </PendingButton>
+                  <span className={`text-sm ${checksOk ? "text-good" : "text-warn"}`}>
+                    {checksOk
+                      ? "Alle Endbestände stimmen mit den Kontoauszügen überein."
+                      : "Endbestand je Konto laut Kontoauszug eintragen — Pflicht fürs Fertigstellen (Anfangsbestand + Einnahmen − Ausgaben ± Umbuchungen = Endbestand)."}
+                  </span>
+                </div>
+                {/* Die Abweichung ausgeschrieben: Ein Vorzeichen in der Spalte
+                    sagt zwar die Richtung, aber nicht, was sie bedeutet. */}
+                {abstimmung.some((k) => k.diffCents !== null && k.diffCents !== 0) ? (
+                  <ul className="mt-3 grid gap-1 border-t border-gray-100 pt-3">
+                    {abstimmung
+                      .filter((k) => k.diffCents !== null && k.diffCents !== 0)
+                      .map((k) => (
+                        <li key={k.accountId} className="text-sm text-critical">
+                          <span className="font-medium">{k.name}:</span> {k.satz}
+                        </li>
+                      ))}
+                  </ul>
+                ) : null}
+              </>
             ) : null}
           </form>
         </Card>
@@ -410,6 +626,9 @@ Muster — ersetzt keine Rechtsberatung.`;
           return (
             <Card
               key={row.costTypeId}
+              // Sprungziel der Prüfliste: „Verteilung offen: Heizung" führt
+              // hierher, nicht bloß auf die Seite.
+              id={`verteilung-${row.costTypeId}`}
               title={`Verteilung je Einheit: ${row.name} — ${euro(zielCents)} (${distributionKeyLabels[row.distributionKey]})`}
             >
               <p className="mb-3 text-sm text-gray-600">
@@ -541,7 +760,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                     <td className="py-2 pr-3 text-gray-600">
                       {distributionKeyLabels[r.distributionKey]}
                     </td>
-                    <td className="py-2 pr-3 text-right">
+                    <td className="py-2 pr-3 text-right text-gray-700">
                       {euro(r.totalCents)}
                       {r.reserveFundedCents ? (
                         <span className="block text-xs text-gray-500">
@@ -549,7 +768,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                         </span>
                       ) : null}
                     </td>
-                    <td className="py-2">
+                    <td className="py-2 text-gray-700">
                       {r.costTypeId === "__ruecklagenentnahme__" ? (
                         <span className="text-gray-500">Gegenposition</span>
                       ) : r.error ? (
@@ -611,7 +830,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                   const split = view.ownerSplit[u.id];
                   return (
                     <tr key={u.id} className="border-b border-gray-100 align-top">
-                      <td className="py-2 pr-3">
+                      <td className="py-2 pr-3 text-gray-700">
                         <span className="font-medium text-gray-900">{u.label}</span>
                         {split && (split.shares.length > 0 || split.uncoveredCents > 0) ? (
                           <span className="block text-xs text-gray-500">
@@ -624,8 +843,8 @@ Muster — ersetzt keine Rechtsberatung.`;
                           </span>
                         ) : null}
                       </td>
-                      <td className="py-2 pr-3 text-right">{euro(total)}</td>
-                      <td className="py-2 pr-3 text-right">{euro(due)}</td>
+                      <td className="py-2 pr-3 text-right text-gray-700">{euro(total)}</td>
+                      <td className="py-2 pr-3 text-right text-gray-700">{euro(due)}</td>
                       <td
                         className={`py-2 pr-3 text-right font-semibold ${
                           peak > 0 ? "text-red-700" : peak < 0 ? "text-green-700" : "text-gray-700"
@@ -645,12 +864,12 @@ Muster — ersetzt keine Rechtsberatung.`;
                           </span>
                         ) : null}
                       </td>
-                      <td className="py-2 pr-3 text-right">
+                      <td className="py-2 pr-3 text-right text-gray-700">
                         <a
                           href={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/pdf?einheit=${u.id}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-sm underline"
+                          className="text-sm text-gray-700 underline"
                         >
                           PDF
                         </a>
@@ -667,15 +886,147 @@ Muster — ersetzt keine Rechtsberatung.`;
             der Erfahrungswert der Kostenart. Ist beides nicht hinterlegt, erscheint der Betrag als
             „ohne Lohnanteil&ldquo;: Er ist bewusst nicht ausgewiesen, weil eine geschätzte Zahl der
             Rückfrage des Finanzamts nicht standhielte. Nachtragen lässt er sich in der
-            Buchhaltung. Muster — ersetzt keine Steuerberatung.
+            Buchhaltung. Diese Angaben ersetzen keine Steuerberatung.
+          </Tipp>
+        </Card>
+
+        {/* Entwicklung der Erhaltungsrücklage.
+            Der Vermögensbericht darunter nennt den Stand als EINE Zahl. Wer
+            meldet, die Rücklage sei „falsch", kann damit nichts anfangen: Die
+            Zahl zeigt nicht, ob die Zuführung gebucht wurde, ob Zinsen fehlen
+            oder ob eine Erhaltungsmaßnahme daraus bezahlt wurde. */}
+        <Card id="ruecklage" title="Entwicklung der Erhaltungsrücklage">
+          {(() => {
+            const e = view.ruecklagenEntwicklung;
+            if (e === undefined) {
+              return (
+                <Alert variant="info">
+                  Diese Abrechnung wurde vor Einführung der Entwicklungsrechnung
+                  fertiggestellt und trägt deshalb nur den Endbestand von damals. Sie
+                  bleibt unverändert — neue Abrechnungen weisen die Kette aus.
+                </Alert>
+              );
+            }
+            if (e === null) {
+              return (
+                <Alert variant="warning">
+                  Für dieses Objekt ist kein Rücklagenkonto angelegt. Die
+                  Erhaltungsrücklage muss getrennt vom laufenden Konto geführt werden —{" "}
+                  <Link
+                    href={`/verwaltung/weg/${property.id}/stammdaten#konten`}
+                    className="underline"
+                  >
+                    Konto in den Stammdaten anlegen
+                  </Link>
+                  .
+                </Alert>
+              );
+            }
+            // Jede Zeile nennt, aus welcher Zahl sie stammt — sonst ist die
+            // Kette nur eine zweite Behauptung neben der ersten.
+            const zeilen: {
+              bezeichnung: string;
+              cents: number;
+              quelle: string;
+              vorzeichen?: "plus" | "minus";
+            }[] = [
+              {
+                bezeichnung: "Anfangsbestand",
+                cents: e.anfangsbestandCents,
+                quelle: `Spalte „Anfangsbestand" der Kontentabelle — hinterlegter Anfangsbestand zuzüglich aller Buchungen vor dem ${view.fyStart.split("-").reverse().join(".")}`,
+              },
+              {
+                bezeichnung: "Zuführung (Ist)",
+                cents: e.zufuehrungCents,
+                vorzeichen: "plus",
+                quelle:
+                  "Umbuchungen auf das Rücklagenkonto. Nur Umbuchungen zählen — eine Einnahme oder Ausgabe mit demselben Text erscheint hier nicht.",
+              },
+              {
+                bezeichnung: "Zinsen und sonstige Einnahmen",
+                cents: e.zinsenCents,
+                vorzeichen: "plus",
+                quelle: "Einnahmen, die auf dem Rücklagenkonto gebucht sind",
+              },
+              {
+                bezeichnung: "Entnahmen",
+                cents: e.entnahmeCents,
+                vorzeichen: "minus",
+                quelle: `Ausgaben direkt vom Rücklagenkonto (${euro(e.ausgabeCents)}) und Umbuchungen zurück auf das laufende Konto (${euro(e.rueckbuchungCents)})`,
+              },
+            ];
+            return (
+              <>
+                <div className="grid gap-0">
+                  {zeilen.map((z) => (
+                    <div
+                      key={z.bezeichnung}
+                      className="flex items-baseline justify-between gap-4 border-b border-gray-100 py-2"
+                    >
+                      <div>
+                        <div className="text-sm text-gray-800">
+                          {z.vorzeichen === "plus" ? "+ " : z.vorzeichen === "minus" ? "− " : ""}
+                          {z.bezeichnung}
+                        </div>
+                        <div className="text-xs text-gray-500">{z.quelle}</div>
+                      </div>
+                      <div className="shrink-0 text-sm font-medium text-gray-900">
+                        {euro(z.cents)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-baseline justify-between gap-4 rounded-xl bg-gray-50 px-4 py-3">
+                  <span className="text-sm font-semibold text-gray-900">
+                    Endbestand zum {formatDateOnly(letzterTagDatum)}
+                  </span>
+                  <span className="text-lg font-semibold text-gray-900">
+                    {euro(e.endbestandCents)}
+                  </span>
+                </div>
+                {e.konten.length > 1 ? (
+                  <p className="mt-2 text-xs text-gray-500">
+                    Zusammengezogen aus{" "}
+                    {e.konten.map((k) => `${k.name} (${euro(k.endCents)})`).join(", ")}.
+                  </p>
+                ) : null}
+                {/* Beide Seiten stammen aus denselben Buchungen; geht die Kette
+                    nicht auf, ist die Kette kaputt und darf sich nicht als
+                    Erklärung ausgeben. */}
+                {!e.gehtAuf ? (
+                  <Alert variant="error" className="mt-3">
+                    Diese Aufstellung geht nicht auf: Anfangsbestand + Zuführung + Zinsen −
+                    Entnahmen ergibt nicht den Endbestand. Bitte melden — das ist ein Fehler
+                    des Programms, nicht Ihrer Buchhaltung.
+                  </Alert>
+                ) : null}
+                {isDraft && e.zufuehrungCents === 0 ? (
+                  <Alert variant="warning" className="mt-3">
+                    Im Wirtschaftsjahr ist keine Zuführung auf das Rücklagenkonto umgebucht.
+                    Ist eine beschlossen, fehlt sie hier — oder sie wurde als Einnahme bzw.
+                    Ausgabe erfasst statt als Umbuchung.{" "}
+                    <Link
+                      href={`/verwaltung/weg/${property.id}/buchhaltung?von=${view.fyStart}&bis=${letzterTag}&art=UMBUCHUNG`}
+                      className="underline"
+                    >
+                      Umbuchungen des Jahres ansehen
+                    </Link>
+                  </Alert>
+                ) : null}
+              </>
+            );
+          })()}
+          <Tipp className="mt-3">
+            Die Erhaltungsrücklage wird getrennt vom laufenden Konto geführt (§ 19 Abs. 2 Nr.
+            4 WEG). Was daraus bezahlt wird, taucht in der Gesamtabrechnung als Ausgabe auf,
+            wird aber nicht erneut umgelegt — dafür haben die Eigentümer über die Zuführungen
+            früherer Jahre schon eingezahlt.
           </Tipp>
         </Card>
 
         {/* Vermögensbericht (§ 28 Abs. 4 WEG) */}
         <Card
-          title={`Vermögensbericht zum ${formatDateOnly(
-            new Date(new Date(view.fyEnd).getTime() - 86400000),
-          )} (§ 28 Abs. 4 WEG)`}
+          title={`Vermögensbericht zum ${formatDateOnly(letzterTagDatum)} (§ 28 Abs. 4 WEG)`}
         >
           {(() => {
             // Ältere, vor dieser Erweiterung fertiggestellte Abrechnungen haben

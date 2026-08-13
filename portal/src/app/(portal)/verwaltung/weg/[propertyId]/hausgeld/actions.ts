@@ -17,6 +17,7 @@ import { schlageZuordnungVor, type Tilgungszweck } from "@/lib/weg/payment-alloc
 import { loadWegProperty } from "@/lib/weg/scope";
 import { basiszinssaetze, verzugJeForderung } from "@/lib/weg/verzug-service";
 import { fortgeltenderPlan, synchronisiereSollstellungen } from "@/lib/weg/due-postings";
+import { rundungFuerPlan } from "@/lib/weg/economic-plan";
 
 function back(propertyId: string, param?: string): never {
   redirect(`/verwaltung/weg/${propertyId}/hausgeld${param ? `?${param}` : ""}`);
@@ -369,6 +370,11 @@ export async function schreibeSollstellungenFort(formData: FormData) {
         category: i.costType.category,
       })),
       units,
+      // Die Rundung des beschlossenen Plans. Wird das Objekt später umgestellt,
+      // schreibt die Fortschreibung trotzdem die Raten fort, die beschlossen
+      // und den Eigentümern zugestellt wurden — die neue Stufe greift erst mit
+      // dem nächsten Beschluss.
+      rounding: rundungFuerPlan(plan, property),
     });
   } catch {
     // Fehlende Stammdaten (MEA, Fläche) — dieselbe Ursache wie beim Beschluss.

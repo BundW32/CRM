@@ -19,6 +19,47 @@ export type StatementCostTypeInput = {
   laborShareType: LaborShareType;
 };
 
+/**
+ * Wohin ein Prüflisten-Punkt führt.
+ *
+ * Bewusst als Beschreibung des Ziels, nicht als fertige URL: Diese Datei kennt
+ * weder `propertyId` noch Routen. Die Seite setzt daraus den Link zusammen —
+ * und kann dabei zentral den Zeitraum des Wirtschaftsjahres anhängen, statt ihn
+ * an jeder Fundstelle einzeln mitzuschleppen.
+ *
+ * Der Grund für das Ziel überhaupt: Eine Meldung wie „Ausgaben ohne Kostenart:
+ * 1.240,00 €" nennt eine Summe und lässt den Verwalter suchen. Die Buchungen
+ * dazu stehen eine Seite weiter, gefiltert erreichbar — nur wusste das bisher
+ * niemand außer der Abfrage, die die Summe gebildet hat.
+ */
+export type Pruefziel =
+  /** Buchhaltung, mit gesetzten Filtern (`konto`, `kostenart`, `buchung`, …). */
+  | { art: "buchhaltung"; filter: Record<string, string>; label: string }
+  /** Ein Abschnitt auf der Abrechnungsseite selbst (Anker ohne `#`). */
+  | { art: "abschnitt"; anker: string; label: string }
+  /** Stammdaten des Objekts (Anker ohne `#`). */
+  | { art: "stammdaten"; anker: string; label: string };
+
+/**
+ * Ein Befund der Abrechnungsprüfung — dasselbe, was bisher als Zeichenkette in
+ * `errors`/`warnings` stand, nur zerlegt: Titel, Erläuterung und der Weg zur
+ * betroffenen Buchung.
+ *
+ * `errors` und `warnings` bleiben daneben bestehen und werden aus dieser Liste
+ * abgeleitet: Sie stecken in den Snapshots fertiger Abrechnungen und werden von
+ * `finalizeStatement` gelesen.
+ */
+export type StatementBefund = {
+  art: "verteilung" | "stammdaten" | "ohne-kostenart" | "zufuehrung-plan" | "leer";
+  /** true = verhindert das Fertigstellen. */
+  blockierend: boolean;
+  /** Kurz, für die Prüfliste. */
+  titel: string;
+  /** Der ausformulierte Satz — identisch mit dem Eintrag in `errors`/`warnings`. */
+  text: string;
+  ziel?: Pruefziel;
+};
+
 export type StatementInput = {
   costTypes: StatementCostTypeInput[];
   units: UnitForDistribution[];
@@ -26,6 +67,11 @@ export type StatementInput = {
   expenseByCostType: Map<string, number>;
   // Ausgaben ohne Kostenart (nicht umlegbar → Prüffehler)
   otherExpenseCents: number;
+  /**
+   * Wie viele Buchungen das sind. Nur für die Meldung: „1.240,00 € ohne
+   * Kostenart" lässt offen, ob eine Buchung oder dreißig zu bearbeiten sind.
+   */
+  otherExpenseCount?: number;
   // manuelle Verteilung je Kostenart → Einheit (für MANUAL_KEYS)
   manualAmounts: Map<string, Map<string, number>>;
   // tatsächliche Umbuchungen Giro → Rücklage im Jahr
@@ -76,6 +122,11 @@ export type StatementResult = {
   /** Hinweise, die NICHT blockieren (z. B. Zuführung weicht vom Plan ab). */
   warnings: string[];
   /**
+   * Dieselben Feststellungen wie `errors`/`warnings`, nur zerlegt und mit dem
+   * Weg zur betroffenen Buchung. Die Prüfliste der Seite baut darauf auf.
+   */
+  befunde: StatementBefund[];
+  /**
    * Gab es überhaupt etwas zu verteilen?
    *
    * Die Prüfung „Summe der Einzelabrechnungen = Gesamtabrechnung" ist bei einer
@@ -118,8 +169,7 @@ export const RESERVE_WITHDRAWAL_ROW_ID = "__ruecklagenentnahme__";
  */
 export function computeStatement(input: StatementInput): StatementResult {
   const rows: StatementCostRow[] = [];
-  const errors: string[] = [];
-  const warnings: string[] = [];
+  const befunde: StatementBefund[] = [];
   const perUnitTotal = new Map<string, number>(input.units.map((u) => [u.id, 0]));
   const reserveSpend = input.reserveSpendByCostType ?? new Map<string, number>();
   const income = input.incomeByCostType ?? new Map<string, number>();
@@ -131,6 +181,33 @@ export function computeStatement(input: StatementInput): StatementResult {
     for (const [unitId, cents] of shares) {
       perUnitTotal.set(unitId, (perUnitTotal.get(unitId) ?? 0) + cents);
     }
+  };
+
+  /**
+   * Eine gescheiterte Verteilung.
+   *
+   * Die Unterscheidung ist die Antwort auf die Frage des Verwalters, ob das
+   * Programm etwas vermisst oder der Bestand etwas nicht hergibt: Eine
+   * unvollständige manuelle Erfassung ist eine **Eingabe**, die noch fehlt; ein
+   * gescheiterter Umlageschlüssel ist eine **Stammdatenlücke** (Einheit ohne
+   * MEA, ohne Wohnfläche). Beides blockiert, aber der nächste Handgriff liegt
+   * woanders.
+   */
+  const verteilungsfehler = (
+    ct: StatementCostTypeInput,
+    text: string,
+    art: "verteilung" | "stammdaten",
+  ) => {
+    befunde.push({
+      art,
+      blockierend: true,
+      titel: `Verteilung offen: ${ct.name}`,
+      text: `${ct.name}: ${text}`,
+      ziel:
+        art === "verteilung"
+          ? { art: "abschnitt", anker: `verteilung-${ct.id}`, label: "Beträge je Einheit erfassen" }
+          : { art: "stammdaten", anker: "einheiten", label: "Stammdaten der Einheiten öffnen" },
+    });
   };
 
   for (const ct of input.costTypes) {
@@ -157,7 +234,7 @@ export function computeStatement(input: StatementInput): StatementResult {
         totalExpenseCents -= ertragCents;
       } catch (e) {
         row.error = e instanceof Error ? e.message : "Verteilung nicht möglich.";
-        errors.push(`${ct.name}: ${row.error}`);
+        verteilungsfehler(ct, row.error, "stammdaten");
       }
       rows.push(row);
       continue;
@@ -197,7 +274,7 @@ export function computeStatement(input: StatementInput): StatementResult {
       const manualSum = manual ? [...manual.values()].reduce((a, b) => a + b, 0) : 0;
       if (manualSum !== verteilbarCents) {
         row.error = `Manuelle Verteilung unvollständig: erfasst ${formatCents(manualSum)} von ${formatCents(verteilbarCents)}.`;
-        errors.push(`${ct.name}: ${row.error}`);
+        verteilungsfehler(ct, row.error, "verteilung");
       } else {
         row.perUnit = new Map(manual);
       }
@@ -209,7 +286,7 @@ export function computeStatement(input: StatementInput): StatementResult {
         row.perUnit = distributeByWeight(verteilbarCents, weightsForKey(input.units, ct.distributionKey));
       } catch (e) {
         row.error = e instanceof Error ? e.message : "Verteilung nicht möglich.";
-        errors.push(`${ct.name}: ${row.error}`);
+        verteilungsfehler(ct, row.error, "stammdaten");
       }
     }
     if (row.perUnit) addToUnits(row.perUnit);
@@ -254,7 +331,13 @@ export function computeStatement(input: StatementInput): StatementResult {
       addToUnits(row.perUnit);
     } catch (e) {
       row.error = e instanceof Error ? e.message : "Verteilung nicht möglich.";
-      errors.push(`Rücklagenzuführung: ${row.error}`);
+      befunde.push({
+        art: "stammdaten",
+        blockierend: true,
+        titel: "Zuführung zur Rücklage lässt sich nicht verteilen",
+        text: `Rücklagenzuführung: ${row.error}`,
+        ziel: { art: "stammdaten", anker: "einheiten", label: "Stammdaten der Einheiten öffnen" },
+      });
     }
     rows.push(row);
   }
@@ -264,15 +347,53 @@ export function computeStatement(input: StatementInput): StatementResult {
   // ein stiller Fehler, der jedem Eigentümer ein Guthaben ausweist, das ihm
   // nicht zusteht.
   if (input.plannedReserveCents !== undefined && input.plannedReserveCents !== input.reserveTransferCents) {
-    warnings.push(
-      `Zuführung zur Erhaltungsrücklage: laut Wirtschaftsplan ${formatCents(input.plannedReserveCents)}, tatsächlich umgebucht ${formatCents(input.reserveTransferCents)}. Bitte prüfen, ob die Umbuchung noch aussteht.`,
-    );
+    befunde.push({
+      art: "zufuehrung-plan",
+      blockierend: false,
+      titel: "Zuführung weicht vom Wirtschaftsplan ab",
+      text: `Zuführung zur Erhaltungsrücklage: laut Wirtschaftsplan ${formatCents(input.plannedReserveCents)}, tatsächlich umgebucht ${formatCents(input.reserveTransferCents)}. Bitte prüfen, ob die Umbuchung noch aussteht.`,
+      // Nur Umbuchungen zählen als Zuführung (siehe `reserveTransferCents` in
+      // statement-service.ts). Wer den Filter öffnet, sieht sofort, ob die
+      // Umbuchung fehlt oder als Ein-/Ausgabe gebucht wurde.
+      ziel: {
+        art: "buchhaltung",
+        filter: { art: "UMBUCHUNG" },
+        label: "Umbuchungen des Jahres ansehen",
+      },
+    });
   }
 
   if (input.otherExpenseCents > 0) {
-    errors.push(
-      `Ausgaben ohne Kostenart: ${formatCents(input.otherExpenseCents)} sind keiner Kostenart zugeordnet und können nicht umgelegt werden.`,
-    );
+    const anzahl = input.otherExpenseCount;
+    befunde.push({
+      art: "ohne-kostenart",
+      blockierend: true,
+      titel: "Ausgaben ohne Kostenart",
+      text:
+        `Ausgaben ohne Kostenart: ${formatCents(input.otherExpenseCents)} sind keiner Kostenart zugeordnet und können nicht umgelegt werden.` +
+        (anzahl ? ` Betroffen ${anzahl === 1 ? "ist 1 Buchung" : `sind ${anzahl} Buchungen`}.` : ""),
+      ziel: {
+        art: "buchhaltung",
+        filter: { zuordnung: "offen", art: "AUSGABE" },
+        label: "Die betroffenen Buchungen zuordnen",
+      },
+    });
+  }
+
+  // Eine Zeile mit 0 € ist keine Position: Kostenarten stehen im Katalog,
+  // auch wenn im Jahr nichts darauf gebucht wurde. Gefragt ist, ob überhaupt
+  // Geld bewegt wurde — Umbuchung in die Rücklage eingeschlossen.
+  const hatPositionen = rows.some((r) => r.totalCents !== 0) || input.reserveTransferCents !== 0;
+  if (!hatPositionen) {
+    befunde.push({
+      art: "leer",
+      blockierend: false,
+      titel: "Keine Buchungen im Wirtschaftsjahr",
+      text:
+        "Für dieses Wirtschaftsjahr ist nichts zu verteilen — es sind keine Buchungen erfasst. " +
+        "Die Abrechnung wäre rechnerisch richtig und inhaltlich leer.",
+      ziel: { art: "buchhaltung", filter: {}, label: "Buchhaltung des Jahres öffnen" },
+    });
   }
 
   return {
@@ -281,19 +402,108 @@ export function computeStatement(input: StatementInput): StatementResult {
     totalExpenseCents,
     reserveTransferCents: input.reserveTransferCents,
     reserveWithdrawalCents,
-    errors,
-    warnings,
-    // Eine Zeile mit 0 € ist keine Position: Kostenarten stehen im Katalog,
-    // auch wenn im Jahr nichts darauf gebucht wurde. Gefragt ist, ob überhaupt
-    // Geld bewegt wurde — Umbuchung in die Rücklage eingeschlossen.
-    hatPositionen:
-      rows.some((r) => r.totalCents !== 0) || input.reserveTransferCents !== 0,
+    // Abgeleitet, nicht parallel geführt: Zwei Listen mit demselben Wortlaut
+    // laufen auseinander, sobald eine Meldung umformuliert wird. `leer` ist
+    // bewusst in keiner von beiden — es ist eine Feststellung, kein Hinweis auf
+    // etwas Nachzubesserndes, und stand vorher als eigener Absatz auf der Seite.
+    errors: befunde.filter((b) => b.blockierend).map((b) => b.text),
+    warnings: befunde.filter((b) => !b.blockierend && b.art !== "leer").map((b) => b.text),
+    befunde,
+    hatPositionen,
+  };
+}
+
+// ── Entwicklung der Erhaltungsrücklage ──────────────────────────────────────
+
+/** Die Bewegungen **eines** Rücklagenkontos im Wirtschaftsjahr. */
+export type RuecklagenKontoBewegung = {
+  name: string;
+  /** Bestand zu Beginn des Wirtschaftsjahres. */
+  startCents: number;
+  /** Einnahmen auf dem Rücklagenkonto — in aller Regel Zinsen. */
+  zinsenCents: number;
+  /** Ausgaben, die direkt vom Rücklagenkonto bezahlt wurden. */
+  ausgabeCents: number;
+  /** Umbuchungen **auf** dieses Konto: die Zuführung (Ist). */
+  zufuehrungCents: number;
+  /** Umbuchungen **von** diesem Konto zurück aufs laufende Konto. */
+  rueckbuchungCents: number;
+  /** Bestand am Ende — rechnerisch aus derselben Quelle wie die Kontentabelle. */
+  endCents: number;
+};
+
+export type RuecklagenEntwicklung = {
+  konten: { name: string; startCents: number; endCents: number }[];
+  anfangsbestandCents: number;
+  zufuehrungCents: number;
+  zinsenCents: number;
+  ausgabeCents: number;
+  rueckbuchungCents: number;
+  /** Ausgaben + Rückbuchungen: was die Rücklage im Jahr verlassen hat. */
+  entnahmeCents: number;
+  endbestandCents: number;
+  /**
+   * Geht Anfangsbestand + Zuführung + Zinsen − Entnahmen == Endbestand auf?
+   *
+   * Muss immer `true` sein — beide Seiten stammen aus denselben Buchungen. Ist
+   * es einmal `false`, ist die Kette selbst kaputt, und eine Rechnung, die
+   * nicht aufgeht, darf sich nicht als Erklärung ausgeben.
+   */
+  gehtAuf: boolean;
+};
+
+/**
+ * Die Entwicklungsrechnung der Erhaltungsrücklage.
+ *
+ * **Wozu.** Der Vermögensbericht (§ 28 Abs. 4 WEG) nennt den Stand der Rücklage
+ * als eine Zahl. Wer wissen will, warum sie so hoch ist — und wer meldet, sie
+ * sei „falsch" —, kann mit dieser einen Zahl nichts anfangen: Sie zeigt nicht,
+ * ob die Zuführung gebucht wurde, ob Zinsen fehlen oder ob eine Erhaltungs-
+ * maßnahme daraus bezahlt wurde. Die Kette zeigt genau das, Zeile für Zeile.
+ *
+ * Mehrere Rücklagenkonten werden zusammengezogen — wie im Vermögensbericht
+ * (`vermoegensbericht.ts`), damit beide Stellen dieselbe Zahl nennen.
+ */
+export function baueRuecklagenEntwicklung(
+  konten: RuecklagenKontoBewegung[],
+): RuecklagenEntwicklung {
+  const summe = (feld: keyof Omit<RuecklagenKontoBewegung, "name">) =>
+    konten.reduce((s, k) => s + k[feld], 0);
+
+  const anfangsbestandCents = summe("startCents");
+  const zufuehrungCents = summe("zufuehrungCents");
+  const zinsenCents = summe("zinsenCents");
+  const ausgabeCents = summe("ausgabeCents");
+  const rueckbuchungCents = summe("rueckbuchungCents");
+  const entnahmeCents = ausgabeCents + rueckbuchungCents;
+  const endbestandCents = summe("endCents");
+
+  return {
+    konten: konten.map((k) => ({ name: k.name, startCents: k.startCents, endCents: k.endCents })),
+    anfangsbestandCents,
+    zufuehrungCents,
+    zinsenCents,
+    ausgabeCents,
+    rueckbuchungCents,
+    entnahmeCents,
+    endbestandCents,
+    gehtAuf:
+      anfangsbestandCents + zufuehrungCents + zinsenCents - entnahmeCents === endbestandCents,
   };
 }
 
 // Abrechnungsspitze je Einheit (§ 28 Abs. 2 WEG): Kostenanteil − Soll-Vorschüsse.
 // Positiv = Nachschuss, negativ = Guthaben. Gerechnet gegen das SOLL —
 // Zahlungsrückstände bleiben davon unberührt offene Forderungen.
+//
+// „Soll" heißt: das **tatsächlich gestellte** Soll, also die Summe der
+// DuePosting-Zeilen des Jahres (siehe `computeStatementView`), nicht der
+// Jahresvorschuss aus dem Wirtschaftsplan. Der Unterschied ist erst mit der
+// gerundeten Monatsrate entstanden und dort entscheidend: Zwölf aufgerundete
+// Raten ergeben etwas mehr als der Planwert, und diese Überdeckung ist ein
+// Guthaben des Eigentümers. Rechnete man gegen den ungerundeten Jahresbetrag,
+// verschwände sie spurlos — ein Fehler, der still ins Ergebnis liefe und
+// niemandem auffiele, weil beide Zahlen plausibel aussehen.
 export function computePeakAmounts(
   perUnitTotal: Map<string, number>,
   duePerUnit: Map<string, number>,

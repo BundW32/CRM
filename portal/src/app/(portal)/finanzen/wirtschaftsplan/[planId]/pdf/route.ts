@@ -8,6 +8,7 @@ import {
   ownerNamesByUnit,
 } from "@/lib/weg/wirtschaftsplan-pdf";
 import { fileNamePart, pdfResponse } from "@/lib/documents/pdf-response";
+import { rundungFuerPlan } from "@/lib/weg/economic-plan";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export async function GET(
   const plan = await db.economicPlan.findFirst({
     where: { id: planId, status: "BESCHLOSSEN" },
     include: {
-      property: { select: { id: true, name: true, organizationId: true } },
+      property: { select: { id: true, name: true, organizationId: true, hausgeldRounding: true } },
       items: { include: { costType: true }, orderBy: { costType: { orderIndex: "asc" } } },
     },
   });
@@ -45,12 +46,16 @@ export async function GET(
       orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
     });
     const einzelplan = new URL(request.url).searchParams.get("dokument") === "einzelplan";
+    // Nur beschlossene Pläne kommen hier an — die Rundung steht also am Plan
+    // fest und bleibt es, auch wenn das Objekt später umgestellt wird.
+    const rounding = rundungFuerPlan(plan, plan.property);
     if (!einzelplan) {
       const pdf = await buildWirtschaftsplanPdf({
         propertyName: plan.property.name,
         organizationId: plan.property.organizationId,
         plan,
         units,
+        rounding,
       });
       return pdfResponse(
         pdf,
@@ -70,6 +75,7 @@ export async function GET(
       organizationId: plan.property.organizationId,
       plan,
       units,
+      rounding,
       ownerNamesByUnit: await ownerNamesByUnit([...eigene]),
       onlyUnitIds: [...eigene],
     });

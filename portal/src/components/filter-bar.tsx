@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDownUp, Check, ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import { fieldOnDarkClass } from "@/components/ui";
 import { Combobox, type ComboOption } from "@/components/combobox";
+import { DateInput } from "@/components/date-input";
 
 // ── Typen ────────────────────────────────────────────────────────────────────
 export type FilterOption = { value: string; label: string };
@@ -20,6 +21,26 @@ export type FilterConfig = {
   primary?: boolean;
 };
 export type SortOption = { value: string; label: string };
+
+/**
+ * Zeitraum von–bis als Filter.
+ *
+ * Bewusst kein `FilterConfig` mit Auswahlliste: „letzte 30 Tage" beantwortet
+ * die Frage einer Belegeinsicht nicht — dort sucht man den Zeitraum einer
+ * Rechnung oder eines Wirtschaftsjahres, und der lässt sich nicht in eine
+ * feste Liste gießen. Zwei Datumsfelder sind hier das kleinere Mittel.
+ *
+ * Beide Grenzen sind einschließend zu lesen; wie daraus ein `where` wird,
+ * entscheidet die Seite (der „bis"-Tag gehört mit dazu).
+ */
+export type DateRangeFilterConfig = {
+  /** URL-Param der unteren Grenze, z. B. "bvon". */
+  fromKey: string;
+  /** URL-Param der oberen Grenze, z. B. "bbis". */
+  toKey: string;
+  /** Beschriftung vor den Feldern, z. B. „Zeitraum". */
+  label: string;
+};
 
 export type ComboboxFilterConfig = {
   /** URL-Param-Schlüssel, z. B. "objekt". */
@@ -115,6 +136,49 @@ function SearchBox({
         title={hint}
         className={`${fieldOnDarkClass} pl-9`}
         autoComplete="off"
+      />
+    </div>
+  );
+}
+
+// ── Zeitraum von–bis ─────────────────────────────────────────────────────────
+// Zwei native Datumsfelder in der Leiste. `DateInput` statt eines rohen
+// `<input type="date">`: Er bringt die Fokus-Korrektur für leere Felder mit
+// (siehe date-input.tsx) — genau der Fall, der hier der Normalfall ist.
+//
+// `[color-scheme:dark]` sorgt dafür, dass der Browser sein Kalender-Symbol hell
+// zeichnet; auf dem dunklen Shell wäre das dunkle Standardsymbol unsichtbar.
+function DateRangeFilter({
+  config,
+  pageParam,
+}: {
+  config: DateRangeFilterConfig;
+  pageParam?: string | string[];
+}) {
+  const { apply, searchParams } = useUrlUpdater(pageParam);
+  const von = searchParams.get(config.fromKey) ?? "";
+  const bis = searchParams.get(config.toKey) ?? "";
+  const feld = `${fieldOnDarkClass} w-[9.5rem] [color-scheme:dark]`;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs font-medium text-gray-400">{config.label}</span>
+      <DateInput
+        value={von}
+        max={bis || undefined}
+        onChange={(e) => apply({ [config.fromKey]: e.target.value })}
+        aria-label={`${config.label} von`}
+        title={`${config.label} von`}
+        className={feld}
+      />
+      <span className="text-xs text-gray-500">–</span>
+      <DateInput
+        value={bis}
+        min={von || undefined}
+        onChange={(e) => apply({ [config.toKey]: e.target.value })}
+        aria-label={`${config.label} bis`}
+        title={`${config.label} bis`}
+        className={feld}
       />
     </div>
   );
@@ -341,6 +405,7 @@ export function FilterBar({
   searchHint,
   filters = [],
   comboboxes = [],
+  dateRange,
   pageParam,
   className = "",
 }: {
@@ -351,6 +416,8 @@ export function FilterBar({
   searchHint?: string;
   filters?: FilterConfig[];
   comboboxes?: ComboboxFilterConfig[];
+  /** Zeitraum von–bis, wenn eine feste Auswahlliste nicht trägt. */
+  dateRange?: DateRangeFilterConfig;
   /**
    * Seiten-Param dieser Liste, falls er nicht `page` heißt (Seiten mit mehreren
    * blätterbaren Listen). Muss zum `param` von `pageHrefFor` passen, sonst
@@ -376,7 +443,8 @@ export function FilterBar({
   const anyActive =
     hasSearch ||
     filters.some((f) => searchParams.get(f.key)) ||
-    comboboxes.some((c) => searchParams.get(c.key));
+    comboboxes.some((c) => searchParams.get(c.key)) ||
+    Boolean(dateRange && (searchParams.get(dateRange.fromKey) || searchParams.get(dateRange.toKey)));
 
   // Kein Container: die Felder schweben direkt auf dem dunklen Shell-Hintergrund.
   return (
@@ -411,6 +479,8 @@ export function FilterBar({
             className={FIELD_WIDTH}
           />
         ))}
+
+        {dateRange ? <DateRangeFilter config={dateRange} pageParam={pageParam} /> : null}
 
         {secondaryFilters.length > 0 ? <MoreFilters filters={secondaryFilters} pageParam={pageParam} /> : null}
       </div>

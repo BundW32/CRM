@@ -231,6 +231,20 @@ enum DueDayRule {
   FREIER_TAG
 }
 
+// Auf welche Stufe die monatliche Hausgeld-Rate aufgerundet wird.
+//
+// CENT bildet den Jahresvorschuss centgenau auf zwölf Raten ab — rechnerisch
+// exakt, im Alltag störend: Die Restcents landen auf den ersten Monaten, der
+// Dauerauftrag des Eigentümers passt im Januar nie. ZEHN_CENT und EURO runden
+// **auf** (nie ab), sodass alle zwölf Raten gleich sind; die Gemeinschaft ist
+// damit nie unterdeckt, und die Überdeckung (höchstens ~12 € im Jahr) läuft
+// über die Abrechnungsspitze zurück (§ 28 Abs. 2 WEG).
+enum HausgeldRounding {
+  CENT
+  ZEHN_CENT
+  EURO
+}
+
 // Status eines Wirtschaftsplans (§ 28 Abs. 1 WEG)
 enum PlanStatus {
   ENTWURF
@@ -436,6 +450,21 @@ model User {
   emailVerifiedAt             DateTime?
   emailVerifyToken            String?                     @unique
   emailVerifyExpiry           DateTime?
+  // Selbst angestoßener Wechsel der E-Mail-Adresse (Doppel-Opt-in).
+  //
+  // `email` ist @unique UND der Anmeldename: Ein Tippfehler sperrt den Zugang
+  // aus, und ohne Bestätigung ließe sich eine fremde Adresse eintragen. Die
+  // neue Adresse steht deshalb bis zur Bestätigung NUR hier und wird erst beim
+  // Einlösen des Tokens nach `email` übernommen.
+  //
+  // Bewusst OHNE @unique auf `pendingEmail`: Zwei Personen dürfen dieselbe
+  // Adresse anfragen (nur eine kann sie einlösen — dafür sorgt `email`), und
+  // eine Sperre hier verriete über die Fehlermeldung, dass jemand anderes
+  // gerade dieselbe Adresse beantragt hat. Der Token dagegen ist @unique wie
+  // die übrigen Token und steht nur als Hash in der Datenbank (lib/token-hash).
+  pendingEmail                String?
+  emailChangeToken            String?                     @unique
+  emailChangeExpiry           DateTime?
   // DSGVO-Löschung durch Anonymisierung (Art. 17): markiert einen entpersonalisierten
   // Datensatz, damit er aus Kontakt-/Eigentümerlisten ausgeblendet werden kann.
   anonymizedAt                DateTime?
@@ -544,6 +573,11 @@ model Property {
   mahnkostenCents       Int                    @default(0)
   dueDayRule            DueDayRule             @default(MONATSERSTER)
   dueDayOfMonth         Int? // nur bei FREIER_TAG (1–28)
+  // Auf welche Stufe die Monatsrate aufgerundet wird. Vorgabe: 10 Cent — eine
+  // glatte, gleichbleibende Rate, auf die sich ein Dauerauftrag stellen lässt.
+  // Die Einstellung wirkt **ab dem nächsten Beschluss**: Was gilt, friert
+  // `EconomicPlan.hausgeldRounding` beim Beschluss ein.
+  hausgeldRounding      HausgeldRounding       @default(ZEHN_CENT)
   // SEPA-Lastschrift: Gläubiger-Identifikationsnummer der Gemeinschaft (Bundesbank)
   sepaCreditorId        String?
   // Standard-Link zur Video-Zuschaltung (externer Dienst, z. B. Jitsi/Zoom) —
@@ -1669,6 +1703,17 @@ model EconomicPlan {
   validFrom          DateTime?
   validUntil         DateTime?
   resolutionNote     String? // Verweis, z. B. "ETV 12.03.2026, TOP 4"
+  // Rundung der Monatsraten, **festgeschrieben mit dem Beschluss**.
+  //
+  // Bestandsschutz: Ein beschlossener Plan darf seine Raten nicht mehr ändern —
+  // sie stehen im Beschluss, in den Einzelwirtschaftsplänen der Eigentümer und
+  // in den erzeugten Sollstellungen. Würde hier die Objekt-Einstellung gelesen,
+  // änderte ein späterer Klick in den Stammdaten rückwirkend, was ein
+  // Eigentümer schuldet. Deshalb: `null` = noch nicht beschlossen, dann gilt
+  // die aktuelle Objekt-Einstellung (Vorschau); `resolvePlan` schreibt den Wert
+  // fest. Die Migration setzt bei allen bereits beschlossenen Plänen CENT — ihr
+  // bisheriges Verhalten.
+  hausgeldRounding   HausgeldRounding?
   createdById        String
   createdBy          User                @relation("EconomicPlanCreatedBy", fields: [createdById], references: [id])
   createdAt          DateTime            @default(now())

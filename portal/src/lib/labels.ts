@@ -6,6 +6,7 @@ import type {
   CostCategory,
   DistributionKey,
   DocumentCategory,
+  HausgeldRounding,
   LaborShareType,
   LedgerAccountKind,
   MaintenanceInterval,
@@ -236,6 +237,15 @@ export const distributionKeyLabels: Record<DistributionKey, string> = {
   FESTBETRAG: "Festbetrag",
   INDIVIDUELL: "Individuell je Einheit",
   JE_STELLPLATZ: "Je Stellplatz (nur Stellplätze/Garagen)",
+};
+
+// Rundungsstufe der monatlichen Hausgeld-Rate. Die Worte stehen so im
+// Stammdaten-Formular und im ausgewiesenen Rundungshinweis der Dokumente —
+// zwei Formulierungen für dieselbe Einstellung lesen sich wie zwei Regeln.
+export const hausgeldRoundingLabels: Record<HausgeldRounding, string> = {
+  CENT: "Cent genau",
+  ZEHN_CENT: "auf volle 10 Cent",
+  EURO: "auf volle Euro",
 };
 
 export const costCategoryLabels: Record<CostCategory, string> = {

@@ -6,10 +6,13 @@ import type { DistributionKey, LaborShareType, LedgerAccountKind } from "@/gener
 import { db } from "@/lib/db";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import {
+  baueRuecklagenEntwicklung,
   computeLaborShares,
   computePeakAmounts,
   computeStatement,
   splitByOwnership,
+  type RuecklagenEntwicklung,
+  type StatementBefund,
 } from "./annual-statement";
 import { fiscalYearRange } from "./economic-plan";
 import { vorzeichenBetrag } from "./journal";
@@ -37,6 +40,15 @@ export type StatementView = {
   }[];
   errors: string[];
   warnings: string[];
+  /**
+   * Dieselben Feststellungen wie `errors`/`warnings`, zerlegt und mit dem Weg
+   * zur betroffenen Buchung. Grundlage der Prüfliste (`pruefliste.ts`).
+   *
+   * Optional, weil Snapshots aus der Zeit davor sie nicht tragen — dort
+   * bleiben `errors`/`warnings` die einzige Quelle. Neu gerechnete Views
+   * setzen das Feld immer.
+   */
+  befunde?: StatementBefund[];
   /** Gab es im Wirtschaftsjahr überhaupt etwas zu verteilen? */
   hatPositionen: boolean;
   perUnitTotal: Record<string, number>;
@@ -55,6 +67,14 @@ export type StatementView = {
     inCents: number;
     outCents: number;
     transferNetCents: number;
+    /**
+     * Umbuchungen **auf** dieses Konto — auf einem Rücklagenkonto: die
+     * Zuführung. Optional aus demselben Grund wie `ruecklagenEntwicklung`:
+     * ältere Snapshots führen nur den Nettowert.
+     */
+    transferInCents?: number;
+    /** Umbuchungen **von** diesem Konto weg. */
+    transferOutCents?: number;
     endCents: number;
   }[];
   incomeCents: number;
@@ -73,6 +93,16 @@ export type StatementView = {
    * Nur Zahlen und Zeichenketten, damit der Snapshot JSON-fähig bleibt.
    */
   vermoegensbericht: Vermoegensbericht;
+  /**
+   * Entwicklung der Erhaltungsrücklage: Anfangsbestand + Zuführung + Zinsen −
+   * Entnahmen = Endbestand.
+   *
+   * `null`, wenn kein Rücklagenkonto geführt wird; `undefined` in Snapshots aus
+   * der Zeit vor dieser Erweiterung. Aus demselben Grund hier und nicht erst in
+   * der Seite wie `vermoegensbericht`: Die Kette gehört zu dem, was beschlossen
+   * wurde, und darf sich nach dem Einfrieren nicht mehr ändern.
+   */
+  ruecklagenEntwicklung?: RuecklagenEntwicklung | null;
 };
 
 type BookingGroup = {
@@ -148,7 +178,10 @@ export async function computeStatementView(
           bookingDate: inYear,
           ...NOT_REVERSED,
         },
+        // Anzahl mit: „1.240,00 € ohne Kostenart" lässt offen, ob eine Buchung
+        // oder dreißig zu bearbeiten sind — und damit, wie lang der Weg ist.
         _sum: { amountCents: true },
+        _count: true,
       }),
       db.booking.aggregate({
         where: { propertyId: property.id, kind: "EINNAHME", bookingDate: inYear, ...NOT_REVERSED },
@@ -298,6 +331,7 @@ export async function computeStatementView(
     ),
     reserveSpendByCostType,
     otherExpenseCents: otherAgg._sum.amountCents ?? 0,
+    otherExpenseCount: otherAgg._count,
     manualAmounts,
     reserveTransferCents,
     reserveTransferKey,
@@ -337,14 +371,21 @@ export async function computeStatementView(
     const startCents = a.openingBalanceCents + signedSum(beforeGroups, a.id);
     let inCents = 0;
     let outCents = 0;
-    let transferNetCents = 0;
+    // Zu- und Abgang getrennt: Der Nettowert allein genügt der Kontentabelle,
+    // aber nicht der Entwicklungsrechnung der Rücklage. Dort müssen Zuführung
+    // und Rückbuchung einzeln stehen — sonst zeigt eine Zeile „Zuführung"
+    // bereits die Differenz aus beidem und erklärt nichts mehr.
+    let transferInCents = 0;
+    let transferOutCents = 0;
     for (const g of yearGroups) {
       if (g.accountId !== a.id) continue;
       const amount = g._sum.amountCents ?? 0;
       if (g.kind === "EINNAHME") inCents += amount;
       else if (g.kind === "AUSGABE") outCents += amount;
-      else transferNetCents += g.transferOut ? -amount : amount;
+      else if (g.transferOut) transferOutCents += amount;
+      else transferInCents += amount;
     }
+    const transferNetCents = transferInCents - transferOutCents;
     return {
       id: a.id,
       name: a.name,
@@ -353,6 +394,8 @@ export async function computeStatementView(
       inCents,
       outCents,
       transferNetCents,
+      transferInCents,
+      transferOutCents,
       endCents: startCents + inCents - outCents + transferNetCents,
     };
   });
@@ -385,10 +428,27 @@ export async function computeStatementView(
       settledAt: true,
     },
   });
+  // Dieselbe Auswahl wie im Vermögensbericht — beide Stellen müssen für die
+  // Erhaltungsrücklage dieselbe Zahl nennen.
+  const ruecklagenkonten = accountViews.filter((a) => a.kind === "RUECKLAGE");
+  const ruecklagenEntwicklung =
+    ruecklagenkonten.length === 0
+      ? null
+      : baueRuecklagenEntwicklung(
+          ruecklagenkonten.map((a) => ({
+            name: a.name,
+            startCents: a.startCents,
+            // Einnahmen auf einem Rücklagenkonto sind in aller Regel Zinsen.
+            zinsenCents: a.inCents,
+            ausgabeCents: a.outCents,
+            zufuehrungCents: a.transferInCents,
+            rueckbuchungCents: a.transferOutCents,
+            endCents: a.endCents,
+          })),
+        );
+
   const vermoegensbericht = baueVermoegensbericht({
-    ruecklageCents: accountViews
-      .filter((a) => a.kind === "RUECKLAGE")
-      .reduce((sum, a) => sum + a.endCents, 0),
+    ruecklageCents: ruecklagenkonten.reduce((sum, a) => sum + a.endCents, 0),
     girokontenCents: accountViews
       .filter((a) => a.kind === "GIRO")
       .reduce((sum, a) => sum + a.endCents, 0),
@@ -417,6 +477,7 @@ export async function computeStatementView(
     })),
     errors: result.errors,
     warnings: result.warnings,
+    befunde: result.befunde,
     hatPositionen: result.hatPositionen,
     perUnitTotal: Object.fromEntries(result.perUnitTotal),
     duePerUnit: Object.fromEntries(duePerUnit),
@@ -430,5 +491,6 @@ export async function computeStatementView(
     reserveWithdrawalCents: result.reserveWithdrawalCents,
     receivablesCents,
     vermoegensbericht,
+    ruecklagenEntwicklung,
   };
 }

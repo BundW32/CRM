@@ -11,11 +11,17 @@ import { requireVerwalter } from "@/lib/session";
 import { planErlaubt } from "@/lib/plan-guard";
 import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
 import {
-  guessMapping,
+  decodeBankFile,
+  detectMapping,
   mapRows,
+  mappingComplete,
   parseCsv,
   type ColumnMapping,
+  type Zeichensatz,
 } from "@/lib/weg/bank-import";
+import { baueImportProfil, leseImportProfil } from "@/lib/weg/import-profil";
+import { ladeZuordnungsKontext } from "@/lib/weg/zuordnung-kontext";
+import { schlageVorschlagVor, type Guete } from "@/lib/weg/zuordnung-vorschlag";
 import { pruefeZahlung } from "@/lib/weg/bauabzugsteuer-service";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { loadWegProperty } from "@/lib/weg/scope";
@@ -274,6 +280,14 @@ export async function createTransfer(formData: FormData) {
 // zwischengespeichert (Zero-Key, kein Aufräum-Job).
 // Schritt 2 (importCsvAction): endgültiger Import als BankImportBatch.
 
+export type ImportVorschlag = {
+  /** Was vorgeschlagen wird — Einheit (Einnahme) oder Kostenart (Ausgabe). */
+  label: string;
+  art: "einheit" | "kostenart";
+  guete: Guete;
+  grund: string;
+};
+
 export type ImportPreviewRow = {
   date: string;
   kind: "EINNAHME" | "AUSGABE";
@@ -282,6 +296,21 @@ export type ImportPreviewRow = {
   text: string;
   counterparty?: string;
   duplicate: boolean;
+  vorschlag?: ImportVorschlag;
+};
+
+/**
+ * Was beim Lesen der Datei erkannt wurde. Wandert **immer** in die Oberfläche,
+ * nicht nur im Fehlerfall: Ohne diese Angaben ist der Unterschied zwischen
+ * „falsche Zeile als Kopfzeile" und „Zeichensatz kaputt" von außen nicht zu
+ * sehen, und der Verwalter kann nur „geht nicht" melden.
+ */
+export type ImportDiagnose = {
+  encoding: Zeichensatz;
+  delimiter: string;
+  hasHeader: boolean;
+  skippedBefore: number;
+  rawLines: string[];
 };
 
 export type ImportAnalysis =
@@ -290,72 +319,129 @@ export type ImportAnalysis =
       accountId: string;
       fileName: string;
       contentBase64: string;
+      diagnose: ImportDiagnose;
+      /** Woher das gezeigte Mapping stammt. */
+      mappingQuelle: "gespeichert" | "erkannt" | "manuell";
       header: string[];
       mapping: Partial<ColumnMapping>;
       rowsTotal: number;
       parseable: number;
       duplicates: number;
       preview: ImportPreviewRow[];
+      /** Anzahl Vorschläge je Gütegrad — Grundlage der Bestätigungs-Häkchen. */
+      vorschlaege: Record<Guete, number>;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; diagnose?: ImportDiagnose };
 
-function readMappingOverride(formData: FormData): Partial<ColumnMapping> {
+/**
+ * Das von Hand gesetzte Mapping aus dem Formular.
+ *
+ * `gesetzt` unterscheidet „das Formular trug keine Spaltenfelder" von „der
+ * Verwalter hat eine Spalte auf ‚keine' gestellt". Ohne diese Unterscheidung
+ * ließe sich eine einmal erkannte Spalte nicht mehr abwählen: Der leere Wert
+ * käme als `undefined` an und der alte Vorschlag stünde wieder da.
+ */
+function readMappingOverride(formData: FormData): { mapping: Partial<ColumnMapping>; gesetzt: boolean } {
   const num = (name: string) => {
     const v = String(formData.get(name) ?? "").trim();
     if (v === "") return undefined;
     const n = Number(v);
     return Number.isInteger(n) && n >= 0 ? n : undefined;
   };
-  return {
+  const roh: Record<string, number | undefined> = {
     date: num("col_date"),
     amount: num("col_amount"),
+    debit: num("col_debit"),
+    credit: num("col_credit"),
     purpose: num("col_purpose"),
     counterparty: num("col_counterparty"),
   };
+  return {
+    mapping: Object.fromEntries(Object.entries(roh).filter(([, v]) => v !== undefined)),
+    gesetzt: formData.has("col_date"),
+  };
+}
+
+/** Der Zeichensatz reist zwischen den Schritten mit — nur zur Anzeige. */
+function readEncoding(formData: FormData): Zeichensatz {
+  const roh = String(formData.get("encoding") ?? "");
+  const bekannt: Zeichensatz[] = ["utf-8", "utf-8-bom", "utf-16le", "utf-16be", "windows-1252"];
+  return bekannt.includes(roh as Zeichensatz) ? (roh as Zeichensatz) : "utf-8";
 }
 
 async function analyzeInternal(
-  accountId: string,
+  propertyId: string,
+  account: { id: string; importProfile: unknown },
   fileName: string,
   content: string,
-  override: Partial<ColumnMapping>,
+  encoding: Zeichensatz,
+  override: { mapping: Partial<ColumnMapping>; gesetzt: boolean },
 ): Promise<ImportAnalysis> {
-  const { header, rows } = parseCsv(content);
-  if (header.length === 0 || rows.length === 0) {
-    return { ok: false, error: "Die Datei enthält keine auswertbaren Zeilen." };
-  }
-  const guessed = guessMapping(header);
-  const mapping: Partial<ColumnMapping> = {
-    date: override.date ?? guessed.date,
-    amount: override.amount ?? guessed.amount,
-    purpose: override.purpose ?? guessed.purpose,
-    counterparty: override.counterparty ?? guessed.counterparty,
+  const parsed = parseCsv(content);
+  const diagnose: ImportDiagnose = {
+    encoding,
+    delimiter: parsed.delimiter,
+    hasHeader: parsed.hasHeader,
+    skippedBefore: parsed.skippedBefore,
+    rawLines: parsed.rawLines,
   };
+  if (parsed.header.length === 0 || parsed.rows.length === 0) {
+    return { ok: false, error: "Die Datei enthält keine auswertbaren Zeilen.", diagnose };
+  }
+
+  // Rangfolge: Was der Verwalter von Hand gesetzt hat, dann die gemerkte Lesart
+  // dieses Kontos, dann die Erkennung. Ein gespeichertes Profil darf die
+  // Erkennung überstimmen — es ist die einzige Angabe, die ein Mensch bestätigt
+  // hat.
+  const profil = leseImportProfil(account.importProfile);
+  const erkannt = detectMapping(parsed);
+  const passtNochAufDieDatei =
+    profil !== null &&
+    Object.values(profil.mapping).every((idx) => typeof idx === "number" && idx < parsed.header.length);
+  const basis = passtNochAufDieDatei ? profil.mapping : erkannt;
+  const mapping: Partial<ColumnMapping> = override.gesetzt ? override.mapping : basis;
+  const mappingQuelle = (
+    override.gesetzt ? "manuell" : passtNochAufDieDatei ? "gespeichert" : "erkannt"
+  ) as "manuell" | "gespeichert" | "erkannt";
+
   const base = {
     ok: true as const,
-    accountId,
+    accountId: account.id,
     fileName,
+    // Der bereits dekodierte Text reist als UTF-8 weiter. Würde hier der
+    // Rohinhalt zurückgereicht, käme im zweiten Schritt wieder die feste
+    // UTF-8-Annahme zum Zug — und die Korrektur wäre weg.
     contentBase64: Buffer.from(content, "utf-8").toString("base64"),
-    header,
+    diagnose,
+    mappingQuelle,
+    header: parsed.header,
     mapping,
-    rowsTotal: rows.length,
+    rowsTotal: parsed.rows.length,
   };
-  if (mapping.date === undefined || mapping.amount === undefined || mapping.purpose === undefined) {
-    return { ...base, parseable: 0, duplicates: 0, preview: [] };
+  const leer: Record<Guete, number> = { sicher: 0, wahrscheinlich: 0, unsicher: 0 };
+  if (!mappingComplete(mapping)) {
+    return { ...base, parseable: 0, duplicates: 0, preview: [], vorschlaege: leer };
   }
-  const parsedRows = mapRows(rows, mapping as ColumnMapping, accountId);
+
+  const parsedRows = mapRows(parsed.rows, mapping, account.id);
   // Duplikate: gegen den Bestand UND innerhalb der Datei
-  const existing = await db.booking.findMany({
-    where: { accountId, dedupeHash: { in: parsedRows.map((r) => r.dedupeHash) } },
-    select: { dedupeHash: true },
-  });
+  const [existing, kontext] = await Promise.all([
+    db.booking.findMany({
+      where: { accountId: account.id, dedupeHash: { in: parsedRows.map((r) => r.dedupeHash) } },
+      select: { dedupeHash: true },
+    }),
+    ladeZuordnungsKontext(propertyId),
+  ]);
   const known = new Set(existing.map((e) => e.dedupeHash));
   const seen = new Set<string>();
   let duplicates = 0;
+  const vorschlaege = { ...leer };
   const preview: ImportPreviewRow[] = parsedRows.map((r) => {
     const duplicate = known.has(r.dedupeHash) || seen.has(r.dedupeHash);
     seen.add(r.dedupeHash);
     if (duplicate) duplicates++;
+    const roh = duplicate ? null : schlageVorschlagVor(r, kontext);
+    if (roh) vorschlaege[roh.guete]++;
     return {
       date: r.bookingDate.toISOString().slice(0, 10),
       kind: r.kind as "EINNAHME" | "AUSGABE",
@@ -364,9 +450,17 @@ async function analyzeInternal(
       text: r.text,
       counterparty: r.counterparty,
       duplicate,
+      vorschlag: roh
+        ? {
+            label: roh.unitLabel ?? roh.costTypeName ?? "",
+            art: roh.unitId ? "einheit" : "kostenart",
+            guete: roh.guete,
+            grund: roh.gruende.join(", "),
+          }
+        : undefined,
     };
   });
-  return { ...base, parseable: parsedRows.length, duplicates, preview };
+  return { ...base, parseable: parsedRows.length, duplicates, preview, vorschlaege };
 }
 
 export async function analyzeCsvAction(
@@ -384,19 +478,33 @@ export async function analyzeCsvAction(
   // Datei aus Schritt 1 ODER Base64 aus einer erneuten Analyse (Mapping geändert)
   let fileName = "";
   let content = "";
+  let encoding: Zeichensatz;
   const file = formData.get("csv");
   if (file instanceof File && file.size > 0) {
     if (file.size > MAX_CSV_SIZE) return { ok: false, error: "Die Datei ist größer als 2 MB." };
     fileName = file.name;
-    content = Buffer.from(await file.arrayBuffer()).toString("utf-8");
+    // Genau **einmal** dekodieren, hier. Bank-Exporte sind oft Windows-1252,
+    // manche Excel-Umwege liefern UTF-16 — eine feste UTF-8-Annahme zerlegt die
+    // Umlaute in Zahlungspartner und Verwendungszweck.
+    const dekodiert = decodeBankFile(new Uint8Array(await file.arrayBuffer()));
+    content = dekodiert.text;
+    encoding = dekodiert.encoding;
   } else {
     const b64 = String(formData.get("contentBase64") ?? "");
     fileName = String(formData.get("fileName") ?? "import.csv");
     if (!b64) return { ok: false, error: "Bitte eine CSV-Datei auswählen." };
     if (b64.length > MAX_CSV_SIZE * 1.4) return { ok: false, error: "Die Datei ist größer als 2 MB." };
     content = Buffer.from(b64, "base64").toString("utf-8");
+    encoding = readEncoding(formData);
   }
-  return analyzeInternal(account.id, fileName, content, readMappingOverride(formData));
+  return analyzeInternal(
+    property.id,
+    account,
+    fileName,
+    content,
+    encoding,
+    readMappingOverride(formData),
+  );
 }
 
 export async function importCsvAction(formData: FormData) {
@@ -414,12 +522,10 @@ export async function importCsvAction(formData: FormData) {
   if (!b64 || b64.length > MAX_CSV_SIZE * 1.4) back(property.id, "fehler=datei");
   const content = Buffer.from(b64, "base64").toString("utf-8");
 
-  const override = readMappingOverride(formData);
-  if (override.date === undefined || override.amount === undefined || override.purpose === undefined) {
-    back(property.id, "fehler=mapping");
-  }
-  const mapping = override as ColumnMapping;
-  const { rows } = parseCsv(content);
+  const { mapping } = readMappingOverride(formData);
+  if (!mappingComplete(mapping)) back(property.id, "fehler=mapping");
+  const parsed = parseCsv(content);
+  const rows = parsed.rows;
   const parsedRows = mapRows(rows, mapping, account.id);
   if (parsedRows.length === 0) back(property.id, "fehler=keinezeilen");
 
@@ -434,6 +540,34 @@ export async function importCsvAction(formData: FormData) {
     if (known.has(r.dedupeHash)) continue;
     known.add(r.dedupeHash); // dedupliziert auch innerhalb der Datei
     toImport.push(r);
+  }
+
+  // ── Zuordnungsvorschläge ───────────────────────────────────────────────────
+  //
+  // Übernommen wird nur, was der Verwalter in der Vorschau bestätigt hat — je
+  // Gütegrad ein Häkchen. Die Vorschläge werden hier **neu berechnet** statt
+  // aus dem Formular gelesen: Eine mitgeschickte Kostenart oder Einheit wäre
+  // eine Angabe aus dem Browser, und die gehört nicht ungeprüft in eine
+  // Buchung. Bestätigt wird der Gütegrad, gerechnet wird auf dem Server.
+  //
+  // Gesetzt wird ausschließlich `unitId` bzw. `costTypeId` — also dieselbe
+  // Angabe, die auch die Zuordnungs-Hilfe auf der Hausgeld-Seite schreibt.
+  // Keine Anrechnung auf offene Forderungen: Wohin eine Zahlung tilgt,
+  // entscheidet der Verwalter (§ 366 BGB), nicht der Import.
+  const bestaetigt = new Set(
+    formData
+      .getAll("uebernehmen")
+      .map((v) => String(v))
+      .filter((v): v is Guete => v === "sicher" || v === "wahrscheinlich" || v === "unsicher"),
+  );
+  const zuordnung = new Map<string, { unitId?: string; costTypeId?: string }>();
+  if (bestaetigt.size > 0) {
+    const kontext = await ladeZuordnungsKontext(property.id);
+    for (const r of toImport) {
+      const v = schlageVorschlagVor(r, kontext);
+      if (!v || !bestaetigt.has(v.guete)) continue;
+      zuordnung.set(r.dedupeHash, { unitId: v.unitId, costTypeId: v.costTypeId });
+    }
   }
 
   const batch = await db.$transaction(async (tx) => {
@@ -464,11 +598,25 @@ export async function importCsvAction(formData: FormData) {
           reference: r.reference || null,
           dedupeHash: r.dedupeHash,
           importBatchId: created.id,
+          unitId: zuordnung.get(r.dedupeHash)?.unitId ?? null,
+          costTypeId: zuordnung.get(r.dedupeHash)?.costTypeId ?? null,
           createdById: verwalter.id,
         })),
         skipDuplicates: true, // DB-Unique (accountId, dedupeHash) als letzte Wand
       });
     }
+    // Die bestätigte Lesart der Datei am Konto merken — beim nächsten Import
+    // derselben Bank ist sie vorbelegt.
+    await tx.ledgerAccount.update({
+      where: { id: account.id },
+      data: {
+        importProfile: baueImportProfil(mapping, {
+          encoding: readEncoding(formData),
+          delimiter: parsed.delimiter,
+          hasHeader: parsed.hasHeader,
+        }),
+      },
+    });
     return created;
   });
 
@@ -477,7 +625,15 @@ export async function importCsvAction(formData: FormData) {
     action: AUDIT.WEG_BANK_IMPORT,
     targetType: "BankImportBatch",
     targetId: batch.id,
-    meta: { fileName, imported: toImport.length, skipped: rows.length - toImport.length },
+    meta: {
+      fileName,
+      imported: toImport.length,
+      skipped: rows.length - toImport.length,
+      // Wie viele Buchungen mit einem bestätigten Vorschlag hereinkamen — bei
+      // einer späteren Rückfrage ist genau das die Frage.
+      zugeordnet: zuordnung.size,
+      guetegrade: [...bestaetigt].sort(),
+    },
   });
   revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
   back(property.id, `import=${toImport.length}&uebersprungen=${rows.length - toImport.length}`);

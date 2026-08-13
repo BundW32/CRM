@@ -1,15 +1,49 @@
 "use client";
 
 // CSV-Import-Assistent (Zero-Key): Schritt 1 Datei + Konto → Analyse mit
-// Mapping-Vorschlag und Duplikat-Vorschau, Schritt 2 bestätigen → Import.
-// Der Dateiinhalt reist als Base64 im Formular mit — nichts wird serverseitig
-// zwischengespeichert.
+// Mapping-Vorschlag, Duplikat- und Zuordnungs-Vorschau, Schritt 2 bestätigen →
+// Import. Der Dateiinhalt reist als Base64 im Formular mit — nichts wird
+// serverseitig zwischengespeichert.
+//
+// Der Assistent zeigt **immer**, was er gelesen hat: Zeichensatz, Trennzeichen,
+// ob eine Kopfzeile gefunden wurde, und die ersten Rohzeilen. Ohne diese
+// Angaben unterscheidet niemand „falsche Zeile als Kopfzeile" von „Zeichensatz
+// kaputt" — beide sehen von außen gleich aus, und beide sind schon vorgekommen.
 import { useActionState } from "react";
+import { Badge } from "@/components/data-display";
 import { FileInput } from "@/components/file-input";
 import { buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
-import { analyzeCsvAction, importCsvAction, type ImportAnalysis } from "./actions";
+import type { Guete } from "@/lib/weg/zuordnung-vorschlag";
+import {
+  analyzeCsvAction,
+  importCsvAction,
+  type ImportAnalysis,
+  type ImportDiagnose,
+  type ImportVorschlag,
+} from "./actions";
 
 type AccountOption = { id: string; name: string };
+
+const ZEICHENSATZ_TEXT: Record<string, string> = {
+  "utf-8": "UTF-8",
+  "utf-8-bom": "UTF-8 (mit BOM)",
+  "utf-16le": "UTF-16 LE",
+  "utf-16be": "UTF-16 BE",
+  "windows-1252": "Windows-1252",
+};
+
+const TRENNZEICHEN_TEXT: Record<string, string> = {
+  ";": "Semikolon (;)",
+  ",": "Komma (,)",
+  "\t": "Tabulator",
+  "|": "Senkrechter Strich (|)",
+};
+
+const GUETE_TON: Record<Guete, "success" | "warning" | "neutral"> = {
+  sicher: "success",
+  wahrscheinlich: "warning",
+  unsicher: "neutral",
+};
 
 export function ImportClient({
   propertyId,
@@ -26,8 +60,10 @@ export function ImportClient({
   const mappingReady =
     analysis?.ok &&
     analysis.mapping.date !== undefined &&
-    analysis.mapping.amount !== undefined &&
-    analysis.mapping.purpose !== undefined;
+    analysis.mapping.purpose !== undefined &&
+    (analysis.mapping.amount !== undefined ||
+      analysis.mapping.debit !== undefined ||
+      analysis.mapping.credit !== undefined);
 
   return (
     <div className="grid gap-4">
@@ -60,9 +96,12 @@ export function ImportClient({
       </form>
 
       {analysis && !analysis.ok ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          {analysis.error}
-        </p>
+        <div className="grid gap-3">
+          <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+            {analysis.error}
+          </p>
+          {analysis.diagnose ? <Diagnose diagnose={analysis.diagnose} /> : null}
+        </div>
       ) : null}
 
       {/* Schritt 2: Mapping bestätigen + Vorschau */}
@@ -73,31 +112,45 @@ export function ImportClient({
             {analysis.duplicates > 0 ? `, ${analysis.duplicates} Duplikat(e) werden übersprungen` : ""}
           </h3>
 
+          <Diagnose diagnose={analysis.diagnose} className="mt-3" />
+
           <form action={analyzeAction} className="mt-3 flex flex-wrap items-end gap-2">
             {/* erneute Analyse mit angepasstem Mapping */}
             <input type="hidden" name="propertyId" value={propertyId} />
             <input type="hidden" name="accountId" value={analysis.accountId} />
             <input type="hidden" name="contentBase64" value={analysis.contentBase64} />
             <input type="hidden" name="fileName" value={analysis.fileName} />
+            <input type="hidden" name="encoding" value={analysis.diagnose.encoding} />
             <MappingSelect header={analysis.header} name="col_date" label="Spalte Buchungstag" value={analysis.mapping.date} />
-            <MappingSelect header={analysis.header} name="col_amount" label="Spalte Betrag" value={analysis.mapping.amount} />
+            <MappingSelect header={analysis.header} name="col_amount" label="Spalte Betrag" value={analysis.mapping.amount} optional />
+            <MappingSelect header={analysis.header} name="col_debit" label="Spalte Soll (optional)" value={analysis.mapping.debit} optional />
+            <MappingSelect header={analysis.header} name="col_credit" label="Spalte Haben (optional)" value={analysis.mapping.credit} optional />
             <MappingSelect header={analysis.header} name="col_purpose" label="Spalte Verwendungszweck" value={analysis.mapping.purpose} />
             <MappingSelect header={analysis.header} name="col_counterparty" label="Spalte Zahlungspartner (optional)" value={analysis.mapping.counterparty} optional />
             <button type="submit" className={buttonSecondaryClass} disabled={analyzing}>
               Vorschau aktualisieren
             </button>
           </form>
+          <p className="mt-2 text-xs text-gray-500">
+            {analysis.mappingQuelle === "gespeichert"
+              ? "Spalten aus der zuletzt bestätigten Zuordnung dieses Kontos."
+              : analysis.mappingQuelle === "manuell"
+                ? "Spalten von Hand gesetzt."
+                : "Spalten automatisch erkannt."}{" "}
+            Entweder eine Betragsspalte oder Soll und Haben — nicht beides.
+          </p>
 
           {mappingReady ? (
             <>
               <div className="mt-4 overflow-x-auto">
-                <table className="w-full min-w-[560px] text-left text-sm">
+                <table className="w-full min-w-[680px] text-left text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
                       <th className="py-1.5 pr-3">Datum</th>
                       <th className="py-1.5 pr-3">Art</th>
                       <th className="py-1.5 pr-3">Betrag</th>
                       <th className="py-1.5 pr-3">Text</th>
+                      <th className="py-1.5 pr-3">Vorschlag</th>
                       <th className="py-1.5">Status</th>
                     </tr>
                   </thead>
@@ -111,6 +164,9 @@ export function ImportClient({
                         <td className="py-1.5 pr-3">{row.kind === "EINNAHME" ? "Einnahme" : "Ausgabe"}</td>
                         <td className="py-1.5 pr-3 whitespace-nowrap">{row.amountLabel}</td>
                         <td className="py-1.5 pr-3">{truncate(row.text, 60)}</td>
+                        <td className="py-1.5 pr-3">
+                          {row.vorschlag ? <VorschlagZelle vorschlag={row.vorschlag} /> : "—"}
+                        </td>
                         <td className="py-1.5">{row.duplicate ? "Duplikat" : "neu"}</td>
                       </tr>
                     ))}
@@ -123,36 +179,135 @@ export function ImportClient({
                 ) : null}
               </div>
 
-              <form action={importCsvAction} className="mt-4">
+              <form action={importCsvAction} className="mt-4 grid gap-3">
                 <input type="hidden" name="propertyId" value={propertyId} />
                 <input type="hidden" name="accountId" value={analysis.accountId} />
                 <input type="hidden" name="contentBase64" value={analysis.contentBase64} />
                 <input type="hidden" name="fileName" value={analysis.fileName} />
+                <input type="hidden" name="encoding" value={analysis.diagnose.encoding} />
                 <input type="hidden" name="col_date" value={analysis.mapping.date} />
-                <input type="hidden" name="col_amount" value={analysis.mapping.amount} />
                 <input type="hidden" name="col_purpose" value={analysis.mapping.purpose} />
+                {analysis.mapping.amount !== undefined ? (
+                  <input type="hidden" name="col_amount" value={analysis.mapping.amount} />
+                ) : null}
+                {analysis.mapping.debit !== undefined ? (
+                  <input type="hidden" name="col_debit" value={analysis.mapping.debit} />
+                ) : null}
+                {analysis.mapping.credit !== undefined ? (
+                  <input type="hidden" name="col_credit" value={analysis.mapping.credit} />
+                ) : null}
                 {analysis.mapping.counterparty !== undefined ? (
                   <input type="hidden" name="col_counterparty" value={analysis.mapping.counterparty} />
                 ) : null}
-                <button
-                  type="submit"
-                  className={buttonClass}
-                  disabled={analysis.parseable - analysis.duplicates <= 0}
-                >
-                  {analysis.parseable - analysis.duplicates} Buchung(en) importieren
-                </button>
+
+                <VorschlagsBestaetigung vorschlaege={analysis.vorschlaege} />
+
+                <div>
+                  <button
+                    type="submit"
+                    className={buttonClass}
+                    disabled={analysis.parseable - analysis.duplicates <= 0}
+                  >
+                    {analysis.parseable - analysis.duplicates} Buchung(en) importieren
+                  </button>
+                </div>
               </form>
             </>
           ) : (
             <p className="mt-3 text-sm text-amber-700">
               Die Spalten für Buchungstag, Betrag und Verwendungszweck konnten nicht
               automatisch erkannt werden — bitte oben zuordnen und „Vorschau
-              aktualisieren“ wählen.
+              aktualisieren“ wählen. Was gelesen wurde, steht darüber.
             </p>
           )}
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** Was beim Lesen erkannt wurde — immer sichtbar, nicht nur im Fehlerfall. */
+function Diagnose({ diagnose, className = "" }: { diagnose: ImportDiagnose; className?: string }) {
+  return (
+    <div className={`rounded-xl bg-gray-50 p-3 text-xs text-gray-600 ${className}`}>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <span>
+          Zeichensatz: <strong>{ZEICHENSATZ_TEXT[diagnose.encoding] ?? diagnose.encoding}</strong>
+        </span>
+        <span>
+          Trennzeichen: <strong>{TRENNZEICHEN_TEXT[diagnose.delimiter] ?? diagnose.delimiter}</strong>
+        </span>
+        <span>
+          Kopfzeile vorhanden: <strong>{diagnose.hasHeader ? "ja" : "nein"}</strong>
+          {diagnose.hasHeader && diagnose.skippedBefore > 0
+            ? ` (${diagnose.skippedBefore} Zeile(n) davor übersprungen)`
+            : ""}
+        </span>
+      </div>
+      {diagnose.rawLines.length > 0 ? (
+        <div className="mt-2">
+          <span className="text-gray-500">Erste Zeilen der Datei:</span>
+          <pre className="mt-1 overflow-x-auto rounded-lg bg-white p-2 font-mono text-[11px] leading-relaxed text-gray-700">
+            {diagnose.rawLines.join("\n")}
+          </pre>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function VorschlagZelle({ vorschlag }: { vorschlag: ImportVorschlag }) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span title={vorschlag.grund}>{truncate(vorschlag.label, 28)}</span>
+      <Badge tone={GUETE_TON[vorschlag.guete]}>{vorschlag.guete}</Badge>
+    </span>
+  );
+}
+
+/**
+ * Bestätigung der Vorschläge — je Gütegrad ein Häkchen.
+ *
+ * Vorbelegt ist nur „sicher"; alles andere setzt der Verwalter selbst. Nichts
+ * wird still gebucht: Ohne Häkchen kommen die Buchungen ohne Zuordnung herein,
+ * genau wie bisher.
+ */
+function VorschlagsBestaetigung({ vorschlaege }: { vorschlaege: Record<Guete, number> }) {
+  const gesamt = vorschlaege.sicher + vorschlaege.wahrscheinlich + vorschlaege.unsicher;
+  if (gesamt === 0) return null;
+  const stufen: { guete: Guete; label: string }[] = [
+    { guete: "sicher", label: "sichere" },
+    { guete: "wahrscheinlich", label: "wahrscheinliche" },
+    { guete: "unsicher", label: "unsichere" },
+  ];
+  return (
+    <fieldset className="rounded-xl border border-gray-200 p-3">
+      <legend className="px-1 text-sm font-medium text-gray-700">
+        Zuordnungsvorschläge übernehmen
+      </legend>
+      <p className="text-xs text-gray-500">
+        Einnahmen bekommen eine Einheit, Ausgaben eine Kostenart. Angerechnet wird nichts —
+        auf welche Forderung eine Zahlung tilgt, entscheiden Sie im Hausgeld.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-4">
+        {stufen.map(({ guete, label }) => (
+          <label
+            key={guete}
+            className={`flex items-center gap-2 text-sm ${vorschlaege[guete] === 0 ? "text-gray-400" : "text-gray-800"}`}
+          >
+            <input
+              type="checkbox"
+              name="uebernehmen"
+              value={guete}
+              defaultChecked={guete === "sicher"}
+              disabled={vorschlaege[guete] === 0}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            {vorschlaege[guete]} {label}
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 

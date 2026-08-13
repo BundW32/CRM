@@ -5,7 +5,7 @@ import { istCraftsmanTokenGueltig, neuesCraftsmanToken } from "@/lib/craftsman-t
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { Trade, User } from "@/generated/prisma/client";
+import type { DocumentCategory, Trade, User } from "@/generated/prisma/client";
 import {
   canViewTicket,
   canVerwalterAccessProperty,
@@ -16,7 +16,7 @@ import {
 import { db } from "@/lib/db";
 import { hasCertMandate } from "@/lib/cert-mandate";
 import { getBrandingForOrg } from "@/lib/branding-server";
-import { ticketPriorityLabels, unitPublicLabel } from "@/lib/labels";
+import { documentCategoryLabels, ticketPriorityLabels, unitPublicLabel } from "@/lib/labels";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import {
   notifyAssignee,
@@ -30,6 +30,7 @@ import { parseEuroToCents } from "@/lib/money";
 import { MEDIA_TYPES, DOCUMENT_TYPES, deleteBlob, readUpload, saveBuffer, saveUpload } from "@/lib/storage";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { requireUser, requireVerwalter } from "@/lib/session";
+import { sonstigesFreitext } from "@/lib/sonstiges";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
 import { applyTriage } from "@/lib/triage";
@@ -833,7 +834,14 @@ export async function notifyCraftsman(formData: FormData) {
 
 // Verwalter stellt aus einer Dokumentanforderung heraus direkt das Dokument bereit.
 // Es wird ein Dokument für den Anfragenden erstellt und der Vorgang erledigt.
-const DOC_CATEGORIES = ["ABRECHNUNG", "PROTOKOLL", "VERTRAG", "BESCHEINIGUNG", "SONSTIGES"] as const;
+// Einzige Quelle der zulässigen Kategorien ist der Beschriftungs-Katalog — das
+// Formular baut seine Auswahl aus demselben. Die frühere Handaufzählung fiel
+// beim ersten neuen Wert still zurück auf „Bescheinigung": Das Formular bot ihn
+// an, die Aktion verwarf ihn, und niemand sah einen Fehler.
+const DOC_CATEGORIES = Object.keys(documentCategoryLabels) as [
+  DocumentCategory,
+  ...DocumentCategory[],
+];
 
 export async function uploadRequestedDocument(formData: FormData) {
   const verwalter = await requireVerwalter();
@@ -841,8 +849,9 @@ export async function uploadRequestedDocument(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim().slice(0, 200);
   const catRaw = String(formData.get("category") ?? "BESCHEINIGUNG");
   const category = (DOC_CATEGORIES as readonly string[]).includes(catRaw)
-    ? (catRaw as (typeof DOC_CATEGORIES)[number])
+    ? (catRaw as DocumentCategory)
     : "BESCHEINIGUNG";
+  const categoryOther = sonstigesFreitext(category, formData.get("categoryOther"));
 
   const ticket = await db.ticket.findUnique({
     where: { id: ticketId },
@@ -875,6 +884,7 @@ export async function uploadRequestedDocument(formData: FormData) {
       data: {
         title,
         category,
+        categoryOther,
         audience,
         propertyId: ticket.propertyId,
         unitId: ticket.unitId,

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
+import { ComboField } from "@/components/combo-field";
 import { Alert, Card, EmptyState, Field, PageTitle, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { Begriff } from "@/components/begriff";
 import { Tipp } from "@/components/tipp";
@@ -563,16 +564,16 @@ export default async function WegStammdatenPage({
                     <form action={addUnitOwnership} className="mt-3 flex flex-wrap items-end gap-2">
                       <input type="hidden" name="propertyId" value={property.id} />
                       <input type="hidden" name="unitId" value={u.id} />
-                      <Field label="Eigentümer">
-                        <select name="userId" className={`${inputClass} w-auto`} required>
-                          <option value="">— wählen —</option>
-                          {ownerCandidates.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
+                      {/* Tippbar: Die Zahl der Eigentümer wächst mit der
+                          Gemeinschaft, und hier steht sie in jeder Einheitszeile. */}
+                      <ComboField
+                        label="Eigentümer"
+                        name="userId"
+                        required
+                        placeholder="Eigentümer suchen …"
+                        className="w-56"
+                        options={ownerCandidates.map((c) => ({ value: c.id, label: c.name }))}
+                      />
                       <DateField
                         label="Eigentümer seit"
                         name="validFrom"

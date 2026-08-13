@@ -102,6 +102,11 @@ export const documentCategoryLabels: Record<DocumentCategory, string> = {
   PROTOKOLL: "Protokoll",
   VERTRAG: "Vertrag",
   BESCHEINIGUNG: "Bescheinigung",
+  VERSICHERUNG: "Versicherung",
+  RECHNUNG: "Rechnung",
+  ANGEBOT: "Angebot",
+  PLAN_GRUNDRISS: "Plan / Grundriss",
+  BEHOERDE: "Behörde",
   SONSTIGES: "Sonstiges",
 };
 
@@ -136,6 +141,10 @@ export const contactKindLabels: Record<ContactKind, string> = {
   DIENSTLEISTER: "Dienstleister",
   VERSORGER: "Versorger",
   BEHOERDE: "Behörde",
+  MESSDIENST: "Messdienst / Ableseservice",
+  VERSICHERUNG: "Versicherung",
+  STEUERBERATUNG: "Steuerberatung",
+  RECHTSANWALT: "Rechtsanwalt / Notar",
   SONSTIGES: "Sonstige",
 };
 
@@ -157,6 +166,8 @@ export const meterTypeLabels: Record<MeterType, string> = {
   WASSER_KALT: "Wasser (kalt)",
   WASSER_WARM: "Wasser (warm)",
   HEIZUNG: "Heizung",
+  WAERMEMENGE: "Wärmemenge",
+  ABWASSER: "Abwasser",
   SONSTIGES: "Sonstiges",
 };
 

@@ -12,6 +12,7 @@ import { Alert, Card, Field, PageTitle, inputClass } from "@/components/ui";
 import { stackTight } from "@/components/data-display";
 import { ComboField } from "@/components/combo-field";
 import { SelectField } from "@/components/fields";
+import { SelectMitSonstiges } from "@/components/select-sonstiges";
 import { PropertyUnitFields } from "@/components/property-unit-fields";
 import { RecipientPicker } from "@/components/recipient-picker";
 import { SubmitButton } from "@/components/submit-button";
@@ -76,7 +77,15 @@ export default async function DokumentHochladenPage({
                   className={inputClass}
                 />
               </Field>
-              <SelectField label="Kategorie" name="category" required options={kategorien} />
+              <SelectMitSonstiges
+                label="Kategorie"
+                name="category"
+                required
+                options={kategorien}
+                freitextName="categoryOther"
+                freitextLabel="Welche Art Dokument?"
+                freitextPlaceholder="z. B. Teilungserklärung"
+              />
               {/* Ohne Vorauswahl nahm der Browser die erste Option — „Mieter".
                   Wer das Feld übersah, legte ein Eigentümerdokument ab, das
                   kein Eigentümer sehen konnte, ohne dass irgendetwas darauf
@@ -131,7 +140,15 @@ export default async function DokumentHochladenPage({
                   className={inputClass}
                 />
               </Field>
-              <SelectField label="Kategorie" name="category" required options={kategorien} />
+              <SelectMitSonstiges
+                label="Kategorie"
+                name="category"
+                required
+                options={kategorien}
+                freitextName="categoryOther"
+                freitextLabel="Welche Art Dokument?"
+                freitextPlaceholder="z. B. Teilungserklärung"
+              />
               <ComboField
                 label="Objekt"
                 name="propertyId"

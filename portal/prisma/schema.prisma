@@ -36,11 +36,22 @@ enum TicketPriority {
   DRINGEND
 }
 
+// Art eines abgelegten Dokuments. Die ersten vier Werte deckten den Anfang ab,
+// nicht den Bestand einer Gemeinschaft: Versicherungsunterlagen, Rechnungen,
+// Angebote, Grundrisse und Behördenschreiben landeten allesamt unter
+// SONSTIGES. Weitere Werte lassen sich jederzeit ergänzen (in Postgres ist das
+// Hinzufügen eines Enum-Werts unproblematisch); zu SONSTIGES gehört zusätzlich
+// der Freitext `Document.categoryOther`.
 enum DocumentCategory {
   ABRECHNUNG
   PROTOKOLL
   VERTRAG
   BESCHEINIGUNG
+  VERSICHERUNG
+  RECHNUNG
+  ANGEBOT
+  PLAN_GRUNDRISS
+  BEHOERDE
   SONSTIGES
 }
 
@@ -88,16 +99,24 @@ enum ContactKind {
   DIENSTLEISTER
   VERSORGER
   BEHOERDE
+  MESSDIENST
+  VERSICHERUNG
+  STEUERBERATUNG
+  RECHTSANWALT
   SONSTIGES
 }
 
-// Zählerart
+// Zählerart. WAERMEMENGE und ABWASSER sind nachgetragen: Beide gibt es in
+// Bestandsgebäuden regelmäßig, und beide waren vorher nur als SONSTIGES
+// abzubilden. Zu SONSTIGES gehört der Freitext `Meter.typeOther`.
 enum MeterType {
   STROM
   GAS
   WASSER_KALT
   WASSER_WARM
   HEIZUNG
+  WAERMEMENGE
+  ABWASSER
   SONSTIGES
 }
 
@@ -257,11 +276,23 @@ enum DocumentSource {
 }
 
 // Art eines Eigentümer-Antrags (Selbstverwaltung):
-//   BESCHLUSSANTRAG = Antrag auf einen (Umlauf-)Beschluss
-//   VERSAMMLUNG     = Verlangen einer (außerordentlichen) Versammlung (§24 II WEG)
+//   BESCHLUSSANTRAG    = Antrag auf einen (Umlauf-)Beschluss
+//   VERSAMMLUNG        = Verlangen einer (außerordentlichen) Versammlung (§24 II WEG)
+//   TAGESORDNUNGSPUNKT = Punkt für die nächste ordentliche Versammlung, ohne
+//                        eigenen Beschlussantrag (§ 24 Abs. 2 WEG kennt beides)
+//   SONSTIGES          = alles andere, mit Freitext `OwnerMotion.typeOther`
+//
+// Die ersten beiden Werte waren die ganze Auswahl — wer einen Punkt für die
+// nächste Versammlung anmelden wollte, ohne eine außerordentliche zu
+// verlangen, musste zwischen zwei falschen Werten wählen.
+//
+// Als Umlaufbeschluss übernehmbar ist weiterhin allein BESCHLUSSANTRAG; die
+// Sperre steht serverseitig in `antraege/actions.ts`.
 enum MotionType {
   BESCHLUSSANTRAG
   VERSAMMLUNG
+  TAGESORDNUNGSPUNKT
+  SONSTIGES
 }
 
 // Status eines Eigentümer-Antrags:
@@ -639,6 +670,8 @@ model Meter {
   propertyId     String? // Allgemeinzähler (Allgemeinstrom, Hauswasser …)
   property       Property?      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   type           MeterType
+  // Freitext zu type = SONSTIGES (siehe lib/sonstiges.ts).
+  typeOther      String?
   meterNumber    String? // Zählernummer
   location       String? // Einbauort
   // Fernablesbar (funk-/smart): löst die Pflicht zur monatlichen unterjährigen
@@ -788,6 +821,8 @@ model Craftsman {
   name                 String // Ansprechpartner
   // Art des Eintrags im Adressbuch (Handwerker, Versorger, Behörde …).
   kind                 ContactKind           @default(HANDWERKER)
+  // Freitext zu kind = SONSTIGES (siehe lib/sonstiges.ts).
+  kindOther            String?
   // Gewerk – nur für Handwerker aussagekräftig; andere Arten nutzen ALLGEMEIN.
   trade                Trade
   email                String?
@@ -904,6 +939,8 @@ model Document {
   organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   title            String
   category         DocumentCategory
+  // Freitext zu category = SONSTIGES (siehe lib/sonstiges.ts).
+  categoryOther    String?
   audience         Audience
   fileName         String
   storedName       String
@@ -1183,6 +1220,8 @@ model OwnerMotion {
   title          String
   description    String
   type           MotionType     @default(BESCHLUSSANTRAG)
+  // Freitext zu type = SONSTIGES (siehe lib/sonstiges.ts).
+  typeOther      String?
   status         MotionStatus   @default(EINGEREICHT)
   decisionNote   String? // Begründung bei Ablehnung bzw. Hinweis bei Übernahme
   resolutionId   String? // bei Übernahme als Umlaufbeschluss

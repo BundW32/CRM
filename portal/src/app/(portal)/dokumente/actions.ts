@@ -3,16 +3,28 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { DocumentCategory } from "@/generated/prisma/client";
 import { canVerwalterAccessProperty, canViewProperty, userWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
+import { documentCategoryLabels } from "@/lib/labels";
+import { sonstigesFreitext } from "@/lib/sonstiges";
 import { notifyDocumentPublished } from "@/lib/notify";
 import { DOCUMENT_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 import { requireUser, requireVerwalter } from "@/lib/session";
 import { planErlaubt } from "@/lib/plan-guard";
 
+// Einzige Quelle der zulässigen Werte ist der Beschriftungs-Katalog: Er ist ein
+// `Record<DocumentCategory, …>` und deckt den Enum vollständig ab. Die vorherige
+// Aufzählung von Hand hätte einen neu hinzugekommenen Wert stillschweigend
+// abgewiesen — das Formular hätte ihn angeboten, die Aktion ihn verworfen.
+const DOCUMENT_CATEGORIES = Object.keys(documentCategoryLabels) as [
+  DocumentCategory,
+  ...DocumentCategory[],
+];
+
 const uploadSchema = z.object({
   title: z.string().trim().min(2).max(200),
-  category: z.enum(["ABRECHNUNG", "PROTOKOLL", "VERTRAG", "BESCHEINIGUNG", "SONSTIGES"]),
+  category: z.enum(DOCUMENT_CATEGORIES),
   audience: z.enum(["MIETER", "EIGENTUEMER", "ALLE", "BEIRAT"]),
   propertyId: z.string().optional(),
   unitId: z.string().optional(),
@@ -20,7 +32,7 @@ const uploadSchema = z.object({
 
 const ownerUploadSchema = z.object({
   title: z.string().trim().min(2).max(200),
-  category: z.enum(["ABRECHNUNG", "PROTOKOLL", "VERTRAG", "BESCHEINIGUNG", "SONSTIGES"]),
+  category: z.enum(DOCUMENT_CATEGORIES),
   propertyId: z.string().min(1),
 });
 
@@ -58,6 +70,7 @@ export async function uploadOwnerDocument(formData: FormData) {
     data: {
       title: parsed.data.title,
       category: parsed.data.category,
+      categoryOther: sonstigesFreitext(parsed.data.category, formData.get("categoryOther")),
       audience: "EIGENTUEMER", // durch Empfänger gegated – dient nur als Kennzeichen
       propertyId,
       uploadedById: user.id,
@@ -212,6 +225,7 @@ export async function uploadDocument(formData: FormData) {
     data: {
       title: parsed.data.title,
       category: parsed.data.category,
+      categoryOther: sonstigesFreitext(parsed.data.category, formData.get("categoryOther")),
       audience: parsed.data.audience,
       propertyId,
       unitId,

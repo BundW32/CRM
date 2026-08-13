@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
+import { ComboField } from "@/components/combo-field";
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert, Card, CollapsibleCard, EmptyState, Field, PageTitle, Pagination, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig, type SortOption } from "@/components/filter-bar";
@@ -466,16 +467,16 @@ export default async function WegBuchhaltungPage({
                   required
                 />
               </Field>
-              <Field label="Kostenart">
-                <select name="costTypeId" className={`${inputClass} w-full`} defaultValue="">
-                  <option value="">— keine —</option>
-                  {costTypes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              {/* Tippbar: Der Kostenarten-Katalog einer Gemeinschaft wächst mit
+                  ihren Verträgen — „Verwaltervergütung" zu tippen ist schneller,
+                  als sie zwischen zwanzig Zeilen zu suchen. */}
+              <ComboField
+                label="Kostenart"
+                name="costTypeId"
+                placeholder="Kostenart suchen …"
+                clearOption="— keine —"
+                options={costTypes.map((c) => ({ value: c.id, label: c.name }))}
+              />
               {/* §35a: nur der Lohn-, Fahrt- und Maschinenkostenanteil ist
                   begünstigt. Er steht auf der Rechnung; leer lassen ist besser
                   als raten — die Abrechnung weist die Lücke dann aus. */}
@@ -653,30 +654,31 @@ export default async function WegBuchhaltungPage({
                 className="mb-3 flex flex-wrap items-end gap-2 rounded-xl bg-gray-50 p-3"
               >
                 <input type="hidden" name="propertyId" value={property.id} />
-                <Field label="Ausgewählte Buchungen zuordnen">
-                  <select name="costTypeId" className={`${inputClass} w-auto`} defaultValue="">
-                    <option value="">— Zuordnung aufheben —</option>
-                    {costTypes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                <ComboField
+                  label="Ausgewählte Buchungen zuordnen"
+                  name="costTypeId"
+                  placeholder="Kostenart suchen …"
+                  clearOption="— Zuordnung aufheben —"
+                  className="w-56"
+                  options={costTypes.map((c) => ({ value: c.id, label: c.name }))}
+                />
                 {/* Handwerker gleich mit zuordnen. Für importierte Buchungen ist
                     das der einzige Weg zur Prüfung nach § 48 EStG: Die Bank
                     liefert nur Text, und über Text lässt sich nicht summieren. */}
-                <Field label="Handwerker (optional)">
-                  <select name="craftsmanId" className={`${inputClass} w-auto`} defaultValue="">
-                    <option value="">— unverändert lassen —</option>
-                    <option value="OHNE">— Zuordnung aufheben —</option>
-                    {handwerkerWahl.map((h) => (
-                      <option key={h.id} value={h.id}>
-                        {h.name}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                <ComboField
+                  label="Handwerker (optional)"
+                  name="craftsmanId"
+                  placeholder="Handwerker suchen …"
+                  clearOption="— unverändert lassen —"
+                  className="w-56"
+                  options={[
+                    // „Aufheben" bleibt ein eigener Wert: Er sagt etwas anderes
+                    // als „nichts gewählt" — der eine ändert nichts, der andere
+                    // löscht die vorhandene Zuordnung.
+                    { value: "OHNE", label: "— Zuordnung aufheben —" },
+                    ...handwerkerWahl.map((h) => ({ value: h.id, label: h.name })),
+                  ]}
+                />
                 <PendingButton className={buttonSecondaryClass}>Zuordnen</PendingButton>
                 <Tipp className="w-full">
                   Erst in der Liste auswählen, dann Kostenart wählen und setzen. Umbuchungen

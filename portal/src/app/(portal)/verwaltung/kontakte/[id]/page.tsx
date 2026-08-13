@@ -13,6 +13,7 @@ import {
 } from "@/lib/craftsman-token";
 import { db } from "@/lib/db";
 import { contactKindLabels, formatDate, roleLabels, tradeLabels } from "@/lib/labels";
+import { mitFreitext } from "@/lib/sonstiges";
 import { requireVerwalter } from "@/lib/session";
 import { erneuereMagicLink, widerrufeMagicLink } from "../actions";
 import {
@@ -128,7 +129,7 @@ export default async function KontaktDetailPage({
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
             <Building2 className="h-3.5 w-3.5" />
-            {contactKindLabels[kontakt.kind]}
+            {mitFreitext(contactKindLabels[kontakt.kind], kontakt.kindOther)}
           </span>
           {kontakt.kind === "HANDWERKER" ? (
             <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-500">
@@ -169,6 +170,7 @@ export default async function KontaktDetailPage({
               name: kontakt.name,
               company: kontakt.company,
               kind: kontakt.kind,
+              kindOther: kontakt.kindOther,
               trade: kontakt.trade,
               email: kontakt.email,
               phone: kontakt.phone,

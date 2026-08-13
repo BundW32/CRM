@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
+import { ComboField } from "@/components/combo-field";
+import { SelectMitSonstiges } from "@/components/select-sonstiges";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Mail, MessageSquare, Phone } from "lucide-react";
@@ -497,20 +499,18 @@ export default async function TicketDetailPage({
                     ))}
                   </select>
                 </Field>
-                <Field label="Zugewiesen an">
-                  <select
-                    name="assignedToId"
-                    defaultValue={ticket.assignedToId ?? ""}
-                    className={inputClass}
-                  >
-                    <option value="">– niemand –</option>
-                    {assignableUsers.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name} ({roleLabels[v.role]})
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                <ComboField
+                  label="Zugewiesen an"
+                  name="assignedToId"
+                  defaultValue={ticket.assignedToId ?? ""}
+                  placeholder="Person suchen …"
+                  clearOption="– niemand –"
+                  options={assignableUsers.map((v) => ({
+                    value: v.id,
+                    label: v.name,
+                    sublabel: roleLabels[v.role],
+                  }))}
+                />
                 <Field label="Kosten (optional, €)">
                   <input
                     type="text"
@@ -719,15 +719,17 @@ export default async function TicketDetailPage({
                     className={inputClass}
                   />
                 </Field>
-                <Field label="Kategorie">
-                  <select name="category" className={inputClass} defaultValue="BESCHEINIGUNG">
-                    {Object.entries(documentCategoryLabels).map(([v, l]) => (
-                      <option key={v} value={v}>
-                        {l}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                <SelectMitSonstiges
+                  label="Kategorie"
+                  name="category"
+                  defaultValue="BESCHEINIGUNG"
+                  options={Object.entries(documentCategoryLabels).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                  freitextName="categoryOther"
+                  freitextLabel="Welche Art Dokument?"
+                />
                 <Field label="Datei (PDF oder Bild, max. 10 MB)">
                   <FileInput
                     name="file"
@@ -754,45 +756,35 @@ export default async function TicketDetailPage({
                     ))}
                   </select>
                 </Field>
-                <Field label="Handwerker">
-                  <select
-                    name="craftsmanId"
-                    defaultValue={ticket.craftsmanId ?? ""}
-                    className={inputClass}
-                  >
-                    <option value="">– keiner –</option>
-                    {internal.length > 0 ? (
-                      <optgroup label="Intern (Eigenleistung) – zuerst prüfen">
-                        {internal.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.company ? `${c.company} / ` : ""}
-                            {c.name} ({tradeLabels[c.trade]})
-                          </option>
-                        ))}
-                      </optgroup>
-                    ) : null}
-                    {suggested.length > 0 ? (
-                      <optgroup label="Passendes Gewerk (extern)">
-                        {suggested.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.company ? `${c.company} / ` : ""}
-                            {c.name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ) : null}
-                    {others.length > 0 ? (
-                      <optgroup label={suggested.length > 0 ? "Weitere" : "Alle Handwerker"}>
-                        {others.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.company ? `${c.company} / ` : ""}
-                            {c.name} ({tradeLabels[c.trade]})
-                          </option>
-                        ))}
-                      </optgroup>
-                    ) : null}
-                  </select>
-                </Field>
+                {/* Tippbar statt Aufklappliste: Das Kontaktbuch wächst mit jedem
+                    Auftrag. Die Gruppierung des früheren `optgroup` bleibt als
+                    Zusatzzeile je Eintrag erhalten — „intern zuerst prüfen" ist
+                    eine Aussage, die nicht verlorengehen darf; die Reihenfolge
+                    (intern, passendes Gewerk, Rest) trägt sie zusätzlich. */}
+                <ComboField
+                  label="Handwerker"
+                  name="craftsmanId"
+                  defaultValue={ticket.craftsmanId ?? ""}
+                  placeholder="Handwerker suchen …"
+                  clearOption="– keiner –"
+                  options={[
+                    ...internal.map((c) => ({
+                      value: c.id,
+                      label: `${c.company ? `${c.company} / ` : ""}${c.name}`,
+                      sublabel: `Intern (Eigenleistung) · ${tradeLabels[c.trade]}`,
+                    })),
+                    ...suggested.map((c) => ({
+                      value: c.id,
+                      label: `${c.company ? `${c.company} / ` : ""}${c.name}`,
+                      sublabel: `Passendes Gewerk · ${tradeLabels[c.trade]}`,
+                    })),
+                    ...others.map((c) => ({
+                      value: c.id,
+                      label: `${c.company ? `${c.company} / ` : ""}${c.name}`,
+                      sublabel: tradeLabels[c.trade],
+                    })),
+                  ]}
+                />
                 {craftsmen.length === 0 ? (
                   <p className="text-xs text-gray-500">
                     Noch keine Handwerker im{" "}

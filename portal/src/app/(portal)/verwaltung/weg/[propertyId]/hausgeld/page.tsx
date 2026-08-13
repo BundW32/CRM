@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/data-display";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
+import { ComboField } from "@/components/combo-field";
 import type { Prisma } from "@/generated/prisma/client";
 import { Alert, Card, EmptyState, PageTitle, Pagination, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
@@ -843,20 +844,24 @@ export default async function HausgeldPage({
                         {b.counterparty ? ` · ${b.counterparty}` : ""}
                       </span>
                     </div>
-                    <select
+                    {/* Tippbar: Die Einheitenliste wächst mit dem Objekt, und
+                        diese Zuordnung macht man Zahlung für Zahlung. Die
+                        Beschriftung bleibt für Screenreader erhalten; sichtbar
+                        steht sie über der Zahlungszeile. */}
+                    <ComboField
+                      label="Einheit zuordnen"
+                      hideLabel
                       name="unitId"
                       defaultValue={suggestion ?? ""}
-                      className={`${inputClass} w-auto`}
-                      aria-label="Einheit zuordnen"
-                    >
-                      <option value="">— Einheit wählen —</option>
-                      {units.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.label}
-                          {suggestion === u.id ? " (Vorschlag)" : ""}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Einheit suchen …"
+                      clearOption="— Einheit wählen —"
+                      className="w-52"
+                      options={units.map((u) => ({
+                        value: u.id,
+                        label: u.label,
+                        sublabel: suggestion === u.id ? "Vorschlag" : undefined,
+                      }))}
+                    />
                     <button type="submit" className={buttonSecondaryClass}>
                       Zuordnen
                     </button>

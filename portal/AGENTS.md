@@ -222,6 +222,7 @@ Nachbau verbieten (`eslint.oberflaeche.mjs`, Fehler, keine Warnung):
 | Kennzahl als `text-3xl` | `KeyFigure` / `KeyFigures`, in Kopfzeilen `InlineFigures` |
 | Abstände nach Gefühl | `stackTight` / `stack` / `stackLoose` — drei Stufen, keine acht |
 | Auswahlliste, die mit dem Bestand wächst | `ComboField` (`@/components/combo-field`) — tippbar |
+| „Sonstiges" mit Freitext daneben | `SelectMitSonstiges` (`@/components/select-sonstiges`) |
 
 Die Regeln sind **eng** geschnitten: Sie treffen die Signatur des jeweiligen Bausteins,
 nicht jede entfernt ähnliche Klassenkette. Eine Regel, die auch Aufklapp-Menüs und
@@ -255,6 +256,37 @@ achtzig Zeilen, ohne „Kiefer" tippen zu können. Bei Objekt **und** Einheit zu
 - **Das Prüffeld gehört ans Ende.** `Field` rendert ein `<label>`, und ein Klick darauf
   fokussiert das **erste** Formularfeld darin. Stand das unsichtbare Prüffeld vorn, landete
   der Fokus dort: Man klickte auf „Objekt", tippte — und nichts geschah.
+
+### Auswahllisten: „Sonstiges" mit Freitext
+
+Ein `<select>` mit fachlichem Enum ist entweder **abschließend** — dann bleibt
+er, wie er ist; ein „Sonstiges" daran lädt nur dazu ein, an der Fachlichkeit
+vorbei zu erfassen (`MajorityType`, `VoteChoice`, `ManagementType`, `Role`) —
+**oder zu eng.** Dann kommen die fehlenden Werte dazu **und** ein „Sonstiges"
+mit Freitextfeld. Ein „Sonstiges" ohne Freitext hilft niemandem: In der Liste
+steht danach „Sonstiges", und was gemeint war, weiß keiner mehr.
+
+Dafür gibt es **einen** Baustein, nicht sieben Eigenbauten:
+`SelectMitSonstiges` (Formular) und `lib/sonstiges.ts` — `sonstigesFreitext()`
+zum Annehmen, `mitFreitext()` für die Anzeige („Zisterne (Sonstiges)"). Die
+Bestandsaufnahme aller Listen samt Urteil steht in
+`docs/BESTANDSAUFNAHME-Auswahllisten.md`.
+
+Drei Dinge, die dabei feststehen:
+
+- **Der Freitext gilt nur zu „Sonstiges".** Das Eingabefeld bleibt beim
+  Zurückschalten im Formular stehen (sonst verschöbe sich die Feldreihenfolge
+  in `getAll()`-Formularen) und sendet weiter mit. `sonstigesFreitext()`
+  verwirft ihn — sonst stünde an einem Zähler „Strom" und daneben, unsichtbar,
+  noch „Zisterne".
+- **Enum-Werte zu ergänzen ist in Postgres unproblematisch** (`ALTER TYPE …
+  ADD VALUE`, siehe Migration `20260813090000_auswahllisten_sonstiges`) —
+  solange die neuen Werte in derselben Migration nicht **verwendet** werden.
+- **Keine Handaufzählung in der Server-Action.** `z.enum(["A", "B", …])`
+  neben einem Formular, das seine Auswahl aus `lib/labels.ts` baut, fällt beim
+  ersten neuen Wert auseinander: Das Formular bietet ihn an, die Aktion
+  verwirft ihn still. Einzige Quelle ist der Beschriftungs-Katalog, der als
+  `Record<Enum, string>` vollständig sein muss.
 
 ## Pflichtfelder markieren sich selbst
 

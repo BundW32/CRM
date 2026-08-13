@@ -3,6 +3,7 @@ import { FileInput } from "@/components/file-input";
 import { redirect } from "next/navigation";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
+import { ComboField } from "@/components/combo-field";
 import {
   Pagination,
   Alert,
@@ -581,16 +582,22 @@ export default async function BeschluessePage({
                           <form action={castVoteForOwner} className="mt-2 space-y-2">
                             <input type="hidden" name="resolutionId" value={r.id} />
                             <div className="flex flex-wrap items-center gap-2">
-                              <select name="ownerId" required defaultValue="" className={`${inputClass} w-auto`}>
-                                <option value="" disabled>
-                                  – Eigentümer –
-                                </option>
-                                {(ownersByProp.get(r.propertyId) ?? []).map((o) => (
-                                  <option key={o.id} value={o.id}>
-                                    {o.name}
-                                  </option>
-                                ))}
-                              </select>
+                              {/* Tippbar statt Aufklappliste: Die Eigentümerzahl
+                                  wächst mit der Gemeinschaft — bei vierzig
+                                  Einheiten scrollt man sonst durch vierzig
+                                  Zeilen, ohne „Kiefer" tippen zu können. */}
+                              <ComboField
+                                label="Eigentümer"
+                                hideLabel
+                                name="ownerId"
+                                required
+                                placeholder="Eigentümer suchen …"
+                                className="w-56"
+                                options={(ownersByProp.get(r.propertyId) ?? []).map((o) => ({
+                                  value: o.id,
+                                  label: o.name,
+                                }))}
+                              />
                               <select name="choice" required defaultValue="" className={`${inputClass} w-auto`}>
                                 <option value="" disabled>
                                   – Stimme –

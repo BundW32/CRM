@@ -6,8 +6,11 @@ import { z } from "zod";
 import { canVerwalterManageUser, canVerwalterUseCraftsman } from "@/lib/access";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { neuesCraftsmanToken } from "@/lib/craftsman-token";
+import type { ContactKind } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { contactKindLabels } from "@/lib/labels";
 import { requireVerwalter } from "@/lib/session";
+import { sonstigesFreitext } from "@/lib/sonstiges";
 import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
 
 // Rücksprung: `updatePersonContact` läuft aus der Adressbuch-Zeile UND von der
@@ -29,13 +32,10 @@ const TRADES = [
 
 const CONTACT_METHODS = ["EMAIL", "TELEFON", "MOBIL", "POST"] as const;
 
-const CONTACT_KINDS = [
-  "HANDWERKER",
-  "DIENSTLEISTER",
-  "VERSORGER",
-  "BEHOERDE",
-  "SONSTIGES",
-] as const;
+// Einzige Quelle der zulässigen Arten ist der Beschriftungs-Katalog: Er ist ein
+// `Record<ContactKind, …>` und deckt den Enum vollständig ab. Die vorherige
+// Aufzählung von Hand wies neu hinzugekommene Arten stillschweigend ab.
+const CONTACT_KINDS = Object.keys(contactKindLabels) as [ContactKind, ...ContactKind[]];
 
 const craftsmanSchema = z.object({
   company: z.string().trim().max(200).optional(),
@@ -90,6 +90,7 @@ export async function createCraftsman(formData: FormData) {
       company: parsed.data.company || null,
       name: parsed.data.name,
       kind: parsed.data.kind,
+      kindOther: sonstigesFreitext(parsed.data.kind, formData.get("kindOther")),
       trade: parsed.data.trade,
       email: parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null,
       phone: parsed.data.phone || null,
@@ -276,6 +277,7 @@ export async function updateCraftsman(formData: FormData) {
       company: parsed.data.company || null,
       name: parsed.data.name,
       kind: parsed.data.kind,
+      kindOther: sonstigesFreitext(parsed.data.kind, formData.get("kindOther")),
       trade: parsed.data.trade,
       email: parsed.data.email && parsed.data.email !== "" ? parsed.data.email : null,
       phone: parsed.data.phone || null,

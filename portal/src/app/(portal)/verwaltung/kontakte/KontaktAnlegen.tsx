@@ -134,6 +134,23 @@ function KarteiFormular({ kind }: { kind: ContactKind }) {
     <form action={createCraftsman} className="space-y-3">
       {/* Die Art kommt aus der Auswahl oben – hier nur noch mitschicken. */}
       <input type="hidden" name="kind" value={kind} />
+      {/* „Sonstige" ohne Freitext hieße: In der Kontaktliste steht später
+          „Sonstige", und niemand weiß mehr, wer das ist. Anders als bei den
+          übrigen Auswahllisten steht die Art hier NICHT in diesem Formular
+          (sie kommt aus der Auswahl über beiden Formularen) — deshalb hier das
+          nackte Feld statt `SelectMitSonstiges`. */}
+      {kind === "SONSTIGES" ? (
+        <Field label="Was für ein Kontakt?">
+          <input
+            type="text"
+            name="kindOther"
+            required
+            maxLength={120}
+            className={inputClass}
+            placeholder="z. B. Schornsteinfeger, Nachbargemeinschaft"
+          />
+        </Field>
+      ) : null}
       {/* Ein Gewerk führen nur Handwerker. `Craftsman.trade` ist im Schema aber
           ein Pflichtfeld, deshalb bei allen anderen Arten der vorgesehene
           Sammelwert. */}

@@ -12,6 +12,7 @@ import {
   resolutionStatusLabels,
   votingPrincipleLabels,
 } from "@/lib/labels";
+import { mitFreitext } from "@/lib/sonstiges";
 import { pageHrefFor, parsePage } from "@/lib/list-query";
 import { getOrganization, requireUser } from "@/lib/session";
 import { FilePreviewLink } from "@/components/file-preview-link";
@@ -101,7 +102,14 @@ export default async function GemeinschaftPage({
           orderBy: { createdAt: "desc" },
           skip: (dPage - 1) * LIST_PAGE_SIZE,
           take: LIST_PAGE_SIZE,
-          select: { id: true, title: true, category: true, createdAt: true, size: true },
+          select: {
+            id: true,
+            title: true,
+            category: true,
+            categoryOther: true,
+            createdAt: true,
+            size: true,
+          },
         }),
         db.document.count({ where: documentWhere }),
       ])
@@ -314,7 +322,8 @@ export default async function GemeinschaftPage({
                             {doc.title}
                           </span>
                           <span className="block text-xs text-gray-500">
-                            {documentCategoryLabels[doc.category]} · {formatDate(doc.createdAt)} ·{" "}
+                            {mitFreitext(documentCategoryLabels[doc.category], doc.categoryOther)} ·{" "}
+                            {formatDate(doc.createdAt)} ·{" "}
                             {formatBytes(doc.size)}
                           </span>
                         </span>

@@ -238,6 +238,7 @@ function PdfPageCanvas({
 }) {
   const holderRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const taskRef = useRef<{ cancel: () => void } | null>(null);
   const [near, setNear] = useState(pageNumber === 1);
   const [ratio, setRatio] = useState(1.414); // A4 hoch, bis die echte Größe da ist
 
@@ -292,7 +293,12 @@ function PdfPageCanvas({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const task = page.render({ canvasContext: ctx, viewport, canvas });
-    await task.promise;
+    taskRef.current = task;
+    try {
+      await task.promise;
+    } finally {
+      if (taskRef.current === task) taskRef.current = null;
+    }
   }, [doc, pageNumber, zoom, near]);
 
   useEffect(() => {
@@ -301,11 +307,21 @@ function PdfPageCanvas({
       try {
         if (active) await render();
       } catch (err) {
-        console.error("Seite konnte nicht gerendert werden", err);
+        // Eine abgebrochene Render-Aufgabe wirft absichtlich (Cancel-Fehler) –
+        // kein echter Fehler, wenn wir sie unten selbst abgebrochen haben.
+        if (active) console.error("Seite konnte nicht gerendert werden", err);
       }
     })();
     return () => {
       active = false;
+      // Laufende Render-Aufgabe SOFORT abbrechen, bevor React den Canvas entfernt
+      // oder das übergeordnete PDF-Dokument zerstört wird (FilePreview-Cleanup
+      // ruft doc.destroy() auf, sobald die Vorschau schließt). Ohne den Abbruch
+      // rendert pdf.js mitten im Vorgang in einen bereits abgebauten Worker/Canvas
+      // hinein – das hat beim schnellen Schließen der Vorschau die Seite/App
+      // abstürzen lassen ("This page couldn't load").
+      taskRef.current?.cancel();
+      taskRef.current = null;
     };
   }, [render]);
 

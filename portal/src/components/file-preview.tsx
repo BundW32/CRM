@@ -31,7 +31,17 @@ type Props = {
 type PdfDoc = {
   numPages: number;
   getPage: (n: number) => Promise<PdfPage>;
-  destroy: () => void;
+};
+/**
+ * `getDocument()` liefert den LADEAUFTRAG, nicht das Dokument — und nur er
+ * lässt sich abbrechen. Das Dokument selbst (`PdfDoc`) hat seit pdf.js 6 KEIN
+ * `destroy()` mehr; der Aufruf darauf warf beim Schließen der Vorschau einen
+ * TypeError, und weil das in einer Effekt-Aufräumfunktion geschah, riss er die
+ * gesamte Anwendung in Next.js' Fehlerseite („This page couldn't load").
+ */
+type PdfLoadingTask = {
+  promise: Promise<PdfDoc>;
+  destroy: () => Promise<void>;
 };
 type PdfPage = {
   getViewport: (opts: { scale: number }) => { width: number; height: number };
@@ -69,7 +79,7 @@ export function FilePreview({ src, title, onClose }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    let loaded: PdfDoc | null = null;
+    let loadingTask: PdfLoadingTask | null = null;
     let objectUrl: string | null = null;
 
     (async () => {
@@ -103,12 +113,10 @@ export function FilePreview({ src, title, onClose }: Props) {
           "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
           import.meta.url,
         ).toString();
-        const result = (await pdfjs.getDocument({ data: bytes }).promise) as unknown as PdfDoc;
-        if (cancelled) {
-          result.destroy();
-          return;
-        }
-        loaded = result;
+        const task = pdfjs.getDocument({ data: bytes }) as unknown as PdfLoadingTask;
+        loadingTask = task;
+        const result = await task.promise;
+        if (cancelled) return; // Aufräumen erledigt die Cleanup-Funktion
         setDoc(result);
       } catch (err) {
         console.error("Vorschau fehlgeschlagen", err);
@@ -116,9 +124,19 @@ export function FilePreview({ src, title, onClose }: Props) {
       }
     })();
 
+    // Aufräumen darf NIEMALS werfen. Ein Fehler in einer Effekt-Aufräumfunktion
+    // wird von React nach oben gereicht und landet mangels Error-Boundary in
+    // der Fehlerseite von Next.js — die Vorschau nähme dann beim Schließen die
+    // ganze Anwendung mit. Genau das ist mit `destroy()` passiert.
     return () => {
       cancelled = true;
-      loaded?.destroy();
+      try {
+        // Bricht laufende Netz- und Worker-Arbeit ab und gibt den Worker frei.
+        // Das Promise lehnt ab, wenn noch etwas lief — kein Fehlerfall.
+        void loadingTask?.destroy().catch(() => {});
+      } catch (err) {
+        console.error("Vorschau konnte nicht aufgeräumt werden", err);
+      }
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [src]);
@@ -238,7 +256,7 @@ function PdfPageCanvas({
 }) {
   const holderRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const taskRef = useRef<{ cancel: () => void } | null>(null);
+  const taskRef = useRef<{ promise: Promise<void>; cancel: () => void } | null>(null);
   const [near, setNear] = useState(pageNumber === 1);
   const [ratio, setRatio] = useState(1.414); // A4 hoch, bis die echte Größe da ist
 
@@ -271,12 +289,29 @@ function PdfPageCanvas({
     };
   }, [pageNumber, scrollRoot, onVisible]);
 
-  const render = useCallback(async () => {
+  const render = useCallback(async (abgebrochen: () => boolean) => {
     const canvas = canvasRef.current;
     const holder = holderRef.current;
     if (!canvas || !holder || !near) return;
 
+    // pdf.js verweigert zwei gleichzeitige render() auf DEMSELBEN Canvas. Beim
+    // Sichtbarwerden und beim Zoomen läuft der Effekt aber erneut an, während
+    // die vorige Aufgabe noch zeichnet. Deshalb: erst abbrechen, dann deren
+    // Ende abwarten — sonst bricht pdf.js die neue Aufgabe ab und die Seite
+    // bleibt weiß.
+    const vorherige = taskRef.current;
+    if (vorherige) {
+      try {
+        vorherige.cancel();
+      } catch {
+        // bereits beendet
+      }
+      await vorherige.promise.catch(() => {});
+      if (abgebrochen()) return;
+    }
+
     const page = await doc.getPage(pageNumber);
+    if (abgebrochen()) return;
     const base = page.getViewport({ scale: 1 });
     setRatio(base.height / base.width);
 
@@ -305,7 +340,7 @@ function PdfPageCanvas({
     let active = true;
     void (async () => {
       try {
-        if (active) await render();
+        if (active) await render(() => !active);
       } catch (err) {
         // Eine abgebrochene Render-Aufgabe wirft absichtlich (Cancel-Fehler) –
         // kein echter Fehler, wenn wir sie unten selbst abgebrochen haben.
@@ -314,14 +349,16 @@ function PdfPageCanvas({
     })();
     return () => {
       active = false;
-      // Laufende Render-Aufgabe SOFORT abbrechen, bevor React den Canvas entfernt
-      // oder das übergeordnete PDF-Dokument zerstört wird (FilePreview-Cleanup
-      // ruft doc.destroy() auf, sobald die Vorschau schließt). Ohne den Abbruch
-      // rendert pdf.js mitten im Vorgang in einen bereits abgebauten Worker/Canvas
-      // hinein – das hat beim schnellen Schließen der Vorschau die Seite/App
-      // abstürzen lassen ("This page couldn't load").
-      taskRef.current?.cancel();
-      taskRef.current = null;
+      // Laufende Render-Aufgabe abbrechen, bevor React den Canvas entfernt oder
+      // der Ladeauftrag der Vorschau zerstört wird. Die Referenz bleibt bewusst
+      // stehen: Ein nachfolgender Durchlauf wartet ihr Ende ab, bevor er
+      // denselben Canvas erneut bemalt (siehe render()).
+      try {
+        taskRef.current?.cancel();
+      } catch {
+        // Bereits beendet oder abgebrochen – kein Fehlerfall. Werfen darf hier
+        // nichts: siehe Aufräum-Hinweis in FilePreview.
+      }
     };
   }, [render]);
 

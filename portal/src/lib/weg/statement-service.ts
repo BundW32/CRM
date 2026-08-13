@@ -339,6 +339,10 @@ export async function computeStatementView(
     laborByCostType,
   });
 
+  // Das gestellte Soll, nicht der geplante Jahresvorschuss: `dueGroups`
+  // summiert die DuePosting-Zeilen des Wirtschaftsjahres. Bei aufgerundeter
+  // Monatsrate liegt es über dem Planwert — und genau diese Überdeckung soll
+  // als Guthaben in die Abrechnungsspitze laufen (§ 28 Abs. 2 WEG).
   const duePerUnit = new Map(dueGroups.map((g) => [g.unitId, g._sum.amountCents ?? 0]));
   const peak = computePeakAmounts(result.perUnitTotal, duePerUnit);
   const labor = computeLaborShares(result.rows);

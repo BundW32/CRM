@@ -4,7 +4,10 @@ import {
   computeUnitAdvances,
   fiscalYearMonths,
   fiscalYearRange,
+  monthlyInstallmentPlan,
   monthlyInstallments,
+  rundungFuerPlan,
+  ueberdeckungsText,
   PositionNichtVerteilbar,
 } from "./economic-plan";
 import type { UnitForDistribution } from "./distribution";
@@ -165,7 +168,7 @@ describe("computeUnitAdvances", () => {
 });
 
 describe("monthlyInstallments", () => {
-  it("12 Raten summieren centgenau auf den Jahresbetrag", () => {
+  it("centgenau: 12 Raten summieren auf den Jahresbetrag", () => {
     for (const annual of [120_000, 120_005, 1, 11, 999_999]) {
       const rates = monthlyInstallments(annual);
       expect(rates).toHaveLength(12);
@@ -175,8 +178,132 @@ describe("monthlyInstallments", () => {
     }
   });
 
-  it("0 € → zwölf Nullraten", () => {
-    expect(monthlyInstallments(0)).toEqual(Array(12).fill(0));
+  it("0 € → zwölf Nullraten, bei jeder Rundung", () => {
+    for (const rundung of ["CENT", "ZEHN_CENT", "EURO"] as const) {
+      expect(monthlyInstallments(0, rundung)).toEqual(Array(12).fill(0));
+      expect(monthlyInstallmentPlan(0, rundung).overpayCents).toBe(0);
+    }
+  });
+});
+
+// ── Gerundete Monatsrate ────────────────────────────────────────────────────
+//
+// Die alte Zusicherung „Σ Raten == Jahresbetrag" gilt nur noch centgenau. An
+// ihre Stelle tritt: **Σ Raten == gerundeter Jahresbetrag, Differenz
+// ausgewiesen.** Das ist die eigentliche Prüfung — eine Rundung, deren
+// Differenz nirgends auftaucht, wäre stiller Geldverlust auf einer der beiden
+// Seiten.
+
+describe("monthlyInstallmentPlan (gerundete Hausgeld-Rate)", () => {
+  it("der Befund aus der Praxis: 3.000,36 € → zwölf gleiche Raten à 250,10 €", () => {
+    const r = monthlyInstallmentPlan(300_036, "ZEHN_CENT");
+    expect(r.rates).toEqual(Array(12).fill(25_010));
+    expect(r.uniform).toBe(true);
+    expect(r.billedCents).toBe(300_120);
+    expect(r.overpayCents).toBe(84);
+  });
+
+  it("die Beschwerde aus der Praxis: centgenau ist der Januar teurer", () => {
+    // 3.000,05 € gehen nicht glatt durch zwölf. Centgenau landen die fünf
+    // Restcents auf Januar bis Mai — der Dauerauftrag passt in keinem Monat
+    // für das ganze Jahr.
+    const centgenau = monthlyInstallmentPlan(300_005, "CENT");
+    expect(centgenau.rates[0]).toBe(25_001);
+    expect(centgenau.rates[11]).toBe(25_000);
+    expect(centgenau.uniform).toBe(false);
+    // Gerundet ist jede Rate gleich.
+    const gerundet = monthlyInstallmentPlan(300_005, "ZEHN_CENT");
+    expect(gerundet.rates).toEqual(Array(12).fill(25_010));
+    expect(gerundet.uniform).toBe(true);
+  });
+
+  it("Σ Raten = gerundeter Jahresbetrag, Differenz ausgewiesen", () => {
+    for (const rundung of ["ZEHN_CENT", "EURO"] as const) {
+      for (const annual of [1, 11, 120_000, 120_005, 300_036, 999_999, 1_000_001]) {
+        const r = monthlyInstallmentPlan(annual, rundung);
+        expect(r.rates).toHaveLength(12);
+        // Was gestellt wird, ist die Summe der Raten — nicht der Planwert.
+        expect(r.billedCents).toBe(r.rates.reduce((a, b) => a + b, 0));
+        // Und die Differenz zum Planwert steht ausgewiesen daneben.
+        expect(r.overpayCents).toBe(r.billedCents - annual);
+      }
+    }
+  });
+
+  it("rundet immer auf — die Gemeinschaft ist nie unterdeckt", () => {
+    for (const rundung of ["CENT", "ZEHN_CENT", "EURO"] as const) {
+      for (let annual = 0; annual <= 2_400; annual += 7) {
+        const r = monthlyInstallmentPlan(annual, rundung);
+        expect(r.billedCents).toBeGreaterThanOrEqual(annual);
+        expect(r.overpayCents).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  it("die Überdeckung bleibt klein — höchstens eine Stufe je Monat", () => {
+    // Aufgerundet wird je Monat um weniger als eine Stufe, also im Jahr um
+    // weniger als 12 Stufen: 1,20 € bei 10 Cent, 12 € bei vollen Euro.
+    for (const [rundung, grenze] of [
+      ["ZEHN_CENT", 120],
+      ["EURO", 1_200],
+    ] as const) {
+      for (const annual of [1, 300_036, 456_789, 999_999]) {
+        expect(monthlyInstallmentPlan(annual, rundung).overpayCents).toBeLessThan(grenze);
+      }
+    }
+  });
+
+  it("volle Euro: zwölf glatte Raten", () => {
+    const r = monthlyInstallmentPlan(300_036, "EURO");
+    expect(r.rates).toEqual(Array(12).fill(25_100));
+    expect(r.billedCents).toBe(301_200);
+    expect(r.overpayCents).toBe(1_164);
+  });
+
+  it("geht die Rechnung auf, entsteht keine Überdeckung", () => {
+    const r = monthlyInstallmentPlan(300_000, "ZEHN_CENT");
+    expect(r.rates).toEqual(Array(12).fill(25_000));
+    expect(r.overpayCents).toBe(0);
+    // Und dann gibt es auch nichts auszuweisen.
+    expect(ueberdeckungsText(r)).toBeNull();
+  });
+});
+
+describe("ueberdeckungsText", () => {
+  it("nennt alle vier Zahlen — niemand soll nachrechnen müssen", () => {
+    const text = ueberdeckungsText(monthlyInstallmentPlan(300_036, "ZEHN_CENT"));
+    // Nicht bloß „enthält irgendwo eine Zahl": Der Satz muss Jahresvorschuss,
+    // Rate, Summe und Differenz nebeneinander nennen, sonst rechnet der
+    // Eigentümer die fehlende selbst aus — und genau das soll er nicht.
+    expect(text).toBe(
+      "Jahresvorschuss 3.000,36 €, monatlich gerundet 12 × 250,10 € = 3.001,20 €, " +
+        "Überdeckung 0,84 € — wird mit der Jahresabrechnung verrechnet.",
+    );
+  });
+
+  it("schweigt, wo es nichts auszuweisen gibt", () => {
+    expect(ueberdeckungsText(monthlyInstallmentPlan(300_036, "CENT"))).toBeNull();
+    expect(ueberdeckungsText(monthlyInstallmentPlan(0, "ZEHN_CENT"))).toBeNull();
+  });
+});
+
+describe("rundungFuerPlan (Bestandsschutz)", () => {
+  const objekt = { hausgeldRounding: "EURO" } as const;
+
+  it("ein beschlossener Plan behält seine Rundung, auch wenn das Objekt umgestellt wird", () => {
+    // Der Kern des Bestandsschutzes: Die Raten stehen im Beschluss und in den
+    // Einzelwirtschaftsplänen der Eigentümer. Ein Klick in den Stammdaten darf
+    // sie nicht rückwirkend verschieben.
+    expect(rundungFuerPlan({ hausgeldRounding: "CENT" }, objekt)).toBe("CENT");
+    expect(rundungFuerPlan({ hausgeldRounding: "ZEHN_CENT" }, objekt)).toBe("ZEHN_CENT");
+  });
+
+  it("ein Entwurf folgt der Objekt-Einstellung — die Vorschau zeigt, was kommt", () => {
+    expect(rundungFuerPlan({ hausgeldRounding: null }, objekt)).toBe("EURO");
+  });
+
+  it("ohne beides bleibt es beim centgenauen Altverhalten", () => {
+    expect(rundungFuerPlan({ hausgeldRounding: null }, null)).toBe("CENT");
   });
 });
 

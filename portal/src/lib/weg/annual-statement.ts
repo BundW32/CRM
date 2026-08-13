@@ -495,6 +495,15 @@ export function baueRuecklagenEntwicklung(
 // Abrechnungsspitze je Einheit (§ 28 Abs. 2 WEG): Kostenanteil − Soll-Vorschüsse.
 // Positiv = Nachschuss, negativ = Guthaben. Gerechnet gegen das SOLL —
 // Zahlungsrückstände bleiben davon unberührt offene Forderungen.
+//
+// „Soll" heißt: das **tatsächlich gestellte** Soll, also die Summe der
+// DuePosting-Zeilen des Jahres (siehe `computeStatementView`), nicht der
+// Jahresvorschuss aus dem Wirtschaftsplan. Der Unterschied ist erst mit der
+// gerundeten Monatsrate entstanden und dort entscheidend: Zwölf aufgerundete
+// Raten ergeben etwas mehr als der Planwert, und diese Überdeckung ist ein
+// Guthaben des Eigentümers. Rechnete man gegen den ungerundeten Jahresbetrag,
+// verschwände sie spurlos — ein Fehler, der still ins Ergebnis liefe und
+// niemandem auffiele, weil beide Zahlen plausibel aussehen.
 export function computePeakAmounts(
   perUnitTotal: Map<string, number>,
   duePerUnit: Map<string, number>,

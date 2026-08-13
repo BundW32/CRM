@@ -8,7 +8,7 @@
 // Stattdessen wird **abgeglichen**: fehlende Sollstellungen anlegen, geänderte
 // Beträge anpassen, nicht mehr getragene entfernen. Und zwar nur in der
 // Zukunft — siehe `synchronisiereSollstellungen`.
-import type { DueDayRule } from "@/generated/prisma/client";
+import type { DueDayRule, HausgeldRounding } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { computeUnitAdvances, monthlyInstallments, type PlanItemInput } from "./economic-plan";
 import type { UnitForDistribution } from "./distribution";
@@ -49,14 +49,26 @@ export async function synchronisiereSollstellungen(args: {
   geltung: PlanGeltung;
   items: PlanItemInput[];
   units: UnitForDistribution[];
+  /**
+   * Rundung der Monatsraten — die des **Plans**, nicht die des Objekts.
+   *
+   * Diese Funktion läuft auch lange nach dem Beschluss noch (Fortschreibung,
+   * Abgleich des Vorgängers). Käme die Stufe hier aus den Objekt-Stammdaten,
+   * änderte eine spätere Umstellung die künftigen Sollstellungen eines
+   * laufenden Plans — rückwirkend gegenüber dem, was beschlossen und den
+   * Eigentümern zugestellt wurde. Aufrufer reichen deshalb
+   * `rundungFuerPlan(plan, property)` durch.
+   */
+  rounding?: HausgeldRounding;
   now?: Date;
 }): Promise<AbgleichErgebnis> {
   const { organizationId, property, planId, geltung, items, units } = args;
   const now = args.now ?? new Date();
+  const rounding = args.rounding ?? "CENT";
 
   const advances = computeUnitAdvances(items, units);
   const ratenJeEinheit = new Map(
-    units.map((u) => [u.id, monthlyInstallments(advances.perUnit.get(u.id) ?? 0)]),
+    units.map((u) => [u.id, monthlyInstallments(advances.perUnit.get(u.id) ?? 0, rounding)]),
   );
 
   const monate = sollMonate(geltung, property.fiscalYearStartMonth, sollHorizont(now));

@@ -1,7 +1,8 @@
 // Wirtschaftsplan-Logik (§ 28 Abs. 1 WEG): Wirtschaftsjahr, Vorschuss-Gewichte,
 // Einzelwirtschaftspläne und monatliche Hausgeld-Raten. Pure Funktionen —
 // DB/UI übernehmen die Server Actions.
-import type { CostCategory, DistributionKey } from "@/generated/prisma/client";
+import type { CostCategory, DistributionKey, HausgeldRounding } from "@/generated/prisma/client";
+import { formatCents } from "@/lib/money";
 import { distributeByWeight, type Share, type UnitForDistribution } from "./distribution";
 
 // Die 12 Kalendermonate des Wirtschaftsjahres, das im Jahr `year` beginnt
@@ -217,13 +218,130 @@ export function computeUnitAdvances(items: PlanItemInput[], units: UnitForDistri
   return { perUnit, perItem, totalCents, expenseCents, incomeCents };
 }
 
-// 12 Monatsraten, die centgenau den Jahresbetrag ergeben (Restcents auf die
-// ersten Monate verteilt — deterministisch).
-export function monthlyInstallments(annualCents: number): number[] {
-  if (annualCents === 0) return Array(12).fill(0);
-  const shares = distributeByWeight(
-    annualCents,
-    Array.from({ length: 12 }, (_, i) => ({ unitId: String(i), weight: 1 })),
+// ── Monatsraten (Hausgeld) ──────────────────────────────────────────────────
+//
+// Der Jahresvorschuss centgenau auf zwölf Raten ist rechnerisch richtig und im
+// Alltag störend: Die Restcents landen auf den ersten Monaten — Januar 250,04 €,
+// Februar bis Dezember 250,03 €. Der Dauerauftrag des Eigentümers steht auf
+// einem Betrag und passt im Januar nie; jedes Jahr entsteht daraus dieselbe
+// Rückfrage und derselbe Cent-Rückstand in den offenen Posten.
+//
+// Deshalb rundet das Objekt seine Rate auf eine Stufe **auf**. Zwei Punkte
+// dabei sind nicht verhandelbar:
+//
+// 1. **Nie abrunden.** Abgerundet wäre die Gemeinschaft im Jahr unterdeckt —
+//    bei zwölf Raten und zwölf Einheiten fehlten am Ende schnell dreistellige
+//    Beträge, und zwar dauerhaft, weil der Wirtschaftsplan nichts davon weiß.
+//    Aufgerundet entsteht höchstens eine Überdeckung von ~12 € im Jahr.
+// 2. **Die Überdeckung wird ausgewiesen, nicht versteckt.** Sie ist ein
+//    Guthaben des Eigentümers und läuft über die Abrechnungsspitze zurück
+//    (§ 28 Abs. 2 WEG) — dafür rechnet die Jahresabrechnung gegen das
+//    tatsächlich gestellte Soll, nicht gegen den ungerundeten Jahresbetrag.
+
+/** Rundungsstufe in Cent. */
+const RUNDUNGSSTUFE: Record<HausgeldRounding, number> = {
+  CENT: 1,
+  ZEHN_CENT: 10,
+  EURO: 100,
+};
+
+export type Monatsraten = {
+  /** Die zwölf Raten. Außer bei CENT sind alle gleich. */
+  rates: number[];
+  /** Jahresvorschuss laut Plan (ungerundet). */
+  annualCents: number;
+  /** Σ der zwölf Raten — das, was tatsächlich gestellt wird. */
+  billedCents: number;
+  /** Überdeckung durch die Aufrundung: billedCents − annualCents, nie negativ. */
+  overpayCents: number;
+  rounding: HausgeldRounding;
+  /** Sind alle zwölf Raten gleich hoch? */
+  uniform: boolean;
+};
+
+/**
+ * Zwölf Monatsraten für einen Jahresvorschuss.
+ *
+ * `CENT` ist das alte Verhalten: centgenaue Verteilung über das
+ * Largest-Remainder-Verfahren, Restcents auf die ersten Monate. Jede andere
+ * Stufe liefert zwölf **gleiche** Raten, aufgerundet auf das Vielfache der
+ * Stufe.
+ */
+export function monthlyInstallmentPlan(
+  annualCents: number,
+  rounding: HausgeldRounding = "CENT",
+): Monatsraten {
+  const gemeinsam = (rates: number[]): Monatsraten => {
+    const billedCents = rates.reduce((a, b) => a + b, 0);
+    return {
+      rates,
+      annualCents,
+      billedCents,
+      overpayCents: billedCents - annualCents,
+      rounding,
+      uniform: rates.every((r) => r === rates[0]),
+    };
+  };
+
+  if (annualCents === 0) return gemeinsam(Array(12).fill(0));
+
+  if (rounding === "CENT") {
+    const shares = distributeByWeight(
+      annualCents,
+      Array.from({ length: 12 }, (_, i) => ({ unitId: String(i), weight: 1 })),
+    );
+    return gemeinsam(Array.from({ length: 12 }, (_, i) => shares.get(String(i)) ?? 0));
+  }
+
+  // Aufrunden auf die nächste Stufe. Ganzzahlig gerechnet: `annualCents` und
+  // `12 * stufe` sind Integer, die Division ist damit exakt, wo sie aufgeht.
+  const stufe = RUNDUNGSSTUFE[rounding];
+  const rate = Math.ceil(annualCents / (12 * stufe)) * stufe;
+  return gemeinsam(Array(12).fill(rate));
+}
+
+/** Nur die zwölf Raten — für Aufrufer, die den Ausweis nicht brauchen. */
+export function monthlyInstallments(
+  annualCents: number,
+  rounding: HausgeldRounding = "CENT",
+): number[] {
+  return monthlyInstallmentPlan(annualCents, rounding).rates;
+}
+
+/**
+ * Der Ausweis der Rundung — ein Satz, den Oberfläche und beide PDFs wörtlich
+ * gleich zeigen.
+ *
+ * Bewusst mit allen vier Zahlen: Jahresvorschuss, Rate, Σ der Raten und
+ * Differenz. Wer das liest, muss nicht nachrechnen, ob ihm etwas abhandenkommt
+ * — und der Satz sagt gleich mit, wo das Geld wieder auftaucht.
+ *
+ * `null`, wenn nichts auszuweisen ist (centgenau oder ohne Überdeckung).
+ */
+export function ueberdeckungsText(raten: Monatsraten): string | null {
+  if (raten.overpayCents === 0 || !raten.uniform) return null;
+  return (
+    `Jahresvorschuss ${formatCents(raten.annualCents)}, monatlich gerundet ` +
+    `12 × ${formatCents(raten.rates[0])} = ${formatCents(raten.billedCents)}, ` +
+    `Überdeckung ${formatCents(raten.overpayCents)} — wird mit der Jahresabrechnung verrechnet.`
   );
-  return Array.from({ length: 12 }, (_, i) => shares.get(String(i)) ?? 0);
+}
+
+/**
+ * Welche Rundung für einen Plan gilt.
+ *
+ * Ein **beschlossener** Plan trägt seine eigene: Was er stellt, steht im
+ * Beschluss und in den Einzelwirtschaftsplänen der Eigentümer, und ein späterer
+ * Klick in den Stammdaten darf das nicht rückwirkend verschieben. Ein Entwurf
+ * hat noch keine und folgt der Objekt-Einstellung — dann zeigt die Vorschau,
+ * was der Beschluss festschreiben wird.
+ *
+ * Der Rückfall auf `CENT` ist der Bestandsschutz in Codeform: Wo nichts
+ * hinterlegt ist, bleibt es beim bisherigen Verhalten.
+ */
+export function rundungFuerPlan(
+  plan: { hausgeldRounding: HausgeldRounding | null },
+  property: { hausgeldRounding: HausgeldRounding } | null | undefined,
+): HausgeldRounding {
+  return plan.hausgeldRounding ?? property?.hausgeldRounding ?? "CENT";
 }

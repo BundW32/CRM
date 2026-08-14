@@ -67,6 +67,24 @@ export const flashMessages = {
     tone: "info",
   },
   "unterschrift-gespeichert": { text: "Unterschrift gespeichert.", tone: "success" },
+  // Eigener Code, weil die Meldung mehr sagt als „hat geklappt": Gespeichert
+  // ist hier nur die Vormerkung. Bis zum Klick im neuen Postfach gilt die
+  // bisherige Adresse weiter — wer das verwechselt, meldet sich morgen mit der
+  // neuen an und kommt nicht hinein.
+  "email-bestaetigung-gesendet": {
+    text:
+      "Bestätigungslink an die neue Adresse gesendet (24 Stunden gültig). " +
+      "Bis zur Bestätigung melden Sie sich weiter mit der bisherigen Adresse an.",
+    tone: "success",
+  },
+  "email-geaendert": {
+    text: "E-Mail-Adresse geändert. Ab sofort ist sie zugleich Ihr Anmeldename.",
+    tone: "success",
+  },
+  "email-wechsel-abgebrochen": {
+    text: "Anfrage zurückgenommen. Ihre bisherige E-Mail-Adresse bleibt unverändert.",
+    tone: "info",
+  },
   "vollmacht-erteilt": {
     text: "Vollmacht erteilt. Die Verwaltung darf Bescheinigungen für Ihre vermieteten Einheiten ausstellen.",
     tone: "success",

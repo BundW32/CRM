@@ -14,6 +14,13 @@ export const AUDIT = {
   MFA_FAILED: "MFA_FAILED",
   MFA_RECOVERY_USED: "MFA_RECOVERY_USED",
   USER_ANONYMIZED: "USER_ANONYMIZED",
+  // Selbst angestoßener Wechsel der E-Mail-Adresse (Doppel-Opt-in): Die Adresse
+  // ist der Anmeldename und das Ziel jedes Passwort-Resets. Wer sie verschiebt,
+  // verschiebt den Zugang zum Konto — Anfrage, Übernahme und Rücknahme sind
+  // deshalb nachweispflichtig, und die Anfrage schon vor der Übernahme.
+  EMAIL_CHANGE_REQUESTED: "EMAIL_CHANGE_REQUESTED",
+  EMAIL_CHANGE_CONFIRMED: "EMAIL_CHANGE_CONFIRMED",
+  EMAIL_CHANGE_ABORTED: "EMAIL_CHANGE_ABORTED",
   TICKET_CLOSED: "TICKET_CLOSED",
   TICKET_REOPENED: "TICKET_REOPENED",
   TICKET_EXTERNAL_RELEASED: "TICKET_EXTERNAL_RELEASED",

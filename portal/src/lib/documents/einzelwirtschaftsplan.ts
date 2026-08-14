@@ -8,7 +8,9 @@
 // verlangt beides: Gesamtplan *und* Einzelwirtschaftspläne.
 //
 // Aufgebaut auf lib/documents/kit.
+import { hausgeldRoundingLabels } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
+import { ueberdeckungsText, type Monatsraten } from "@/lib/weg/economic-plan";
 import {
   CONTENT_WIDTH,
   Doc,
@@ -35,9 +37,11 @@ export type EinzelplanUnit = {
   /** Aktuelle Eigentümer der Einheit, für die Anschrift. */
   ownerNames: string[];
   positions: EinzelplanPosition[];
-  /** Jahresvorschuss = Σ Anteile (Ausgaben − Einnahmen). */
-  annualCents: number;
-  monthlyCents: number[];
+  /**
+   * Jahresvorschuss (= Σ Anteile, Ausgaben − Einnahmen), die zwölf Monatsraten
+   * und die Überdeckung, die durch das Aufrunden der Rate entsteht.
+   */
+  raten: Monatsraten;
 };
 
 export type EinzelwirtschaftsplanInput = {
@@ -56,11 +60,37 @@ function fmtDate(d: Date): string {
   return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
 }
 
-const HINWEIS =
+const HINWEIS_KOPF =
   "Der Jahresvorschuss ist Ihr Anteil an den geplanten Kosten der Gemeinschaft, vermindert um " +
-  "geplante Einnahmen. Er wird in zwölf Monatsraten erhoben; Restcents verteilen sich auf die " +
-  "ersten Monate, deshalb kann eine Rate um einen Cent abweichen. Maßgeblich ist der " +
-  "beschlossene Wirtschaftsplan.";
+  "geplante Einnahmen. Er wird in zwölf Monatsraten erhoben. Maßgeblich ist der beschlossene " +
+  "Wirtschaftsplan.";
+
+/**
+ * Der Hinweis unter dem Betrag — er muss zu den Zahlen darüber passen.
+ *
+ * Bei centgenauer Rundung erklärt er die ungleichen Raten, bei aufgerundeter
+ * Rate die Überdeckung. Der Satz zur Überdeckung kommt wörtlich aus
+ * `ueberdeckungsText`, damit Portal und PDF nicht zwei Fassungen desselben
+ * Sachverhalts zeigen.
+ */
+function hinweisFuer(raten: Monatsraten): string {
+  if (raten.rounding === "CENT") {
+    return (
+      `${HINWEIS_KOPF} Restcents verteilen sich auf die ersten Monate, deshalb kann eine Rate ` +
+      "um einen Cent abweichen."
+    );
+  }
+  const ausweis = ueberdeckungsText(raten);
+  const stufe = hausgeldRoundingLabels[raten.rounding];
+  if (!ausweis) {
+    return `${HINWEIS_KOPF} Die Rate ist ${stufe} gerundet; alle zwölf Raten sind gleich hoch.`;
+  }
+  return (
+    `${HINWEIS_KOPF} Die Rate ist ${stufe} aufgerundet, damit alle zwölf Raten gleich hoch sind ` +
+    `und Ihr Dauerauftrag das ganze Jahr passt: ${ausweis} ` +
+    "Die Gemeinschaft behält den Betrag nicht — er ist Ihr Guthaben (§ 28 Abs. 2 WEG)."
+  );
+}
 
 export async function generateEinzelwirtschaftsplaene(
   input: EinzelwirtschaftsplanInput,
@@ -113,11 +143,20 @@ export async function generateEinzelwirtschaftsplaene(
     );
 
     doc.rule({ gapAbove: mm(2), gapBelow: mm(4) });
-    doc.amountRow("Jahresvorschuss", formatCents(unit.annualCents), { strong: true });
+    doc.amountRow("Jahresvorschuss", formatCents(unit.raten.annualCents), { strong: true });
+    // Zwölf gerundete Raten ergeben mehr als der Jahresvorschuss. Diese Zeile
+    // steht direkt darunter, weil dort die Frage entsteht: Wer die Rate mit
+    // zwölf multipliziert, kommt auf eine andere Zahl als die Zeile darüber.
+    if (unit.raten.overpayCents > 0) {
+      doc.amountRow(
+        `Summe der zwölf Raten (gerundet, Überdeckung ${formatCents(unit.raten.overpayCents)})`,
+        formatCents(unit.raten.billedCents),
+      );
+    }
     doc.space(mm(2));
 
-    const min = Math.min(...unit.monthlyCents);
-    const max = Math.max(...unit.monthlyCents);
+    const min = Math.min(...unit.raten.rates);
+    const max = Math.max(...unit.raten.rates);
     doc.amountPanel(
       "Monatliches Hausgeld",
       min === max ? formatCents(max) : `${formatCents(min)} – ${formatCents(max)}`,
@@ -125,7 +164,12 @@ export async function generateEinzelwirtschaftsplaene(
     );
 
     doc.space(mm(2));
-    doc.para(HINWEIS, { size: size.foot, color: color.muted, width: CONTENT_WIDTH, lead: mm(4) });
+    doc.para(hinweisFuer(unit.raten), {
+      size: size.foot,
+      color: color.muted,
+      width: CONTENT_WIDTH,
+      lead: mm(4),
+    });
   }
 
   return doc.finish({

@@ -207,6 +207,21 @@ export default async function WegStammdatenPage({
                 { value: "FREIER_TAG", label: "zu einem festen Tag im Monat" },
               ]}
             />
+            {/* Rundung der Monatsrate. Centgenau ist rechnerisch exakt und im
+                Alltag störend: Die Restcents landen auf den ersten Monaten,
+                also zahlt der Eigentümer im Januar einen Cent mehr als im
+                Februar — der Dauerauftrag passt nie. Gerundet wird immer nach
+                oben, damit die Gemeinschaft im Jahr nicht unterdeckt ist. */}
+            <SelectField
+              label="Hausgeld runden auf"
+              name="hausgeldRounding"
+              defaultValue={property.hausgeldRounding}
+              options={[
+                { value: "ZEHN_CENT", label: "volle 10 Cent" },
+                { value: "EURO", label: "volle Euro" },
+                { value: "CENT", label: "Cent genau (ungleiche Raten)" },
+              ]}
+            />
             <Field label="Fester Tag (1–28, nur bei fester Wahl)">
               <input
                 name="dueDayOfMonth"
@@ -242,6 +257,16 @@ export default async function WegStammdatenPage({
               <PendingButton className={buttonClass}>Speichern</PendingButton>
             </div>
           </form>
+          <Tipp className="mt-3">
+            <strong>Hausgeld runden auf</strong> macht die Monatsrate glatt: Statt Januar
+            250,04 € und Februar bis Dezember 250,03 € stehen zwölf gleiche Raten von
+            250,10 € — ein Betrag, auf den sich ein Dauerauftrag stellen lässt. Gerundet
+            wird <strong>immer nach oben</strong>, damit der Gemeinschaft im Jahr nichts
+            fehlt; die Überdeckung von höchstens rund 12 € je Einheit wird als Guthaben mit
+            der Jahresabrechnung verrechnet (§ 28 Abs. 2 WEG) und im Wirtschaftsplan
+            ausgewiesen. Die Einstellung greift <strong>ab dem nächsten Beschluss</strong> —
+            bereits beschlossene Pläne behalten ihre Raten.
+          </Tipp>
           <Tipp className="mt-3">
             <strong>Mahnkosten</strong> ersetzen nur, was tatsächlich anfällt — Porto und
             Material. Eine Pauschale von 40 € gilt nur unter Unternehmern, nicht gegenüber

@@ -87,8 +87,15 @@ export type PlanGeltung = {
  *
  * `rateIndex` ist die Position des Monats im jeweiligen Wirtschaftsjahr (0–11)
  * und damit der Zugriff auf die Ratenliste. Über die Jahresgrenze hinweg
- * beginnt sie wieder bei 0: Die Restcent-Verteilung der Raten soll sich in
- * jedem Jahr gleich verhalten, sonst summierte sich der Jahresbetrag nicht.
+ * beginnt sie wieder bei 0.
+ *
+ * Das zählt nur noch bei centgenauer Rundung (`HausgeldRounding.CENT`): Dort
+ * sind die zwölf Raten ungleich, die Restcents liegen auf den ersten Monaten,
+ * und ein durchlaufender Index summierte im Folgejahr einen anderen
+ * Jahresbetrag. Rundet das Objekt dagegen auf 10 Cent oder volle Euro auf, sind
+ * alle zwölf Raten gleich und der Index ist gleichgültig — er bleibt trotzdem,
+ * weil die centgenaue Einstellung erhalten ist und beschlossene Altpläne sie
+ * weiterführen.
  */
 export function sollMonate(
   geltung: PlanGeltung,

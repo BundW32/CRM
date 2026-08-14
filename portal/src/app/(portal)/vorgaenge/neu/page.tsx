@@ -1,3 +1,4 @@
+import { AblageAlert } from "@/components/ablage-alert";
 import { Alert, Card, PageTitle } from "@/components/ui";
 import { propertyWhereForVerwalter, ticketTargetsForUser } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -16,10 +17,10 @@ const errorMessages: Record<string, string> = {
 export default async function NewTicketPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; ablage?: string; grund?: string }>;
 }) {
   const user = await requireUser();
-  const { fehler } = await searchParams;
+  const { fehler, ablage, grund } = await searchParams;
   const isVerwalter = user.role === "VERWALTER";
 
   // Verwalter: nur die Objektliste laden (Einheiten on demand im Formular).
@@ -42,7 +43,15 @@ export default async function NewTicketPage({
         {user.role === "MIETER" ? "Schaden melden / Anfrage stellen" : "Neuer Vorgang"}
       </PageTitle>
 
-      {fehler ? (
+      {/* Zwei verschiedene Ursachen unter einem `fehler=dateien`: zu viele bzw.
+          unerlaubte Dateien — oder eine Ablage, die gar nicht erreichbar war.
+          Nur der zweite Fall bringt `ablage=fehler` mit, und nur er nennt einen
+          Grund, gegen den eine andere Datei nichts ausrichtet. */}
+      {ablage === "fehler" ? (
+        <AblageAlert titel="Die Fotos wurden nicht abgelegt." grund={grund}>
+          Der Vorgang wurde deshalb nicht angelegt — bitte erneut absenden.
+        </AblageAlert>
+      ) : fehler ? (
         <Alert variant="error" className="mb-4">
           {errorMessages[fehler] ?? "Die Eingabe konnte nicht verarbeitet werden."}
         </Alert>

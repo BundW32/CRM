@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AblageAlert } from "@/components/ablage-alert";
 import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
@@ -80,12 +81,26 @@ export default async function TicketDetailPage({
     abschluss?: string;
     fehler?: string;
     msg?: string;
+    /** `fehler`: was schiefging; `ablage=fehler`: es lag an der Dateiablage. */
+    ablage?: string;
+    /** Bei `fehler=ablage`/`dateien`: Grund im Klartext (`ablageFehlerText`). */
+    grund?: string;
   }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { beauftragt, bereitgestellt, zugeordnet, freigegeben, termin, abschluss, fehler, msg } =
-    await searchParams;
+  const {
+    beauftragt,
+    bereitgestellt,
+    zugeordnet,
+    freigegeben,
+    termin,
+    abschluss,
+    fehler,
+    msg,
+    ablage,
+    grund,
+  } = await searchParams;
 
   const ticket = await db.ticket.findUnique({
     where: { id },
@@ -219,6 +234,22 @@ export default async function TicketDetailPage({
         <Alert variant="error" className="mb-4">
           Für diesen Handwerker ist keine E-Mail-Adresse hinterlegt. Bitte im Kontaktbuch
           ergänzen oder telefonisch beauftragen.
+        </Alert>
+      ) : null}
+      {/* Die Ablage nennt ihren Grund selbst — der Vorgang bleibt bestehen, der
+          Knopf lässt sich unmittelbar erneut betätigen. */}
+      {fehler === "ablage" ? (
+        <AblageAlert grund={grund}>
+          Der Vorgang ist unverändert — bitte erneut versuchen.
+        </AblageAlert>
+      ) : null}
+      {ablage === "fehler" ? (
+        <AblageAlert titel="Die Fotos wurden nicht abgelegt." grund={grund}>
+          Der Kommentar wurde deshalb nicht gespeichert — bitte erneut absenden.
+        </AblageAlert>
+      ) : fehler === "dateien" ? (
+        <Alert variant="error" className="mb-4">
+          Bitte nur Bilder oder Videos bis 100 MB anhängen, höchstens zehn Stück.
         </Alert>
       ) : null}
       {fehler === "datei" || fehler === "titel" ? (

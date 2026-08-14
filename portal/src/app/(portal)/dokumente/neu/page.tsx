@@ -8,6 +8,7 @@
 
 import { redirect } from "next/navigation";
 import { FileInput } from "@/components/file-input";
+import { AblageAlert } from "@/components/ablage-alert";
 import { Alert, Card, Field, PageTitle, inputClass } from "@/components/ui";
 import { stackTight } from "@/components/data-display";
 import { ComboField } from "@/components/combo-field";
@@ -36,7 +37,10 @@ export default async function DokumentHochladenPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await requireUser();
-  const { fehler } = await searchParams;
+  // `grund` und die Feldwerte kommen von einer fehlgeschlagenen Ablage zurück
+  // (siehe `zurueckZumFormular` in ../actions.ts): Der Grund wird als Banner
+  // gezeigt, die Werte belegen die Felder vor — neu zu wählen ist nur die Datei.
+  const { fehler, grund, title, category, categoryOther, audience } = await searchParams;
   const isVerwalter = user.role === "VERWALTER";
 
   const properties = isVerwalter
@@ -55,7 +59,15 @@ export default async function DokumentHochladenPage({
     <>
       <PageTitle back={{ href: "/dokumente", label: "Dokumente" }}>Dokument hochladen</PageTitle>
 
-      {fehler ? (
+      {/* Die Ablage nennt ihren Grund selbst. Der frühere Einheitssatz „Nur PDF
+          oder Bilder bis 10 MB sind erlaubt" stand auch dann da, wenn die Datei
+          tadellos war und in Wahrheit die Dateiablage fehlte — und schickte den
+          Nutzer los, seine Datei zu verkleinern. */}
+      {fehler === "ablage" ? (
+        <AblageAlert grund={grund}>
+          Ihre Eingaben stehen noch im Formular — bitte nur die Datei erneut wählen.
+        </AblageAlert>
+      ) : fehler ? (
         <Alert variant="error" className="mb-4">
           {fehler === "datei"
             ? "Nur PDF oder Bilder bis 10 MB sind erlaubt."
@@ -74,17 +86,24 @@ export default async function DokumentHochladenPage({
                   required
                   minLength={2}
                   maxLength={200}
+                  defaultValue={title}
                   className={inputClass}
                 />
               </Field>
+              {/* Beide Seiten zusammengeführt: „Sonstiges" mit Freitext UND die
+                  Vorbelegung nach einer fehlgeschlagenen Ablage — der Freitext
+                  kommt dabei mit zurück, sonst wäre gerade er nach dem Fehler
+                  weg. */}
               <SelectMitSonstiges
                 label="Kategorie"
                 name="category"
                 required
+                defaultValue={category}
                 options={kategorien}
                 freitextName="categoryOther"
                 freitextLabel="Welche Art Dokument?"
                 freitextPlaceholder="z. B. Teilungserklärung"
+                freitextDefaultValue={categoryOther ?? ""}
               />
               {/* Ohne Vorauswahl nahm der Browser die erste Option — „Mieter".
                   Wer das Feld übersah, legte ein Eigentümerdokument ab, das
@@ -97,6 +116,7 @@ export default async function DokumentHochladenPage({
                 label="Sichtbar für"
                 name="audience"
                 required
+                defaultValue={audience}
                 placeholder="— bitte wählen —"
                 hint="Wer das Dokument im Portal sehen kann."
                 options={Object.entries(audienceLabels).map(([value, label]) => ({
@@ -137,17 +157,24 @@ export default async function DokumentHochladenPage({
                   required
                   minLength={2}
                   maxLength={200}
+                  defaultValue={title}
                   className={inputClass}
                 />
               </Field>
+              {/* Beide Seiten zusammengeführt: „Sonstiges" mit Freitext UND die
+                  Vorbelegung nach einer fehlgeschlagenen Ablage — der Freitext
+                  kommt dabei mit zurück, sonst wäre gerade er nach dem Fehler
+                  weg. */}
               <SelectMitSonstiges
                 label="Kategorie"
                 name="category"
                 required
+                defaultValue={category}
                 options={kategorien}
                 freitextName="categoryOther"
                 freitextLabel="Welche Art Dokument?"
                 freitextPlaceholder="z. B. Teilungserklärung"
+                freitextDefaultValue={categoryOther ?? ""}
               />
               <ComboField
                 label="Objekt"

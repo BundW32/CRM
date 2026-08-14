@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { AblageAlert } from "@/components/ablage-alert";
 import { Badge } from "@/components/data-display";
 import { PendingButton } from "@/components/pending-button";
 import { useRouter } from "next/navigation";
@@ -142,7 +143,12 @@ function RoomCard({
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<{
+    ok: boolean;
+    text: string;
+    /** Klartext-Grund der Ablage, nur im Fehlerfall. */
+    grund?: string;
+  } | null>(null);
 
   // Fotos EINZELN nacheinander hochladen: Vercel begrenzt den Request-Body einer
   // Server Action auf ~4,5 MB – mehrere Fotos in einem Request würden scheitern.
@@ -152,18 +158,26 @@ function RoomCard({
     setUploadStatus(null);
     let done = 0;
     let failed = 0;
-    let lastError = "";
+    // Der Grund kommt jetzt als Rückgabewert der Aktion (siehe `FotoErgebnis`).
+    // Über eine geworfene Ausnahme kam er nie an: Next ersetzt Fehlermeldungen
+    // aus Server-Actions in Produktion durch einen nichtssagenden Ersatztext.
+    let letzterGrund = "";
     for (const file of Array.from(files)) {
       const fd = new FormData();
       fd.append("handoverId", handoverId);
       fd.append("roomId", room.id);
       fd.append("photo", file);
       try {
-        await uploadRoomPhoto(fd);
-        done += 1;
+        const ergebnis = await uploadRoomPhoto(fd);
+        if (ergebnis.ok) {
+          done += 1;
+        } else {
+          failed += 1;
+          letzterGrund = ergebnis.grund;
+        }
       } catch (e) {
         failed += 1;
-        lastError = e instanceof Error ? e.message : String(e);
+        letzterGrund = e instanceof Error ? e.message : String(e);
       }
     }
     setUploading(false);
@@ -173,7 +187,8 @@ function RoomCard({
         ? { ok: true, text: `${done} Foto${done === 1 ? "" : "s"} hochgeladen.` }
         : {
             ok: false,
-            text: `${done} hochgeladen, ${failed} fehlgeschlagen${lastError ? `: ${lastError}` : ""}.`,
+            text: `${done} hochgeladen, ${failed} fehlgeschlagen.`,
+            grund: letzterGrund,
           },
     );
     router.refresh();
@@ -331,10 +346,18 @@ function RoomCard({
                 </svg>
                 {uploading ? "Wird hochgeladen…" : "Fotos aufnehmen / hochladen"}
               </button>
-              {uploadStatus ? (
-                <p className={`mt-2 text-xs ${uploadStatus.ok ? "text-brand-green" : "text-red-600"}`}>
-                  {uploadStatus.text}
-                </p>
+              {/* Erfolg als knappe Zeile, Fehlschlag als Banner: Er muss stehen
+                  bleiben, bis er behoben ist (AGENTS.md, „Fehler bleiben
+                  Banner"), und er nennt den Grund — sonst probiert man dasselbe
+                  Foto ein zweites Mal, obwohl die Ablage fehlt. */}
+              {uploadStatus?.ok ? (
+                <p className="mt-2 text-xs text-brand-green">{uploadStatus.text}</p>
+              ) : uploadStatus ? (
+                <AblageAlert
+                  titel={uploadStatus.text}
+                  grund={uploadStatus.grund}
+                  className="mt-2"
+                />
               ) : null}
             </div>
           </div>

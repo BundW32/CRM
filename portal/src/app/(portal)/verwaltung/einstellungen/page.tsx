@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Tipp } from "@/components/tipp";
 import { redirect } from "next/navigation";
 import {
+  Database,
   FileSignature,
   HardDriveDownload,
   Palette,
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui";
 import { isSelfManaged } from "@/lib/access";
 import { settingsItems, type NavIcon } from "@/lib/app-nav";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,7 @@ const ICONS: Partial<Record<NavIcon, LucideIcon>> = {
   integrationen: Plug,
   quellen: HardDriveDownload,
   abrechnung: Receipt,
+  ablage: Database,
   audit: ShieldCheck,
 };
 
@@ -40,7 +43,7 @@ export default async function EinstellungenPage() {
   if (!verwalter.isSuperAdmin) redirect("/dashboard");
 
   const org = await getOrganization();
-  const items = settingsItems(isSelfManaged(org));
+  const items = settingsItems(isSelfManaged(org), isPlatformAdminUser(verwalter));
 
   return (
     <>

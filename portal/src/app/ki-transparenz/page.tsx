@@ -1,7 +1,7 @@
 // Öffentliche KI-Transparenzseite (Art. 50 KI-VO / EU AI Act).
 // Die Verordnung (EU) 2024/1689 ist seit dem 2. August 2026 in vollem Umfang
-// anwendbar. Anbieter der drei KI-Funktionen (Assistent, Triage und
-// Objekt-Import) ist der Portalbetreiber, die selbstverwaltende WEG bzw.
+// anwendbar. Anbieter der vier KI-Funktionen (Assistent, Triage, Objekt-Import
+// und Kostenart-Vorschlag beim Bankimport) ist der Portalbetreiber, die selbstverwaltende WEG bzw.
 // Hausverwaltung ist deren Betreiber. Der Produktname kommt aus `productName()`
 // – die Seite wird in BEIDEN Türen ausgeliefert (Art. 50 KI-VO gilt auch für
 // die B&W-Tür).
@@ -54,13 +54,14 @@ export default function KiTransparenzPage() {
       <LegalSection title="1. Kurzfassung">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            {productName()} enthält drei KI-Funktionen: einen Assistenten
+            {productName()} enthält vier KI-Funktionen: einen Assistenten
             für Rückfragen zu Ihren eigenen Unterlagen, eine Vorsortierung eingehender
-            Schadensmeldungen und einen Objekt-Import, der Stammdaten aus einem PDF
-            vorschlägt.
+            Schadensmeldungen, einen Objekt-Import, der Stammdaten aus einem PDF
+            vorschlägt, und einen Vorschlag für die Kostenart einer importierten
+            Bankausgabe.
           </li>
           <li>
-            Alle drei sind <strong>standardmäßig ausgeschaltet</strong> und werden erst
+            Alle vier sind <strong>standardmäßig ausgeschaltet</strong> und werden erst
             aktiv, wenn Ihre Gemeinschaft bzw. Verwaltung sie ausdrücklich freischaltet.
           </li>
           <li>
@@ -68,9 +69,11 @@ export default function KiTransparenzPage() {
             schlägt vor – Menschen entscheiden.
           </li>
           <li>
-            Es gibt keine KI bei Geld, Recht und Abstimmungen: keine
+            Es gibt keine KI bei Recht, Geld und Abstimmungen: keine
             Bonitätsbewertung, keine automatischen Mahnungen, keine Beschlüsse, keine
-            Abrechnungen.
+            Abrechnungen, keine Zuordnung von Zahlungen zu Eigentümern. Die einzige
+            Ausnahme im Finanzbereich ist ein <em>Vorschlag</em> für die Kostenart einer
+            Ausgabe beim Bankimport — gekennzeichnet, und erst nach Bestätigung gebucht.
           </li>
         </ul>
       </LegalSection>
@@ -114,6 +117,19 @@ export default function KiTransparenzPage() {
           bei den beiden anderen Funktionen wird hier das vollständige PDF
           {" "}an Google übermittelt — siehe Ziffer 6.
         </p>
+        <h3 className="pt-2 font-semibold text-gray-900">
+          d) KI-Kostenart-Vorschlag beim Bankimport
+        </h3>
+        <p>
+          Beim Einlesen eines Kontoauszugs schlägt das Portal zu jeder Ausgabe die
+          passende Kostenart vor. Das geschieht zunächst <strong>ohne KI</strong>: Wer
+          schon einmal bezahlt wurde, bekommt wieder dieselbe Kostenart. Nur für
+          Ausgaben, zu denen es keine solche Erfahrung gibt, wird — wenn freigeschaltet —
+          die KI gefragt. Ihr Vorschlag trägt immer den Gütegrad „unsicher“, ist in der
+          Vorschau als KI gekennzeichnet und wird nur übernommen, wenn die Verwaltung
+          diesen Gütegrad ausdrücklich bestätigt. Welcher Eigentümer eine Zahlung
+          geleistet hat, entscheidet <strong>nie</strong> die KI.
+        </p>
       </LegalSection>
 
       <LegalSection title="3. Wer welche Rolle hat">
@@ -123,14 +139,14 @@ export default function KiTransparenzPage() {
             <Link href="/impressum" className="text-brand-green hover:underline">
               Impressum
             </Link>
-            ): Wir stellen die drei KI-Systeme unter eigenem Namen bereit.
+            ): Wir stellen die vier KI-Systeme unter eigenem Namen bereit.
           </li>
           <li>
             <strong>Betreiber</strong> ist Ihre Eigentümergemeinschaft bzw. Hausverwaltung,
             sobald sie die Funktionen freischaltet und im Alltag nutzt.
           </li>
           <li>
-            <strong>Modellanbieter</strong> ist Google: Alle drei Funktionen nutzen die
+            <strong>Modellanbieter</strong> ist Google: Alle vier Funktionen nutzen die
             Gemini-API. Wir trainieren kein eigenes Modell.
           </li>
         </ul>
@@ -138,7 +154,7 @@ export default function KiTransparenzPage() {
 
       <LegalSection title="4. Risikoeinstufung">
         <p>
-          Alle drei Funktionen sind nach unserer Einschätzung <strong>keine
+          Alle vier Funktionen sind nach unserer Einschätzung <strong>keine
           Hochrisiko-KI-Systeme</strong> im Sinne von Artikel 6 in Verbindung mit Anhang III
           der KI-Verordnung, und sie fallen nicht unter die verbotenen Praktiken nach
           Artikel 5. Sie unterstützen bei Auskunft, Vorsortierung und Dateneingabe; sie
@@ -162,6 +178,11 @@ export default function KiTransparenzPage() {
           <li>Wirtschaftsplan, Jahresabrechnung und Vermögensbericht;</li>
           <li>
             Hausgeld-Sollstellungen, Zahlungszuordnung, Mahnwesen und Mahnstufen;
+          </li>
+          <li>
+            der Zuordnung einer Zahlung zu einer Einheit beim Bankimport — sie folgt
+            festen Regeln (Mandats-IBAN, Einheitenzeichen im Verwendungszweck,
+            eindeutiger Nachname, Betrag gegen offene Forderungen);
           </li>
           <li>Bewertung der Zahlungsfähigkeit oder Kreditwürdigkeit von Eigentümern;</li>
           <li>Abstimmungen, Stimmgewichten und der Feststellung von Beschlüssen;</li>
@@ -190,6 +211,14 @@ export default function KiTransparenzPage() {
             gefundenen Textauszüge. Gespeicherte Dokumente werden dafür nicht geöffnet —
             als Quelle dienen deren Titel und die im Portal erfassten Texte. Fragen Sie
             nach Geld, gehören dazu auch Kontostand, Rückstände und Hausgeld.
+          </li>
+          <li>
+            <strong>Kostenart-Vorschlag:</strong> der Verwendungszweck der Ausgabe,
+            und zwar erst, nachdem alle Wörter mit Ziffern daraus entfernt wurden —
+            damit weder Beträge noch Kontonummern, Rechnungs- oder Referenznummern
+            hinausgehen —, dazu die Bezeichnungen der Kostenarten des Objekts. Nicht
+            übermittelt werden Zahlungspartner, Datum, Betrag, Kontostände und
+            Einheiten.
           </li>
           <li>
             <strong>Objekt-Import:</strong> das hochgeladene PDF{" "}
@@ -252,7 +281,7 @@ export default function KiTransparenzPage() {
           </a>
           . Wir antworten und dokumentieren gemeldete Fehler.
         </p>
-        <p className="text-xs text-gray-500">Stand: 11. August 2026.</p>
+        <p className="text-xs text-gray-500">Stand: 13. August 2026.</p>
       </LegalSection>
     </LegalPage>
   );

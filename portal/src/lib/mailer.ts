@@ -49,6 +49,7 @@ const CTA_LINE = /^[ \t]*(https?:\/\/[^\s<>"]+)[ \t]*$/m;
 // danach passiert; bei einer Bestätigungsmail ist genau das die Frage.
 function ctaLabel(url: string): string {
   if (url.includes("/registrieren/bestaetigen")) return "E-Mail-Adresse bestätigen";
+  if (url.includes("/email-aendern/bestaetigen")) return "Neue E-Mail-Adresse bestätigen";
   if (url.includes("/passwort") || url.includes("/reset")) return "Neues Passwort festlegen";
   if (url.includes("/auftraege/")) return "Auftrag ansehen";
   if (url.includes("/uebergabe/")) return "Übergabe ansehen";

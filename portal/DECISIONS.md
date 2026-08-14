@@ -2066,6 +2066,99 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      `isBlobUrl()`-Prüfung. Beide gegen den alten Stand gegengeprüft: sechs
      Fehlschläge, also greifen sie.
 
+314. **Der Bankimport unterstellt nichts mehr — er misst.** Eine echte
+     Volksbank-Datei (Kontoumsätze 2023) hat *keine* Kopfzeile und ist
+     Windows-1252. Beides war unterstellt: `parseCsv` nahm kompromisslos die
+     erste Zeile als Header und verlor damit still die erste Buchung des Jahres
+     (390 statt 391), und `analyzeCsvAction` dekodierte fest als UTF-8, was 73
+     von 391 Zeilen Ersatzzeichen in Zahlungspartner und Verwendungszweck
+     eintrug — genau in den Feldern, über die die Einheiten-Zuordnung läuft.
+     Erkannt wird jetzt: Zeichensatz (BOM, sonst striktes UTF-8 mit Rückfall auf
+     CP1252 — nicht ISO-8859-1, nur CP1252 kennt 0x80 als €), Trennzeichen über
+     die häufigste Feldanzahl mehrerer Zeilen, die Kopfzeile in den ersten 15
+     Zeilen (Sparkassen-Titelzeilen), und die Spalten notfalls aus dem Inhalt.
+     Die Testdatei `src/test/fixtures/vr-umsatz-ohne-kopfzeile.csv` hält die
+     Byte-Struktur des Originals fest; das Original selbst enthält Klarnamen und
+     IBANs einer realen Gemeinschaft und liegt bewusst nicht im Repository.
+315. **Der Assistent zeigt, was er gelesen hat — immer, nicht nur im Fehlerfall.**
+     Zeichensatz, Trennzeichen, „Kopfzeile vorhanden: ja/nein" und die ersten
+     drei Rohzeilen stehen jetzt in der Vorschau. Ohne sie sieht „falsche Zeile
+     als Kopfzeile" von außen genauso aus wie „Zeichensatz kaputt", und der
+     Verwalter kann nur „geht nicht" melden. Das bestätigte Mapping wird je
+     Konto gemerkt (`LedgerAccount.importProfile`) — wer monatlich aus derselben
+     Quelle importiert, ordnet einmal zu.
+316. **Zuordnungsvorschläge stehen einmal, nicht zweimal.** `suggestUnit` lag als
+     lokale Funktion auf der Hausgeld-Seite und griff erst lange nach dem
+     Import; Ausgaben bekamen gar keinen Vorschlag und blockierten später die
+     Jahresabrechnung. Die Regelkunde liegt jetzt in
+     `lib/weg/zuordnung-vorschlag.ts` (ohne Datenbank, mit Unit-Tests) und
+     speist beide Stellen. Neu: Betragstreffer gegen offene Sollstellungen über
+     `schlageZuordnungVor` (§§ 366, 367 BGB), Periodenerkennung aus dem
+     Verwendungszweck und ein Kostenart-Vorschlag aus der Ausgaben-Historie.
+     Jeder Vorschlag trägt einen Gütegrad; übernommen wird nur, was der
+     Verwalter je Gütegrad bestätigt, und gesetzt wird ausschließlich
+     `unitId`/`costTypeId` — **keine** Anrechnung auf offene Forderungen. Wohin
+     eine Zahlung tilgt, bestimmt der Zahlende, nicht der Import.
+317. **Die KI ist im Bankimport die zweite Stufe, und sie fasst kein Geld an.**
+     `AI_KOSTENART_ENABLED` (eigener Schalter, standardmäßig aus, absichtlich
+     nicht an die anderen KI-Schalter gekoppelt) fragt Gemini nur für Ausgaben,
+     zu denen die Regeln nichts finden. Hinaus geht der von allen Wörtern mit
+     Ziffern befreite Verwendungszweck und die Liste der Kostenart-Namen — kein
+     Zahlungspartner, kein Betrag, kein Datum, keine Einheit, keine IBAN. Der
+     Vorschlag ist immer „unsicher", in der Vorschau als KI gekennzeichnet
+     (Art. 50 KI-VO) und wird nur mit ausdrücklicher Bestätigung übernommen.
+     Welcher Eigentümer gezahlt hat, entscheidet nie die KI — das bleibt
+     regelbasiert, und genau so steht es jetzt auch in `/datenschutz` und
+     `/ki-transparenz`: Die pauschale Zusage „bei Finanzen kommt keine KI zum
+     Einsatz" wäre sonst falsch geworden. `rechtstexte-abgleich.test.ts` suchte
+     die `AI_…_ENABLED`-Schalter bisher nur in der obersten Ebene von `src/lib`
+     und hätte diese vierte Funktion nicht bemerkt; die Suche läuft jetzt
+     rekursiv.
+
+318. **Drei Formate, ein Weg: CSV, MT940 und CAMT.053.** Beide Nicht-CSV-Formate
+     benennen ihre Felder selbst — es gibt nichts zuzuordnen, und der
+     Spaltenschritt entfällt für sie vollständig. Alle drei münden in dieselben
+     `ParsedBooking`-Objekte, weshalb Duplikaterkennung, Vorschau,
+     Zuordnungsvorschläge und Import nicht wissen müssen, woher die Zeilen
+     kamen; ein späterer Open-Banking-Adapter dockt an derselben Stelle an. Der
+     Duplikat-Hash ist formatunabhängig: Wer denselben Zeitraum einmal als CSV
+     und einmal als MT940 einliest, bekommt keine Dubletten.
+     Vier Fallen, die beim Lesen dieser Formate zuschlagen und die
+     `bank-datei.test.ts` festhält: In MT940 läuft ein Feld über beliebig viele
+     Zeilen weiter (wer je Zeile liest, verliert jeden längeren
+     Verwendungszweck), die `:86:`-Häppchen gehören **ohne** Trennzeichen
+     aneinander (sonst steht „Ja nuar" im Zweck), `RC` ist die Stornierung
+     einer Gutschrift und wirkt wie eine Belastung, und das Buchungsdatum steht
+     nur als MMTT da — über den Jahreswechsel liegt es ein Jahr vor der Valuta.
+     In CAMT ist der Betrag immer positiv (die Richtung steht in `CdtDbtInd`,
+     `RvslInd` dreht sie um), und die Gegenseite hängt an der Richtung: bei
+     einer Belastung der Empfänger, bei einer Gutschrift der Zahler. Immer
+     dieselbe Seite zu nehmen hieße, bei der Hälfte der Zeilen den eigenen
+     Namen einzutragen. Sammelbuchungen (mehrere `TxDtls` mit eigenem Betrag)
+     werden in ihre Einzelzahlungen zerlegt — als ein Betrag gebucht wäre das
+     Hausgeld mehrerer Eigentümer keiner Einheit zuzuordnen.
+     Der XML-Teil kommt ohne Parser-Abhängigkeit aus: gelesen werden gezielt
+     `<Ntry>`-Blöcke, mit beliebigem Namensraum-Präfix. Das gemerkte
+     Spalten-Mapping wird **nur** bei CSV geschrieben — ein aus einem
+     MT940-Import gespeichertes Mapping würde beim nächsten CSV-Import eine
+     Zuordnung vortäuschen, die nie bestätigt wurde.
+
+319. **Der Zahlungspartner hängt an der Richtung, wo die Bank ihn in zwei
+     Spalten führt.** Die DKB schreibt die Gegenseite bei einer Gutschrift in
+     „Zahlungspflichtige\*r" und bei einer Belastung in „Zahlungsempfänger\*in" —
+     in der jeweils anderen steht das eigene Konto. Eine feste Spalte zu nehmen
+     hieß, bei der Hälfte der Zeilen den eigenen WEG-Namen als Zahlungspartner
+     zu buchen; für die Einheiten-Zuordnung ist das genauso wertlos wie gar kein
+     Name, sieht aber nach einem Treffer aus. `ColumnMapping` kennt dafür jetzt
+     `counterpartyIn`/`counterpartyOut`; ist die passende Spalte leer, wird die
+     andere genommen. Erkannt wird das Paar nur, wenn beide Muster **verschiedene**
+     Spalten treffen — bei „Beguenstigter/Zahlungspflichtiger" (Sparkasse),
+     „Begünstigter / Auftraggeber" (Postbank) und „Auftraggeber/Empfänger" (ING)
+     ist es eine gemeinsame Spalte, und es bleibt beim einfachen Weg.
+     Nebenbei behoben: Die Normalisierung trennte an `*` und `:` nicht, weshalb
+     „Zahlungspflichtige\*r" das Muster `/zahlungspflichtiger/` nie traf —
+     gendergerechte Schreibweisen fielen still durch.
+
 **Offen geblieben** (bewusst, nicht vergessen): Die Nachdokumentation eines
 bereits eingesetzten Subprozessors gehört anwaltlich bewertet — die
 4-Wochen-Ankündigung nach AVV Ziffer 4 ist auf künftige Wechsel zugeschnitten.

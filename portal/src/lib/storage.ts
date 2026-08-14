@@ -85,8 +85,23 @@ async function putPrivate(pathname: string, body: File | Buffer, contentType: st
   }
 }
 
+/**
+ * Ablageordner der lokalen Entwicklung.
+ *
+ * Jeder Zugriff darauf trägt `turbopackIgnore`. Grund: Der Pfad entsteht erst
+ * zur Laufzeit aus `UPLOAD_DIR`; die Ablauf-Verfolgung des Bundlers kann ihn
+ * nicht auflösen und legt deshalb vorsorglich **das ganze Projekt** ins
+ * Serverbundle — samt aller Quelldateien und des `public`-Ordners. Das bläht
+ * jedes Deployment auf und läuft irgendwann in die Größengrenze von Vercel.
+ *
+ * Sicher ist die Abschaltung, weil dieser Zweig in Produktion nie läuft: Dort
+ * greift Vercel Blob, ersatzweise (nur Preview) die Data-URL. Was zur Laufzeit
+ * wirklich von der Platte gelesen wird — Schriften und Logos der
+ * PDF-Erzeugung — steht namentlich in `outputFileTracingIncludes`
+ * (`next.config.ts`) und hängt nicht an dieser Verfolgung.
+ */
 function uploadDir() {
-  return path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? "./uploads");
+  return path.resolve(/*turbopackIgnore: true*/ process.cwd(), process.env.UPLOAD_DIR ?? "./uploads");
 }
 
 // Der Data-URL-Fallback (Datei als Base64 in der Datenbank) ist für Previews
@@ -142,7 +157,7 @@ export async function saveUpload(file: File, allowedTypes: string[]) {
   // Lokale Entwicklung: Dateisystem
   await mkdir(uploadDir(), { recursive: true });
   await writeFile(
-    path.join(uploadDir(), fileId),
+    path.join(/*turbopackIgnore: true*/ uploadDir(), fileId),
     Buffer.from(await file.arrayBuffer())
   );
   return { storedName: fileId, ...meta };
@@ -189,7 +204,7 @@ export async function saveBuffer(
 
   // Lokale Entwicklung: Dateisystem
   await mkdir(uploadDir(), { recursive: true });
-  await writeFile(path.join(uploadDir(), fileId), buffer);
+  await writeFile(path.join(/*turbopackIgnore: true*/ uploadDir(), fileId), buffer);
   return { storedName: fileId, ...meta };
 }
 
@@ -240,7 +255,9 @@ export async function readUpload(storedName: string): Promise<Buffer> {
   if (!/^[a-f0-9-]+(\.[a-z0-9]+)?$/.test(storedName)) {
     throw new Error("Ungültiger Dateiname.");
   }
-  return readFile(path.join(uploadDir(), storedName));
+  return readFile(
+    /*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ uploadDir(), storedName)
+  );
 }
 
 // Löscht eine gespeicherte Datei (z. B. bei DSGVO-Anonymisierung).

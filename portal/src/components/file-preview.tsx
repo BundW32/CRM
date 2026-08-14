@@ -18,8 +18,36 @@
 //
 // pdf.js wird erst beim Öffnen der Vorschau nachgeladen (dynamic import), damit
 // die ~1 MB nicht in jedem Seitenaufruf stecken.
-import { useCallback, useEffect, useRef, useState } from "react";
+//
+// ── Speicher ──────────────────────────────────────────────────────────────
+// Eine gerenderte Seite ist eine Bitmap: Breite × Höhe × 4 Byte. Eine A4-Seite
+// in Gerätepixeln sind schnell 14 MB, bei 3× Zoom das Neunfache. Diese Vorschau
+// hat deshalb einmal ganze Tabs abgeschossen (150 Seiten, 3× Zoom → 8,6 GB).
+// Was das verhindert, steht in `lib/pdf-vorschau.ts` und hängt hier an drei
+// Stellen:
+//  - `imFenster` — nur Seiten in Sichtweite behalten ihre Leinwand,
+//  - `renderAufloesung` — Gerätepixel und Zoom bleiben im Pixelbudget,
+//  - `anstellen` + `task.cancel()` — höchstens zwei Aufträge, alte weichen.
+//
+// Diese drei halten den LAUFENDEN Betrieb im Rahmen. Sie genügten nicht: Der
+// Tab starb weiterhin, und zwar beim SCHLIESSEN. Beim Verlassen nimmt React die
+// Leinwände aus dem Dokument, ihre Bitmaps gibt der Browser aber erst frei,
+// wenn er die Elemente einsammelt — bis dahin liegen die Seiten des Fensters
+// weiter im Prozess und addieren sich über mehrere Vorschauen auf. Deshalb gibt
+// jede Seite ihre Bitmap beim Verlassen ausdrücklich frei (`canvas.width = 0`),
+// und das Dokument wird samt Worker geschlossen — über den Ladeauftrag, denn
+// seit pdf.js 6 trägt das Dokument selbst kein `destroy()` mehr.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download, Loader2, Minus, Plus, X } from "lucide-react";
+import {
+  FENSTER_SEITEN,
+  imFenster,
+  pixelBudget,
+  renderAufloesung,
+  renderSchlange,
+  rueckfrageNoetig,
+  seiteBeiHoehe,
+} from "@/lib/pdf-vorschau";
 
 type Props = {
   /** Route, die das PDF ausliefert (ohne ?download=1). */
@@ -34,10 +62,16 @@ type PdfDoc = {
 };
 /**
  * `getDocument()` liefert den LADEAUFTRAG, nicht das Dokument — und nur er
- * lässt sich abbrechen. Das Dokument selbst (`PdfDoc`) hat seit pdf.js 6 KEIN
- * `destroy()` mehr; der Aufruf darauf warf beim Schließen der Vorschau einen
- * TypeError, und weil das in einer Effekt-Aufräumfunktion geschah, riss er die
- * gesamte Anwendung in Next.js' Fehlerseite („This page couldn't load").
+ * kann schließen. Das Dokument selbst hat seit pdf.js 6 KEIN `destroy()` mehr;
+ * der Aufruf darauf warf beim Schließen der Vorschau einen TypeError. Weil das
+ * in einer Effekt-Aufräumfunktion geschah, reichte React ihn nach oben, wo er
+ * mangels Error-Boundary die gesamte Anwendung durch die Fehlerseite von
+ * Next.js ersetzte („This page couldn't load").
+ *
+ * Schließt das Dokument UND beendet den Worker. Liefert ein Promise: Läuft
+ * beim Schließen noch ein Renderauftrag, lehnt es ab — beim Aufräumen ist das
+ * belanglos, ohne `catch` stünde es aber als unbehandelte Ablehnung in der
+ * Konsole und sähe aus wie ein Fehler.
  */
 type PdfLoadingTask = {
   promise: Promise<PdfDoc>;
@@ -49,10 +83,25 @@ type PdfPage = {
     canvasContext: CanvasRenderingContext2D;
     viewport: { width: number; height: number };
     canvas: HTMLCanvasElement;
-  }) => { promise: Promise<void>; cancel: () => void };
+  }) => { promise: Promise<void>; cancel: (verzoegerung?: number) => void };
+  cleanup?: () => void;
 };
 
 const ZOOM_STEPS = [0.75, 1, 1.5, 2, 3];
+
+// Eine Schlange für die ganze Vorschau, nicht je Seite: Die Seiten teilen sich
+// einen Worker, gleichzeitig gestartete Aufträge werden dadurch nicht schneller
+// fertig — sie halten nur alle zugleich ihre Puffer.
+const anstellen = renderSchlange(2);
+
+/** pdf.js meldet einen abgebrochenen Auftrag als Fehler; das ist keiner. */
+function istAbbruch(err: unknown): boolean {
+  return err instanceof Error && err.name === "RenderingCancelledException";
+}
+
+function downloadHref(src: string): string {
+  return `${src}${src.includes("?") ? "&" : "?"}download=1`;
+}
 
 export function FilePreview({ src, title, onClose }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -61,6 +110,23 @@ export function FilePreview({ src, title, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [zoomIndex, setZoomIndex] = useState(1); // 1 = Breite füllen
   const [visiblePage, setVisiblePage] = useState(1);
+  // Erst zu beantworten, bevor ein großes Dokument gerendert wird.
+  const [rueckfrage, setRueckfrage] = useState<{ seiten: number; bytes: number } | null>(null);
+  // Seitenverhältnis der ersten Seite. Gilt als Vorgabe für alle Platzhalter —
+  // ohne sie stünde jede ungerenderte Seite auf geratenem A4 und der Inhalt
+  // ruckte beim Scrollen, weil die Höhen nachträglich springen.
+  const [seitenRatio, setSeitenRatio] = useState(1.414);
+
+  // Das Budget hängt am Gerät, nicht am Dokument: auf dem Telefon strenger.
+  const [budget, setBudget] = useState(() =>
+    typeof window === "undefined" ? pixelBudget(1024) : pixelBudget(window.innerWidth),
+  );
+  useEffect(() => {
+    const messen = () => setBudget(pixelBudget(window.innerWidth));
+    messen();
+    window.addEventListener("resize", messen);
+    return () => window.removeEventListener("resize", messen);
+  }, []);
 
   // Escape schließt, und solange die Vorschau offen ist, scrollt die Seite
   // dahinter nicht mit.
@@ -100,15 +166,20 @@ export function FilePreview({ src, title, onClose }: Props) {
           return;
         }
 
-        // Bewusst der LEGACY-Build: der Standard-Build von pdf.js 5 setzt sehr
+        // Bewusst der LEGACY-Build: der Standard-Build von pdf.js 6 setzt sehr
         // junge JS-Methoden voraus (u. a. Map.prototype.getOrInsertComputed) und
         // scheitert auf älteren Browsern beim Rendern — genau auf den Geräten,
         // für die wir die Vorschau bauen. Der Legacy-Build bringt die nötigen
-        // Polyfills mit.
+        // Polyfills mit (core-js, im Bundle nachgeprüft).
         const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
         // Der Worker liegt als eigenes Bundle-Asset neben der Anwendung; ohne
         // ihn würde das Rendern den Hauptthread blockieren (auf dem Handy
         // sichtbar als eingefrorene Oberfläche).
+        //
+        // Turbopack löst diesen `new URL(...)`-Ausdruck zur Bauzeit auf und legt
+        // die Datei unter /_next/static/media ab — am 13.08.2026 im gebauten
+        // Portal nachgemessen: es entsteht ein echter `new Worker(...)`, kein
+        // Rückfall auf den „fake worker" im Hauptthread.
         pdfjs.GlobalWorkerOptions.workerSrc = new URL(
           "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
           import.meta.url,
@@ -116,7 +187,23 @@ export function FilePreview({ src, title, onClose }: Props) {
         const task = pdfjs.getDocument({ data: bytes }) as unknown as PdfLoadingTask;
         loadingTask = task;
         const result = await task.promise;
-        if (cancelled) return; // Aufräumen erledigt die Cleanup-Funktion
+        if (cancelled) return; // Schließen erledigt die Aufräumfunktion
+
+        // Das Seitenverhältnis einmal an der ersten Seite abnehmen, statt es
+        // für jede Seite zu erfragen.
+        try {
+          const erste = await result.getPage(1);
+          const sicht = erste.getViewport({ scale: 1 });
+          if (sicht.width > 0) setSeitenRatio(sicht.height / sicht.width);
+          erste.cleanup?.();
+        } catch {
+          // Kein Beinbruch: dann bleibt A4 hoch die Vorgabe.
+        }
+        if (cancelled) return; // Schließen erledigt die Aufräumfunktion
+
+        if (rueckfrageNoetig({ seiten: result.numPages, bytes: bytes.byteLength })) {
+          setRueckfrage({ seiten: result.numPages, bytes: bytes.byteLength });
+        }
         setDoc(result);
       } catch (err) {
         console.error("Vorschau fehlgeschlagen", err);
@@ -124,15 +211,13 @@ export function FilePreview({ src, title, onClose }: Props) {
       }
     })();
 
-    // Aufräumen darf NIEMALS werfen. Ein Fehler in einer Effekt-Aufräumfunktion
-    // wird von React nach oben gereicht und landet mangels Error-Boundary in
-    // der Fehlerseite von Next.js — die Vorschau nähme dann beim Schließen die
-    // ganze Anwendung mit. Genau das ist mit `destroy()` passiert.
+    // Aufräumen darf NIEMALS werfen. React reicht einen Fehler aus einer
+    // Aufräumfunktion nach oben; mangels Error-Boundary nähme die Vorschau
+    // beim Schließen die ganze Anwendung mit. Genau das ist passiert, als hier
+    // ein nicht mehr vorhandenes `destroy()` am Dokument aufgerufen wurde.
     return () => {
       cancelled = true;
       try {
-        // Bricht laufende Netz- und Worker-Arbeit ab und gibt den Worker frei.
-        // Das Promise lehnt ab, wenn noch etwas lief — kein Fehlerfall.
         void loadingTask?.destroy().catch(() => {});
       } catch (err) {
         console.error("Vorschau konnte nicht aufgeräumt werden", err);
@@ -140,6 +225,51 @@ export function FilePreview({ src, title, onClose }: Props) {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [src]);
+
+  const seiten = useMemo(
+    () => (doc ? Array.from({ length: doc.numPages }, (_, i) => i + 1) : []),
+    [doc],
+  );
+
+  // Welche Seite steht gerade in der Mitte des Ausschnitts? Diese eine Zahl
+  // entscheidet über die Seitenanzeige UND darüber, welche Seiten ihre Leinwand
+  // behalten dürfen. Sie kommt aus der Scrollposition, nicht aus einem
+  // Beobachter — die Begründung steht bei `seiteBeiHoehe`.
+  const zeigtSeiten = Boolean(doc) && !rueckfrage && !imageUrl && !error;
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !zeigtSeiten) return;
+
+    let angefordert = 0;
+    const messen = () => {
+      angefordert = 0;
+      const platzhalter = el.children;
+      setVisiblePage(
+        seiteBeiHoehe(
+          platzhalter.length,
+          (i: number) => (platzhalter[i] as HTMLElement).offsetTop - el.offsetTop,
+          el.scrollTop + el.clientHeight / 2,
+        ),
+      );
+    };
+    // Immer über einen Bildaufbau messen: das hält das Lesen der Maße aus dem
+    // Effektkörper heraus und bündelt schnelles Scrollen auf eine Messung.
+    const anstoßen = () => {
+      if (!angefordert) angefordert = requestAnimationFrame(messen);
+    };
+
+    anstoßen();
+    el.addEventListener("scroll", anstoßen, { passive: true });
+    const groesse = new ResizeObserver(anstoßen);
+    groesse.observe(el);
+    return () => {
+      el.removeEventListener("scroll", anstoßen);
+      groesse.disconnect();
+      if (angefordert) cancelAnimationFrame(angefordert);
+    };
+    // `zoomIndex` gehört dazu: Nach einer Zoomstufe stehen alle Seiten an
+    // anderer Höhe, die alte Messung wäre falsch.
+  }, [zeigtSeiten, zoomIndex]);
 
   return (
     <div
@@ -183,7 +313,7 @@ export function FilePreview({ src, title, onClose }: Props) {
           </>
         )}
         <a
-          href={`${src}${src.includes("?") ? "&" : "?"}download=1`}
+          href={downloadHref(src)}
           aria-label="Herunterladen"
           className="rounded-lg p-2 text-gray-600 hover:bg-gray-100"
         >
@@ -207,7 +337,7 @@ export function FilePreview({ src, title, onClose }: Props) {
           <div className="mx-auto max-w-sm rounded-xl bg-white p-6 text-center">
             <p className="text-sm text-gray-700">{error}</p>
             <a
-              href={`${src}${src.includes("?") ? "&" : "?"}download=1`}
+              href={downloadHref(src)}
               className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-emerald-800 underline"
             >
               <Download className="h-4 w-4" />
@@ -222,15 +352,23 @@ export function FilePreview({ src, title, onClose }: Props) {
             <Loader2 className="h-4 w-4 animate-spin" />
             Vorschau wird geladen …
           </p>
+        ) : rueckfrage ? (
+          <GrossesDokument
+            seiten={rueckfrage.seiten}
+            bytes={rueckfrage.bytes}
+            src={src}
+            onAnzeigen={() => setRueckfrage(null)}
+          />
         ) : (
-          Array.from({ length: doc.numPages }, (_, i) => (
+          seiten.map((nummer) => (
             <PdfPageCanvas
-              key={i + 1}
+              key={nummer}
               doc={doc}
-              pageNumber={i + 1}
+              pageNumber={nummer}
               zoom={ZOOM_STEPS[zoomIndex]}
-              scrollRoot={scrollRef}
-              onVisible={setVisiblePage}
+              budget={budget}
+              vorgabeRatio={seitenRatio}
+              sichtbar={imFenster(nummer, visiblePage)}
             />
           ))
         )}
@@ -239,136 +377,214 @@ export function FilePreview({ src, title, onClose }: Props) {
   );
 }
 
-// Eine Seite. Gerendert wird erst, wenn sie in Sichtweite kommt – bei einer
-// 40-seitigen Jahresabrechnung sonst 40 Canvas-Renderings auf einmal.
+// Rückfrage vor dem Rendern großer Dokumente. Ein Einzelwirtschaftsplan „alle
+// Einheiten" hat eine Seite je Einheit; auf dem Telefon ist das Herunterladen
+// dort oft das Bessere — ungefragt loszurendern ist die schlechtere der beiden
+// Antworten, und bis Anfang August 2026 die einzige.
+function GrossesDokument({
+  seiten,
+  bytes,
+  src,
+  onAnzeigen,
+}: {
+  seiten: number;
+  bytes: number;
+  src: string;
+  onAnzeigen: () => void;
+}) {
+  const mb = bytes / 1024 / 1024;
+  return (
+    <div className="mx-auto max-w-sm rounded-xl bg-white p-6 text-center">
+      <p className="text-sm font-semibold text-gray-900">
+        {seiten} {seiten === 1 ? "Seite" : "Seiten"}
+        {mb >= 1 ? ` · ${mb.toFixed(1)} MB` : ""}
+      </p>
+      <p className="mt-2 text-sm text-gray-600">
+        Anzeigen oder herunterladen? Auf dem Telefon kann das Anzeigen eines so großen
+        Dokuments dauern.
+      </p>
+      <div className="mt-4 flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={onAnzeigen}
+          className="rounded-lg bg-emerald-800 px-4 py-2 text-sm font-medium text-white"
+        >
+          Anzeigen
+        </button>
+        <a
+          href={downloadHref(src)}
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+        >
+          <Download className="h-4 w-4" />
+          Herunterladen
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// Eine Seite. Gerendert wird nur, solange sie im Fenster um die gerade
+// sichtbare Seite liegt — verlässt sie es, wird die Leinwand auf 0×0 gesetzt
+// und gibt ihre Bitmap frei. Der Platzhalter behält seine Maße über die
+// CSS-Größe der (dann leeren) Leinwand, damit die Scrollposition nicht springt.
+//
+// Vorher hieß das „gerendert wird, wenn sie in Sichtweite kommt" — nur wurde
+// dieser Zustand nie zurückgenommen. Nach einmaligem Durchscrollen lag das
+// ganze Dokument gleichzeitig als Bitmap im Speicher.
 function PdfPageCanvas({
   doc,
   pageNumber,
   zoom,
-  scrollRoot,
-  onVisible,
+  budget,
+  vorgabeRatio,
+  sichtbar,
 }: {
   doc: PdfDoc;
   pageNumber: number;
   zoom: number;
-  scrollRoot: React.RefObject<HTMLDivElement | null>;
-  onVisible: (page: number) => void;
+  budget: number;
+  vorgabeRatio: number;
+  sichtbar: boolean;
 }) {
   const holderRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const taskRef = useRef<{ promise: Promise<void>; cancel: () => void } | null>(null);
-  const [near, setNear] = useState(pageNumber === 1);
-  const [ratio, setRatio] = useState(1.414); // A4 hoch, bis die echte Größe da ist
+  // Die Vorgabe aus der ersten Seite gilt, bis diese Seite selbst gerendert
+  // wurde und ihr echtes Verhältnis kennt.
+  const [eigenesRatio, setEigenesRatio] = useState<number | null>(null);
+  const ratio = eigenesRatio ?? vorgabeRatio;
+  // Breite des Platzes, den die Seite hat. Über einen ResizeObserver statt
+  // `clientWidth` beim Rendern: so kennt React die Maße, und der Platzhalter
+  // hat sie auch dann, wenn nie gerendert wurde.
+  const [platzBreite, setPlatzBreite] = useState(0);
 
   useEffect(() => {
     const el = holderRef.current;
     if (!el) return;
-    // Zwei Beobachter mit verschiedenen Aufgaben. Einer mit Vorlauf, damit die
-    // Seite fertig gerendert ist, bevor man sie erreicht; einer ohne Vorlauf für
-    // die Seitenanzeige — sonst meldet die noch nicht sichtbare Folgeseite, sie
-    // sei die aktuelle.
-    const preload = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) setNear(true);
-      },
-      { root: scrollRoot.current, rootMargin: "300px" },
-    );
-    const current = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) onVisible(pageNumber);
-        }
-      },
-      { root: scrollRoot.current, threshold: [0.5] },
-    );
-    preload.observe(el);
-    current.observe(el);
-    return () => {
-      preload.disconnect();
-      current.disconnect();
-    };
-  }, [pageNumber, scrollRoot, onVisible]);
+    // Das Beobachten meldet die aktuelle Größe von sich aus einmal — deshalb
+    // hier kein zusätzliches Setzen aus dem Effektkörper heraus.
+    const beobachter = new ResizeObserver(() => setPlatzBreite(el.clientWidth));
+    beobachter.observe(el);
+    return () => beobachter.disconnect();
+  }, []);
 
-  const render = useCallback(async (abgebrochen: () => boolean) => {
+  // Die Bitmap beim VERLASSEN freigeben — nicht nur beim Hinausscrollen.
+  //
+  // Das war die Lücke, die nach den Speichergrenzen blieb. Die Grenzen halten
+  // den laufenden Betrieb im Rahmen; beim Schließen der Vorschau nimmt React
+  // die Leinwände zwar aus dem Dokument, ihre Bitmaps gibt der Browser aber
+  // erst frei, wenn er die Elemente einsammelt. Bis dahin liegen bis zu
+  // FENSTER_SEITEN Seiten in voller Auflösung im Prozess — beim Desktop-Budget
+  // mehrere hundert Megabyte. Wer zwei, drei Dokumente nacheinander ansieht und
+  // schließt, sammelt sie auf, und irgendwann beendet das System den Tab:
+  // „This page couldn't load", ohne Fehlermeldung und ohne Spur im JS-Heap,
+  // weil Leinwand-Bitmaps nicht darin liegen.
+  //
+  // Eine Leinwand auf 0×0 zu setzen gibt ihre Bitmap sofort frei — derselbe
+  // Handgriff, den der Renderer-Effekt beim Hinausscrollen schon macht. Er
+  // gehört in einen EIGENEN Effekt ohne Abhängigkeiten: Im Renderer-Effekt
+  // liefe er bei jeder Zoom- und Fensteränderung mit und schaltete die
+  // sichtbare Seite kurz auf weiß.
+  useEffect(() => {
     const canvas = canvasRef.current;
-    const holder = holderRef.current;
-    if (!canvas || !holder || !near) return;
+    return () => {
+      if (!canvas) return;
+      canvas.width = 0;
+      canvas.height = 0;
+    };
+  }, []);
 
-    // pdf.js verweigert zwei gleichzeitige render() auf DEMSELBEN Canvas. Beim
-    // Sichtbarwerden und beim Zoomen läuft der Effekt aber erneut an, während
-    // die vorige Aufgabe noch zeichnet. Deshalb: erst abbrechen, dann deren
-    // Ende abwarten — sonst bricht pdf.js die neue Aufgabe ab und die Seite
-    // bleibt weiß.
-    const vorherige = taskRef.current;
-    if (vorherige) {
-      try {
-        vorherige.cancel();
-      } catch {
-        // bereits beendet
-      }
-      await vorherige.promise.catch(() => {});
-      if (abgebrochen()) return;
-    }
+  const cssBreite = platzBreite * zoom;
+  const cssHoehe = cssBreite * ratio;
+
+  const rendern = useCallback(async () => {
+    const canvas = canvasRef.current;
+    if (!canvas || cssBreite <= 0) return null;
 
     const page = await doc.getPage(pageNumber);
-    if (abgebrochen()) return;
-    const base = page.getViewport({ scale: 1 });
-    setRatio(base.height / base.width);
+    const basis = page.getViewport({ scale: 1 });
+    if (basis.width > 0) setEigenesRatio(basis.height / basis.width);
 
-    // Auf Gerätepixel rendern, sonst ist die Schrift auf dem Handy matschig.
-    const cssWidth = holder.clientWidth * zoom;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const viewport = page.getViewport({ scale: (cssWidth / base.width) * dpr });
+    // Auf Gerätepixel rendern, sonst ist die Schrift auf dem Handy matschig —
+    // aber nur so weit, wie das Budget es hergibt. Der Zoom steckt bereits in
+    // `cssBreite`; dieselbe Rechnung bremst damit auch das Vergrößern.
+    const hoehe = cssBreite * (basis.height / basis.width);
+    const aufloesung = renderAufloesung({
+      cssBreite,
+      cssHoehe: hoehe,
+      geraeteRatio: window.devicePixelRatio || 1,
+      budget,
+      seitenImFenster: FENSTER_SEITEN,
+    });
+    const viewport = page.getViewport({ scale: (cssBreite / basis.width) * aufloesung });
 
     canvas.width = Math.floor(viewport.width);
     canvas.height = Math.floor(viewport.height);
-    canvas.style.width = `${cssWidth}px`;
-    canvas.style.height = `${cssWidth * (base.height / base.width)}px`;
 
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const task = page.render({ canvasContext: ctx, viewport, canvas });
-    taskRef.current = task;
-    try {
-      await task.promise;
-    } finally {
-      if (taskRef.current === task) taskRef.current = null;
-    }
-  }, [doc, pageNumber, zoom, near]);
+    if (!ctx) return null;
+    return { page, task: page.render({ canvasContext: ctx, viewport, canvas }) };
+  }, [doc, pageNumber, cssBreite, budget]);
 
   useEffect(() => {
-    let active = true;
-    void (async () => {
-      try {
-        if (active) await render(() => !active);
-      } catch (err) {
-        // Eine abgebrochene Render-Aufgabe wirft absichtlich (Cancel-Fehler) –
-        // kein echter Fehler, wenn wir sie unten selbst abgebrochen haben.
-        if (active) console.error("Seite konnte nicht gerendert werden", err);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    if (!sichtbar) {
+      // Die Bitmap freigeben. Die CSS-Größe bleibt stehen, deshalb behält die
+      // leere Leinwand ihren Platz und nichts springt.
+      canvas.width = 0;
+      canvas.height = 0;
+      return;
+    }
+
+    let abgebrochen = false;
+    let laufend: { promise: Promise<void>; cancel: (v?: number) => void } | null = null;
+
+    const arbeit = anstellen(async () => {
+      if (abgebrochen) return;
+      const gestartet = await rendern();
+      if (!gestartet) return;
+      if (abgebrochen) {
+        gestartet.task.cancel();
+        gestartet.page.cleanup?.();
+        return;
       }
-    })();
+      laufend = gestartet.task;
+      try {
+        await gestartet.task.promise;
+      } finally {
+        laufend = null;
+        gestartet.page.cleanup?.();
+      }
+    });
+
+    arbeit.catch((err) => {
+      if (istAbbruch(err) || abgebrochen) return;
+      console.error("Seite konnte nicht gerendert werden", err);
+    });
+
     return () => {
-      active = false;
-      // Laufende Render-Aufgabe abbrechen, bevor React den Canvas entfernt oder
-      // der Ladeauftrag der Vorschau zerstört wird. Die Referenz bleibt bewusst
-      // stehen: Ein nachfolgender Durchlauf wartet ihr Ende ab, bevor er
-      // denselben Canvas erneut bemalt (siehe render()).
-      try {
-        taskRef.current?.cancel();
-      } catch {
-        // Bereits beendet oder abgebrochen – kein Fehlerfall. Werfen darf hier
-        // nichts: siehe Aufräum-Hinweis in FilePreview.
-      }
+      abgebrochen = true;
+      // Den laufenden Auftrag beenden, statt einen zweiten daneben zu starten.
+      // Ohne das rendert jede Zoomänderung alle sichtbaren Seiten ein weiteres
+      // Mal, während die alten Aufträge weiterlaufen.
+      laufend?.cancel();
     };
-  }, [render]);
+  }, [sichtbar, rendern]);
 
   return (
-    <div
-      ref={holderRef}
-      className="mx-auto mb-3 max-w-full overflow-auto"
-      style={{ aspectRatio: near ? undefined : `1 / ${ratio}` }}
-    >
-      <canvas ref={canvasRef} className="mx-auto block bg-white shadow-sm" />
+    <div ref={holderRef} className="mx-auto mb-3 max-w-full overflow-auto">
+      <canvas
+        ref={canvasRef}
+        className="mx-auto block bg-white shadow-sm"
+        // Die CSS-Größe hängt NICHT an der Bitmap: eine freigegebene Leinwand
+        // (0×0 Bitmap) behält so ihren Platz im Fluss.
+        style={
+          cssBreite > 0
+            ? { width: `${cssBreite}px`, height: `${cssHoehe}px` }
+            : { width: "100%", aspectRatio: `1 / ${ratio}` }
+        }
+      />
     </div>
   );
 }

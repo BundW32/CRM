@@ -63,6 +63,17 @@ Nie selbst gebaut — es gibt ein gemeinsames System:
   Kaskade, `optionsFrom()` für einfache Auswahllisten.
 - Feldoptik: `fieldFillClass` auf hellen Karten, `fieldOnDarkClass` auf dem dunklen Shell.
 
+**Ein Zeitraum ist kein Auswahlfilter.** Für „von–bis" nimmt die `FilterBar` die Prop
+`dateRange` (zwei Datumsfelder, URL-getrieben wie alles andere). Eine Liste fester
+Spannen („letzte 30 Tage") beantwortet die Frage einer Belegeinsicht nicht — dort sucht
+man den Zeitraum einer Rechnung oder eines Wirtschaftsjahres.
+
+**Filtern ohne Summe ist nur eine kürzere Liste.** Wo Beträge in der Liste stehen,
+gehört über sie eine Summenzeile — und zwar über das **ganze Filterergebnis**, nicht
+über die sichtbare Seite. Sie kommt aus einem eigenen `groupBy` mit demselben `where`.
+Was dabei herausfällt (Stornopaare, Umbuchungen), muss dranstehen: Eine Summe, der man
+nicht ansieht, was sie nicht enthält, ist schlimmer als keine.
+
 **`SortControl` bekommt die Trefferzahl über `total`.** Unter fünf Treffern blendet
 es sich selbst aus — bei einer Handvoll Einträgen sieht man alles auf einen Blick. Die
 Grenze steht in der Komponente, nicht in den Seiten; Rollen-Sperren („nur Verwalter")

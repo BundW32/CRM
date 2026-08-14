@@ -18,6 +18,8 @@ import { FilePreviewLink } from "@/components/file-preview-link";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { ersterFehlenderSollmonat } from "@/lib/weg/due-postings";
 import { oposJeEinheit } from "@/lib/weg/opos-service";
+import { ladeZuordnungsKontext } from "@/lib/weg/zuordnung-kontext";
+import { schlageEinheitVor } from "@/lib/weg/zuordnung-vorschlag";
 import { OPOS_BUCKETS, OPOS_BUCKET_LABELS, leereOposZeile } from "@/lib/weg/payment-allocation";
 import {
   assignPayment,
@@ -77,46 +79,6 @@ const MAHN_FILTER: FilterConfig = {
     { value: "versendet", label: "Versendet" },
   ],
 };
-
-// Zuordnungs-Hilfe: Welche Einheit steckt hinter dieser Zahlung?
-//
-// Drei Wege, in dieser Reihenfolge — je sicherer, desto früher:
-//
-// 1. **IBAN** aus dem SEPA-Mandat. Die Kontonummer des Zahlenden ist der
-//    verlässlichste Hinweis überhaupt; sie steht in jedem Bankumsatz.
-// 2. **Einheiten-Kurzlabel** im Verwendungszweck („WE 01").
-// 3. **Nachname des Eigentümers** im Zahlungspartner. Zuletzt, weil Namen sich
-//    wiederholen: Zwei Eigentümer namens Müller machen den Hinweis wertlos —
-//    deshalb zählt er nur, wenn der Name im Objekt eindeutig ist.
-//
-// Es bleibt ein *Vorschlag*: Zugeordnet wird erst, wenn der Verwalter bestätigt.
-function suggestUnit(
-  booking: { text: string; reference: string | null; counterparty: string | null },
-  units: { id: string; label: string }[],
-  unitByIban: Map<string, string>,
-  unitByNachname: Map<string, string>,
-): string | null {
-  const roh = `${booking.text} ${booking.reference ?? ""} ${booking.counterparty ?? ""}`;
-  const haystack = roh.toLowerCase().replace(/\s+/g, " ");
-
-  // 1) IBAN — im Umsatztext meist mit Leerzeichen, deshalb entfernen.
-  const kompakt = roh.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  for (const [iban, unitId] of unitByIban) {
-    if (iban.length >= 15 && kompakt.includes(iban)) return unitId;
-  }
-
-  // 2) Kurzform: erster Label-Teil vor dem Komma ("WE 01, EG links" → "we 01")
-  for (const u of units) {
-    const short = u.label.split(",")[0].trim().toLowerCase();
-    if (short.length >= 3 && haystack.includes(short)) return u.id;
-  }
-
-  // 3) Nachname, nur wenn im Objekt eindeutig.
-  for (const [nachname, unitId] of unitByNachname) {
-    if (nachname.length >= 4 && haystack.includes(nachname)) return unitId;
-  }
-  return null;
-}
 
 export default async function HausgeldPage({
   params,
@@ -183,8 +145,7 @@ export default async function HausgeldPage({
     mahnStufen,
     uebernahme,
     opos,
-    mandate,
-    aktuelleEigentuemer,
+    zuordnungsKontext,
     fehlenderSollmonat,
   ] = await Promise.all([
     db.unit.findMany({
@@ -258,19 +219,11 @@ export default async function HausgeldPage({
     // zweier Summen. Erst dadurch stimmt der Rückstand, wenn eine Sonderumlage
     // bezahlt oder im Voraus überwiesen wurde (siehe payment-allocation.ts).
     oposJeEinheit(property.id, now),
-    // Bausteine der Zuordnungs-Hilfe (siehe `suggestUnit`).
-    db.sepaMandate.findMany({
-      where: { propertyId: property.id, active: true },
-      select: { unitId: true, iban: true },
-    }),
-    db.unitOwnership.findMany({
-      where: {
-        unit: { propertyId: property.id },
-        validFrom: { lte: now },
-        OR: [{ validTo: null }, { validTo: { gt: now } }],
-      },
-      select: { unitId: true, user: { select: { name: true } } },
-    }),
+    // Bausteine der Zuordnungs-Hilfe. Dieselbe Regelkunde wie in der
+    // Import-Vorschau (lib/weg/zuordnung-vorschlag.ts) — zwei getrennte
+    // Vorschlagswege wären zwei Wahrheiten. Ohne Ausgaben-Historie: Hier geht
+    // es nur um Einheiten, nicht um Kostenarten.
+    ladeZuordnungsKontext(property.id, { stichtag: now, mitHistorie: false }),
     // Fortgeltung (§ 28 Abs. 1 Satz 2 WEG): Fehlen Monate, für die schon
     // Forderungen bestehen müssten?
     ersterFehlenderSollmonat(property.id, now),
@@ -289,25 +242,6 @@ export default async function HausgeldPage({
   const uebernahmeByUnit = new Map(uebernahme.map((u) => [u.unitId, u.amountCents]));
   const uebernahmeSumme = uebernahme.reduce((s, u) => s + u.amountCents, 0);
   const uebernahmeStichtag = uebernahme[0]?.dueDate ?? null;
-
-  const unitByIban = new Map(
-    mandate.map((m) => [m.iban.toUpperCase().replace(/[^A-Z0-9]/g, ""), m.unitId]),
-  );
-  // Mehrdeutige Nachnamen fliegen raus: Ein Hinweis, der auf zwei Einheiten
-  // passt, ist kein Hinweis, sondern eine Fehlerquelle.
-  const nachnameZaehler = new Map<string, Set<string>>();
-  for (const o of aktuelleEigentuemer) {
-    const nachname = o.user.name.trim().split(/\s+/).at(-1)?.toLowerCase();
-    if (!nachname) continue;
-    const menge = nachnameZaehler.get(nachname) ?? new Set<string>();
-    menge.add(o.unitId);
-    nachnameZaehler.set(nachname, menge);
-  }
-  const unitByNachname = new Map(
-    [...nachnameZaehler.entries()]
-      .filter(([, einheiten]) => einheiten.size === 1)
-      .map(([nachname, einheiten]) => [nachname, [...einheiten][0]]),
-  );
 
   const dueByUnit = new Map(dueSums.map((d) => [d.unitId, d._sum.amountCents ?? 0]));
   const paidByUnit = new Map(paidSums.map((p) => [p.unitId as string, p._sum.amountCents ?? 0]));
@@ -825,7 +759,11 @@ export default async function HausgeldPage({
           ) : (
             <div className="grid gap-3">
               {unassigned.map((b) => {
-                const suggestion = suggestUnit(b, units, unitByIban, unitByNachname);
+                const vorschlag = schlageEinheitVor(
+                  { ...b, amountCents: b.amountCents, kind: "EINNAHME", bookingDate: b.bookingDate },
+                  zuordnungsKontext,
+                );
+                const suggestion = vorschlag?.unitId ?? null;
                 return (
                   <form
                     key={b.id}
@@ -853,7 +791,9 @@ export default async function HausgeldPage({
                       {units.map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.label}
-                          {suggestion === u.id ? " (Vorschlag)" : ""}
+                          {/* Der Gütegrad sagt, wie genau hinzusehen ist —
+                              „unsicher" ist ein Hinweis, keine Antwort. */}
+                          {suggestion === u.id ? ` (Vorschlag: ${vorschlag?.guete})` : ""}
                         </option>
                       ))}
                     </select>

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { canVerwalterAccessHandover } from "@/lib/access";
 import { saveUpload, IMAGE_TYPES } from "@/lib/storage";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 import type { MeterType } from "@/generated/prisma/client";
 
 export async function addMeter(formData: FormData) {
@@ -71,7 +72,19 @@ export async function uploadMeterPhoto(formData: FormData) {
   if (!meterId || !handoverId || !file || file.size === 0) return;
   if (!(await canVerwalterAccessHandover(verwalter, handoverId))) redirect("/uebergabe");
 
-  const { storedName } = await saveUpload(file, IMAGE_TYPES);
+  // Das Formular schickt direkt ab (`requestSubmit` beim Dateiauswahl-Wechsel);
+  // ein Rückgabewert käme dort nicht an. Der Grund reist deshalb über die
+  // Adresse zurück und steht als Banner über der Zählerliste — vorher lief der
+  // Fehler in die Fehlerseite, und das aufgenommene Foto war weg.
+  let storedName: string;
+  try {
+    ({ storedName } = await saveUpload(file, IMAGE_TYPES));
+  } catch (err) {
+    console.error("Ablage eines Zählerfotos fehlgeschlagen", err);
+    redirect(
+      `/uebergabe/${handoverId}/zaehler?ablage=fehler&grund=${encodeURIComponent(ablageFehlerText(err))}`,
+    );
+  }
 
   // Kind an die validierte handoverId binden.
   await db.handoverMeter.updateMany({

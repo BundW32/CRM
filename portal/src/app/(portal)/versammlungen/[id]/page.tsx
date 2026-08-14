@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AblageAlert } from "@/components/ablage-alert";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { notFound, redirect } from "next/navigation";
@@ -52,11 +53,19 @@ export default async function MeetingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ eingeladen?: string; protokoll?: string; fehler?: string; hinweis?: string; markiert?: string }>;
+  searchParams: Promise<{
+    eingeladen?: string;
+    protokoll?: string;
+    fehler?: string;
+    /** Bei `fehler=protokoll`: warum die Ablage scheiterte (`ablageFehlerText`). */
+    grund?: string;
+    hinweis?: string;
+    markiert?: string;
+  }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { eingeladen, protokoll, fehler, hinweis, markiert } = await searchParams;
+  const { eingeladen, protokoll, fehler, grund, hinweis, markiert } = await searchParams;
 
   // Mandanten-Wand direkt in der Query (Defense-in-Depth): nur Versammlungen der
   // eigenen Organisation werden überhaupt geladen.
@@ -126,7 +135,16 @@ export default async function MeetingDetailPage({
           Protokoll erstellt und für Eigentümer bereitgestellt.
         </Alert>
       ) : null}
-      {fehler ? (
+      {/* „Bitte erneut versuchen" war der falsche Rat, wenn die Dateiablage
+          fehlt — dann scheitert auch der zehnte Versuch. Der Grund sagt, ob
+          Warten hilft oder der Betrieb gefragt ist. Der Knopf bleibt stehen:
+          Die Versammlung gilt erst nach erfolgreicher Ablage als durchgeführt. */}
+      {fehler === "protokoll" ? (
+        <AblageAlert titel="Das Protokoll wurde nicht abgelegt." grund={grund}>
+          Die Versammlung ist unverändert — &bdquo;Protokoll erstellen&ldquo; lässt sich erneut
+          auslösen.
+        </AblageAlert>
+      ) : fehler ? (
         <Alert variant="error" className="mb-4">
           {fehler === "gesperrt"
             ? "Die Versammlung ist abgeschlossen – Tagesordnung und Einladung sind gesperrt."
@@ -134,11 +152,9 @@ export default async function MeetingDetailPage({
               ? "Für eine abgesagte Versammlung kann kein Protokoll erstellt werden."
               : fehler === "durchgefuehrt"
                 ? "Eine durchgeführte Versammlung kann nicht geändert oder abgesagt werden."
-                : fehler === "protokoll"
-                  ? "Das Protokoll konnte nicht erstellt werden. Bitte erneut versuchen."
-                  : fehler === "gerade_versendet"
-                    ? "Die Einladung wurde gerade erst versendet – bitte kurz warten, bevor Sie erneut senden."
-                    : "Bitte Titel und einen gültigen Termin angeben."}
+                : fehler === "gerade_versendet"
+                  ? "Die Einladung wurde gerade erst versendet – bitte kurz warten, bevor Sie erneut senden."
+                  : "Bitte Titel und einen gültigen Termin angeben."}
         </Alert>
       ) : null}
       {hinweis === "neuterminieren" ? (

@@ -6,13 +6,19 @@ import { Alert, Card, Field, PageTitle, buttonClass, buttonSecondaryClass, input
 import { Badge } from "@/components/data-display";
 import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
-import { distributionKeyLabels, formatDateOnly, formatMonatJahr } from "@/lib/labels";
+import {
+  distributionKeyLabels,
+  formatDateOnly,
+  formatMonatJahr,
+  hausgeldRoundingLabels,
+} from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import {
   computeUnitAdvances,
   einheitenOhneFeld,
-  monthlyInstallments,
+  monthlyInstallmentPlan,
   PositionNichtVerteilbar,
+  rundungFuerPlan,
 } from "@/lib/weg/economic-plan";
 
 // Wie das fehlende Feld in der Oberfläche heißt — dieselben Worte wie im
@@ -140,6 +146,12 @@ export default async function WirtschaftsplanDetailPage({
   // Meldung sagen, WELCHE Kostenart es ist und WAS fehlt. Ein „Verteilung nicht
   // möglich" allein schickt eine Gemeinschaft auf die Suche durch fünfzehn
   // Positionen.
+  // Rundung der Monatsraten: Ein beschlossener Plan trägt seine eigene, ein
+  // Entwurf zeigt die aktuelle Objekt-Einstellung — also das, was der Beschluss
+  // festschreiben wird. Eine Umstellung in den Stammdaten verschiebt damit
+  // nichts an einem Plan, der bereits gilt.
+  const rundung = rundungFuerPlan(plan, property);
+
   let advances: ReturnType<typeof computeUnitAdvances> | null = null;
   let advanceError: { titel: string; grund: string; anker: string } | null = null;
   try {
@@ -178,7 +190,20 @@ export default async function WirtschaftsplanDetailPage({
   }
   const stammdatenHref = `/verwaltung/weg/${property.id}/stammdaten#${advanceError?.anker ?? "einheiten"}`;
 
-  // Beschlussvorlage (Mustertext)
+  // Was durch die Rundung tatsächlich gestellt wird — Σ über alle Einheiten.
+  const ratenJeEinheit = advances
+    ? units.map((u) => monthlyInstallmentPlan(advances!.perUnit.get(u.id) ?? 0, rundung))
+    : [];
+  const gestelltCents = ratenJeEinheit.reduce((s, r) => s + r.billedCents, 0);
+  const ueberdeckungGesamt = ratenJeEinheit.reduce((s, r) => s + r.overpayCents, 0);
+
+  // Beschlussvorlage — der Wortlaut für den Tagesordnungspunkt, zum Kopieren.
+  //
+  // Ohne die Fußnote „Muster — ersetzt keine Rechtsberatung": Sie stand unter
+  // einem Text, der die echten Zahlen dieser Gemeinschaft trägt und so in die
+  // Einladung wandert. Als „Muster" gekennzeichnet entwertet er sich selbst.
+  // Am Textbaustein-Katalog (`lib/weg/meeting-agenda-templates.ts`) bleibt der
+  // Hinweis stehen — dort ist er zutreffend, weil dort nichts ausgerechnet ist.
   const vorlage = `Beschlussvorschlag (TOP): Wirtschaftsplan ${plan.year}
 
 Die Gemeinschaft der Wohnungseigentümer beschließt gemäß § 28 Abs. 1 WEG auf
@@ -186,9 +211,14 @@ Grundlage des vorgelegten Wirtschaftsplans für das Wirtschaftsjahr ${plan.year}
 die Vorschüsse zur Kostentragung und zur Zuführung zur Erhaltungsrücklage in
 Höhe von insgesamt ${formatCents(totalCents)}. Die monatlichen Hausgeld-
 Vorschüsse je Einheit ergeben sich aus den beigefügten Einzelwirtschaftsplänen
-und sind jeweils zum 1. eines Monats fällig.
-
-Muster — ersetzt keine Rechtsberatung.`;
+und sind jeweils zum 1. eines Monats fällig.${
+    ueberdeckungGesamt > 0
+      ? ` Die Monatsraten werden
+${hausgeldRoundingLabels[rundung]} aufgerundet, sodass alle zwölf Raten gleich hoch
+sind; die dadurch entstehende Überdeckung von ${formatCents(ueberdeckungGesamt)} wird
+mit der Jahresabrechnung verrechnet.`
+      : ""
+  }`;
 
   return (
     <>
@@ -426,20 +456,30 @@ Muster — ersetzt keine Rechtsberatung.`;
                 </thead>
                 <tbody>
                   {units.map((u) => {
-                    const annual = advances!.perUnit.get(u.id) ?? 0;
-                    const rates = monthlyInstallments(annual);
-                    const min = Math.min(...rates);
-                    const max = Math.max(...rates);
+                    const raten = monthlyInstallmentPlan(
+                      advances!.perUnit.get(u.id) ?? 0,
+                      rundung,
+                    );
+                    const min = Math.min(...raten.rates);
+                    const max = Math.max(...raten.rates);
                     return (
                       <tr key={u.id} className="border-b border-gray-100">
                         <td className="py-2 pr-3 font-medium text-gray-900">{u.label}</td>
-                        <td className="py-2 pr-3 text-right">{formatCents(annual)}</td>
+                        <td className="py-2 pr-3 text-right">{formatCents(raten.annualCents)}</td>
                         <td className="py-2 pr-3 text-right text-gray-700">
                           {min === max
                             ? formatCents(max)
                             : `${formatCents(min)} – ${formatCents(max)}`}
+                          {/* Die Überdeckung steht in derselben Zelle wie die
+                              Rate — dort entsteht die Frage, ob zwölf mal diese
+                              Zahl den Jahresvorschuss ergibt. Sie tut es nicht,
+                              und das gehört hin, nicht in eine Fußnote. */}
                           <span className="block text-xs text-gray-400">
-                            12 Raten, centgenau
+                            {raten.overpayCents > 0
+                              ? `12 × ${formatCents(max)} = ${formatCents(raten.billedCents)}, Überdeckung ${formatCents(raten.overpayCents)}`
+                              : raten.uniform
+                                ? "12 gleiche Raten"
+                                : "12 Raten, centgenau"}
                           </span>
                         </td>
                         <td className="py-2 text-right whitespace-nowrap">
@@ -460,11 +500,42 @@ Muster — ersetzt keine Rechtsberatung.`;
                     <td className="py-2 pr-3 text-right font-semibold text-gray-900">
                       {formatCents(advances.totalCents)}
                     </td>
+                    <td className="py-2 pr-3 text-right text-gray-700">
+                      {ueberdeckungGesamt > 0 ? (
+                        <span className="block text-xs text-gray-500">
+                          {formatCents(gestelltCents)} werden gestellt
+                        </span>
+                      ) : null}
+                    </td>
                     <td />
                   </tr>
                 </tbody>
               </table>
             </div>
+          ) : null}
+          {/* Der Ausweis gehört unter die Tabelle, nicht in eine Fußnote am
+              Seitenende: Wer die Raten liest, soll im selben Blick sehen, dass
+              die Gemeinschaft mehr einzieht als der Plan vorsieht — und wohin
+              der Unterschied wandert. */}
+          {advances && ueberdeckungGesamt > 0 ? (
+            <Tipp className="mt-3">
+              Die Monatsraten sind <strong>{hausgeldRoundingLabels[rundung]} aufgerundet</strong>,
+              damit alle zwölf Raten gleich hoch sind und ein Dauerauftrag das ganze Jahr passt.
+              Über alle Einheiten werden dadurch {formatCents(gestelltCents)} gestellt statt der
+              geplanten {formatCents(advances.totalCents)}. Die Überdeckung von{" "}
+              {formatCents(ueberdeckungGesamt)} ist ein Guthaben der Eigentümer und wird über die
+              Abrechnungsspitze der Jahresabrechnung verrechnet (§ 28 Abs. 2 WEG).
+              {isDraft ? (
+                <>
+                  {" "}
+                  Die Stufe kommt aus den{" "}
+                  <Link href={`/verwaltung/weg/${property.id}/stammdaten`} className="underline">
+                    Objekt-Stammdaten
+                  </Link>{" "}
+                  und wird mit dem Beschluss festgeschrieben.
+                </>
+              ) : null}
+            </Tipp>
           ) : null}
         </Card>
 

@@ -37,7 +37,7 @@ import { hashToken } from "@/lib/token-hash";
 // erhält) und der Übermittlungsumfang der KI-Funktionen aufgeschlüsselt,
 // einschließlich des Objekt-Imports, der bis dahin in keinem Rechtstext stand.
 // Der AVV ist Teil der Zustimmung bei der Registrierung → neue Version.
-const TERMS_VERSION = "2026-08-11";
+const TERMS_VERSION = "2026-08-13";
 
 const registerSchema = z.object({
   company: z.string().trim().min(2).max(200),

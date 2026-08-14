@@ -9,6 +9,31 @@ import { notifyDocumentPublished } from "@/lib/notify";
 import { DOCUMENT_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 import { requireUser, requireVerwalter } from "@/lib/session";
 import { planErlaubt } from "@/lib/plan-guard";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
+
+/**
+ * Zurück ans Hochladen-Formular — mit dem Grund und den bereits eingetragenen
+ * Werten.
+ *
+ * Zwei Dinge waren hier falsch. Erstens fing der Upload stumm (`catch {}`) und
+ * meldete `?fehler=datei`; die Seite schrieb daraufhin „Nur PDF oder Bilder bis
+ * 10 MB sind erlaubt" — auch dann, wenn in Wahrheit die Dateiablage fehlte und
+ * jede Datei gescheitert wäre. Zweitens war das Formular danach leer: Titel,
+ * Kategorie und Sichtbarkeit mussten erneut eingetragen werden, obwohl daran
+ * nichts falsch war. Beides zusammen führt dazu, dass man es zwei-, dreimal
+ * versucht und dann aufgibt.
+ *
+ * Die Datei selbst lässt sich aus Sicherheitsgründen nicht vorbelegen — sie ist
+ * das Einzige, was neu zu wählen ist.
+ */
+function zurueckZumFormular(formData: FormData, params: Record<string, string>): string {
+  const q = new URLSearchParams(params);
+  for (const feld of ["title", "category", "audience"]) {
+    const wert = String(formData.get(feld) ?? "").trim();
+    if (wert) q.set(feld, wert.slice(0, 200));
+  }
+  return `/dokumente/neu?${q.toString()}`;
+}
 
 const uploadSchema = z.object({
   title: z.string().trim().min(2).max(200),
@@ -50,8 +75,9 @@ export async function uploadOwnerDocument(formData: FormData) {
   let upload;
   try {
     upload = await saveUpload(file, DOCUMENT_TYPES);
-  } catch {
-    redirect("/dokumente/neu?fehler=datei");
+  } catch (err) {
+    console.error("Ablage eines Eigentümer-Dokuments fehlgeschlagen", err);
+    redirect(zurueckZumFormular(formData, { fehler: "ablage", grund: ablageFehlerText(err) }));
   }
 
   const doc = await db.document.create({
@@ -204,8 +230,9 @@ export async function uploadDocument(formData: FormData) {
   let upload;
   try {
     upload = await saveUpload(file, DOCUMENT_TYPES);
-  } catch {
-    redirect("/dokumente/neu?fehler=datei");
+  } catch (err) {
+    console.error("Ablage eines Dokuments fehlgeschlagen", err);
+    redirect(zurueckZumFormular(formData, { fehler: "ablage", grund: ablageFehlerText(err) }));
   }
 
   const doc = await db.document.create({

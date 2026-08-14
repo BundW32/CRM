@@ -9,6 +9,7 @@ import { neuesCraftsmanToken } from "@/lib/craftsman-token";
 import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 import { DOCUMENT_TYPES, saveUpload } from "@/lib/storage";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 
 // Rücksprung: `updatePersonContact` läuft aus der Adressbuch-Zeile UND von der
 // Kontakt-Detailseite. Der Pfad wird gegen ein festes Muster geprüft, damit über
@@ -265,8 +266,17 @@ export async function updateCraftsman(formData: FormData) {
   if (datei instanceof File && datei.size > 0) {
     try {
       bescheinigung = await saveUpload(datei, DOCUMENT_TYPES);
-    } catch {
-      redirect(zurueckZu(formData, "?fehler=bescheinigung"));
+    } catch (err) {
+      // Vorher hieß es pauschal „erlaubt: Foto oder PDF" — auch dann, wenn die
+      // Datei stimmte und die Ablage fehlte. Der Grund entscheidet, ob eine
+      // andere Datei hilft oder nichts.
+      console.error("Ablage einer Freistellungsbescheinigung fehlgeschlagen", err);
+      redirect(
+        zurueckZu(
+          formData,
+          `?fehler=bescheinigung&grund=${encodeURIComponent(ablageFehlerText(err))}`,
+        ),
+      );
     }
   }
 

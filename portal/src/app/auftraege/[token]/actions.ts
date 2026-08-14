@@ -10,6 +10,7 @@ import { portalUrl, sendMail } from "@/lib/mailer";
 import { parseEuroToCents } from "@/lib/money";
 import { sendPushToUsers } from "@/lib/push";
 import { DOCUMENT_TYPES, MEDIA_TYPES, saveUpload } from "@/lib/storage";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 
 // Token + Ticket prüfen: der Handwerker darf nur seine eigenen Aufträge bearbeiten
 async function authorize(
@@ -128,8 +129,14 @@ export async function craftsmanComment(formData: FormData) {
   for (const file of files) {
     try {
       uploads.push(await saveUpload(file, MEDIA_TYPES));
-    } catch {
-      redirect(`/auftraege/${token}`);
+    } catch (err) {
+      // Vorher landete der Handwerker kommentarlos wieder auf seiner Seite —
+      // Nachricht weg, Foto weg, kein Wort dazu. Er hat kein Portalkonto und
+      // keinen Weg, nachzufragen; diese Seite ist alles, was er sieht.
+      console.error("Ablage eines Handwerker-Fotos fehlgeschlagen", err);
+      redirect(
+        `/auftraege/${token}?fehler=ablage&grund=${encodeURIComponent(ablageFehlerText(err))}`,
+      );
     }
   }
 
@@ -176,8 +183,11 @@ export async function craftsmanSubmitInvoice(formData: FormData) {
   let upload;
   try {
     upload = await saveUpload(file, DOCUMENT_TYPES);
-  } catch {
-    redirect(`/auftraege/${token}?fehler=datei`);
+  } catch (err) {
+    console.error("Ablage einer Handwerker-Rechnung fehlgeschlagen", err);
+    redirect(
+      `/auftraege/${token}?fehler=ablage&grund=${encodeURIComponent(ablageFehlerText(err))}`,
+    );
   }
 
   await db.craftsmanInvoice.upsert({

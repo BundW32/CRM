@@ -69,7 +69,7 @@ export default function AvvPage() {
               beschäftigt.
             </p>
           ) : null}
-          <p className="mt-2 text-gray-500">Stand: 11. August 2026</p>
+          <p className="mt-2 text-gray-500">Stand: 13. August 2026</p>
         </>
       }
     >
@@ -167,8 +167,8 @@ export default function AvvPage() {
           <li>Optionaler Dokumenten-Import: Google Drive;</li>
           <li>
             Optionale KI-Funktionen (Assistent, Vorqualifizierung von Vorgängen,
-            Objekt-Import aus PDF): Google (Gemini API) — nur, wenn die Verantwortliche
-            sie ausdrücklich aktiviert;
+            Objekt-Import aus PDF, Kostenart-Vorschlag beim Bankimport): Google
+            (Gemini API) — nur, wenn die Verantwortliche sie ausdrücklich aktiviert;
           </li>
           <li>
             Push-Benachrichtigungen: geräteabhängige Push-Dienste von Google, Apple bzw.

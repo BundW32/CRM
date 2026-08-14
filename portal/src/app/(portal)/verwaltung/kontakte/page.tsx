@@ -7,6 +7,7 @@ import {
   cardSurfaceClass,
 } from "@/components/ui";
 import Link from "next/link";
+import { AblageAlert } from "@/components/ablage-alert";
 import { FilterBar, SortControl, type FilterConfig } from "@/components/filter-bar";
 import {
   ADDRESS_BOOK_KINDS,
@@ -50,7 +51,7 @@ export default async function KontaktePage({
 }) {
   const verwalter = await requireVerwalter();
   const params = await searchParams;
-  const { fehler } = params;
+  const { fehler, grund } = params;
 
   const q = normalizeSearch(params.q);
   const kind = parseKind(params.art);
@@ -154,13 +155,15 @@ export default async function KontaktePage({
       {/* Erfolg meldet der ToastHost (`?flash=…`) – er erscheint auch dann,
           wenn die Aktion von einer anderen Seite zurückspringt. Fehler bleiben
           als Banner am Formular stehen. */}
-      {fehler ? (
+      {fehler === "bescheinigung" ? (
+        <AblageAlert titel="Die Freistellungsbescheinigung wurde nicht gespeichert." grund={grund}>
+          Nummer und Gültigkeitsdatum wurden ebenfalls nicht übernommen — bitte erneut speichern.
+        </AblageAlert>
+      ) : fehler ? (
         <Alert variant="error" className="mb-4">
           {fehler === "email"
             ? "Diese E-Mail-Adresse wird bereits von einer anderen Person verwendet."
-            : fehler === "bescheinigung"
-              ? "Die Freistellungsbescheinigung konnte nicht gespeichert werden (erlaubt: Foto oder PDF). Nummer und Gültigkeitsdatum wurden ebenfalls nicht übernommen — bitte erneut speichern."
-              : "Bitte Pflichtfelder (Name, Art) korrekt ausfüllen."}
+            : "Bitte Pflichtfelder (Name, Art) korrekt ausfüllen."}
         </Alert>
       ) : null}
 

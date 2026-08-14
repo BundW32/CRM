@@ -5,7 +5,10 @@
 // Aufgebaut auf lib/documents/kit. Der Bericht hat keinen Empfänger im
 // Fensterumschlag — er wird der Einladung beigelegt und abgelegt —, trägt aber
 // denselben Kopf, dieselbe Schrift und dieselbe Fußzeile wie die Briefe.
+import type { HausgeldRounding } from "@/generated/prisma/client";
+import { hausgeldRoundingLabels } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
+import type { Monatsraten } from "@/lib/weg/economic-plan";
 import {
   CONTENT_WIDTH,
   Doc,
@@ -21,9 +24,8 @@ import type { RGB } from "pdf-lib";
 export type WirtschaftsplanPosition = { name: string; keyLabel: string; amountCents: number };
 export type WirtschaftsplanUnit = {
   label: string;
-  annualCents: number;
-  monthlyMinCents: number;
-  monthlyMaxCents: number;
+  /** Jahresvorschuss, zwölf Monatsraten und die Überdeckung der Rundung. */
+  raten: Monatsraten;
 };
 export type WirtschaftsplanInput = {
   propertyName: string;
@@ -36,6 +38,8 @@ export type WirtschaftsplanInput = {
   positions: WirtschaftsplanPosition[];
   totalCents: number;
   units: WirtschaftsplanUnit[];
+  /** Rundungsstufe der Monatsraten (Einstellung des Objekts, beim Beschluss festgeschrieben). */
+  rounding?: HausgeldRounding;
   generatedAt: Date;
 };
 
@@ -104,29 +108,61 @@ export async function generateWirtschaftsplan(input: WirtschaftsplanInput): Prom
   });
   doc.table(
     [
-      { header: "Einheit", width: 44 },
-      { header: "Jahres-Vorschuss", width: 28, align: "right" },
-      { header: "monatlich", width: 28, align: "right" },
+      { header: "Einheit", width: 34 },
+      { header: "Jahres-Vorschuss", width: 22, align: "right" },
+      { header: "monatlich", width: 22, align: "right" },
+      { header: "12 Raten =", width: 22, align: "right" },
     ],
-    input.units.map((u): TableCell[] => [
-      { text: u.label },
-      { text: formatCents(u.annualCents) },
-      {
-        text:
-          u.monthlyMinCents === u.monthlyMaxCents
-            ? formatCents(u.monthlyMaxCents)
-            : `${formatCents(u.monthlyMinCents)} – ${formatCents(u.monthlyMaxCents)}`,
-      },
-    ]),
+    input.units.map((u): TableCell[] => {
+      const min = Math.min(...u.raten.rates);
+      const max = Math.max(...u.raten.rates);
+      return [
+        { text: u.label },
+        { text: formatCents(u.raten.annualCents) },
+        { text: min === max ? formatCents(max) : `${formatCents(min)} – ${formatCents(max)}` },
+        // Die vierte Spalte ist der Punkt, an dem die Rundung nachprüfbar wird:
+        // Zwölf gleiche Raten ergeben nicht den Jahresvorschuss, sondern etwas
+        // mehr. Diese Zahl selbst ausrechnen zu lassen, wäre eine Zumutung —
+        // und genau das Nachrechnen, das die Angabe ersparen soll.
+        { text: formatCents(u.raten.billedCents) },
+      ];
+    }),
   );
 
+  // Der Ausweis der Rundung. Er steht hier bewusst als ganzer Satz und nicht als
+  // Fußnotenzeichen: Eine Überdeckung, die niemand benennt, sieht wie ein
+  // Rechenfehler aus — und der Eigentümer, der sie bemerkt, fragt nach.
+  const ueberdeckung = input.units.reduce((s, u) => s + u.raten.overpayCents, 0);
+  if (ueberdeckung > 0 && input.rounding && input.rounding !== "CENT") {
+    doc.space(mm(2));
+    doc.para(
+      `Die monatlichen Raten sind ${hausgeldRoundingLabels[input.rounding]} aufgerundet — ` +
+        "so ist jede der zwölf Raten gleich hoch und ein Dauerauftrag passt das ganze Jahr. " +
+        `Über alle Einheiten ergibt das ${formatCents(ueberdeckung)} mehr als der ` +
+        `Vorschussbedarf von ${formatCents(input.totalCents)}. Diese Überdeckung ist ein ` +
+        "Guthaben der Eigentümer und wird mit der Jahresabrechnung verrechnet " +
+        "(§ 28 Abs. 2 WEG).",
+      { size: size.small, color: color.muted, width: CONTENT_WIDTH, lead: mm(4.5) },
+    );
+  }
+
   // ── Beschlussvorlage ───────────────────────────────────────────────────────
+  //
+  // Die Rundung gehört in den Beschlusstext, nicht nur in die Erläuterung: Was
+  // die Verwaltung monatlich einzieht, sind die gerundeten Raten. Ein Beschluss,
+  // der nur den ungerundeten Vorschussbedarf nennt, deckt sie nicht — und die
+  // Sollstellung stünde ohne Grundlage da.
   const vorlage =
     "Die Gemeinschaft der Wohnungseigentümer beschließt gemäß § 28 Abs. 1 WEG auf Grundlage " +
     `des vorgelegten Wirtschaftsplans für das Wirtschaftsjahr ${input.year} die Vorschüsse zur ` +
     "Kostentragung und zur Zuführung zur Erhaltungsrücklage in Höhe von insgesamt " +
     `${formatCents(input.totalCents)}. Die monatlichen Hausgeld-Vorschüsse je Einheit ergeben ` +
-    "sich aus den obigen Einzelwirtschaftsplänen und sind jeweils zum 1. eines Monats fällig.";
+    "sich aus den obigen Einzelwirtschaftsplänen und sind jeweils zum 1. eines Monats fällig." +
+    (ueberdeckung > 0 && input.rounding && input.rounding !== "CENT"
+      ? ` Die Monatsraten werden ${hausgeldRoundingLabels[input.rounding]} aufgerundet, sodass ` +
+        `alle zwölf Raten gleich hoch sind; die dadurch entstehende Überdeckung von ` +
+        `${formatCents(ueberdeckung)} wird mit der Jahresabrechnung verrechnet.`
+      : "");
   // Überschrift und Vorlage bleiben zusammen — eine Beschlussvorlage, deren
   // Text auf der Folgeseite beginnt, liest in der Versammlung niemand vor.
   doc.space(mm(6));
@@ -139,13 +175,12 @@ export async function generateWirtschaftsplan(input: WirtschaftsplanInput): Prom
   });
   doc.para(vorlage, { size: size.small, width: CONTENT_WIDTH, lead: mm(4.5) });
 
-  doc.space(mm(4));
-  doc.para("Muster — ersetzt keine Rechtsberatung.", {
-    size: size.foot,
-    color: color.muted,
-    width: CONTENT_WIDTH,
-    lead: mm(4),
-  });
+  // Bewusst ohne die Fußnote „Muster — ersetzt keine Rechtsberatung": Sie stand
+  // am Fuß der Seite und bezog sich damit auf das **ganze** Dokument. Das hier
+  // ist aber kein Muster, sondern der Wirtschaftsplan dieser Gemeinschaft mit
+  // ihren echten Zahlen — Beschlussgegenstand der Versammlung und Grundlage der
+  // Sollstellungen. Ihn als Muster zu kennzeichnen ist sachlich falsch und
+  // entwertet das Dokument gegenüber jedem, dem es vorgelegt wird.
 
   return doc.finish({
     left: input.issuer.legalName,

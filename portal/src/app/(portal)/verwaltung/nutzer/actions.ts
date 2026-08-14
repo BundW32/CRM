@@ -18,6 +18,7 @@ import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { requireVerwalter } from "@/lib/session";
 import { IMAGE_TYPES, deleteBlob, saveBuffer } from "@/lib/storage";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 import { errorMessage, isNextControlFlowError } from "@/lib/errors";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rate-limit";
@@ -129,7 +130,17 @@ export async function uploadStammdaten(formData: FormData) {
       const buffer = Buffer.from(base64, "base64");
       if (buffer.byteLength > 0) {
         if (user.signatureStoredName) await deleteBlob(user.signatureStoredName);
-        const upload = await saveBuffer(buffer, "unterschrift.png", "image/png", IMAGE_TYPES);
+        // Der rohe Ablage-Fehler ging bisher unverändert als `msg` in die
+        // Adresszeile — mit Store-Namen und Vercel-Anleitung darin. Übersetzt
+        // wird daraus ein Satz, der sagt, ob es an der Zeichnung liegt (nie)
+        // oder am System (fast immer).
+        let upload;
+        try {
+          upload = await saveBuffer(buffer, "unterschrift.png", "image/png", IMAGE_TYPES);
+        } catch (err) {
+          console.error("Ablage einer Unterschrift fehlgeschlagen", err);
+          throw new Error(ablageFehlerText(err));
+        }
         data.signatureStoredName = upload.storedName;
         // Fremderfassung: Diese Unterschrift hat der Verwalter gezeichnet, nicht
         // die Person selbst. Sie darf deshalb nicht unter deren Namen erscheinen

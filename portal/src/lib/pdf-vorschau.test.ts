@@ -247,7 +247,16 @@ describe("Vorschau gibt ihren Speicher beim Schließen frei", () => {
   it("schließt Dokument und Worker beim Verlassen", () => {
     // `destroy()` beendet den pdf.js-Worker. Ohne den Aufruf bliebe je
     // geöffneter Vorschau ein Worker samt Dokumentpuffer stehen.
-    expect(quelle).toMatch(/loaded\?\.destroy\(\)/);
+    //
+    // Zerstört wird der LADEAUFTRAG, nicht das Dokument: Seit pdf.js 6 trägt
+    // `PDFDocumentProxy` kein `destroy()` mehr. Der frühere `loaded?.destroy()`
+    // warf deshalb einen TypeError — und weil das in einer Aufräumfunktion
+    // geschah, reichte React ihn nach oben, wo er mangels Error-Boundary die
+    // GANZE Anwendung durch die Fehlerseite von Next.js ersetzte. Der Test
+    // steht bewusst auf `loadingTask`, damit niemand versehentlich auf das
+    // Dokument zurückfällt.
+    expect(quelle).toMatch(/loadingTask\?\.destroy\(\)/);
+    expect(quelle).not.toMatch(/loaded\?\.destroy\(\)/);
   });
 
   it("fängt die Ablehnung aus `destroy` ab", () => {

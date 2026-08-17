@@ -121,10 +121,12 @@ export default async function VersammlungPage() {
       >
         <p>
           Eine Versammlung beginnt lange vor dem Termin: Tagesordnung aufstellen,
-          Unterlagen zusammenstellen, fristgerecht einladen. Im Portal legen Sie
-          die Versammlung mit allen Tagesordnungspunkten an; Vorlagen wie der
-          Wirtschaftsplan oder die Jahresabrechnung hängen automatisch mit den
-          richtigen Zahlen daran.
+          Unterlagen zusammenstellen, fristgerecht einladen. Das gilt auch für
+          die Eigentümerversammlung ohne externen Verwalter – lädt bei Ihnen
+          ein Miteigentümer als bestellter Verwalter ein, führt ihn das Portal
+          durch Fristen und Form. Sie legen die Versammlung mit allen
+          Tagesordnungspunkten an; Vorlagen wie der Wirtschaftsplan oder die
+          Jahresabrechnung hängen automatisch mit den richtigen Zahlen daran.
         </p>
         <p>
           Auch die Miteigentümer werden einbezogen: Wer ein Anliegen hat – vom

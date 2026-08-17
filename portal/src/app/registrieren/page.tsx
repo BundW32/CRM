@@ -63,7 +63,7 @@ export default async function RegisterPage({
           <p className="mb-1 text-sm font-medium text-gray-400">Kostenlos registrieren</p>
           <h1 className="mb-2 text-2xl font-bold text-brand-green">Das Portal für Ihre selbstverwaltete WEG</h1>
           <p className="mb-6 text-sm text-gray-600">
-            Legen Sie kostenlos das Portal Ihrer Eigentümergemeinschaft an –
+            Hier können Sie Ihre WEG kostenlos anlegen – ohne Zahlungsdaten.
             Einheiten, Konten und Miteigentümer richten Sie im Anschluss ein.
           </p>
 
@@ -191,6 +191,16 @@ export default async function RegisterPage({
             <Link href="/login" className="text-brand-green hover:underline">
               Zur Anmeldung
             </Link>
+          </p>
+          <p className="mt-4 text-xs leading-relaxed text-gray-500">
+            Nach dem Klick geht es direkt ins Portal: Sie benennen Ihre
+            Gemeinschaft, übernehmen die Einheiten aus der Teilungserklärung
+            und laden Miteigentümer ein, wann immer Sie so weit sind. Wie der
+            Weg im Einzelnen aussieht, zeigt{" "}
+            <Link href="/so-funktionierts" className="text-brand-green hover:underline">
+              „So funktioniert’s“
+            </Link>
+            .
           </p>
           <p className="mt-4 text-xs text-gray-400">
             Mit der Registrierung stimmen Sie der{" "}

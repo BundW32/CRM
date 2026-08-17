@@ -73,10 +73,11 @@ export default async function FinanzenPage() {
       >
         <p>
           Jede WEG beschließt jährlich, welche Kosten anfallen und wer wie viel
-          Hausgeld zahlt. Im Portal legen Sie die erwarteten Kosten je Kostenart
-          fest – auf Wunsch mit den Istwerten des Vorjahres als Startpunkt – und
-          das System verteilt sie automatisch nach den Umlageschlüsseln aus Ihrer
-          Teilungserklärung auf die Einheiten.
+          Hausgeld zahlt. Den Wirtschaftsplan für Ihre WEG erstellen Sie im
+          Portal Schritt für Schritt: Sie legen die erwarteten Kosten je
+          Kostenart fest – auf Wunsch mit den Istwerten des Vorjahres als
+          Startpunkt – und das System verteilt sie automatisch nach den
+          Umlageschlüsseln aus Ihrer Teilungserklärung auf die Einheiten.
         </p>
         <p>
           Das Ergebnis: ein Gesamtwirtschaftsplan, ein Einzelwirtschaftsplan für
@@ -111,7 +112,9 @@ export default async function FinanzenPage() {
           Einzelne Buchungen – etwa eine Barauslage – erfassen Sie in Sekunden
           von Hand und hängen den Beleg als Foto oder PDF direkt an. So entsteht
           nebenbei eine lückenlose, belegte Buchführung, die auch der Beirat oder
-          ein prüfender Eigentümer jederzeit nachvollziehen kann.
+          ein prüfender Eigentümer jederzeit nachvollziehen kann – das Portal
+          ist damit die Buchhaltungs-Software Ihrer WEG, und alle WEG-Finanzen
+          liegen an einem Ort.
         </p>
       </FeatureSection>
 

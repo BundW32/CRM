@@ -96,8 +96,15 @@ export default async function LoginPage({
               ? "Ihr sicherer Zugang zu Finanzen, Beschlüssen und Dokumenten."
               : "Ihr sicherer Zugang zu Vorgängen, Dokumenten und Nachrichten."}
           </p>
+          {/* Nicht nur „Anmelden": Ein-Wort-H1s melden SEO-Prüfungen als zu
+              kurz — und die längere Fassung entspricht dem Seitentitel. Auf
+              Mandanten-Subdomains bleibt die Formulierung neutral. */}
           <h1 className="mb-5 text-center text-lg font-semibold text-gray-800">
-            Anmelden
+            {wegMarke
+              ? "Anmelden im Portal Ihrer WEG"
+              : tenantOrg
+                ? "Anmelden im Portal"
+                : "Anmelden im Kundenportal"}
           </h1>
           {fehler ? (
             <div className="mb-4">

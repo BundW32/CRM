@@ -144,8 +144,8 @@ export default async function PreisePage() {
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-wp-ink/75 sm:text-lg">
             Kostenlos starten, ohne Zahlungsdaten. Danach zahlt Ihre
-            Gemeinschaft je Einheit und Monat – und je mehr Einheiten es sind,
-            desto günstiger wird die einzelne.{" "}
+            Gemeinschaft für die WEG-Software je Einheit und Monat – und je
+            mehr Einheiten es sind, desto günstiger wird die einzelne.{" "}
             <strong className="font-semibold text-wp-ink">
               Alle Preise sind Endpreise inklusive Mehrwertsteuer
             </strong>{" "}

@@ -37,7 +37,20 @@ export default function ImpressumPage() {
     <main className="mx-auto w-full max-w-2xl flex-1 p-4">
       <div className={`rounded-2xl border border-white/10 bg-white p-8 shadow-2xl shadow-black/30 ${isWegSaas() ? "wp-brand" : ""}`}>
         <PublicBrand />
-        <h1 className="mb-4 text-2xl font-bold text-gray-900">Impressum</h1>
+        {/* H1 in Titellänge: Ein-Wort-Überschriften melden SEO-Prüfungen als
+            „H1 zu kurz" — und der Titel der Seite heißt ohnehin so. */}
+        <h1 className="mb-4 text-2xl font-bold text-gray-900">
+          Impressum und Anbieterkennzeichnung
+        </h1>
+
+        <p className="mb-6 text-sm text-gray-700">
+          Dieses Impressum ist die Anbieterkennzeichnung nach § 5 DDG: Wer
+          diese Website und das Portal betreibt, wer die Betreiberin vertritt
+          und auf welchen Wegen Sie uns erreichen. Es gilt für alle Seiten
+          dieses Auftritts einschließlich des Bereichs hinter der Anmeldung.
+          Weitere rechtliche Hinweise zur Nutzung finden Sie in den verlinkten
+          Seiten am Ende.
+        </p>
 
         <div className="space-y-4 text-sm text-gray-700">
           <Section title="Angaben gemäß § 5 DDG">
@@ -136,6 +149,35 @@ export default function ImpressumPage() {
             </p>
           </Section>
 
+          {/* Nur in der WEG-SaaS-Tür: Auf portal.bundwimmobilien.de gehört
+              die andere Marke nicht auf die Seite (zwei Türen, zwei Marken). */}
+          {isWegSaas() ? (
+            <Section title="Über die Betreiberin">
+              <p>
+                Die B&amp;W Immobilien Management UG (haftungsbeschränkt) ist
+                eine Immobilien- und Hausverwaltung mit Sitz in Gladbeck. Sie
+                betreibt das Portal wegportal24 für selbstverwaltete
+                Wohnungseigentümergemeinschaften; aus ihrer Verwaltungspraxis
+                stammt auch der Ticket-Weg zu einem zertifizierten Verwalter
+                nach § 26a WEG im Verwalter-Plus-Tarif.
+              </p>
+            </Section>
+          ) : null}
+
+          <Section title="Haftung für Links">
+            <p>
+              Unser Angebot enthält einzelne Links zu externen Websites
+              Dritter, auf deren Inhalte wir keinen Einfluss haben. Deshalb
+              können wir für diese fremden Inhalte auch keine Gewähr
+              übernehmen; verantwortlich ist stets der jeweilige Anbieter oder
+              Betreiber der verlinkten Seiten. Die verlinkten Seiten wurden
+              zum Zeitpunkt der Verlinkung auf mögliche Rechtsverstöße
+              überprüft; rechtswidrige Inhalte waren dabei nicht erkennbar.
+              Werden uns Rechtsverletzungen bekannt, entfernen wir derartige
+              Links umgehend.
+            </p>
+          </Section>
+
           <Section title="Haftung für Inhalte und Ratgeber-Texte">
             <p>
               Als Diensteanbieter sind wir gemäß § 7 Abs. 1 DDG für eigene Inhalte auf diesen
@@ -155,19 +197,51 @@ export default function ImpressumPage() {
               fahrlässiges Verschulden vorliegt.
             </p>
           </Section>
-          <p className="text-xs text-gray-500">Stand: 11. August 2026</p>
+          <Section title="Urheberrecht">
+            <p>
+              Die durch die Betreiberin erstellten Inhalte und Werke auf
+              diesen Seiten unterliegen dem deutschen Urheberrecht.
+              Vervielfältigung, Bearbeitung, Verbreitung und jede Art der
+              Verwertung außerhalb der Grenzen des Urheberrechts bedürfen der
+              schriftlichen Zustimmung der Betreiberin. Downloads und Kopien
+              dieser Seiten sind nur für den privaten, nicht kommerziellen
+              Gebrauch gestattet. Das gilt insbesondere für Texte, Grafiken
+              und die Gestaltung der Seiten. Soweit Inhalte nicht von der
+              Betreiberin erstellt wurden, werden die Urheberrechte Dritter
+              beachtet und entsprechend gekennzeichnet.
+            </p>
+          </Section>
+
+          <p className="text-xs text-gray-500">Stand: 17. August 2026</p>
         </div>
 
-        <div className="mt-8 flex gap-4 text-sm">
+        <div className="mt-8 flex flex-wrap gap-4 text-sm">
           <Link href="/login" className="text-brand-green hover:underline">
             ← Zur Anmeldung
           </Link>
           <Link href="/datenschutz" className="text-brand-green hover:underline">
             Datenschutzerklärung
           </Link>
+          <Link href="/agb" className="text-brand-green hover:underline">
+            AGB
+          </Link>
+          <Link href="/avv" className="text-brand-green hover:underline">
+            AVV
+          </Link>
           <Link href="/ki-transparenz" className="text-brand-green hover:underline">
             KI-Transparenz
           </Link>
+          {isWegSaas() ? (
+            <>
+              <Link href="/widerruf" className="text-brand-green hover:underline">
+                Widerrufsbelehrung
+              </Link>
+              {/* § 312k Abs. 2 BGB — die Beschriftung gibt das Gesetz vor. */}
+              <Link href="/kuendigen" className="text-brand-green hover:underline">
+                Verträge hier kündigen
+              </Link>
+            </>
+          ) : null}
         </div>
       </div>
     </main>

@@ -35,7 +35,7 @@ export default function WiderrufPage() {
 
   return (
     <LegalPage
-      title="Widerrufsbelehrung"
+      title="Widerrufsbelehrung mit Muster-Widerrufsformular"
       intro={
         <p>
           Diese Widerrufsbelehrung gilt für Verbraucherinnen und Verbraucher im Sinne des
@@ -47,7 +47,8 @@ export default function WiderrufPage() {
           <Link href="/agb" className="text-brand-green hover:underline">
             AGB
           </Link>{" "}
-          von {productName()}.
+          von {productName()}. Am Ende der Seite finden Sie das Muster-Formular
+          für Ihren Widerruf zum Ausfüllen.
         </p>
       }
     >
@@ -149,6 +150,24 @@ Datum: __________________
 
 (*) Unzutreffendes streichen.`}
         </div>
+      </LegalSection>
+
+      {/* Kein Teil der gesetzlichen Belehrung, sondern eine Einordnung: Die
+          häufigste Verwechslung ist die zwischen Widerruf (14 Tage nach
+          Vertragsschluss) und der jederzeit möglichen Kündigung. */}
+      <LegalSection title="Widerruf oder Kündigung – was passt wann?">
+        <p>
+          Der Widerruf löst den Vertrag rückwirkend, ist aber an die Frist von
+          vierzehn Tagen ab Vertragsabschluss gebunden. Ist diese Frist
+          verstrichen, sind Sie deshalb nicht gebunden: Der Vertrag hat keine
+          Mindestlaufzeit und kann jederzeit zum Ende des laufenden
+          Abrechnungsmonats gekündigt werden – am einfachsten über die Seite{" "}
+          <Link href="/kuendigen" className="text-brand-green hover:underline">
+            Verträge hier kündigen
+          </Link>
+          . In der kostenlosen Testphase entstehen in beiden Fällen keine
+          Kosten.
+        </p>
       </LegalSection>
     </LegalPage>
   );

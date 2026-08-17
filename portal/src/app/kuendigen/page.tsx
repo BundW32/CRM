@@ -137,6 +137,96 @@ export default async function KuendigenPage({
           können Sie danach noch mindestens 30 Tage lang exportieren.
         </p>
 
+        {/* Erklärender Teil unter dem Formular: Die Schaltfläche nach § 312k
+            BGB bleibt das Erste auf der Seite; die Absätze beantworten die
+            Fragen, die vor einer Kündigung tatsächlich gestellt werden. */}
+        <div className="mt-8 space-y-4 border-t border-gray-200 pt-6 text-sm text-gray-700">
+          <section className="space-y-2">
+            <h2 className="font-semibold text-gray-900">So läuft Ihre Kündigung ab</h2>
+            <p>
+              Sie füllen das Kündigungsformular aus und senden es ab — eine
+              Anmeldung ist nicht nötig. Pflichtangaben sind nur die Art der
+              Kündigung, der Name Ihrer Gemeinschaft, Ihr Name und Ihre
+              E-Mail-Adresse; alles Weitere ist freiwillig und hilft bei der
+              Zuordnung. Den Eingang bestätigen wir Ihnen unverzüglich in
+              Textform an die angegebene E-Mail-Adresse, zusammen mit dem
+              Zeitpunkt, zu dem der Vertrag endet.
+            </p>
+            <p>
+              Eine Mindestlaufzeit gibt es nicht: Wer seinen Vertrag kündigen
+              möchte, kann das jederzeit zum Ende des laufenden
+              Abrechnungsmonats tun (Ziffer 8 der{" "}
+              <Link href="/agb" className="text-brand-green hover:underline">
+                AGB
+              </Link>
+              ). Bis dahin bleibt das Portal für Ihre Gemeinschaft unverändert
+              nutzbar.
+            </p>
+            <p>
+              Ihre Daten gehören Ihrer Gemeinschaft: Journal und Kontoblatt
+              lassen sich als CSV exportieren, Beschluss-Sammlung und
+              Abrechnungen bleiben bis zum Schluss einsehbar — und auch nach
+              der Beendigung noch mindestens 30 Tage lang. Was mit den Daten
+              danach geschieht, steht in der{" "}
+              <Link href="/datenschutz" className="text-brand-green hover:underline">
+                Datenschutzerklärung
+              </Link>
+              .
+            </p>
+          </section>
+          <section className="space-y-2">
+            <h2 className="font-semibold text-gray-900">Kündigung oder Widerruf?</h2>
+            <p>
+              Liegt Ihr Vertragsabschluss weniger als 14 Tage zurück, können
+              Sie den Vertrag statt der Kündigung auch widerrufen — Frist,
+              Form und Folgen stehen in der{" "}
+              <Link href="/widerruf" className="text-brand-green hover:underline">
+                Widerrufsbelehrung
+              </Link>
+              . Im kostenlosen Start-Tarif fallen ohnehin keine Kosten an; ein
+              Konto ohne Bezahltarif können Sie ebenfalls über dieses
+              Formular beenden.
+            </p>
+          </section>
+          <section className="space-y-2">
+            <h2 className="font-semibold text-gray-900">
+              Wer erklärt die Kündigung für eine Gemeinschaft?
+            </h2>
+            <p>
+              Vertragspartnerin ist Ihre Wohnungseigentümergemeinschaft.
+              Erklären sollte die Kündigung deshalb die Person, die die
+              Gemeinschaft vertritt — in der Selbstverwaltung ist das der zum
+              Verwalter bestellte Miteigentümer. Tragen Sie im Formular den
+              Namen der Gemeinschaft so ein, wie er im Portal angelegt ist;
+              das erspart Rückfragen bei der Zuordnung.
+            </p>
+          </section>
+          <section className="space-y-2">
+            <h2 className="font-semibold text-gray-900">Brauchen wir einen Grund?</h2>
+            <p>
+              Für die ordentliche Kündigung nicht — sie ist jederzeit und ohne
+              Begründung möglich. Nur die außerordentliche Kündigung aus
+              wichtigem Grund setzt voraus, dass Sie den Grund benennen; dafür
+              gibt es das Feld am Ende des Formulars. Und ein Wechsel des
+              Tarifs ist keine Kündigung: Zwischen den Stufen wechseln Sie
+              jederzeit im Portal, die Daten bleiben vollständig erhalten.
+            </p>
+          </section>
+          <section className="space-y-2">
+            <h2 className="font-semibold text-gray-900">Was gilt bis zum Vertragsende?</h2>
+            <p>
+              Bis zum Ende des laufenden Abrechnungsmonats bleibt das Portal
+              für Ihre Gemeinschaft voll nutzbar und wird wie vereinbart
+              berechnet; danach endet die Berechnung. Beide Seiten können nach
+              den AGB jederzeit so kündigen — es gibt keine Frist, die Sie
+              versäumen könnten. Die Bestätigung mit dem Zeitpunkt der
+              Beendigung bleibt in Ihrem E-Mail-Postfach dokumentiert; mehr
+              müssen Sie nicht veranlassen. Möchte Ihre Gemeinschaft später
+              zurückkehren, steht einer neuen Registrierung nichts im Wege.
+            </p>
+          </section>
+        </div>
+
         <div className="mt-8 flex flex-wrap gap-4 text-sm">
           <Link href="/agb" className="text-brand-green hover:underline">
             AGB
@@ -146,6 +236,12 @@ export default async function KuendigenPage({
           </Link>
           <Link href="/impressum" className="text-brand-green hover:underline">
             Impressum
+          </Link>
+          <Link href="/datenschutz" className="text-brand-green hover:underline">
+            Datenschutz
+          </Link>
+          <Link href="/login" className="text-brand-green hover:underline">
+            Zur Anmeldung
           </Link>
         </div>
       </div>

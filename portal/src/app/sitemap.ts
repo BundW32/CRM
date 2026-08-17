@@ -24,6 +24,8 @@ const OEFFENTLICHE_SEITEN: Eintrag[] = [
   { pfad: "/funktionen/hausgeld", prioritaet: 0.8, frequenz: "monthly" },
   { pfad: "/funktionen/versammlung", prioritaet: 0.8, frequenz: "monthly" },
   { pfad: "/funktionen/kommunikation", prioritaet: 0.8, frequenz: "monthly" },
+  { pfad: "/funktionen/sondereigentum", prioritaet: 0.8, frequenz: "monthly" },
+  { pfad: "/funktionen/ki-berater", prioritaet: 0.8, frequenz: "monthly" },
   // /registrieren steht bewusst NICHT hier: Die Seite trägt seit dem
   // 12.08.2026 ein `noindex` (Formular mit 89 Wörtern Text). Eine Sitemap, die
   // eine nicht indexierbare Adresse meldet, widerspricht sich selbst — die

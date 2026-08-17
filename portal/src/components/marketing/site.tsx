@@ -116,6 +116,8 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
       { href: "/funktionen/hausgeld", label: "Hausgeld & Rückstände" },
       { href: "/funktionen/versammlung", label: "Versammlung & Abstimmung" },
       { href: "/funktionen/kommunikation", label: "Kommunikation & Alltag" },
+      { href: "/funktionen/sondereigentum", label: "Sondereigentum & Mieter" },
+      { href: "/funktionen/ki-berater", label: "KI-Berater" },
     ],
   },
   {

@@ -11,12 +11,15 @@ import {
   ZEITRAUM_PRESETS,
   type Zeitraum,
   type ZeitraumPreset,
+  istLaufenderTag,
   toIsoTag,
   vorperiodeLabel,
   zeitraumLabel,
+  zeitraumSpanne,
 } from "@/lib/analytics/zeitraum";
 
 const PRESET_LABELS: Record<ZeitraumPreset, string> = {
+  heute: "Heute",
   "7": "7 Tage",
   "28": "28 Tage",
   "90": "90 Tage",
@@ -50,27 +53,38 @@ export function ZeitraumFilter({ zeitraum, pfad }: { zeitraum: Zeitraum; pfad: s
 
         {/* Freier Bereich: GET-Formular, die Feldnamen SIND die Suchparameter. */}
         <form action={pfad} method="get" className="flex flex-wrap items-end gap-2">
+          {/* Auch bei aktivem Preset vorbelegt: Die Felder sind dann die
+              sichtbare Bestätigung des gewählten Fensters — leer gelassen
+              wirkten sie wie ein zweiter, widersprüchlicher Zustand. */}
           <DateField
             label={<span className="text-xs">Von</span>}
             name="von"
-            defaultValue={zeitraum.preset ? undefined : toIsoTag(zeitraum.von)}
+            defaultValue={toIsoTag(zeitraum.von)}
             required
             className="!w-auto"
           />
           <DateField
             label={<span className="text-xs">Bis</span>}
             name="bis"
-            defaultValue={zeitraum.preset ? undefined : toIsoTag(zeitraum.bis)}
+            defaultValue={toIsoTag(zeitraum.bis)}
             required
             className="!w-auto"
           />
           <PendingButton className={buttonSecondaryClass}>Anwenden</PendingButton>
         </form>
 
-        <p className="ml-auto text-xs text-gray-500">
-          <span className="font-medium text-gray-700">{zeitraumLabel(zeitraum)}</span>{" "}
-          <span className="whitespace-nowrap">{vorperiodeLabel(zeitraum)}</span>
-        </p>
+        <div className="ml-auto text-right">
+          <p className="text-sm font-medium whitespace-nowrap text-gray-800">
+            {zeitraumSpanne(zeitraum)}
+          </p>
+          <p className="text-xs text-gray-500">
+            {zeitraumLabel(zeitraum)}{" "}
+            <span className="whitespace-nowrap">{vorperiodeLabel(zeitraum)}</span>
+          </p>
+          {istLaufenderTag(zeitraum) ? (
+            <p className="text-xs text-amber-700">Laufender Tag – noch nicht abgeschlossen.</p>
+          ) : null}
+        </div>
       </div>
     </div>
   );

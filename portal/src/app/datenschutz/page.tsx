@@ -47,7 +47,7 @@ export default function DatenschutzPage() {
             Verarbeitung personenbezogener Daten bei der Nutzung von{" "}
             <strong>{productName()}</strong>.
           </p>
-          <p className="mt-2 text-gray-500">Stand: 13. August 2026</p>
+          <p className="mt-2 text-gray-500">Stand: 18. August 2026</p>
         </>
       }
     >
@@ -135,6 +135,18 @@ export default function DatenschutzPage() {
             DSGVO in Verbindung mit § 147 AO und § 257 HGB, sowie für die Abwehr von
             Missbrauch (Anmeldeversuche, Ratenbegrenzung) Art. 6 Abs. 1 lit. f DSGVO — das
             berechtigte Interesse besteht in der Sicherheit des Dienstes.
+          </p>
+          <p>
+            <strong>Kontaktaufnahme:</strong> Wenn Sie uns über das Kontaktformular oder
+            per E-Mail eine Frage oder Anregung senden, verarbeiten wir die dabei
+            angegebenen Daten (Name, E-Mail-Adresse, Inhalt der Nachricht), um Ihr
+            Anliegen zu bearbeiten und zu beantworten. Rechtsgrundlage ist Art. 6
+            Abs. 1 lit. b DSGVO, soweit sich die Anfrage auf einen Vertrag oder dessen
+            Anbahnung bezieht, im Übrigen Art. 6 Abs. 1 lit. f DSGVO — das berechtigte
+            Interesse besteht in der Beantwortung an uns gerichteter Anfragen. Die
+            Angaben werden gelöscht, sobald sie für die Bearbeitung nicht mehr
+            erforderlich sind und keine gesetzlichen Aufbewahrungspflichten
+            entgegenstehen.
           </p>
         </LegalSection>
       ) : null}

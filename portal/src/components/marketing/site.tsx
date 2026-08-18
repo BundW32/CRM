@@ -125,6 +125,7 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
     links: [
       { href: "/so-funktionierts", label: "Der Weg zur Selbstverwaltung" },
       { href: "/preise", label: "Preise und Tarife" },
+      { href: "/kontakt", label: "Fragen & Anregungen" },
       { href: "/registrieren", label: "Kostenlos registrieren" },
       { href: "/login", label: "Zum Login" },
     ],
@@ -435,14 +436,17 @@ export async function CtaBand({
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
+            {/* In den Kontakt-Funnel statt in ein mailto: Der Funnel fragt das
+                Anliegen ab und bestätigt den Eingang — ein mailto-Link öffnet
+                auf Geräten ohne eingerichtetes Mail-Programm schlicht nichts. */}
             <p className="mt-6 text-sm text-white/60">
               Fragen vorab?{" "}
-              <a
-                href={`mailto:${BRAND_EMAIL}`}
+              <Link
+                href="/kontakt"
                 className="font-medium text-wp-accent-bright hover:underline"
               >
                 Schreiben Sie uns
-              </a>
+              </Link>
             </p>
           </div>
         </div>

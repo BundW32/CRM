@@ -16,6 +16,8 @@ export const BRAND_NAME = "Wegportal24";
 export const BRAND_DOMAIN = "wegportal24.de";
 // Postfach der Marke – muss noch eingerichtet werden (siehe README).
 export const BRAND_EMAIL = "info@wegportal24.de";
+// Postfach für Fragen und Anregungen – Ziel des Kontakt-Funnels (/kontakt).
+export const SERVICE_EMAIL = "service@wegportal24.de";
 
 // Haupt-Handlung (Registrieren): Akzentfläche, dunkle Tinte darauf.
 export const wpButtonClass =

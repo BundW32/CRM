@@ -6,12 +6,18 @@
 // gleichlanger Vorperiode ableitet — jede Analytics-Seite parst denselben Weg.
 //
 // Alle Daten sind UTC-Mitternacht (die Fact-Tabellen tragen @db.Date, also
-// reine Kalendertage). Die Presets enden GESTERN, nicht heute: Der laufende
+// reine Kalendertage). Die Zeitfenster enden GESTERN, nicht heute: Der laufende
 // Tag ist unvollständig, und ein Vergleich „letzte 7 Tage gegen die 7 davor"
 // mit einem halben Tag am Rand verzerrt beide Seiten. Nur „monat" läuft bis
 // gestern des laufenden Monats — er ist ausdrücklich der unfertige Zeitraum.
+//
+// Ausnahme mit Ansage ist „heute": ein einzelner Tag, der Puls des laufenden
+// Tages. Er verzerrt nichts, weil er kein Trendfenster ist und die Oberfläche
+// ihn als laufend kennzeichnet (`istLaufenderTag`). Deshalb ist er auch NICHT
+// die Vorauswahl — ein Dashboard, das morgens um acht auf einem angebrochenen
+// Tag steht, zeigt einen Anfangsstand statt einer Entwicklung.
 
-export const ZEITRAUM_PRESETS = ["7", "28", "90", "monat"] as const;
+export const ZEITRAUM_PRESETS = ["heute", "7", "28", "90", "monat"] as const;
 export type ZeitraumPreset = (typeof ZEITRAUM_PRESETS)[number];
 
 export type Zeitraum = {
@@ -76,9 +82,14 @@ function mitVorperiode(
   };
 }
 
+/** Der laufende Tag — die einzige Auswahl, die nicht gestern endet. */
+export function istLaufenderTag(z: Zeitraum): boolean {
+  return z.preset === "heute";
+}
+
 /**
  * Zeitraum aus den Suchparametern. Reihenfolge: gültiges freies Von/Bis
- * gewinnt, sonst Preset, sonst der Standard (28 Tage). `heute` ist
+ * gewinnt, sonst Preset, sonst der Standard (7 Tage). `heute` ist
  * injizierbar, damit die Ableitung testbar bleibt.
  */
 export function parseZeitraum(params: ZeitraumSearchParams, heute: Date = new Date()): Zeitraum {
@@ -95,6 +106,10 @@ export function parseZeitraum(params: ZeitraumSearchParams, heute: Date = new Da
   }
 
   const preset = erster(params.zeitraum);
+  if (preset === "heute") {
+    const tag = utcTag(heute);
+    return mitVorperiode(tag, tag, "heute");
+  }
   if (preset === "monat") {
     const erster_ = new Date(Date.UTC(heute.getUTCFullYear(), heute.getUTCMonth(), 1));
     // Am Monatsersten gibt es noch keinen vollen Tag im Monat — dann eben
@@ -103,9 +118,9 @@ export function parseZeitraum(params: ZeitraumSearchParams, heute: Date = new Da
     const ende = gestern.getTime() >= erster_.getTime() ? gestern : erster_;
     return mitVorperiode(erster_, ende, "monat");
   }
-  const tage = preset === "7" || preset === "90" ? Number(preset) : 28;
-  const gewaehlt: ZeitraumPreset = preset === "7" || preset === "90" ? preset : "28";
-  return mitVorperiode(tageVor(gestern, tage - 1), gestern, gewaehlt);
+  const gewaehlt: ZeitraumPreset =
+    preset === "28" || preset === "90" ? preset : "7";
+  return mitVorperiode(tageVor(gestern, Number(gewaehlt) - 1), gestern, gewaehlt);
 }
 
 /** Suchparameter eines Zeitraums — für Links, die die Auswahl weitertragen. */
@@ -130,14 +145,32 @@ const DATUM_DE = new Intl.DateTimeFormat("de-DE", {
   timeZone: "UTC",
 });
 
-/** „01.08.2026 – 10.08.2026" bzw. Preset-Beschriftung. */
+/**
+ * Die tatsächlich gezeigte Spanne als Datum — „10.08.2026 – 16.08.2026",
+ * bei einem einzelnen Tag nur dieser.
+ *
+ * Diese Zeichenkette ist der Kern der Anzeige: Vorher nannte die Oberfläche
+ * bei einem Preset ausschließlich die Vorperiode („vs. 03.08. – 09.08."), und
+ * die wurde zwangsläufig als der eigene Zeitraum gelesen.
+ */
+export function zeitraumSpanne(z: Zeitraum): string {
+  const von = DATUM_DE.format(z.von);
+  if (z.tage === 1) return von;
+  return `${von} – ${DATUM_DE.format(z.bis)}`;
+}
+
+/** Name der Auswahl („Heute", „Letzte 7 Tage", „Freier Zeitraum"). */
 export function zeitraumLabel(z: Zeitraum): string {
+  if (z.preset === "heute") return "Heute";
   if (z.preset === "monat") return "Laufender Monat";
   if (z.preset) return `Letzte ${z.tage} Tage`;
-  return `${DATUM_DE.format(z.von)} – ${DATUM_DE.format(z.bis)}`;
+  return "Freier Zeitraum";
 }
 
 /** Beschriftung der Vorperiode („vs. 05.07. – 01.08.2026"). */
 export function vorperiodeLabel(z: Zeitraum): string {
-  return `vs. ${DATUM_DE.format(z.vorVon)} – ${DATUM_DE.format(z.vorBis)}`;
+  const vorVon = DATUM_DE.format(z.vorVon);
+  // Ein einzelner Vergleichstag wird nicht als „16.08. – 16.08." ausgeschrieben.
+  if (z.tage === 1) return `vs. ${vorVon}`;
+  return `vs. ${vorVon} – ${DATUM_DE.format(z.vorBis)}`;
 }

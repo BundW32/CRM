@@ -119,15 +119,16 @@ export default async function SoFunktioniertsPage() {
         eyebrow="So funktioniert’s"
         title={
           <>
-            Von null auf verwaltet –{" "}
+            WEG-Selbstverwaltung –{" "}
             <span className="underline decoration-wp-accent-bright decoration-4 underline-offset-8">in fünf Schritten.</span>
           </>
         }
         intro={
-          "Von null auf verwaltet: In fünf Schritten steht Ihre WEG im Portal – " +
-          "ohne Buchhaltungswissen und ohne Software-Schulung. Das Portal führt " +
-          "Ihre Gemeinschaft der Reihe nach durch die Einrichtung und prüft an " +
-          "den kritischen Stellen automatisch mit."
+          "Von null zur WEG-Selbstverwaltung: In fünf Schritten steht Ihre " +
+          "Eigentümergemeinschaft im Portal – ohne Buchhaltungswissen und ohne " +
+          "Software-Schulung. Das Portal führt Ihre Gemeinschaft der Reihe " +
+          "nach durch die Einrichtung und prüft an den kritischen Stellen " +
+          "automatisch mit."
         }
         image={{
           src: "/images/marketing/so-funktionierts.jpg",
@@ -169,9 +170,12 @@ export default async function SoFunktioniertsPage() {
                 <div className="mt-3 space-y-3 leading-relaxed text-gray-700">
                   <p>
                     Keine WEG ist gesetzlich verpflichtet, eine externe
-                    Hausverwaltung zu beauftragen. Die Gemeinschaft kann einen
-                    Miteigentümer zum Verwalter bestellen – und genau hier macht
-                    das Gesetz kleinen Gemeinschaften den Weg frei:
+                    Hausverwaltung zu beauftragen – eine Eigentümergemeinschaft
+                    darf sich selbst verwalten. „WEG ohne Verwalter“ heißt dabei
+                    in der Praxis: ohne <em>externen</em> Verwalter. Die
+                    Gemeinschaft bestellt stattdessen einen Miteigentümer ins
+                    Amt – und genau hier macht das Gesetz kleinen
+                    Gemeinschaften den Weg frei:
                   </p>
                   <p>
                     Nach § 19 Abs. 2 Nr. 6 WEG braucht ein zum Verwalter

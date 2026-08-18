@@ -95,9 +95,10 @@ function AgbWegPortal() {
 
       <LegalSection title="2. Vertragsgegenstand">
         <p>
-          Die Anbieterin stellt der Kundin eine internetbasierte Anwendung zur Verwaltung
-          von Objekten, Einheiten, Eigentümern, Vorgängen, Dokumenten, Beschlüssen,
-          Versammlungen und WEG-Finanzen zur Verfügung. Die Nutzung erfolgt über einen
+          Die Anbieterin stellt der Kundin eine internetbasierte Anwendung für die
+          WEG-Selbstverwaltung zur Verfügung: zur Verwaltung von Objekten, Einheiten,
+          Eigentümern, Vorgängen, Dokumenten, Beschlüssen, Versammlungen und
+          WEG-Finanzen. Die Nutzung erfolgt über einen
           Webbrowser; eine Installation ist nicht erforderlich. Der Funktionsumfang richtet
           sich nach dem gewählten Tarif und wird fortlaufend weiterentwickelt.
         </p>

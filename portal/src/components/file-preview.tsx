@@ -35,7 +35,8 @@
 // wenn er die Elemente einsammelt — bis dahin liegen die Seiten des Fensters
 // weiter im Prozess und addieren sich über mehrere Vorschauen auf. Deshalb gibt
 // jede Seite ihre Bitmap beim Verlassen ausdrücklich frei (`canvas.width = 0`),
-// und das Dokument wird samt Worker geschlossen (`destroy()`).
+// und das Dokument wird samt Worker geschlossen — über den Ladeauftrag, denn
+// seit pdf.js 6 trägt das Dokument selbst kein `destroy()` mehr.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Download, Loader2, Minus, Plus, X } from "lucide-react";
 import {
@@ -58,12 +59,22 @@ type Props = {
 type PdfDoc = {
   numPages: number;
   getPage: (n: number) => Promise<PdfPage>;
-  /**
-   * Schließt das Dokument UND beendet den Worker. Liefert ein Promise: Läuft
-   * beim Schließen noch ein Renderauftrag, lehnt es ab — beim Aufräumen ist das
-   * belanglos, ohne `catch` stünde es aber als unbehandelte Ablehnung in der
-   * Konsole und sähe aus wie ein Fehler.
-   */
+};
+/**
+ * `getDocument()` liefert den LADEAUFTRAG, nicht das Dokument — und nur er
+ * kann schließen. Das Dokument selbst hat seit pdf.js 6 KEIN `destroy()` mehr;
+ * der Aufruf darauf warf beim Schließen der Vorschau einen TypeError. Weil das
+ * in einer Effekt-Aufräumfunktion geschah, reichte React ihn nach oben, wo er
+ * mangels Error-Boundary die gesamte Anwendung durch die Fehlerseite von
+ * Next.js ersetzte („This page couldn't load").
+ *
+ * Schließt das Dokument UND beendet den Worker. Liefert ein Promise: Läuft
+ * beim Schließen noch ein Renderauftrag, lehnt es ab — beim Aufräumen ist das
+ * belanglos, ohne `catch` stünde es aber als unbehandelte Ablehnung in der
+ * Konsole und sähe aus wie ein Fehler.
+ */
+type PdfLoadingTask = {
+  promise: Promise<PdfDoc>;
   destroy: () => Promise<void>;
 };
 type PdfPage = {
@@ -134,7 +145,7 @@ export function FilePreview({ src, title, onClose }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    let loaded: PdfDoc | null = null;
+    let loadingTask: PdfLoadingTask | null = null;
     let objectUrl: string | null = null;
 
     (async () => {
@@ -173,11 +184,10 @@ export function FilePreview({ src, title, onClose }: Props) {
           "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
           import.meta.url,
         ).toString();
-        const result = (await pdfjs.getDocument({ data: bytes }).promise) as unknown as PdfDoc;
-        if (cancelled) {
-          result.destroy().catch(() => {});
-          return;
-        }
+        const task = pdfjs.getDocument({ data: bytes }) as unknown as PdfLoadingTask;
+        loadingTask = task;
+        const result = await task.promise;
+        if (cancelled) return; // Schließen erledigt die Aufräumfunktion
 
         // Das Seitenverhältnis einmal an der ersten Seite abnehmen, statt es
         // für jede Seite zu erfragen.
@@ -189,15 +199,11 @@ export function FilePreview({ src, title, onClose }: Props) {
         } catch {
           // Kein Beinbruch: dann bleibt A4 hoch die Vorgabe.
         }
-        if (cancelled) {
-          result.destroy().catch(() => {});
-          return;
-        }
+        if (cancelled) return; // Schließen erledigt die Aufräumfunktion
 
         if (rueckfrageNoetig({ seiten: result.numPages, bytes: bytes.byteLength })) {
           setRueckfrage({ seiten: result.numPages, bytes: bytes.byteLength });
         }
-        loaded = result;
         setDoc(result);
       } catch (err) {
         console.error("Vorschau fehlgeschlagen", err);
@@ -205,9 +211,17 @@ export function FilePreview({ src, title, onClose }: Props) {
       }
     })();
 
+    // Aufräumen darf NIEMALS werfen. React reicht einen Fehler aus einer
+    // Aufräumfunktion nach oben; mangels Error-Boundary nähme die Vorschau
+    // beim Schließen die ganze Anwendung mit. Genau das ist passiert, als hier
+    // ein nicht mehr vorhandenes `destroy()` am Dokument aufgerufen wurde.
     return () => {
       cancelled = true;
-      loaded?.destroy().catch(() => {});
+      try {
+        void loadingTask?.destroy().catch(() => {});
+      } catch (err) {
+        console.error("Vorschau konnte nicht aufgeräumt werden", err);
+      }
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [src]);

@@ -2159,6 +2159,21 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      „Zahlungspflichtige\*r" das Muster `/zahlungspflichtiger/` nie traf —
      gendergerechte Schreibweisen fielen still durch.
 
+320. **Fragen und Anregungen laufen über einen Kontakt-Funnel (`/kontakt`),
+     Ziel ist `service@wegportal24.de`.** (18.08.2026) Drei Schritte statt eines
+     langen Formulars: Anliegen (Frage/Anregung) → Nachricht (+ optionales
+     Thema) → Kontaktdaten — die Hürde, eigene Daten anzugeben, steht am Ende,
+     wenn die Nachricht schon geschrieben ist. Gespeichert wird **nichts**: Die
+     Anfrage geht als E-Mail an das Service-Postfach (Adresse als
+     `SERVICE_EMAIL` in `components/marketing/brand.tsx`), die absendende
+     Person erhält eine Eingangsbestätigung. Missbrauchsschutz wie bei
+     Registrierung und Kündigung: Honeypot `hp_url` und Rate-Limit (5 je IP und
+     Stunde). Der „Schreiben Sie uns"-Link im CTA-Band führt statt in ein
+     `mailto:` in den Funnel — ein mailto öffnet auf Geräten ohne
+     eingerichtetes Mail-Programm schlicht nichts. Die Datenschutzerklärung
+     wurde um den Absatz „Kontaktaufnahme" ergänzt (Stand 18.08.2026); das
+     Postfach muss — wie `info@` — noch eingerichtet werden.
+
 **Offen geblieben** (bewusst, nicht vergessen): Die Nachdokumentation eines
 bereits eingesetzten Subprozessors gehört anwaltlich bewertet — die
 4-Wochen-Ankündigung nach AVV Ziffer 4 ist auf künftige Wechsel zugeschnitten.

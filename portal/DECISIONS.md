@@ -2173,6 +2173,12 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      eingerichtetes Mail-Programm schlicht nichts. Die Datenschutzerklärung
      wurde um den Absatz „Kontaktaufnahme" ergänzt (Stand 18.08.2026); das
      Postfach muss — wie `info@` — noch eingerichtet werden.
+     Die Eingangsbestätigung an die anfragende Person trägt als Absender das
+     Service-Postfach selbst (Absender-Übergabe `opts.from` in `sendMail`,
+     Vorgabe bleibt `MAIL_FROM`): Wer auf die Bestätigung antwortet, landet
+     damit direkt beim Anliegen. Voraussetzung beim SMTP-Anbieter: Das
+     SMTP-Konto darf unter `service@wegportal24.de` senden (Send-as/Alias),
+     sonst lehnt der Anbieter den Versand ab oder schreibt den Absender um.
 
 **Offen geblieben** (bewusst, nicht vergessen): Die Nachdokumentation eines
 bereits eingesetzten Subprozessors gehört anwaltlich bewertet — die

@@ -89,7 +89,9 @@ export async function sendeKontaktanfrage(formData: FormData) {
   );
 
   // 2) An die absendende Person – damit sie weiß, dass ihr Anliegen angekommen
-  //    ist, und den eigenen Wortlaut in der Hand hat.
+  //    ist, und den eigenen Wortlaut in der Hand hat. Absender ist das
+  //    Service-Postfach: Eine Antwort auf diese Mail landet damit genau dort,
+  //    wo das Anliegen ohnehin liegt — nicht bei no-reply@ oder info@.
   await sendMail(
     d.email,
     "Ihre Nachricht ist bei uns eingegangen",
@@ -97,10 +99,11 @@ export async function sendeKontaktanfrage(formData: FormData) {
       `vielen Dank für Ihre Nachricht. Sie ist mit folgendem Inhalt bei uns eingegangen:\n\n` +
       block +
       `\nWir melden uns so schnell wie möglich bei Ihnen. Wenn Sie etwas ergänzen möchten, ` +
-      `schreiben Sie an ${SERVICE_EMAIL}.\n\n` +
+      `antworten Sie einfach auf diese E-Mail.\n\n` +
       `Mit freundlichen Grüßen\n${signOffName(branding)}`,
     undefined,
-    branding
+    branding,
+    { from: `${branding.displayName} <${SERVICE_EMAIL}>` }
   );
 
   redirect("/kontakt/danke");

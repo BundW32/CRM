@@ -3,10 +3,13 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { SERVICE_EMAIL, wpButtonSecondaryClass } from "@/components/marketing/brand";
 import { MarketingFooter, MarketingHeader } from "@/components/marketing/site";
-import { assertMainDomain } from "@/lib/marketing";
 import { NICHT_INDEXIEREN } from "@/lib/seo";
 
-export const dynamic = "force-dynamic";
+// Statisch mit Hintergrund-Aktualisierung (ISR): reine Bestätigungsseite ohne
+// Nutzerdaten. Der Wächter (App-Modus, Mandanten-Subdomain) läuft im Proxy
+// (src/proxy.ts) — eine statische Seite kann weder `headers()` noch
+// `cookies()` lesen.
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Nachricht eingegangen",
@@ -20,7 +23,6 @@ export const metadata: Metadata = {
  * eine eigene Seite; die inhaltliche Bestätigung geht zusätzlich per E-Mail.
  */
 export default async function KontaktDankePage() {
-  await assertMainDomain();
 
   return (
     <main className="mk-light flex flex-1 flex-col">

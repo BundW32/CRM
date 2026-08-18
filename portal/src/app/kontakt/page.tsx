@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import { SERVICE_EMAIL } from "@/components/marketing/brand";
 import { MarketingFooter, MarketingHeader } from "@/components/marketing/site";
 import { Alert } from "@/components/ui";
-import { assertMainDomain } from "@/lib/marketing";
 import { KontaktFunnel } from "./kontakt-funnel";
 
+// Bleibt dynamisch: Die Seite liest `searchParams` (Fehlermeldung des
+// Formulars) und lässt sich damit nicht vorab erzeugen. Ihr Wächter
+// (App-Modus, Mandanten-Subdomain) läuft trotzdem im Proxy (src/proxy.ts) —
+// eine Quelle für alle öffentlichen Marken-Seiten.
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
@@ -25,7 +28,6 @@ export default async function KontaktPage({
 }: {
   searchParams: Promise<{ fehler?: string }>;
 }) {
-  await assertMainDomain();
   const sp = await searchParams;
 
   return (

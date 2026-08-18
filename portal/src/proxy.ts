@@ -35,13 +35,16 @@ function tenantSlugFromHost(host: string | null): string | null {
 }
 
 // ── Marketing-Seiten: Wächter hier, damit die Seiten statisch bleiben ───────
-// Startseite, /funktionen/*, /so-funktionierts und /preise werden als
-// statische Seiten mit Hintergrund-Aktualisierung (ISR) ausgeliefert — das
-// drückt die Antwortzeit von Serverless-Rendern (samt Kaltstart und
-// DB-Zählabfrage der Willkommensaktion) auf CDN-Niveau. Statisch heißt aber:
-// Die Seite selbst kann weder `headers()` noch `cookies()` lesen. Ihre drei
-// Wächter (siehe früher lib/marketing.ts) laufen deshalb HIER, wo Host,
-// Cookies und `APP_MODE` zur Laufzeit vorliegen:
+// Startseite, /funktionen/*, /so-funktionierts, /preise und /kontakt/* sind
+// die öffentlichen Marken-Seiten. Die meisten davon werden als statische
+// Seiten mit Hintergrund-Aktualisierung (ISR) ausgeliefert — das drückt die
+// Antwortzeit von Serverless-Rendern (samt Kaltstart und DB-Zählabfrage der
+// Willkommensaktion) auf CDN-Niveau. Statisch heißt aber: Die Seite selbst
+// kann weder `headers()` noch `cookies()` lesen. Ihre drei Wächter (früher
+// lib/marketing.ts) laufen deshalb HIER, wo Host, Cookies und `APP_MODE` zur
+// Laufzeit vorliegen — und damit an EINER Stelle für alle diese Seiten,
+// gleich ob statisch oder dynamisch (/kontakt bleibt wegen `searchParams`
+// dynamisch):
 //  1. APP_MODE=weg — in der B&W-Tür ist der Login der einzige öffentliche
 //     Einstieg; die Landing würde dort auf eine gesperrte Registrierung zeigen.
 //  2. Hauptdomain — auf Mandanten-Subdomains (White Label) bleibt der
@@ -52,10 +55,14 @@ function tenantSlugFromHost(host: string | null): string | null {
 // NICHT hierher gehören die Rechtsseiten (/impressum, /datenschutz, /agb,
 // /avv, /ki-transparenz): Die müssen in beiden Türen erreichbar bleiben –
 // /ki-transparenz insbesondere, weil Art. 50 EU-KI-VO auch für B&W gilt.
-const MARKETING_PATHS = new Set(["/", "/so-funktionierts", "/preise"]);
+const MARKETING_PATHS = new Set(["/", "/so-funktionierts", "/preise", "/kontakt"]);
 
 function isMarketingPath(pathname: string): boolean {
-  return MARKETING_PATHS.has(pathname) || pathname.startsWith("/funktionen/");
+  return (
+    MARKETING_PATHS.has(pathname) ||
+    pathname.startsWith("/funktionen/") ||
+    pathname.startsWith("/kontakt/")
+  );
 }
 
 // Trägt der Request eine gültige Sitzung? Nur Signatur und Token-Typ — die

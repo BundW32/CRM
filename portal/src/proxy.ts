@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { jwtVerify } from "jose";
 
 // Tenant-/Mandanten-Auflösung pro Subdomain (White-Label, Phase 4.4).
 // Der Proxy bleibt bewusst DB-frei: er ermittelt nur den Mandanten-Slug aus
@@ -33,6 +34,49 @@ function tenantSlugFromHost(host: string | null): string | null {
   return sub;
 }
 
+// ── Marketing-Seiten: Wächter hier, damit die Seiten statisch bleiben ───────
+// Startseite, /funktionen/*, /so-funktionierts und /preise werden als
+// statische Seiten mit Hintergrund-Aktualisierung (ISR) ausgeliefert — das
+// drückt die Antwortzeit von Serverless-Rendern (samt Kaltstart und
+// DB-Zählabfrage der Willkommensaktion) auf CDN-Niveau. Statisch heißt aber:
+// Die Seite selbst kann weder `headers()` noch `cookies()` lesen. Ihre drei
+// Wächter (siehe früher lib/marketing.ts) laufen deshalb HIER, wo Host,
+// Cookies und `APP_MODE` zur Laufzeit vorliegen:
+//  1. APP_MODE=weg — in der B&W-Tür ist der Login der einzige öffentliche
+//     Einstieg; die Landing würde dort auf eine gesperrte Registrierung zeigen.
+//  2. Hauptdomain — auf Mandanten-Subdomains (White Label) bleibt der
+//     gebrandete Login der Einstieg, sonst überschriebe wegportal24 die Marke
+//     des Mandanten.
+//  3. Nur Startseite: Angemeldete gehören ins Portal, nicht auf die Werbung.
+//
+// NICHT hierher gehören die Rechtsseiten (/impressum, /datenschutz, /agb,
+// /avv, /ki-transparenz): Die müssen in beiden Türen erreichbar bleiben –
+// /ki-transparenz insbesondere, weil Art. 50 EU-KI-VO auch für B&W gilt.
+const MARKETING_PATHS = new Set(["/", "/so-funktionierts", "/preise"]);
+
+function isMarketingPath(pathname: string): boolean {
+  return MARKETING_PATHS.has(pathname) || pathname.startsWith("/funktionen/");
+}
+
+// Trägt der Request eine gültige Sitzung? Nur Signatur und Token-Typ — die
+// volle Prüfung (Nutzer existiert, Sitzung nicht widerrufen) macht weiterhin
+// `getSession()` auf der Zielseite: Wer hier mit einem widerrufenen Token
+// durchrutscht, landet auf /dashboard und wird dort zum Login geschickt.
+// Fehler (fehlendes SESSION_SECRET, kaputtes Token) heißen „nicht angemeldet"
+// — ein Wächter, der die Startseite zu Fall bringt, wäre schlimmer als eine
+// ausgelassene Weiterleitung.
+async function hatSitzung(request: NextRequest): Promise<boolean> {
+  const token = request.cookies.get("bw_session")?.value;
+  const secret = process.env.SESSION_SECRET;
+  if (!token || !secret || secret.length < 32) return false;
+  try {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+    return payload.typ === "session" && typeof payload.sub === "string";
+  } catch {
+    return false;
+  }
+}
+
 // Icons je Deployment. Browser fragen `/favicon.ico` von sich aus ab, ohne die
 // Angaben im <head> zu beachten, und der Service Worker (`public/sw.js`) ist
 // eine statische Datei ohne Zugriff auf `APP_MODE`. Beide bekommen deshalb hier
@@ -54,7 +98,7 @@ const ICONS: Record<string, { weg: string; verwaltung: string }> = {
   },
 };
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const icon = ICONS[request.nextUrl.pathname];
   if (icon) {
     const ziel = process.env.APP_MODE === "weg" ? icon.weg : icon.verwaltung;
@@ -65,6 +109,17 @@ export function proxy(request: NextRequest) {
   }
 
   const slug = tenantSlugFromHost(request.headers.get("host"));
+
+  if (isMarketingPath(request.nextUrl.pathname)) {
+    // Wächter 1+2: falsche Tür oder Mandanten-Subdomain → gebrandeter Login.
+    if (process.env.APP_MODE !== "weg" || slug) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    // Wächter 3: Angemeldete von der Startseite direkt ins Portal.
+    if (request.nextUrl.pathname === "/" && (await hatSitzung(request))) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+  }
 
   const requestHeaders = new Headers(request.headers);
   if (slug) {

@@ -15,7 +15,8 @@ Verwaltung und Handwerker. Konzept, Wettbewerbsanalyse und Roadmap:
   respektiert), Rechtsrahmen-Abschnitt und FAQ. **Nur im WEG-SaaS-Modus**
   (`APP_MODE=weg`) und nur auf der Hauptdomain – in der Verwaltungs-Variante
   und auf Mandanten-Subdomains führt jeder dieser Pfade zum gebrandeten Login
-  (`assertMainDomain()` in `src/lib/marketing.ts`).
+  (Marketing-Wächter in `src/proxy.ts`; die Seiten selbst sind statisch mit
+  Hintergrund-Aktualisierung, damit sie vom CDN antworten).
 
 ### Zwei Marken aus einer Codebasis
 

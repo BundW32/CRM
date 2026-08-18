@@ -17,7 +17,6 @@ import { BRAND_EMAIL } from "@/components/marketing/brand";
 import { CtaBand, MarketingFooter, MarketingHeader } from "@/components/marketing/site";
 import { Reveal } from "@/components/marketing/reveal";
 import { registrierenLink } from "@/lib/aktion-server";
-import { assertMainDomain } from "@/lib/marketing";
 import { TarifBereich } from "./tarif-bereich";
 import {
   BASIC_JE_EINHEIT_EUR,
@@ -28,7 +27,12 @@ import {
   VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR,
 } from "./preise-daten";
 
-export const dynamic = "force-dynamic";
+// Statisch mit Hintergrund-Aktualisierung (ISR): Marketing-Seite ohne
+// Nutzerdaten; nur der Stand der Willkommensaktion (Banner/Platzzähler) kommt
+// aus der DB, und fünf Minuten Verzug sind dort verschmerzbar. Die Wächter
+// (App-Modus, Mandanten-Subdomain) laufen im Proxy (src/proxy.ts) — eine
+// statische Seite kann weder `headers()` noch `cookies()` lesen.
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Preise je Einheit – alle Zugänge inklusive",
@@ -131,8 +135,6 @@ const PREIS_FAQ = [
 ];
 
 export default async function PreisePage() {
-  await assertMainDomain();
-
   return (
     <main className="mk-light flex-1">
       <MarketingHeader active="/preise" />

@@ -16,7 +16,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import {
   ArrowRight,
   CalendarCheck,
@@ -46,9 +45,6 @@ import { KenBurnsBackdrop } from "@/components/marketing/photo-hero";
 import { Reveal } from "@/components/marketing/reveal";
 import { ScrollyBuild } from "@/components/marketing/scrolly-build";
 import { registrierenLink } from "@/lib/aktion-server";
-import { getUser } from "@/lib/session";
-import { getTenantOrg } from "@/lib/tenant";
-import { isWegSaas } from "@/lib/app-mode";
 import { siteUrl } from "@/lib/site-url";
 import {
   BASIC_JE_EINHEIT_EUR,
@@ -58,7 +54,14 @@ import {
   VERGLEICH_VERWALTUNG_JE_EINHEIT_EUR,
 } from "./preise/preise-daten";
 
-export const dynamic = "force-dynamic";
+// Statisch mit Hintergrund-Aktualisierung: Die Seite trägt keine Nutzerdaten,
+// nur den Stand der Willkommensaktion (Platzzähler). Fünf Minuten Verzug sind
+// dort verschmerzbar — dafür antwortet die wichtigste Seite vom CDN statt aus
+// einer Serverless-Funktion (Kaltstart + DB-Zählabfrage je Aufruf; gemessen
+// im Schnitt über eine Sekunde). Ihre Wächter (App-Modus, Mandanten-Subdomain,
+// Angemeldete → /dashboard) laufen im Proxy (src/proxy.ts), denn eine
+// statische Seite kann weder `headers()` noch `cookies()` lesen.
+export const revalidate = 300;
 
 // Element 3: SEO-Titel mit den Suchbegriffen, unter denen Betroffene suchen.
 // Diese eine Seite trägt die Marke im Titel SELBST — anders als jede andere.
@@ -399,18 +402,6 @@ function StrukturierteDaten() {
 }
 
 export default async function Home() {
-  const user = await getUser();
-  // Eingeloggt: in beiden Modi direkt ins Portal.
-  if (user) redirect("/dashboard");
-
-  // Verwaltungs-Variante (APP_MODE=verwaltung): Startseite ist der Login. Die
-  // öffentliche Landing-Page gehört allein zur WEG-SaaS-Variante.
-  if (!isWegSaas()) redirect("/login");
-
-  // Auch im SaaS-Modus behalten Mandanten-Subdomains ihren gebrandeten Login –
-  // die Landing-Page gehört auf die Hauptdomain.
-  if (await getTenantOrg()) redirect("/login");
-
   // Weg zur Registrierung – mit Aktionscode, solange die Willkommensaktion
   // läuft. Eine Quelle für alle Knöpfe dieser Seite; die Angebots-Blöcke holen
   // ihren Stand selbst aus demselben, je Anfrage gecachten Aufruf.

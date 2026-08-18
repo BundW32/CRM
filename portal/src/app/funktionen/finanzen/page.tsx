@@ -13,9 +13,13 @@ import {
   StatementVisual,
   UnitPlanVisual,
 } from "@/components/marketing/visuals";
-import { assertMainDomain } from "@/lib/marketing";
 
-export const dynamic = "force-dynamic";
+// Statisch mit Hintergrund-Aktualisierung (ISR): Marketing-Seite ohne
+// Nutzerdaten; nur der Stand der Willkommensaktion (Banner/Platzzähler) kommt
+// aus der DB, und fünf Minuten Verzug sind dort verschmerzbar. Die Wächter
+// (App-Modus, Mandanten-Subdomain) laufen im Proxy (src/proxy.ts) — eine
+// statische Seite kann weder `headers()` noch `cookies()` lesen.
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "WEG-Finanzen: Wirtschaftsplan & Abrechnung",
@@ -25,8 +29,6 @@ export const metadata: Metadata = {
 };
 
 export default async function FinanzenPage() {
-  await assertMainDomain();
-
   return (
     <main className="mk-light flex-1">
       <MarketingHeader active="/funktionen/finanzen" />

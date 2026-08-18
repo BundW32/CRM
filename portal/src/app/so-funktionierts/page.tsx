@@ -7,9 +7,13 @@ import {
   MarketingHero,
 } from "@/components/marketing/site";
 import { Reveal } from "@/components/marketing/reveal";
-import { assertMainDomain } from "@/lib/marketing";
 
-export const dynamic = "force-dynamic";
+// Statisch mit Hintergrund-Aktualisierung (ISR): Marketing-Seite ohne
+// Nutzerdaten; nur der Stand der Willkommensaktion (Banner/Platzzähler) kommt
+// aus der DB, und fünf Minuten Verzug sind dort verschmerzbar. Die Wächter
+// (App-Modus, Mandanten-Subdomain) laufen im Proxy (src/proxy.ts) — eine
+// statische Seite kann weder `headers()` noch `cookies()` lesen.
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "WEG-Selbstverwaltung in fünf Schritten",
@@ -109,8 +113,6 @@ const faqs = [
 ];
 
 export default async function SoFunktioniertsPage() {
-  await assertMainDomain();
-
   return (
     <main className="mk-light flex-1">
       <MarketingHeader active="/so-funktionierts" />

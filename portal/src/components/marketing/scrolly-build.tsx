@@ -9,7 +9,7 @@
 // hält die Szene im Blick, der Scroll-Fortschritt steuert die aktive Stufe.
 // prefers-reduced-motion → statische, gestapelte Darstellung.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Users } from "lucide-react";
 import { wpButtonClass } from "./brand";
@@ -195,11 +195,17 @@ function Building({
   progress,
   className = "h-[430px] w-[300px]",
   dekorativ = false,
+  lottieRef,
+  lottieBereit = false,
 }: {
   stage: number;
   progress: number;
   className?: string;
   dekorativ?: boolean;
+  /** Behälter für die Lottie-Zeichnung – nur die gepinnte Szene setzt ihn. */
+  lottieRef?: RefObject<HTMLDivElement | null>;
+  /** Sobald Lottie steht, weicht die SVG-Fassung; sonst bleibt sie stehen. */
+  lottieBereit?: boolean;
 }) {
   const N = STAGES.length; // 6
   const done = stage >= DONE_AT;
@@ -224,6 +230,24 @@ function Building({
         style={{ opacity: done ? 0.55 + 0.45 * subDone : 0 }}
       />
 
+      {/* Behälter der Lottie-Zeichnung. Er steht schon im servergerenderten
+          Markup (leer), damit der Browser nichts umbrechen muss, wenn die
+          Animation nachträglich hereinkommt. */}
+      {lottieRef ? (
+        <div
+          ref={lottieRef}
+          className="absolute inset-0"
+          {...(lottieBereit
+            ? { role: "img", "aria-label": "Ein Haus baut sich Stockwerk für Stockwerk auf" }
+            : { "aria-hidden": true as const })}
+        />
+      ) : null}
+
+      {/* Die SVG-Fassung ist die Grundlage, nicht der Notnagel: Sie kommt vom
+          Server, trägt die `data-`-Attribute für den Vorschau-Treiber
+          (`video/chat-vorschau-treiber.js`) und bleibt stehen, wenn Lottie
+          nicht lädt. Erst wenn die Animation wirklich steht, weicht sie. */}
+      {lottieBereit ? null : (
       <svg
         viewBox="0 0 320 470"
         className="absolute inset-0 h-full w-full"
@@ -355,6 +379,7 @@ function Building({
               ))}
         </g>
       </svg>
+      )}
 
       {/* Info-Chip am Fundament. In der kleinen Ausgabe entfällt er: Seine
           Breite hängt am Text, nicht an der Zeichnung – neben einer 88 px
@@ -400,6 +425,105 @@ function Building({
         <CheckCircle2 className="h-4 w-4" /> Selbstverwaltung steht
       </div>
     </div>
+  );
+}
+
+// ── Dasselbe Haus als Lottie ──────────────────────────────────────────────
+//
+// Die gepinnte Szene am Schreibtisch zeigt das Haus als Lottie-Animation
+// (`public/lottie/haus-aufbau.json`, erzeugt von `scripts/build-haus-lottie.mjs`).
+// Der Gewinn liegt nicht in der Zeichnung — die ist dieselbe —, sondern in der
+// Bewegung: Lottie interpoliert JEDEN Zwischenwert einer durchgehenden
+// Zeitachse, statt sechs Gruppen einzeln über Transform und Deckkraft zu
+// schieben. Fenster gehen weich an, die Fahne weht, der Rauch steigt.
+//
+// Drei Dinge sind Absicht:
+//  • `autoplay: false`. Das Bild kommt aus dem Scroll-Fortschritt, nicht aus
+//    einer Uhr — die Bewegung gehört dem Leser.
+//  • Nachgeladen, nicht gebündelt. Player und Zeichnung holt der Browser erst,
+//    wenn die Szene gebraucht wird; die Startseite bleibt sonst ohne Ballast.
+//  • `lottie_light`. Die schlanke Fassung kennt keine Ausdrücke und damit kein
+//    `eval` — die CSP dieser Seite (`next.config.ts`) erlaubt das nicht.
+//
+// Fällt eines davon aus (kein JS, Datei fehlt, Netz weg), bleibt die
+// servergerenderte SVG-Fassung stehen und alles funktioniert wie zuvor.
+function HausAufbau({ stage, progress }: { stage: number; progress: number }) {
+  const behaelter = useRef<HTMLDivElement>(null);
+  const animation = useRef<{ goToAndStop: (w: number, istBild?: boolean) => void; totalFrames: number; destroy: () => void } | null>(null);
+  const [bereit, setBereit] = useState(false);
+
+  useEffect(() => {
+    // Geladen wird NUR, wo die Animation auch zu sehen ist. Zwei Fälle sonst
+    // holten die Datei umsonst:
+    //  • Unter `lg` trägt jede Stufenkarte ihr eigenes kleines Haus, die
+    //    gepinnte Szene steckt hinter `hidden lg:flex` — sie ist im Dokument,
+    //    aber unsichtbar. Auf dem Handy wäre das reines Datenvolumen.
+    //  • Bei reduzierter Bewegung wirft `ScrollyBuild` die ganze Szene weg.
+    //    Weil es das erst nach dem ersten Bild tut, ist diese Komponente da
+    //    schon einmal montiert — die Abfrage hier kommt dem zuvor.
+    const gross = window.matchMedia("(min-width: 1024px)"); // Tailwind `lg`
+    const ruhig = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let abgebrochen = false;
+    let angefangen = false;
+
+    const laden = async () => {
+      if (angefangen || abgebrochen || !gross.matches || ruhig.matches) return;
+      angefangen = true;
+      try {
+        const [{ default: lottie }, antwort] = await Promise.all([
+          import("lottie-web/build/player/lottie_light"),
+          fetch("/lottie/haus-aufbau.json"),
+        ]);
+        if (abgebrochen || !antwort.ok || !behaelter.current) return;
+        const daten: unknown = await antwort.json();
+        if (abgebrochen || !behaelter.current) return;
+        const anim = lottie.loadAnimation({
+          container: behaelter.current,
+          renderer: "svg",
+          loop: false,
+          autoplay: false,
+          animationData: daten,
+          rendererSettings: { preserveAspectRatio: "xMidYMid meet", progressiveLoad: false },
+        });
+        animation.current = anim;
+        // `bereit` schaltet die SVG-Fassung ab UND löst den Effekt darunter
+        // aus – der setzt das erste Bild auf den Scroll-Stand von jetzt, nicht
+        // auf den vom Beginn des Ladevorgangs.
+        anim.addEventListener("DOMLoaded", () => {
+          if (!abgebrochen) setBereit(true);
+        });
+      } catch {
+        // Kein Grund einzugreifen: Die SVG-Fassung steht bereits da.
+      }
+    };
+
+    // Wer das Fenster nachträglich auf Schreibtischbreite zieht, bekommt die
+    // Animation dann – ein zweites Mal geladen wird sie nicht (`angefangen`).
+    const beiWechsel = () => void laden();
+    gross.addEventListener("change", beiWechsel);
+    void laden();
+
+    return () => {
+      abgebrochen = true;
+      gross.removeEventListener("change", beiWechsel);
+      animation.current?.destroy();
+      animation.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const anim = animation.current;
+    if (!anim || !bereit) return;
+    anim.goToAndStop(clamp01(progress) * (anim.totalFrames - 1), true);
+  }, [progress, bereit]);
+
+  return (
+    <Building
+      stage={stage}
+      progress={progress}
+      lottieRef={behaelter}
+      lottieBereit={bereit}
+    />
   );
 }
 
@@ -632,7 +756,7 @@ export function ScrollyBuild({
             className="hidden items-center justify-center lg:flex"
             style={{ transform: `translateY(${(0.5 - progress) * 24}px)` }}
           >
-            <Building stage={stage} progress={progress} />
+            <HausAufbau stage={stage} progress={progress} />
           </div>
         </div>
       </div>

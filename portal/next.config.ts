@@ -3,18 +3,32 @@ import type { NextConfig } from "next";
 // Sicherheits-Header für alle Routen. CSP bewusst pragmatisch gehalten,
 // damit Next.js (inline-Styles/Scripts) funktioniert, aber externe Quellen
 // blockiert werden.
+//
+// Google-Quellen (gtag.js für GA4 + Ads-Conversion) kommen NUR dazu, wenn
+// die zugehörigen IDs zur Bauzeit gesetzt sind — die B&W-Tür setzt sie nicht
+// und behält die strikte CSP. Das Script lädt ohnehin erst nach Einwilligung
+// (components/analytics/google-tag.tsx); die CSP muss die Quellen aber
+// erlauben, sonst blockt der Browser trotz Consent.
+const googleTagAktiv = Boolean(
+  process.env.NEXT_PUBLIC_GA4_ID || process.env.NEXT_PUBLIC_ADS_CONVERSION_ID,
+);
+const scriptSrcGoogle = googleTagAktiv ? " https://www.googletagmanager.com" : "";
+const connectSrcGoogle = googleTagAktiv
+  ? " https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://googleads.g.doubleclick.net https://www.google.com https://www.googleadservices.com"
+  : "";
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${scriptSrcGoogle}`,
   // pdf.js rendert die Dokumentvorschau in einem Web Worker. Ohne worker-src
   // greift die Vorschau auf script-src zurück; der Blob-Fallback von pdf.js
   // bräuchte dann blob: und würde sonst still scheitern.
   "worker-src 'self' blob:",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  `connect-src 'self'${connectSrcGoogle}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

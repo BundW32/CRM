@@ -1,4 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { ConsentBanner } from "@/components/analytics/consent-banner";
+import { GoogleTag } from "@/components/analytics/google-tag";
+import { InteractionTracking } from "@/components/analytics/interaction-tracking";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { TrackingSnippet } from "@/components/tracking-snippet";
 import { isWegSaas } from "@/lib/app-mode";
@@ -110,6 +113,16 @@ export default function RootLayout({
             components/tracking-snippet.tsx) — läuft unabhängig von einem CMP. */}
         <TrackingSnippet />
         {children}
+        {/* Einwilligung für GA4/Ads — rendert nichts ohne konfigurierte
+            Google-IDs (NEXT_PUBLIC_GA4_ID / NEXT_PUBLIC_ADS_CONVERSION_ID). */}
+        <ConsentBanner />
+        {/* Lädt gtag.js erst nach Einwilligung; page_views nur für
+            öffentliche Pfade (lib/analytics/gtag.ts). */}
+        <GoogleTag />
+        {/* Mikro-Conversions (Scroll, aktive Zeit, FAQ, CTA, Registrierung)
+            per Ereignis-Delegation — sendet nur über track(), also nie ohne
+            Einwilligung. */}
+        <InteractionTracking />
       </body>
     </html>
   );

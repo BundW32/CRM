@@ -47,7 +47,24 @@ export async function verifyMfa(formData: FormData) {
   const istZifferncode = /^\d{6}$/.test(eingabe.replace(/\s/g, ""));
 
   if (istZifferncode && totpAktiv) {
-    if (!verifyTotp(decryptSecret(user.totpSecret!), eingabe)) {
+    // Die Entschlüsselung scheitert, wenn das Server-Secret (INTEGRATION_ENC_KEY
+    // bzw. SESSION_SECRET) seit der MFA-Einrichtung rotiert wurde — dann ist das
+    // gespeicherte App-Secret unlesbar. Das ist ein Konfigurations-, kein
+    // Eingabefehler: Ohne den Fang endete genau das als nackter 500er auf der
+    // Code-Seite, und die Anmeldung war ohne Erklärung tot. Der Weg hinein
+    // bleibt der Wiederherstellungscode (Hash, hängt nicht am Schlüssel).
+    let secretLesbar = true;
+    let totpOk = false;
+    try {
+      totpOk = verifyTotp(decryptSecret(user.totpSecret!), eingabe);
+    } catch {
+      secretLesbar = false;
+    }
+    if (!secretLesbar) {
+      await logAudit({ actorId: user.id, action: AUDIT.MFA_FAILED, ip });
+      redirect("/login/mfa?fehler=schluessel");
+    }
+    if (!totpOk) {
       await logAudit({ actorId: user.id, action: AUDIT.MFA_FAILED, ip });
       redirect("/login/mfa?fehler=1");
     }

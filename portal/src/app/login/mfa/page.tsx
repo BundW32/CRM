@@ -53,6 +53,14 @@ export default async function MfaLoginPage({
             <Alert variant="error" className="mb-4">
               Zu viele Versuche. Bitte warten Sie 15 Minuten und versuchen Sie es erneut.
             </Alert>
+          ) : fehler === "schluessel" ? (
+            <Alert variant="error" className="mb-4">
+              Der hinterlegte Authenticator-Schlüssel lässt sich nicht mehr lesen
+              (der Server-Schlüssel wurde seit der Einrichtung geändert). Melden
+              Sie sich mit einem Ihrer Wiederherstellungscodes an und richten Sie
+              die App danach unter „Konto“ neu ein — oder wenden Sie sich an den
+              Betreiber.
+            </Alert>
           ) : fehler ? (
             <Alert variant="error" className="mb-4">
               {perEmail

@@ -12,6 +12,7 @@ import {
   wpButtonClass,
   wpButtonOnPhotoClass,
 } from "./brand";
+import { CookieSettingsLink } from "@/components/analytics/cookie-settings-link";
 import { registrierenLink } from "@/lib/aktion-server";
 import { AktionsBanner } from "./aktion";
 import { MobileMenu } from "./mobile-menu";
@@ -199,6 +200,9 @@ export async function MarketingFooter() {
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-white/60 sm:px-6">
           <p>
             © {new Date().getFullYear()} {BRAND_NAME}.de. Alle Rechte vorbehalten.
+            {/* Widerruf der Cookie-Auswahl — rendert nichts, solange keine
+                Google-IDs konfiguriert sind. */}{" "}
+            <CookieSettingsLink />
           </p>
           <p>Wirtschaftsplan · Jahresabrechnung · Hausgeld – nach §§ 19, 26a, 28 WEG</p>
         </div>

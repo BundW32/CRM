@@ -24,9 +24,11 @@ import {
   FileCheck,
   FileSignature,
   HandCoins,
+  KeyRound,
   Landmark,
   MessagesSquare,
   ShieldCheck,
+  Sparkles,
   Users,
   Vote,
 } from "lucide-react";
@@ -43,6 +45,7 @@ import { MobileCtaBar } from "@/components/marketing/mobile-cta-bar";
 import { KenBurnsBackdrop } from "@/components/marketing/photo-hero";
 import { Reveal } from "@/components/marketing/reveal";
 import { ScrollyBuild } from "@/components/marketing/scrolly-build";
+import { registrierenLink } from "@/lib/aktion-server";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
 import { isWegSaas } from "@/lib/app-mode";
@@ -58,14 +61,23 @@ import {
 export const dynamic = "force-dynamic";
 
 // Element 3: SEO-Titel mit den Suchbegriffen, unter denen Betroffene suchen.
+// Diese eine Seite trägt die Marke im Titel SELBST — anders als jede andere.
+// Grund: `title.template` aus `layout.tsx` greift nur für Kind-Segmente, und
+// die Startseite liegt im selben Segment wie die Wurzel. Ohne den Zusatz hier
+// hieße ausgerechnet die wichtigste Seite im Suchergebnis markenlos
+// „WEG selbst verwalten ohne Hausverwaltung".
 export const metadata: Metadata = {
-  title: "WEG selbst verwalten ohne Hausverwaltung – wegportal24",
+  title: "WEG selbst verwalten ohne Hausverwaltung | wegportal24",
   description:
-    "Keine Hausverwaltung gefunden? Verwalten Sie Ihre WEG selbst: Wirtschaftsplan, " +
-    "Hausgeld, Jahresabrechnung und Versammlung – jetzt kostenlos starten.",
+    "Keine Hausverwaltung gefunden? Verwalten Sie Ihre WEG selbst – Wirtschaftsplan, " +
+    "Hausgeld und Jahresabrechnung inklusive. Jetzt kostenlos starten.",
   keywords: [
     "WEG selbst verwalten",
     "WEG Selbstverwaltung",
+    "WEG Software",
+    "WEG Verwaltung Software",
+    "WEG ohne Verwalter",
+    "WEG ohne Hausverwaltung",
     "keine Hausverwaltung gefunden",
     "Wirtschaftsplan WEG",
     "Jahresabrechnung WEG",
@@ -153,6 +165,24 @@ const NUTZEN = [
       "das, was ihn betrifft, auch am Handy. Schäden werden mit Foto direkt " +
       "im Portal gemeldet und behalten ihren Status bis zur Erledigung.",
     href: "/funktionen/kommunikation",
+  },
+  {
+    icon: KeyRound,
+    titel: "Sondereigentum & Mietermanagement",
+    text:
+      "Vermietete Wohnung? Mieterzugang, Kaltmiete und Mietvertrag je " +
+      "Einheit – und aus der Jahresabrechnung wird die " +
+      "Betriebskostenabrechnung für Ihren Mieter, CO₂-Aufteilung inklusive.",
+    href: "/funktionen/sondereigentum",
+  },
+  {
+    icon: Sparkles,
+    titel: "KI-Berater, der Ihre WEG kennt",
+    text:
+      "Fragen zu Beschlüssen, Vorgängen oder Rückständen beantwortet der " +
+      "KI-Berater aus den Daten Ihrer Gemeinschaft – mit Quellenangabe, " +
+      "optional und standardmäßig abgeschaltet.",
+    href: "/funktionen/ki-berater",
   },
 ];
 
@@ -269,6 +299,17 @@ const FAQ = [
       "verschlüsselt gespeichert. Details stehen in der Datenschutzerklärung.",
   },
   {
+    f: "Ist wegportal24 eine Hausverwaltung – oder eine Software?",
+    a:
+      "Eine WEG-Software: Ihre Gemeinschaft verwaltet sich selbst, das " +
+      "Portal liefert Wirtschaftsplan, Buchhaltung, Hausgeld, " +
+      "Jahresabrechnung und Versammlung als Werkzeug dazu. Wer trotzdem " +
+      "fachlichen Rückhalt möchte, bekommt ihn im Verwalter-Plus-Tarif per " +
+      "Ticket von einem zertifizierten Verwalter nach § 26a WEG – und " +
+      "Gemeinschaften, die aus der Selbstverwaltung herauswachsen, übernimmt " +
+      "die Hausverwaltung hinter dem Portal auf Wunsch komplett.",
+  },
+  {
     f: "Rechnet hier eine KI unsere Abrechnung?",
     a:
       "Nein. Wirtschaftsplan, Verteilung und Jahresabrechnung entstehen " +
@@ -370,6 +411,11 @@ export default async function Home() {
   // die Landing-Page gehört auf die Hauptdomain.
   if (await getTenantOrg()) redirect("/login");
 
+  // Weg zur Registrierung – mit Aktionscode, solange die Willkommensaktion
+  // läuft. Eine Quelle für alle Knöpfe dieser Seite; die Angebots-Blöcke holen
+  // ihren Stand selbst aus demselben, je Anfrage gecachten Aufruf.
+  const registrieren = await registrierenLink();
+
   return (
     <main className="mk-light flex-1">
       <StrukturierteDaten />
@@ -406,10 +452,12 @@ export default async function Home() {
                 einfach, gemeinsam und rechtssicher selbst zu verwalten.
               </span>
             </p>
-            {/* Element 4: Haupt-CTA */}
+            {/* Element 4: Haupt-CTA. Läuft die Willkommensaktion, nimmt der
+                Knopf den Code mit — wer hier klickt, muss ihn nicht
+                abschreiben. */}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link
-                href="/registrieren"
+                href={registrieren}
                 className={`${wpButtonClass} w-full px-6 py-3 text-base sm:w-auto`}
               >
                 Portal kostenlos einrichten
@@ -435,23 +483,30 @@ export default async function Home() {
                 </li>
               ))}
             </ul>
+            {/* Die Willkommensaktion steht NICHT im Hero (Entscheidung vom
+                12.08.2026): Sie läuft als mitlaufende Leiste über der
+                Kopfzeile — der Hero bleibt für sich, weil er eigenständig
+                weiterentwickelt wird. Der Haupt-CTA oben nimmt den Aktionscode
+                trotzdem mit (`registrierenLink()`). */}
           </div>
         </div>
       </section>
 
       {/* ── Element 6: das Produkt in Bewegung – der Scroll-Aufbau ────────── */}
-      <ScrollyBuild />
+      <ScrollyBuild registrierenHref={registrieren} />
 
       {/* ── Element 7: Kern-Nutzen ────────────────────────────────────────── */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
         <Reveal>
           <h2 className="text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
-            Gebaut für Eigentümer, nicht für Verwaltungsprofis
+            Die WEG-Software für die Selbstverwaltung
           </h2>
           <p className="mt-3 max-w-2xl text-wp-ink/70">
-            Keine Hausverwaltung gefunden? Dann verwalten Sie Ihre WEG selbst — mit
-                allem, was sie dafür braucht, und nichts, was Sie überfordert. Jede
-            Funktion hat eine eigene Seite mit ausführlicher Erklärung.
+            Keine Hausverwaltung gefunden? Dann verwalten Sie Ihre WEG selbst —
+            mit einer WEG-Verwaltungs-Software, die für Eigentümer gebaut ist,
+            nicht für Verwaltungsprofis. Alles, was Ihre Gemeinschaft braucht,
+            und nichts, was Sie überfordert; jede Funktion hat eine eigene
+            Seite mit ausführlicher Erklärung.
           </p>
         </Reveal>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -589,12 +644,12 @@ export default async function Home() {
             Was Ihre WEG gegenüber einer externen Verwaltung spart
           </h2>
           <p className="mt-3 max-w-2xl text-wp-ink/70">
-            Eine externe WEG-Verwaltung kostet marktüblich 25 bis 40 € je
-            Einheit und Monat – kleine Gemeinschaften zahlen je Einheit meist
-            am oberen Rand, und Sondervergütungen für zusätzliche Versammlungen
-            oder Mahnungen kommen häufig dazu. In der Selbstverwaltung
-            übernimmt Ihre Gemeinschaft die Arbeit selbst – und behält die
-            Differenz.
+            Wer seine WEG ohne Hausverwaltung führt, spart deren Vergütung –
+            und die liegt für kleine Gemeinschaften oft am oberen Rand des
+            Marktüblichen, Sondervergütungen für zusätzliche Versammlungen
+            oder Mahnungen noch nicht mitgezählt. In der Selbstverwaltung
+            übernimmt Ihre Gemeinschaft die Arbeit selbst und behält die
+            Differenz; die WEG-Software kostet nur einen Bruchteil davon.
           </p>
         </Reveal>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -647,8 +702,8 @@ export default async function Home() {
         </div>
         <Reveal delay={120}>
           <p className="mt-3 text-xs text-wp-ink/50">
-            Beispielrechnung – marktübliche Vergütungen unterscheiden sich je
-            nach Region und Leistungsumfang. Details und Rechner auf der{" "}
+            Beispielrechnung – was eine Verwaltung tatsächlich verlangt, hängt
+            von Region und Leistungsumfang ab. Details und Rechner auf der{" "}
             <Link href="/preise" className="underline underline-offset-2">
               Preisseite
             </Link>
@@ -800,21 +855,18 @@ export default async function Home() {
           Links, ohne fremdes Skript und ohne Tracking. */}
       <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-wp-ink/60">
         <span>Kennen Sie eine Gemeinschaft ohne Verwaltung? Seite weitergeben:</span>
+        {/* Share-Ziele tragen `nofollow`: Es sind Weiterleitungs-Endpunkte,
+            keine Inhalte — Login-Weichen und Bot-Sperren der Netzwerke werden
+            von SEO-Crawlern sonst als „defekte externe Links" gemeldet.
+            LinkedIn fehlt bewusst: Der Share-Endpunkt antwortet Crawlern mit
+            Status 999 und stand deshalb als Problem-Link im Seobility-Audit. */}
         <a
           href="https://wa.me/?text=WEG%20selbst%20verwalten%20ohne%20Hausverwaltung%3A%20https%3A%2F%2Fwww.wegportal24.de%2F"
           target="_blank"
-          rel="noopener noreferrer"
+          rel="nofollow noopener noreferrer"
           className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
         >
           Über WhatsApp teilen
-        </a>
-        <a
-          href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fwww.wegportal24.de%2F"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
-        >
-          Auf LinkedIn teilen
         </a>
         <a
           href="mailto:?subject=WEG%20selbst%20verwalten%20ohne%20Hausverwaltung&body=https%3A%2F%2Fwww.wegportal24.de%2F"
@@ -825,7 +877,7 @@ export default async function Home() {
         <a
           href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fwww.wegportal24.de%2F"
           target="_blank"
-          rel="noopener noreferrer"
+          rel="nofollow noopener noreferrer"
           className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
         >
           Auf Facebook teilen
@@ -833,7 +885,7 @@ export default async function Home() {
         <a
           href="https://x.com/intent/post?url=https%3A%2F%2Fwww.wegportal24.de%2F&text=WEG%20selbst%20verwalten%20ohne%20Hausverwaltung"
           target="_blank"
-          rel="noopener noreferrer"
+          rel="nofollow noopener noreferrer"
           className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
         >
           Auf X teilen
@@ -854,7 +906,7 @@ export default async function Home() {
       <MarketingFooter />
       </div>
       {/* A7: dauerhaft erreichbarer Registrieren-Weg auf Mobil */}
-      <MobileCtaBar />
+      <MobileCtaBar href={registrieren} />
     </main>
   );
 }

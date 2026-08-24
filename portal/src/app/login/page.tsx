@@ -11,8 +11,31 @@ import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
 import { isWegSaas, registrationEnabled } from "@/lib/app-mode";
 import { login } from "./actions";
+import { NICHT_INDEXIEREN } from "@/lib/seo";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+// Die Anmeldeseite gibt es in beiden Türen — und auf Mandanten-Subdomains
+// dazu. Der Titel folgt deshalb dem App-Modus; die Marke hängt am
+// `title.template` in `layout.tsx`.
+export function generateMetadata(): Metadata {
+  return isWegSaas()
+    ? {
+        title: "Anmelden im Portal Ihrer WEG",
+        description:
+          "Melden Sie sich an und verwalten Sie Hausgeld, Beschlüsse und Dokumente " +
+          "Ihrer Wohnungseigentümergemeinschaft – sicher, mit eigenem Zugang je Rolle.",
+        robots: NICHT_INDEXIEREN,
+      }
+    : {
+        title: "Anmelden im Kundenportal",
+        description:
+          "Melden Sie sich an und sehen Sie Vorgänge, Dokumente und Nachrichten " +
+          "zu Ihrer Wohnung – mit eigenem Zugang für Mieter und Eigentümer.",
+        robots: NICHT_INDEXIEREN,
+      };
+}
 
 export default async function LoginPage({
   searchParams,
@@ -73,8 +96,15 @@ export default async function LoginPage({
               ? "Ihr sicherer Zugang zu Finanzen, Beschlüssen und Dokumenten."
               : "Ihr sicherer Zugang zu Vorgängen, Dokumenten und Nachrichten."}
           </p>
+          {/* Nicht nur „Anmelden": Ein-Wort-H1s melden SEO-Prüfungen als zu
+              kurz — und die längere Fassung entspricht dem Seitentitel. Auf
+              Mandanten-Subdomains bleibt die Formulierung neutral. */}
           <h1 className="mb-5 text-center text-lg font-semibold text-gray-800">
-            Anmelden
+            {wegMarke
+              ? "Anmelden im Portal Ihrer WEG"
+              : tenantOrg
+                ? "Anmelden im Portal"
+                : "Anmelden im Kundenportal"}
           </h1>
           {fehler ? (
             <div className="mb-4">

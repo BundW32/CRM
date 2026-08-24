@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { HandCoins } from "lucide-react";
 import {
   CtaBand,
@@ -18,11 +19,10 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Hausgeld & Mahnwesen für selbstverwaltete WEGs",
+  title: "Hausgeld & Mahnwesen für kleine WEGs",
   description:
-    "Hausgeld ohne Streit: automatische Sollstellungen aus dem Wirtschaftsplan, " +
-    "Rückstandsliste je Einheit, Zahlungszuordnung mit Vorschlag und Mahnungen " +
-    "als fertiger DIN-A4-Brief.",
+    "Sollstellungen aus dem Wirtschaftsplan, Rückstände je Einheit, Zahlungen " +
+    "zugeordnet, Mahnungen als fertiger Brief – Hausgeld ohne Zettelwirtschaft.",
 };
 
 export default async function HausgeldPage() {
@@ -42,9 +42,10 @@ export default async function HausgeldPage() {
         }
         intro={
           "Wer zahlt wie viel, wer ist im Rückstand, und wie mahnt man den " +
-          "Nachbarn, ohne das Verhältnis zu ruinieren? Das Portal beantwortet " +
-          "diese Fragen mit klaren Zahlen und einem Mahnwesen, das fair und " +
-          "formal korrekt abläuft."
+          "Nachbarn, ohne Streit im Haus? Gerade in kleinen WEGs braucht das " +
+          "Hausgeld klare Zahlen statt Zettelwirtschaft: Soll, Ist und Saldo " +
+          "stehen je Einheit fest, und das Mahnwesen läuft fair und formal " +
+          "korrekt ab."
         }
         image={{
           src: "/images/marketing/hausgeld.jpg",
@@ -71,6 +72,19 @@ export default async function HausgeldPage() {
           Betrag zustande kommt: Jeder Eigentümer sieht in seinem
           Einzelwirtschaftsplan genau, welche Kostenart mit welchem Schlüssel
           auf ihn umgelegt wird.
+        </p>
+        <p>
+          Und am Jahresende schließt sich der Kreis: Die Hausgeldabrechnung –
+          rechtlich die{" "}
+          <Link
+            href="/funktionen/finanzen#jahresabrechnung"
+            className="font-medium text-wp-accent-ink underline underline-offset-2"
+          >
+            Jahresabrechnung
+          </Link>{" "}
+          – erstellen Sie selbst im Portal; die Software verrechnet die
+          gezahlten Vorschüsse mit den tatsächlichen Kosten, centgenau je
+          Einheit.
         </p>
       </FeatureSection>
 

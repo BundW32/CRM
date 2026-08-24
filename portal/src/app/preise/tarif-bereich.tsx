@@ -41,6 +41,8 @@ type Tarif = {
   name: string;
   /** Grundpreis je Einheit; null für den kostenlosen Einstieg. */
   jeEinheit: number | null;
+  /** Zeile unter dem Preis, solange der Regler unberührt ist. */
+  preisHinweis: string;
   beschreibung: string;
   punkte: string[];
   cta: { text: string; href: string; primaer: boolean };
@@ -50,6 +52,7 @@ const TARIFE: Tarif[] = [
   {
     name: "Start",
     jeEinheit: null,
+    preisHinweis: "",
     beschreibung:
       "Richten Sie Ihre WEG vollständig ein und sehen Sie sich alles an – " +
       "ohne Zahlungsdaten, ohne Frist im Nacken.",
@@ -64,6 +67,8 @@ const TARIFE: Tarif[] = [
   {
     name: "Basic",
     jeEinheit: BASIC_JE_EINHEIT_EUR,
+    preisHinweis:
+      "Alle Zugänge inklusive. Regler oben bewegen für den Monatsbetrag Ihrer Gemeinschaft.",
     beschreibung:
       "Die komplette Selbstverwaltung. Alle Zugänge inklusive – Eigentümer, " +
       "Beirat und Mieter zählen nicht extra.",
@@ -81,6 +86,8 @@ const TARIFE: Tarif[] = [
   {
     name: "Verwalter-Plus",
     jeEinheit: PLUS_JE_EINHEIT_EUR,
+    preisHinweis:
+      "Mit Verwalter-Draht, alle Zugänge inklusive – der Regler oben zeigt den Monatsbetrag.",
     beschreibung:
       "Alles aus Basic – plus ein direkter Draht zu einem zertifizierten " +
       "Verwalter (§ 26a WEG), wenn Ihre Gemeinschaft fachlichen Rat braucht.",
@@ -101,11 +108,16 @@ function Kartenpreis({
   einheiten,
   stellplaetze,
   gerechnet,
+  hinweis,
 }: {
   jeEinheit: number | null;
   einheiten: number;
   stellplaetze: number;
   gerechnet: boolean;
+  /** Zeile unter dem Preis, solange der Regler unberührt ist. Je Karte ein
+      eigener Text — derselbe Satz zweimal auf der Seite gilt SEO-Prüfern als
+      mehrfach verwendeter Textblock. */
+  hinweis: string;
 }) {
   if (jeEinheit === null) {
     return (
@@ -141,14 +153,22 @@ function Kartenpreis({
               : ""}
           </>
         ) : (
-          "Alle Zugänge inklusive. Regler oben bewegen für den Monatsbetrag Ihrer Gemeinschaft."
+          hinweis
         )}
       </p>
     </>
   );
 }
 
-export function TarifBereich() {
+// `registrierenHref` kommt von der Seite (Server): Während der
+// Willkommensaktion tragen die Tarif-Knöpfe den Aktionscode mit. Eine
+// Client-Komponente kann das nicht selbst entscheiden — `registrierenLink()`
+// liest `APP_MODE` und den Stand der Aktion aus der Datenbank.
+export function TarifBereich({
+  registrierenHref = "/registrieren",
+}: {
+  registrierenHref?: string;
+}) {
   const [einheiten, setEinheiten] = useState(START_EINHEITEN);
   // Stellplätze & Garagen: eigene Position, 1 € je Stellplatz — ohne Staffel
   // und ohne Einfluss auf die Einheiten-Grenzen des Reglers.
@@ -266,6 +286,7 @@ export function TarifBereich() {
               einheiten={einheiten}
               stellplaetze={stellplaetze}
               gerechnet={gerechnet}
+              hinweis={tarif.preisHinweis}
             />
             <p className="mt-3 text-sm leading-relaxed text-wp-ink/70">{tarif.beschreibung}</p>
             <ul className="mt-5 flex-1 space-y-2.5">
@@ -277,7 +298,7 @@ export function TarifBereich() {
               ))}
             </ul>
             <Link
-              href={tarif.cta.href}
+              href={tarif.cta.href === "/registrieren" ? registrierenHref : tarif.cta.href}
               className={`${tarif.cta.primaer ? wpButtonClass : wpButtonSecondaryClass} mt-6 w-full py-3`}
             >
               {tarif.cta.text}

@@ -1,22 +1,29 @@
 // Öffentliche KI-Transparenzseite (Art. 50 KI-VO / EU AI Act).
 // Die Verordnung (EU) 2024/1689 ist seit dem 2. August 2026 in vollem Umfang
-// anwendbar. Anbieter der beiden KI-Funktionen (Assistent und
-// Triage) ist der Portalbetreiber, die selbstverwaltende WEG bzw. Hausverwaltung
-// ist deren Betreiber. Der Produktname kommt aus `productName()` – die Seite wird
-// in BEIDEN Türen ausgeliefert (Art. 50 KI-VO gilt auch für die B&W-Tür).
+// anwendbar. Anbieter der vier KI-Funktionen (Assistent, Triage, Objekt-Import
+// und Kostenart-Vorschlag beim Bankimport) ist der Portalbetreiber, die selbstverwaltende WEG bzw.
+// Hausverwaltung ist deren Betreiber. Der Produktname kommt aus `productName()`
+// – die Seite wird in BEIDEN Türen ausgeliefert (Art. 50 KI-VO gilt auch für
+// die B&W-Tür).
+//
+// Am 11.08.2026 nachgezogen: Die Seite nannte zwei Funktionen, im Code waren es
+// drei — der Objekt-Import (`src/lib/objekt-extraction.ts`) fehlte. Und Ziffer 6
+// versprach „Dokumente werden nicht ausgelesen", während genau diese Funktion
+// das hochgeladene PDF vollständig an Google sendet. Eine ausdrückliche
+// Verneinung, die nicht stimmt, ist schlimmer als eine Lücke.
 // Diese Seite legt offen, welche KI eingesetzt wird, wozu, mit welchem Modell
 // und wo die Grenzen liegen. Sie ist aus der Fußzeile jeder Marketing-Seite
 // verlinkt.
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, LegalSection } from "@/components/legal-page";
-import { productName } from "@/lib/app-mode";
+import { isWegSaas, productName } from "@/lib/app-mode";
 
 export const dynamic = "force-static";
 
 export function generateMetadata(): Metadata {
   return {
-    title: `KI-Transparenz nach Art. 50 KI-Verordnung | ${productName()}`,
+    title: "KI-Transparenz nach Art. 50 KI-Verordnung",
     description:
       `Welche KI-Funktionen ${productName()} einsetzt, wozu, mit welchem Modell und ` +
       "wo die Grenzen liegen – offengelegt nach Artikel 50 der EU-KI-Verordnung.",
@@ -24,59 +31,104 @@ export function generateMetadata(): Metadata {
 }
 
 export default function KiTransparenzPage() {
+  // Die Überschrift hieß bis zum 12.08.2026 nur „KI-Transparenz" — ein Wort,
+  // das für sich genommen nicht sagt, was auf der Seite steht. Die Marke trägt
+  // im B&W-Fall einen Artikel, deshalb nicht direkt `productName()`.
+  const marke = isWegSaas() ? "wegportal24" : "das B&W Kundenportal";
+
   return (
     <LegalPage
-      title="KI-Transparenz"
+      title={`KI-Transparenz: Wie ${marke} KI einsetzt`}
       draft
       intro={
         <p>
           Die Verordnung (EU) 2024/1689 über künstliche Intelligenz („KI-Verordnung“,
-          EU AI Act) ist seit dem <strong>2. August 2026</strong> in vollem Umfang
+          EU AI Act) ist seit dem 2. August 2026 in vollem Umfang
           anwendbar. Artikel 50 verpflichtet uns, offenzulegen, wo Sie es in
-          {" "}{productName()} mit einem KI-System zu tun haben. Diese Seite tut das – in
-          verständlicher Sprache und ohne Kleingedrucktes.
+          {" "}{productName()} mit einem KI-System zu tun haben. Diese Seite legt offen,
+          wo {productName()} KI einsetzt – in verständlicher Sprache und ohne
+          Kleingedrucktes.
         </p>
       }
     >
       <LegalSection title="1. Kurzfassung">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            {productName()} enthält <strong>zwei</strong> KI-Funktionen: einen Assistenten für
-            Rückfragen zu Ihren eigenen Unterlagen und eine Vorsortierung eingehender
-            Schadensmeldungen.
+            {productName()} enthält vier KI-Funktionen: einen Assistenten
+            für Rückfragen zu Ihren eigenen Unterlagen, eine Vorsortierung eingehender
+            Schadensmeldungen, einen Objekt-Import, der Stammdaten aus einem PDF
+            vorschlägt, und einen Vorschlag für die Kostenart einer importierten
+            Bankausgabe.
           </li>
           <li>
-            Beide sind <strong>standardmäßig ausgeschaltet</strong> und werden erst aktiv,
-            wenn Ihre Gemeinschaft bzw. Verwaltung sie ausdrücklich freischaltet.
+            Alle vier sind <strong>standardmäßig ausgeschaltet</strong> und werden erst
+            aktiv, wenn Ihre Gemeinschaft bzw. Verwaltung sie ausdrücklich freischaltet.
           </li>
           <li>
-            Keine KI-Funktion trifft eine <strong>endgültige Entscheidung</strong>. Sie
+            Keine KI-Funktion trifft eine endgültige Entscheidung. Sie
             schlägt vor – Menschen entscheiden.
           </li>
           <li>
-            Es gibt <strong>keine</strong> KI bei Geld, Recht und Abstimmungen: keine
+            Es gibt keine KI bei Recht, Geld und Abstimmungen: keine
             Bonitätsbewertung, keine automatischen Mahnungen, keine Beschlüsse, keine
-            Abrechnungen.
+            Abrechnungen, keine Zuordnung von Zahlungen zu Eigentümern. Die einzige
+            Ausnahme im Finanzbereich ist ein <em>Vorschlag</em> für die Kostenart einer
+            Ausgabe beim Bankimport — gekennzeichnet, und erst nach Bestätigung gebucht.
           </li>
         </ul>
       </LegalSection>
 
+      {/* Die drei Funktionen führten bis zum 12.08.2026 je ein <strong> als
+          Pseudo-Überschrift an. Eine Überschrift gehört in ein
+          Überschriften-Element: Das trägt die Gliederung der Seite (bisher
+          sprang sie von h2 direkt in den Fließtext) und nimmt drei der
+          24 Fettungen aus der Zählung. */}
       <LegalSection title="2. Welche KI-Funktionen es gibt">
+        <h3 className="font-semibold text-gray-900">
+          a) KI-Assistent („Frag deine Gemeinschaft“)
+        </h3>
         <p>
-          <strong>a) KI-Assistent („Frag deine Gemeinschaft“).</strong> Ein Chatfenster im
+          Ein Chatfenster im
           Portal, das Fragen zu Beschlüssen, Versammlungen, Anträgen, Vorgängen und
           Aushängen beantwortet. Der Assistent antwortet ausschließlich auf Grundlage der
           Unterlagen, die Sie mit Ihrer Rolle ohnehin einsehen dürfen, und nennt zu jeder
           Antwort die verwendeten Quellen. Findet er nichts, sagt er das – er rät nicht.
           Er ist als KI gekennzeichnet, seine Antworten ebenfalls.
         </p>
+        <h3 className="pt-2 font-semibold text-gray-900">
+          b) KI-Vorsortierung eingehender Meldungen (Triage)
+        </h3>
         <p>
-          <strong>b) KI-Vorsortierung eingehender Meldungen (Triage).</strong> Trifft eine
+          Trifft eine
           Schadensmeldung ein – im Portal oder per E-Mail –, schlägt die KI das passende
           Gewerk und eine Dringlichkeit vor und fasst den Fall in einem Satz zusammen. Der
           Vorschlag landet als klar gekennzeichnete interne Notiz beim Vorgang. Hat der
           Melder selbst ein Gewerk angegeben, hat seine Angabe Vorrang. Die Verwaltung kann
           jeden Vorschlag jederzeit ändern.
+        </p>
+        <h3 className="pt-2 font-semibold text-gray-900">c) KI-Objekt-Import aus PDF</h3>
+        <p>
+          Legt die Verwaltung ein neues
+          Objekt an, kann sie ein PDF hochladen — etwa ein Objektdatenblatt, ein Exposé
+          oder einen Auszug aus einer Verwaltersoftware. Die KI liest daraus Adresse,
+          Baujahr, Wohnfläche, Gebäude- und Heizungsart sowie eine Liste der Einheiten und
+          füllt damit das Formular vor. Gespeichert wird nichts, bevor
+          die Verwaltung die Felder geprüft und das Formular abgeschickt hat. Anders als
+          bei den beiden anderen Funktionen wird hier das vollständige PDF
+          {" "}an Google übermittelt — siehe Ziffer 6.
+        </p>
+        <h3 className="pt-2 font-semibold text-gray-900">
+          d) KI-Kostenart-Vorschlag beim Bankimport
+        </h3>
+        <p>
+          Beim Einlesen eines Kontoauszugs schlägt das Portal zu jeder Ausgabe die
+          passende Kostenart vor. Das geschieht zunächst <strong>ohne KI</strong>: Wer
+          schon einmal bezahlt wurde, bekommt wieder dieselbe Kostenart. Nur für
+          Ausgaben, zu denen es keine solche Erfahrung gibt, wird — wenn freigeschaltet —
+          die KI gefragt. Ihr Vorschlag trägt immer den Gütegrad „unsicher“, ist in der
+          Vorschau als KI gekennzeichnet und wird nur übernommen, wenn die Verwaltung
+          diesen Gütegrad ausdrücklich bestätigt. Welcher Eigentümer eine Zahlung
+          geleistet hat, entscheidet <strong>nie</strong> die KI.
         </p>
       </LegalSection>
 
@@ -87,14 +139,14 @@ export default function KiTransparenzPage() {
             <Link href="/impressum" className="text-brand-green hover:underline">
               Impressum
             </Link>
-            ): Wir stellen die beiden KI-Systeme unter eigenem Namen bereit.
+            ): Wir stellen die vier KI-Systeme unter eigenem Namen bereit.
           </li>
           <li>
             <strong>Betreiber</strong> ist Ihre Eigentümergemeinschaft bzw. Hausverwaltung,
             sobald sie die Funktionen freischaltet und im Alltag nutzt.
           </li>
           <li>
-            <strong>Modellanbieter</strong> ist Google: Beide Funktionen nutzen die
+            <strong>Modellanbieter</strong> ist Google: Alle vier Funktionen nutzen die
             Gemini-API. Wir trainieren kein eigenes Modell.
           </li>
         </ul>
@@ -102,12 +154,12 @@ export default function KiTransparenzPage() {
 
       <LegalSection title="4. Risikoeinstufung">
         <p>
-          Beide Funktionen sind nach unserer Einschätzung <strong>keine
+          Alle vier Funktionen sind nach unserer Einschätzung <strong>keine
           Hochrisiko-KI-Systeme</strong> im Sinne von Artikel 6 in Verbindung mit Anhang III
           der KI-Verordnung, und sie fallen nicht unter die verbotenen Praktiken nach
-          Artikel 5. Sie unterstützen bei Auskunft und Vorsortierung; sie entscheiden nicht
-          über den Zugang zu wesentlichen Leistungen, bewerten keine Kreditwürdigkeit und
-          treffen keine Entscheidungen mit rechtlicher Wirkung.
+          Artikel 5. Sie unterstützen bei Auskunft, Vorsortierung und Dateneingabe; sie
+          entscheiden nicht über den Zugang zu wesentlichen Leistungen, bewerten keine
+          Kreditwürdigkeit und treffen keine Entscheidungen mit rechtlicher Wirkung.
         </p>
         <p>
           Damit gelten für uns die Transparenzpflichten aus Artikel 50 sowie die
@@ -119,13 +171,18 @@ export default function KiTransparenzPage() {
       <LegalSection title="5. Menschliche Aufsicht – und was die KI ausdrücklich nicht tut">
         <p>
           Die finanziell und rechtlich relevanten Teile des Portals arbeiten vollständig
-          regelbasiert und nachrechenbar. Konkret gibt es <strong>keinen</strong> KI-Einsatz
+          regelbasiert und nachrechenbar. Konkret gibt es keinen KI-Einsatz
           bei:
         </p>
         <ul className="list-disc space-y-1 pl-5">
           <li>Wirtschaftsplan, Jahresabrechnung und Vermögensbericht;</li>
           <li>
             Hausgeld-Sollstellungen, Zahlungszuordnung, Mahnwesen und Mahnstufen;
+          </li>
+          <li>
+            der Zuordnung einer Zahlung zu einer Einheit beim Bankimport — sie folgt
+            festen Regeln (Mandats-IBAN, Einheitenzeichen im Verwendungszweck,
+            eindeutiger Nachname, Betrag gegen offene Forderungen);
           </li>
           <li>Bewertung der Zahlungsfähigkeit oder Kreditwürdigkeit von Eigentümern;</li>
           <li>Abstimmungen, Stimmgewichten und der Feststellung von Beschlüssen;</li>
@@ -140,14 +197,39 @@ export default function KiTransparenzPage() {
       <LegalSection title="6. Datenverarbeitung">
         <p>
           Ist eine KI-Funktion freigeschaltet, werden die für die jeweilige Anfrage nötigen
-          Textinhalte (z. B. Titel und Beschreibung einer Meldung, Ihre Frage samt der
-          gefundenen Textauszüge) an die Gemini-API von Google übermittelt. Dabei kann eine
-          Verarbeitung außerhalb der EU stattfinden; die Übermittlung erfolgt auf Grundlage
-          geeigneter Garantien. Dokumente werden nicht ausgelesen – als Quelle dienen nur
-          Titel und die im Portal erfassten Texte.
+          Inhalte an die Gemini-API von Google übermittelt. Dabei kann eine Verarbeitung
+          außerhalb der EU stattfinden; die Übermittlung erfolgt auf Grundlage geeigneter
+          Garantien. Was genau übermittelt wird, hängt von der Funktion ab:
         </p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>
+            <strong>Vorsortierung:</strong> Titel und Beschreibung der eingegangenen
+            Meldung.
+          </li>
+          <li>
+            <strong>Assistent:</strong> Ihre Frage, Ihre Rolle im Portal und die dazu
+            gefundenen Textauszüge. Gespeicherte Dokumente werden dafür nicht geöffnet —
+            als Quelle dienen deren Titel und die im Portal erfassten Texte. Fragen Sie
+            nach Geld, gehören dazu auch Kontostand, Rückstände und Hausgeld.
+          </li>
+          <li>
+            <strong>Kostenart-Vorschlag:</strong> der Verwendungszweck der Ausgabe,
+            und zwar erst, nachdem alle Wörter mit Ziffern daraus entfernt wurden —
+            damit weder Beträge noch Kontonummern, Rechnungs- oder Referenznummern
+            hinausgehen —, dazu die Bezeichnungen der Kostenarten des Objekts. Nicht
+            übermittelt werden Zahlungspartner, Datum, Betrag, Kontostände und
+            Einheiten.
+          </li>
+          <li>
+            <strong>Objekt-Import:</strong> das hochgeladene PDF{" "}
+            <strong>vollständig und unverändert</strong>. Diese Funktion ist die einzige,
+            die eine Datei als Ganzes weitergibt. Wer sie freischaltet, sollte wissen, was
+            in den Unterlagen steht, die dort eingelesen werden — eine Teilungserklärung
+            etwa enthält Namen.
+          </li>
+        </ul>
         <p>
-          Ist keine KI-Funktion freigeschaltet, verlassen <strong>keine</strong> Inhalte das
+          Ist keine KI-Funktion freigeschaltet, verlassen keine Inhalte das
           Portal in Richtung eines KI-Dienstes. Einzelheiten in der{" "}
           <Link href="/datenschutz" className="text-brand-green hover:underline">
             Datenschutzerklärung
@@ -168,8 +250,9 @@ export default function KiTransparenzPage() {
         <p>
           KI-Systeme können sich irren. Antworten des Assistenten können unvollständig sein
           oder eine Quelle falsch zusammenfassen; eine vorgeschlagene Dringlichkeit kann
-          danebenliegen. Prüfen Sie die genannten Quellen, bevor Sie auf eine Auskunft hin
-          handeln. Der Assistent ist ausdrücklich <strong>keine Rechtsberatung</strong> und
+          danebenliegen; ein aus einem PDF gelesener Wert — Wohnfläche, Baujahr, die Zahl
+          der Einheiten — kann schlicht falsch sein und gehört vor dem Speichern geprüft.
+          Prüfen Sie die genannten Quellen, bevor Sie auf eine Auskunft hin handeln. Der Assistent ist ausdrücklich <strong>keine Rechtsberatung</strong> und
           ersetzt weder Verwalterentscheidung noch Beschluss der Gemeinschaft. Fällt die
           KI aus, läuft das Portal unverändert weiter – sie ist nie Voraussetzung dafür,
           dass eine Meldung ankommt oder ein Vorgang bearbeitet wird.
@@ -198,7 +281,7 @@ export default function KiTransparenzPage() {
           </a>
           . Wir antworten und dokumentieren gemeldete Fehler.
         </p>
-        <p className="text-xs text-gray-500">Stand: August 2026.</p>
+        <p className="text-xs text-gray-500">Stand: 13. August 2026.</p>
       </LegalSection>
     </LegalPage>
   );

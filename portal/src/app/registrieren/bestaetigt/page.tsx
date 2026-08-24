@@ -1,6 +1,14 @@
 import Link from "next/link";
+import { NICHT_INDEXIEREN } from "@/lib/seo";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "E-Mail-Adresse bestätigen",
+  description: "Rückmeldung zum Bestätigungslink aus der Registrierungs-E-Mail.",
+  robots: NICHT_INDEXIEREN,
+};
 
 const RESULTS = {
   ok: {

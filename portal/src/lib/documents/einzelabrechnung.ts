@@ -132,16 +132,18 @@ export async function generateEinzelabrechnungen(input: EinzelabrechnungInput): 
     ) {
       // Die Lücke wird benannt, nicht geschätzt: Eine erfundene Zahl sähe
       // amtlich aus und hielte keiner Rückfrage des Finanzamts stand.
+      // Kein „Muster —" davor: Diese Zahlen sind die Abrechnung dieser Einheit,
+      // keine Vorlage. Der Vorbehalt zur Steuerberatung bleibt, er trifft zu.
       const erlaeuterung =
         unit.laborUnerfasstCents > 0
           ? "Ausgewiesen ist nur der Lohn-, Fahrt- und Maschinenkostenanteil — nur er ist " +
             `begünstigt, Material nicht. Für ${formatCents(unit.laborUnerfasstCents)} Ihres ` +
             "Kostenanteils liegt dieser Anteil nicht vor; er ist oben deshalb NICHT enthalten. " +
-            "Bitte fragen Sie die Verwaltung nach den Rechnungen. Muster — ersetzt keine " +
+            "Bitte fragen Sie die Verwaltung nach den Rechnungen. Diese Angaben ersetzen keine " +
             "Steuerberatung."
           : "Ausgewiesen ist nur der in den Rechnungen ausgewiesene Lohn-, Fahrt- und " +
-            "Maschinenkostenanteil — nur er ist begünstigt, Material nicht. Muster — ersetzt " +
-            "keine Steuerberatung.";
+            "Maschinenkostenanteil — nur er ist begünstigt, Material nicht. Diese Angaben " +
+            "ersetzen keine Steuerberatung.";
       // Überschrift, Zahlen und Erläuterung bleiben zusammen — die Zahlen allein
       // wären ohne den Hinweis missverständlich.
       doc.space(mm(2));
@@ -190,14 +192,21 @@ export async function generateEinzelabrechnungen(input: EinzelabrechnungInput): 
     // Dokument hat das vorher „Beschlossene Abrechnung" genannt — eine Aussage,
     // die zu diesem Zeitpunkt nicht stimmt und zu einer Zahlung auf eine noch
     // nicht beschlossene Forderung verleiten kann.
+    //
+    // **Ohne „Muster — ersetzt keine Rechtsberatung".** Der Satz stand hier und
+    // war sachlich falsch: Eine Einzelabrechnung ist kein Textbaustein, sondern
+    // die Abrechnung dieser Einheit für dieses Jahr, aus ihren Buchungen
+    // gerechnet. Ein Eigentümer, der unten „Muster" liest, hat allen Grund, die
+    // Zahlen darüber nicht für seine zu halten. Am Beschlussvorschlag auf der
+    // Verwalterseite bleibt der Hinweis — dort ist es tatsächlich eine Vorlage.
     doc.space(mm(4));
     doc.para(
       input.finalizedAt
         ? `Erstellt am ${fmtDate(input.generatedAt)}, geprüft und abgeschlossen. Über die ` +
             "Abrechnungsspitze beschließt die Eigentümerversammlung (§ 28 Abs. 2 WEG) — erst mit " +
-            "diesem Beschluss wird ein Nachschuss fällig. Muster — ersetzt keine Rechtsberatung."
-        : `Entwurf, erstellt am ${fmtDate(input.generatedAt)} — noch in Bearbeitung. ` +
-            "Muster — ersetzt keine Rechtsberatung.",
+            "diesem Beschluss wird ein Nachschuss fällig."
+        : `Entwurf, erstellt am ${fmtDate(input.generatedAt)} — noch in Bearbeitung. Die Zahlen ` +
+            "können sich bis zur Fertigstellung noch ändern.",
       { size: size.foot, color: color.muted, width: CONTENT_WIDTH, lead: mm(4) },
     );
   }

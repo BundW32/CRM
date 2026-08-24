@@ -2001,3 +2001,192 @@ Einheit im Sinne von Staffel und 12er-Grenze), der Untertyp ist beschreibend.
 307. **Übergabeprotokoll folgt der Art der Einheit.** Für STELLPLATZ-Einheiten
      heißt das Dokument „Übergabeprotokoll Stellplatz/Garage" und die allgemeine
      Checkliste prüft Zufahrt/Tor/Boden statt Warmwasser und Rauchmelder.
+
+## Schritt 48 — Rechtstexte an den Code gebunden (11.08.2026)
+
+Vier belegte Abweichungen zwischen dem, was die Rechtstexte behaupten, und dem,
+was die Software tut. Alle vier sind auf demselben Weg entstanden: Eine Funktion
+wurde gebaut, der Text blieb stehen. Kein Typfehler, kein roter Build — nur eine
+Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
+
+308. **Stripe steht jetzt in `/datenschutz`, `/avv` und `/datenschutz-saas`.**
+     Die gesamte Zahlungsabwicklung lief über Stripe, genannt war er nur in
+     `/datenschutz-saas` — einer Seite mit `draft`-Etikett, die im
+     Registrierungsformular bewusst nicht verlinkt ist. In `/datenschutz` steht
+     jetzt feldgenau, was hinausgeht (interne Organisations-Kennnummer und
+     Tarifbezeichnung) und was nicht: Rechnungsanschrift und Zahlungsdaten gibt
+     der Kunde direkt bei Stripe ein, sie durchlaufen die Anwendung nie
+     (`billing-checkout.ts`, `customer_update: { address: "auto" }`; ein
+     `customer_email` oder `customers.create` gibt es im Code nicht).
+309. **Stripe ist im AVV ausdrücklich KEIN Subprozessor** — anders als in
+     `docs/`-Notizen vorgeschlagen. Der AVV regelt die **Auftragsdaten**
+     (Eigentümer, Mieter, Vorgänge, Belege); Stripe erhält davon nichts,
+     sondern ausschließlich Vertragsdaten der Kundin. Ihn in die
+     Subprozessorenliste zu setzen, hätte der Verantwortlichen das Falsche
+     gesagt — nämlich, ihre Bewohnerdaten gingen dorthin — und die
+     4-Wochen-Widerspruchsfrist an einen Dienst gehängt, der die
+     Auftragsverarbeitung nicht berührt. Ziffer 4 trägt stattdessen eine
+     Klarstellung, die die Rollentrennung durchhält. Zusätzlich in
+     `/datenschutz`: Soweit Stripe Zahlungsdaten aufgrund eigener gesetzlicher
+     Pflichten verarbeitet, ist er eigener Verantwortlicher — der
+     Einleitungssatz „mit denen Verträge zur Auftragsverarbeitung bestehen"
+     deckte ihn sonst mit der falschen Kategorie ab.
+310. **Die KI-Funktionen sind drei, nicht zwei — und der Umfang steht dabei.**
+     `/datenschutz`, `/avv` und `/ki-transparenz` nannten Assistent und Triage;
+     der Objekt-Import (`objekt-extraction.ts`) fehlte überall. Gravierender:
+     `/ki-transparenz` versprach „Dokumente werden nicht ausgelesen", während
+     genau diese Funktion das hochgeladene PDF als `inline_data` **vollständig**
+     an Google sendet — z. B. eine Teilungserklärung mit Namen. Eine
+     ausdrückliche Verneinung, die nicht stimmt, ist schlimmer als eine Lücke.
+     Die Texte schlüsseln den Umfang jetzt je Funktion auf, einschließlich der
+     Finanzdaten, die der Assistent bei Geldfragen mitschickt
+     (`assistant.ts:473-500`).
+311. **`TERMS_VERSION` auf `2026-08-11`.** Der AVV ist Teil der Zustimmung bei
+     der Registrierung; ändert sich sein Inhalt, muss die gespeicherte Version
+     sich unterscheiden, sonst ist nicht mehr feststellbar, wem welche Fassung
+     vorlag. Stand-Daten auf allen fünf Rechtsseiten hochgesetzt — `/impressum`
+     und `/datenschutz-saas` trugen bisher gar keines.
+312. **Das Blob-Token verlässt die Anwendung nur noch über `readUpload`.**
+     `api/branding/[slug]/logo/route.ts` rief die gespeicherte URL mit
+     `Authorization: Bearer BLOB_READ_WRITE_TOKEN` ab, ohne die
+     `isBlobUrl()`-Prüfung, die `storage.ts` für **jeden** tokenbehafteten
+     Abruf vorschreibt — auf einer Route, die ohne Anmeldung erreichbar ist.
+     `logoStoredName` kommt aus der Datenbank; eine dort eingeschleuste fremde
+     URL hätte Lese- und Schreibrecht auf sämtliche Kundendateien aller
+     Mandanten an einen beliebigen Server geschickt. Die Route hat jetzt keinen
+     eigenen Abrufpfad mehr. Dieselbe Prüfung war zuvor schon einmal an der
+     zweiten Abrufstelle (`api/files/[kind]/[id]`, Teilbereichsanfragen)
+     vergessen worden — deshalb hält `blob-abruf.test.ts` sie jetzt fest.
+313. **Zwei Prüfungen gehen vom Code aus, nicht vom Wortlaut.**
+     `rechtstexte-abgleich.test.ts` zählt die `AI_…_ENABLED`-Schalter in
+     `src/lib` und verlangt, dass die Texte dieselbe Zahl nennen — eine vierte
+     KI-Funktion lässt die Prüfung fehlschlagen, bis die Texte nachgezogen
+     sind. `blob-abruf.test.ts` verlangt für jede Route, die
+     `BLOB_READ_WRITE_TOKEN` selbst mitschickt, eine sichtbare
+     `isBlobUrl()`-Prüfung. Beide gegen den alten Stand gegengeprüft: sechs
+     Fehlschläge, also greifen sie.
+
+314. **Der Bankimport unterstellt nichts mehr — er misst.** Eine echte
+     Volksbank-Datei (Kontoumsätze 2023) hat *keine* Kopfzeile und ist
+     Windows-1252. Beides war unterstellt: `parseCsv` nahm kompromisslos die
+     erste Zeile als Header und verlor damit still die erste Buchung des Jahres
+     (390 statt 391), und `analyzeCsvAction` dekodierte fest als UTF-8, was 73
+     von 391 Zeilen Ersatzzeichen in Zahlungspartner und Verwendungszweck
+     eintrug — genau in den Feldern, über die die Einheiten-Zuordnung läuft.
+     Erkannt wird jetzt: Zeichensatz (BOM, sonst striktes UTF-8 mit Rückfall auf
+     CP1252 — nicht ISO-8859-1, nur CP1252 kennt 0x80 als €), Trennzeichen über
+     die häufigste Feldanzahl mehrerer Zeilen, die Kopfzeile in den ersten 15
+     Zeilen (Sparkassen-Titelzeilen), und die Spalten notfalls aus dem Inhalt.
+     Die Testdatei `src/test/fixtures/vr-umsatz-ohne-kopfzeile.csv` hält die
+     Byte-Struktur des Originals fest; das Original selbst enthält Klarnamen und
+     IBANs einer realen Gemeinschaft und liegt bewusst nicht im Repository.
+315. **Der Assistent zeigt, was er gelesen hat — immer, nicht nur im Fehlerfall.**
+     Zeichensatz, Trennzeichen, „Kopfzeile vorhanden: ja/nein" und die ersten
+     drei Rohzeilen stehen jetzt in der Vorschau. Ohne sie sieht „falsche Zeile
+     als Kopfzeile" von außen genauso aus wie „Zeichensatz kaputt", und der
+     Verwalter kann nur „geht nicht" melden. Das bestätigte Mapping wird je
+     Konto gemerkt (`LedgerAccount.importProfile`) — wer monatlich aus derselben
+     Quelle importiert, ordnet einmal zu.
+316. **Zuordnungsvorschläge stehen einmal, nicht zweimal.** `suggestUnit` lag als
+     lokale Funktion auf der Hausgeld-Seite und griff erst lange nach dem
+     Import; Ausgaben bekamen gar keinen Vorschlag und blockierten später die
+     Jahresabrechnung. Die Regelkunde liegt jetzt in
+     `lib/weg/zuordnung-vorschlag.ts` (ohne Datenbank, mit Unit-Tests) und
+     speist beide Stellen. Neu: Betragstreffer gegen offene Sollstellungen über
+     `schlageZuordnungVor` (§§ 366, 367 BGB), Periodenerkennung aus dem
+     Verwendungszweck und ein Kostenart-Vorschlag aus der Ausgaben-Historie.
+     Jeder Vorschlag trägt einen Gütegrad; übernommen wird nur, was der
+     Verwalter je Gütegrad bestätigt, und gesetzt wird ausschließlich
+     `unitId`/`costTypeId` — **keine** Anrechnung auf offene Forderungen. Wohin
+     eine Zahlung tilgt, bestimmt der Zahlende, nicht der Import.
+317. **Die KI ist im Bankimport die zweite Stufe, und sie fasst kein Geld an.**
+     `AI_KOSTENART_ENABLED` (eigener Schalter, standardmäßig aus, absichtlich
+     nicht an die anderen KI-Schalter gekoppelt) fragt Gemini nur für Ausgaben,
+     zu denen die Regeln nichts finden. Hinaus geht der von allen Wörtern mit
+     Ziffern befreite Verwendungszweck und die Liste der Kostenart-Namen — kein
+     Zahlungspartner, kein Betrag, kein Datum, keine Einheit, keine IBAN. Der
+     Vorschlag ist immer „unsicher", in der Vorschau als KI gekennzeichnet
+     (Art. 50 KI-VO) und wird nur mit ausdrücklicher Bestätigung übernommen.
+     Welcher Eigentümer gezahlt hat, entscheidet nie die KI — das bleibt
+     regelbasiert, und genau so steht es jetzt auch in `/datenschutz` und
+     `/ki-transparenz`: Die pauschale Zusage „bei Finanzen kommt keine KI zum
+     Einsatz" wäre sonst falsch geworden. `rechtstexte-abgleich.test.ts` suchte
+     die `AI_…_ENABLED`-Schalter bisher nur in der obersten Ebene von `src/lib`
+     und hätte diese vierte Funktion nicht bemerkt; die Suche läuft jetzt
+     rekursiv.
+
+318. **Drei Formate, ein Weg: CSV, MT940 und CAMT.053.** Beide Nicht-CSV-Formate
+     benennen ihre Felder selbst — es gibt nichts zuzuordnen, und der
+     Spaltenschritt entfällt für sie vollständig. Alle drei münden in dieselben
+     `ParsedBooking`-Objekte, weshalb Duplikaterkennung, Vorschau,
+     Zuordnungsvorschläge und Import nicht wissen müssen, woher die Zeilen
+     kamen; ein späterer Open-Banking-Adapter dockt an derselben Stelle an. Der
+     Duplikat-Hash ist formatunabhängig: Wer denselben Zeitraum einmal als CSV
+     und einmal als MT940 einliest, bekommt keine Dubletten.
+     Vier Fallen, die beim Lesen dieser Formate zuschlagen und die
+     `bank-datei.test.ts` festhält: In MT940 läuft ein Feld über beliebig viele
+     Zeilen weiter (wer je Zeile liest, verliert jeden längeren
+     Verwendungszweck), die `:86:`-Häppchen gehören **ohne** Trennzeichen
+     aneinander (sonst steht „Ja nuar" im Zweck), `RC` ist die Stornierung
+     einer Gutschrift und wirkt wie eine Belastung, und das Buchungsdatum steht
+     nur als MMTT da — über den Jahreswechsel liegt es ein Jahr vor der Valuta.
+     In CAMT ist der Betrag immer positiv (die Richtung steht in `CdtDbtInd`,
+     `RvslInd` dreht sie um), und die Gegenseite hängt an der Richtung: bei
+     einer Belastung der Empfänger, bei einer Gutschrift der Zahler. Immer
+     dieselbe Seite zu nehmen hieße, bei der Hälfte der Zeilen den eigenen
+     Namen einzutragen. Sammelbuchungen (mehrere `TxDtls` mit eigenem Betrag)
+     werden in ihre Einzelzahlungen zerlegt — als ein Betrag gebucht wäre das
+     Hausgeld mehrerer Eigentümer keiner Einheit zuzuordnen.
+     Der XML-Teil kommt ohne Parser-Abhängigkeit aus: gelesen werden gezielt
+     `<Ntry>`-Blöcke, mit beliebigem Namensraum-Präfix. Das gemerkte
+     Spalten-Mapping wird **nur** bei CSV geschrieben — ein aus einem
+     MT940-Import gespeichertes Mapping würde beim nächsten CSV-Import eine
+     Zuordnung vortäuschen, die nie bestätigt wurde.
+
+319. **Der Zahlungspartner hängt an der Richtung, wo die Bank ihn in zwei
+     Spalten führt.** Die DKB schreibt die Gegenseite bei einer Gutschrift in
+     „Zahlungspflichtige\*r" und bei einer Belastung in „Zahlungsempfänger\*in" —
+     in der jeweils anderen steht das eigene Konto. Eine feste Spalte zu nehmen
+     hieß, bei der Hälfte der Zeilen den eigenen WEG-Namen als Zahlungspartner
+     zu buchen; für die Einheiten-Zuordnung ist das genauso wertlos wie gar kein
+     Name, sieht aber nach einem Treffer aus. `ColumnMapping` kennt dafür jetzt
+     `counterpartyIn`/`counterpartyOut`; ist die passende Spalte leer, wird die
+     andere genommen. Erkannt wird das Paar nur, wenn beide Muster **verschiedene**
+     Spalten treffen — bei „Beguenstigter/Zahlungspflichtiger" (Sparkasse),
+     „Begünstigter / Auftraggeber" (Postbank) und „Auftraggeber/Empfänger" (ING)
+     ist es eine gemeinsame Spalte, und es bleibt beim einfachen Weg.
+     Nebenbei behoben: Die Normalisierung trennte an `*` und `:` nicht, weshalb
+     „Zahlungspflichtige\*r" das Muster `/zahlungspflichtiger/` nie traf —
+     gendergerechte Schreibweisen fielen still durch.
+
+320. **Fragen und Anregungen laufen über einen Kontakt-Funnel (`/kontakt`),
+     Ziel ist `service@wegportal24.de`.** (18.08.2026) Drei Schritte statt eines
+     langen Formulars: Anliegen (Frage/Anregung) → Nachricht (+ optionales
+     Thema) → Kontaktdaten — die Hürde, eigene Daten anzugeben, steht am Ende,
+     wenn die Nachricht schon geschrieben ist. Gespeichert wird **nichts**: Die
+     Anfrage geht als E-Mail an das Service-Postfach (Adresse als
+     `SERVICE_EMAIL` in `components/marketing/brand.tsx`), die absendende
+     Person erhält eine Eingangsbestätigung. Missbrauchsschutz wie bei
+     Registrierung und Kündigung: Honeypot `hp_url` und Rate-Limit (5 je IP und
+     Stunde). Der „Schreiben Sie uns"-Link im CTA-Band führt statt in ein
+     `mailto:` in den Funnel — ein mailto öffnet auf Geräten ohne
+     eingerichtetes Mail-Programm schlicht nichts. Die Datenschutzerklärung
+     wurde um den Absatz „Kontaktaufnahme" ergänzt (Stand 18.08.2026); das
+     Postfach muss — wie `info@` — noch eingerichtet werden.
+     Die Eingangsbestätigung an die anfragende Person trägt als Absender das
+     Service-Postfach selbst (Absender-Übergabe `opts.from` in `sendMail`,
+     Vorgabe bleibt `MAIL_FROM`): Wer auf die Bestätigung antwortet, landet
+     damit direkt beim Anliegen. Voraussetzung beim SMTP-Anbieter: Das
+     SMTP-Konto darf unter `service@wegportal24.de` senden (Send-as/Alias),
+     sonst lehnt der Anbieter den Versand ab oder schreibt den Absender um.
+
+**Offen geblieben** (bewusst, nicht vergessen): Die Nachdokumentation eines
+bereits eingesetzten Subprozessors gehört anwaltlich bewertet — die
+4-Wochen-Ankündigung nach AVV Ziffer 4 ist auf künftige Wechsel zugeschnitten.
+Ebenso offen: IBAN/BIC liegen weiterhin im Klartext (`SepaMandate`,
+`LedgerAccount`), obwohl `crypto.ts` das Verfahren hätte — das braucht eine
+Migration über Produktivdaten. Und der Retention-Cron (`/api/cron/cleanup`)
+hat weiterhin keine Überwachung: Fällt er still aus, laufen alle Löschfristen
+ins Leere. Das `draft`-Etikett auf `/datenschutz-saas` und `/ki-transparenz`
+bleibt stehen — es zu entfernen ist eine Freigabeentscheidung, keine
+technische.

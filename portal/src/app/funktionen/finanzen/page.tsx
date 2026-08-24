@@ -18,11 +18,10 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "WEG-Finanzen: Wirtschaftsplan, Buchhaltung & Jahresabrechnung",
+  title: "WEG-Finanzen: Wirtschaftsplan & Abrechnung",
   description:
-    "So verwaltet Ihre WEG die Finanzen selbst: Wirtschaftsplan nach § 28 WEG mit " +
-    "Assistent, Buchhaltung mit CSV-Bankimport, getrennte Erhaltungsrücklage und " +
-    "revisionssichere Jahresabrechnung.",
+    "Wirtschaftsplan nach § 28 WEG, Buchhaltung mit CSV-Bankimport, getrennte " +
+    "Erhaltungsrücklage und eine Jahresabrechnung, die nachweislich aufgeht.",
 };
 
 export default async function FinanzenPage() {
@@ -41,10 +40,17 @@ export default async function FinanzenPage() {
           </>
         }
         intro={
-          "Die Finanzen sind der Teil der Selbstverwaltung, vor dem die meisten " +
-          "Eigentümer Respekt haben – und genau dafür ist dieses Portal gebaut. " +
-          "Assistenten führen durch Wirtschaftsplan, Buchhaltung und " +
-          "Jahresabrechnung, rechnen centgenau und prüfen, ob am Ende alles aufgeht."
+          // Der Absatz greift die Begriffe der Überschrift auf („vom ersten
+          // Hausgeld bis zur fertigen Jahresabrechnung"). Vorher standen sie
+          // nur in der H1 und in keiner Zeile Fließtext — eine Suchmaschine
+          // sieht dann eine Überschrift, die die Seite nicht einlöst.
+          // Bewusst KÜRZER als der Absatz, der hier vorher stand: Bei 375 × 667
+          // endete der Haupt-CTA sonst bei 666 von 667 Pixeln — eine Zeile mehr
+          // und er läge unter der Falz.
+          "Zwischen dem ersten Hausgeld und der fertigen Jahresabrechnung liegt " +
+          "ein Jahr Buchhaltung – der Teil der Selbstverwaltung, vor dem die " +
+          "meisten Eigentümer Respekt haben. Assistenten führen hindurch, " +
+          "rechnen centgenau und prüfen, ob alles aufgeht."
         }
         image={{
           src: "/images/marketing/finanzen.jpg",
@@ -67,10 +73,11 @@ export default async function FinanzenPage() {
       >
         <p>
           Jede WEG beschließt jährlich, welche Kosten anfallen und wer wie viel
-          Hausgeld zahlt. Im Portal legen Sie die erwarteten Kosten je Kostenart
-          fest – auf Wunsch mit den Istwerten des Vorjahres als Startpunkt – und
-          das System verteilt sie automatisch nach den Umlageschlüsseln aus Ihrer
-          Teilungserklärung auf die Einheiten.
+          Hausgeld zahlt. Den Wirtschaftsplan für Ihre WEG erstellen Sie im
+          Portal Schritt für Schritt: Sie legen die erwarteten Kosten je
+          Kostenart fest – auf Wunsch mit den Istwerten des Vorjahres als
+          Startpunkt – und das System verteilt sie automatisch nach den
+          Umlageschlüsseln aus Ihrer Teilungserklärung auf die Einheiten.
         </p>
         <p>
           Das Ergebnis: ein Gesamtwirtschaftsplan, ein Einzelwirtschaftsplan für
@@ -105,7 +112,9 @@ export default async function FinanzenPage() {
           Einzelne Buchungen – etwa eine Barauslage – erfassen Sie in Sekunden
           von Hand und hängen den Beleg als Foto oder PDF direkt an. So entsteht
           nebenbei eine lückenlose, belegte Buchführung, die auch der Beirat oder
-          ein prüfender Eigentümer jederzeit nachvollziehen kann.
+          ein prüfender Eigentümer jederzeit nachvollziehen kann – das Portal
+          ist damit die Buchhaltungs-Software Ihrer WEG, und alle WEG-Finanzen
+          liegen an einem Ort.
         </p>
       </FeatureSection>
 

@@ -6,7 +6,7 @@ import { summen, tagesReihe, vergleichsText } from "@/lib/analytics/first-party"
 import {
   type Zeitraum,
   parseZeitraum,
-  vorperiodeLabel,
+  zeitraumSpanne,
 } from "@/lib/analytics/zeitraum";
 import { db } from "@/lib/db";
 import { formatCents, requirePlatformAdmin } from "@/lib/platform";
@@ -62,7 +62,10 @@ async function UebersichtDaten({ zeitraum }: { zeitraum: Zeitraum }) {
 
   return (
     <div className="space-y-5">
-      <Card title={`Kennzahlen · ${vorperiodeLabel(zeitraum)}`}>
+      {/* Der eigene Zeitraum in der Kopfzeile, nicht die Vorperiode: Letztere
+          stand hier allein und wurde als das gezeigte Fenster gelesen. Den
+          Vergleich nennen die Hinweise der einzelnen Kennzahlen. */}
+      <Card title={`Kennzahlen · ${zeitraumSpanne(zeitraum)}`}>
         <KeyFigures>
           <KeyFigure
             label="Besucher"

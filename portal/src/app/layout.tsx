@@ -17,12 +17,26 @@ import "./globals.css";
 // klein geschrieben – so, wie die Wortmarke sie zeigt.
 export function generateMetadata(): Metadata {
   const weg = isWegSaas();
+  const marke = weg ? "wegportal24" : "B&W Kundenportal";
   return {
     // Basis für alle relativen Adressen in den Metadaten. Ohne sie kann Next
     // weder ein Canonical noch eine absolute og:image-Adresse bilden – beides
     // verlangen Suchmaschinen und soziale Netze absolut.
     metadataBase: new URL(siteUrl()),
-    title: weg ? "wegportal24 – WEG selbst verwalten" : "B&W Kundenportal",
+    // Die Marke hängt EINMAL hier, nicht in jedem Seitentitel. `template`
+    // greift für alle Kindsegmente, `default` für Seiten ohne eigenen Titel.
+    // Vorher trugen acht öffentliche Seiten gar keinen eigenen Titel und
+    // teilten sich deshalb wortgleich diesen Rückfall — für eine Suchmaschine
+    // acht Adressen mit demselben Titel. Wer eine Seite ohne Marken-Zusatz
+    // braucht, setzt `title: { absolute: "…" }`.
+    //
+    // Platzrechnung: Google schneidet Titel bei rund 580 Pixeln ab, davon
+    // frisst „ | wegportal24" etwa 126. Für die Aussage der Seite bleiben also
+    // knapp 455 Pixel ≈ 45 Zeichen — Titel entsprechend knapp halten.
+    title: {
+      default: weg ? "wegportal24 – WEG selbst verwalten" : "B&W Kundenportal",
+      template: `%s | ${marke}`,
+    },
     description: weg
       ? "Portal für selbstverwaltete Wohnungseigentümergemeinschaften – " +
         "Wirtschaftsplan, Jahresabrechnung, Hausgeld, Versammlung und Beschlüsse an einem Ort."
@@ -52,13 +66,13 @@ export function generateMetadata(): Metadata {
     openGraph: {
       type: "website",
       locale: "de_DE",
-      siteName: weg ? "wegportal24" : "B&W Kundenportal",
+      siteName: marke,
       url: "./",
     },
     manifest: "/manifest.webmanifest",
     appleWebApp: {
       capable: true,
-      title: weg ? "wegportal24" : "B&W Portal",
+      title: weg ? marke : "B&W Portal",
       statusBarStyle: "black-translucent",
     },
     // Titel und Beschreibung schalten längst nach Modus um — die Icons taten
@@ -72,8 +86,12 @@ export function generateMetadata(): Metadata {
   };
 }
 
+// Die Farbe der Browser- und Statusleiste. Auf wegportal24 stand hier ein
+// Dunkelblau (#0b2239), das in der Marke sonst nirgends vorkommt — die
+// installierte App bekam dadurch einen blauen Rahmen um eine grüne Oberfläche.
+// Jetzt das Markengrün aus `--color-wp-primary` (globals.css).
 export function generateViewport(): Viewport {
-  return { themeColor: isWegSaas() ? "#0b2239" : "#1a1512" };
+  return { themeColor: isWegSaas() ? "#003630" : "#1a1512" };
 }
 
 export default function RootLayout({

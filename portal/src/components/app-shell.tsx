@@ -16,6 +16,7 @@ import {
   CalendarDays,
   ClipboardList,
   Contact,
+  Database,
   FileSignature,
   FileText,
   Files,
@@ -79,6 +80,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   integrationen: Plug,
   quellen: HardDriveDownload,
   abrechnung: Receipt,
+  ablage: Database,
   audit: ShieldCheck,
 };
 

@@ -12,6 +12,7 @@ import {
   buttonSecondaryClass,
   inputClass,
 } from "@/components/ui";
+import { AblageAlert } from "@/components/ablage-alert";
 import { DateField, toDateInputValue } from "@/components/fields";
 import { SubmitButton } from "@/components/submit-button";
 import { AddPersonForm } from "./AddPersonForm";
@@ -175,11 +176,19 @@ export default async function ObjektBearbeitenPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ fehler?: string; einheit?: string; person?: string; belegt?: string }>;
+  searchParams: Promise<{
+    fehler?: string;
+    einheit?: string;
+    person?: string;
+    belegt?: string;
+    /** Der Mietvertrag konnte nicht abgelegt werden (siehe `actions.ts`). */
+    ablage?: string;
+    grund?: string;
+  }>;
 }) {
   const verwalter = await requireVerwalter();
   const { id } = await params;
-  const { fehler, einheit, person, belegt } = await searchParams;
+  const { fehler, einheit, person, belegt, ablage, grund } = await searchParams;
 
   if (!(await canVerwalterAccessProperty(verwalter, id))) redirect("/verwaltung/objekte");
   const p = await db.property.findFirst({
@@ -297,6 +306,14 @@ export default async function ObjektBearbeitenPage({
         <Alert variant="success" className="mb-4">
           Einheit gelöscht.
         </Alert>
+      ) : null}
+      {/* Die übrigen Vertragsdaten sind gespeichert — nur die Datei fehlt.
+          Deshalb `warning`: Es ist kein verlorener Vorgang, sondern eine
+          fehlende Beigabe, die sich hier direkt nachtragen lässt. */}
+      {ablage === "fehler" ? (
+        <AblageAlert variant="warning" titel="Die Datei wurde nicht abgelegt." grund={grund}>
+          Die übrigen Angaben sind gespeichert. Die Datei lässt sich hier erneut hochladen.
+        </AblageAlert>
       ) : null}
       {person === "gespeichert" ? (
         <Alert variant="success" className="mb-4">

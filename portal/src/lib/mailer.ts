@@ -49,6 +49,7 @@ const CTA_LINE = /^[ \t]*(https?:\/\/[^\s<>"]+)[ \t]*$/m;
 // danach passiert; bei einer Bestätigungsmail ist genau das die Frage.
 function ctaLabel(url: string): string {
   if (url.includes("/registrieren/bestaetigen")) return "E-Mail-Adresse bestätigen";
+  if (url.includes("/email-aendern/bestaetigen")) return "Neue E-Mail-Adresse bestätigen";
   if (url.includes("/passwort") || url.includes("/reset")) return "Neues Passwort festlegen";
   if (url.includes("/auftraege/")) return "Auftrag ansehen";
   if (url.includes("/uebergabe/")) return "Übergabe ansehen";
@@ -197,7 +198,11 @@ export async function sendMail(
   attachments?: MailAttachment[],
   // Rückfall je Deployment: B&W bzw. wegportal24. Aufrufer mit Org-Bezug
   // übergeben ihr eigenes Branding und sind davon unberührt.
-  branding: OrgBranding = fallbackBranding()
+  branding: OrgBranding = fallbackBranding(),
+  // `from` nur mit Adressen der SPF/DKIM-authentifizierten Versanddomain
+  // übergeben (z. B. service@ statt no-reply@) — eine fremde Domain landet im
+  // Spam oder wird vom SMTP-Anbieter abgelehnt.
+  opts: { from?: string } = {}
 ) {
   if (!to) {
     // Zugänge ohne E-Mail-Adresse (Zugangsschreiben) erhalten keine Mails
@@ -214,7 +219,7 @@ export async function sendMail(
       // sein – pro-Mandant-Absender wäre ein separates Zustellungs-Thema).
       // Der Rückfall folgt dem DEPLOYMENT, nicht dem Mandanten: Sonst verschickte
       // wegportal24 ohne gesetztes MAIL_FROM still unter der B&W-Adresse.
-      from: process.env.MAIL_FROM ?? fallbackFrom(),
+      from: opts.from ?? process.env.MAIL_FROM ?? fallbackFrom(),
       to,
       subject,
       text,

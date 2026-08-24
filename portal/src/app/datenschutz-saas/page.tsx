@@ -1,6 +1,17 @@
+import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal-page";
+import { productName } from "@/lib/app-mode";
 
 export const dynamic = "force-static";
+
+export function generateMetadata(): Metadata {
+  return {
+    title: "Datenschutz für Verwaltungs-Kunden",
+    description:
+      `Datenschutzhinweise für Hausverwaltungen und Vermieter, die ${productName()} ` +
+      `als Software nutzen – mit den beiden Rollen des Anbieters.`,
+  };
+}
 
 export default function SaasDatenschutzPage() {
   return (
@@ -9,13 +20,15 @@ export default function SaasDatenschutzPage() {
       draft
       intro={
         <p>
-          Diese Erklärung betrifft die Nutzung der Software durch Hausverwaltungen und
-          Vermieter (Kunden). Sie ergänzt die{" "}
+          Diese Erklärung betrifft die Verwaltungs-Kunden des Portals: Hausverwaltungen
+          und Vermieter, die die Software als SaaS (Software as a Service) nutzen. Sie
+          ergänzt die{" "}
           <a href="/datenschutz" className="text-brand-green hover:underline">
             allgemeine Datenschutzerklärung
           </a>{" "}
           (für Bewohner des Portals) und unterscheidet die beiden datenschutzrechtlichen
           Rollen des Anbieters.
+          <span className="mt-2 block text-gray-500">Stand: 13. August 2026</span>
         </p>
       }
     >
@@ -54,8 +67,20 @@ export default function SaasDatenschutzPage() {
           Zum Betrieb der Plattform setzen wir ein: Vercel (Hosting/Anwendungsbetrieb und
           Datei-Speicher „Blob“), Neon (Datenbank, EU-Region), Google (Gmail / Google
           Workspace) für den E-Mail-Versand sowie Stripe für die Zahlungsabwicklung
-          kostenpflichtiger Tarife. Es werden jeweils nur die erforderlichen Daten
-          übermittelt; mit den Dienstleistern bestehen Verträge zur Auftragsverarbeitung.
+          kostenpflichtiger Tarife. Hinzu kommen Dienste, die erst nach ausdrücklicher
+          Freischaltung durch den Kunden anlaufen: Google (Gemini API) für die vier
+          optionalen KI-Funktionen — Assistent, Vorqualifizierung eingehender Meldungen,
+          Objekt-Import aus PDF und Kostenart-Vorschlag beim Bankimport —, Google Drive
+          für den optionalen Dokumenten-Import
+          sowie die geräteabhängigen Push-Dienste von Google, Apple bzw. Mozilla für
+          Benachrichtigungen. Es werden jeweils nur die erforderlichen Daten übermittelt;
+          mit den Dienstleistern bestehen Verträge zur Auftragsverarbeitung.
+        </p>
+        <p className="text-gray-500">
+          Ausgenommen ist Stripe, soweit das Unternehmen Zahlungsdaten aufgrund eigener
+          gesetzlicher Pflichten verarbeitet (Zahlungsdiensteaufsicht,
+          Geldwäscheprävention, Betrugsabwehr): insoweit ist Stripe eigener
+          Verantwortlicher, nicht unser Auftragsverarbeiter.
         </p>
       </LegalSection>
 

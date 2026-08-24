@@ -12,6 +12,7 @@ import { type PersonTreffer, searchPersons } from "@/lib/person-search";
 import { requireVerwalter } from "@/lib/session";
 import { parseEuroToCents } from "@/lib/money";
 import { DOCUMENT_TYPES, IMAGE_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
+import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 import { inviteOrLetter } from "@/lib/user-invite";
 import { parseAnteil } from "@/lib/weg/anteil";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
@@ -86,6 +87,7 @@ export async function updateObjekt(formData: FormData) {
   // `titleImage` in den Update-Daten nur setzen, wenn sich etwas ändert.
   let titleImageUpdate: { titleImageStoredName: string | null } | Record<string, never> = {};
   let blobToDelete: string | null = null;
+  let bildFehler: string | null = null;
   const titleImageFile = formData.get("titleImage");
   const removeTitleImage = String(formData.get("removeTitleImage") ?? "") === "1";
   if (titleImageFile instanceof File && titleImageFile.size > 0) {
@@ -93,8 +95,13 @@ export async function updateObjekt(formData: FormData) {
       const stored = (await saveUpload(titleImageFile, IMAGE_TYPES)).storedName;
       titleImageUpdate = { titleImageStoredName: stored };
       blobToDelete = existing.titleImageStoredName; // altes ersetzt
-    } catch {
-      // Bild-Fehler blockiert die Stammdaten-Änderung nicht.
+    } catch (err) {
+      // Bild-Fehler blockiert die Stammdaten-Änderung nicht — er verschwindet
+      // aber auch nicht mehr. Vorher meldete die Seite „gespeichert", und das
+      // Bild fehlte ohne ein Wort dazu; man versuchte es ein zweites und
+      // drittes Mal, weil nichts auf die Ursache hinwies.
+      console.error("Ablage des Titelbilds fehlgeschlagen", err);
+      bildFehler = ablageFehlerText(err);
     }
   } else if (removeTitleImage) {
     titleImageUpdate = { titleImageStoredName: null };
@@ -123,7 +130,11 @@ export async function updateObjekt(formData: FormData) {
   if (blobToDelete) await deleteBlob(blobToDelete);
 
   revalidatePath("/verwaltung/objekte");
-  redirect("/verwaltung/objekte?gespeichert=1");
+  redirect(
+    bildFehler
+      ? `/verwaltung/objekte?gespeichert=1&ablage=fehler&grund=${encodeURIComponent(bildFehler)}`
+      : "/verwaltung/objekte?gespeichert=1",
+  );
 }
 
 // ── Einheiten-Verwaltung (aus dem Objekt heraus) ────────────────────────────
@@ -581,6 +592,7 @@ export async function updateTenancy(formData: FormData) {
     | { contractStoredName: string | null; contractFileName: string | null; contractMimeType: string | null }
     | Record<string, never> = {};
   let blobToDelete: string | null = null;
+  let vertragFehler: string | null = null;
   const file = formData.get("contract");
   const removeContract = String(formData.get("removeContract") ?? "") === "1";
   if (file instanceof File && file.size > 0) {
@@ -592,8 +604,12 @@ export async function updateTenancy(formData: FormData) {
         contractMimeType: up.mimeType,
       };
       blobToDelete = tenancy.contractStoredName;
-    } catch {
-      // Datei-Fehler blockiert die übrigen Vertragsdaten nicht.
+    } catch (err) {
+      // Datei-Fehler blockiert die übrigen Vertragsdaten nicht — der Grund
+      // geht aber mit zurück. Ein Mietvertrag, der still nicht ankommt, fällt
+      // erst auf, wenn man ihn braucht.
+      console.error("Ablage eines Mietvertrags fehlgeschlagen", err);
+      vertragFehler = ablageFehlerText(err);
     }
   } else if (removeContract) {
     contractUpdate = { contractStoredName: null, contractFileName: null, contractMimeType: null };
@@ -614,7 +630,14 @@ export async function updateTenancy(formData: FormData) {
   });
   if (blobToDelete) await deleteBlob(blobToDelete);
   revalidatePath(backTo(propertyId, "").split("?")[0]);
-  redirect(backTo(propertyId, "person=gespeichert"));
+  redirect(
+    backTo(
+      propertyId,
+      vertragFehler
+        ? `person=gespeichert&ablage=fehler&grund=${encodeURIComponent(vertragFehler)}`
+        : "person=gespeichert",
+    ),
+  );
 }
 
 export async function removePropertyOwner(formData: FormData) {

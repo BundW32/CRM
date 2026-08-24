@@ -16,6 +16,7 @@ import type { Metadata } from "next";
 import { BRAND_EMAIL } from "@/components/marketing/brand";
 import { CtaBand, MarketingFooter, MarketingHeader } from "@/components/marketing/site";
 import { Reveal } from "@/components/marketing/reveal";
+import { registrierenLink } from "@/lib/aktion-server";
 import { assertMainDomain } from "@/lib/marketing";
 import { TarifBereich } from "./tarif-bereich";
 import {
@@ -30,12 +31,10 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Preise – WEG-Selbstverwaltung je Einheit, alle Zugänge inklusive | wegportal24",
+  title: "Preise je Einheit – alle Zugänge inklusive",
   description:
     "Kostenlos starten, dann je Einheit und Monat: Basic 10 €, Verwalter-Plus " +
-    "13,90 € mit Ticket-System zu einem zertifizierten Verwalter (§ 26a WEG). " +
-    "Endpreise inkl. MwSt., alle Zugänge inklusive, Mengenrabatt ab 5 Einheiten, " +
-    "keine Mindestlaufzeit.",
+    "13,90 € mit zertifiziertem Verwalter. Endpreise inkl. MwSt., ohne Mindestlaufzeit.",
 };
 
 // Rechenbeispiele je WEG-Größe: eine kleine, eine mittlere und eine große
@@ -145,8 +144,8 @@ export default async function PreisePage() {
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-wp-ink/75 sm:text-lg">
             Kostenlos starten, ohne Zahlungsdaten. Danach zahlt Ihre
-            Gemeinschaft je Einheit und Monat – und je mehr Einheiten es sind,
-            desto günstiger wird die einzelne.{" "}
+            Gemeinschaft für die WEG-Software je Einheit und Monat – und je
+            mehr Einheiten es sind, desto günstiger wird die einzelne.{" "}
             <strong className="font-semibold text-wp-ink">
               Alle Preise sind Endpreise inklusive Mehrwertsteuer
             </strong>{" "}
@@ -157,7 +156,7 @@ export default async function PreisePage() {
         {/* ── Regler und Tarife: eine Einheit, drei Stufen ── */}
         <div className="mt-10">
           <Reveal>
-            <TarifBereich />
+            <TarifBereich registrierenHref={await registrierenLink()} />
           </Reveal>
         </div>
 

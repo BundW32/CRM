@@ -5,9 +5,26 @@ import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { AccountTypeFields } from "./account-type-fields";
 import { registerOrganization } from "./actions";
 import { isWegSaas, registrationEnabled } from "@/lib/app-mode";
+import { AKTIONS_CODE, istAktionsCode, normalisiereAktionsCode } from "@/lib/aktion";
+import { aktuellerAktionsStand } from "@/lib/aktion-server";
+import { AktionsHinweis } from "@/components/marketing/aktion";
 import { Wordmark } from "@/components/marketing/wordmark";
+import { NICHT_INDEXIEREN } from "@/lib/seo";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+// Nicht im Index: Die Seite ist ein Formular mit 89 Wörtern Text. Wer nach
+// „WEG selbst verwalten" sucht, soll auf der Startseite oder auf
+// /so-funktionierts landen — dort steht die Antwort. Der Weg von dort in die
+// Registrierung ist einen Klick lang und steht auf jeder Marken-Seite.
+export const metadata: Metadata = {
+  title: "WEG kostenlos anlegen und selbst verwalten",
+  description:
+    "Legen Sie Ihre Eigentümergemeinschaft in wenigen Minuten an: kostenlos " +
+    "starten, keine Zahlungsdaten, sofort mit der Selbstverwaltung beginnen.",
+  robots: NICHT_INDEXIEREN,
+};
 
 const errorMessages: Record<string, string> = {
   eingabe: "Bitte alle Felder ausfüllen (Passwort mind. 10 Zeichen).",
@@ -19,13 +36,19 @@ const errorMessages: Record<string, string> = {
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; ref?: string }>;
+  searchParams: Promise<{ fehler?: string; ref?: string; code?: string }>;
 }) {
   // Self-Service-Registrierung gibt es nur in der WEG-SaaS-Variante (APP_MODE=weg).
   // Im B&W-Modus (verwaltung) ist die Seite gesperrt → zurück zum Login.
   if (!registrationEnabled()) redirect("/login");
 
-  const { fehler, ref } = await searchParams;
+  const { fehler, ref, code } = await searchParams;
+  // Willkommensaktion: Der Code kommt aus dem Werbelink (`?code=`), aus dem
+  // Herkunfts-Link (`?ref=portal24`) — oder er wird unten von Hand eingetippt.
+  // Normalisiert, damit „Portal24-" aus einer Weitererzählung im Feld richtig
+  // dasteht; die Gültigkeit prüft ohnehin allein der Server.
+  const aktion = await aktuellerAktionsStand();
+  const codeAusLink = normalisiereAktionsCode(code) || (istAktionsCode(ref) ? AKTIONS_CODE : "");
 
   return (
     // Die Seite gibt es nur in der SaaS-Variante (siehe Wächter oben), sie
@@ -40,13 +63,27 @@ export default async function RegisterPage({
           <p className="mb-1 text-sm font-medium text-gray-400">Kostenlos registrieren</p>
           <h1 className="mb-2 text-2xl font-bold text-brand-green">Das Portal für Ihre selbstverwaltete WEG</h1>
           <p className="mb-6 text-sm text-gray-600">
-            Legen Sie kostenlos das Portal Ihrer Eigentümergemeinschaft an –
+            Hier können Sie Ihre WEG kostenlos anlegen – ohne Zahlungsdaten.
             Einheiten, Konten und Miteigentümer richten Sie im Anschluss ein.
           </p>
 
           {fehler ? (
             <Alert variant="error" className="mb-4">
               {errorMessages[fehler] ?? "Die Registrierung konnte nicht verarbeitet werden."}
+            </Alert>
+          ) : null}
+
+          {/* Willkommensaktion: Wer über die Werbung hierher kommt, muss sie
+              vor dem Absenden wiederfinden — sonst wirkt die Startseite wie
+              ein anderes Angebot als die Registrierung. */}
+          <AktionsHinweis className="mb-5" />
+          {/* Kam ein Code an, die Aktion ist aber vorbei: sagen, was gilt.
+              Stumm auf die reguläre Testphase zu schalten wäre die Variante,
+              bei der sich jemand hinterher getäuscht fühlt. */}
+          {!aktion && codeAusLink ? (
+            <Alert variant="info" className="mb-5">
+              Die Willkommensaktion ist beendet. Sie können sich weiter
+              kostenlos registrieren – es gilt die reguläre Testphase.
             </Alert>
           ) : null}
 
@@ -91,6 +128,28 @@ export default async function RegisterPage({
                 className={inputClass}
               />
             </Field>
+            {/* Das Feld gibt es nur, solange die Aktion läuft — ein Code-Feld
+                ohne Aktion nimmt eine Eingabe an und wirft sie weg. Aus dem
+                Werbelink ist es vorausgefüllt; ohne Code bleibt es leer und
+                die Registrierung läuft wie immer. */}
+            {aktion ? (
+              <Field label="Aktionscode (optional)">
+                <input
+                  type="text"
+                  name="aktionscode"
+                  defaultValue={codeAusLink}
+                  placeholder={aktion.code}
+                  maxLength={40}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className={`${inputClass} uppercase placeholder:normal-case placeholder:text-gray-400`}
+                />
+                <span className="mt-1 block text-xs font-normal text-gray-500">
+                  Mit Code {aktion.code} sind die ersten {aktion.gratisMonate} Monate
+                  gratis – gültig bis {aktion.endeText}.
+                </span>
+              </Field>
+            ) : null}
             <label className="flex items-start gap-2 text-xs text-gray-600">
               <input
                 type="checkbox"
@@ -132,6 +191,16 @@ export default async function RegisterPage({
             <Link href="/login" className="text-brand-green hover:underline">
               Zur Anmeldung
             </Link>
+          </p>
+          <p className="mt-4 text-xs leading-relaxed text-gray-500">
+            Nach dem Klick geht es direkt ins Portal: Sie benennen Ihre
+            Gemeinschaft, übernehmen die Einheiten aus der Teilungserklärung
+            und laden Miteigentümer ein, wann immer Sie so weit sind. Wie der
+            Weg im Einzelnen aussieht, zeigt{" "}
+            <Link href="/so-funktionierts" className="text-brand-green hover:underline">
+              „So funktioniert’s“
+            </Link>
+            .
           </p>
           <p className="mt-4 text-xs text-gray-400">
             Mit der Registrierung stimmen Sie der{" "}

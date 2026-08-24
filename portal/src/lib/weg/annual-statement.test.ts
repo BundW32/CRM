@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   RESERVE_ROW_ID,
   RESERVE_WITHDRAWAL_ROW_ID,
+  baueRuecklagenEntwicklung,
   computeLaborShares,
   computePeakAmounts,
   computeStatement,
   splitByOwnership,
+  type RuecklagenKontoBewegung,
   type StatementInput,
 } from "./annual-statement";
 import type { UnitForDistribution } from "./distribution";
+import { monthlyInstallmentPlan } from "./economic-plan";
 
 // Testfall aus dem Build-Auftrag: 6 Einheiten, gemischte Schlüssel
 const units: UnitForDistribution[] = [
@@ -197,6 +200,25 @@ describe("computePeakAmounts (Abrechnungsspitze)", () => {
     );
     expect(peak.get("we1")).toBe(10_000); // Nachschuss
     expect(peak.get("we2")).toBe(-20_000); // Guthaben
+  });
+
+  it("die Überdeckung der gerundeten Monatsrate kommt als Guthaben zurück", () => {
+    // Der stille Fehler, den diese Prüfung ausschließt: gegen den *geplanten*
+    // Jahresvorschuss zu rechnen statt gegen das gestellte Soll. Bei
+    // aufgerundeten Raten sind das zwei verschiedene Zahlen — die Überdeckung
+    // verschwände dann spurlos, und der Eigentümer bekäme sein Guthaben nie.
+    //
+    // `duePerUnit` kommt in `computeStatementView` aus den DuePosting-Zeilen
+    // des Jahres, also aus dem, was tatsächlich gestellt wurde. Genau das wird
+    // hier nachgestellt: Plan 3.000,36 €, gestellt 12 × 250,10 € = 3.001,20 €.
+    const raten = monthlyInstallmentPlan(300_036, "ZEHN_CENT");
+    const kostenanteil = 300_036; // Kosten treffen den Plan punktgenau
+    const peak = computePeakAmounts(
+      new Map([["we1", kostenanteil]]),
+      new Map([["we1", raten.billedCents]]),
+    );
+    expect(peak.get("we1")).toBe(-raten.overpayCents);
+    expect(peak.get("we1")).toBe(-84);
   });
 });
 
@@ -440,5 +462,161 @@ describe("Ist-Einnahmen mit Ertrags-Kostenart", () => {
         expect(Object.is(cents, -0)).toBe(false);
       }
     }
+  });
+});
+
+// ── Befunde: dieselbe Feststellung, nur mit Weg zur Buchung ─────────────────
+//
+// `errors`/`warnings` bleiben, weil sie in den Snapshots fertiger Abrechnungen
+// stecken und `finalizeStatement` sie liest. Sie werden aber aus `befunde`
+// abgeleitet — zwei parallel gepflegte Listen mit demselben Wortlaut laufen
+// auseinander, sobald eine Meldung umformuliert wird.
+
+describe("Befunde (Prüfliste)", () => {
+  it("führt jeden Fehler doppelt: als Text in errors UND als Befund mit Ziel", () => {
+    const r = computeStatement(baseInput({ otherExpenseCents: 124_000, otherExpenseCount: 3 }));
+    const befund = r.befunde.find((b) => b.art === "ohne-kostenart");
+    expect(befund?.blockierend).toBe(true);
+    // Der Wortlaut ist derselbe — sonst stünde in der Prüfliste etwas anderes
+    // als in der Meldung, die das Fertigstellen verhindert.
+    expect(r.errors).toContain(befund!.text);
+  });
+
+  it("nennt bei „Ausgaben ohne Kostenart\" die Anzahl und führt zu den Buchungen", () => {
+    // Vorher stand hier eine Summe und sonst nichts — der Verwalter durfte
+    // suchen, welche Buchungen gemeint sind.
+    const r = computeStatement(baseInput({ otherExpenseCents: 124_000, otherExpenseCount: 3 }));
+    const befund = r.befunde.find((b) => b.art === "ohne-kostenart")!;
+    // `formatCents` setzt ein geschütztes Leerzeichen vor das €-Zeichen.
+    expect(befund.text).toContain("1.240,00");
+    expect(befund.text).toContain("3 Buchungen");
+    expect(befund.ziel).toEqual({
+      art: "buchhaltung",
+      filter: { zuordnung: "offen", art: "AUSGABE" },
+      label: "Die betroffenen Buchungen zuordnen",
+    });
+  });
+
+  it("nennt die Anzahl im Singular, wenn es eine Buchung ist", () => {
+    const r = computeStatement(baseInput({ otherExpenseCents: 5_000, otherExpenseCount: 1 }));
+    expect(r.befunde.find((b) => b.art === "ohne-kostenart")!.text).toContain("Betroffen ist 1 Buchung.");
+  });
+
+  it("unterscheidet fehlende Eingabe von fehlenden Stammdaten", () => {
+    // Beides blockiert — aber der nächste Handgriff liegt woanders, und genau
+    // das ist die Frage des Verwalters: vermisst das Programm eine Eingabe,
+    // oder gibt der Bestand etwas nicht her?
+    const eingabe = computeStatement(baseInput({ manualAmounts: new Map() }));
+    const heizung = eingabe.befunde.find((b) => b.text.startsWith("Heizung"))!;
+    expect(heizung.art).toBe("verteilung");
+    expect(heizung.ziel).toEqual({
+      art: "abschnitt",
+      anker: "verteilung-heizung",
+      label: "Beträge je Einheit erfassen",
+    });
+
+    const stammdaten = computeStatement(
+      baseInput({
+        units: [...units, { id: "we7", label: "WE 07", mea: 100, livingArea: null, personCount: 1, unitType: "WOHNUNG" as const }],
+        expenseByCostType: new Map([["aufzug", 90_000]]),
+        manualAmounts: new Map(),
+      }),
+    );
+    const aufzug = stammdaten.befunde.find((b) => b.text.startsWith("Aufzug"))!;
+    expect(aufzug.art).toBe("stammdaten");
+    expect(aufzug.ziel).toEqual({
+      art: "stammdaten",
+      anker: "einheiten",
+      label: "Stammdaten der Einheiten öffnen",
+    });
+  });
+
+  it("führt Hinweise als nicht blockierende Befunde und spiegelt sie in warnings", () => {
+    const r = computeStatement(
+      baseInput({ reserveTransferCents: 0, plannedReserveCents: 600_000 }),
+    );
+    const befund = r.befunde.find((b) => b.art === "zufuehrung-plan")!;
+    expect(befund.blockierend).toBe(false);
+    expect(r.warnings).toEqual([befund.text]);
+    expect(r.errors).toEqual([]);
+  });
+
+  it("meldet die leere Abrechnung als Befund, aber weder als Fehler noch als Hinweis", () => {
+    // Ein Jahr ohne Buchungen ist eine Feststellung, kein Mangel: Es zu
+    // blockieren machte einen fachlich möglichen Fall unmöglich. In der
+    // Prüfliste soll es trotzdem stehen, statt in einem eigenen Kasten.
+    const r = computeStatement(
+      baseInput({ expenseByCostType: new Map(), manualAmounts: new Map() }),
+    );
+    expect(r.befunde.map((b) => b.art)).toContain("leer");
+    expect(r.errors).toEqual([]);
+    expect(r.warnings).toEqual([]);
+  });
+
+  it("bleibt bei einer sauberen Abrechnung ohne Befund", () => {
+    expect(computeStatement(baseInput()).befunde).toEqual([]);
+  });
+});
+
+// ── Entwicklung der Erhaltungsrücklage ──────────────────────────────────────
+
+describe("baueRuecklagenEntwicklung", () => {
+  const konto = (over: Partial<RuecklagenKontoBewegung> = {}): RuecklagenKontoBewegung => ({
+    name: "Rücklage",
+    startCents: 4_000_000,
+    zinsenCents: 12_500,
+    ausgabeCents: 800_000,
+    zufuehrungCents: 600_000,
+    rueckbuchungCents: 0,
+    endCents: 4_000_000 + 12_500 - 800_000 + 600_000,
+    ...over,
+  });
+
+  it("rechnet Anfangsbestand + Zuführung + Zinsen − Entnahmen = Endbestand", () => {
+    const e = baueRuecklagenEntwicklung([konto()]);
+    expect(e.anfangsbestandCents).toBe(4_000_000);
+    expect(e.zufuehrungCents).toBe(600_000);
+    expect(e.zinsenCents).toBe(12_500);
+    expect(e.entnahmeCents).toBe(800_000);
+    expect(e.endbestandCents).toBe(3_812_500);
+    expect(e.gehtAuf).toBe(true);
+  });
+
+  it("zählt die Rückbuchung aufs laufende Konto zu den Entnahmen", () => {
+    // Sonst zeigte die Zeile „Entnahmen" nur die direkt bezahlten Rechnungen,
+    // und die Kette ginge um den zurückgebuchten Betrag daneben.
+    const e = baueRuecklagenEntwicklung([
+      konto({ rueckbuchungCents: 150_000, endCents: 3_812_500 - 150_000 }),
+    ]);
+    expect(e.ausgabeCents).toBe(800_000);
+    expect(e.rueckbuchungCents).toBe(150_000);
+    expect(e.entnahmeCents).toBe(950_000);
+    expect(e.gehtAuf).toBe(true);
+  });
+
+  it("zieht mehrere Rücklagenkonten zusammen und nennt sie einzeln", () => {
+    const e = baueRuecklagenEntwicklung([
+      konto({ name: "Rücklage Sparbuch" }),
+      konto({
+        name: "Rücklage Tagesgeld",
+        startCents: 1_000_000,
+        zinsenCents: 0,
+        ausgabeCents: 0,
+        zufuehrungCents: 0,
+        endCents: 1_000_000,
+      }),
+    ]);
+    expect(e.anfangsbestandCents).toBe(5_000_000);
+    expect(e.endbestandCents).toBe(4_812_500);
+    expect(e.konten.map((k) => k.name)).toEqual(["Rücklage Sparbuch", "Rücklage Tagesgeld"]);
+    expect(e.gehtAuf).toBe(true);
+  });
+
+  it("meldet eine Kette, die nicht aufgeht — statt sie glattzurechnen", () => {
+    // Beide Seiten stammen aus denselben Buchungen; geht es nicht auf, ist die
+    // Rechnung kaputt. Eine Erklärung, die selbst nicht stimmt, ist schlimmer
+    // als keine.
+    const e = baueRuecklagenEntwicklung([konto({ endCents: 4_000_000 })]);
+    expect(e.gehtAuf).toBe(false);
   });
 });

@@ -81,6 +81,32 @@ Mahnseite im Stripe-Dashboard:
 - [ ] Wöchentlich in der ersten Zeit: Alarm-Postfach, Uptime-Historie,
   Stripe-Dashboard (fehlgeschlagene Zahlungen), `/plattform`-Übersicht.
 
+## 6. Willkommensaktion steuern (5 Minuten, jederzeit)
+
+Die Startseite, die Preisseite und die Registrierung tragen ein befristetes
+Willkommensangebot: **die ersten 3 Monate mit vollem Funktionsumfang gratis,
+Code `PORTAL24`**, für die ersten Gemeinschaften. Technisch ist es eine
+verlängerte Testphase (90 statt 30 Tage) — **keine Stripe-Kopplung, keine
+Zahlungsdaten, keine automatische Verlängerung**. Läuft sie ab, gilt der
+Start-Umfang, bis die Gemeinschaft selbst einen Tarif bucht.
+
+- [ ] Zeitraum und Platzzahl in Vercel setzen (nur im wegportal24-Projekt):
+  `AKTION_ENDE` (ISO-Datum, letzter Aktionstag) und `AKTION_PLAETZE`. Ohne
+  gesetzte Variablen gelten die Vorgaben aus `portal/src/lib/aktion.ts`
+  (Stand: 30.09.2026, 50 Plätze) — dort stehen auch Code und Gratis-Monate.
+- [ ] **Aktion vorzeitig beenden:** `AKTION_ENDE` auf ein vergangenes Datum
+  setzen. Banner, Angebots-Blöcke und das Code-Feld verschwinden damit auf
+  allen Seiten zugleich, und die Registrierung gewährt wieder 30 Tage. Ein
+  Code-Aufruf, der zu spät kommt, wird auf der Registrierungsseite offen
+  benannt („Aktion ist beendet") statt still ignoriert.
+- [ ] **Verbrauchte Plätze prüfen:** `/plattform/organisationen` → Spalte
+  „Herkunft"; gezählt werden die Einträge `portal24`. Nach außen zeigt der
+  Banner diesen Stand **nicht** — die Seiten nennen nur die Grenze („nur 50
+  Plätze"), und beim letzten Platz verschwindet die Aktion von selbst.
+- [ ] Beim Verlängern beachten: Ein späteres `AKTION_ENDE` verlängert die
+  Testphase **bereits registrierter** Gemeinschaften nicht — jede hat ihre 90
+  Tage beim Anlegen erhalten. Das ist Absicht (sonst wäre die Frist beweglich).
+
 ## Bewusst offen (Entscheidung des Betreibers, eigener Bericht)
 
 Aus `SICHERHEIT-Restarbeiten.md`, dort als „vor Marktstart" (P1) eingestuft,

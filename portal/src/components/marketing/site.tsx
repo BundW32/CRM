@@ -13,6 +13,8 @@ import {
   wpButtonOnPhotoClass,
 } from "./brand";
 import { CookieSettingsLink } from "@/components/analytics/cookie-settings-link";
+import { registrierenLink } from "@/lib/aktion-server";
+import { AktionsBanner } from "./aktion";
 import { MobileMenu } from "./mobile-menu";
 import { Wordmark } from "./wordmark";
 import { KenBurnsBackdrop } from "./photo-hero";
@@ -34,7 +36,7 @@ const navItems = [
   { href: "/preise", label: "Preise" },
 ] as const;
 
-export function MarketingHeader({ active }: { active?: string }) {
+export async function MarketingHeader({ active }: { active?: string }) {
   return (
     <>
       {/* Tastatur-Nutzer springen direkt zum Inhalt */}
@@ -44,8 +46,21 @@ export function MarketingHeader({ active }: { active?: string }) {
       >
         Zum Inhalt springen
       </a>
-      <header className="sticky top-0 z-40 border-b border-wp-ink/15 bg-[#faf8f4]/92 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
+      {/* Aktionsleiste UND Kopfzeile kleben gemeinsam in EINEM Rahmen.
+          Getrennte `sticky`-Elemente gingen nicht: Die Kopfzeile müsste dann
+          die Höhe der Leiste als `top` kennen, und die ist je Breite anders
+          beschriftet (auf schmalen Geräten kürzer) — ein fester Wert wäre auf
+          einer Breite immer falsch, und zwischen beiden entstünde eine Lücke,
+          durch die der Inhalt sichtbar durchscrollt.
+
+          Die Leiste hängt HIER und nicht in den Seiten: So trägt sie jede
+          Marken-Seite, keine kann sie vergessen, und sie endet überall zur
+          selben Sekunde. Ohne laufende Aktion rendert sie nichts — dann klebt
+          die Kopfzeile allein, genau wie vorher. */}
+      <div className="sticky top-0 z-40">
+        <AktionsBanner />
+        <header className="border-b border-wp-ink/15 bg-[#faf8f4]/92 backdrop-blur-md">
+          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
           <Link href="/" className="shrink-0" aria-label={`${BRAND_NAME} – zur Startseite`}>
             <Wordmark className="text-lg sm:text-xl" />
           </Link>
@@ -81,14 +96,15 @@ export function MarketingHeader({ active }: { active?: string }) {
             >
               Anmelden
             </Link>
-            <Link href="/registrieren" className={`${wpButtonClass} min-h-11`}>
+            <Link href={await registrierenLink()} className={`${wpButtonClass} min-h-11`}>
               <span className="sm:hidden">Starten</span>
               <span className="hidden sm:inline">Registrieren</span>
             </Link>
-            <MobileMenu items={navItems} />
+            <MobileMenu items={navItems} registrierenHref={await registrierenLink()} />
           </div>
-        </div>
-      </header>
+          </div>
+        </header>
+      </div>
     </>
   );
 }
@@ -101,6 +117,8 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
       { href: "/funktionen/hausgeld", label: "Hausgeld & Rückstände" },
       { href: "/funktionen/versammlung", label: "Versammlung & Abstimmung" },
       { href: "/funktionen/kommunikation", label: "Kommunikation & Alltag" },
+      { href: "/funktionen/sondereigentum", label: "Sondereigentum & Mieter" },
+      { href: "/funktionen/ki-berater", label: "KI-Berater" },
     ],
   },
   {
@@ -108,6 +126,7 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
     links: [
       { href: "/so-funktionierts", label: "Der Weg zur Selbstverwaltung" },
       { href: "/preise", label: "Preise und Tarife" },
+      { href: "/kontakt", label: "Fragen & Anregungen" },
       { href: "/registrieren", label: "Kostenlos registrieren" },
       { href: "/login", label: "Zum Login" },
     ],
@@ -132,7 +151,10 @@ const footerColumns: { title: string; links: { href: string; label: string }[] }
   },
 ];
 
-export function MarketingFooter() {
+export async function MarketingFooter() {
+  // Auch der Fußzeilen-Link zur Registrierung nimmt den Aktionscode mit —
+  // sonst wäre er der eine Weg ins Formular, der das Angebot verliert.
+  const registrieren = await registrierenLink();
   return (
     <footer className="mt-4 bg-wp-ink">
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.3fr_1fr_1fr_1fr]">
@@ -162,7 +184,7 @@ export function MarketingFooter() {
               {col.links.map((link) => (
                 <li key={link.href}>
                   <Link
-                    href={link.href}
+                    href={link.href === "/registrieren" ? registrieren : link.href}
                     className="text-sm text-white/80 transition-colors hover:text-white"
                   >
                     {link.label}
@@ -193,7 +215,7 @@ export function MarketingFooter() {
 // der Text liegt AUF dem Bild über einem dunkelgrünen Verlauf. Rechts unten
 // schwebt eine weiße Kennzahl-Karte als Brücke zum Produkt, unten deutet
 // ein Pfeil zum Weiterscrollen.
-export function MarketingHero({
+export async function MarketingHero({
   eyebrow,
   title,
   intro,
@@ -210,6 +232,8 @@ export function MarketingHero({
   // Ausblenden, wenn die Seite selbst /so-funktionierts ist
   showSecondaryCta?: boolean;
 }) {
+  // Läuft die Willkommensaktion, nimmt der Knopf den Code mit.
+  const registrieren = await registrierenLink();
   return (
     <section id="inhalt" className="relative flex min-h-[78vh] items-center overflow-hidden">
       <KenBurnsBackdrop src={image.src} alt={image.alt} preload />
@@ -229,7 +253,7 @@ export function MarketingHero({
             {intro}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/registrieren" className={`${wpButtonClass} px-5 py-2.5`}>
+            <Link href={registrieren} className={`${wpButtonClass} px-5 py-2.5`}>
               Kostenlos starten
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -391,13 +415,15 @@ export function StatsBand() {
 }
 
 // Abschluss-Band mit Registrierungs-CTA – auf jeder Marketing-Seite gleich.
-export function CtaBand({
+export async function CtaBand({
   title,
   text,
 }: {
   title: string;
   text: string;
 }) {
+  // Läuft die Willkommensaktion, nimmt auch dieser Knopf den Code mit.
+  const registrieren = await registrierenLink();
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
       <Reveal>
@@ -409,19 +435,22 @@ export function CtaBand({
             <h2 className="text-balance text-2xl font-bold text-white sm:text-3xl">{title}</h2>
             <p className="mx-auto mt-3 max-w-xl text-balance text-white/80">{text}</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link href="/registrieren" className={`${wpButtonClass} px-6 py-3 text-base`}>
+              <Link href={registrieren} className={`${wpButtonClass} px-6 py-3 text-base`}>
                 Jetzt kostenlos starten
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
+            {/* In den Kontakt-Funnel statt in ein mailto: Der Funnel fragt das
+                Anliegen ab und bestätigt den Eingang — ein mailto-Link öffnet
+                auf Geräten ohne eingerichtetes Mail-Programm schlicht nichts. */}
             <p className="mt-6 text-sm text-white/60">
               Fragen vorab?{" "}
-              <a
-                href={`mailto:${BRAND_EMAIL}`}
+              <Link
+                href="/kontakt"
                 className="font-medium text-wp-accent-bright hover:underline"
               >
                 Schreiben Sie uns
-              </a>
+              </Link>
             </p>
           </div>
         </div>

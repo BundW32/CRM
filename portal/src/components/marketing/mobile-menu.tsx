@@ -19,8 +19,11 @@ import { Wordmark } from "./wordmark";
 
 export function MobileMenu({
   items,
+  registrierenHref = "/registrieren",
 }: {
   items: readonly { href: string; label: string }[];
+  /** Ziel des Starten-Knopfs – mit Aktionscode, solange die Aktion läuft. */
+  registrierenHref?: string;
 }) {
   const [offen, setOffen] = useState(false);
   const pfad = usePathname();
@@ -101,7 +104,7 @@ export function MobileMenu({
             style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
           >
             <Link
-              href="/registrieren"
+              href={registrierenHref}
               onClick={() => setOffen(false)}
               className={`${wpButtonClass} w-full py-3 text-base`}
             >

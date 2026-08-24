@@ -24,7 +24,14 @@ const OEFFENTLICHE_SEITEN: Eintrag[] = [
   { pfad: "/funktionen/hausgeld", prioritaet: 0.8, frequenz: "monthly" },
   { pfad: "/funktionen/versammlung", prioritaet: 0.8, frequenz: "monthly" },
   { pfad: "/funktionen/kommunikation", prioritaet: 0.8, frequenz: "monthly" },
-  { pfad: "/registrieren", prioritaet: 0.7, frequenz: "yearly" },
+  { pfad: "/funktionen/sondereigentum", prioritaet: 0.8, frequenz: "monthly" },
+  { pfad: "/funktionen/ki-berater", prioritaet: 0.8, frequenz: "monthly" },
+  { pfad: "/kontakt", prioritaet: 0.5, frequenz: "yearly" },
+  // /registrieren steht bewusst NICHT hier: Die Seite trägt seit dem
+  // 12.08.2026 ein `noindex` (Formular mit 89 Wörtern Text). Eine Sitemap, die
+  // eine nicht indexierbare Adresse meldet, widerspricht sich selbst — die
+  // Search Console meldet das als „Von der Sitemap gemeldete Seite ist
+  // ausgeschlossen".
   { pfad: "/impressum", prioritaet: 0.3, frequenz: "yearly" },
   { pfad: "/datenschutz", prioritaet: 0.3, frequenz: "yearly" },
   { pfad: "/agb", prioritaet: 0.3, frequenz: "yearly" },

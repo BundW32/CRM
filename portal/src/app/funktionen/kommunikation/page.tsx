@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Wrench } from "lucide-react";
 import {
   CtaBand,
@@ -18,11 +19,10 @@ import { assertMainDomain } from "@/lib/marketing";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Schäden, Dokumente & Kommunikation in der WEG",
+  title: "Schäden, Dokumente & Aushänge in der WEG",
   description:
-    "Schäden mit Fotos melden und bis zur Erledigung verfolgen, Dokumente und " +
-    "Aushänge zentral teilen: So bleibt in der selbstverwalteten WEG jeder " +
-    "informiert – mit eigenem Zugang für Eigentümer, Beirat und Mieter.",
+    "Schäden mit Foto melden und bis zur Erledigung verfolgen, Dokumente und " +
+    "Aushänge zentral teilen – eigener Zugang für Eigentümer, Beirat und Mieter.",
 };
 
 export default async function KommunikationPage() {
@@ -144,7 +144,14 @@ export default async function KommunikationPage() {
           Bücher, der Beirat schaut drauf, Miteigentümer sehen ihre Zahlen und
           Dokumente selbst ein, statt danach fragen zu müssen. Wer vermietet,
           gibt seinen Mietern einen eigenen Zugang für Schadensmeldungen und
-          Aushänge.
+          Aushänge – mehr dazu auf der Seite{" "}
+          <Link
+            href="/funktionen/sondereigentum"
+            className="font-medium text-wp-accent-ink underline underline-offset-2"
+          >
+            Sondereigentum &amp; Mietermanagement
+          </Link>
+          .
         </p>
       </FeatureSection>
 
@@ -197,7 +204,15 @@ export default async function KommunikationPage() {
           Der Assistent beantwortet Fragen zur eigenen Gemeinschaft. Er greift
           dabei ausschließlich auf die Daten zu, für die Ihre Rolle freigegeben
           ist – ein Mieter erfährt über den Assistenten nichts, was er im Portal
-          nicht ohnehin sehen dürfte.
+          nicht ohnehin sehen dürfte. Was der{" "}
+          <Link
+            href="/funktionen/ki-berater"
+            className="font-medium text-wp-accent-ink underline underline-offset-2"
+          >
+            KI-Berater
+          </Link>{" "}
+          sonst noch kann – und wo er bewusst außen vor bleibt – steht auf
+          seiner eigenen Seite.
         </p>
       </FeatureSection>
 

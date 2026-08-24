@@ -23,6 +23,14 @@ export default function robots(): MetadataRoute.Robots {
         // Alles hinter der Anmeldung: für Suchmaschinen wertlos, teilweise
         // personenbezogen. Die Seiten sind ohnehin rechtegeprüft — der
         // Eintrag spart den Crawl-Etat für die öffentlichen Seiten.
+        //
+        // /login, /login/forgot und /registrieren stehen bewusst NICHT hier,
+        // obwohl sie ebenfalls nicht in den Index gehören: Sie tragen ein
+        // `noindex` im Kopf (siehe `lib/seo.ts`). Wer beides setzt, hebt es
+        // auf — eine per `Disallow` gesperrte Seite wird nicht abgerufen, und
+        // was nicht abgerufen wird, kann sein `noindex` nicht zeigen. Google
+        // nimmt solche Adressen dann ersatzweise ohne Beschreibung in den
+        // Index auf. Der `Disallow` ist das schwächere der beiden Mittel.
         disallow: [
           "/api/",
           "/dashboard",

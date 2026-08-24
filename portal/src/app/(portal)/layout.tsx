@@ -87,7 +87,7 @@ export default async function PortalLayout({
       g.items.map((i) => ({ title: i.title, href: i.href, group: g.label ?? "Bereiche" })),
     ),
     ...(canSeeSettings(navContext)
-      ? settingsItems(selfManaged).map((i) => ({
+      ? settingsItems(selfManaged, isPlatformAdmin).map((i) => ({
           title: i.title,
           href: i.href,
           group: "Einstellungen",

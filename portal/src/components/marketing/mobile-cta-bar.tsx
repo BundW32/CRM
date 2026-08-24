@@ -13,7 +13,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { wpButtonClass } from "./brand";
 
-export function MobileCtaBar() {
+// `href` kommt von der Seite (Server), damit die Leiste während der
+// Willkommensaktion den Aktionscode mitnimmt: `registrierenLink()` liest
+// `APP_MODE` und die Datenbank — beides gibt es in einer Client-Komponente
+// nicht, und ein hier fest verdrahtetes „/registrieren" wäre der eine Knopf
+// ohne Angebot.
+export function MobileCtaBar({ href = "/registrieren" }: { href?: string }) {
   const [sichtbar, setSichtbar] = useState(false);
 
   useEffect(() => {
@@ -61,7 +66,7 @@ export function MobileCtaBar() {
       style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
     >
       <Link
-        href="/registrieren"
+        href={href}
         tabIndex={sichtbar ? 0 : -1}
         className={`${wpButtonClass} w-full py-3 text-base`}
       >

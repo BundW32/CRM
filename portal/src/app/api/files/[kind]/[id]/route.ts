@@ -223,17 +223,25 @@ export async function GET(
       // Teilbereichs-Anfragen (z. B. Video-Streaming) deckt das SDK nicht ab –
       // dafür die private Blob-URL direkt mit Bearer-Token weiterleiten.
       if (rangeHeader) {
-        // Host prüfen, BEVOR das Zugriffs-Token mitgeschickt wird – sonst
-        // erhielte ein fremder Server das Lese- und Schreibrecht auf sämtliche
+        // Host prüfen, BEVOR irgendein Zugriffsmittel mitgeht – sonst erhielte
+        // ein fremder Server Lese- und Schreibrecht auf sämtliche
         // Kundendateien. Dieselbe Prüfung wie in storage.ts/readUpload.
         if (!isBlobUrl(file.storedName)) {
           return NextResponse.json({ error: "Datei nicht abrufbar" }, { status: 404 });
         }
-        const blobHeaders: Record<string, string> = { Range: rangeHeader };
-        const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-        if (blobToken) blobHeaders["Authorization"] = `Bearer ${blobToken}`;
-        const upstream = await fetch(file.storedName, { headers: blobHeaders });
-        if (!upstream.ok && upstream.status !== 206) {
+        // Teilbereichs-Anfragen (Video-Streaming, Springen im Zeitstrahl)
+        // laufen über `get()` mit durchgereichtem Range-Kopf. Zuvor stand hier
+        // ein eigener `fetch` mit `Authorization: Bearer
+        // BLOB_READ_WRITE_TOKEN` — der kennt nur eine der beiden Zugangsarten.
+        // Bei einem per OIDC verbundenen Store gibt es dieses Token nicht; der
+        // Abruf ging dann ohne Anmeldung an einen privaten Blob und lief in
+        // 401, also in „Datei nicht abrufbar". Das SDK wählt die Zugangsart
+        // selbst.
+        const upstream = await get(file.storedName, {
+          access: "private",
+          headers: { Range: rangeHeader },
+        });
+        if (!upstream?.stream) {
           return NextResponse.json({ error: "Datei nicht abrufbar" }, { status: 404 });
         }
         const responseHeaders: Record<string, string> = {
@@ -242,13 +250,17 @@ export async function GET(
           "Cache-Control": cacheControl,
           "Accept-Ranges": "bytes",
         };
-        const cr = upstream.headers.get("Content-Range");
-        const cl = upstream.headers.get("Content-Length");
+        const cr = upstream.headers.get("content-range");
+        const cl = upstream.headers.get("content-length");
         if (cr) responseHeaders["Content-Range"] = cr;
         if (cl) responseHeaders["Content-Length"] = cl;
 
-        return new NextResponse(upstream.body, {
-          status: upstream.status,
+        // `get()` meldet immer 200, auch wenn der Store mit 206 geantwortet
+        // hat. Maßgeblich ist deshalb der Content-Range-Kopf: Ohne ihn war es
+        // keine Teilantwort, und ein 206 ohne Content-Range würde jeden
+        // Videospieler aus dem Tritt bringen.
+        return new NextResponse(upstream.stream, {
+          status: cr ? 206 : 200,
           headers: responseHeaders,
         });
       }

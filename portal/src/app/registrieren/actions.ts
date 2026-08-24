@@ -204,5 +204,9 @@ export async function registerOrganization(formData: FormData) {
   await trackFunnelEvent("signup_done", { path: "/registrieren", meta: { orgId: org.id } });
 
   await createSession(user.id);
-  redirect("/onboarding");
+  // ?neu=1: Marker für die Conversion-Messung (signup_complete + Google-Ads-
+  // Conversion) auf der Zielseite — NUR hier am Erfolgs-Redirect, damit nie
+  // ein Fehlversuch als Conversion zählt. Der Client entfernt den Parameter
+  // sofort wieder aus der URL (interaction-tracking.tsx).
+  redirect("/onboarding?neu=1");
 }

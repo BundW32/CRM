@@ -50,6 +50,11 @@ export function MobileCtaBar() {
   return (
     <div
       aria-hidden={!sichtbar}
+      // data-cta-location: Herkunfts-Marke für die cta_click-Messung
+      // (components/analytics/interaction-tracking.tsx) — sonst wäre der
+      // Klick aus dieser Leiste nicht von dem aus der umgebenden Sektion
+      // unterscheidbar.
+      data-cta-location="mobile-leiste"
       className={`fixed inset-x-0 bottom-0 z-40 border-t border-wp-ink/10 bg-white/95 px-4 pt-3 backdrop-blur-md transition-transform duration-300 lg:hidden ${
         sichtbar ? "translate-y-0" : "translate-y-full"
       }`}

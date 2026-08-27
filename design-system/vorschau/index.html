@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design-System wegportal24</title>
+<style>
+  body { margin: 0; padding: 48px 32px; background: #faf8f4; color: #374151;
+    font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif; line-height: 1.55; }
+  .bogen { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 30px; font-weight: 700; letter-spacing: -.02em; color: #00241f; margin: 0 0 10px; }
+  .vor { color: #4b5563; max-width: 62ch; margin: 0 0 8px; }
+  section { margin-top: 40px; }
+  h2 { font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+    color: #00241f; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(0,36,31,.14); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; padding: 9px 0; border-bottom: 1px solid #eef0ee; }
+  li:last-child { border-bottom: 0; }
+  a { color: #003630; font-weight: 600; text-decoration: none; text-decoration-color: #f69018; }
+  a:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+  span { color: #9ca3af; font-size: 13px; }
+  .fuss { margin-top: 48px; padding-top: 16px; border-top: 1px solid rgba(0,36,31,.12); font-size: 12.5px; color: #9ca3af; }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px;
+    background: rgba(0,54,48,.06); border-radius: 5px; padding: 1px 5px; color: #003630; }
+</style>
+</head>
+<body>
+<div class="bogen">
+  <h1>Design-System wegportal24</h1>
+  <p class="vor">Elf Bögen, erzeugt aus dem Code des Portals. Farben, Schrift, Form und Bewegung
+  stammen aus <code>portal/src/app/globals.css</code>, die Kontraste sind gerechnet.</p>
+  <section>
+    <h2>Grundlagen</h2>
+    <ul>
+      <li><a href="grundlagen/farben.html">Farben</a><span>Marke, Status, dunkler Rahmen – mit nachgerechneten Kontrasten</span></li>
+      <li><a href="grundlagen/schrift.html">Schrift</a><span>Source Sans 3 vorn, Inter und Jakarta hinter dem Login</span></li>
+      <li><a href="grundlagen/form-und-tiefe.html">Form und Tiefe</a><span>Vier Rundungen, drei Schatten, vier Flächen</span></li>
+      <li><a href="grundlagen/bewegung.html">Bewegung</a><span>Eine Kurve, vier Dauern, und ein Schalter für alle</span></li>
+    </ul>
+  </section>
+  <section>
+    <h2>Marke</h2>
+    <ul>
+      <li><a href="marke/wortmarke.html">Wortmarke</a><span>Bildzeichen, Wortmarke, Schutzraum und die drei häufigen Fehler</span></li>
+    </ul>
+  </section>
+  <section>
+    <h2>Komponenten</h2>
+    <ul>
+      <li><a href="komponenten/knoepfe.html">Knöpfe</a><span>Drei vorn, sechs hinten, und ein Mindestmaß von 44 px</span></li>
+      <li><a href="komponenten/formularfelder.html">Formularfelder</a><span>Eingaben, Zustände, Pflichtfeld-Automatik und der Einheiten-Regler</span></li>
+      <li><a href="komponenten/karten-und-hinweise.html">Karten und Hinweise</a><span>Flächen, vier Meldungsarten, leere Stellen, Status</span></li>
+      <li><a href="komponenten/kopf-und-fusszeile.html">Kopf- und Fußzeile</a><span>Der Rahmen jeder öffentlichen Seite, auf allen Breiten</span></li>
+    </ul>
+  </section>
+  <section>
+    <h2>Muster</h2>
+    <ul>
+      <li><a href="muster/baender.html">Bänder</a><span>Hero, Zahlenband, Zwischenschnitt, Abschluss</span></li>
+      <li><a href="muster/seitenaufbau.html">Seitenaufbau</a><span>Elf Elemente, sechs Inhaltsregeln, ein Prüfbefehl</span></li>
+    </ul>
+  </section>
+  <p class="fuss">Erzeugt von <code>design-system/bauen.mjs</code> – Änderungen gehören in den
+  Code des Portals, nicht in diese Dateien.</p>
+</div>
+</body>
+</html>

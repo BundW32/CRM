@@ -1,0 +1,114 @@
+{
+  "cards": [
+    {
+      "name": "Farben",
+      "path": "grundlagen/farben.html",
+      "group": "Grundlagen",
+      "subtitle": "Marke, Status, dunkler Rahmen – mit nachgerechneten Kontrasten",
+      "viewport": {
+        "width": 1200,
+        "height": 2800
+      }
+    },
+    {
+      "name": "Schrift",
+      "path": "grundlagen/schrift.html",
+      "group": "Grundlagen",
+      "subtitle": "Source Sans 3 vorn, Inter und Jakarta hinter dem Login",
+      "viewport": {
+        "width": 1200,
+        "height": 2160
+      }
+    },
+    {
+      "name": "Form und Tiefe",
+      "path": "grundlagen/form-und-tiefe.html",
+      "group": "Grundlagen",
+      "subtitle": "Vier Rundungen, drei Schatten, vier Flächen",
+      "viewport": {
+        "width": 1200,
+        "height": 1820
+      }
+    },
+    {
+      "name": "Bewegung",
+      "path": "grundlagen/bewegung.html",
+      "group": "Grundlagen",
+      "subtitle": "Eine Kurve, vier Dauern, und ein Schalter für alle",
+      "viewport": {
+        "width": 1200,
+        "height": 1600
+      }
+    },
+    {
+      "name": "Wortmarke",
+      "path": "marke/wortmarke.html",
+      "group": "Marke",
+      "subtitle": "Bildzeichen, Wortmarke, Schutzraum und die drei häufigen Fehler",
+      "viewport": {
+        "width": 1200,
+        "height": 1580
+      }
+    },
+    {
+      "name": "Knöpfe",
+      "path": "komponenten/knoepfe.html",
+      "group": "Komponenten",
+      "subtitle": "Drei vorn, sechs hinten, und ein Mindestmaß von 44 px",
+      "viewport": {
+        "width": 1200,
+        "height": 1940
+      }
+    },
+    {
+      "name": "Formularfelder",
+      "path": "komponenten/formularfelder.html",
+      "group": "Komponenten",
+      "subtitle": "Eingaben, Zustände, Pflichtfeld-Automatik und der Einheiten-Regler",
+      "viewport": {
+        "width": 1200,
+        "height": 2100
+      }
+    },
+    {
+      "name": "Karten und Hinweise",
+      "path": "komponenten/karten-und-hinweise.html",
+      "group": "Komponenten",
+      "subtitle": "Flächen, vier Meldungsarten, leere Stellen, Status",
+      "viewport": {
+        "width": 1200,
+        "height": 2100
+      }
+    },
+    {
+      "name": "Kopf- und Fußzeile",
+      "path": "komponenten/kopf-und-fusszeile.html",
+      "group": "Komponenten",
+      "subtitle": "Der Rahmen jeder öffentlichen Seite, auf allen Breiten",
+      "viewport": {
+        "width": 1280,
+        "height": 2100
+      }
+    },
+    {
+      "name": "Bänder",
+      "path": "muster/baender.html",
+      "group": "Muster",
+      "subtitle": "Hero, Zahlenband, Zwischenschnitt, Abschluss",
+      "viewport": {
+        "width": 1280,
+        "height": 2470
+      }
+    },
+    {
+      "name": "Seitenaufbau",
+      "path": "muster/seitenaufbau.html",
+      "group": "Muster",
+      "subtitle": "Elf Elemente, sechs Inhaltsregeln, ein Prüfbefehl",
+      "viewport": {
+        "width": 1200,
+        "height": 2750
+      }
+    }
+  ]
+}

@@ -1,0 +1,334 @@
+<!-- @dsCard group="Muster" name="Seitenaufbau" subtitle="Elf Elemente, sechs Inhaltsregeln, ein Prüfbefehl" width="1200" height="2750" -->
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seitenaufbau – wegportal24</title>
+<style>
+  :root {
+    --color-brand-green: #003630;
+    --color-brand-green-dark: #00241f;
+    --color-brand-green-light: #0c534a;
+    --color-brand-orange: #f69018;
+    --color-brand-orange-dark: #dd7d0c;
+    --color-brand-orange-light: #fef1e0;
+    --color-brand-orange-ink: #8f5407;
+    --color-wp-primary: #003630;
+    --color-wp-primary-soft: #0c534a;
+    --color-wp-primary-light: #e8efed;
+    --color-wp-ink: #00241f;
+    --color-wp-accent: #f69018;
+    --color-wp-accent-dark: #dd7d0c;
+    --color-wp-accent-light: #fef1e0;
+    --color-wp-accent-ink: #8f5407;
+    --color-wp-accent-bright: #f69018;
+    --color-wp-on-accent: #00241f;
+    --color-shell: #1a1512;
+    --color-shell-2: #241d18;
+    --color-shell-3: #2f2620;
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: "Plus Jakarta Sans", var(--font-sans);
+    --font-mk: "Source Sans 3", var(--font-sans);
+    --color-good: #1f7a54;
+    --color-good-light: #e4f2ea;
+    --color-warn: #b26a09;
+    --color-warn-light: #fdf0df;
+    --color-critical: #c23b2e;
+    --color-critical-light: #fbe7e3;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --shadow-e1: 0 1px 2px rgba(24, 20, 15, 0.08);
+    --shadow-e2: 0 1px 2px rgba(24, 20, 15, 0.06), 0 12px 28px -12px rgba(24, 20, 15, 0.18);
+    --shadow-e3: 0 24px 50px -18px rgba(24, 20, 15, 0.28);
+    --ease-mk-out: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../schrift/sourcesans-400.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("../schrift/sourcesans-600.woff2") format("woff2");
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 56px;
+    background: #faf8f4;
+    background-image:
+      radial-gradient(90% 60% at 85% -10%, rgba(246,144,24,.10) 0%, rgba(246,144,24,0) 55%),
+      radial-gradient(80% 55% at 0% -5%, rgba(0,54,48,.07) 0%, rgba(0,54,48,0) 60%);
+    color: #374151;
+    font-family: var(--font-mk);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .bogen { max-width: 1120px; margin: 0 auto; }
+  .kopf { margin-bottom: 40px; }
+  .kopf h1 {
+    font-family: var(--font-mk);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+    color: var(--color-wp-ink);
+    margin: 0;
+  }
+  .kopf p { margin: 10px 0 0; max-width: 62ch; color: #4b5563; }
+  .augenbraue {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--color-wp-accent-ink);
+    margin: 0 0 10px;
+  }
+  section { margin-top: 40px; }
+  section > h2 {
+    font-family: var(--font-mk);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--color-wp-ink);
+    margin: 0 0 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,36,31,.14);
+  }
+  section > h2 + .hinleitung { margin-top: 14px; }
+  .hinleitung { max-width: 68ch; color: #4b5563; margin: 14px 0 20px; }
+  .raster { display: grid; gap: 16px; margin-top: 20px; }
+  .raster.zwei { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .raster.drei { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .raster.vier { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .feld {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    box-shadow: var(--shadow-e1);
+  }
+  .feld > h3 {
+    font-family: var(--font-mk);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-wp-ink);
+    margin: 0 0 6px;
+  }
+  .feld p { margin: 0; font-size: 13.5px; color: #6b7280; }
+  code, .token {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--color-wp-primary);
+    background: rgba(0,54,48,.06);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+  .notiz {
+    margin-top: 20px;
+    border-left: 3px solid var(--color-wp-accent);
+    background: var(--color-wp-accent-light);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    padding: 13px 16px;
+    font-size: 13.5px;
+    color: #4b3a22;
+    max-width: 78ch;
+  }
+  .notiz strong { color: var(--color-wp-ink); }
+  .notiz code { background: rgba(0,36,31,.08); }
+  .warnung { border-left-color: #c23b2e; background: #fbe7e3; color: #6b241b; }
+  .warnung strong { color: #7f2318; }
+  .buehne {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    margin-top: 20px;
+  }
+  .buehne.dunkel { background: var(--color-wp-ink); border-color: rgba(255,255,255,.10); }
+  .buehne.papier { background: #faf8f4; }
+  .beschriftung {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin: 0 0 14px;
+  }
+  .buehne.dunkel .beschriftung { color: rgba(255,255,255,.45); }
+  .reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 20px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+  }
+  td.zahl { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .marke {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 2px 9px;
+    white-space: nowrap;
+  }
+  .marke.gut { background: #e4f2ea; color: #14603f; }
+  .marke.schwach { background: #fdf0df; color: #8a5209; }
+  .marke.schlecht { background: #fbe7e3; color: #9b2f23; }
+  .quelle {
+    margin-top: 52px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0,36,31,.12);
+    font-size: 12.5px;
+    color: #9ca3af;
+  }
+  .quelle strong { color: #6b7280; font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      transition-duration: .01ms !important;
+    }
+  }
+
+
+  .leiter { counter-reset: stufe; border: 1px solid #e5e7eb; border-radius: var(--radius-lg); overflow: hidden; background: #fff; margin-top: 20px; }
+  .stufe { display: grid; grid-template-columns: 52px 1fr 240px; gap: 20px; padding: 16px 20px; border-bottom: 1px solid #f3f4f6; align-items: start; }
+  .stufe:last-child { border-bottom: 0; }
+  .stufe .nr {
+    display: flex; align-items: center; justify-content: center; height: 30px; width: 30px;
+    border-radius: 999px; background: var(--color-wp-primary-light); color: var(--color-wp-primary);
+    font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .stufe.oben .nr { background: var(--color-wp-accent); color: var(--color-wp-on-accent); }
+  .stufe b { display: block; font-size: 14.5px; font-weight: 600; color: var(--color-wp-ink); margin-bottom: 4px; }
+  .stufe p { margin: 0; font-size: 13px; color: #6b7280; }
+  .stufe .baustein { font-size: 12px; color: #9ca3af; line-height: 1.7; }
+  .regel { border-left: 3px solid var(--color-wp-primary); background: #fff; border: 1px solid #e5e7eb; border-left: 3px solid var(--color-wp-primary); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; padding: 17px 20px; }
+  .regel h3 { margin: 0 0 7px; font-size: 14px; font-weight: 600; color: var(--color-wp-ink); }
+  .regel p { margin: 0; font-size: 13px; color: #6b7280; }
+  .regel.rot { border-left-color: var(--color-critical); }
+  .pruef { background: var(--color-wp-ink); border-radius: var(--radius-lg); padding: 22px 24px; margin-top: 20px; }
+  .pruef p.was { margin: 0 0 12px; font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.45); }
+  .pruef pre { margin: 0; overflow-x: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.65; color: #f3f4f6; }
+  .pruef .folge { margin: 15px 0 0; font-size: 13px; color: rgba(255,255,255,.7); }
+
+</style>
+</head>
+<body>
+<div class="bogen">
+  <header class="kopf">
+    <p class="augenbraue">Muster</p>
+    <h1>Seitenaufbau</h1>
+    <p>Jede öffentliche Seite folgt demselben Rahmen. Das ist keine Bequemlichkeit: Wer zum ersten Mal hier ist, sucht auf der zweiten Seite an der Stelle, an der er es auf der ersten gefunden hat.</p>
+  </header>
+  <section>
+    <h2>Der 11-Elemente-Rahmen</h2>
+    <p class="hinleitung">Er gilt für die Startseite, <code>/preise</code>, alle <code>/funktionen/*</code> und <code>/so-funktionierts</code>. Die Reihenfolge ist die Reihenfolge, in der jemand eine Entscheidung trifft.</p>
+    <div class="leiter">
+      <div class="stufe oben">
+        <span class="nr">1</span>
+        <div><b>Sprechende URLs</b><p><code>/funktionen/hausgeld</code>, nicht <code>/f/12</code>. Die Adresse sagt, worum es geht – für den Besucher wie für die Suchmaschine.</p></div>
+        <div class="baustein">App-Router-Pfade</div>
+      </div>
+      <div class="stufe oben">
+        <span class="nr">2</span>
+        <div><b>Logo oben links</b><p>Wortmarke in der Kopfzeile, verlinkt auf die Startseite. Auf jeder Breite an derselben Stelle.</p></div>
+        <div class="baustein"><code>MarketingHeader</code><br><code>Wordmark</code></div>
+      </div>
+      <div class="stufe oben">
+        <span class="nr">3</span>
+        <div><b>SEO-Titel</b><p>Die Überschrift nennt das Problem in den Worten, mit denen Betroffene danach suchen – „Keine Hausverwaltung gefunden?“</p></div>
+        <div class="baustein"><code>&lt;h1&gt;</code> im Hero<br><code>metadata</code></div>
+      </div>
+      <div class="stufe oben">
+        <span class="nr">4</span>
+        <div><b>Haupt-CTA</b><p>Die eine Handlung. Läuft eine Willkommensaktion, nimmt der Knopf den Code mit – wer hier klickt, muss ihn nicht abschreiben.</p></div>
+        <div class="baustein"><code>wpButtonClass</code><br><code>registrierenLink()</code></div>
+      </div>
+      <div class="stufe oben">
+        <span class="nr">5</span>
+        <div><b>Vertrauens-Fakten</b><p>Produkt- und Gesetzesfakten statt Sternen: kostenlos, ohne Bank-API, nach §§ 19, 24, 28 WEG.</p></div>
+        <div class="baustein">Liste im Hero</div>
+      </div>
+      <div class="stufe">
+        <span class="nr">6</span>
+        <div><b>Das Produkt in Bewegung</b><p>Der Scroll-Aufbau – das Comic-Haus, das sich beim Scrollen zusammensetzt. Es ist <em>das</em> Bewegtbild-Element der Startseite und bleibt.</p></div>
+        <div class="baustein"><code>ScrollyBuild</code></div>
+      </div>
+      <div class="stufe">
+        <span class="nr">7</span>
+        <div><b>Nutzen-Karten</b><p>Sechs Karten, jede mit einem Weg auf ihre Unterseite. Keine Sackgassen.</p></div>
+        <div class="baustein">Karten + <code>Reveal</code></div>
+      </div>
+      <div class="stufe">
+        <span class="nr">8</span>
+        <div><b>Stimmen</b><p>Drei Rollen in direkter Ansprache – „Sie übernehmen das Amt“. Keine erfundenen Namen, Fotos oder Sterne.</p></div>
+        <div class="baustein">Rollen-Karten</div>
+      </div>
+      <div class="stufe">
+        <span class="nr">9</span>
+        <div><b>FAQ</b><p>Natives <code>&lt;details&gt;</code>. Kein Client-JS, kein Accordion-Paket.</p></div>
+        <div class="baustein"><code>&lt;details&gt;</code></div>
+      </div>
+      <div class="stufe">
+        <span class="nr">10</span>
+        <div><b>Abschluss-CTA</b><p>Dieselbe Handlung wie oben, jetzt mit dem Wissen von der ganzen Seite. Trägt den Anker <code>#schluss-cta</code>.</p></div>
+        <div class="baustein"><code>CtaBand</code></div>
+      </div>
+      <div class="stufe">
+        <span class="nr">11</span>
+        <div><b>Fußzeile</b><p>Kontakt und Rechtliches. Sie bleibt im Anker-Block, damit die mobile Leiste am Seitenende nicht wieder auftaucht.</p></div>
+        <div class="baustein"><code>MarketingFooter</code></div>
+      </div>
+    </div>
+    <p class="notiz warnung"><strong>Der Aufbau ist zweimal entschieden worden.</strong> Ein „Dokument“-Layout aus Haarlinien und Marginalspalten wurde verworfen; verbindlich ist dieser Rahmen. Wer ihn erneut ändern will, fragt zuerst.</p>
+    <p class="notiz ">Die orange markierten Elemente 1–5 liegen im ersten Bildschirm. Auf 375 × 667 px muss der Haupt-CTA ohne Scrollen im Bild liegen – mit Playwright gemessen (<code>getBoundingClientRect().bottom ≤ 667</code>), nicht abgeschätzt.</p>
+  </section>
+  <section>
+    <h2>Inhaltsregeln</h2>
+    <p class="hinleitung">Sie sind nicht verhandelbar. Jede von ihnen steht dort, weil ihr Gegenteil einmal vorgeschlagen oder gebaut wurde.</p>
+    <div class="raster zwei">
+      <div class="regel rot"><h3>Keine erfundenen Kundenstimmen</h3><p>Das Portal ist neu. Der Stimmen-Slot wird mit Rollen in direkter Ansprache gefüllt, nie mit erfundenen Namen, Fotos oder Sternen – und auch nicht mit erzählten Einzelpersonen („Die Eigentümerin, die …“). Ein Fallbericht über eine Person, die es nicht gibt, ist eine erfundene Referenz.</p></div>
+      <div class="regel rot"><h3>Jede Funktionsbehauptung ist am Code geprüft</h3><p>Bevor eine Zusage auf die Seite kommt, wird sie im Code nachgesehen. Paragrafen nur, wenn sie stimmen.</p></div>
+      <div class="regel "><h3>Nur selbstverwaltete WEGs ansprechen</h3><p>Die Registrierung kennt genau einen Kontotyp, serverseitig erzwungen. Die Seiten bieten nichts anderes an.</p></div>
+      <div class="regel "><h3>Preise haben eine Quelle</h3><p><code>app/preise/preise-daten.ts</code>. Beide Tarife je Einheit und Monat, alle Zugänge immer inklusive, Bruttopreise, keine Mindestlaufzeit. Die Brutto-Transparenz ist ein Verkaufsargument – „10 € sind bei uns 10 €“ –, kein Detail.</p></div>
+      <div class="regel "><h3>Herkunft ohne Namen</h3><p>Auf den Seiten steht weder Firma noch Person, nur „die Verwaltung hinter wegportal24“. Namen stehen im Impressum, wo sie nach § 5 DDG hingehören.</p></div>
+      <div class="regel "><h3>Kein ShadCN, keine UI-Bibliothek</h3><p>Das Repo hat eigene Bausteine und harte ESLint-Regeln gegen Nachbauten. Der Rahmen wird mit <code>components/marketing/*</code> umgesetzt.</p></div>
+    </div>
+  </section>
+  <section>
+    <h2>Der Prüfbefehl</h2>
+    <p class="hinleitung">Ein Detektor, der offline aus einem npm-Paket läuft und die typischen Stilbrüche meldet: Sprungkurven, <code>animate-bounce</code>, verirrte Farbwerte.</p>
+    <div class="pruef">
+      <p class="was">Vor und nach jeder Änderung</p>
+      <pre>npx --yes impeccable@latest detect \
+  portal/src/app/page.tsx \
+  portal/src/app/preise \
+  portal/src/app/funktionen \
+  portal/src/app/so-funktionierts \
+  portal/src/components/marketing</pre>
+      <p class="folge">Auf diesen fünf Pfaden gilt: <strong style="color:#fff">null Befunde</strong>. Danach <code style="background:rgba(255,255,255,.12);color:#fff">npm run pruefung</code> im Ordner <code style="background:rgba(255,255,255,.12);color:#fff">portal</code> – und ansehen.</p>
+    </div>
+    <p class="notiz "><code>globals.css</code> ist vom Detektor ausgenommen: Die dortigen Resttreffer betreffen das ganze Portal, nicht diese Seiten.</p>
+    <p class="notiz "><strong>Ansehen heißt wirklich ansehen.</strong> <code>next dev</code> funktioniert in diesem Repo nicht – die Content-Security-Policy verbietet <code>eval</code>. Es gilt <code>APP_MODE=weg next build &amp;&amp; next start</code>.</p>
+  </section>
+  <p class="quelle"><strong>Im Code:</strong> <code>portal/src/app/page.tsx (Elemente 1–11 im Code benannt)</code> · <code>.claude/skills/marken-seiten/SKILL.md</code> · <code>app/preise/preise-daten.ts</code><br>Erzeugt von <code>design-system/bauen.mjs</code> – nicht von Hand ändern.</p>
+</div>
+</body>
+</html>

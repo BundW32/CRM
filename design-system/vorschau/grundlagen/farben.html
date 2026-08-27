@@ -1,0 +1,520 @@
+<!-- @dsCard group="Grundlagen" name="Farben" subtitle="Marke, Status, dunkler Rahmen – mit nachgerechneten Kontrasten" width="1200" height="2800" -->
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Farben – wegportal24</title>
+<style>
+  :root {
+    --color-brand-green: #003630;
+    --color-brand-green-dark: #00241f;
+    --color-brand-green-light: #0c534a;
+    --color-brand-orange: #f69018;
+    --color-brand-orange-dark: #dd7d0c;
+    --color-brand-orange-light: #fef1e0;
+    --color-brand-orange-ink: #8f5407;
+    --color-wp-primary: #003630;
+    --color-wp-primary-soft: #0c534a;
+    --color-wp-primary-light: #e8efed;
+    --color-wp-ink: #00241f;
+    --color-wp-accent: #f69018;
+    --color-wp-accent-dark: #dd7d0c;
+    --color-wp-accent-light: #fef1e0;
+    --color-wp-accent-ink: #8f5407;
+    --color-wp-accent-bright: #f69018;
+    --color-wp-on-accent: #00241f;
+    --color-shell: #1a1512;
+    --color-shell-2: #241d18;
+    --color-shell-3: #2f2620;
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: "Plus Jakarta Sans", var(--font-sans);
+    --font-mk: "Source Sans 3", var(--font-sans);
+    --color-good: #1f7a54;
+    --color-good-light: #e4f2ea;
+    --color-warn: #b26a09;
+    --color-warn-light: #fdf0df;
+    --color-critical: #c23b2e;
+    --color-critical-light: #fbe7e3;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --shadow-e1: 0 1px 2px rgba(24, 20, 15, 0.08);
+    --shadow-e2: 0 1px 2px rgba(24, 20, 15, 0.06), 0 12px 28px -12px rgba(24, 20, 15, 0.18);
+    --shadow-e3: 0 24px 50px -18px rgba(24, 20, 15, 0.28);
+    --ease-mk-out: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../schrift/sourcesans-400.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("../schrift/sourcesans-600.woff2") format("woff2");
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 56px;
+    background: #faf8f4;
+    background-image:
+      radial-gradient(90% 60% at 85% -10%, rgba(246,144,24,.10) 0%, rgba(246,144,24,0) 55%),
+      radial-gradient(80% 55% at 0% -5%, rgba(0,54,48,.07) 0%, rgba(0,54,48,0) 60%);
+    color: #374151;
+    font-family: var(--font-mk);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .bogen { max-width: 1120px; margin: 0 auto; }
+  .kopf { margin-bottom: 40px; }
+  .kopf h1 {
+    font-family: var(--font-mk);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+    color: var(--color-wp-ink);
+    margin: 0;
+  }
+  .kopf p { margin: 10px 0 0; max-width: 62ch; color: #4b5563; }
+  .augenbraue {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--color-wp-accent-ink);
+    margin: 0 0 10px;
+  }
+  section { margin-top: 40px; }
+  section > h2 {
+    font-family: var(--font-mk);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--color-wp-ink);
+    margin: 0 0 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,36,31,.14);
+  }
+  section > h2 + .hinleitung { margin-top: 14px; }
+  .hinleitung { max-width: 68ch; color: #4b5563; margin: 14px 0 20px; }
+  .raster { display: grid; gap: 16px; margin-top: 20px; }
+  .raster.zwei { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .raster.drei { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .raster.vier { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .feld {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    box-shadow: var(--shadow-e1);
+  }
+  .feld > h3 {
+    font-family: var(--font-mk);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-wp-ink);
+    margin: 0 0 6px;
+  }
+  .feld p { margin: 0; font-size: 13.5px; color: #6b7280; }
+  code, .token {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--color-wp-primary);
+    background: rgba(0,54,48,.06);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+  .notiz {
+    margin-top: 20px;
+    border-left: 3px solid var(--color-wp-accent);
+    background: var(--color-wp-accent-light);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    padding: 13px 16px;
+    font-size: 13.5px;
+    color: #4b3a22;
+    max-width: 78ch;
+  }
+  .notiz strong { color: var(--color-wp-ink); }
+  .notiz code { background: rgba(0,36,31,.08); }
+  .warnung { border-left-color: #c23b2e; background: #fbe7e3; color: #6b241b; }
+  .warnung strong { color: #7f2318; }
+  .buehne {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    margin-top: 20px;
+  }
+  .buehne.dunkel { background: var(--color-wp-ink); border-color: rgba(255,255,255,.10); }
+  .buehne.papier { background: #faf8f4; }
+  .beschriftung {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin: 0 0 14px;
+  }
+  .buehne.dunkel .beschriftung { color: rgba(255,255,255,.45); }
+  .reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 20px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+  }
+  td.zahl { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .marke {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 2px 9px;
+    white-space: nowrap;
+  }
+  .marke.gut { background: #e4f2ea; color: #14603f; }
+  .marke.schwach { background: #fdf0df; color: #8a5209; }
+  .marke.schlecht { background: #fbe7e3; color: #9b2f23; }
+  .quelle {
+    margin-top: 52px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0,36,31,.12);
+    font-size: 12.5px;
+    color: #9ca3af;
+  }
+  .quelle strong { color: #6b7280; font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      transition-duration: .01ms !important;
+    }
+  }
+
+
+  .kachel { border: 1px solid #e5e7eb; border-radius: var(--radius-lg); overflow: hidden; background: #fff; }
+  .kachel .flaeche { height: 88px; display: flex; align-items: flex-end; padding: 10px 12px; }
+  .kachel .fuss { padding: 11px 13px 13px; }
+  .kachel .fuss b { display: block; font-size: 13.5px; font-weight: 600; color: var(--color-wp-ink); }
+  .kachel .fuss .token { display: inline-block; margin-top: 5px; }
+  .kachel .fuss .hex { font-variant-numeric: tabular-nums; font-size: 12px; color: #9ca3af; margin-top: 5px; }
+  .kachel .rolle { font-size: 12.5px; color: #6b7280; margin-top: 7px; }
+  .aufFlaeche { font-size: 12px; font-weight: 600; }
+
+</style>
+</head>
+<body>
+<div class="bogen">
+  <header class="kopf">
+    <p class="augenbraue">Grundlagen</p>
+    <h1>Farben</h1>
+    <p>Zwei Farben tragen die Marke: ein tiefes Grün und ein warmes Orange. Das Grün ist die Fläche, auf der alles steht; das Orange ist die eine Handlung, die die Seite will. Alles andere ist Papier, Tinte und Status.</p>
+  </header>
+  <section>
+    <h2>Marke wegportal24</h2>
+    <p class="hinleitung">Grün trägt, Orange handelt. Die Werte stehen als eigene <code>--color-wp-*</code>-Tokens in <code>globals.css</code> – bewusst als eigene Werte und nicht als Verweis auf die Tokens der Verwaltungs-Variante: Das Farbschema ist einmal übernommen worden, nicht verbunden. Wer eine der beiden Marken künftig umfärbt, färbt die andere damit nicht mit.</p>
+    <div class="raster vier">
+      <div class="kachel">
+        <div class="flaeche" style="background:#003630">
+          <span class="aufFlaeche" style="color:#ffffff">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Primär</b>
+          <span class="token">--color-wp-primary</span>
+          <div class="hex">#003630</div>
+          <p class="rolle">Flächen, die tragen: Abschluss-Band, Umriss-Knöpfe, aktive Navigation.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#0c534a">
+          <span class="aufFlaeche" style="color:#ffffff">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Primär hell</b>
+          <span class="token">--color-wp-primary-soft</span>
+          <div class="hex">#0C534A</div>
+          <p class="rolle">Lichtflächen und Verläufe innerhalb der grünen Flächen.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#e8efed">
+          <span class="aufFlaeche" style="color:#00241f">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Primär Tönung</b>
+          <span class="token">--color-wp-primary-light</span>
+          <div class="hex">#E8EFED</div>
+          <p class="rolle">Hover-Fläche unter dem Neben-Knopf. Keine Schrift darauf außer wp-ink.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#00241f">
+          <span class="aufFlaeche" style="color:#ffffff">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Tinte</b>
+          <span class="token">--color-wp-ink</span>
+          <div class="hex">#00241F</div>
+          <p class="rolle">Die dunkelste Fläche: Fußzeile, Zahlenband, Hero-Verlauf. Und die Schrift auf Orange.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#f69018">
+          <span class="aufFlaeche" style="color:#00241f">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Akzent</b>
+          <span class="token">--color-wp-accent</span>
+          <div class="hex">#F69018</div>
+          <p class="rolle">Die EINE Handlung: Registrieren. Nie zweimal in derselben Blickachse.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#dd7d0c">
+          <span class="aufFlaeche" style="color:#00241f">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Akzent dunkel</b>
+          <span class="token">--color-wp-accent-dark</span>
+          <div class="hex">#DD7D0C</div>
+          <p class="rolle">Nur der Hover-Zustand des Akzent-Knopfes.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#fef1e0">
+          <span class="aufFlaeche" style="color:#00241f">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Akzent Tönung</b>
+          <span class="token">--color-wp-accent-light</span>
+          <div class="hex">#FEF1E0</div>
+          <p class="rolle">Ruhige Hinterlegung: Icon-Kästchen, Hinweisleisten, Illustrationsgrund.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#8f5407">
+          <span class="aufFlaeche" style="color:#ffffff">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Akzent als Schrift</b>
+          <span class="token">--color-wp-accent-ink</span>
+          <div class="hex">#8F5407</div>
+          <p class="rolle">Orange ALS TEXT auf hellem Grund. Der Akzent selbst schafft dort nur 2,4:1.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#f69018">
+          <span class="aufFlaeche" style="color:#00241f">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Akzent auf Dunkel</b>
+          <span class="token">--color-wp-accent-bright</span>
+          <div class="hex">#F69018</div>
+          <p class="rolle">Auf dunklem Grund trägt das Marken-Orange selbst – Zahlenband, Fußzeilen-Links.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#00241f">
+          <span class="aufFlaeche" style="color:#ffffff">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Tinte auf Akzent</b>
+          <span class="token">--color-wp-on-accent</span>
+          <div class="hex">#00241F</div>
+          <p class="rolle">Die Schriftfarbe AUF dem orangen Knopf. Nie Weiß.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <h2>Status</h2>
+    <p class="hinleitung">Vom Marken-Akzent getrennt gehalten: Orange bedeutet auf diesen Seiten „hier klicken“, nicht „Achtung“. Eine Warnung, die aussieht wie der Haupt-Knopf, ist beides nicht mehr.</p>
+    <div class="raster vier">
+      <div class="kachel">
+        <div class="flaeche" style="background:#1f7a54">
+          <span class="aufFlaeche" style="color:#ffffff">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Gut</b>
+          <span class="token">--color-good</span>
+          <div class="hex">#1F7A54</div>
+          <p class="rolle">Erledigt, gebucht, bestätigt.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#e4f2ea">
+          <span class="aufFlaeche" style="color:#14603f">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Gut, Fläche</b>
+          <span class="token">--color-good-light</span>
+          <div class="hex">#E4F2EA</div>
+          <p class="rolle">Hinterlegung der Erfolgsmeldung.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#b26a09">
+          <span class="aufFlaeche" style="color:#ffffff">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Achtung</b>
+          <span class="token">--color-warn</span>
+          <div class="hex">#B26A09</div>
+          <p class="rolle">Fällig, unvollständig, prüfen.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#fdf0df">
+          <span class="aufFlaeche" style="color:#8a5209">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Achtung, Fläche</b>
+          <span class="token">--color-warn-light</span>
+          <div class="hex">#FDF0DF</div>
+          <p class="rolle">Hinterlegung der Warnung.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#c23b2e">
+          <span class="aufFlaeche" style="color:#ffffff">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Kritisch</b>
+          <span class="token">--color-critical</span>
+          <div class="hex">#C23B2E</div>
+          <p class="rolle">Fehlgeschlagen, überfällig, gelöscht.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#fbe7e3">
+          <span class="aufFlaeche" style="color:#9b2f23">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Kritisch, Fläche</b>
+          <span class="token">--color-critical-light</span>
+          <div class="hex">#FBE7E3</div>
+          <p class="rolle">Hinterlegung der Fehlermeldung.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <h2>Dunkler Rahmen (Portal hinter dem Login)</h2>
+    <p class="hinleitung">Die öffentlichen Seiten laufen hell (Papierton <code>#faf8f4</code>), das Portal hinter dem Login dunkel. Diese drei Töne sind der Grund, warum eine Marken-Seite nie versehentlich wie die App aussieht – und umgekehrt.</p>
+    <div class="raster vier">
+      <div class="kachel">
+        <div class="flaeche" style="background:#1a1512">
+          <span class="aufFlaeche" style="color:#ffffff">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Shell</b>
+          <span class="token">--color-shell</span>
+          <div class="hex">#1A1512</div>
+          <p class="rolle">Der Seitengrund der App.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#241d18">
+          <span class="aufFlaeche" style="color:#ffffff">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Shell 2</b>
+          <span class="token">--color-shell-2</span>
+          <div class="hex">#241D18</div>
+          <p class="rolle">Karten und erhobene Flächen darauf.</p>
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="flaeche" style="background:#2f2620">
+          <span class="aufFlaeche" style="color:#ffffff">Aa</span>
+        </div>
+        <div class="fuss">
+          <b>Shell 3</b>
+          <span class="token">--color-shell-3</span>
+          <div class="hex">#2F2620</div>
+          <p class="rolle">Eingaben und Trennflächen.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <h2>Kontraste – gerechnet</h2>
+    <p class="hinleitung">Jede Paarung, die im Produkt vorkommt – nachgerechnet nach WCAG 2.1. Fließtext braucht 4,5:1 (AA), große Schrift ab 24 px oder 19 px fett braucht 3:1.</p>
+    <table>
+      <thead>
+        <tr><th>Schrift</th><th>auf Fläche</th><th>Verhältnis</th><th>WCAG 2.1</th><th>Wo</th></tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#ffffff;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Weiß</td>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#003630;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Primär</td>
+        <td class="zahl">13,4:1</td>
+        <td><span class="marke gut">AAA (ab 7:1)</span></td>
+        <td>Abschluss-Band, Umriss-Knöpfe</td>
+      </tr>
+      <tr>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#ffffff;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Weiß</td>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#00241f;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Tinte</td>
+        <td class="zahl">16,5:1</td>
+        <td><span class="marke gut">AAA (ab 7:1)</span></td>
+        <td>Fußzeile, Zahlenband, Hero</td>
+      </tr>
+      <tr>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#003630;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Primär</td>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#ffffff;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Weiß</td>
+        <td class="zahl">13,4:1</td>
+        <td><span class="marke gut">AAA (ab 7:1)</span></td>
+        <td>Überschriften auf Papier</td>
+      </tr>
+      <tr>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#00241f;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Tinte auf Akzent</td>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#f69018;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Akzent</td>
+        <td class="zahl">7:1</td>
+        <td><span class="marke gut">AAA (ab 7:1)</span></td>
+        <td>Der Registrieren-Knopf</td>
+      </tr>
+      <tr>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#8f5407;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Akzent als Schrift</td>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#ffffff;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Weiß</td>
+        <td class="zahl">6,1:1</td>
+        <td><span class="marke schwach">AA (ab 4,5:1)</span></td>
+        <td>Augenbrauen, Häkchen, Links</td>
+      </tr>
+      <tr>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#f69018;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Akzent auf Dunkel</td>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#00241f;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Tinte</td>
+        <td class="zahl">7:1</td>
+        <td><span class="marke gut">AAA (ab 7:1)</span></td>
+        <td>Zahlen im Zahlenband</td>
+      </tr>
+      <tr>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#f69018;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Akzent</td>
+        <td><span style="display:inline-block;width:13px;height:13px;border-radius:3px;background:#ffffff;border:1px solid rgba(0,0,0,.12);vertical-align:-2px;margin-right:7px"></span>Weiß</td>
+        <td class="zahl">2,4:1</td>
+        <td><span class="marke schlecht">unter 4,5:1</span></td>
+        <td>verboten als Text – hier steht, warum</td>
+      </tr>
+      </tbody>
+    </table>
+    <p class="notiz ">Diese Zahlen sind nicht abgeschrieben: <code>design-system/bauen.mjs</code> rechnet sie bei jedem Lauf aus den Hex-Werten in <code>globals.css</code> nach (WCAG 2.1, relative Leuchtdichte). Wer eine Farbe ändert und neu baut, sieht die Folge sofort in dieser Tabelle.</p>
+    <p class="notiz warnung"><strong>Die letzte Zeile ist die wichtigste.</strong> Das Marken-Orange erreicht als Text auf Weiß nur 2,4:1 und fällt damit durch. Deshalb gibt es <code>--color-wp-accent-ink</code>: dieselbe Farbfamilie, dunkel genug für Schrift. Regel: Orange ist auf hellem Grund eine <em>Fläche</em>, kein Text. Als Text nur die <code>-ink</code>-Variante, auf dunklem Grund die <code>-bright</code>-Variante.</p>
+  </section>
+  <p class="quelle"><strong>Im Code:</strong> <code>portal/src/app/globals.css (@theme)</code> · <code>components/marketing/brand.tsx</code><br>Erzeugt von <code>design-system/bauen.mjs</code> – nicht von Hand ändern.</p>
+</div>
+</body>
+</html>

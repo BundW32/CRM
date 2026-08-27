@@ -1,0 +1,330 @@
+<!-- @dsCard group="Grundlagen" name="Form und Tiefe" subtitle="Vier Rundungen, drei Schatten, vier Flächen" width="1200" height="1820" -->
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Form und Tiefe – wegportal24</title>
+<style>
+  :root {
+    --color-brand-green: #003630;
+    --color-brand-green-dark: #00241f;
+    --color-brand-green-light: #0c534a;
+    --color-brand-orange: #f69018;
+    --color-brand-orange-dark: #dd7d0c;
+    --color-brand-orange-light: #fef1e0;
+    --color-brand-orange-ink: #8f5407;
+    --color-wp-primary: #003630;
+    --color-wp-primary-soft: #0c534a;
+    --color-wp-primary-light: #e8efed;
+    --color-wp-ink: #00241f;
+    --color-wp-accent: #f69018;
+    --color-wp-accent-dark: #dd7d0c;
+    --color-wp-accent-light: #fef1e0;
+    --color-wp-accent-ink: #8f5407;
+    --color-wp-accent-bright: #f69018;
+    --color-wp-on-accent: #00241f;
+    --color-shell: #1a1512;
+    --color-shell-2: #241d18;
+    --color-shell-3: #2f2620;
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: "Plus Jakarta Sans", var(--font-sans);
+    --font-mk: "Source Sans 3", var(--font-sans);
+    --color-good: #1f7a54;
+    --color-good-light: #e4f2ea;
+    --color-warn: #b26a09;
+    --color-warn-light: #fdf0df;
+    --color-critical: #c23b2e;
+    --color-critical-light: #fbe7e3;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --shadow-e1: 0 1px 2px rgba(24, 20, 15, 0.08);
+    --shadow-e2: 0 1px 2px rgba(24, 20, 15, 0.06), 0 12px 28px -12px rgba(24, 20, 15, 0.18);
+    --shadow-e3: 0 24px 50px -18px rgba(24, 20, 15, 0.28);
+    --ease-mk-out: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../schrift/sourcesans-400.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("../schrift/sourcesans-600.woff2") format("woff2");
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 56px;
+    background: #faf8f4;
+    background-image:
+      radial-gradient(90% 60% at 85% -10%, rgba(246,144,24,.10) 0%, rgba(246,144,24,0) 55%),
+      radial-gradient(80% 55% at 0% -5%, rgba(0,54,48,.07) 0%, rgba(0,54,48,0) 60%);
+    color: #374151;
+    font-family: var(--font-mk);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .bogen { max-width: 1120px; margin: 0 auto; }
+  .kopf { margin-bottom: 40px; }
+  .kopf h1 {
+    font-family: var(--font-mk);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+    color: var(--color-wp-ink);
+    margin: 0;
+  }
+  .kopf p { margin: 10px 0 0; max-width: 62ch; color: #4b5563; }
+  .augenbraue {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--color-wp-accent-ink);
+    margin: 0 0 10px;
+  }
+  section { margin-top: 40px; }
+  section > h2 {
+    font-family: var(--font-mk);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--color-wp-ink);
+    margin: 0 0 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,36,31,.14);
+  }
+  section > h2 + .hinleitung { margin-top: 14px; }
+  .hinleitung { max-width: 68ch; color: #4b5563; margin: 14px 0 20px; }
+  .raster { display: grid; gap: 16px; margin-top: 20px; }
+  .raster.zwei { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .raster.drei { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .raster.vier { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .feld {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    box-shadow: var(--shadow-e1);
+  }
+  .feld > h3 {
+    font-family: var(--font-mk);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-wp-ink);
+    margin: 0 0 6px;
+  }
+  .feld p { margin: 0; font-size: 13.5px; color: #6b7280; }
+  code, .token {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--color-wp-primary);
+    background: rgba(0,54,48,.06);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+  .notiz {
+    margin-top: 20px;
+    border-left: 3px solid var(--color-wp-accent);
+    background: var(--color-wp-accent-light);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    padding: 13px 16px;
+    font-size: 13.5px;
+    color: #4b3a22;
+    max-width: 78ch;
+  }
+  .notiz strong { color: var(--color-wp-ink); }
+  .notiz code { background: rgba(0,36,31,.08); }
+  .warnung { border-left-color: #c23b2e; background: #fbe7e3; color: #6b241b; }
+  .warnung strong { color: #7f2318; }
+  .buehne {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    margin-top: 20px;
+  }
+  .buehne.dunkel { background: var(--color-wp-ink); border-color: rgba(255,255,255,.10); }
+  .buehne.papier { background: #faf8f4; }
+  .beschriftung {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin: 0 0 14px;
+  }
+  .buehne.dunkel .beschriftung { color: rgba(255,255,255,.45); }
+  .reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 20px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+  }
+  td.zahl { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .marke {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 2px 9px;
+    white-space: nowrap;
+  }
+  .marke.gut { background: #e4f2ea; color: #14603f; }
+  .marke.schwach { background: #fdf0df; color: #8a5209; }
+  .marke.schlecht { background: #fbe7e3; color: #9b2f23; }
+  .quelle {
+    margin-top: 52px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0,36,31,.12);
+    font-size: 12.5px;
+    color: #9ca3af;
+  }
+  .quelle strong { color: #6b7280; font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      transition-duration: .01ms !important;
+    }
+  }
+
+
+  .muster { background: #fff; border: 1px solid #e5e7eb; padding: 20px; text-align: center; }
+  .muster .form { height: 74px; background: var(--color-wp-primary-light); border: 1px solid rgba(0,54,48,.16); margin-bottom: 13px; }
+  .muster b { display: block; font-size: 13px; font-weight: 600; color: var(--color-wp-ink); }
+  .muster .token { display: inline-block; margin-top: 5px; }
+  .muster p { font-size: 12.5px; color: #6b7280; margin: 8px 0 0; }
+  .tiefe { background: #faf8f4; border-radius: var(--radius-lg); padding: 30px 20px; text-align: center; }
+  .tiefe .karte { background: #fff; border-radius: var(--radius-lg); height: 82px; margin-bottom: 15px; border: 1px solid rgba(0,0,0,.04); }
+  .tiefe b { display: block; font-size: 13px; font-weight: 600; color: var(--color-wp-ink); }
+  .tiefe p { font-size: 12.5px; color: #6b7280; margin: 8px 0 0; }
+  .flaechen { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 0; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid #e5e7eb; margin-top: 20px; }
+  .flaechen > div { padding: 26px 22px; min-height: 168px; }
+  .flaechen b { display: block; font-size: 14px; font-weight: 700; margin-bottom: 7px; }
+  .flaechen p { font-size: 12.5px; margin: 9px 0 0; line-height: 1.5; }
+
+</style>
+</head>
+<body>
+<div class="bogen">
+  <header class="kopf">
+    <p class="augenbraue">Grundlagen</p>
+    <h1>Form und Tiefe</h1>
+    <p>Rundung, Schatten und Fläche sagen zusammen, was ein Element ist: eine Handlung, ein abgeschlossener Inhalt oder der Grund, auf dem beides liegt.</p>
+  </header>
+  <section>
+    <h2>Rundungen</h2>
+    <p class="hinleitung">Je größer die Fläche, desto größer die Rundung. Das ist die ganze Regel – sie hält Knopf, Karte und Hero-Fläche visuell in derselben Familie.</p>
+    <div class="raster vier">
+      <div class="muster" style="border-radius:var(--radius-sm)">
+        <div class="form" style="border-radius:var(--radius-sm)"></div>
+        <b>Eingaben, Etiketten</b>
+        <span class="token">--radius-sm</span>
+        <p>Alles, was in einer Zeile mit Text steht.</p>
+        <p style="font-variant-numeric:tabular-nums;color:#9ca3af">0.5rem</p>
+      </div>
+      <div class="muster" style="border-radius:var(--radius-md)">
+        <div class="form" style="border-radius:var(--radius-md)"></div>
+        <b>Knöpfe, kleine Kacheln</b>
+        <span class="token">--radius-md</span>
+        <p>Die Standardrundung für Handlungen.</p>
+        <p style="font-variant-numeric:tabular-nums;color:#9ca3af">0.75rem</p>
+      </div>
+      <div class="muster" style="border-radius:var(--radius-lg)">
+        <div class="form" style="border-radius:var(--radius-lg)"></div>
+        <b>Karten</b>
+        <span class="token">--radius-lg</span>
+        <p>Ein abgeschlossener Inhalt mit eigenem Rand.</p>
+        <p style="font-variant-numeric:tabular-nums;color:#9ca3af">1rem</p>
+      </div>
+      <div class="muster" style="border-radius:var(--radius-xl)">
+        <div class="form" style="border-radius:var(--radius-xl)"></div>
+        <b>Hero- und Akzentflächen</b>
+        <span class="token">--radius-xl</span>
+        <p>Große Flächen, die den Blick halten sollen.</p>
+        <p style="font-variant-numeric:tabular-nums;color:#9ca3af">1.25rem</p>
+      </div>
+    </div>
+    <p class="notiz ">Vier Stufen, mehr nicht. Die Skala ist entstanden, weil vorher gemischte Werte im Umlauf waren – <code>rounded-lg</code> neben <code>rounded-[10px]</code> neben <code>rounded-2xl</code>. Wer eine fünfte Stufe braucht, braucht in Wahrheit meist eine der vier.</p>
+  </section>
+  <section>
+    <h2>Tiefe</h2>
+    <p class="hinleitung">Drei Stufen. Ein Element steht ruhig, wird berührt, oder liegt über allem – dazwischen gibt es nichts zu unterscheiden.</p>
+    <div class="raster drei">
+      <div class="tiefe">
+        <div class="karte" style="box-shadow:var(--shadow-e1)"></div>
+        <b>Ruhe</b>
+        <span class="token">--shadow-e1</span>
+        <p>Der Knopf und die Karte im Normalzustand. Kaum sichtbar – nur genug, um die Fläche vom Papier zu lösen.</p>
+      </div>
+      <div class="tiefe">
+        <div class="karte" style="box-shadow:var(--shadow-e2)"></div>
+        <b>Berührung</b>
+        <span class="token">--shadow-e2</span>
+        <p>Hover auf Knopf und Karte, schwebende Illustrationsrahmen.</p>
+      </div>
+      <div class="tiefe">
+        <div class="karte" style="box-shadow:var(--shadow-e3)"></div>
+        <b>Über allem</b>
+        <span class="token">--shadow-e3</span>
+        <p>Das Abschluss-Band, die schwebende Kennzahl-Karte im Hero. Höchstens einmal je Bildschirm.</p>
+      </div>
+    </div>
+    <p class="notiz ">Die Schatten sind warm getönt (<code>rgba(24,20,15,…)</code>), nicht neutralgrau. Ein grauer Schatten auf dem Papierton <code>#faf8f4</code> sieht schmutzig aus; ein warmer sieht aus wie Licht.</p>
+  </section>
+  <section>
+    <h2>Die vier Flächen</h2>
+    
+    <div class="flaechen">
+      <div style="background:#faf8f4;color:#374151">
+        <b style="color:var(--color-wp-ink)">Papier</b>
+        <span class="token">.mk-light</span>
+        <p>Der Grund der öffentlichen Seiten. Warmer Papierton mit zwei sehr schwachen
+        Tönungen aus Grün und Orange in den oberen Ecken – man sieht sie nicht, man
+        merkt nur, dass die Seite nicht klinisch weiß ist.</p>
+      </div>
+      <div style="background:#fff;color:#374151">
+        <b style="color:var(--color-wp-ink)">Weiß</b>
+        <span class="token">cardSurfaceClass</span>
+        <p>Karten auf dem Papier. Der Unterschied zwischen <code>#faf8f4</code> und
+        <code>#ffffff</code> ist klein genug, dass die Karte nicht springt, und groß
+        genug, dass sie eine Karte ist.</p>
+      </div>
+      <div style="background:#00241f;color:rgba(255,255,255,.82)">
+        <b style="color:#fff">Tinte</b>
+        <span class="token" style="background:rgba(255,255,255,.12);color:#fff">--color-wp-ink</span>
+        <p>Fußzeile, Zahlenband, Hero-Verlauf. Die dunkelste Fläche der Marke – und die
+        einzige, auf der das Marken-Orange als Schrift stehen darf.</p>
+      </div>
+      <div style="background:#1a1512;color:rgba(255,255,255,.75)">
+        <b style="color:#fff">Shell</b>
+        <span class="token" style="background:rgba(255,255,255,.12);color:#fff">--color-shell</span>
+        <p>Das Portal hinter dem Login. Warmes Dunkelbraun, nicht Schwarz, mit einem
+        fixierten Verlauf über den ganzen Viewport – beim Scrollen entsteht so keine
+        sichtbare Farbkante.</p>
+      </div>
+    </div>
+    <p class="notiz "><strong>Papier vorn, Shell hinten.</strong> Eine öffentliche Seite auf dunklem Grund oder eine Portal-Ansicht auf hellem Papier ist kein Stilbruch, sondern eine falsche Ortsangabe: Der Besucher liest daran ab, ob er noch vor der Tür steht oder schon drin ist.</p>
+  </section>
+  <p class="quelle"><strong>Im Code:</strong> <code>portal/src/app/globals.css (@theme, .mk-light, .bw-shell-bg)</code> · <code>components/ui.tsx</code><br>Erzeugt von <code>design-system/bauen.mjs</code> – nicht von Hand ändern.</p>
+</div>
+</body>
+</html>

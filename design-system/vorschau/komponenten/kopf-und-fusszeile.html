@@ -1,0 +1,322 @@
+<!-- @dsCard group="Komponenten" name="Kopf- und Fußzeile" subtitle="Der Rahmen jeder öffentlichen Seite, auf allen Breiten" width="1280" height="2100" -->
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kopf- und Fußzeile – wegportal24</title>
+<style>
+  :root {
+    --color-brand-green: #003630;
+    --color-brand-green-dark: #00241f;
+    --color-brand-green-light: #0c534a;
+    --color-brand-orange: #f69018;
+    --color-brand-orange-dark: #dd7d0c;
+    --color-brand-orange-light: #fef1e0;
+    --color-brand-orange-ink: #8f5407;
+    --color-wp-primary: #003630;
+    --color-wp-primary-soft: #0c534a;
+    --color-wp-primary-light: #e8efed;
+    --color-wp-ink: #00241f;
+    --color-wp-accent: #f69018;
+    --color-wp-accent-dark: #dd7d0c;
+    --color-wp-accent-light: #fef1e0;
+    --color-wp-accent-ink: #8f5407;
+    --color-wp-accent-bright: #f69018;
+    --color-wp-on-accent: #00241f;
+    --color-shell: #1a1512;
+    --color-shell-2: #241d18;
+    --color-shell-3: #2f2620;
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: "Plus Jakarta Sans", var(--font-sans);
+    --font-mk: "Source Sans 3", var(--font-sans);
+    --color-good: #1f7a54;
+    --color-good-light: #e4f2ea;
+    --color-warn: #b26a09;
+    --color-warn-light: #fdf0df;
+    --color-critical: #c23b2e;
+    --color-critical-light: #fbe7e3;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --shadow-e1: 0 1px 2px rgba(24, 20, 15, 0.08);
+    --shadow-e2: 0 1px 2px rgba(24, 20, 15, 0.06), 0 12px 28px -12px rgba(24, 20, 15, 0.18);
+    --shadow-e3: 0 24px 50px -18px rgba(24, 20, 15, 0.28);
+    --ease-mk-out: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../schrift/sourcesans-400.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("../schrift/sourcesans-600.woff2") format("woff2");
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 56px;
+    background: #faf8f4;
+    background-image:
+      radial-gradient(90% 60% at 85% -10%, rgba(246,144,24,.10) 0%, rgba(246,144,24,0) 55%),
+      radial-gradient(80% 55% at 0% -5%, rgba(0,54,48,.07) 0%, rgba(0,54,48,0) 60%);
+    color: #374151;
+    font-family: var(--font-mk);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .bogen { max-width: 1120px; margin: 0 auto; }
+  .kopf { margin-bottom: 40px; }
+  .kopf h1 {
+    font-family: var(--font-mk);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+    color: var(--color-wp-ink);
+    margin: 0;
+  }
+  .kopf p { margin: 10px 0 0; max-width: 62ch; color: #4b5563; }
+  .augenbraue {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--color-wp-accent-ink);
+    margin: 0 0 10px;
+  }
+  section { margin-top: 40px; }
+  section > h2 {
+    font-family: var(--font-mk);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--color-wp-ink);
+    margin: 0 0 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,36,31,.14);
+  }
+  section > h2 + .hinleitung { margin-top: 14px; }
+  .hinleitung { max-width: 68ch; color: #4b5563; margin: 14px 0 20px; }
+  .raster { display: grid; gap: 16px; margin-top: 20px; }
+  .raster.zwei { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .raster.drei { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .raster.vier { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .feld {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    box-shadow: var(--shadow-e1);
+  }
+  .feld > h3 {
+    font-family: var(--font-mk);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-wp-ink);
+    margin: 0 0 6px;
+  }
+  .feld p { margin: 0; font-size: 13.5px; color: #6b7280; }
+  code, .token {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--color-wp-primary);
+    background: rgba(0,54,48,.06);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+  .notiz {
+    margin-top: 20px;
+    border-left: 3px solid var(--color-wp-accent);
+    background: var(--color-wp-accent-light);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    padding: 13px 16px;
+    font-size: 13.5px;
+    color: #4b3a22;
+    max-width: 78ch;
+  }
+  .notiz strong { color: var(--color-wp-ink); }
+  .notiz code { background: rgba(0,36,31,.08); }
+  .warnung { border-left-color: #c23b2e; background: #fbe7e3; color: #6b241b; }
+  .warnung strong { color: #7f2318; }
+  .buehne {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    margin-top: 20px;
+  }
+  .buehne.dunkel { background: var(--color-wp-ink); border-color: rgba(255,255,255,.10); }
+  .buehne.papier { background: #faf8f4; }
+  .beschriftung {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin: 0 0 14px;
+  }
+  .buehne.dunkel .beschriftung { color: rgba(255,255,255,.45); }
+  .reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 20px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+  }
+  td.zahl { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .marke {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 2px 9px;
+    white-space: nowrap;
+  }
+  .marke.gut { background: #e4f2ea; color: #14603f; }
+  .marke.schwach { background: #fdf0df; color: #8a5209; }
+  .marke.schlecht { background: #fbe7e3; color: #9b2f23; }
+  .quelle {
+    margin-top: 52px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0,36,31,.12);
+    font-size: 12.5px;
+    color: #9ca3af;
+  }
+  .quelle strong { color: #6b7280; font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      transition-duration: .01ms !important;
+    }
+  }
+
+
+  .rahmen { border: 1px solid #e5e7eb; border-radius: var(--radius-lg); overflow: hidden; margin-top: 20px; }
+  .kopfleiste { background: rgba(250,248,244,.92); backdrop-filter: blur(12px); border-bottom: 1px solid color-mix(in srgb, var(--color-wp-ink) 15%, transparent); }
+  .kopfleiste .innen { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 24px; }
+  .wm { display: inline-flex; align-items: center; gap: .625em; font-family: var(--font-display); font-size: 20px; font-weight: 800; letter-spacing: -.025em; line-height: 1; color: var(--color-wp-ink); }
+  .wm svg { height: 1em; width: 1em; }
+  .navi { display: flex; align-items: center; gap: 26px; font-size: 15px; }
+  .navi a { color: color-mix(in srgb, var(--color-wp-ink) 65%, transparent); text-decoration: none; padding-bottom: 3px; }
+  .navi a.hier { color: var(--color-wp-ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--color-wp-accent-ink); text-decoration-thickness: 2px; text-underline-offset: 7px; }
+  .kopfaktionen { display: flex; align-items: center; gap: 16px; }
+  .anmelden { font-size: 15px; font-weight: 600; color: var(--color-wp-ink); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--color-wp-ink) 30%, transparent); text-underline-offset: 6px; }
+  .kopfknopf { display: inline-flex; align-items: center; min-height: 44px; border-radius: var(--radius-xl); background: var(--color-wp-accent); color: var(--color-wp-on-accent); padding: 8px 16px; font-size: 14px; font-weight: 600; box-shadow: var(--shadow-e1); text-decoration: none; }
+  .fussleiste { background: var(--color-wp-ink); padding: 34px 24px 0; }
+  .fussgitter { display: grid; gap: 28px; grid-template-columns: 1.3fr 1fr 1fr 1fr; }
+  .fussgitter p.spaltentitel { font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.5); margin: 0 0 14px; }
+  .fussgitter ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  .fussgitter a { color: rgba(255,255,255,.8); font-size: 13.5px; text-decoration: none; }
+  .fussgitter .werbetext { color: rgba(255,255,255,.7); font-size: 13.5px; line-height: 1.55; margin: 14px 0 0; max-width: 30ch; }
+  .fussgitter .post { display: inline-flex; align-items: center; gap: 8px; color: rgba(255,255,255,.8); font-size: 13.5px; margin-top: 14px; text-decoration: none; }
+  .fussunten { margin-top: 30px; border-top: 1px solid rgba(255,255,255,.1); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 16px 0; font-size: 12px; color: rgba(255,255,255,.6); }
+  .mobilleiste { position: relative; border: 1px solid #e5e7eb; border-radius: var(--radius-lg); background: #fff; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: var(--shadow-e2); max-width: 375px; }
+  .mobilleiste .text { font-size: 13px; color: #6b7280; }
+
+</style>
+</head>
+<body>
+<div class="bogen">
+  <header class="kopf">
+    <p class="augenbraue">Komponenten</p>
+    <h1>Kopf- und Fußzeile</h1>
+    <p>Sie stehen auf jeder öffentlichen Seite und tragen zusammen den einen Weg, den diese Seiten anbieten: registrieren. Keine Seite baut sie selbst.</p>
+  </header>
+  <section>
+    <h2>Kopfzeile</h2>
+    <p class="hinleitung">Eine Kopfzeile für alle Breiten: Wortmarke, Navigation ab <code>lg</code>, Anmelden ab <code>sm</code>, und der Registrieren-Knopf auf <em>jeder</em> Breite. Er ist die eine Handlung dieser Seiten.</p>
+    <div class="rahmen">
+      <div class="kopfleiste">
+        <div class="innen">
+          <span class="wm"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="0" y="0" width="16" height="16" rx="2.5" fill="#00241f"/><rect x="0" y="20" width="16" height="16" rx="2.5" fill="#00241f"/><rect x="20" y="0" width="16" height="36" rx="2.5" fill="#f69018"/></svg><span>wegportal<span style="color:#f69018">24</span></span></span>
+          <nav class="navi">
+            <a class="hier" href="#">So funktioniert’s</a>
+            <a href="#">Finanzen</a><a href="#">Hausgeld</a><a href="#">Versammlung</a>
+            <a href="#">Kommunikation</a><a href="#">Preise</a>
+          </nav>
+          <div class="kopfaktionen">
+            <a class="anmelden" href="#">Anmelden</a>
+            <a class="kopfknopf" href="#">Registrieren</a>
+          </div>
+        </div>
+      </div>
+      <div style="background:#faf8f4;padding:22px 24px;color:#9ca3af;font-size:12.5px">Seiteninhalt</div>
+    </div>
+    <p class="notiz "><strong>„So funktioniert’s“ steht zuerst.</strong> Für den unsicheren Erstbesucher ist das der wichtigste Link – im früheren waagerecht scrollenden Band lag er bei 390 px außerhalb des Bildschirms.</p>
+    <p class="notiz ">Aktionsleiste und Kopfzeile kleben gemeinsam in <em>einem</em> Rahmen. Getrennte <code>sticky</code>-Elemente gingen nicht: Die Kopfzeile müsste die Höhe der Leiste als <code>top</code> kennen, und die ist je Breite anders beschriftet – ein fester Wert wäre auf einer Breite immer falsch, und dazwischen entstünde eine Lücke, durch die der Inhalt sichtbar durchscrollt.</p>
+    <p class="notiz warnung"><strong>Falle beim Overlay:</strong> Die Kopfzeile trägt <code>backdrop-blur</code>. Ein Backdrop-Filter macht sein Element zum Bezugsrahmen für <code>position: fixed</code> – das mobile Menü gehört deshalb per <code>createPortal</code> an <code>&lt;body&gt;</code>, nie in den Header.</p>
+  </section>
+  <section>
+    <h2>Mobil</h2>
+    
+    <div class="reihe" style="align-items:flex-start;gap:30px">
+      <div>
+        <div class="rahmen" style="max-width:375px;margin-top:0">
+          <div class="kopfleiste">
+            <div class="innen" style="padding:12px 14px;gap:9px">
+              <span class="wm" style="font-size:18px"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="0" y="0" width="16" height="16" rx="2.5" fill="#00241f"/><rect x="0" y="20" width="16" height="16" rx="2.5" fill="#00241f"/><rect x="20" y="0" width="16" height="36" rx="2.5" fill="#f69018"/></svg><span>wegportal<span style="color:#f69018">24</span></span></span>
+              <div class="kopfaktionen" style="gap:8px">
+                <a class="kopfknopf" href="#" style="padding:8px 13px">Starten</a>
+                <button aria-label="Menü öffnen" style="display:inline-flex;align-items:center;justify-content:center;height:44px;width:44px;border:0;background:transparent;cursor:pointer;color:#00241f">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div style="background:#faf8f4;padding:20px 14px;color:#9ca3af;font-size:12.5px">375 px – iPhone SE</div>
+        </div>
+        <p style="margin-top:13px;font-size:12.5px;color:#6b7280">Kopfzeile <b>einzeilig</b>. „Anmelden“ wandert ins Overlay, „Registrieren“ wird zu „Starten“ – und bleibt.</p>
+      </div>
+      <div>
+        <div class="mobilleiste">
+          <span class="text">Kostenlos, ohne Zahlungsdaten</span>
+          <a class="kopfknopf" href="#" style="padding:9px 15px">Starten</a>
+        </div>
+        <p style="margin-top:13px;font-size:12.5px;color:#6b7280;max-width:375px"><code>MobileCtaBar</code> – blendet sich ab etwa 25 % Scrolltiefe ein und am Abschluss-Block <code>#schluss-cta</code> wieder aus. Die Fußzeile gehört mit in diesen Block, sonst taucht die Leiste am Seitenende wieder auf.</p>
+      </div>
+    </div>
+    <p class="notiz ">Höhen in <code>svh</code>, nie <code>vh</code>: iOS rechnet <code>vh</code> mit eingeklappter URL-Leiste – beim ersten Scrollen springt sonst der Inhalt. Und Scroll-Pinning nur ab <code>lg</code>, per CSS geschaltet (<code>hidden lg:block</code>), nicht per Client-Weiche: Der Server kennt die Breite nicht, ein Umschalten nach der Hydratation springt.</p>
+  </section>
+  <section>
+    <h2>Fußzeile</h2>
+    <p class="hinleitung">Der dunkelgrüne Anker am Seitenende. Vier Spalten: Marke, Funktionen, Einstieg, Rechtliches.</p>
+    <div class="rahmen">
+      <div class="fussleiste">
+        <div class="fussgitter">
+          <div>
+            <span class="wm" style="color:#fff"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="0" y="0" width="16" height="16" rx="2.5" fill="#ffffff"/><rect x="0" y="20" width="16" height="16" rx="2.5" fill="#ffffff"/><rect x="20" y="0" width="16" height="36" rx="2.5" fill="#f69018"/></svg><span>wegportal<span style="color:#f69018">24</span></span></span>
+            <p class="werbetext">Das Portal für selbstverwaltete Wohnungseigentümergemeinschaften – von der ersten Buchung bis zur revisionssicheren Jahresabrechnung.</p>
+            <a class="post" href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>info@wegportal24.de</a>
+          </div>
+          <div><p class="spaltentitel">Funktionen</p><ul><li><a href="#">Finanzen &amp; Jahresabrechnung</a></li><li><a href="#">Hausgeld &amp; Rückstände</a></li><li><a href="#">Versammlung &amp; Abstimmung</a></li><li><a href="#">Kommunikation &amp; Alltag</a></li><li><a href="#">Sondereigentum &amp; Mieter</a></li><li><a href="#">KI-Berater</a></li></ul></div>
+          <div><p class="spaltentitel">Einstieg</p><ul><li><a href="#">Der Weg zur Selbstverwaltung</a></li><li><a href="#">Preise und Tarife</a></li><li><a href="#">Fragen &amp; Anregungen</a></li><li><a href="#">Kostenlos registrieren</a></li><li><a href="#">Zum Login</a></li></ul></div>
+          <div><p class="spaltentitel">Rechtliches</p><ul><li><a href="#">Impressum</a></li><li><a href="#">Datenschutz</a></li><li><a href="#">AGB</a></li><li><a href="#">Widerrufsbelehrung</a></li><li><a href="#">Verträge hier kündigen</a></li><li><a href="#">Auftragsverarbeitung (AVV)</a></li><li><a href="#">KI-Transparenz</a></li></ul></div>
+        </div>
+        <div class="fussunten">
+          <p style="margin:0">© 2026 wegportal24.de. Alle Rechte vorbehalten. · Cookie-Einstellungen</p>
+          <p style="margin:0">Wirtschaftsplan · Jahresabrechnung · Hausgeld – nach §§ 19, 26a, 28 WEG</p>
+        </div>
+      </div>
+    </div>
+    <p class="notiz warnung"><strong>Vier Beschriftungen in der Rechtsspalte sind vom Gesetz vorgegeben, nicht vom Marketing.</strong> „Verträge hier kündigen“ steht so in § 312k Absatz 2 BGB und darf nicht in „Vertrag beenden“ umbenannt werden. Die Widerrufsbelehrung ist Pflicht, weil eine WEG Verbraucherin ist, sobald ihr eine natürliche Person angehört (BGH VIII ZR 243/13). KI-Transparenz folgt Artikel 50 der EU-KI-Verordnung. Das Impressum nennt die Betreiberin nach § 5 DDG – es ist die eine Stelle, an der sie stehen <em>muss</em>.</p>
+  </section>
+  <p class="quelle"><strong>Im Code:</strong> <code>components/marketing/site.tsx (MarketingHeader, MarketingFooter)</code> · <code>components/marketing/mobile-menu.tsx</code> · <code>components/marketing/mobile-cta-bar.tsx</code><br>Erzeugt von <code>design-system/bauen.mjs</code> – nicht von Hand ändern.</p>
+</div>
+</body>
+</html>

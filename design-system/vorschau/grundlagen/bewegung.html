@@ -1,0 +1,292 @@
+<!-- @dsCard group="Grundlagen" name="Bewegung" subtitle="Eine Kurve, vier Dauern, und ein Schalter für alle" width="1200" height="1600" -->
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bewegung – wegportal24</title>
+<style>
+  :root {
+    --color-brand-green: #003630;
+    --color-brand-green-dark: #00241f;
+    --color-brand-green-light: #0c534a;
+    --color-brand-orange: #f69018;
+    --color-brand-orange-dark: #dd7d0c;
+    --color-brand-orange-light: #fef1e0;
+    --color-brand-orange-ink: #8f5407;
+    --color-wp-primary: #003630;
+    --color-wp-primary-soft: #0c534a;
+    --color-wp-primary-light: #e8efed;
+    --color-wp-ink: #00241f;
+    --color-wp-accent: #f69018;
+    --color-wp-accent-dark: #dd7d0c;
+    --color-wp-accent-light: #fef1e0;
+    --color-wp-accent-ink: #8f5407;
+    --color-wp-accent-bright: #f69018;
+    --color-wp-on-accent: #00241f;
+    --color-shell: #1a1512;
+    --color-shell-2: #241d18;
+    --color-shell-3: #2f2620;
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: "Plus Jakarta Sans", var(--font-sans);
+    --font-mk: "Source Sans 3", var(--font-sans);
+    --color-good: #1f7a54;
+    --color-good-light: #e4f2ea;
+    --color-warn: #b26a09;
+    --color-warn-light: #fdf0df;
+    --color-critical: #c23b2e;
+    --color-critical-light: #fbe7e3;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --shadow-e1: 0 1px 2px rgba(24, 20, 15, 0.08);
+    --shadow-e2: 0 1px 2px rgba(24, 20, 15, 0.06), 0 12px 28px -12px rgba(24, 20, 15, 0.18);
+    --shadow-e3: 0 24px 50px -18px rgba(24, 20, 15, 0.28);
+    --ease-mk-out: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../schrift/sourcesans-400.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("../schrift/sourcesans-600.woff2") format("woff2");
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 56px;
+    background: #faf8f4;
+    background-image:
+      radial-gradient(90% 60% at 85% -10%, rgba(246,144,24,.10) 0%, rgba(246,144,24,0) 55%),
+      radial-gradient(80% 55% at 0% -5%, rgba(0,54,48,.07) 0%, rgba(0,54,48,0) 60%);
+    color: #374151;
+    font-family: var(--font-mk);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .bogen { max-width: 1120px; margin: 0 auto; }
+  .kopf { margin-bottom: 40px; }
+  .kopf h1 {
+    font-family: var(--font-mk);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+    color: var(--color-wp-ink);
+    margin: 0;
+  }
+  .kopf p { margin: 10px 0 0; max-width: 62ch; color: #4b5563; }
+  .augenbraue {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--color-wp-accent-ink);
+    margin: 0 0 10px;
+  }
+  section { margin-top: 40px; }
+  section > h2 {
+    font-family: var(--font-mk);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--color-wp-ink);
+    margin: 0 0 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,36,31,.14);
+  }
+  section > h2 + .hinleitung { margin-top: 14px; }
+  .hinleitung { max-width: 68ch; color: #4b5563; margin: 14px 0 20px; }
+  .raster { display: grid; gap: 16px; margin-top: 20px; }
+  .raster.zwei { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .raster.drei { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .raster.vier { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .feld {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    box-shadow: var(--shadow-e1);
+  }
+  .feld > h3 {
+    font-family: var(--font-mk);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-wp-ink);
+    margin: 0 0 6px;
+  }
+  .feld p { margin: 0; font-size: 13.5px; color: #6b7280; }
+  code, .token {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--color-wp-primary);
+    background: rgba(0,54,48,.06);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+  .notiz {
+    margin-top: 20px;
+    border-left: 3px solid var(--color-wp-accent);
+    background: var(--color-wp-accent-light);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    padding: 13px 16px;
+    font-size: 13.5px;
+    color: #4b3a22;
+    max-width: 78ch;
+  }
+  .notiz strong { color: var(--color-wp-ink); }
+  .notiz code { background: rgba(0,36,31,.08); }
+  .warnung { border-left-color: #c23b2e; background: #fbe7e3; color: #6b241b; }
+  .warnung strong { color: #7f2318; }
+  .buehne {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    margin-top: 20px;
+  }
+  .buehne.dunkel { background: var(--color-wp-ink); border-color: rgba(255,255,255,.10); }
+  .buehne.papier { background: #faf8f4; }
+  .beschriftung {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin: 0 0 14px;
+  }
+  .buehne.dunkel .beschriftung { color: rgba(255,255,255,.45); }
+  .reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 20px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+  }
+  td.zahl { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .marke {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 2px 9px;
+    white-space: nowrap;
+  }
+  .marke.gut { background: #e4f2ea; color: #14603f; }
+  .marke.schwach { background: #fdf0df; color: #8a5209; }
+  .marke.schlecht { background: #fbe7e3; color: #9b2f23; }
+  .quelle {
+    margin-top: 52px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0,36,31,.12);
+    font-size: 12.5px;
+    color: #9ca3af;
+  }
+  .quelle strong { color: #6b7280; font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      transition-duration: .01ms !important;
+    }
+  }
+
+
+  .bahn { position: relative; height: 56px; background: #faf8f4; border-radius: var(--radius-md); border: 1px solid #eef0ee; overflow: hidden; }
+  .laeufer { position: absolute; top: 12px; left: 10px; width: 32px; height: 32px; border-radius: var(--radius-md); }
+  .laeufer.richtig { background: var(--color-wp-accent); animation: laufRichtig 2.6s var(--ease-mk-out) infinite; }
+  .laeufer.falsch { background: #c23b2e; animation: laufFalsch 2.6s cubic-bezier(.34,1.56,.64,1) infinite; }
+  @keyframes laufRichtig { 0%,8% { transform: translateX(0); } 55%,100% { transform: translateX(var(--weg, 320px)); } }
+  @keyframes laufFalsch  { 0%,8% { transform: translateX(0); } 55%,100% { transform: translateX(var(--weg, 320px)); } }
+  .vergleich { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 20px; margin-top: 20px; }
+  .vergleich > div { border: 1px solid #e5e7eb; border-radius: var(--radius-lg); padding: 20px; background: #fff; }
+  .vergleich h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--color-wp-ink); }
+  .vergleich .kurve { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; color: #6b7280; margin: 0 0 15px; }
+  .vergleich p.warum { font-size: 13px; color: #6b7280; margin: 14px 0 0; }
+  .dauern td.zahl { color: var(--color-wp-ink); font-weight: 600; }
+
+</style>
+</head>
+<body>
+<div class="bogen">
+  <header class="kopf">
+    <p class="augenbraue">Grundlagen</p>
+    <h1>Bewegung</h1>
+    <p>Bewegung erklärt, woher etwas kommt und wohin es geht. Sobald sie auffällt, tut sie das nicht mehr – sie hält nur auf.</p>
+  </header>
+  <section>
+    <h2>Eine Kurve</h2>
+    <p class="hinleitung">Für alles, was sich auf den öffentlichen Seiten bewegt, gibt es genau eine Beschleunigung. Sie steht als Token in <code>globals.css</code> und wird nicht abgeschrieben.</p>
+    <div class="vergleich">
+      <div>
+        <h3>So – exponentielles Auslaufen</h3>
+        <p class="kurve">--ease-mk-out: cubic-bezier(0.16, 1, 0.3, 1)</p>
+        <div class="bahn"><div class="laeufer richtig"></div></div>
+        <p class="warum">Schnell los, weich aus. Ein Gegenstand mit Masse bremst ab – er
+        federt nicht zurück. Genau das liest das Auge als „echt“.</p>
+      </div>
+      <div>
+        <h3>Nicht so – Sprungkurve mit Überschwinger</h3>
+        <p class="kurve">cubic-bezier(.34, 1.56, .64, 1)</p>
+        <div class="bahn"><div class="laeufer falsch"></div></div>
+        <p class="warum">Schießt über das Ziel hinaus und kommt zurück. Karten und
+        Etiketten werden dabei kurz größer als ihre Endgröße – bei elf Kopien derselben
+        Kurve im Markup war das der Grund, sie durch <em>ein</em> Token zu ersetzen.</p>
+      </div>
+    </div>
+    <p class="notiz warnung">Der Prüfbefehl der Marken-Seiten meldet beides: die Sprungkurve <code>cubic-bezier(.34,1.56,.64,1)</code> und <code>animate-bounce</code>. Auf <code>page.tsx</code>, <code>/preise</code>, <code>/funktionen</code>, <code>/so-funktionierts</code> und <code>components/marketing</code> gilt: null Befunde, vor und nach jeder Änderung.</p>
+  </section>
+  <section>
+    <h2>Dauern</h2>
+    <p class="hinleitung">Vier Bereiche. Was länger dauert als 600 ms, ohne eine Dauerbewegung zu sein, hält auf.</p>
+    <table class="dauern">
+      <thead><tr><th>Dauer</th><th>Wofür</th><th>Warum diese Länge</th></tr></thead>
+      <tbody>
+        <tr><td class="zahl">80–160 ms</td><td>Zustandswechsel</td><td>Hover, Fokus, Aufklappen eines Menüs. So kurz, dass es sich wie eine Reaktion anfühlt und nicht wie eine Animation.</td></tr>
+        <tr><td class="zahl">180–260 ms</td><td>Etwas erscheint</td><td>Kurzmeldung, Schublade, ausklappende Karte. Lang genug, dass das Auge dem Weg folgen kann.</td></tr>
+        <tr><td class="zahl">500–600 ms</td><td>Abschnitt blendet ein</td><td>Die Reveals beim Scrollen. Sie laufen einmal und nie wieder.</td></tr>
+        <tr><td class="zahl">2,2–8 s</td><td>Ruhige Dauerbewegung</td><td>Schwebende Illustrationen, Ken-Burns-Zoom auf Fotos, Scroll-Hinweis. Muss unbemerkt bleiben.</td></tr>
+      </tbody>
+    </table>
+  </section>
+  <section>
+    <h2>Wer keine Bewegung will, verliert keine Information</h2>
+    
+    <div class="buehne ">
+      <p class="beschriftung">prefers-reduced-motion: reduce</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px">
+        <div>
+          <p style="margin:0 0 7px;font-weight:600;color:var(--color-wp-ink);font-size:13.5px">Alle Dauern auf 0,01 ms</p>
+          <p style="margin:0;font-size:13px;color:#6b7280">Ein globaler Block setzt Animationen und Übergänge praktisch still – kein Element muss das einzeln wissen.</p>
+        </div>
+        <div>
+          <p style="margin:0 0 7px;font-weight:600;color:var(--color-wp-ink);font-size:13.5px">Reveals werden sofort sichtbar</p>
+          <p style="margin:0;font-size:13px;color:#6b7280"><code>.mk-reveal</code> startet auf <code>opacity:0</code>. Ohne Gegenregel bliebe der halbe Seiteninhalt unsichtbar – deshalb setzt der Block sie auf <code>opacity:1</code>.</p>
+        </div>
+        <div>
+          <p style="margin:0 0 7px;font-weight:600;color:var(--color-wp-ink);font-size:13.5px">Angesprungene Stelle bleibt markiert</p>
+          <p style="margin:0;font-size:13px;color:#6b7280">Statt des ablaufenden Leuchtens eine ruhige, bleibende Markierung. Die Information „hier ist die Stelle“ darf nicht mit der Animation verschwinden.</p>
+        </div>
+      </div>
+    </div>
+    <p class="notiz ">Das ist die Probe für jede neue Animation: Schaltet man Bewegung ab – sieht man dann noch alles? Eine Einblendung, die ohne Bewegung nie sichtbar wird, ist kein Effekt, sondern ein Ausfall.</p>
+  </section>
+  <p class="quelle"><strong>Im Code:</strong> <code>portal/src/app/globals.css (--ease-mk-out, @keyframes mk*, prefers-reduced-motion)</code> · <code>components/marketing/reveal.tsx</code><br>Erzeugt von <code>design-system/bauen.mjs</code> – nicht von Hand ändern.</p>
+</div>
+</body>
+</html>

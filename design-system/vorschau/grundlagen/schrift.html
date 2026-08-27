@@ -1,0 +1,309 @@
+<!-- @dsCard group="Grundlagen" name="Schrift" subtitle="Source Sans 3 vorn, Inter und Jakarta hinter dem Login" width="1200" height="2160" -->
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schrift – wegportal24</title>
+<style>
+  :root {
+    --color-brand-green: #003630;
+    --color-brand-green-dark: #00241f;
+    --color-brand-green-light: #0c534a;
+    --color-brand-orange: #f69018;
+    --color-brand-orange-dark: #dd7d0c;
+    --color-brand-orange-light: #fef1e0;
+    --color-brand-orange-ink: #8f5407;
+    --color-wp-primary: #003630;
+    --color-wp-primary-soft: #0c534a;
+    --color-wp-primary-light: #e8efed;
+    --color-wp-ink: #00241f;
+    --color-wp-accent: #f69018;
+    --color-wp-accent-dark: #dd7d0c;
+    --color-wp-accent-light: #fef1e0;
+    --color-wp-accent-ink: #8f5407;
+    --color-wp-accent-bright: #f69018;
+    --color-wp-on-accent: #00241f;
+    --color-shell: #1a1512;
+    --color-shell-2: #241d18;
+    --color-shell-3: #2f2620;
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: "Plus Jakarta Sans", var(--font-sans);
+    --font-mk: "Source Sans 3", var(--font-sans);
+    --color-good: #1f7a54;
+    --color-good-light: #e4f2ea;
+    --color-warn: #b26a09;
+    --color-warn-light: #fdf0df;
+    --color-critical: #c23b2e;
+    --color-critical-light: #fbe7e3;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --shadow-e1: 0 1px 2px rgba(24, 20, 15, 0.08);
+    --shadow-e2: 0 1px 2px rgba(24, 20, 15, 0.06), 0 12px 28px -12px rgba(24, 20, 15, 0.18);
+    --shadow-e3: 0 24px 50px -18px rgba(24, 20, 15, 0.28);
+    --ease-mk-out: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../schrift/sourcesans-400.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("../schrift/sourcesans-600.woff2") format("woff2");
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 56px;
+    background: #faf8f4;
+    background-image:
+      radial-gradient(90% 60% at 85% -10%, rgba(246,144,24,.10) 0%, rgba(246,144,24,0) 55%),
+      radial-gradient(80% 55% at 0% -5%, rgba(0,54,48,.07) 0%, rgba(0,54,48,0) 60%);
+    color: #374151;
+    font-family: var(--font-mk);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .bogen { max-width: 1120px; margin: 0 auto; }
+  .kopf { margin-bottom: 40px; }
+  .kopf h1 {
+    font-family: var(--font-mk);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+    color: var(--color-wp-ink);
+    margin: 0;
+  }
+  .kopf p { margin: 10px 0 0; max-width: 62ch; color: #4b5563; }
+  .augenbraue {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--color-wp-accent-ink);
+    margin: 0 0 10px;
+  }
+  section { margin-top: 40px; }
+  section > h2 {
+    font-family: var(--font-mk);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--color-wp-ink);
+    margin: 0 0 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,36,31,.14);
+  }
+  section > h2 + .hinleitung { margin-top: 14px; }
+  .hinleitung { max-width: 68ch; color: #4b5563; margin: 14px 0 20px; }
+  .raster { display: grid; gap: 16px; margin-top: 20px; }
+  .raster.zwei { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .raster.drei { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .raster.vier { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .feld {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    box-shadow: var(--shadow-e1);
+  }
+  .feld > h3 {
+    font-family: var(--font-mk);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-wp-ink);
+    margin: 0 0 6px;
+  }
+  .feld p { margin: 0; font-size: 13.5px; color: #6b7280; }
+  code, .token {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--color-wp-primary);
+    background: rgba(0,54,48,.06);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+  .notiz {
+    margin-top: 20px;
+    border-left: 3px solid var(--color-wp-accent);
+    background: var(--color-wp-accent-light);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    padding: 13px 16px;
+    font-size: 13.5px;
+    color: #4b3a22;
+    max-width: 78ch;
+  }
+  .notiz strong { color: var(--color-wp-ink); }
+  .notiz code { background: rgba(0,36,31,.08); }
+  .warnung { border-left-color: #c23b2e; background: #fbe7e3; color: #6b241b; }
+  .warnung strong { color: #7f2318; }
+  .buehne {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    margin-top: 20px;
+  }
+  .buehne.dunkel { background: var(--color-wp-ink); border-color: rgba(255,255,255,.10); }
+  .buehne.papier { background: #faf8f4; }
+  .beschriftung {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin: 0 0 14px;
+  }
+  .buehne.dunkel .beschriftung { color: rgba(255,255,255,.45); }
+  .reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 20px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+  }
+  td.zahl { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .marke {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 2px 9px;
+    white-space: nowrap;
+  }
+  .marke.gut { background: #e4f2ea; color: #14603f; }
+  .marke.schwach { background: #fdf0df; color: #8a5209; }
+  .marke.schlecht { background: #fbe7e3; color: #9b2f23; }
+  .quelle {
+    margin-top: 52px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0,36,31,.12);
+    font-size: 12.5px;
+    color: #9ca3af;
+  }
+  .quelle strong { color: #6b7280; font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      transition-duration: .01ms !important;
+    }
+  }
+
+
+  .probe { border-bottom: 1px solid #eef0ee; padding: 18px 0; display: grid; grid-template-columns: 190px 1fr; gap: 24px; align-items: baseline; }
+  .probe:last-child { border-bottom: 0; }
+  .probe .angabe { font-size: 12px; color: #9ca3af; font-variant-numeric: tabular-nums; line-height: 1.45; }
+  .probe .angabe b { display: block; color: var(--color-wp-ink); font-size: 12.5px; font-weight: 600; }
+  .probe .text { color: var(--color-wp-ink); }
+  .satz { max-width: 62ch; }
+  .gegenprobe { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+  .gegenprobe > div { border: 1px solid #e5e7eb; border-radius: var(--radius-lg); padding: 20px; background: #fff; }
+  .gegenprobe .zeile { font-size: 26px; font-weight: 700; letter-spacing: -.025em; color: var(--color-wp-ink); margin: 0 0 4px; }
+  .gegenprobe p.wo { font-size: 12.5px; color: #6b7280; margin: 10px 0 0; }
+
+</style>
+</head>
+<body>
+<div class="bogen">
+  <header class="kopf">
+    <p class="augenbraue">Grundlagen</p>
+    <h1>Schrift</h1>
+    <p>Die öffentlichen Seiten sprechen in derselben Schrift, in der das Portal später die Abrechnung druckt. Das ist der ganze Trick: Wer die Seite liest, sieht schon, wie sein Wirtschaftsplan aussehen wird.</p>
+  </header>
+  <section>
+    <h2>Zwei Schriftwelten, klar getrennt</h2>
+    <p class="hinleitung">Welche Schrift wo gilt, ist keine Geschmacksfrage: Die Trennung sagt dem Besucher, ob er vor der Marke steht oder schon in seinem Portal arbeitet.</p>
+    <div class="gegenprobe">
+      <div>
+        <p class="zeile" style="font-family:var(--font-mk)">Source Sans 3</p>
+        <span class="token">--font-mk</span>
+        <p class="wo"><b>Die öffentlichen Seiten.</b> Startseite, Funktionen, Preise,
+        So funktioniert’s, Rechtstexte. Es ist dieselbe Schrift, in der das Portal
+        Wirtschaftsplan, Jahresabrechnung und Mahnungen setzt
+        (<code>lib/documents/kit/fonts.ts</code>) – die Seite steht damit im Schriftbild
+        der Papiere, die sie verspricht.</p>
+      </div>
+      <div>
+        <p class="zeile" style="font-family:var(--font-display)">Plus Jakarta Sans</p>
+        <span class="token">--font-display</span>
+        <p class="wo"><b>Überschriften im Portal</b> hinter dem Login – und nur dort.
+        Auf den Marken-Seiten hat sie nichts zu suchen.</p>
+      </div>
+      <div>
+        <p class="zeile" style="font-family:var(--font-sans)">Inter</p>
+        <span class="token">--font-sans</span>
+        <p class="wo"><b>Fließtext im Portal</b> hinter dem Login. Tabellenziffern laufen
+        überall auf <code>tabular-nums</code> – Beträge untereinander müssen fluchten.</p>
+      </div>
+    </div>
+    <p class="notiz warnung"><strong>Die Falle:</strong> <code>h1, h2, h3</code> bekommen in <code>globals.css</code> global die Display-Schrift zugewiesen. Ein Element-Selektor sticht die Vererbung von <code>.mk-light</code> – die Überschriften der Marken-Seiten liefen deshalb einmal in Plus Jakarta Sans, während der Fließtext daneben schon in Source Sans stand. Sichtbar war das erst im direkten Vergleich. Die Gegenregel <code>.mk-light :is(h1,h2,h3)</code> hält das gerade – <em>nicht entfernen</em>.</p>
+  </section>
+  <section>
+    <h2>Größen</h2>
+    <p class="hinleitung">Die Skala ist bewusst kurz. Sieben Rollen reichen für eine Produktseite; jede weitere Größe ist eine Entscheidung, die später jemand anders anders trifft.</p>
+    <div class="buehne">
+      <div class="probe">
+        <div class="angabe"><b>Seitentitel (H1)</b>36–48 px · 800 · −0,02em</div>
+        <div class="text satz" style="font-family:var(--font-mk);font-size:40px;font-weight:800;letter-spacing:-.02em;line-height:1.1">Ihre Eigentümergemeinschaft, selbst verwaltet</div>
+      </div>
+      <div class="probe">
+        <div class="angabe"><b>Abschnitt (H2)</b>24–30 px · 700</div>
+        <div class="text satz" style="font-family:var(--font-mk);font-size:28px;font-weight:700;letter-spacing:-.015em;line-height:1.2">Wirtschaftsplan, Abrechnung, Beschluss</div>
+      </div>
+      <div class="probe">
+        <div class="angabe"><b>Unterabschnitt (H3)</b>18–20 px · 600</div>
+        <div class="text satz" style="font-family:var(--font-mk);font-size:19px;font-weight:600;line-height:1.3">Was Sie im ersten Monat tun</div>
+      </div>
+      <div class="probe">
+        <div class="angabe"><b>Vorspann</b>17–18 px · 400 · 1,6</div>
+        <div class="text satz" style="font-family:var(--font-mk);font-size:17px;font-weight:400;line-height:1.6;color:#4b5563">Von der ersten Buchung über Versammlung und Beschluss bis zur revisionssicheren Jahresabrechnung.</div>
+      </div>
+      <div class="probe">
+        <div class="angabe"><b>Fließtext</b>15–16 px · 400 · 1,55</div>
+        <div class="text satz" style="font-family:var(--font-mk);font-size:15.5px;font-weight:400;line-height:1.6;color:#4b5563">Der Wirtschaftsplan wird beschlossen, nicht beantragt – § 28 Absatz 1 WEG.</div>
+      </div>
+      <div class="probe">
+        <div class="angabe"><b>Augenbraue</b>11–12 px · 600 · 0,18em · Versalien</div>
+        <div class="text satz" style="font-family:var(--font-mk);font-size:11.5px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--color-wp-accent-ink)">So funktioniert’s</div>
+      </div>
+      <div class="probe">
+        <div class="angabe"><b>Kleingedrucktes</b>12,5–13 px · 400</div>
+        <div class="text satz" style="font-family:var(--font-mk);font-size:13px;color:#6b7280">Alle Preise sind Bruttopreise inklusive Mehrwertsteuer.</div>
+      </div>
+    </div>
+    <p class="notiz ">Zeilenlänge höchstens rund 68 Zeichen. Auf den Marken-Seiten steht an den Stellen, an denen eine Überschrift auf zwei Zeilen umbricht, <code>text-balance</code> – sonst hängt ein einzelnes Wort in der zweiten Zeile.</p>
+  </section>
+  <section>
+    <h2>Schriftschnitte und Auslieferung</h2>
+    
+    <table>
+      <thead><tr><th>Token</th><th>Wert</th><th>Schnitte im Build</th></tr></thead>
+      <tbody>
+        <tr><td><code>--font-mk</code></td><td>"Source Sans 3", var(--font-sans)</td><td class="zahl">400, 600</td></tr>
+        <tr><td><code>--font-sans</code></td><td>"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif</td><td class="zahl">400, 500, 600, 700</td></tr>
+        <tr><td><code>--font-display</code></td><td>"Plus Jakarta Sans", var(--font-sans)</td><td class="zahl">600, 700, 800</td></tr>
+      </tbody>
+    </table>
+    <p class="notiz ">Alle Schriften liegen selbst gehostet als <code>woff2</code> unter <code>portal/public/fonts/</code> – kein Google-CDN, damit keine IP-Adresse eines Besuchers an einen Dritten geht, bevor er eingewilligt hat. <code>font-display: swap</code> verhindert den Text-Blitz beim Laden.</p>
+  </section>
+  <p class="quelle"><strong>Im Code:</strong> <code>portal/src/app/globals.css (@theme, @font-face, .mk-light)</code> · <code>lib/documents/kit/fonts.ts</code><br>Erzeugt von <code>design-system/bauen.mjs</code> – nicht von Hand ändern.</p>
+</div>
+</body>
+</html>

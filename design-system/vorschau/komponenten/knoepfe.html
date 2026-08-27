@@ -1,0 +1,328 @@
+<!-- @dsCard group="Komponenten" name="Knöpfe" subtitle="Drei vorn, sechs hinten, und ein Mindestmaß von 44 px" width="1200" height="1940" -->
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knöpfe – wegportal24</title>
+<style>
+  :root {
+    --color-brand-green: #003630;
+    --color-brand-green-dark: #00241f;
+    --color-brand-green-light: #0c534a;
+    --color-brand-orange: #f69018;
+    --color-brand-orange-dark: #dd7d0c;
+    --color-brand-orange-light: #fef1e0;
+    --color-brand-orange-ink: #8f5407;
+    --color-wp-primary: #003630;
+    --color-wp-primary-soft: #0c534a;
+    --color-wp-primary-light: #e8efed;
+    --color-wp-ink: #00241f;
+    --color-wp-accent: #f69018;
+    --color-wp-accent-dark: #dd7d0c;
+    --color-wp-accent-light: #fef1e0;
+    --color-wp-accent-ink: #8f5407;
+    --color-wp-accent-bright: #f69018;
+    --color-wp-on-accent: #00241f;
+    --color-shell: #1a1512;
+    --color-shell-2: #241d18;
+    --color-shell-3: #2f2620;
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: "Plus Jakarta Sans", var(--font-sans);
+    --font-mk: "Source Sans 3", var(--font-sans);
+    --color-good: #1f7a54;
+    --color-good-light: #e4f2ea;
+    --color-warn: #b26a09;
+    --color-warn-light: #fdf0df;
+    --color-critical: #c23b2e;
+    --color-critical-light: #fbe7e3;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --shadow-e1: 0 1px 2px rgba(24, 20, 15, 0.08);
+    --shadow-e2: 0 1px 2px rgba(24, 20, 15, 0.06), 0 12px 28px -12px rgba(24, 20, 15, 0.18);
+    --shadow-e3: 0 24px 50px -18px rgba(24, 20, 15, 0.28);
+    --ease-mk-out: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../schrift/sourcesans-400.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("../schrift/sourcesans-600.woff2") format("woff2");
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 56px;
+    background: #faf8f4;
+    background-image:
+      radial-gradient(90% 60% at 85% -10%, rgba(246,144,24,.10) 0%, rgba(246,144,24,0) 55%),
+      radial-gradient(80% 55% at 0% -5%, rgba(0,54,48,.07) 0%, rgba(0,54,48,0) 60%);
+    color: #374151;
+    font-family: var(--font-mk);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .bogen { max-width: 1120px; margin: 0 auto; }
+  .kopf { margin-bottom: 40px; }
+  .kopf h1 {
+    font-family: var(--font-mk);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+    color: var(--color-wp-ink);
+    margin: 0;
+  }
+  .kopf p { margin: 10px 0 0; max-width: 62ch; color: #4b5563; }
+  .augenbraue {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--color-wp-accent-ink);
+    margin: 0 0 10px;
+  }
+  section { margin-top: 40px; }
+  section > h2 {
+    font-family: var(--font-mk);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--color-wp-ink);
+    margin: 0 0 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,36,31,.14);
+  }
+  section > h2 + .hinleitung { margin-top: 14px; }
+  .hinleitung { max-width: 68ch; color: #4b5563; margin: 14px 0 20px; }
+  .raster { display: grid; gap: 16px; margin-top: 20px; }
+  .raster.zwei { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .raster.drei { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .raster.vier { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .feld {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    box-shadow: var(--shadow-e1);
+  }
+  .feld > h3 {
+    font-family: var(--font-mk);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-wp-ink);
+    margin: 0 0 6px;
+  }
+  .feld p { margin: 0; font-size: 13.5px; color: #6b7280; }
+  code, .token {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--color-wp-primary);
+    background: rgba(0,54,48,.06);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+  .notiz {
+    margin-top: 20px;
+    border-left: 3px solid var(--color-wp-accent);
+    background: var(--color-wp-accent-light);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    padding: 13px 16px;
+    font-size: 13.5px;
+    color: #4b3a22;
+    max-width: 78ch;
+  }
+  .notiz strong { color: var(--color-wp-ink); }
+  .notiz code { background: rgba(0,36,31,.08); }
+  .warnung { border-left-color: #c23b2e; background: #fbe7e3; color: #6b241b; }
+  .warnung strong { color: #7f2318; }
+  .buehne {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    margin-top: 20px;
+  }
+  .buehne.dunkel { background: var(--color-wp-ink); border-color: rgba(255,255,255,.10); }
+  .buehne.papier { background: #faf8f4; }
+  .beschriftung {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin: 0 0 14px;
+  }
+  .buehne.dunkel .beschriftung { color: rgba(255,255,255,.45); }
+  .reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 20px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+  }
+  td.zahl { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .marke {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 2px 9px;
+    white-space: nowrap;
+  }
+  .marke.gut { background: #e4f2ea; color: #14603f; }
+  .marke.schwach { background: #fdf0df; color: #8a5209; }
+  .marke.schlecht { background: #fbe7e3; color: #9b2f23; }
+  .quelle {
+    margin-top: 52px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0,36,31,.12);
+    font-size: 12.5px;
+    color: #9ca3af;
+  }
+  .quelle strong { color: #6b7280; font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      transition-duration: .01ms !important;
+    }
+  }
+
+
+  .knopf {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border-radius: var(--radius-xl); padding: 8px 16px;
+    font-family: var(--font-mk); font-size: 14px; font-weight: 600; line-height: 1.4;
+    border: 1px solid transparent; cursor: pointer; text-decoration: none;
+    transition: background-color .15s var(--ease-mk-out), border-color .15s var(--ease-mk-out), box-shadow .15s var(--ease-mk-out), transform .1s var(--ease-mk-out);
+  }
+  .knopf:active { transform: scale(.98); }
+  .knopf.haupt { background: var(--color-wp-accent); color: var(--color-wp-on-accent); box-shadow: var(--shadow-e1); }
+  .knopf.haupt:hover { background: var(--color-wp-accent-dark); box-shadow: var(--shadow-e2); }
+  .knopf.neben { background: #fff; color: var(--color-wp-primary); border-color: color-mix(in srgb, var(--color-wp-primary) 30%, transparent); }
+  .knopf.neben:hover { border-color: color-mix(in srgb, var(--color-wp-primary) 60%, transparent); background: var(--color-wp-primary-light); }
+  .knopf.aufFoto { background: rgba(255,255,255,.10); color: #fff; border-color: rgba(255,255,255,.40); backdrop-filter: blur(4px); }
+  .knopf.aufFoto:hover { background: rgba(255,255,255,.20); }
+  .knopf.gross { padding: 12px 24px; font-size: 16px; }
+  .knopf.mittel { padding: 10px 20px; }
+  .knopf.klein { padding: 6px 12px; font-size: 12px; }
+  .knopf:focus-visible { outline: 2px solid var(--color-wp-accent); outline-offset: 2px; }
+  .knopf.neben:focus-visible, .knopf.haupt:focus-visible { outline-color: var(--color-wp-accent-ink); }
+  .pfeil { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+  .portalknopf {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    border-radius: var(--radius-xl); padding: 8px 16px;
+    font-family: var(--font-sans); font-size: 14px; line-height: 1.4;
+    border: 1px solid transparent; cursor: pointer;
+  }
+  .portalknopf.primaer { background: var(--color-brand-orange); color: var(--color-brand-green-dark); font-weight: 600; box-shadow: var(--shadow-e1); }
+  .portalknopf.sekundaer { background: #fff; color: #374151; border-color: #d1d5db; font-weight: 500; }
+  .portalknopf.umriss { background: transparent; color: var(--color-brand-orange); border-color: color-mix(in srgb, var(--color-brand-orange) 60%, transparent); font-weight: 600; }
+  .portalknopf.gefahr { background: #fff; color: #dc2626; border-color: #fecaca; font-weight: 500; }
+  .portalknopf.still { background: transparent; color: #4b5563; font-weight: 500; }
+  .portalknopf.klein { padding: 6px 12px; font-size: 12px; }
+
+  .messung { position: relative; display: inline-flex; }
+  .messung .marke44 { position: absolute; inset: 0; outline: 1px dashed var(--color-critical); outline-offset: 0; border-radius: var(--radius-xl); pointer-events: none; }
+  .messung .zahl { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 7px; font-size: 10.5px; color: var(--color-critical); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .minhoehe { min-height: 44px; }
+  .zulang { margin-bottom: 26px; }
+
+</style>
+</head>
+<body>
+<div class="bogen">
+  <header class="kopf">
+    <p class="augenbraue">Komponenten</p>
+    <h1>Knöpfe</h1>
+    <p>Auf den öffentlichen Seiten gibt es genau eine Handlung, die zählt: registrieren. Alles andere ordnet sich ihr unter – in Farbe, Fläche und Reihenfolge.</p>
+  </header>
+  <section>
+    <h2>Die drei Knöpfe der öffentlichen Seiten</h2>
+    <p class="hinleitung">Sie sind bewusst eigene Konstanten und nicht der <code>buttonClass</code> des Portals: Der gilt in der ganzen App – ihn umzufärben würde die Verwaltungs-Variante mitziehen.</p>
+    <div class="raster drei">
+      <div class="feld">
+        <h3>Haupt-Handlung</h3>
+        <p style="margin-bottom:16px">Registrieren. Orange Fläche, dunkle Tinte darauf.</p>
+        <a class="knopf haupt" href="#">Kostenlos starten <svg class="pfeil" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <p style="margin-top:15px"><span class="token">wpButtonClass</span></p>
+      </div>
+      <div class="feld">
+        <h3>Neben-Handlung</h3>
+        <p style="margin-bottom:16px">Anmelden, So funktioniert’s. Umriss in der Primärfarbe.</p>
+        <a class="knopf neben" href="#">So funktioniert’s</a>
+        <p style="margin-top:15px"><span class="token">wpButtonSecondaryClass</span></p>
+      </div>
+      <div class="feld" style="background:var(--color-wp-ink);border-color:rgba(255,255,255,.10)">
+        <h3 style="color:#fff">Auf Foto und Dunkelfläche</h3>
+        <p style="margin-bottom:16px;color:rgba(255,255,255,.6)">Weißer Umriss mit leichter Milchglas-Füllung.</p>
+        <a class="knopf aufFoto" href="#">So funktioniert’s</a>
+        <p style="margin-top:15px"><span class="token" style="background:rgba(255,255,255,.12);color:#fff">wpButtonOnPhotoClass</span></p>
+      </div>
+    </div>
+    <p class="notiz "><strong>Eine Handlung je Blickachse.</strong> Der orange Knopf ist das Angebot der Seite; steht er zweimal nebeneinander, ist er keins mehr. Neben ihm steht höchstens eine Neben-Handlung, und die trägt Umriss statt Fläche.</p>
+  </section>
+  <section>
+    <h2>Größen – und die 44-px-Regel</h2>
+    
+    <div class="buehne ">
+      <p class="beschriftung">Wo welche Größe steht</p>
+      <div class="reihe zulang" style="gap:26px">
+        <span class="messung minhoehe" style="align-items:center">
+          <a class="knopf haupt minhoehe" href="#">Registrieren</a>
+          <span class="marke44"></span><span class="zahl">min-h-11 = 44 px · Kopfzeile</span>
+        </span>
+        <a class="knopf haupt mittel" href="#">Kostenlos starten <svg class="pfeil" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <a class="knopf haupt gross" href="#">Jetzt kostenlos starten <svg class="pfeil" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+      <p style="margin:16px 0 0;font-size:12.5px;color:#6b7280">
+        Kopfzeile · Hero (<code>px-5 py-2.5</code>) · Abschluss-Band (<code>px-6 py-3 text-base</code>)
+      </p>
+    </div>
+    <p class="notiz "><strong>Jedes Tap-Ziel ist mindestens 44 × 44 px – nachgemessen, nicht geschätzt.</strong> Der Knopf in der Kopfzeile trägt dafür <code>min-h-11</code>: Seine Beschriftung wechselt auf Mobil von „Registrieren“ zu „Starten“, die Fläche darf dabei nicht mitschrumpfen.</p>
+    <p class="notiz ">Der Registrieren-Weg ist auf <em>jeder</em> Breite dauerhaft erreichbar: Knopf in der Kopfzeile plus die einblendende Leiste am unteren Rand (ab etwa 25 % Scrolltiefe, wieder aus am Abschluss-Block). Auf 375 × 667 px – dem iPhone SE – liegt der Haupt-CTA ohne Scrollen im Bild; das wird mit Playwright gemessen, nicht abgeschätzt.</p>
+  </section>
+  <section>
+    <h2>Knöpfe hinter dem Login</h2>
+    <p class="hinleitung">Sie tragen dieselbe Form, aber die Marken-Tokens der Verwaltungs-Variante. Auf Login, Registrierung und Passwort-Seiten lenkt die Klasse <code>wp-brand</code> diese Tokens auf die wegportal24-Palette um – die Seiten müssen davon nichts wissen.</p>
+    <div class="buehne ">
+      <p class="beschriftung">Portal – components/ui.tsx</p>
+      <div class="reihe">
+        <button class="portalknopf primaer">Speichern</button>
+        <button class="portalknopf sekundaer">Abbrechen</button>
+        <button class="portalknopf umriss">Auswertung öffnen</button>
+        <button class="portalknopf gefahr">Löschen</button>
+        <button class="portalknopf still">Mehr anzeigen</button>
+        <button class="portalknopf primaer klein">Buchen</button>
+      </div>
+      <p style="margin:18px 0 0;font-size:12.5px;color:#6b7280">
+        <code>buttonClass</code> · <code>buttonSecondaryClass</code> · <code>buttonOutlineClass</code> ·
+        <code>buttonDangerClass</code> · <code>buttonGhostClass</code> · <code>+ buttonCompact</code>
+      </p>
+    </div>
+    <p class="notiz "><code>buttonCompact</code> wird <em>angehängt</em>, nicht eingesetzt: Farbe und Verhalten bleiben gleich, nur die Größe ändert sich. Die <code>!</code>-Modifier darin sind nötig, weil sonst nicht die Reihenfolge im Klassen-Attribut entscheidet, sondern die im Stylesheet.</p>
+    <p class="notiz warnung"><strong>Kein ShadCN, keine Knopf-Bibliothek.</strong> Das Repo hat eigene Bausteine und harte ESLint-Regeln gegen Nachbauten. Ein neuer Knopf ist eine neue Konstante in <code>components/ui.tsx</code> oder <code>components/marketing/brand.tsx</code> – kein Inline-Klassenstrang in der Seite.</p>
+  </section>
+  <p class="quelle"><strong>Im Code:</strong> <code>components/marketing/brand.tsx</code> · <code>components/ui.tsx</code> · <code>components/marketing/mobile-cta-bar.tsx</code><br>Erzeugt von <code>design-system/bauen.mjs</code> – nicht von Hand ändern.</p>
+</div>
+</body>
+</html>

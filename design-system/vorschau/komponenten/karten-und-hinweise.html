@@ -1,0 +1,336 @@
+<!-- @dsCard group="Komponenten" name="Karten und Hinweise" subtitle="Flächen, vier Meldungsarten, leere Stellen, Status" width="1200" height="2100" -->
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Karten und Hinweise – wegportal24</title>
+<style>
+  :root {
+    --color-brand-green: #003630;
+    --color-brand-green-dark: #00241f;
+    --color-brand-green-light: #0c534a;
+    --color-brand-orange: #f69018;
+    --color-brand-orange-dark: #dd7d0c;
+    --color-brand-orange-light: #fef1e0;
+    --color-brand-orange-ink: #8f5407;
+    --color-wp-primary: #003630;
+    --color-wp-primary-soft: #0c534a;
+    --color-wp-primary-light: #e8efed;
+    --color-wp-ink: #00241f;
+    --color-wp-accent: #f69018;
+    --color-wp-accent-dark: #dd7d0c;
+    --color-wp-accent-light: #fef1e0;
+    --color-wp-accent-ink: #8f5407;
+    --color-wp-accent-bright: #f69018;
+    --color-wp-on-accent: #00241f;
+    --color-shell: #1a1512;
+    --color-shell-2: #241d18;
+    --color-shell-3: #2f2620;
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-display: "Plus Jakarta Sans", var(--font-sans);
+    --font-mk: "Source Sans 3", var(--font-sans);
+    --color-good: #1f7a54;
+    --color-good-light: #e4f2ea;
+    --color-warn: #b26a09;
+    --color-warn-light: #fdf0df;
+    --color-critical: #c23b2e;
+    --color-critical-light: #fbe7e3;
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --shadow-e1: 0 1px 2px rgba(24, 20, 15, 0.08);
+    --shadow-e2: 0 1px 2px rgba(24, 20, 15, 0.06), 0 12px 28px -12px rgba(24, 20, 15, 0.18);
+    --shadow-e3: 0 24px 50px -18px rgba(24, 20, 15, 0.28);
+    --ease-mk-out: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url("../schrift/sourcesans-400.woff2") format("woff2");
+  }
+  @font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url("../schrift/sourcesans-600.woff2") format("woff2");
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 32px 56px;
+    background: #faf8f4;
+    background-image:
+      radial-gradient(90% 60% at 85% -10%, rgba(246,144,24,.10) 0%, rgba(246,144,24,0) 55%),
+      radial-gradient(80% 55% at 0% -5%, rgba(0,54,48,.07) 0%, rgba(0,54,48,0) 60%);
+    color: #374151;
+    font-family: var(--font-mk);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .bogen { max-width: 1120px; margin: 0 auto; }
+  .kopf { margin-bottom: 40px; }
+  .kopf h1 {
+    font-family: var(--font-mk);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    line-height: 1.15;
+    color: var(--color-wp-ink);
+    margin: 0;
+  }
+  .kopf p { margin: 10px 0 0; max-width: 62ch; color: #4b5563; }
+  .augenbraue {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--color-wp-accent-ink);
+    margin: 0 0 10px;
+  }
+  section { margin-top: 40px; }
+  section > h2 {
+    font-family: var(--font-mk);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--color-wp-ink);
+    margin: 0 0 4px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,36,31,.14);
+  }
+  section > h2 + .hinleitung { margin-top: 14px; }
+  .hinleitung { max-width: 68ch; color: #4b5563; margin: 14px 0 20px; }
+  .raster { display: grid; gap: 16px; margin-top: 20px; }
+  .raster.zwei { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .raster.drei { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .raster.vier { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .feld {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    box-shadow: var(--shadow-e1);
+  }
+  .feld > h3 {
+    font-family: var(--font-mk);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-wp-ink);
+    margin: 0 0 6px;
+  }
+  .feld p { margin: 0; font-size: 13.5px; color: #6b7280; }
+  code, .token {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--color-wp-primary);
+    background: rgba(0,54,48,.06);
+    border-radius: 5px;
+    padding: 1px 5px;
+  }
+  .notiz {
+    margin-top: 20px;
+    border-left: 3px solid var(--color-wp-accent);
+    background: var(--color-wp-accent-light);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    padding: 13px 16px;
+    font-size: 13.5px;
+    color: #4b3a22;
+    max-width: 78ch;
+  }
+  .notiz strong { color: var(--color-wp-ink); }
+  .notiz code { background: rgba(0,36,31,.08); }
+  .warnung { border-left-color: #c23b2e; background: #fbe7e3; color: #6b241b; }
+  .warnung strong { color: #7f2318; }
+  .buehne {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    margin-top: 20px;
+  }
+  .buehne.dunkel { background: var(--color-wp-ink); border-color: rgba(255,255,255,.10); }
+  .buehne.papier { background: #faf8f4; }
+  .beschriftung {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin: 0 0 14px;
+  }
+  .buehne.dunkel .beschriftung { color: rgba(255,255,255,.45); }
+  .reihe { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 20px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #9ca3af;
+  }
+  td.zahl { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .marke {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 2px 9px;
+    white-space: nowrap;
+  }
+  .marke.gut { background: #e4f2ea; color: #14603f; }
+  .marke.schwach { background: #fdf0df; color: #8a5209; }
+  .marke.schlecht { background: #fbe7e3; color: #9b2f23; }
+  .quelle {
+    margin-top: 52px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0,36,31,.12);
+    font-size: 12.5px;
+    color: #9ca3af;
+  }
+  .quelle strong { color: #6b7280; font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      transition-duration: .01ms !important;
+    }
+  }
+
+
+  .kartenflaeche { border-radius: var(--radius-lg); border: 1px solid #e5e7eb; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .kartenflaeche.innen { padding: 20px; }
+  .kartenflaeche h4 { font-family: var(--font-sans); font-size: 16px; font-weight: 600; color: #111827; margin: 0 0 16px; }
+  .kartenflaeche .zeile { display: flex; justify-content: space-between; padding: 7px 0; font-size: 14px; border-bottom: 1px solid #f3f4f6; }
+  .kartenflaeche .zeile:last-child { border-bottom: 0; }
+  .kartenflaeche .zeile b { font-variant-numeric: tabular-nums; font-weight: 600; color: #111827; }
+  details.klappkarte { border-radius: var(--radius-lg); border: 1px solid #e5e7eb; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  details.klappkarte > summary {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 16px 20px; font-family: var(--font-sans); font-size: 16px; font-weight: 600;
+    color: #111827; cursor: pointer; list-style: none; border-radius: var(--radius-lg);
+  }
+  details.klappkarte > summary::-webkit-details-marker { display: none; }
+  details.klappkarte > summary svg { width: 16px; height: 16px; color: #9ca3af; transition: transform .2s; }
+  details.klappkarte[open] > summary svg { transform: rotate(180deg); }
+  details.klappkarte .inhalt { padding: 0 20px 20px; font-size: 14px; color: #4b5563; }
+  .dunkelkarte { border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,.10); background: var(--color-shell-2); padding: 20px; box-shadow: var(--shadow-e3); }
+  .dunkelkarte h4 { font-family: var(--font-sans); font-size: 16px; font-weight: 600; color: #fff; margin: 0 0 14px; }
+  .dunkelkarte p { color: rgba(255,255,255,.7); font-size: 14px; margin: 0; }
+  .hinweis { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border-radius: var(--radius-xl); border: 1px solid; padding: 12px 16px; font-size: 14px; margin-bottom: 12px; }
+  .hinweis svg { width: 20px; height: 20px; flex-shrink: 0; stroke-width: 2; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+  .hinweis .rumpf { flex: 1 1 240px; min-width: 0; }
+  .hinweis b { font-weight: 600; }
+  .hinweis.info { border-color: color-mix(in srgb, var(--color-brand-orange) 30%, transparent); background: var(--color-brand-orange-light); color: var(--color-brand-green); }
+  .hinweis.info svg { color: var(--color-brand-orange-dark); }
+  .hinweis.gut { border-color: #bbf7d0; background: #f0fdf4; color: #14532d; }
+  .hinweis.gut svg { color: #16a34a; }
+  .hinweis.achtung { border-color: #fcd34d; background: #fffbeb; color: #78350f; }
+  .hinweis.achtung svg { color: #d97706; }
+  .hinweis.fehler { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+  .hinweis.fehler svg { color: #dc2626; }
+  .leer { display: flex; flex-direction: column; align-items: center; gap: 8px; border-radius: var(--radius-lg); border: 1px dashed #d1d5db; background: #f9fafb; padding: 32px 16px; text-align: center; }
+  .leer .kreis { display: flex; height: 40px; width: 40px; align-items: center; justify-content: center; border-radius: 999px; background: #fff; color: #9ca3af; box-shadow: var(--shadow-e1); }
+  .leer p { font-size: 14px; color: #6b7280; margin: 0; }
+  .etikett { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 500; }
+  .etikett.neu { background: #fef3c7; color: #92400e; }
+  .etikett.arbeit { background: #dbeafe; color: #1e40af; }
+  .etikett.fertig { background: #dcfce7; color: #166534; }
+  .puls { position: relative; display: flex; height: 6px; width: 6px; }
+  .puls .welle { position: absolute; inset: 0; border-radius: 999px; background: currentColor; opacity: .6; animation: pulsWelle 1.6s var(--ease-mk-out) infinite; }
+  .puls .kern { position: relative; height: 6px; width: 6px; border-radius: 999px; background: currentColor; }
+  @keyframes pulsWelle { 0% { transform: scale(1); opacity: .6; } 100% { transform: scale(2.4); opacity: 0; } }
+
+</style>
+</head>
+<body>
+<div class="bogen">
+  <header class="kopf">
+    <p class="augenbraue">Komponenten</p>
+    <h1>Karten und Hinweise</h1>
+    <p>Eine Karte fasst einen abgeschlossenen Inhalt. Ein Hinweis sagt, was gerade passiert ist. Beides gibt es je einmal – nicht je Seite neu.</p>
+  </header>
+  <section>
+    <h2>Karten</h2>
+    
+    <div class="raster drei">
+      <div>
+        <div class="kartenflaeche innen">
+          <h4>Hausgeld August</h4>
+          <div class="zeile"><span>Soll</span><b>1.470,00 €</b></div>
+          <div class="zeile"><span>Eingegangen</span><b>1.225,00 €</b></div>
+          <div class="zeile"><span>Offen</span><b style="color:var(--color-critical)">245,00 €</b></div>
+        </div>
+        <p style="margin-top:13px;font-size:12.5px;color:#6b7280"><code>Card</code> · <code>cardSurfaceClass</code> + <code>p-5</code></p>
+      </div>
+      <div>
+        <details class="klappkarte">
+          <summary>Weitere Einstellungen <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary>
+          <div class="inhalt">Für sekundäre Blöcke, die eine Seite sonst unnötig verlängern. Standardmäßig zu.</div>
+        </details>
+        <p style="margin-top:13px;font-size:12.5px;color:#6b7280"><code>CollapsibleCard</code> – natives <code>&lt;details&gt;</code>, kein Client-JS</p>
+      </div>
+      <div>
+        <div class="dunkelkarte">
+          <h4>Nächste Versammlung</h4>
+          <p>14. November, 19 Uhr. Einladung ist raus, Frist läuft.</p>
+        </div>
+        <p style="margin-top:13px;font-size:12.5px;color:#6b7280"><code>DarkCard</code> – Akzentfläche auf hellem Grund</p>
+      </div>
+    </div>
+    <p class="notiz ">Karten tragen einen optionalen Anker (<code>id</code>). Server-Actions enden mit einer Weiterleitung, und die setzt den Browser an den Seitenanfang – auf einer langen Seite landet man nach jedem Speichern wieder ganz oben. Mit Anker führt der Rücksprung an die Stelle zurück, an der gearbeitet wurde.</p>
+    <p class="notiz ">Die ausklappende Karte bewegt sich über <code>::details-content</code> und <code>interpolate-size</code>. Kennt ein Browser das nicht, klappt sie schlicht sofort auf – kein Ausfall, nur ohne Bewegung.</p>
+  </section>
+  <section>
+    <h2>Hinweise</h2>
+    <p class="hinleitung">Ein Hinweis sagt, was passiert ist und was jetzt gilt. Er nennt die betroffene Stelle beim Namen – „bei WE 07 fehlt die Wohnfläche“, nicht „ein Feld fehlt“.</p>
+    <div class="buehne ">
+      
+      <div class="hinweis info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><div class="rumpf"><b>Zum Hinweis. </b>Der Wirtschaftsplan für 2027 kann ab dem 1. Oktober erstellt werden.</div></div>
+      <div class="hinweis gut"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><div class="rumpf"><b>Gebucht. </b>Die Zahlung wurde der Einheit WE 03 zugeordnet.</div></div>
+      <div class="hinweis achtung"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg><div class="rumpf"><b>Bitte prüfen. </b>Bei WE 07 fehlt die Wohnfläche – ohne sie lässt sich der Verteilerschlüssel nicht rechnen.</div></div>
+      <div class="hinweis fehler" style="margin-bottom:0"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg><div class="rumpf"><b>Nicht gespeichert. </b>Der Beschluss ist bereits protokolliert und kann nicht mehr geändert werden.</div></div>
+    </div>
+    <p class="notiz ">Vier Varianten, eine Komponente. Vorher standen dieselben Banner in Amber, Grün und Rot mehrfach dupliziert im Markup. Die Fehler-Variante trägt <code>role="alert"</code>, die übrigen <code>role="status"</code> – der Unterschied entscheidet, ob ein Screenreader die Meldung unterbricht oder abwartet.</p>
+    <p class="notiz "><strong>Orange heißt hier nicht „Achtung“.</strong> Die Info-Variante nutzt zwar den Marken-Akzent als Fläche, aber eine <em>Warnung</em> trägt Amber und ein <em>Fehler</em> Rot. Eine Warnung, die aussieht wie der Haupt-Knopf, ist beides nicht mehr.</p>
+  </section>
+  <section>
+    <h2>Leere Stellen und Status</h2>
+    
+    <div class="raster zwei">
+      <div>
+        <div class="leer">
+          <span class="kreis"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h9"/></svg></span>
+          <p>Noch keine Buchungen in diesem Zeitraum.</p>
+          <div style="margin-top:5px"><button style="border-radius:var(--radius-xl);border:1px solid #d1d5db;background:#fff;padding:6px 13px;font-size:12px;font-weight:500;color:#374151;cursor:pointer;font-family:var(--font-sans)">Kontoauszug importieren</button></div>
+        </div>
+        <p style="margin-top:13px;font-size:12.5px;color:#6b7280"><code>EmptyState</code></p>
+      </div>
+      <div>
+        <div class="kartenflaeche innen">
+          <h4 style="margin-bottom:14px">Tickets</h4>
+          <div style="display:flex;flex-direction:column;gap:11px">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><span>Heizung Treppenhaus</span><span class="etikett neu"><span class="puls"><span class="welle"></span><span class="kern"></span></span>Neu</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><span>Dachrinne Nordseite</span><span class="etikett arbeit">In Arbeit</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><span>Klingelschild WE 05</span><span class="etikett fertig">Erledigt</span></div>
+          </div>
+        </div>
+        <p style="margin-top:13px;font-size:12.5px;color:#6b7280"><code>StatusBadge</code> – Beschriftung und Farbe aus <code>lib/labels.ts</code></p>
+      </div>
+    </div>
+    <p class="notiz ">Eine leere Stelle sagt, warum sie leer ist, und bietet den nächsten Schritt an. „Keine Einträge“ allein lässt jemanden, der zum ersten Mal hier ist, ratlos zurück.</p>
+    <p class="notiz ">Nur der Status <em>Neu</em> pulst – und zwar genau einer je Zeile. Pulsen alle drei, pulst keiner mehr.</p>
+  </section>
+  <p class="quelle"><strong>Im Code:</strong> <code>components/ui.tsx (Card, CollapsibleCard, DarkCard, Alert, EmptyState, StatusBadge)</code> · <code>portal/src/app/globals.css ([data-collapsible])</code> · <code>lib/labels.ts</code><br>Erzeugt von <code>design-system/bauen.mjs</code> – nicht von Hand ändern.</p>
+</div>
+</body>
+</html>

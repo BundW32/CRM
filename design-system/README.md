@@ -27,6 +27,14 @@ node design-system/pruefen.mjs            # sieht sich jeden Bogen im Browser an
 node design-system/pruefen.mjs --bilder   # zusätzlich PNGs in .aufnahmen/
 ```
 
+```bash
+node design-system/uebersicht.mjs [ziel.html]   # eine Seite zum Teilen
+```
+
+`uebersicht.mjs` baut aus denselben Werten eine einzelne Seite für alle, die
+weder ins Repo noch ins Claude-Design-Projekt sehen: Palette, Kontrasttabelle,
+Größenskala, die beiden Bewegungskurven, die elf Bögen und die Einrichtung.
+
 `pruefen.mjs` öffnet jeden Bogen in Chromium und meldet, was man sonst erst im
 hochgeladenen Projekt sieht: waagerechtes Überlaufen, eine nicht geladene
 Schrift, einen fehlenden `@dsCard`-Marker, eine Kartenhöhe, die nicht zur

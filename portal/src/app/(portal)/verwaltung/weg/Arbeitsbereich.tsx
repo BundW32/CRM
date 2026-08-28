@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card, buttonSecondaryClass } from "@/components/ui";
 import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
+import { isSepaLastschriftEnabled } from "@/lib/features";
 import { formatCents } from "@/lib/money";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { loadRoadmap } from "@/lib/weg/roadmap";
@@ -96,7 +97,11 @@ export async function WegArbeitsbereich({
         { href: `${basis}/hausgeld`, label: "Hausgeld & offene Posten" },
         { href: `${basis}/sonderumlagen`, label: "Sonderumlagen" },
         { href: `${basis}/verbindlichkeiten`, label: "Verbindlichkeiten" },
-        { href: `${basis}/lastschrift`, label: "SEPA-Lastschrift" },
+        // SEPA-Lastschrift ist vorerst abgeschaltet (`lib/features.ts`). Der
+        // Punkt verschwindet mit dem Schalter, die Route sperrt sich selbst.
+        ...(isSepaLastschriftEnabled()
+          ? [{ href: `${basis}/lastschrift`, label: "SEPA-Lastschrift" }]
+          : []),
       ],
     },
     {

@@ -3,6 +3,7 @@ import { DateField } from "@/components/fields";
 import { ArrowRight, CalendarPlus, Download } from "lucide-react";
 import { PendingButton } from "@/components/pending-button";
 import { Card, EmptyState, Field, buttonSecondaryClass, inputClass } from "@/components/ui";
+import { ComboField } from "@/components/combo-field";
 import { maintenanceIntervalLabels } from "@/lib/labels";
 import type { RoadmapItem } from "@/lib/weg/roadmap";
 import { addOwnTermin } from "./termin-actions";
@@ -125,15 +126,16 @@ function EigenerTermin({ properties }: { properties: readonly Objekt[] }) {
             ) : (
               // Bei mehreren Objekten muss der Termin sagen, zu welchem er
               // gehört – sonst landete er stillschweigend beim erstbesten.
-              <Field label="Objekt">
-                <select name="propertyId" required className={`${inputClass} w-auto`}>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+              // Tippbar: Eine Verwaltung mit achtzig Objekten scrollt sonst
+              // durch achtzig Zeilen, ohne „Kiefer" tippen zu können.
+              <ComboField
+                label="Objekt"
+                name="propertyId"
+                required
+                placeholder="Objekt suchen …"
+                className="w-56"
+                options={properties.map((p) => ({ value: p.id, label: p.name }))}
+              />
             )}
             <Field label="Was steht an?">
               <input

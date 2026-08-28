@@ -102,8 +102,10 @@ export default async function ErhaltungsplanungPage({
       <p className="mb-4 max-w-3xl text-sm text-gray-300">
         Langfristige Maßnahmenliste (§ 19 Abs. 2 Nr. 2 WEG). Aus den geplanten
         Maßnahmen wird der Rücklagenbedarf hergeleitet und dem aktuellen
-        Rücklagenstand aus der Buchhaltung gegenübergestellt.{" "}
-        <strong>Muster — ersetzt keine Rechtsberatung.</strong>
+        Rücklagenstand aus der Buchhaltung gegenübergestellt. Zieljahr und
+        Kostenschätzung sind Annahmen dieser Gemeinschaft — maßgeblich sind
+        Zustandsbewertung, eingeholte Angebote und der Beschluss über die
+        Rücklagenzuführung.
       </p>
 
       {sp.fehler ? (

@@ -75,7 +75,12 @@ const TARIFE: Tarif[] = [
     punkte: [
       "Wirtschaftsplan mit Assistent und Beschlussvorlage (§ 28 WEG)",
       "Jahresabrechnung mit Kontenprüfung, § 35a-Ausweis, Vermögensbericht",
-      "Hausgeld, Mahnwesen als DIN-A4-Brief, SEPA-Einzug",
+      // Ohne „SEPA-Einzug": Die Funktion ist vorerst abgeschaltet
+      // (`lib/features.ts`). Anders als auf Startseite und Funktionsseite kann
+      // der Schalter hier nicht selbst greifen — diese Komponente läuft im
+      // Browser, und `process.env` ohne `NEXT_PUBLIC_` steht dort nicht. Beim
+      // Wiedereinschalten gehört „, SEPA-Einzug" wieder ans Zeilenende.
+      "Hausgeld, Mahnwesen als DIN-A4-Brief, offene Posten je Einheit",
       "Buchhaltung mit CSV-Bankimport und Belegen",
       "Versammlung, Abstimmung nach Kopf, MEA oder Objekt, Beschluss-Sammlung",
       "Dokumente, Aushänge, Schadensmeldungen mit Foto",

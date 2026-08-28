@@ -8,6 +8,7 @@ import { ComboField } from "@/components/combo-field";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
+import { documentCategoryLabels } from "@/lib/labels";
 import { propertyIdsForVerwalter, propertyWhereForVerwalter } from "@/lib/access";
 import { requireVerwalter } from "@/lib/session";
 import { isPlatformAdminUser } from "@/lib/platform-admin";
@@ -236,11 +237,11 @@ export default async function DokumentQuellenPage({
                 name="category"
                 className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-brand-orange focus:outline-none"
               >
-                <option value="ABRECHNUNG">Abrechnung</option>
-                <option value="PROTOKOLL">Protokoll</option>
-                <option value="VERTRAG">Vertrag</option>
-                <option value="BESCHEINIGUNG">Bescheinigung</option>
-                <option value="SONSTIGES">Sonstiges</option>
+                {Object.entries(documentCategoryLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

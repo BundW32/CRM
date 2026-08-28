@@ -30,6 +30,8 @@ export type AddressBookEntry = {
   role: Role | null;
   /** Nur bei Karteikarten. */
   kind: ContactKind | null;
+  /** Freitext zu kind = SONSTIGES (siehe lib/sonstiges.ts). */
+  kindOther: string | null;
   trade: Trade | null;
   notes: string | null;
   active: boolean;
@@ -249,6 +251,7 @@ export async function loadAddressBook(
       preferredContact: p.preferredContact,
       role: p.role,
       kind: null,
+      kindOther: null,
       trade: null,
       notes: null,
       active: p.active,
@@ -279,6 +282,7 @@ export async function loadAddressBook(
       preferredContact: c.preferredContact,
       role: null,
       kind: c.kind,
+      kindOther: c.kindOther,
       trade: c.trade,
       notes: c.notes,
       active: c.active,

@@ -1,4 +1,5 @@
 import { Alert, Card, Field, PageTitle, buttonClass, inputClass } from "@/components/ui";
+import { ComboField } from "@/components/combo-field";
 import { PendingButton } from "@/components/pending-button";
 import { db } from "@/lib/db";
 import { requirePlatformAdmin } from "@/lib/platform";
@@ -43,14 +44,15 @@ export default async function NeueRechnungPage({
 
       <Card>
         <form action={createInvoice} className="space-y-4">
-          <Field label="Verwaltung">
-            <select name="organizationId" required defaultValue={sp.org ?? ""} className={inputClass}>
-              <option value="" disabled>– Verwaltung wählen –</option>
-              {orgs.map((o) => (
-                <option key={o.id} value={o.id}>{o.name}</option>
-              ))}
-            </select>
-          </Field>
+          {/* Tippbar: Die Kundenliste des Betreibers wächst mit jedem Abschluss. */}
+          <ComboField
+            label="Verwaltung"
+            name="organizationId"
+            required
+            defaultValue={sp.org ?? ""}
+            placeholder="Verwaltung suchen …"
+            options={orgs.map((o) => ({ value: o.id, label: o.name }))}
+          />
           <Field label="Titel / Betreff">
             <input type="text" name="title" required maxLength={200} placeholder="z. B. CRM-Nutzung Juli 2026" className={inputClass} />
           </Field>

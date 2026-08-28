@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { isSepaLastschriftEnabled } from "@/lib/features";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { requireVerwalter } from "@/lib/session";
 import { buildPain008, isoDate, type SepaPayment } from "@/lib/weg/sepa";
@@ -16,8 +17,16 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ propertyId: string }> },
 ) {
-  const verwalter = await requireVerwalter();
   const { propertyId } = await params;
+  // Abgeschaltet (`lib/features.ts`)? Dann liefert der Export keine Datei mehr.
+  // Weiterleitung statt 404: Der Aufruf kommt aus einem Lesezeichen oder einem
+  // alten Tab, und der soll erfahren, wohin er stattdessen gehört.
+  if (!isSepaLastschriftEnabled()) {
+    return NextResponse.redirect(
+      new URL(`/verwaltung/weg/${propertyId}/hausgeld?flash=sepa-abgeschaltet`, request.url),
+    );
+  }
+  const verwalter = await requireVerwalter();
   if (!(await canVerwalterAccessProperty(verwalter, propertyId))) {
     return NextResponse.json({ error: "Nicht berechtigt" }, { status: 403 });
   }

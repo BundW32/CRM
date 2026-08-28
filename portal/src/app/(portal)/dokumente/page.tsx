@@ -23,6 +23,7 @@ import {
   formatBytes,
   formatDateOnly,
 } from "@/lib/labels";
+import { mitFreitext } from "@/lib/sonstiges";
 import { FilePreviewLink } from "@/components/file-preview-link";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
@@ -183,7 +184,9 @@ export default async function DokumentePage({
                           {doc.title}
                         </FilePreviewLink>
                         <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500">
-                          <Badge tone="neutral">{documentCategoryLabels[doc.category]}</Badge>
+                          <Badge tone="neutral">
+                            {mitFreitext(documentCategoryLabels[doc.category], doc.categoryOther)}
+                          </Badge>
                           {isVerwalter ? (
                             <Badge tone="info">{audienceLabels[doc.audience]}</Badge>
                           ) : null}

@@ -49,6 +49,7 @@ import { registrierenLink } from "@/lib/aktion-server";
 import { getUser } from "@/lib/session";
 import { getTenantOrg } from "@/lib/tenant";
 import { isWegSaas } from "@/lib/app-mode";
+import { isSepaLastschriftEnabled } from "@/lib/features";
 import { siteUrl } from "@/lib/site-url";
 import {
   BASIC_JE_EINHEIT_EUR,
@@ -59,6 +60,18 @@ import {
 } from "./preise/preise-daten";
 
 export const dynamic = "force-dynamic";
+
+// Der SEPA-Lastschrifteinzug ist vorerst abgeschaltet (`lib/features.ts`). Die
+// Werbung zieht mit: Eine Funktion zu versprechen, die im Portal nicht
+// auffindbar ist, kostet mehr Vertrauen, als sie an Interesse einbringt. Der
+// Schalter schaltet beide Seiten zugleich — Portal und Startseite können nicht
+// mehr auseinanderlaufen.
+const SEPA_NUTZEN = isSepaLastschriftEnabled()
+  ? " – und auf Wunsch SEPA-Einzug ohne Bank-API"
+  : "";
+const SEPA_FAQ = isSepaLastschriftEnabled()
+  ? " Auch der SEPA-Einzug läuft über eine Datei, die Sie selbst hochladen."
+  : "";
 
 // Element 3: SEO-Titel mit den Suchbegriffen, unter denen Betroffene suchen.
 // Diese eine Seite trägt die Marke im Titel SELBST — anders als jede andere.
@@ -135,8 +148,7 @@ const NUTZEN = [
     titel: "Hausgeld & Mahnwesen",
     text:
       "Soll, Ist und Saldo je Einheit. Mahnungen als fertiger DIN-A4-Brief in " +
-      "drei Stufen, Verzugszinsen nach Basiszinssatz – und auf Wunsch " +
-      "SEPA-Einzug ohne Bank-API.",
+      "drei Stufen, Verzugszinsen nach Basiszinssatz" + SEPA_NUTZEN + ".",
     href: "/funktionen/hausgeld",
   },
   {
@@ -279,8 +291,7 @@ const FAQ = [
       "Per CSV-Export aus Ihrem Online-Banking (z. B. Sparkasse, Volksbank) – " +
       "mit Spalten-Zuordnung und Duplikaterkennung. Bewusst ohne " +
       "Konto-Anbindung: Niemand außer Ihnen erhält Zugriff auf das " +
-      "Gemeinschaftskonto. Auch der SEPA-Einzug läuft über eine Datei, die Sie " +
-      "selbst hochladen.",
+      "Gemeinschaftskonto." + SEPA_FAQ,
   },
   {
     f: "Was ist mit unseren Mietern?",

@@ -3,17 +3,26 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { DocumentCategory } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { documentCategoryLabels } from "@/lib/labels";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { requireVerwalter } from "@/lib/session";
 import { syncDocumentSource } from "@/lib/document-sources/sync";
+
+// Einzige Quelle der zulässigen Kategorien ist der Beschriftungs-Katalog; das
+// Formular baut seine Auswahl aus demselben.
+const DOCUMENT_CATEGORIES = Object.keys(documentCategoryLabels) as [
+  DocumentCategory,
+  ...DocumentCategory[],
+];
 
 const configSchema = z.object({
   label: z.string().trim().min(2).max(200),
   source: z.enum(["GDRIVE"]),
   propertyId: z.string().optional(),
   audience: z.enum(["MIETER", "EIGENTUEMER", "ALLE"]),
-  category: z.enum(["ABRECHNUNG", "PROTOKOLL", "VERTRAG", "BESCHEINIGUNG", "SONSTIGES"]),
+  category: z.enum(DOCUMENT_CATEGORIES),
   folderId: z.string().trim().min(10).max(500),
 });
 

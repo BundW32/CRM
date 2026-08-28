@@ -70,8 +70,17 @@ export default async function BetriebskostenPage({
       <p className="mb-4 max-w-3xl text-sm text-gray-300">
         Betriebskostenabrechnung für vermietete Einheiten — abgeleitet aus der
         WEG-Jahresabrechnung. Nur nach BetrKV umlagefähige Kosten werden weitergegeben; der
-        Vermieter-CO₂-Anteil (CO2KostAufG) wird beim Mieter abgezogen.{" "}
-        <strong>Muster — ersetzt keine Rechtsberatung.</strong>
+        Vermieter-CO₂-Anteil (CO2KostAufG) wird beim Mieter abgezogen. Welche Kosten
+        eine Einheit wirklich weitergeben darf, entscheidet der Mietvertrag; das
+        Merkmal „umlagefähig nach BetrKV“ je Kostenart ist die Voreinstellung und
+        steht in den{" "}
+        <Link
+          href={`/verwaltung/weg/${property.id}/stammdaten#kostenarten`}
+          className="underline"
+        >
+          Stammdaten
+        </Link>
+        .
       </p>
 
       {sp.fehler ? (

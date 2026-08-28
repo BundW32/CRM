@@ -9,8 +9,14 @@ import { db } from "@/lib/db";
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { portalUrl, sendMail } from "@/lib/mailer";
 import { getOrganization, requireUser, requireVerwalter } from "@/lib/session";
+import { sonstigesFreitext } from "@/lib/sonstiges";
 
-const MOTION_TYPES = ["BESCHLUSSANTRAG", "VERSAMMLUNG"] as const;
+const MOTION_TYPES = [
+  "BESCHLUSSANTRAG",
+  "VERSAMMLUNG",
+  "TAGESORDNUNGSPUNKT",
+  "SONSTIGES",
+] as const;
 
 const submitSchema = z.object({
   propertyId: z.string().min(1),
@@ -52,6 +58,9 @@ export async function submitMotion(formData: FormData) {
       title: parsed.data.title,
       description: parsed.data.description,
       type: parsed.data.type,
+      // Der Freitext gilt nur zu „Sonstiges" — das ausgeblendete Feld schickt
+      // sonst weiterhin seinen alten Inhalt mit (siehe lib/sonstiges.ts).
+      typeOther: sonstigesFreitext(parsed.data.type, formData.get("typeOther")),
     },
   });
   revalidatePath("/antraege");
@@ -109,9 +118,12 @@ export async function adoptMotionAsResolution(formData: FormData) {
   if (!loaded) redirect("/antraege");
   const { motion } = loaded;
 
-  // Ein Verlangen einer Versammlung ist kein Beschlusstext – es kann nicht als
-  // Umlaufbeschluss übernommen werden (nur auf eine Versammlung gesetzt werden).
-  if (motion.type === "VERSAMMLUNG") redirect("/antraege?fehler=typ");
+  // Nur ein Beschlussantrag trägt einen Beschlusstext. Ein Versammlungs-
+  // Verlangen, ein angemeldeter Tagesordnungspunkt und ein sonstiges Anliegen
+  // lassen sich auf eine Versammlung setzen, aber nicht zur Abstimmung stellen.
+  // Bewusst als Positivliste: Ein künftiger Antragstyp ist damit erst einmal
+  // NICHT abstimmbar, statt es stillschweigend zu werden.
+  if (motion.type !== "BESCHLUSSANTRAG") redirect("/antraege?fehler=typ");
 
   // Antrag zuerst atomar beanspruchen (verhindert Doppel-Übernahme).
   if (!(await claimMotion(motion.id, { status: "UEBERNOMMEN", decidedById: verwalter.id }))) {

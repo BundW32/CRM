@@ -140,7 +140,8 @@ export type TrackEventName =
   | "signup_start"
   | "signup_field_error"
   | "signup_complete"
-  | "lead_magnet_submit";
+  | "lead_magnet_submit"
+  | "brochure_download";
 
 export type TrackParams = Record<string, string | number | boolean>;
 

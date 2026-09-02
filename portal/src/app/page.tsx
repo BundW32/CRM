@@ -762,6 +762,7 @@ export default async function Home() {
                 href="/wegportal24-eigentuemer-info.pdf"
                 target="_blank"
                 rel="noopener"
+                data-broschuere-download
                 className={`${wpButtonSecondaryClass} mt-4`}
               >
                 <FileDown className="h-4 w-4" />

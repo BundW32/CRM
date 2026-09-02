@@ -163,6 +163,16 @@ export function InteractionTracking() {
       if (cta && istOeffentlicherPfad(window.location.pathname)) {
         track("cta_click", { cta_location: ctaOrt(cta) });
       }
+      // Broschüren-Download: markierte PDF-Links (data-broschuere-download).
+      // Öffnet in neuem Tab, die Seite bleibt stehen — das Ereignis geht
+      // nicht durch die Navigation verloren.
+      const broschuere = ziel?.closest?.("a[data-broschuere-download]");
+      if (broschuere && istOeffentlicherPfad(window.location.pathname)) {
+        track("brochure_download", {
+          cta_location: ctaOrt(broschuere),
+          page_path: window.location.pathname,
+        });
+      }
     };
     const onToggle = (e: Event) => {
       const d = e.target as HTMLElement | null;

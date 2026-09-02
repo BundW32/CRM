@@ -22,6 +22,7 @@ import {
   CalendarCheck,
   CheckCircle2,
   FileCheck,
+  FileDown,
   FileSignature,
   HandCoins,
   KeyRound,
@@ -32,7 +33,10 @@ import {
   Users,
   Vote,
 } from "lucide-react";
-import { wpButtonClass } from "@/components/marketing/brand";
+import {
+  wpButtonClass,
+  wpButtonSecondaryClass,
+} from "@/components/marketing/brand";
 import {
   buttonOnPhotoClass,
   CtaBand,
@@ -732,6 +736,40 @@ export default async function Home() {
               </p>
               <p className="mt-2 text-xs text-wp-ink/50">
                 Allgemeine Vorlage, keine Rechtsberatung.
+              </p>
+            </div>
+          </div>
+        </Reveal>
+        {/* Infobroschüre: statisches PDF aus `public/` — Überblick für
+            Eigentümer als Handout zur Eigentümerversammlung. */}
+        <Reveal delay={200}>
+          <div className="mt-4 flex flex-col gap-4 rounded-2xl border border-wp-ink/10 bg-white p-6 shadow-e1 sm:flex-row sm:items-start">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-wp-accent-light">
+              <FileDown className="h-5 w-5 text-wp-accent-ink" />
+            </span>
+            <div>
+              <h3 className="text-lg font-semibold text-wp-ink">
+                Infobroschüre für Ihre Eigentümerversammlung
+              </h3>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-wp-ink/70">
+                Alles Wichtige zum Ausdrucken und Auslegen: der
+                Funktionsüberblick, die Checkliste für den Verwalterwechsel,
+                die Schritte in die Selbstverwaltung und die Preise – damit
+                jedes Mitglied Ihrer Gemeinschaft mit denselben Informationen
+                entscheiden kann.
+              </p>
+              <a
+                href="/wegportal24-eigentuemer-info.pdf"
+                target="_blank"
+                rel="noopener"
+                className={`${wpButtonSecondaryClass} mt-4`}
+              >
+                <FileDown className="h-4 w-4" />
+                Broschüre als PDF öffnen
+              </a>
+              <p className="mt-2 text-xs text-wp-ink/50">
+                PDF, 10 Seiten, DIN A4 – allgemeine Information, keine
+                Rechtsberatung.
               </p>
             </div>
           </div>

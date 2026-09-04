@@ -60,6 +60,33 @@ export function _drosselZuruecksetzen(): void {
   fensterAnzahl = 0;
 }
 
+// Meldungen, mit denen Next/React einen vom Client abgebrochenen Stream
+// melden. Sie erreichen `onRequestError`, obwohl serverseitig nichts schief-
+// ging — typisch bei RSC-Navigationen (`?_rsc=…`), wenn der Nutzer weiter-
+// klickt, bevor die Seite fertig gerendert ist. Ein Alarm dafür wäre nicht
+// nur nutzlos, er verbraucht auch das Stundenkontingent der Drossel und kann
+// so einen echten Fehler verdecken.
+const CLIENT_ABBRUCH_MELDUNGEN = new Set([
+  // React (renderToReadableStream / RSC): Ziel-Stream vom Client geschlossen.
+  "The destination stream closed early",
+  "The destination stream errored while writing data",
+  // Node (IncomingMessage) bei abgebrochener Verbindung.
+  "aborted",
+  // AbortController/AbortSignal, z. B. Request-Signal von Next.
+  "This operation was aborted",
+  "The operation was aborted",
+]);
+
+/**
+ * Erkennt Fehler, deren Ursache ein abgebrochener Request des Clients ist.
+ * Absichtlich exakter Vergleich: Ein „aborted“ irgendwo in der Meldung
+ * (etwa „Transaction aborted" aus Prisma) ist ein echter Fehler.
+ * Exportiert für den Test.
+ */
+export function istClientAbbruch(message: string): boolean {
+  return CLIENT_ABBRUCH_MELDUNGEN.has(message.trim().replace(/\.$/, ""));
+}
+
 type FehlerRequest = { path: string; method: string };
 type FehlerKontext = { routerKind: string; routePath: string; routeType: string };
 
@@ -81,6 +108,11 @@ export async function meldeServerFehler(
   // Laut Doku erreichen sie den Hook nicht — der Wächter bleibt trotzdem
   // stehen, eine falsche Alarm-Mail kostet mehr Vertrauen als diese Zeile.
   if (digest?.startsWith("NEXT_")) return;
+
+  // Abbruch durch den Client ist kein Serverfehler: Der Browser hat die
+  // Verbindung geschlossen, bevor die Antwort fertig war (Tab zu, weiter-
+  // geklickt, Prefetch verworfen). Next meldet das trotzdem über den Hook.
+  if (istClientAbbruch(message)) return;
 
   // Gleicher Fehler = gleiche Stelle + gleiche Meldung. Der Digest allein
   // genügt nicht: Er fehlt außerhalb des RSC-Renderings (z. B. Route-Handler).

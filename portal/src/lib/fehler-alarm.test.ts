@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { _drosselZuruecksetzen, sollMelden } from "./fehler-alarm";
+import { _drosselZuruecksetzen, istClientAbbruch, sollMelden } from "./fehler-alarm";
 
 // Die Drossel ist der Kern der Fehler-Alarmierung: Ohne sie macht ein einziger
 // Dauerfehler (z. B. Datenbank weg → jeder Request wirft) aus dem Alarmweg
@@ -39,5 +39,28 @@ describe("sollMelden", () => {
     expect(sollMelden("route-6|kaputt", 1_000)).toBe(false);
     // Nächstes Stundenfenster: wieder offen.
     expect(sollMelden("route-6|kaputt", 2_000 + STUNDE)).toBe(true);
+  });
+});
+
+describe("istClientAbbruch", () => {
+  // Der Browser bricht RSC-Navigationen laufend ab (weitergeklickt, Tab zu,
+  // Prefetch verworfen). Next meldet das über `onRequestError` wie einen
+  // Serverfehler — eine Alarm-Mail dafür wäre falscher Alarm und verbrauchte
+  // obendrein das Stundenkontingent der Drossel.
+  it("erkennt den vom Client geschlossenen React-Stream", () => {
+    expect(istClientAbbruch("The destination stream closed early")).toBe(true);
+    expect(istClientAbbruch("The destination stream closed early.")).toBe(true);
+    expect(istClientAbbruch("The destination stream errored while writing data.")).toBe(true);
+  });
+
+  it("erkennt den Verbindungsabbruch aus Node und AbortSignal", () => {
+    expect(istClientAbbruch("aborted")).toBe(true);
+    expect(istClientAbbruch("This operation was aborted")).toBe(true);
+  });
+
+  it("lässt echte Fehler durch, auch wenn sie „aborted“ enthalten", () => {
+    expect(istClientAbbruch("Transaction aborted: deadlock detected")).toBe(false);
+    expect(istClientAbbruch("Can't reach database server")).toBe(false);
+    expect(istClientAbbruch("")).toBe(false);
   });
 });

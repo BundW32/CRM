@@ -241,9 +241,10 @@ export default async function PortalLayout({
           Sprungliste bekommt jede Rolle. */}
       <CommandPalette navItems={paletteItems} canSearchData={user.role === "VERWALTER"} />
       {showAssistant ? <AssistantWidget /> : null}
-      {/* Hilfe-Knopf („Problem melden") für jede angemeldete Rolle — schickt die
-          Schilderung per E-Mail an den Betreiber, siehe lib/hilfe-anfrage.ts.
-          Teilt sich die Ecke mit dem Assistenten und rückt dann nach oben. */}
+      {/* Hilfe-Lasche („Problem melden") am Bildschirmrand für jede angemeldete
+          Rolle — schickt die Schilderung per E-Mail an den Betreiber, siehe
+          lib/hilfe-anfrage.ts. Verschiebbar am Rand; hält unten Abstand zur
+          Assistenten-Bubble, wenn die eingeblendet ist. */}
       <HelpWidget versetzt={showAssistant} />
     </div>
   );

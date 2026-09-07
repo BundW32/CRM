@@ -1,7 +1,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useActionState, useEffect, useRef, useState } from "react";
+import {
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { CheckCircle2, ImageOff, LifeBuoy, X } from "lucide-react";
 import { toJpeg } from "html-to-image";
 import { sendeHilfeanfrage, type HilfeState } from "@/app/(portal)/hilfe/actions";
@@ -11,11 +18,19 @@ import { Alert, Field, buttonClass, buttonSecondaryClass, inputClass } from "@/c
 import { HILFE_ARTEN } from "@/lib/hilfe-arten";
 
 /**
- * Schwebender Hilfe-Knopf (unten rechts) für den angemeldeten Bereich.
+ * Hilfe-Lasche am Bildschirmrand für den angemeldeten Bereich.
  *
- * Öffnet ein kleines Formular: Art des Anliegens + Schilderung. Alles Weitere
- * (Name, E-Mail, Rolle, Organisation) kennt der Server aus der Sitzung; Seite
- * und Browser reicht das Widget als versteckte Felder mit, damit die erste
+ * Eine schmale, senkrecht beschriftete Lasche („Hilfe"), die am rechten oder
+ * linken Rand angedockt ist — wie man sie aus Verwaltungsprogrammen kennt.
+ * Sie lässt sich mit der Maus oder dem Finger **am Rand entlang verschieben**
+ * und springt beim Ziehen über die Bildschirmmitte an die andere Seite; sie
+ * liegt immer am Rand, nie mitten im Inhalt. Die Lage wird im Browser gemerkt
+ * (`localStorage`, als Anteil der Fensterhöhe — so bleibt sie beim Drehen des
+ * Tablets an derselben Stelle).
+ *
+ * Ein Klick öffnet ein kleines Formular: Art des Anliegens + Schilderung. Alles
+ * Weitere (Name, E-Mail, Rolle, Organisation) kennt der Server aus der Sitzung;
+ * Seite und Browser reicht das Widget als versteckte Felder mit, damit die erste
  * Rückfrage („auf welcher Seite, mit welchem Browser?") entfällt.
  *
  * Beim Öffnen nimmt das Widget den sichtbaren Ausschnitt der Seite auf
@@ -24,8 +39,8 @@ import { HILFE_ARTEN } from "@/lib/hilfe-arten";
  * solange das Häkchen gesetzt bleibt. Das Widget selbst ist über
  * `data-hilfe-widget` vom Foto ausgenommen.
  *
- * `versetzt`: Ist der KI-Assistent eingeblendet, sitzt der an derselben Ecke —
- * dann rückt der Hilfe-Knopf eine Stufe nach oben, statt ihn zu verdecken.
+ * `versetzt`: Ist der KI-Assistent eingeblendet, sitzt der unten rechts —
+ * dann halten Lasche und Fenster auf dieser Seite Abstand nach unten.
  */
 export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -34,6 +49,9 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
   const [foto, setFoto] = useState<Foto>({ status: "laedt" });
   const pathname = usePathname();
   const panelRef = useRef<HTMLDivElement>(null);
+  const lage = useLage();
+  const zug = useRef<Zug | null>(null);
+  const [ziehend, setZiehend] = useState(false);
 
   function oeffnen() {
     setOpen(true);
@@ -48,6 +66,52 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
     });
   }
 
+  // ── Ziehen ────────────────────────────────────────────────────────────────
+  // Pointer-Events statt Drag-and-Drop-API: die funktioniert mit dem Finger
+  // nicht, und ein „Geisterbild" der Lasche wollen wir ohnehin nicht. Erst ab
+  // ein paar Pixeln Bewegung zählt es als Ziehen — sonst wäre jeder Klick, bei
+  // dem die Hand leicht wackelt, ein Verschieben statt ein Öffnen.
+  function zugStart(e: ReactPointerEvent<HTMLButtonElement>) {
+    if (e.button !== 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    zug.current = { startX: e.clientX, startY: e.clientY, versatzY: e.clientY - rect.top, bewegt: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function zugBewegung(e: ReactPointerEvent<HTMLButtonElement>) {
+    const z = zug.current;
+    if (!z) return;
+    if (!z.bewegt) {
+      if (Math.abs(e.clientX - z.startX) < ZUG_SCHWELLE && Math.abs(e.clientY - z.startY) < ZUG_SCHWELLE) return;
+      z.bewegt = true;
+      setZiehend(true);
+      setOpen(false);
+    }
+    const oben = e.clientY - z.versatzY;
+    lageSetzen(
+      {
+        seite: e.clientX < window.innerWidth / 2 ? "links" : "rechts",
+        anteil: Math.min(1, Math.max(0, oben / window.innerHeight)),
+      },
+      false,
+    );
+  }
+
+  function zugEnde(e: ReactPointerEvent<HTMLButtonElement>) {
+    const z = zug.current;
+    zug.current = null;
+    if (!z) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    if (z.bewegt) {
+      setZiehend(false);
+      lageSetzen(lageLesen(), true);
+    } else if (open) {
+      setOpen(false);
+    } else {
+      oeffnen();
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
     panelRef.current?.querySelector<HTMLElement>("select, textarea")?.focus();
@@ -58,20 +122,51 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  const rechts = lage.seite === "rechts";
+  // Abstand nach unten: auf der Seite des Assistenten dessen Bubble freihalten.
+  const unten = versetzt && rechts ? "6.5rem" : "1rem";
+
   return (
     <>
+      {/* Die Lasche. Senkrechte Schrift über `writing-mode`; zur Kante hin
+          eckig, vom Inhalt weg gerundet — so wirkt sie angedockt und nicht
+          aufgelegt. Beim Überfahren schiebt sie sich ein Stück heraus. */}
       <button
         type="button"
         data-hilfe-widget=""
-        onClick={() => (open ? setOpen(false) : oeffnen())}
+        onPointerDown={zugStart}
+        onPointerMove={zugBewegung}
+        onPointerUp={zugEnde}
+        onPointerCancel={zugEnde}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (open) setOpen(false);
+            else oeffnen();
+          }
+        }}
         aria-label={open ? "Hilfe schließen" : "Hilfe: Problem melden"}
         aria-expanded={open}
-        className={`fixed right-4 z-40 flex h-12 items-center gap-2 rounded-full bg-brand-green px-4 text-sm font-semibold text-white shadow-xl shadow-black/25 transition-all hover:bg-brand-green-dark hover:shadow-2xl active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-orange ${
-          versetzt ? "bottom-[5.5rem]" : "bottom-4"
+        title="Klicken zum Öffnen, ziehen zum Verschieben"
+        style={{
+          top: `clamp(4.5rem, ${(lage.anteil * 100).toFixed(2)}vh, calc(100vh - ${LASCHE_HOEHE} - ${unten}))`,
+          touchAction: "none",
+        }}
+        className={`fixed z-40 flex h-[6.5rem] w-9 select-none flex-col items-center justify-center gap-2 bg-brand-green text-white shadow-lg shadow-black/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-orange ${
+          rechts ? "right-0 rounded-l-xl" : "left-0 rounded-r-xl"
+        } ${
+          ziehend
+            ? "cursor-grabbing opacity-90"
+            : `cursor-pointer transition-all hover:bg-brand-green-dark ${rechts ? "hover:-translate-x-0.5" : "hover:translate-x-0.5"}`
         }`}
       >
-        {open ? <X className="h-5 w-5" /> : <LifeBuoy className="h-5 w-5" />}
-        <span>Hilfe</span>
+        {open ? <X className="h-4 w-4" /> : <LifeBuoy className="h-4 w-4" />}
+        <span
+          className="text-[13px] font-semibold tracking-wide"
+          style={{ writingMode: "vertical-rl", transform: rechts ? undefined : "rotate(180deg)" }}
+        >
+          Hilfe
+        </span>
       </button>
 
       {open ? (
@@ -80,8 +175,9 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
           data-hilfe-widget=""
           role="dialog"
           aria-label="Problem melden"
-          className={`fixed inset-x-3 top-16 z-40 flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl shadow-black/30 motion-safe:animate-slide-down sm:inset-x-auto sm:top-auto sm:right-4 sm:w-[380px] ${
-            versetzt ? "bottom-40" : "bottom-20"
+          style={{ bottom: unten }}
+          className={`fixed inset-x-3 top-16 z-40 flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl shadow-black/30 motion-safe:animate-slide-down sm:inset-x-auto sm:top-auto sm:w-[380px] ${
+            rechts ? "sm:right-12" : "sm:left-12"
           }`}
         >
           <div className="flex items-center gap-2.5 border-b border-gray-100 bg-brand-green px-4 py-3 text-white">
@@ -117,6 +213,69 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
         </div>
       ) : null}
     </>
+  );
+}
+
+// ── Lage der Lasche (über Seitenwechsel hinweg gemerkt) ──────────────────────
+// Als externer Store wie der Einklapp-Zustand der Navigation (app-shell.tsx):
+// Der Wert überlebt das Navigieren, und das Lesen bleibt frei von
+// Render-Nebenwirkungen. Serverseitig gilt immer die Vorgabe — die erste
+// Auslieferung darf nicht vom Browser-Speicher abhängen.
+type Lage = { seite: "rechts" | "links"; anteil: number };
+type Zug = { startX: number; startY: number; versatzY: number; bewegt: boolean };
+
+const LAGE_KEY = "portal-hilfe-lasche";
+const LAGE_VORGABE: Lage = { seite: "rechts", anteil: 0.4 };
+// Muss zur Klasse `h-[6.5rem]` der Lasche passen — Tailwind erzeugt nur
+// Klassen, die wörtlich im Quelltext stehen, deshalb steht der Wert doppelt.
+const LASCHE_HOEHE = "6.5rem";
+const ZUG_SCHWELLE = 6;
+
+const lageZuhoerer = new Set<() => void>();
+let lageCache: Lage | null = null;
+
+function lageLesen(): Lage {
+  if (lageCache) return lageCache;
+  try {
+    const roh = window.localStorage.getItem(LAGE_KEY);
+    const p = roh ? (JSON.parse(roh) as Partial<Lage>) : null;
+    if (
+      p &&
+      (p.seite === "rechts" || p.seite === "links") &&
+      typeof p.anteil === "number" &&
+      p.anteil >= 0 &&
+      p.anteil <= 1
+    ) {
+      lageCache = { seite: p.seite, anteil: p.anteil };
+      return lageCache;
+    }
+  } catch {
+    // Privater Modus o. Ä. — dann gilt die Vorgabe.
+  }
+  lageCache = LAGE_VORGABE;
+  return lageCache;
+}
+
+function lageSetzen(lage: Lage, merken: boolean) {
+  lageCache = lage;
+  if (merken) {
+    try {
+      window.localStorage.setItem(LAGE_KEY, JSON.stringify(lage));
+    } catch {
+      // Dann gilt die Lage nur für diese Seite.
+    }
+  }
+  lageZuhoerer.forEach((cb) => cb());
+}
+
+function useLage(): Lage {
+  return useSyncExternalStore(
+    (cb) => {
+      lageZuhoerer.add(cb);
+      return () => lageZuhoerer.delete(cb);
+    },
+    lageLesen,
+    () => LAGE_VORGABE,
   );
 }
 

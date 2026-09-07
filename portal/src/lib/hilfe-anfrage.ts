@@ -10,19 +10,17 @@
 // Name, E-Mail, Rolle und Organisation kommen aus der Sitzung, nicht aus dem
 // Formular. Dazu tragen wir Seite und Browser mit — genau die zwei Angaben, die
 // bei „geht nicht" sonst in der ersten Rückfrage erfragt werden müssten.
+//
+// Nur serverseitig importieren (zieht über das Branding die Datenbank mit);
+// das Client-Widget nimmt die Arten aus `lib/hilfe-arten.ts`.
 
 import { z } from "zod";
 import { SERVICE_EMAIL } from "@/components/marketing/brand";
 import { isWegSaas } from "@/lib/app-mode";
 import { fallbackBranding } from "@/lib/branding-server";
+import { HILFE_ARTEN } from "@/lib/hilfe-arten";
 
-export const HILFE_ARTEN = {
-  fehler: "Etwas funktioniert nicht",
-  frage: "Ich habe eine Frage",
-  sonstiges: "Sonstiges",
-} as const;
-
-export type HilfeArt = keyof typeof HILFE_ARTEN;
+export { HILFE_ARTEN, type HilfeArt } from "@/lib/hilfe-arten";
 
 export const hilfeSchema = z.object({
   art: z.enum(["fehler", "frage", "sonstiges"]),

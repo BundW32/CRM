@@ -7,7 +7,7 @@ import { sendeHilfeanfrage, type HilfeState } from "@/app/(portal)/hilfe/actions
 import { SelectField } from "@/components/fields";
 import { SubmitButton } from "@/components/submit-button";
 import { Alert, Field, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
-import { HILFE_ARTEN } from "@/lib/hilfe-anfrage";
+import { HILFE_ARTEN } from "@/lib/hilfe-arten";
 
 /**
  * Schwebender Hilfe-Knopf (unten rechts) für den angemeldeten Bereich.

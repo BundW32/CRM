@@ -125,8 +125,11 @@ export default function DatenschutzPage() {
             angemeldeten Bereich ein Problem melden, senden wir Ihre Schilderung zusammen
             mit Ihrem Namen, Ihrer E-Mail-Adresse, Ihrer Rolle, der gerade geöffneten Seite
             und der Kennung Ihres Browsers (User-Agent) per E-Mail an uns, um das Problem
-            nachzuvollziehen und Ihnen zu antworten. Gespeichert wird die Meldung nur im
-            E-Mail-Postfach. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO.
+            nachzuvollziehen und Ihnen zu antworten. Auf Wunsch fügen Sie ein Bildschirmfoto
+            des gerade sichtbaren Seitenausschnitts bei — es wird im Browser erstellt, Ihnen
+            vorab als Vorschau gezeigt und nur übermittelt, wenn Sie das Häkchen gesetzt
+            lassen. Gespeichert wird die Meldung nur im E-Mail-Postfach. Rechtsgrundlage ist
+            Art. 6 Abs. 1 lit. b DSGVO.
           </p>
         </LegalSection>
       )}
@@ -152,7 +155,11 @@ export default function DatenschutzPage() {
             beantworten. Beim Hilfe-Knopf übermitteln wir zusätzlich Ihre Rolle, den Namen
             Ihrer Gemeinschaft, die gerade geöffnete Seite und die Kennung Ihres Browsers
             (User-Agent), damit wir ein gemeldetes Problem nachvollziehen können; das
-            Formular weist darauf hin. Rechtsgrundlage ist Art. 6
+            Formular weist darauf hin. Auf Wunsch senden Sie zusätzlich ein Bildschirmfoto
+            des gerade sichtbaren Seitenausschnitts mit — es wird im Browser erstellt, Ihnen
+            vorab als Vorschau gezeigt und nur übermittelt, wenn Sie das Häkchen gesetzt
+            lassen; es kann Angaben zu anderen Personen enthalten, die auf der Seite zu
+            sehen sind. Rechtsgrundlage ist Art. 6
             Abs. 1 lit. b DSGVO, soweit sich die Anfrage auf einen Vertrag oder dessen
             Anbahnung bezieht, im Übrigen Art. 6 Abs. 1 lit. f DSGVO — das berechtigte
             Interesse besteht in der Beantwortung an uns gerichteter Anfragen. Die

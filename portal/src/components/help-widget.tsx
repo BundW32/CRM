@@ -2,7 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { CheckCircle2, LifeBuoy, X } from "lucide-react";
+import { CheckCircle2, ImageOff, LifeBuoy, X } from "lucide-react";
+import { toJpeg } from "html-to-image";
 import { sendeHilfeanfrage, type HilfeState } from "@/app/(portal)/hilfe/actions";
 import { SelectField } from "@/components/fields";
 import { SubmitButton } from "@/components/submit-button";
@@ -17,6 +18,12 @@ import { HILFE_ARTEN } from "@/lib/hilfe-arten";
  * und Browser reicht das Widget als versteckte Felder mit, damit die erste
  * Rückfrage („auf welcher Seite, mit welchem Browser?") entfällt.
  *
+ * Beim Öffnen nimmt das Widget den sichtbaren Ausschnitt der Seite auf
+ * (html-to-image, im Browser — nichts verlässt das Gerät, bevor die Person
+ * absendet). Das Bild wird als Vorschau gezeigt und geht als Anhang mit,
+ * solange das Häkchen gesetzt bleibt. Das Widget selbst ist über
+ * `data-hilfe-widget` vom Foto ausgenommen.
+ *
  * `versetzt`: Ist der KI-Assistent eingeblendet, sitzt der an derselben Ecke —
  * dann rückt der Hilfe-Knopf eine Stufe nach oben, statt ihn zu verdecken.
  */
@@ -24,8 +31,22 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
   const [open, setOpen] = useState(false);
   // Schlüssel zum Zurücksetzen des Formulars nach „Weitere Meldung".
   const [runde, setRunde] = useState(0);
+  const [foto, setFoto] = useState<Foto>({ status: "laedt" });
   const pathname = usePathname();
   const panelRef = useRef<HTMLDivElement>(null);
+
+  function oeffnen() {
+    setOpen(true);
+    setFoto({ status: "laedt" });
+    // Nach dem Rendern des Panels aufnehmen — es ist per Filter ausgenommen,
+    // die Seite darunter zeigt genau das, was die Person gerade sah.
+    requestAnimationFrame(() => {
+      bildschirmfoto().then(
+        (dataUrl) => setFoto({ status: "ok", dataUrl }),
+        () => setFoto({ status: "fehler" }),
+      );
+    });
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -41,7 +62,8 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
     <>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        data-hilfe-widget=""
+        onClick={() => (open ? setOpen(false) : oeffnen())}
         aria-label={open ? "Hilfe schließen" : "Hilfe: Problem melden"}
         aria-expanded={open}
         className={`fixed right-4 z-40 flex h-12 items-center gap-2 rounded-full bg-brand-green px-4 text-sm font-semibold text-white shadow-xl shadow-black/25 transition-all hover:bg-brand-green-dark hover:shadow-2xl active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-orange ${
@@ -55,6 +77,7 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
       {open ? (
         <div
           ref={panelRef}
+          data-hilfe-widget=""
           role="dialog"
           aria-label="Problem melden"
           className={`fixed inset-x-3 top-16 z-40 flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl shadow-black/30 motion-safe:animate-slide-down sm:inset-x-auto sm:top-auto sm:right-4 sm:w-[380px] ${
@@ -86,6 +109,7 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
               // Das Formular entsteht erst nach einem Klick, also nur im Browser —
               // der User-Agent kann deshalb direkt gelesen werden.
               browser={typeof navigator === "undefined" ? "" : navigator.userAgent}
+              foto={foto}
               onNochEine={() => setRunde((r) => r + 1)}
               onSchliessen={() => setOpen(false)}
             />
@@ -96,20 +120,61 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
   );
 }
 
+type Foto = { status: "laedt" } | { status: "ok"; dataUrl: string } | { status: "fehler" };
+
+// Ab dieser Größe (Zeichen der Daten-URL, ≈ Bytes) wird kleiner aufgenommen.
+const FOTO_ZIEL = 1_500_000;
+
+/**
+ * Sichtbarer Ausschnitt der Seite als JPEG-Daten-URL.
+ *
+ * Aufgenommen wird das ganze Dokument, aber nur in Fenstergröße und um den
+ * Scroll-Stand verschoben — das ergibt den Ausschnitt, den die Person gerade
+ * vor sich hat, statt einer ellenlangen Gesamtseite. Verschoben wird über
+ * negative Außenabstände, nicht über `transform`: Ein Transform macht die
+ * Wurzel zum Bezug für `position: fixed`, und die fixierte Navigation rutschte
+ * mit aus dem Bild — mit Außenabstand bleibt sie, wo sie auf dem Bildschirm
+ * ist (im Chromium gegen den echten Screenshot geprüft). Auf Retina-Bildschirmen
+ * genügt die einfache Auflösung; wird es trotzdem zu groß, noch einmal kleiner.
+ */
+async function bildschirmfoto(): Promise<string> {
+  const wurzel = document.documentElement;
+  const optionen = {
+    quality: 0.7,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    backgroundColor: "#ffffff",
+    style: {
+      marginTop: `${-window.scrollY}px`,
+      marginLeft: `${-window.scrollX}px`,
+    },
+    filter: (knoten: Node) =>
+      !(knoten instanceof HTMLElement && knoten.dataset.hilfeWidget !== undefined),
+  };
+  let dataUrl = await toJpeg(wurzel, { ...optionen, pixelRatio: 1 });
+  if (dataUrl.length > FOTO_ZIEL) {
+    dataUrl = await toJpeg(wurzel, { ...optionen, pixelRatio: 0.6 });
+  }
+  return dataUrl;
+}
+
 const ANFANG: HilfeState = { status: "idle" };
 
 function HilfeFormular({
   seite,
   browser,
+  foto,
   onNochEine,
   onSchliessen,
 }: {
   seite: string;
   browser: string;
+  foto: Foto;
   onNochEine: () => void;
   onSchliessen: () => void;
 }) {
   const [state, formAction] = useActionState(sendeHilfeanfrage, ANFANG);
+  const [mitFoto, setMitFoto] = useState(true);
 
   if (state.status === "ok") {
     return (
@@ -160,14 +225,19 @@ function HilfeFormular({
           required
           minLength={10}
           maxLength={5000}
-          rows={6}
+          rows={5}
           placeholder="Was wollten Sie tun, was ist stattdessen passiert? Je genauer, desto schneller können wir helfen."
           className={`${inputClass} resize-y`}
         />
       </Field>
 
+      <FotoAuswahl foto={foto} mitFoto={mitFoto} onChange={setMitFoto} />
+
       <input type="hidden" name="seite" value={seite} />
       <input type="hidden" name="browser" value={browser} />
+      {mitFoto && foto.status === "ok" ? (
+        <input type="hidden" name="foto" value={foto.dataUrl} />
+      ) : null}
 
       <p className="text-xs text-gray-500">
         Mit der Meldung übermitteln wir Ihren Namen, Ihre E-Mail-Adresse, die aktuelle Seite
@@ -178,5 +248,62 @@ function HilfeFormular({
         Meldung senden
       </SubmitButton>
     </form>
+  );
+}
+
+/** Vorschau des Bildschirmfotos mit Häkchen „mitsenden". */
+function FotoAuswahl({
+  foto,
+  mitFoto,
+  onChange,
+}: {
+  foto: Foto;
+  mitFoto: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  if (foto.status === "fehler") {
+    return (
+      <p className="flex items-center gap-2 text-xs text-gray-500">
+        <ImageOff className="h-4 w-4 shrink-0" />
+        Ein Bildschirmfoto konnte in diesem Browser nicht erstellt werden — die Meldung geht
+        ohne Bild raus.
+      </p>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+      <label className="flex cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          checked={mitFoto}
+          onChange={(e) => onChange(e.target.checked)}
+          disabled={foto.status !== "ok"}
+          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-green focus:ring-brand-orange/30"
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-gray-700">
+            Bildschirmfoto dieser Seite mitsenden
+          </span>
+          <span className="block text-xs text-gray-500">
+            Zeigt uns, was Sie gerade sehen — samt aller Angaben auf der Seite.
+          </span>
+        </span>
+      </label>
+      <div className="mt-2 overflow-hidden rounded-lg border border-gray-200 bg-white">
+        {foto.status === "ok" ? (
+          // Daten-URL, kein Remote-Bild: next/image brächte hier nichts.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={foto.dataUrl}
+            alt="Vorschau des Bildschirmfotos"
+            className={`block max-h-32 w-full object-cover object-top transition ${mitFoto ? "" : "opacity-40 grayscale"}`}
+          />
+        ) : (
+          <div className="flex h-20 items-center justify-center text-xs text-gray-400">
+            Bildschirmfoto wird erstellt …
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

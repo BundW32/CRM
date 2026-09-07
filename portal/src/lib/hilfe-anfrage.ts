@@ -10,6 +10,8 @@
 // Name, E-Mail, Rolle und Organisation kommen aus der Sitzung, nicht aus dem
 // Formular. Dazu tragen wir Seite und Browser mit — genau die zwei Angaben, die
 // bei „geht nicht" sonst in der ersten Rückfrage erfragt werden müssten.
+// Dazu auf Wunsch ein Bildschirmfoto des sichtbaren Ausschnitts (Prüfung in
+// `lib/hilfe-bildschirmfoto.ts`).
 //
 // Nur serverseitig importieren (zieht über das Branding die Datenbank mit);
 // das Client-Widget nimmt die Arten aus `lib/hilfe-arten.ts`.
@@ -59,7 +61,7 @@ export type HilfeMail = { betreff: string; text: string; block: string };
 export function baueHilfeMail(
   eingabe: HilfeEingabe,
   absender: HilfeAbsender,
-  jetzt: Date = new Date(),
+  { jetzt = new Date(), mitFoto = false }: { jetzt?: Date; mitFoto?: boolean } = {},
 ): HilfeMail {
   const eingang = jetzt.toLocaleString("de-DE", {
     dateStyle: "long",
@@ -76,6 +78,7 @@ export function baueHilfeMail(
     `Nutzer-ID: ${absender.id}\n` +
     (eingabe.seite ? `Seite: ${eingabe.seite}\n` : "") +
     (eingabe.browser ? `Browser: ${eingabe.browser}\n` : "") +
+    `Bildschirmfoto: ${mitFoto ? "im Anhang" : "nicht mitgesendet"}\n` +
     `Eingang: ${eingang}\n\n` +
     `Schilderung:\n${eingabe.nachricht}\n`;
 

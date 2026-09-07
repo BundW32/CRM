@@ -5,6 +5,7 @@ import { isWegSaas } from "@/lib/app-mode";
 import { signOffName } from "@/lib/branding";
 import { fallbackBranding } from "@/lib/branding-server";
 import { baueHilfeMail, hilfeEmpfaenger, hilfeSchema } from "@/lib/hilfe-anfrage";
+import { parseBildschirmfoto } from "@/lib/hilfe-bildschirmfoto";
 import { roleLabels } from "@/lib/labels";
 import { isMailEnabled, sendMail } from "@/lib/mailer";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -52,22 +53,33 @@ export async function sendeHilfeanfrage(_prev: HilfeState, formData: FormData): 
     return { status: "fehler", grund: "eingabe", empfaenger };
   }
 
+  // Bildschirmfoto (freiwillig, vom Widget aufgenommen). Passt es nicht ins
+  // Format oder Maß, geht die Meldung ohne Bild raus — nie gar nicht.
+  const foto = parseBildschirmfoto(formData.get("foto"));
+
   const org = await getOrganization();
   const branding = fallbackBranding();
-  const mail = baueHilfeMail(parsed.data, {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    rolle: roleLabels[user.role],
-    organisation: org?.name ?? "–",
-  });
+  const mail = baueHilfeMail(
+    parsed.data,
+    {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      rolle: roleLabels[user.role],
+      organisation: org?.name ?? "–",
+    },
+    { mitFoto: foto !== null },
+  );
 
-  // 1) An den Betreiber. Ohne diese Mail bliebe die Meldung folgenlos.
-  await sendMail(empfaenger, mail.betreff, mail.text, undefined, branding);
+  // 1) An den Betreiber, mit Bildschirmfoto als Anhang. Ohne diese Mail
+  //    bliebe die Meldung folgenlos.
+  await sendMail(empfaenger, mail.betreff, mail.text, foto ? [foto] : undefined, branding);
 
   // 2) Eingangsbestätigung an die Person (Zugänge ohne E-Mail bekommen keine —
-  //    sendMail überspringt sie). Auf wegportal24 tritt das Service-Postfach als
-  //    Absender auf, damit eine Antwort direkt beim Anliegen landet.
+  //    sendMail überspringt sie), ohne das Foto: Die Person hat die Seite selbst
+  //    vor sich, und der Anhang würde nur ihr Postfach füllen. Auf wegportal24
+  //    tritt das Service-Postfach als Absender auf, damit eine Antwort direkt
+  //    beim Anliegen landet.
   await sendMail(
     user.email,
     "Ihre Meldung ist bei uns eingegangen",

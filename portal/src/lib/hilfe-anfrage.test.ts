@@ -49,7 +49,7 @@ describe("baueHilfeMail", () => {
         browser: "Mozilla/5.0 (Test)",
       },
       absender,
-      new Date("2026-09-07T10:30:00Z"),
+      { jetzt: new Date("2026-09-07T10:30:00Z"), mitFoto: true },
     );
     expect(m.betreff).toBe("[Hilfe] Etwas funktioniert nicht – Erika Muster (WEG Musterstraße 1)");
     expect(m.text).toContain("Name: Erika Muster");
@@ -57,6 +57,7 @@ describe("baueHilfeMail", () => {
     expect(m.text).toContain("Rolle: Eigentümer");
     expect(m.text).toContain("Seite: /verbrauch");
     expect(m.text).toContain("Browser: Mozilla/5.0 (Test)");
+    expect(m.text).toContain("Bildschirmfoto: im Anhang");
     expect(m.text).toContain("Schilderung:\nBeim Speichern der Zählerstände kommt ein Fehler.");
     expect(m.text).toContain("Bitte an erika@example.org antworten.");
     // Berliner Zeit, nicht UTC.
@@ -67,6 +68,7 @@ describe("baueHilfeMail", () => {
     const m = baueHilfeMail({ art: "frage", nachricht: "Wo finde ich die Abrechnung?" }, absender);
     expect(m.text).not.toContain("Seite:");
     expect(m.text).not.toContain("Browser:");
+    expect(m.text).toContain("Bildschirmfoto: nicht mitgesendet");
   });
 
   it("weist auf Zugänge ohne E-Mail-Adresse hin", () => {

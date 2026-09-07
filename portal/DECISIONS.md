@@ -2180,6 +2180,24 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      SMTP-Konto darf unter `service@wegportal24.de` senden (Send-as/Alias),
      sonst lehnt der Anbieter den Versand ab oder schreibt den Absender um.
 
+321. **Hilfe-Knopf („Problem melden") im angemeldeten Bereich, Meldung geht per
+     E-Mail an den Betreiber.** (07.09.2026) Schwebender Knopf unten rechts in
+     der Portal-Shell (`components/help-widget.tsx`), für jede Rolle. Das
+     Formular fragt nur Art (Fehler/Frage/Sonstiges) und Schilderung; Name,
+     E-Mail, Rolle und Organisation kommen aus der Sitzung, Seite und Browser
+     reicht das Widget versteckt mit — die Angaben, die sonst in der ersten
+     Rückfrage fehlen. Empfänger (`hilfeEmpfaenger` in `lib/hilfe-anfrage.ts`):
+     auf wegportal24 `SERVICE_EMAIL` wie der Kontakt-Funnel (Nr. 320), auf der
+     B&W-Tür die Deployment-Adresse. Die Person erhält eine Eingangsbestätigung.
+     Gespeichert wird **nichts**, Drossel 5 Meldungen je Nutzer und Stunde. Ohne
+     SMTP meldet das Widget den Versand als nicht möglich und nennt die Adresse,
+     statt ein „Danke" zu zeigen. Kein Redirect/Flash: Das Widget sitzt auf
+     jeder Seite und bleibt dort, die Rückmeldung läuft über `useActionState`.
+     Teilt sich die Ecke mit dem KI-Assistenten und rückt dann eine Stufe nach
+     oben. Datenschutzerklärung: Absatz „Kontaktaufnahme" (wegportal24) bzw.
+     neuer Absatz „Hilfe-Knopf" (B&W) nennen die mitgesendeten Angaben; Stand
+     07.09.2026.
+
 **Offen geblieben** (bewusst, nicht vergessen): Die Nachdokumentation eines
 bereits eingesetzten Subprozessors gehört anwaltlich bewertet — die
 4-Wochen-Ankündigung nach AVV Ziffer 4 ist auf künftige Wechsel zugeschnitten.

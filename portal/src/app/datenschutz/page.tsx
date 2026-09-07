@@ -47,7 +47,7 @@ export default function DatenschutzPage() {
             Verarbeitung personenbezogener Daten bei der Nutzung von{" "}
             <strong>{productName()}</strong>.
           </p>
-          <p className="mt-2 text-gray-500">Stand: 18. August 2026</p>
+          <p className="mt-2 text-gray-500">Stand: 7. September 2026</p>
         </>
       }
     >
@@ -120,6 +120,14 @@ export default function DatenschutzPage() {
             Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einer effizienten
             Verwaltung).
           </p>
+          <p>
+            <strong>Hilfe-Knopf:</strong> Wenn Sie uns über den Hilfe-Knopf im
+            angemeldeten Bereich ein Problem melden, senden wir Ihre Schilderung zusammen
+            mit Ihrem Namen, Ihrer E-Mail-Adresse, Ihrer Rolle, der gerade geöffneten Seite
+            und der Kennung Ihres Browsers (User-Agent) per E-Mail an uns, um das Problem
+            nachzuvollziehen und Ihnen zu antworten. Gespeichert wird die Meldung nur im
+            E-Mail-Postfach. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO.
+          </p>
         </LegalSection>
       )}
 
@@ -137,10 +145,14 @@ export default function DatenschutzPage() {
             berechtigte Interesse besteht in der Sicherheit des Dienstes.
           </p>
           <p>
-            <strong>Kontaktaufnahme:</strong> Wenn Sie uns über das Kontaktformular oder
-            per E-Mail eine Frage oder Anregung senden, verarbeiten wir die dabei
-            angegebenen Daten (Name, E-Mail-Adresse, Inhalt der Nachricht), um Ihr
-            Anliegen zu bearbeiten und zu beantworten. Rechtsgrundlage ist Art. 6
+            <strong>Kontaktaufnahme:</strong> Wenn Sie uns über das Kontaktformular, den
+            Hilfe-Knopf im angemeldeten Bereich oder per E-Mail eine Frage, Anregung oder
+            Problemmeldung senden, verarbeiten wir die dabei angegebenen Daten (Name,
+            E-Mail-Adresse, Inhalt der Nachricht), um Ihr Anliegen zu bearbeiten und zu
+            beantworten. Beim Hilfe-Knopf übermitteln wir zusätzlich Ihre Rolle, den Namen
+            Ihrer Gemeinschaft, die gerade geöffnete Seite und die Kennung Ihres Browsers
+            (User-Agent), damit wir ein gemeldetes Problem nachvollziehen können; das
+            Formular weist darauf hin. Rechtsgrundlage ist Art. 6
             Abs. 1 lit. b DSGVO, soweit sich die Anfrage auf einen Vertrag oder dessen
             Anbahnung bezieht, im Übrigen Art. 6 Abs. 1 lit. f DSGVO — das berechtigte
             Interesse besteht in der Beantwortung an uns gerichteter Anfragen. Die

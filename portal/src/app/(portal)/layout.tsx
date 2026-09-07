@@ -10,6 +10,7 @@ import { PageTransition } from "@/components/page-transition";
 import { ToastHost } from "@/components/toast-host";
 import { AppShell } from "@/components/app-shell";
 import { AssistantWidget } from "@/components/assistant-widget";
+import { HelpWidget } from "@/components/help-widget";
 import { BrandTheme } from "@/components/brand-theme";
 import { CommandPalette, type PaletteNavItem } from "@/components/command-palette";
 import { AboBanner } from "@/components/abo-banner";
@@ -240,6 +241,10 @@ export default async function PortalLayout({
           Sprungliste bekommt jede Rolle. */}
       <CommandPalette navItems={paletteItems} canSearchData={user.role === "VERWALTER"} />
       {showAssistant ? <AssistantWidget /> : null}
+      {/* Hilfe-Knopf („Problem melden") für jede angemeldete Rolle — schickt die
+          Schilderung per E-Mail an den Betreiber, siehe lib/hilfe-anfrage.ts.
+          Teilt sich die Ecke mit dem Assistenten und rückt dann nach oben. */}
+      <HelpWidget versetzt={showAssistant} />
     </div>
   );
 }

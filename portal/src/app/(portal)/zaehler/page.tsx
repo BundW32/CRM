@@ -8,6 +8,8 @@ import { SubmitButton } from "@/components/submit-button";
 import { ownedProperties, propertyWhereForVerwalter, tenantUnits } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate, meterTypeLabels } from "@/lib/labels";
+import { mitFreitext } from "@/lib/sonstiges";
+import { SelectMitSonstiges } from "@/components/select-sonstiges";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
@@ -202,7 +204,7 @@ export default async function ZaehlerPage({
                     <li key={m.id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-sm font-medium text-gray-900">
-                          {meterTypeLabels[m.type]}
+                          {mitFreitext(meterTypeLabels[m.type], m.typeOther)}
                           {m.meterNumber ? ` · Nr. ${m.meterNumber}` : ""}
                           {m.location ? ` · ${m.location}` : ""}
                         </span>
@@ -273,15 +275,19 @@ export default async function ZaehlerPage({
             ) : (
               <form action={createMeter} className="space-y-3">
                 <MeterTargetPicker properties={properties} />
-                <Field label="Zählerart">
-                  <select name="type" required className={inputClass} defaultValue="STROM">
-                    {Object.entries(meterTypeLabels).map(([v, l]) => (
-                      <option key={v} value={v}>
-                        {l}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                <SelectMitSonstiges
+                  label="Zählerart"
+                  name="type"
+                  required
+                  defaultValue="STROM"
+                  options={Object.entries(meterTypeLabels).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                  freitextName="typeOther"
+                  freitextLabel="Welche Art Zähler?"
+                  freitextPlaceholder="z. B. Zisterne, Druckluft"
+                />
                 <Field label="Zählernummer (optional)">
                   <input type="text" name="meterNumber" className={inputClass} />
                 </Field>

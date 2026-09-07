@@ -165,6 +165,16 @@ export const flashMessages = {
     text: "Diese Datenquelle ist noch nicht angebunden.",
     tone: "error",
   },
+  // Wächter-Code wie „keine-berechtigung": Die Route existiert weiterhin, der
+  // Funktionsbereich ist aber abgeschaltet (`lib/features.ts`). Eine
+  // gespeicherte URL landet damit nicht im Nichts, sondern erfährt, warum sie
+  // woanders herauskommt — und wo die Arbeit stattdessen stattfindet.
+  "sepa-abgeschaltet": {
+    text:
+      "Der SEPA-Lastschrifteinzug ist derzeit abgeschaltet. Hausgeld erfassen " +
+      "und mahnen Sie unter „Hausgeld & offene Posten“.",
+    tone: "info",
+  },
 } as const satisfies Record<string, FlashMessage>;
 
 export type FlashCode = keyof typeof flashMessages;

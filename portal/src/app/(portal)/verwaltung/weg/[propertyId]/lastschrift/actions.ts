@@ -5,11 +5,26 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { isSepaLastschriftEnabled } from "@/lib/features";
 import { requireVerwalter } from "@/lib/session";
 import { loadWegProperty } from "@/lib/weg/scope";
 
 function back(propertyId: string, param?: string): never {
   redirect(`/verwaltung/weg/${propertyId}/lastschrift${param ? `?${param}` : ""}`);
+}
+
+/**
+ * Wächter für den abgeschalteten Funktionsbereich (`lib/features.ts`).
+ *
+ * Das Formular ist nicht mehr erreichbar — aber eine Server-Action ist ein
+ * Endpunkt und bleibt aufrufbar, solange die Datei existiert. Ohne diesen
+ * Wächter ließen sich Mandate weiterhin anlegen und löschen, obwohl die
+ * Funktion als abgeschaltet gilt.
+ */
+function sperreWennAbgeschaltet(propertyId: string): void {
+  if (!isSepaLastschriftEnabled()) {
+    redirect(`/verwaltung/weg/${propertyId}/hausgeld?flash=sepa-abgeschaltet`);
+  }
 }
 
 // Gläubiger-Identifikationsnummer der Gemeinschaft speichern.
@@ -19,6 +34,7 @@ export async function saveCreditorId(formData: FormData) {
   const creditorId = String(formData.get("sepaCreditorId") ?? "").trim().toUpperCase() || null;
   const property = await loadWegProperty(verwalter, propertyId);
   if (!property) redirect("/verwaltung/weg");
+  sperreWennAbgeschaltet(property.id);
 
   await db.property.update({ where: { id: property.id }, data: { sepaCreditorId: creditorId } });
   await logAudit({
@@ -58,6 +74,7 @@ export async function saveMandate(formData: FormData) {
   if (!parsed.success) redirect("/verwaltung/weg");
   const property = await loadWegProperty(verwalter, parsed.data.propertyId);
   if (!property) redirect("/verwaltung/weg");
+  sperreWennAbgeschaltet(property.id);
 
   // Einheit muss zu diesem Objekt gehören (IDOR-Schutz).
   const unit = await db.unit.findFirst({
@@ -115,6 +132,7 @@ export async function deleteMandate(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   const property = await loadWegProperty(verwalter, propertyId);
   if (!property) redirect("/verwaltung/weg");
+  sperreWennAbgeschaltet(property.id);
 
   const mandate = await db.sepaMandate.findFirst({
     where: { id, propertyId: property.id },

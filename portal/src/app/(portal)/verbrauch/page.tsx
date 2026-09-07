@@ -5,6 +5,7 @@ import { FilterBar, type FilterConfig } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter, tenantUnits } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDateOnly, meterTypeLabels } from "@/lib/labels";
+import { mitFreitext } from "@/lib/sonstiges";
 import { optionsFrom, propertyScopeFilters } from "@/lib/list-filters";
 import { normalizeSearch, parsePage, pageHrefFor } from "@/lib/list-query";
 import { requireUser } from "@/lib/session";
@@ -29,6 +30,8 @@ const meterUnit: Record<MeterType, string> = {
   WASSER_KALT: "m³",
   WASSER_WARM: "m³",
   HEIZUNG: "Einh.",
+  WAERMEMENGE: "kWh",
+  ABWASSER: "m³",
   SONSTIGES: "Einh.",
 };
 
@@ -188,7 +191,7 @@ export default async function VerbrauchPage({
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="text-sm font-semibold text-gray-900">
-                    {meterTypeLabels[meter.type]}
+                    {mitFreitext(meterTypeLabels[meter.type], meter.typeOther)}
                     {meter.remoteReadable ? (
                       <span className="ml-2 rounded-full bg-brand-orange-light px-2 py-0.5 text-xs text-brand-orange-dark">
                         Fernablesbar

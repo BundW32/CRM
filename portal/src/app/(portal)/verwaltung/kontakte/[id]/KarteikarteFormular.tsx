@@ -4,6 +4,7 @@ import { DateField, toDateInputValue } from "@/components/fields";
 import { FileInput } from "@/components/file-input";
 import { inputClass } from "@/components/ui";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { SelectMitSonstiges } from "@/components/select-sonstiges";
 import { PendingButton } from "@/components/pending-button";
 import { contactKindLabels, contactMethodLabels, tradeLabels } from "@/lib/labels";
 import {
@@ -22,6 +23,8 @@ export type Karteikarte = {
   name: string;
   company: string | null;
   kind: string | null;
+  /** Freitext zu kind = SONSTIGES. */
+  kindOther: string | null;
   trade: string | null;
   email: string | null;
   phone: string | null;
@@ -57,21 +60,20 @@ export function KarteikarteFormular({
       <form action={updateCraftsman} encType="multipart/form-data" className="grid gap-2 sm:grid-cols-2">
         <input type="hidden" name="id" value={k.id} />
         <input type="hidden" name="zurueck" value={zurueck} />
-        <label>
-          <span className="mb-1 block text-xs text-gray-500">Art</span>
-          <select
-            name="kind"
-            required
-            defaultValue={k.kind ?? "HANDWERKER"}
-            className={inputClass}
-          >
-            {KIND_ORDER.map((k) => (
-              <option key={k} value={k}>
-                {contactKindLabels[k]}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectMitSonstiges
+          label="Art"
+          name="kind"
+          required
+          defaultValue={k.kind ?? "HANDWERKER"}
+          options={KIND_ORDER.map((wert) => ({
+            value: wert,
+            label: contactKindLabels[wert],
+          }))}
+          freitextName="kindOther"
+          freitextLabel="Was für ein Kontakt?"
+          freitextDefaultValue={k.kindOther ?? ""}
+          freitextPlaceholder="z. B. Schornsteinfeger"
+        />
         <label>
           <span className="mb-1 block text-xs text-gray-500">Firma (optional)</span>
           <input

@@ -3,13 +3,22 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { MeterType } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { meterTypeLabels } from "@/lib/labels";
 import { requireUser, requireVerwalter } from "@/lib/session";
+import { sonstigesFreitext } from "@/lib/sonstiges";
+
+// Einzige Quelle der zulässigen Zählerarten ist der Beschriftungs-Katalog: Er
+// deckt den Enum vollständig ab. Eine Aufzählung von Hand hätte einen neu
+// hinzugekommenen Wert stillschweigend abgewiesen — das Formular böte ihn an,
+// die Aktion verwürfe ihn.
+const METER_TYPES = Object.keys(meterTypeLabels) as [MeterType, ...MeterType[]];
 
 const meterSchema = z.object({
   // "unit:<id>" für einen Einheitszähler oder "prop:<id>" für einen Allgemeinzähler
   target: z.string().min(1),
-  type: z.enum(["STROM", "GAS", "WASSER_KALT", "WASSER_WARM", "HEIZUNG", "SONSTIGES"]),
+  type: z.enum(METER_TYPES),
   meterNumber: z.string().trim().max(100).optional(),
   location: z.string().trim().max(200).optional(),
   remoteReadable: z.boolean().optional(),
@@ -37,6 +46,7 @@ export async function createMeter(formData: FormData) {
       unitId: kind === "unit" ? refId : null,
       propertyId: kind === "prop" ? refId : null,
       type: parsed.data.type,
+      typeOther: sonstigesFreitext(parsed.data.type, formData.get("typeOther")),
       meterNumber: parsed.data.meterNumber || null,
       location: parsed.data.location || null,
       remoteReadable: parsed.data.remoteReadable ?? false,

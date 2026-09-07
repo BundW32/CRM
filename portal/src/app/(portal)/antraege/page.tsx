@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { PendingButton } from "@/components/pending-button";
-import type { Prisma } from "@/generated/prisma/client";
+import type { MotionType, Prisma } from "@/generated/prisma/client";
 import { Alert,
   Card,
   EmptyState,
@@ -12,11 +12,13 @@ import { Alert,
   inputClass,
 } from "@/components/ui";
 import { ComboField } from "@/components/combo-field";
+import { SelectMitSonstiges } from "@/components/select-sonstiges";
 import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/labels";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
+import { mitFreitext } from "@/lib/sonstiges";
 import { getOrganization, requireUser } from "@/lib/session";
 import {
   adoptMotionAsResolution,
@@ -38,10 +40,16 @@ const sortOptions = [
   { value: "status", label: "Status" },
 ];
 
-const typeLabels: Record<string, string> = {
+// Beschriftungen der Antragsarten. Reihenfolge zugleich die Reihenfolge im
+// Auswahlfeld: der häufigste Fall zuerst, „Sonstiges" zuletzt.
+const typeLabels: Record<MotionType, string> = {
   BESCHLUSSANTRAG: "Beschlussantrag",
-  VERSAMMLUNG: "Außerordentliche Versammlung",
+  VERSAMMLUNG: "Außerordentliche Versammlung verlangen",
+  TAGESORDNUNGSPUNKT: "Punkt für die nächste Versammlung",
+  SONSTIGES: "Sonstiges",
 };
+
+const ANTRAGSARTEN = Object.entries(typeLabels).map(([value, label]) => ({ value, label }));
 
 const statusLabels: Record<string, string> = {
   EINGEREICHT: "Eingereicht",
@@ -65,7 +73,7 @@ const errorText: Record<string, string> = {
   eingabe: "Bitte Titel und Begründung vollständig ausfüllen.",
   keinweg: "Anträge sind nur für WEG-Objekte möglich.",
   versammlung: "Bitte eine planbare Versammlung dieses Objekts wählen.",
-  typ: "Ein Verlangen einer Versammlung kann nicht als Umlaufbeschluss übernommen werden.",
+  typ: "Nur ein Beschlussantrag kann als Umlaufbeschluss übernommen werden — ein Versammlungs-Verlangen, ein Tagesordnungspunkt und ein sonstiges Anliegen tragen keinen Beschlusstext.",
 };
 
 export default async function AntraegePage({
@@ -161,7 +169,7 @@ export default async function AntraegePage({
                   <li key={m.id} className="rounded-lg border border-gray-200 p-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                        {typeLabels[m.type] ?? m.type}
+                        {mitFreitext(typeLabels[m.type] ?? m.type, m.typeOther)}
                       </span>
                       <span className="text-xs text-gray-400">
                         {m.property.name} · {m.submittedBy.name} · {formatDate(m.createdAt)}
@@ -171,9 +179,11 @@ export default async function AntraegePage({
                     <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">{m.description}</p>
 
                     <div className="mt-3 flex flex-col gap-2 border-t border-gray-100 pt-3 sm:flex-row sm:flex-wrap sm:items-end">
-                      {/* Als Umlaufbeschluss übernehmen – nur für Beschlussanträge,
-                          nicht für ein Versammlungs-Verlangen. */}
-                      {m.type !== "VERSAMMLUNG" ? (
+                      {/* Als Umlaufbeschluss übernehmen – nur für Beschlussanträge.
+                          Ein Versammlungs-Verlangen, ein Tagesordnungspunkt und
+                          ein sonstiges Anliegen tragen keinen Beschlusstext; die
+                          Sperre steht zusätzlich serverseitig in `actions.ts`. */}
+                      {m.type === "BESCHLUSSANTRAG" ? (
                         <form action={adoptMotionAsResolution}>
                           <input type="hidden" name="motionId" value={m.id} />
                           <PendingButton className={buttonSecondaryClass}>Als Umlaufbeschluss</PendingButton>
@@ -238,12 +248,15 @@ export default async function AntraegePage({
                 placeholder="Objekt suchen …"
                 options={wegOwned.map((p) => ({ value: p.id, label: p.name }))}
               />
-              <Field label="Art des Antrags">
-                <select name="type" className={inputClass} defaultValue="BESCHLUSSANTRAG">
-                  <option value="BESCHLUSSANTRAG">Beschlussantrag</option>
-                  <option value="VERSAMMLUNG">Außerordentliche Versammlung verlangen</option>
-                </select>
-              </Field>
+              <SelectMitSonstiges
+                label="Art des Antrags"
+                name="type"
+                options={ANTRAGSARTEN}
+                defaultValue="BESCHLUSSANTRAG"
+                freitextName="typeOther"
+                freitextLabel="Worum geht es?"
+                freitextPlaceholder="z. B. Auskunft zur Erhaltungsrücklage"
+              />
               <Field label="Titel">
                 <input
                   type="text"
@@ -306,7 +319,7 @@ export default async function AntraegePage({
                       {statusLabels[m.status] ?? m.status}
                     </span>
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                      {typeLabels[m.type] ?? m.type}
+                      {mitFreitext(typeLabels[m.type] ?? m.type, m.typeOther)}
                     </span>
                     <span className="text-xs text-gray-400">
                       {m.property.name} · {formatDate(m.createdAt)}

@@ -4,6 +4,7 @@ import { Badge } from "@/components/data-display";
 import { maskSecret } from "@/lib/crypto";
 import { decryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
+import { isSepaLastschriftEnabled } from "@/lib/features";
 import { INTEGRATION_AREAS } from "@/lib/integrations";
 import { assistentStatus } from "@/lib/assistant";
 import { requireVerwalter } from "@/lib/session";
@@ -193,7 +194,11 @@ export default async function IntegrationenPage({
           );
         })}
 
-        {/* SEPA-Lastschrift: Zero-Key, kein Schlüssel nötig. */}
+        {/* SEPA-Lastschrift: Zero-Key, kein Schlüssel nötig — derzeit aber
+            abgeschaltet (`lib/features.ts`). Die Karte verweist auf einen
+            Menüpunkt, den es im abgeschalteten Zustand nicht gibt; sie zieht
+            deshalb mit dem Schalter mit. */}
+        {isSepaLastschriftEnabled() ? (
         <Card title="SEPA-Lastschrift (Hausgeldeinzug)">
           <div className="mb-3">
             <Badge tone="success">Ohne Schlüssel nutzbar</Badge>
@@ -206,6 +211,7 @@ export default async function IntegrationenPage({
             Zu den WEG-Objekten
           </Link>
         </Card>
+        ) : null}
       </div>
     </>
   );

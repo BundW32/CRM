@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Building2, UserRound } from "lucide-react";
 import { contactKindLabels, contactMethodLabels, roleLabels, tradeLabels } from "@/lib/labels";
+import { mitFreitext } from "@/lib/sonstiges";
 import type { AddressBookEntry } from "@/lib/address-book";
 
 /**
@@ -21,7 +22,7 @@ export function KontaktZeile({ entry }: { entry: AddressBookEntry }) {
       ? roleLabels[entry.role]
       : "Person"
     : entry.kind
-      ? contactKindLabels[entry.kind]
+      ? mitFreitext(contactKindLabels[entry.kind], entry.kindOther)
       : "Kontakt";
 
   const title = entry.company ? `${entry.company} · ${entry.name}` : entry.name;

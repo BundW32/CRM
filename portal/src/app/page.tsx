@@ -69,15 +69,19 @@ export const dynamic = "force-dynamic";
 // Grund: `title.template` aus `layout.tsx` greift nur für Kind-Segmente, und
 // die Startseite liegt im selben Segment wie die Wurzel. Ohne den Zusatz hier
 // hieße ausgerechnet die wichtigste Seite im Suchergebnis markenlos
-// „WEG selbst verwalten ohne Hausverwaltung".
+// „WEG Selbstverwaltung – Software für Ihre WEG".
 export const metadata: Metadata = {
-  title: "WEG selbst verwalten ohne Hausverwaltung | wegportal24",
+  // Fokus-Suchbegriff der Startseite: „WEG Selbstverwaltung" – so suchen
+  // Gemeinschaften, die keine Hausverwaltung mehr finden. Er steht vorn im
+  // Titel, in der Beschreibung, in der H1 und im Fließtext.
+  title: "WEG Selbstverwaltung – Software für Ihre WEG | wegportal24",
   description:
-    "Keine Hausverwaltung gefunden? Verwalten Sie Ihre WEG selbst – Wirtschaftsplan, " +
-    "Hausgeld und Jahresabrechnung inklusive. Jetzt kostenlos starten.",
+    "WEG Selbstverwaltung ohne Hausverwaltung: Wirtschaftsplan, Hausgeld, " +
+    "Jahresabrechnung und Versammlung in einer Software. Jetzt kostenlos starten.",
   keywords: [
-    "WEG selbst verwalten",
     "WEG Selbstverwaltung",
+    "WEG selbst verwalten",
+    "WEG Selbstverwaltung Software",
     "WEG Software",
     "WEG Verwaltung Software",
     "WEG ohne Verwalter",
@@ -92,10 +96,10 @@ export const metadata: Metadata = {
     locale: "de_DE",
     siteName: "wegportal24",
     url: "/",
-    title: "WEG selbst verwalten ohne Hausverwaltung – wegportal24",
+    title: "WEG Selbstverwaltung – Software für Ihre WEG – wegportal24",
     description:
-      "Wirtschaftsplan, Hausgeld, Jahresabrechnung und Versammlung für " +
-      "selbstverwaltete Eigentümergemeinschaften.",
+      "Die Software für die WEG Selbstverwaltung: Wirtschaftsplan, Hausgeld, " +
+      "Jahresabrechnung und Versammlung für Eigentümergemeinschaften ohne Hausverwaltung.",
     // Ohne Bild zeigen soziale Netze und Messenger nur einen grauen Kasten.
     images: [
       {
@@ -106,10 +110,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "WEG selbst verwalten ohne Hausverwaltung – wegportal24",
+    title: "WEG Selbstverwaltung – Software für Ihre WEG – wegportal24",
     description:
-      "Wirtschaftsplan, Hausgeld, Jahresabrechnung und Versammlung für " +
-      "selbstverwaltete Eigentümergemeinschaften.",
+      "Die Software für die WEG Selbstverwaltung: Wirtschaftsplan, Hausgeld, " +
+      "Jahresabrechnung und Versammlung für Eigentümergemeinschaften ohne Hausverwaltung.",
     images: ["/images/marketing/hero-building-v2.jpg"],
   },
 };
@@ -239,10 +243,12 @@ const ROLLEN = [
 // Element 9: FAQ. Native <details> statt Accordion-Bibliothek – kein Client-JS.
 const FAQ = [
   {
-    f: "Dürfen wir unsere WEG überhaupt selbst verwalten?",
+    f: "Ist die WEG Selbstverwaltung überhaupt erlaubt?",
     a:
-      "Ja. Keine Gemeinschaft ist verpflichtet, eine externe Verwaltung zu " +
-      "beauftragen. Übernimmt ein Miteigentümer das Amt, braucht er in " +
+      "Ja. Die WEG Selbstverwaltung ist im Wohnungseigentumsgesetz " +
+      "ausdrücklich vorgesehen: Keine Gemeinschaft ist verpflichtet, eine " +
+      "externe Verwaltung zu beauftragen. Übernimmt ein Miteigentümer das " +
+      "Amt, braucht er in " +
       "Gemeinschaften mit weniger als neun Sondereigentumsrechten keine " +
       "Zertifizierung (§ 19 Abs. 2 Nr. 6 WEG) – solange nicht ein Drittel der " +
       "Eigentümer einen zertifizierten Verwalter verlangt.",
@@ -259,7 +265,7 @@ const FAQ = [
       "Rechner stehen auf der Preisseite.",
   },
   {
-    f: "Brauchen wir für die Selbstverwaltung einen Verwaltervertrag?",
+    f: "Brauchen wir für die WEG Selbstverwaltung einen Verwaltervertrag?",
     a:
       "Sinnvoll ist er: Auch ein Miteigentümer wird durch Beschluss zum " +
       "Verwalter bestellt, und ein Vertrag regelt Aufgaben, Laufzeit und " +
@@ -305,8 +311,8 @@ const FAQ = [
   {
     f: "Ist wegportal24 eine Hausverwaltung – oder eine Software?",
     a:
-      "Eine WEG-Software: Ihre Gemeinschaft verwaltet sich selbst, das " +
-      "Portal liefert Wirtschaftsplan, Buchhaltung, Hausgeld, " +
+      "Eine Software für die WEG Selbstverwaltung: Ihre Gemeinschaft " +
+      "verwaltet sich selbst, das Portal liefert Wirtschaftsplan, Buchhaltung, Hausgeld, " +
       "Jahresabrechnung und Versammlung als Werkzeug dazu. Wer trotzdem " +
       "fachlichen Rückhalt möchte, bekommt ihn im Verwalter-Plus-Tarif per " +
       "Ticket von einem zertifizierten Verwalter nach § 26a WEG – und " +
@@ -374,8 +380,9 @@ function StrukturierteDaten() {
         url: basis + "/",
         inLanguage: "de-DE",
         description:
-          "Portal für selbstverwaltete Wohnungseigentümergemeinschaften: " +
-          "Wirtschaftsplan, Hausgeld, Jahresabrechnung, Versammlung und Beschlüsse.",
+          "Software für die WEG Selbstverwaltung: Wirtschaftsplan, Hausgeld, " +
+          "Jahresabrechnung, Versammlung und Beschlüsse für " +
+          "Wohnungseigentümergemeinschaften ohne Hausverwaltung.",
         offers: {
           "@type": "Offer",
           price: BASIC_JE_EINHEIT_EUR,
@@ -445,15 +452,16 @@ export default async function Home() {
             <h1 className="text-balance text-4xl font-semibold leading-tight text-white sm:text-6xl">
               Keine Hausverwaltung gefunden?{" "}
               <span className="underline decoration-wp-accent decoration-4 underline-offset-8">
-                Verwalten Sie Ihre WEG selbst.
+                WEG Selbstverwaltung mit wegportal24.
               </span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-white/85 sm:text-lg">
               Immer mehr kleine Gemeinschaften finden <strong className="font-semibold text-white">keine Hausverwaltung
               mehr</strong> – die Pflichten aus dem WEG-Gesetz bleiben trotzdem.{" "}
               <span className="hidden sm:inline">
-                wegportal24 gibt Ihnen alles an die Hand, um Ihre Gemeinschaft
-                einfach, gemeinsam und rechtssicher selbst zu verwalten.
+                wegportal24 ist die Software für die WEG Selbstverwaltung: alles,
+                um Ihre Gemeinschaft einfach, gemeinsam und rechtssicher selbst
+                zu verwalten.
               </span>
             </p>
             {/* Element 4: Haupt-CTA. Läuft die Willkommensaktion, nimmt der
@@ -503,14 +511,21 @@ export default async function Home() {
       <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
         <Reveal>
           <h2 className="text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
-            Die WEG-Software für die Selbstverwaltung
+            Die Software für die WEG Selbstverwaltung
           </h2>
           <p className="mt-3 max-w-2xl text-wp-ink/70">
-            Keine Hausverwaltung gefunden? Dann verwalten Sie Ihre WEG selbst —
-            mit einer WEG-Verwaltungs-Software, die für Eigentümer gebaut ist,
-            nicht für Verwaltungsprofis. Alles, was Ihre Gemeinschaft braucht,
-            und nichts, was Sie überfordert; jede Funktion hat eine eigene
-            Seite mit ausführlicher Erklärung.
+            WEG Selbstverwaltung heißt: Ein Miteigentümer wird durch Beschluss
+            zum Verwalter bestellt, die Gemeinschaft erledigt Wirtschaftsplan,
+            Buchhaltung, Hausgeld und Jahresabrechnung selbst – und spart sich
+            die Vergütung einer externen Hausverwaltung. Was dafür bisher
+            Fachwissen und Tabellenkalkulation verlangte, übernimmt hier eine
+            WEG-Software, die für Eigentümer gebaut ist, nicht für
+            Verwaltungsprofis.
+          </p>
+          <p className="mt-3 max-w-2xl text-wp-ink/70">
+            Alles, was Ihre Gemeinschaft für die Selbstverwaltung braucht, und
+            nichts, was Sie überfordert: Jede Funktion hat eine eigene Seite
+            mit ausführlicher Erklärung.
           </p>
         </Reveal>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -645,7 +660,7 @@ export default async function Home() {
       <section className="mx-auto w-full max-w-6xl px-4 pt-20 sm:px-6">
         <Reveal>
           <h2 className="text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
-            Was Ihre WEG gegenüber einer externen Verwaltung spart
+            Was die WEG Selbstverwaltung gegenüber einer externen Verwaltung spart
           </h2>
           <p className="mt-3 max-w-2xl text-wp-ink/70">
             Wer seine WEG ohne Hausverwaltung führt, spart deren Vergütung –
@@ -723,9 +738,9 @@ export default async function Home() {
               <FileSignature className="h-5 w-5 text-wp-accent-ink" />
             </span>
             <div>
-              <h3 className="text-lg font-semibold text-wp-ink">
-                Mustervertrag für die Selbstverwaltung inklusive
-              </h3>
+              <p className="text-lg font-semibold text-wp-ink">
+                Mustervertrag für die WEG Selbstverwaltung inklusive
+              </p>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-wp-ink/70">
                 Auch ein Miteigentümer wird durch Beschluss zum Verwalter
                 bestellt – und ein Vertrag regelt Aufgaben, Laufzeit und
@@ -748,9 +763,9 @@ export default async function Home() {
               <FileDown className="h-5 w-5 text-wp-accent-ink" />
             </span>
             <div>
-              <h3 className="text-lg font-semibold text-wp-ink">
+              <p className="text-lg font-semibold text-wp-ink">
                 Infobroschüre für Ihre Eigentümerversammlung
-              </h3>
+              </p>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-wp-ink/70">
                 Alles Wichtige zum Ausdrucken und Auslegen: der
                 Funktionsüberblick, die Checkliste für den Verwalterwechsel,
@@ -794,7 +809,7 @@ export default async function Home() {
                   Verwalter-Plus
                 </p>
                 <h2 className="mt-4 text-balance text-2xl font-semibold text-wp-ink sm:text-3xl">
-                  Selbst verwalten – mit einem zertifizierten Verwalter im
+                  WEG Selbstverwaltung – mit einem zertifizierten Verwalter im
                   Rücken
                 </h2>
                 <p className="mt-3 max-w-2xl leading-relaxed text-wp-ink/75">
@@ -900,7 +915,7 @@ export default async function Home() {
             LinkedIn fehlt bewusst: Der Share-Endpunkt antwortet Crawlern mit
             Status 999 und stand deshalb als Problem-Link im Seobility-Audit. */}
         <a
-          href="https://wa.me/?text=WEG%20selbst%20verwalten%20ohne%20Hausverwaltung%3A%20https%3A%2F%2Fwww.wegportal24.de%2F"
+          href="https://wa.me/?text=WEG%20Selbstverwaltung%20ohne%20Hausverwaltung%3A%20https%3A%2F%2Fwww.wegportal24.de%2F"
           target="_blank"
           rel="nofollow noopener noreferrer"
           className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
@@ -908,7 +923,7 @@ export default async function Home() {
           Über WhatsApp teilen
         </a>
         <a
-          href="mailto:?subject=WEG%20selbst%20verwalten%20ohne%20Hausverwaltung&body=https%3A%2F%2Fwww.wegportal24.de%2F"
+          href="mailto:?subject=WEG%20Selbstverwaltung%20ohne%20Hausverwaltung&body=https%3A%2F%2Fwww.wegportal24.de%2F"
           className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
         >
           Per E-Mail weitergeben
@@ -922,7 +937,7 @@ export default async function Home() {
           Auf Facebook teilen
         </a>
         <a
-          href="https://x.com/intent/post?url=https%3A%2F%2Fwww.wegportal24.de%2F&text=WEG%20selbst%20verwalten%20ohne%20Hausverwaltung"
+          href="https://x.com/intent/post?url=https%3A%2F%2Fwww.wegportal24.de%2F&text=WEG%20Selbstverwaltung%20ohne%20Hausverwaltung"
           target="_blank"
           rel="nofollow noopener noreferrer"
           className="underline underline-offset-2 transition-colors hover:text-wp-accent-ink"
@@ -935,7 +950,7 @@ export default async function Home() {
       {/* ── Element 10: Abschluss-CTA ─────────────────────────────────────── */}
       <div id="schluss-cta">
       <CtaBand
-        title="Bereit, Ihre WEG selbst in die Hand zu nehmen?"
+        title="Bereit für die WEG Selbstverwaltung?"
         text="Richten Sie wegportal24 für Ihre Gemeinschaft ein und laden Sie Ihre Miteigentümer ein – kostenlos und unverbindlich."
       />
 

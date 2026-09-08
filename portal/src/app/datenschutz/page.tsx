@@ -39,7 +39,9 @@ export default function DatenschutzPage() {
 
   return (
     <LegalPage
-      title="Datenschutzerklärung"
+      // Nicht nur „Datenschutzerklärung": Eine Ein-Wort-H1 sagt nichts über
+      // die Seite – und der Name des Portals gehört in die Überschrift.
+      title={`Datenschutzerklärung für ${productName()}`}
       intro={
         <>
           <p>

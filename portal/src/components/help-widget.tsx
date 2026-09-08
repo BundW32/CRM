@@ -152,7 +152,7 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
           top: `clamp(4.5rem, ${(lage.anteil * 100).toFixed(2)}vh, calc(100vh - ${LASCHE_HOEHE} - ${unten}))`,
           touchAction: "none",
         }}
-        className={`fixed z-40 flex h-[6.5rem] w-9 select-none flex-col items-center justify-center gap-2 bg-brand-green text-white shadow-lg shadow-black/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-orange ${
+        className={`fixed z-40 flex h-[5.5rem] w-9 select-none items-center justify-center bg-brand-green text-white shadow-lg shadow-black/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-orange ${
           rechts ? "right-0 rounded-l-xl" : "left-0 rounded-r-xl"
         } ${
           ziehend
@@ -160,7 +160,6 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
             : `cursor-pointer transition-all hover:bg-brand-green-dark ${rechts ? "hover:-translate-x-0.5" : "hover:translate-x-0.5"}`
         }`}
       >
-        {open ? <X className="h-4 w-4" /> : <LifeBuoy className="h-4 w-4" />}
         <span
           className="text-[13px] font-semibold tracking-wide"
           style={{ writingMode: "vertical-rl", transform: rechts ? undefined : "rotate(180deg)" }}
@@ -226,9 +225,9 @@ type Zug = { startX: number; startY: number; versatzY: number; bewegt: boolean }
 
 const LAGE_KEY = "portal-hilfe-lasche";
 const LAGE_VORGABE: Lage = { seite: "rechts", anteil: 0.4 };
-// Muss zur Klasse `h-[6.5rem]` der Lasche passen — Tailwind erzeugt nur
+// Muss zur Klasse `h-[5.5rem]` der Lasche passen — Tailwind erzeugt nur
 // Klassen, die wörtlich im Quelltext stehen, deshalb steht der Wert doppelt.
-const LASCHE_HOEHE = "6.5rem";
+const LASCHE_HOEHE = "5.5rem";
 const ZUG_SCHWELLE = 6;
 
 const lageZuhoerer = new Set<() => void>();

@@ -6,6 +6,7 @@ import { decryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { INTEGRATION_AREAS } from "@/lib/integrations";
 import { assistentStatus } from "@/lib/assistant";
+import { belegErkennungStatus } from "@/lib/weg/beleg-erkennung";
 import { requireVerwalter } from "@/lib/session";
 import { clearIntegration, saveIntegration } from "./actions";
 import { AssistentTest } from "./assistent-test";
@@ -25,6 +26,7 @@ export default async function IntegrationenPage({
   const verwalter = await requireVerwalter();
   const sp = await searchParams;
   const assistent = assistentStatus();
+  const beleg = belegErkennungStatus();
 
   const settings = await db.integrationSetting.findMany({
     where: { organizationId: verwalter.organizationId },
@@ -125,6 +127,58 @@ export default async function IntegrationenPage({
         {/* Auch bei „Nicht aktiv" sinnvoll: Wer den Schlüssel gerade einträgt,
             will wissen, ob er taugt — bevor er ein Deployment dafür aufwendet. */}
         {assistent.schluesselGesetzt ? <AssistentTest /> : null}
+      </Card>
+      </div>
+
+      {/* Dieselbe Sichtbarkeit für die KI-Belegerkennung: Sie erscheint im
+          Formular „Verbindlichkeit erfassen" nur, wenn beide Variablen gesetzt
+          sind — und fehlt sonst ohne jede Meldung. Wer den Knopf sucht, findet
+          hier den Grund. */}
+      <div className="mb-4">
+      <Card title="KI-Belegerkennung (Scans und Fotos)">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <Badge tone={beleg.aktiv ? "success" : "neutral"}>
+            {beleg.aktiv ? "Aktiv" : "Nicht aktiv"}
+          </Badge>
+          <span className="text-xs text-gray-400">
+            Verbindlichkeiten → Verbindlichkeit erfassen · nur nach Zustimmung im Dialog
+          </span>
+        </div>
+        {beleg.aktiv ? (
+          <p className="text-sm text-gray-600">
+            E-Rechnungen und PDF-Rechnungen liest das Portal ohne KI. Kann es eine Datei
+            nicht lesen (Scan, Foto), bietet das Formular den Knopf „Mit KI lesen lassen“
+            an; die Datei geht erst nach ausdrücklicher Zustimmung an Google. Ob Google den
+            Schlüssel annimmt, zeigt der Test beim KI-Assistenten — es ist derselbe Schlüssel.
+          </p>
+        ) : (
+          <div className="text-sm text-gray-600">
+            <p className="mb-2">
+              PDF und E-Rechnung werden trotzdem gelesen — nur der KI-Weg für Scans und
+              Fotos fehlt. Dafür fehlt in den Umgebungsvariablen des Deployments:
+            </p>
+            <ul className="mb-2 list-disc pl-5">
+              {!beleg.schalterGesetzt ? (
+                <li>
+                  <code>AI_BELEG_ERKENNUNG_ENABLED</code> —{" "}
+                  {beleg.schalterUnverstanden
+                    ? `steht auf „${beleg.schalterUnverstanden}“ und muss true lauten`
+                    : "muss auf true stehen (genau dieser Name, ohne Zusatz davor)"}
+                </li>
+              ) : null}
+              {!beleg.schluesselGesetzt ? (
+                <li>
+                  <code>GEMINI_API_KEY</code> — noch kein Schlüssel hinterlegt
+                </li>
+              ) : null}
+            </ul>
+            <p className="text-xs text-gray-500">
+              Änderungen an Umgebungsvariablen greifen erst nach einem neuen Deployment —
+              und sie müssen für die Umgebung <em>Production</em> gesetzt sein, nicht nur
+              für Preview.
+            </p>
+          </div>
+        )}
       </Card>
       </div>
 

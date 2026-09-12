@@ -13,6 +13,8 @@
 // Was NICHT hinausgeht: nichts außer der Datei. Kein Objektname, keine
 // Kostenarten, keine Einheit — der Vorschlag braucht davon nichts.
 
+import { geminiSchluessel, kiSchalter } from "@/lib/assistant";
+
 export type ErkannteRechnung = {
   /** Rechnungssteller, wie er auf dem Beleg steht. */
   creditor?: string;
@@ -33,7 +35,31 @@ export type ErkannteRechnung = {
 export const BELEG_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
 
 export function isBelegErkennungEnabled(): boolean {
-  return process.env.AI_BELEG_ERKENNUNG_ENABLED === "true" && Boolean(process.env.GEMINI_API_KEY);
+  return kiSchalter(process.env.AI_BELEG_ERKENNUNG_ENABLED) && Boolean(geminiSchluessel());
+}
+
+export type BelegErkennungStatus = {
+  aktiv: boolean;
+  schalterGesetzt: boolean;
+  /** Der Rohwert ist gesetzt, ergibt aber kein „true" — meist ein Tippfehler. */
+  schalterUnverstanden: string | null;
+  schluesselGesetzt: boolean;
+};
+
+/**
+ * Diagnose für die Integrationen-Seite: Fehlt der Knopf im Formular, sagt
+ * diese Karte, welche der beiden Variablen es ist — ohne sie bliebe die
+ * Funktion kommentarlos unsichtbar.
+ */
+export function belegErkennungStatus(): BelegErkennungStatus {
+  const roh = (process.env.AI_BELEG_ERKENNUNG_ENABLED ?? "").trim();
+  const an = kiSchalter(process.env.AI_BELEG_ERKENNUNG_ENABLED);
+  return {
+    aktiv: isBelegErkennungEnabled(),
+    schalterGesetzt: an,
+    schalterUnverstanden: roh && !an ? roh.slice(0, 40) : null,
+    schluesselGesetzt: Boolean(geminiSchluessel()),
+  };
 }
 
 const RESPONSE_SCHEMA = {
@@ -111,7 +137,7 @@ export async function extractRechnung(
   mimeType: string,
 ): Promise<ErkannteRechnung | null> {
   if (!isBelegErkennungEnabled()) return null;
-  const key = process.env.GEMINI_API_KEY;
+  const key = geminiSchluessel();
   if (!key) return null;
   if (!(BELEG_MIME_TYPES as readonly string[]).includes(mimeType)) return null;
   const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";

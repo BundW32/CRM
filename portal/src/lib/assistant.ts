@@ -49,6 +49,23 @@ function schalter(raw: string | undefined): boolean {
   return (raw ?? "").trim().replace(/^["']|["']$/g, "").toLowerCase() === "true";
 }
 
+/**
+ * Derselbe Schalter für alle KI-Funktionen. Bis zum 12.09.2026 prüfte nur der
+ * Assistent nachsichtig; Triage, Objekt-Import, Kostenart-Vorschlag und
+ * Belegerkennung verlangten buchstäblich `true` — und blieben bei einem aus
+ * der Vorlage mitkopierten `"true"` still aus, während der Assistent daneben
+ * lief. Ein Schalter, der in einer Funktion geht und in der nächsten nicht,
+ * ist schlimmer als einer, der nirgends geht.
+ */
+export function kiSchalter(raw: string | undefined): boolean {
+  return schalter(raw);
+}
+
+/** Der Gemini-Schlüssel, bereinigt — für jede KI-Funktion derselbe. */
+export function geminiSchluessel(): string {
+  return schluessel();
+}
+
 export function isAssistantEnabled(): boolean {
   return schalter(process.env.AI_ASSISTANT_ENABLED) && Boolean(schluessel());
 }

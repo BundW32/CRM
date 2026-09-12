@@ -2199,15 +2199,32 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      denen sie erstellt wurde. Ältere Snapshots ohne das Feld fallen auf die
      Stammdaten von heute zurück.
 
-322. **Rechnungen kommen auf zwei Wegen ins Portal: KI-Belegerkennung und
-     CSV-Import — beide legen Verbindlichkeiten an, keine Buchungen.**
-     (12.09.2026) Zweite Anregung desselben Testnutzers. Die Belegerkennung
-     (`lib/weg/beleg-erkennung.ts`, Schalter `AI_BELEG_ERKENNUNG_ENABLED`) ist
-     die fünfte KI-Funktion: Rechnung als PDF oder Foto hochladen, Gläubiger,
-     Rechnungsnummer, Datum, Fälligkeit, Bruttobetrag und Leistung werden im
-     Formular „Verbindlichkeit erfassen" **vorbefüllt**; gespeichert wird erst
-     mit dem Absenden, der Beleg selbst wird nicht abgelegt. Die Datei geht wie
-     beim Objekt-Import **vollständig** an Google — Rechnungen tragen Namen und
+322. **Rechnungen kommen auf drei Wegen ins Portal: lokale Belegerkennung,
+     KI-Belegerkennung und CSV-Import — alle legen Verbindlichkeiten an, keine
+     Buchungen.** (12.09.2026) Zweite Anregung desselben Testnutzers. Die
+     Belegerkennung füllt das Formular „Verbindlichkeit erfassen" mit Gläubiger,
+     Rechnungsnummer, Datum, Fälligkeit, Bruttobetrag und Leistung **vor**;
+     gespeichert wird erst mit dem Absenden, der Beleg selbst wird nicht abgelegt.
+     **Der erste Weg ist lokal** (`lib/weg/beleg-lokal.ts`): E-Rechnungen
+     (ZUGFeRD/Factur-X als eingebettetes CII-XML, XRechnung als CII oder UBL)
+     werden exakt ausgelesen, PDFs mit Textebene über pdf.js und feste Muster
+     („Gesamtbetrag", „Rechnungs-Nr.", „zahlbar bis", „innerhalb von 14 Tagen").
+     Kein Byte verlässt den Server, kein Schlüssel nötig. Das ist die
+     belastbare Variante — die Rechtsfrage der Weitergabe stellt sich nicht,
+     und mit der E-Rechnungspflicht (ab 2027/2028 auch im Versand) wird der
+     exakte Weg zum Regelfall. Das XML wird ohne Bibliothek gelesen, wie bei
+     CAMT (Nr. 318). Grenze: Scans und Fotos haben keine Textebene; Tesseract
+     auf dem Server wäre langsam und liest Handyfotos schlecht — dafür keine
+     Scheinlösung.
+     **Der zweite Weg ist die KI** (`lib/weg/beleg-erkennung.ts`, Schalter
+     `AI_BELEG_ERKENNUNG_ENABLED`, fünfte KI-Funktion) — nur für diese Scans und
+     Fotos, und mit doppelter Hürde: Die Funktion muss freigeschaltet sein
+     **und** die Verwaltung bestätigt im Formular einen Datenschutzhinweis
+     (was übermittelt wird, Drittland möglich, ihre Verantwortung als Stelle);
+     der Server prüft das Häkchen erneut (`kiFreigabe`), er verlässt sich nicht
+     auf die Oberfläche. Der KI-Block liegt eingeklappt unter dem lokalen Weg
+     und öffnet sich, wenn lokal nichts lesbar war. Die Datei geht wie beim
+     Objekt-Import **vollständig** an Google — Rechnungen tragen Namen und
      IBANs —, deshalb eigene Freigabe, standardmäßig aus, und der Objekt-Scope
      wird auch für den Vorschlag geprüft (die Funktion kostet Geld). Das
      Formular ist dafür eine Client-Komponente geworden; die Server-Action zum

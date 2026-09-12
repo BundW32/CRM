@@ -65,6 +65,10 @@ const nextConfig: NextConfig = {
     // das nicht und ließe das andere im Bundle fehlen.
     "/**": ["public/fonts/**/*.ttf", "public/bw-logo.png", "public/wegportal24-logo.png"],
   },
+  // pdf.js liest auf dem Server Rechnungen aus (lib/weg/beleg-lokal.ts). Als
+  // externes Paket bleibt es in node_modules statt gebündelt zu werden — die
+  // Legacy-Ausgabe verträgt das Bündeln nicht.
+  serverExternalPackages: ["pdfjs-dist"],
   experimental: {
     // Standard ist 1 MB – zu klein für Foto-Uploads vom Handy
     serverActions: {

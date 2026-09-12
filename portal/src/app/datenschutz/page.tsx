@@ -265,9 +265,12 @@ export default function DatenschutzPage() {
           Hausgeld. Der Objekt-Import übermittelt das hochgeladene PDF{" "}
           <strong>vollständig</strong>; laden Sie dort daher nur Unterlagen hoch, deren
           Weitergabe an Google Sie verantworten können. Dasselbe gilt für die
-          Belegerkennung: Sie übermittelt die hochgeladene Rechnung (PDF oder Foto){" "}
-          <strong>vollständig</strong> — samt Namen und Bankverbindung des
-          Rechnungsstellers; abgelegt wird der Beleg dabei nicht. Der Kostenart-Vorschlag beim
+          Belegerkennung: E-Rechnungen und Text-PDFs liest das Portal zunächst selbst,
+          ohne Übermittlung. Nur auf ausdrückliche Anforderung der Verwaltung — nach
+          Bestätigung eines Hinweises im Formular — übermittelt sie die hochgeladene
+          Rechnung (PDF oder Foto) <strong>vollständig</strong> an Google, samt Namen und
+          Bankverbindung des Rechnungsstellers; abgelegt wird der Beleg dabei nicht. Der
+          Kostenart-Vorschlag beim
           Bankimport übermittelt am wenigsten: nur den Verwendungszweck, aus dem zuvor
           alle Wörter mit Ziffern entfernt wurden — also ohne Beträge, Kontonummern,
           Rechnungs- und Referenznummern — dazu die Bezeichnungen der Kostenarten Ihres

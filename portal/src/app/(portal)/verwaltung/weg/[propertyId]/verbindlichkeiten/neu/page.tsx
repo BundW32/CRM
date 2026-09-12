@@ -55,7 +55,8 @@ export default async function VerbindlichkeitFormularPage({
           propertyId={property.id}
           // Die Belegerkennung nur beim Erfassen: Beim Bearbeiten stehen die
           // Werte schon da, und ein Vorschlag würde sie überschreiben.
-          belegErkennung={!vorhanden && isBelegErkennungEnabled()}
+          belegErkennung={!vorhanden}
+          kiErkennung={isBelegErkennungEnabled()}
           start={{
             id: vorhanden?.id,
             title: vorhanden?.title ?? "",

@@ -130,6 +130,37 @@ describe("leseRechnungAusText", () => {
     expect(r?.creditor).toBe("Stadtwerke Gladbeck");
   });
 
+  it("liest auch ein Angebot: Angebotsnummer, Datum, Gesamtbetrag, erste Position", () => {
+    // Nachgebaut nach einem echten Angebot aus dem Testbetrieb — dort blieb
+    // die Nummer leer, weil nur „Rechnungs-Nr." erkannt wurde.
+    const angebot = [
+      "Angebot",
+      "Angebotsnr.: AG0026",
+      "Kundennr.: 10031",
+      "Datum: 21.07.2026",
+      "gültig bis: 20.08.2026",
+      "Reinigung Meisterbetrieb GmbH",
+      "Reinigung Meisterbetrieb GmbH, Buchenstraße 8, 45892",
+      "B&W Immobilien Management",
+      "Gerne bieten wir Ihnen an:",
+      "Pos. Bezeichnung Menge Einheit Einzel € Gesamt €",
+      "1 Glasdachreinigung / Teil von Fassaden Ele- 1 Pauschal 600,00 600,00",
+      "mente / Fliesenspiegel",
+      "2 Anfahrt & Abfahrt 1 Pauschal 80,00 80,00",
+      "Zwischensumme (netto) 700,00",
+      "Umsatzsteuer 19 % 133,00",
+      "Gesamtbetrag 833,00",
+      "IBAN: DE36 3655 0000 0100 1016 66",
+    ];
+    expect(leseRechnungAusText(angebot)).toEqual({
+      creditor: "Reinigung Meisterbetrieb GmbH",
+      invoiceNumber: "AG0026",
+      invoiceDate: "2026-07-21",
+      grossCents: 83300,
+      description: "Glasdachreinigung / Teil von Fassaden Ele",
+    });
+  });
+
   it("gibt null zurück, wenn nichts nach Rechnung aussieht", () => {
     expect(leseRechnungAusText(["Hallo", "Welt"])).toBeNull();
   });

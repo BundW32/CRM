@@ -183,9 +183,12 @@ export function leseRechnungAusText(zeilen: string[]): ErkannteRechnung | null {
   const text = zeilen.join("\n");
   const r: ErkannteRechnung = {};
 
-  // Rechnungsnummer: „Rechnungs-Nr.: 2026-114", „Rechnungsnummer 4711", „Rechnung Nr. 12/26".
+  // Belegnummer: „Rechnungs-Nr.: 2026-114", „Rechnungsnummer 4711", „Rechnung Nr.
+  // 12/26" — und, wenn es keine Rechnung ist, die Angebots- oder Auftragsnummer:
+  // Ein Angebot wird auch als Verbindlichkeit vorgemerkt, wenn es angenommen
+  // ist, und seine Nummer ist dann das, worauf die Rechnung später verweist.
   const nr = text.match(
-    /(?:rechnungs?\s?-?\s?(?:nr|nummer|no)\.?|beleg\s?-?\s?(?:nr|nummer)\.?|invoice\s?(?:no|number)\.?|rechnung\s+nr\.?)\s*:?\s*([A-Z0-9][A-Z0-9\-/_.]{1,39})/i,
+    /(?:(?:rechnungs?|angebots?|auftrags?|beleg)\s?-?\s?(?:nr|nummer|no)\.?|invoice\s?(?:no|number)\.?|(?:rechnung|angebot|auftrag)\s+nr\.?)\s*:?\s*([A-Z0-9][A-Z0-9\-/_.]{1,39})/i,
   );
   if (nr) r.invoiceNumber = nr[1].replace(/[.,:;]+$/, "");
 
@@ -243,9 +246,17 @@ export function leseRechnungAusText(zeilen: string[]): ErkannteRechnung | null {
   );
   if (firma) r.creditor = firma.replace(/\s{2,}.*$/, "").trim().slice(0, 160);
 
-  // Leistung: „Betreff: …", „Bauvorhaben: …", „Leistung: …".
+  // Leistung: „Betreff: …", „Bauvorhaben: …", „Leistung: …" — sonst die erste
+  // Position der Tabelle, ohne Positionsnummer, Menge und Preise.
   const betreff = text.match(/(?:betreff|leistung|bauvorhaben|projekt|leistungszeitraum|objekt)\s*:\s*([^\n]{3,120})/i);
   if (betreff) r.description = betreff[1].trim();
+  else {
+    const kopfzeile = zeilen.findIndex((z) => /^pos\.?\s+(bezeichnung|beschreibung|leistung|artikel)/i.test(z));
+    const erste = kopfzeile >= 0 ? zeilen[kopfzeile + 1] : undefined;
+    const m = erste?.match(/^\d{1,3}\s+(.+?)(?:\s+\d+(?:[.,]\d+)?\s+\S+)?(?:\s+[\d.,]+\s?€?){1,2}$/);
+    const leistung = m?.[1].replace(/\s?-$/, "").trim();
+    if (leistung && leistung.length >= 3) r.description = leistung.slice(0, 120);
+  }
 
   return Object.values(r).some((v) => v !== undefined) ? r : null;
 }

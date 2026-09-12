@@ -8,10 +8,11 @@
 //
 // Zwei Wege, sichtbar getrennt: Der lokale (E-Rechnung, Text-PDF) ist immer
 // da und schickt nichts nach außen. Der KI-Weg über Google erscheint nur,
-// wenn er freigeschaltet ist, und läuft erst nach einem gesetzten Häkchen
-// unter dem Datenschutzhinweis — der Server prüft das Häkchen noch einmal.
+// wenn er freigeschaltet ist UND der lokale Weg an dieser Datei gescheitert
+// ist (Scan, Foto) — und läuft erst, nachdem die Verwaltung in einem Dialog
+// ausdrücklich zugestimmt hat. Der Server prüft die Zustimmung noch einmal.
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DateField, SelectField } from "@/components/fields";
 import { FileInput } from "@/components/file-input";
 import { SubmitButton } from "@/components/submit-button";
@@ -50,10 +51,20 @@ export function VerbindlichkeitForm({
   const belegRef = useRef<HTMLInputElement>(null);
   const [liest, setLiest] = useState<"lokal" | "ki" | null>(null);
   const [meldung, setMeldung] = useState<{ ok: boolean; text: string } | null>(null);
-  const [kiFreigabe, setKiFreigabe] = useState(false);
-  // Der KI-Weg klappt erst auf, wenn der lokale Weg nichts lesen konnte —
-  // oder auf Wunsch. So bleibt er die Ausnahme, nicht der erste Griff.
-  const [kiOffen, setKiOffen] = useState(false);
+  // Der KI-Weg wird erst angeboten, wenn der lokale Weg an dieser Datei
+  // nichts lesen konnte. So bleibt er die Ausnahme, nicht der erste Griff.
+  const [kiAngeboten, setKiAngeboten] = useState(false);
+  const [kiDialog, setKiDialog] = useState(false);
+
+  // Escape schließt den Dialog — wie bei jeder Rückfrage im Portal.
+  useEffect(() => {
+    if (!kiDialog) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setKiDialog(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [kiDialog]);
 
   async function belegLesen(weg: "lokal" | "ki", gewaehlt?: File | null) {
     const file = gewaehlt ?? belegRef.current?.files?.[0];
@@ -61,10 +72,7 @@ export function VerbindlichkeitForm({
       setMeldung({ ok: false, text: "Bitte zuerst eine Rechnung auswählen." });
       return;
     }
-    if (weg === "ki" && !kiFreigabe) {
-      setMeldung({ ok: false, text: "Bitte bestätigen Sie zuerst den Datenschutzhinweis." });
-      return;
-    }
+    if (weg === "lokal") setKiAngeboten(false);
     setLiest(weg);
     setMeldung(null);
     try {
@@ -72,13 +80,16 @@ export function VerbindlichkeitForm({
       fd.append("propertyId", propertyId);
       fd.append("beleg", file);
       fd.append("weg", weg);
+      // Die Zustimmung kommt aus dem Dialog: Dieser Aufruf ist der Klick auf
+      // „Ja, an Google senden" — nichts anderes löst ihn aus.
       if (weg === "ki") fd.append("kiFreigabe", "ja");
       const res = await erkenneBeleg(fd);
       if (!res.ok) {
         setMeldung({ ok: false, text: res.error });
-        if (res.kiMoeglich) setKiOffen(true);
+        if (res.kiMoeglich) setKiAngeboten(true);
         return;
       }
+      setKiAngeboten(false);
       const d = res.data;
       // Nur übernehmen, was erkannt wurde — eine leere Antwort löscht keine Eingabe.
       setW((alt) => ({
@@ -167,60 +178,90 @@ export function VerbindlichkeitForm({
             </p>
           ) : null}
 
-          {kiErkennung ? (
-            <div className="mt-4 border-t border-brand-orange/20 pt-3">
-              {!kiOffen ? (
-                <button
-                  type="button"
-                  onClick={() => setKiOffen(true)}
-                  className="text-xs text-gray-600 underline-offset-2 hover:underline"
-                >
-                  Scan oder Foto? Mit KI lesen lassen (Übermittlung an Google) …
-                </button>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-900">
-                    KI-Erkennung über Google — nur nach Ihrer Bestätigung
-                  </p>
-                  <p className="text-xs text-gray-700">
-                    <strong>Datenschutzhinweis:</strong> Die Datei wird{" "}
-                    <strong>vollständig</strong> an die Gemini-API von Google übermittelt — mit
-                    allem, was auf ihr steht: Name und Bankverbindung des Rechnungsstellers,
-                    gegebenenfalls Namen von Eigentümern oder Mietern. Eine Verarbeitung
-                    außerhalb der EU ist dabei möglich. Google handelt als unser
-                    Auftragsverarbeiter; ob die Weitergabe dieser Rechnung vertretbar ist,
-                    entscheiden Sie als verantwortliche Stelle. Einzelheiten unter{" "}
-                    <Link href="/ki-transparenz" className="text-brand-green underline" target="_blank">
-                      KI-Transparenz
-                    </Link>{" "}
-                    und in der{" "}
-                    <Link href="/datenschutz" className="text-brand-green underline" target="_blank">
-                      Datenschutzerklärung
-                    </Link>
-                    . Ohne dieses Häkchen wird nichts übermittelt.
-                  </p>
-                  <label className="flex items-start gap-2 text-xs text-gray-800">
-                    <input
-                      type="checkbox"
-                      checked={kiFreigabe}
-                      onChange={(e) => setKiFreigabe(e.target.checked)}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      Ich habe den Hinweis gelesen und möchte diese Rechnung zur Erkennung an
-                      Google übermitteln.
-                    </span>
-                  </label>
+          {kiErkennung && kiAngeboten ? (
+            <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-brand-orange/20 pt-3">
+              <button
+                type="button"
+                onClick={() => setKiDialog(true)}
+                disabled={liest !== null}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:opacity-50"
+              >
+                {liest === "ki" ? <>{spinner} Wird gelesen…</> : "Mit KI lesen lassen"}
+              </button>
+              <span className="text-xs text-gray-600">
+                Dafür geht die Datei an Google — Sie entscheiden das im nächsten Schritt.
+              </span>
+            </div>
+          ) : null}
+
+          {kiDialog ? (
+            <div
+              className="fixed inset-0 z-[80] flex items-end justify-center bg-gray-900/60 p-3 backdrop-blur-sm sm:items-center sm:p-6"
+              onClick={() => setKiDialog(false)}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="ki-dialog-titel"
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-lg rounded-2xl border border-gray-300 bg-white p-5 text-gray-800 shadow-2xl"
+              >
+                <h2 id="ki-dialog-titel" className="text-base font-bold text-gray-900">
+                  Rechnung an Google senden und lesen lassen?
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed">
+                  Aus dieser Datei konnte das Portal keinen Text lesen — bei Scans und Fotos ist
+                  das normal. Die KI-Erkennung kann sie trotzdem auswerten. Dafür wird die Datei
+                  an Google (Gemini) übermittelt.
+                </p>
+                <p className="mt-3 text-sm font-semibold text-gray-900">Das sollten Sie wissen:</p>
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed">
+                  <li>
+                    Google bekommt die <strong>ganze Rechnung</strong> — also auch Namen, Anschrift
+                    und Bankverbindung des Rechnungsstellers und alles, was sonst darauf steht.
+                  </li>
+                  <li>
+                    Die Verarbeitung kann außerhalb der EU stattfinden. Google ist vertraglich als
+                    Auftragsverarbeiter an unsere Weisungen gebunden.
+                  </li>
+                  <li>
+                    Sie erhalten die Werte als Vorschlag und prüfen sie, bevor Sie speichern. Im
+                    Portal wird die Datei nicht abgelegt.
+                  </li>
+                </ul>
+                <p className="mt-3 text-sm leading-relaxed text-gray-600">
+                  Für die meisten Rechnungen ist das eine gute Abkürzung. Enthält der Beleg
+                  besonders Persönliches, erfassen Sie ihn lieber von Hand — das dauert eine Minute.
+                  Mehr dazu unter{" "}
+                  <Link href="/ki-transparenz" className="text-brand-green underline" target="_blank">
+                    KI-Transparenz
+                  </Link>{" "}
+                  und in der{" "}
+                  <Link href="/datenschutz" className="text-brand-green underline" target="_blank">
+                    Datenschutzerklärung
+                  </Link>
+                  .
+                </p>
+                <div className="mt-4 flex flex-wrap justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => belegLesen("ki")}
-                    disabled={liest !== null || !kiFreigabe}
-                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 transition hover:bg-gray-50 disabled:opacity-50"
+                    onClick={() => setKiDialog(false)}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 transition hover:bg-gray-50"
                   >
-                    {liest === "ki" ? <>{spinner} Wird an Google übermittelt…</> : "Mit KI lesen (Google)"}
+                    Lieber von Hand erfassen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKiDialog(false);
+                      void belegLesen("ki");
+                    }}
+                    className="rounded-lg bg-brand-orange px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-orange-dark"
+                  >
+                    Ja, an Google senden
                   </button>
                 </div>
-              )}
+              </div>
             </div>
           ) : null}
         </div>

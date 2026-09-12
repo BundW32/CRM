@@ -2228,11 +2228,15 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      **Der zweite Weg ist die KI** (`lib/weg/beleg-erkennung.ts`, Schalter
      `AI_BELEG_ERKENNUNG_ENABLED`, fünfte KI-Funktion) — nur für diese Scans und
      Fotos, und mit doppelter Hürde: Die Funktion muss freigeschaltet sein
-     **und** die Verwaltung bestätigt im Formular einen Datenschutzhinweis
-     (was übermittelt wird, Drittland möglich, ihre Verantwortung als Stelle);
-     der Server prüft das Häkchen erneut (`kiFreigabe`), er verlässt sich nicht
-     auf die Oberfläche. Der KI-Block liegt eingeklappt unter dem lokalen Weg
-     und öffnet sich, wenn lokal nichts lesbar war.
+     **und** die Verwaltung stimmt in einem Dialog ausdrücklich zu („Ja, an
+     Google senden"); der Server prüft die Zustimmung erneut (`kiFreigabe`),
+     er verlässt sich nicht auf die Oberfläche. Der Knopf erscheint erst,
+     wenn lokal an dieser Datei nichts lesbar war — vorher gibt es ihn nicht.
+     Der Dialog sagt in Alltagssprache, was passiert (ganze Rechnung samt
+     Namen und Bankverbindung, Verarbeitung ggf. außerhalb der EU, Google als
+     Auftragsverarbeiter, Vorschlag zum Prüfen, keine Ablage) und was die
+     Alternative ist (von Hand, eine Minute) — klar, aber ohne Drohkulisse:
+     Wer den Hinweis liest, soll entscheiden können, nicht erschrecken.
      Bedienung so knapp wie möglich: Der Block erscheint nur bei der Art
      „Offene Rechnung" (ein Darlehen hat keinen Beleg), und die Erkennung
      läuft beim Auswählen der Datei von selbst — kein zweiter Knopf. Angebote

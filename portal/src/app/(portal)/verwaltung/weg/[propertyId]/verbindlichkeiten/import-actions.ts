@@ -93,7 +93,7 @@ export async function erkenneBeleg(formData: FormData): Promise<BelegErkennungRe
     if (formData.get("kiFreigabe") !== "ja") {
       return {
         ok: false,
-        error: "Bitte bestätigen Sie zuerst den Datenschutzhinweis zur Übermittlung an Google.",
+        error: "Bitte bestätigen Sie zuerst im Dialog, dass die Datei an Google gesendet werden darf.",
       };
     }
     if (!(BELEG_MIME_TYPES as readonly string[]).includes(file.type)) {

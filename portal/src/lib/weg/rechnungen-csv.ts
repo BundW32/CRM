@@ -7,9 +7,10 @@
 // Rechnungsdatum und irgendetwas, das den Posten benennt (Bezeichnung,
 // Rechnungsnummer oder Gläubiger).
 //
-// Alles oder nichts: Eine Zeile, die sich nicht lesen lässt, bricht den Import
-// ab und wird mit Zeilennummer gemeldet. Ein halber Import wäre schlimmer —
-// beim zweiten Anlauf stünde die erste Hälfte doppelt da.
+// Geprüft wird die ganze Datei, bevor etwas gespeichert wird: Jede Zeile
+// bekommt ihr Ergebnis (lesbar oder Grund), die Oberfläche zeigt das als
+// Vorschau, und erst die Bestätigung legt an. So sieht die Verwaltung vorher,
+// was passiert — und eine fehlerhafte Zeile blockiert nicht die 40 guten.
 import { decodeBankFile, normHeader, parseCsv, parseSignedEuroToCents } from "./bank-import";
 
 export type RechnungZeile = {
@@ -33,6 +34,21 @@ export type RechnungenCsvFehler =
 export type RechnungenCsvErgebnis =
   | { ok: true; zeilen: RechnungZeile[] }
   | { ok: false; fehler: RechnungenCsvFehler };
+
+/** Eine geprüfte Zeile — lesbar mit Daten, oder unlesbar mit Grund. */
+export type GepruefteZeile =
+  | { zeile: number; ok: true; daten: RechnungZeile }
+  | { zeile: number; ok: false; grund: "betrag" | "datum" | "bezeichnung"; roh: string };
+
+export type RechnungenPruefung =
+  | { ok: true; zeilen: GepruefteZeile[] }
+  | { ok: false; fehler: Extract<RechnungenCsvFehler, { art: "leer" | "kopfzeile" | "zuviel" }> };
+
+export const GRUND_TEXT: Record<"betrag" | "datum" | "bezeichnung", string> = {
+  betrag: "Betrag nicht lesbar (Format: 1.250,00)",
+  datum: "Datum nicht lesbar (Format: 14.03.2026)",
+  bezeichnung: "weder Bezeichnung noch Rechnungsnummer noch Gläubiger",
+};
 
 export const MAX_RECHNUNGEN_JE_IMPORT = 500;
 
@@ -92,7 +108,8 @@ export function isoTagAus(input: string): string | null {
 const zelle = (row: string[], i: number | undefined): string =>
   i === undefined ? "" : (row[i] ?? "").trim();
 
-export function parseRechnungenCsv(bytes: Uint8Array): RechnungenCsvErgebnis {
+/** Prüft die ganze Datei und liefert jede Zeile mit Ergebnis — Grundlage der Vorschau. */
+export function pruefeRechnungenCsv(bytes: Uint8Array): RechnungenPruefung {
   const { text } = decodeBankFile(bytes);
   const parsed = parseCsv(text);
   if (parsed.rows.length === 0 && parsed.header.length === 0) return { ok: false, fehler: { art: "leer" } };
@@ -117,20 +134,29 @@ export function parseRechnungenCsv(bytes: Uint8Array): RechnungenCsvErgebnis {
     return { ok: false, fehler: { art: "zuviel", maximum: MAX_RECHNUNGEN_JE_IMPORT } };
   }
 
-  const zeilen: RechnungZeile[] = [];
+  const zeilen: GepruefteZeile[] = [];
   for (const [i, row] of daten.entries()) {
     // Zeilennummer wie im Editor: Vorspann + Kopfzeile + Index.
     const zeile = parsed.skippedBefore + (parsed.hasHeader ? 1 : 0) + i + 1;
+    const roh = row.filter((c) => c.trim()).join(" · ").slice(0, 120);
+    const fehler = (grund: "betrag" | "datum" | "bezeichnung"): GepruefteZeile => ({ zeile, ok: false, grund, roh });
 
     const cents = parseSignedEuroToCents(zelle(row, spalten.betrag));
-    if (cents === null || cents === 0) return { ok: false, fehler: { art: "betrag", zeile } };
-
+    if (cents === null || cents === 0) {
+      zeilen.push(fehler("betrag"));
+      continue;
+    }
     const incurredOn = isoTagAus(zelle(row, spalten.datum));
-    if (!incurredOn) return { ok: false, fehler: { art: "datum", zeile } };
-
+    if (!incurredOn) {
+      zeilen.push(fehler("datum"));
+      continue;
+    }
     const faelligRoh = zelle(row, spalten.faellig);
     const dueDate = faelligRoh ? isoTagAus(faelligRoh) : null;
-    if (faelligRoh && !dueDate) return { ok: false, fehler: { art: "datum", zeile } };
+    if (faelligRoh && !dueDate) {
+      zeilen.push(fehler("datum"));
+      continue;
+    }
 
     const bezeichnung = zelle(row, spalten.bezeichnung);
     const nummer = zelle(row, spalten.nummer);
@@ -140,7 +166,10 @@ export function parseRechnungenCsv(bytes: Uint8Array): RechnungenCsvErgebnis {
       (nummer ? `Rechnung ${nummer}` : "") ||
       (glaeubiger ? `Rechnung ${glaeubiger}` : "")
     ).slice(0, 200);
-    if (title.length < 2) return { ok: false, fehler: { art: "bezeichnung", zeile } };
+    if (title.length < 2) {
+      zeilen.push(fehler("bezeichnung"));
+      continue;
+    }
 
     // Die Rechnungsnummer geht nicht verloren, wenn sie nicht schon im Titel steht.
     const notizTeile: string[] = [];
@@ -150,16 +179,44 @@ export function parseRechnungenCsv(bytes: Uint8Array): RechnungenCsvErgebnis {
 
     zeilen.push({
       zeile,
-      title,
-      creditor: glaeubiger ? glaeubiger.slice(0, 160) : null,
-      // Ein Betrag mit Minus ist in einer Rechnungsliste eine Gutschrift — die
-      // gehört nicht in die Verbindlichkeiten. Wir nehmen den Betrag, wie er
-      // ist, absolut: Wer Gutschriften führt, führt sie woanders.
-      amountCents: Math.abs(cents),
-      incurredOn,
-      dueDate,
-      note: notizTeile.length > 0 ? notizTeile.join(" · ").slice(0, 1000) : null,
+      ok: true,
+      daten: {
+        zeile,
+        title,
+        creditor: glaeubiger ? glaeubiger.slice(0, 160) : null,
+        // Ein Betrag mit Minus ist in einer Rechnungsliste eine Gutschrift — die
+        // gehört nicht in die Verbindlichkeiten. Wir nehmen den Betrag, wie er
+        // ist, absolut: Wer Gutschriften führt, führt sie woanders.
+        amountCents: Math.abs(cents),
+        incurredOn,
+        dueDate,
+        note: notizTeile.length > 0 ? notizTeile.join(" · ").slice(0, 1000) : null,
+      },
     });
   }
   return { ok: true, zeilen };
 }
+
+/**
+ * Alles-oder-nichts-Sicht auf dieselbe Prüfung: die erste unlesbare Zeile als
+ * Fehler, sonst alle Daten. Für Aufrufer ohne Vorschau.
+ */
+export function parseRechnungenCsv(bytes: Uint8Array): RechnungenCsvErgebnis {
+  const p = pruefeRechnungenCsv(bytes);
+  if (!p.ok) return p;
+  const erste = p.zeilen.find((z) => !z.ok);
+  if (erste && !erste.ok) return { ok: false, fehler: { art: erste.grund, zeile: erste.zeile } };
+  return { ok: true, zeilen: p.zeilen.flatMap((z) => (z.ok ? [z.daten] : [])) };
+}
+
+/** Die Kopfzeile, die die Vorlage trägt — Spaltennamen, die der Import sicher erkennt. */
+export const VORLAGE_KOPF = ["Bezeichnung", "Gläubiger", "Betrag", "Rechnungsdatum", "Fällig am", "Rechnungsnummer", "Notiz"];
+export const VORLAGE_BEISPIEL = [
+  "Dachreparatur nach Sturmschaden",
+  "Dachdeckerei Müller GmbH",
+  "1.250,00",
+  "14.03.2026",
+  "28.03.2026",
+  "2026-114",
+  "Beschluss TOP 4",
+];

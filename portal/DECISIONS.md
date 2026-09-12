@@ -2223,7 +2223,12 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      (was übermittelt wird, Drittland möglich, ihre Verantwortung als Stelle);
      der Server prüft das Häkchen erneut (`kiFreigabe`), er verlässt sich nicht
      auf die Oberfläche. Der KI-Block liegt eingeklappt unter dem lokalen Weg
-     und öffnet sich, wenn lokal nichts lesbar war. Die Datei geht wie beim
+     und öffnet sich, wenn lokal nichts lesbar war.
+     Bedienung so knapp wie möglich: Der Block erscheint nur bei der Art
+     „Offene Rechnung" (ein Darlehen hat keinen Beleg), und die Erkennung
+     läuft beim Auswählen der Datei von selbst — kein zweiter Knopf. Angebote
+     und Aufträge werden als solche vorgemerkt („Angebot AG0026"), die
+     Belegart kommt aus der Überschrift oder dem Nummernwort. Die Datei geht wie beim
      Objekt-Import **vollständig** an Google — Rechnungen tragen Namen und
      IBANs —, deshalb eigene Freigabe, standardmäßig aus, und der Objekt-Scope
      wird auch für den Vorschlag geprüft (die Funktion kostet Geld). Das
@@ -2231,12 +2236,18 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      Speichern blieb unverändert. Rechtstexte nachgezogen (/datenschutz, /avv,
      /datenschutz-saas, /ki-transparenz, `rechtstexte-abgleich.test.ts`), AVV
      mit neuem Stand → `TERMS_VERSION` 2026-09-12.
-     Der CSV-Import (`lib/weg/rechnungen-csv.ts`) erkennt Spalten am Namen wie
-     der Bankimport (Bezeichnung, Gläubiger, Betrag, Rechnungsdatum, Fällig,
-     Rechnungsnummer, Notiz) und ist **alles oder nichts**: Eine unlesbare
-     Zeile bricht ab und wird mit Zeilennummer gemeldet — ein halber Import
-     stünde beim zweiten Anlauf doppelt da. Schon erfasste Zeilen (Bezeichnung
-     + Betrag + Datum) werden übersprungen und gezählt. Bewusst
+     Der CSV-Import (`lib/weg/rechnungen-csv.ts`, eigene Seite
+     `verbindlichkeiten/import`) erkennt Spalten am Namen wie der Bankimport
+     (Bezeichnung, Gläubiger, Betrag, Rechnungsdatum, Fällig, Rechnungsnummer,
+     Notiz) und läuft in **zwei Schritten: prüfen, dann anlegen**. Die Vorschau
+     zeigt jede Zeile mit Status — wird angelegt, schon erfasst, unlesbar mit
+     Grund — und erst die Bestätigung schreibt. Das ist der übliche Weg für
+     Tabellenimporte (Datei → prüfen → Vorschau → bestätigen): Wer vorher
+     sieht, was passiert, muss hinterher nicht zählen, was fehlt. Eine
+     unlesbare Zeile hält die anderen nicht auf; sie bleibt sichtbar außen
+     vor. Dazu eine Vorlage zum Herunterladen (Kopfzeile + Beispielzeile),
+     damit niemand die Spaltennamen raten muss. Schon erfasste Zeilen
+     (Bezeichnung + Betrag + Datum) werden übersprungen und gezählt. Bewusst
      Verbindlichkeiten und nicht Buchungen: Eine Rechnung ist eine Schuld, bis
      das Konto sie bezahlt — die Zahlung kommt weiter über den Bankimport
      (Nr. 318), und „beglichen" markiert der Verwalter wie bisher.

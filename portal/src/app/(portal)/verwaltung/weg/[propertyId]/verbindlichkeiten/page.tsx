@@ -1,52 +1,21 @@
 import Link from "next/link";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { Badge, DataTable, KeyFigure, KeyFigures, type Column } from "@/components/data-display";
-import { FileInput } from "@/components/file-input";
 import { PendingButton } from "@/components/pending-button";
 import { Tipp } from "@/components/tipp";
-import { Alert, Card, CollapsibleCard, EmptyState, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
+import { Alert, Card, EmptyState, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { offenAmStichtag } from "@/lib/weg/vermoegensbericht";
-import { MAX_RECHNUNGEN_JE_IMPORT } from "@/lib/weg/rechnungen-csv";
-import { deleteVerbindlichkeit, importVerbindlichkeitenCsv, toggleBeglichen } from "./actions";
+import { deleteVerbindlichkeit, toggleBeglichen } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 const FEHLER: Record<string, string> = {
   nichtgefunden: "Der Eintrag wurde nicht gefunden.",
-  "csv-leer": "Die Datei enthält keine Rechnungszeilen.",
-  "csv-gross": "Die Datei ist größer als 2 MB.",
-  "csv-zuviel": `Mehr als ${MAX_RECHNUNGEN_JE_IMPORT} Zeilen — bitte die Datei aufteilen.`,
 };
-
-const SPALTEN_NAMEN: Record<string, string> = {
-  betrag: "Betrag",
-  datum: "Rechnungsdatum",
-  bezeichnung: "Bezeichnung, Rechnungsnummer oder Gläubiger",
-};
-
-/** Fehlertext des CSV-Imports — mit Zeile oder fehlenden Spalten, wo die Aktion sie mitgibt. */
-function csvFehlerText(sp: { fehler?: string; zeile?: string; fehlt?: string }): string | null {
-  if (!sp.fehler) return null;
-  if (sp.fehler === "csv-kopfzeile") {
-    const namen = (sp.fehlt ?? "").split(",").map((f) => SPALTEN_NAMEN[f] ?? f);
-    return `In der Kopfzeile fehlt: ${namen.join("; ")}. Nichts wurde importiert.`;
-  }
-  const zeile = sp.zeile ? ` in Zeile ${sp.zeile}` : "";
-  switch (sp.fehler) {
-    case "csv-betrag":
-      return `Der Betrag${zeile} konnte nicht gelesen werden (Format: 1.250,00). Nichts wurde importiert.`;
-    case "csv-datum":
-      return `Ein Datum${zeile} konnte nicht gelesen werden (Format: 14.03.2026). Nichts wurde importiert.`;
-    case "csv-bezeichnung":
-      return `Die Zeile${zeile} hat weder Bezeichnung noch Rechnungsnummer noch Gläubiger. Nichts wurde importiert.`;
-    default:
-      return FEHLER[sp.fehler] ?? "Die Eingabe konnte nicht verarbeitet werden.";
-  }
-}
 
 const ART_LABEL = {
   RECHNUNG: "Offene Rechnung",
@@ -71,13 +40,7 @@ export default async function VerbindlichkeitenPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{
-    fehler?: string;
-    zeile?: string;
-    fehlt?: string;
-    importiert?: string;
-    uebersprungen?: string;
-  }>;
+  searchParams: Promise<{ fehler?: string; importiert?: string; uebersprungen?: string }>;
 }) {
   const { propertyId } = await params;
   const { property } = await requireWegProperty(propertyId);
@@ -180,12 +143,20 @@ export default async function VerbindlichkeitenPage({
     <>
       <PageTitle
         action={
-          <Link
-            href={`/verwaltung/weg/${property.id}/verbindlichkeiten/neu`}
-            className={buttonClass}
-          >
-            Verbindlichkeit erfassen
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/verwaltung/weg/${property.id}/verbindlichkeiten/import`}
+              className={buttonSecondaryClass}
+            >
+              Aus CSV importieren
+            </Link>
+            <Link
+              href={`/verwaltung/weg/${property.id}/verbindlichkeiten/neu`}
+              className={buttonClass}
+            >
+              Verbindlichkeit erfassen
+            </Link>
+          </div>
         }
       >
         Verbindlichkeiten — {property.name}
@@ -193,7 +164,7 @@ export default async function VerbindlichkeitenPage({
 
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">
-          {csvFehlerText(sp)}
+          {FEHLER[sp.fehler] ?? "Die Eingabe konnte nicht verarbeitet werden."}
         </Alert>
       ) : null}
       {sp.importiert !== undefined ? (
@@ -234,7 +205,9 @@ export default async function VerbindlichkeitenPage({
           empty={
             <EmptyState>
               Noch nichts erfasst. Wenn die Gemeinschaft nichts schuldet, ist das richtig so —
-              der Vermögensbericht weist dann ausdrücklich keine Verbindlichkeiten aus.
+              der Vermögensbericht weist dann ausdrücklich keine Verbindlichkeiten aus. Eine
+              Rechnung erfassen Sie oben rechts: einzeln (die Rechnungs-PDF füllt die Felder
+              vor) oder viele auf einmal aus einer CSV-Tabelle.
             </EmptyState>
           }
         />
@@ -249,33 +222,6 @@ export default async function VerbindlichkeitenPage({
       </Card>
       </div>
 
-      <div className="mt-6">
-        <CollapsibleCard title="Rechnungen aus einer CSV-Datei importieren" id="csv-import">
-          <form action={importVerbindlichkeitenCsv} className="space-y-3">
-            <input type="hidden" name="propertyId" value={property.id} />
-            <p className="text-sm text-gray-600">
-              Eine Tabelle mit Kopfzeile, eine Rechnung je Zeile. Erkannt werden die Spalten{" "}
-              <strong>Bezeichnung</strong>, <strong>Gläubiger</strong> (auch „Lieferant“,
-              „Firma“), <strong>Betrag</strong> (brutto, z. B. 1.250,00),{" "}
-              <strong>Rechnungsdatum</strong>, <strong>Fällig am</strong>,{" "}
-              <strong>Rechnungsnummer</strong> und <strong>Notiz</strong> — in beliebiger
-              Reihenfolge, getrennt durch Semikolon oder Komma. Pflicht sind Betrag,
-              Rechnungsdatum und eine Bezeichnung (ersatzweise Rechnungsnummer oder Gläubiger).
-            </p>
-            <FileInput name="file" accept=".csv,text/csv,text/plain" required label="CSV-Datei wählen" />
-            <PendingButton className={buttonSecondaryClass} pendingLabel="Wird importiert…">
-              Rechnungen importieren
-            </PendingButton>
-          </form>
-          <Tipp className="mt-4">
-            Jede Zeile wird als <strong>offene Rechnung</strong> angelegt. Lässt sich eine Zeile
-            nicht lesen, wird nichts importiert und die Zeile genannt — so entsteht kein halber
-            Import. Zeilen, die es schon gibt (gleiche Bezeichnung, gleicher Betrag, gleiches
-            Datum), werden übersprungen; dieselbe Datei zweimal hochzuladen erzeugt keine
-            Dubletten. Bezahlte Rechnungen markieren Sie danach wie gewohnt als „beglichen“.
-          </Tipp>
-        </CollapsibleCard>
-      </div>
     </>
   );
 }

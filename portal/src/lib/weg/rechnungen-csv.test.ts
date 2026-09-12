@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { erkenneSpalten, isoTagAus, parseRechnungenCsv } from "./rechnungen-csv";
+import { erkenneSpalten, isoTagAus, parseRechnungenCsv, pruefeRechnungenCsv } from "./rechnungen-csv";
 
 const bytes = (s: string) => new TextEncoder().encode(s);
 
@@ -87,6 +87,18 @@ describe("parseRechnungenCsv", () => {
 
     const csv2 = "Bezeichnung;Betrag;Datum;Fällig\nDach;10;14.03.2026;bald\n";
     expect(parseRechnungenCsv(bytes(csv2))).toEqual({ ok: false, fehler: { art: "datum", zeile: 2 } });
+  });
+
+  it("liefert in der Prüfung jede Zeile mit Ergebnis — gute Zeilen bleiben trotz einer schlechten", () => {
+    const csv = "Bezeichnung;Betrag;Datum\nDach;1.250,00;14.03.2026\nAufzug;abc;01.04.2026\nTor;50;02.04.2026\n";
+    const res = pruefeRechnungenCsv(bytes(csv));
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.zeilen.map((z) => [z.zeile, z.ok, z.ok ? z.daten.title : z.grund])).toEqual([
+      [2, true, "Dach"],
+      [3, false, "betrag"],
+      [4, true, "Tor"],
+    ]);
   });
 
   it("meldet eine leere Datei", () => {

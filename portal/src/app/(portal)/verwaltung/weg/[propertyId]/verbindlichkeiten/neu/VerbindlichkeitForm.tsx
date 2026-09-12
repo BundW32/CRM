@@ -55,8 +55,8 @@ export function VerbindlichkeitForm({
   // oder auf Wunsch. So bleibt er die Ausnahme, nicht der erste Griff.
   const [kiOffen, setKiOffen] = useState(false);
 
-  async function belegLesen(weg: "lokal" | "ki") {
-    const file = belegRef.current?.files?.[0];
+  async function belegLesen(weg: "lokal" | "ki", gewaehlt?: File | null) {
+    const file = gewaehlt ?? belegRef.current?.files?.[0];
     if (!file) {
       setMeldung({ ok: false, text: "Bitte zuerst eine Rechnung auswählen." });
       return;
@@ -127,16 +127,20 @@ export function VerbindlichkeitForm({
       <input type="hidden" name="propertyId" value={propertyId} />
       {w.id ? <input type="hidden" name="id" value={w.id} /> : null}
 
-      {belegErkennung ? (
+      {/* Nur bei einer Rechnung: Ein Darlehen oder eine sonstige Verbindlichkeit
+          hat keinen Beleg, aus dem sich Felder lesen ließen. Die Erkennung läuft
+          beim Auswählen der Datei von selbst — ein zweiter Knopf wäre ein Schritt,
+          den niemand braucht. */}
+      {belegErkennung && w.kind === "RECHNUNG" ? (
         <div className="rounded-2xl border border-brand-orange/30 bg-brand-orange-light/50 p-4 sm:col-span-2">
-          <p className="text-sm font-semibold text-brand-green">Rechnung hochladen — Felder vorbefüllen</p>
-          <p className="mt-0.5 text-xs text-gray-600">
-            E-Rechnungen (ZUGFeRD, XRechnung) und PDF-Rechnungen mit Textebene werden direkt im
-            Portal gelesen. Dabei verlässt nichts den Server. Die erkannten Werte sind ein
-            Vorschlag — gespeichert wird erst, wenn Sie das Formular abschicken. Der Beleg
-            selbst wird hier nicht abgelegt.
-          </p>
-          <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-brand-green">Rechnung als PDF wählen — die Felder füllen sich von selbst</p>
+              <p className="mt-0.5 text-xs text-gray-600">
+                Gelesen wird direkt im Portal, nichts verlässt den Server. Prüfen Sie die Werte,
+                bevor Sie speichern. Der Beleg wird hier nicht abgelegt.
+              </p>
+            </div>
             <FileInput
               inputRef={belegRef}
               accept={
@@ -146,16 +150,17 @@ export function VerbindlichkeitForm({
               }
               capture={kiErkennung ? "environment" : undefined}
               label="Rechnung wählen"
-            />
-            <button
-              type="button"
-              onClick={() => belegLesen("lokal")}
               disabled={liest !== null}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-orange px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-orange-dark disabled:opacity-60"
-            >
-              {liest === "lokal" ? <>{spinner} Wird gelesen…</> : "Aus Rechnung übernehmen"}
-            </button>
+              onFilesChange={(files) => {
+                const file = files?.[0] ?? null;
+                if (file) void belegLesen("lokal", file);
+                else setMeldung(null);
+              }}
+            />
           </div>
+          {liest === "lokal" ? (
+            <p className="mt-2 flex items-center gap-2 text-xs text-gray-600">{spinner} Rechnung wird gelesen…</p>
+          ) : null}
           {meldung ? (
             <p className={`mt-2 text-xs ${meldung.ok ? "text-brand-green" : "text-red-600"}`}>
               {meldung.text}

@@ -112,6 +112,7 @@ describe("leseRechnungAusText", () => {
       dueDate: "2026-03-28",
       grossCents: 125000,
       description: "Dachreparatur nach Sturmschaden, Lindenstraße 12",
+      belegart: "Rechnung",
     });
   });
 
@@ -158,6 +159,7 @@ describe("leseRechnungAusText", () => {
       invoiceDate: "2026-07-21",
       grossCents: 83300,
       description: "Glasdachreinigung / Teil von Fassaden Ele",
+      belegart: "Angebot",
     });
   });
 

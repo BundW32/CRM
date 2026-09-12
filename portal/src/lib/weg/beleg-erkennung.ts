@@ -25,6 +25,8 @@ export type ErkannteRechnung = {
   grossCents?: number;
   /** Kurze Beschreibung der Leistung, z. B. „Dachreparatur nach Sturmschaden". */
   description?: string;
+  /** Was der Beleg ist — ein Angebot wird als „Angebot AG0026" vorgemerkt, nicht als „Rechnung". */
+  belegart?: "Rechnung" | "Angebot" | "Auftrag";
 };
 
 /** Dateitypen, die Gemini als `inline_data` liest — PDF und die üblichen Fotoformate. */
@@ -168,9 +170,10 @@ export async function extractRechnung(
  * Dachreparatur" — dieselbe Form, die der Platzhalter des Formulars vorschlägt.
  */
 export function vorschlagBezeichnung(r: ErkannteRechnung): string {
+  const art = r.belegart ?? "Rechnung";
   const teile: string[] = [];
-  if (r.invoiceNumber) teile.push(`Rechnung ${r.invoiceNumber}`);
+  if (r.invoiceNumber) teile.push(`${art} ${r.invoiceNumber}`);
   if (r.description) teile.push(r.description);
-  if (teile.length === 0 && r.creditor) teile.push(`Rechnung ${r.creditor}`);
+  if (teile.length === 0 && r.creditor) teile.push(`${art} ${r.creditor}`);
   return teile.join(", ").slice(0, 200);
 }

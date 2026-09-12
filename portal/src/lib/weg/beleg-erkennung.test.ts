@@ -126,6 +126,7 @@ describe("vorschlagBezeichnung", () => {
     );
     expect(vorschlagBezeichnung({ description: "Dachreparatur" })).toBe("Dachreparatur");
     expect(vorschlagBezeichnung({ creditor: "Müller GmbH" })).toBe("Rechnung Müller GmbH");
+    expect(vorschlagBezeichnung({ invoiceNumber: "AG0026", belegart: "Angebot" })).toBe("Angebot AG0026");
     expect(vorschlagBezeichnung({})).toBe("");
   });
 });

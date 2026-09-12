@@ -191,6 +191,14 @@ export function leseRechnungAusText(zeilen: string[]): ErkannteRechnung | null {
     /(?:(?:rechnungs?|angebots?|auftrags?|beleg)\s?-?\s?(?:nr|nummer|no)\.?|invoice\s?(?:no|number)\.?|(?:rechnung|angebot|auftrag)\s+nr\.?)\s*:?\s*([A-Z0-9][A-Z0-9\-/_.]{1,39})/i,
   );
   if (nr) r.invoiceNumber = nr[1].replace(/[.,:;]+$/, "");
+  // Belegart aus der Überschrift bzw. dem Nummernwort: Ein Angebot heißt in
+  // der Vorbelegung „Angebot", nicht „Rechnung" — sonst wundert sich, wer es
+  // später sucht.
+  const kopfText = zeilen.slice(0, 12).join("\n");
+  const nummernWort = nr?.[0].toLowerCase() ?? "";
+  if (/^angebot\b/im.test(kopfText) || nummernWort.startsWith("angebot")) r.belegart = "Angebot";
+  else if (/^auftrag(sbest[äa]tigung)?\b/im.test(kopfText) || nummernWort.startsWith("auftrag")) r.belegart = "Auftrag";
+  else if (/^rechnung\b/im.test(kopfText) || nummernWort.startsWith("rechnung")) r.belegart = "Rechnung";
 
   // Rechnungsdatum: hinter dem Wort, sonst das erste Datum des Belegs.
   const datumZeile = zeilen.find((z) => /rechnungsdatum|belegdatum|\bdatum\b/i.test(z) && datenIn(z).length > 0);

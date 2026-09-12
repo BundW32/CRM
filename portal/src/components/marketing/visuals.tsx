@@ -7,6 +7,7 @@ import {
   CalendarCheck,
   CheckCircle2,
   FileCheck,
+  FileText,
   HandCoins,
   Home,
   Image as ImageIcon,
@@ -400,14 +401,27 @@ export function MeetingVisual() {
 }
 
 /* ── Kommunikation: Schadenmeldung mit Fotos und Status-Wechsel ── */
-export function TicketVisual() {
+// Titel und Notiz sind Parameter, keine Konstanten: Die Karte steht auf
+// /funktionen/kommunikation zweimal und auf /funktionen/ki-berater noch
+// einmal – mit identischem Text las ein SEO-Crawler dieselbe Notiz als
+// doppelten Textblock innerhalb der Seite und über Seiten hinweg.
+export function TicketVisual({
+  title = "Schaden · Wasserfleck im Treppenhaus",
+  note = {
+    von: "Verwaltung",
+    text: "„Installateur beauftragt, Termin Dienstag 9:00 Uhr – Ausführung wird mit Fotos dokumentiert.“",
+  },
+}: {
+  title?: string;
+  note?: { von: string; text: string };
+} = {}) {
   const statusChips = [
     { label: "Offen", tone: "bg-warn-light text-warn", delay: "0s" },
     { label: "In Bearbeitung", tone: "bg-wp-accent-light text-wp-accent-ink", delay: "2s" },
     { label: "Erledigt", tone: "bg-good-light text-good", delay: "4s" },
   ];
   return (
-    <MockCard title="Schaden · Wasserfleck im Treppenhaus" chip="WE 3">
+    <MockCard title={title} chip="WE 3">
       <div className="flex items-center gap-2">
         {[0, 1, 2].map((i) => (
           <div
@@ -435,9 +449,40 @@ export function TicketVisual() {
         className="mk-anim mt-3 rounded-lg border border-gray-100 px-2.5 py-2 text-xs text-gray-600"
         style={{ animation: "mkRowIn 0.5s ease-out both", animationDelay: "800ms" }}
       >
-        <span className="font-semibold text-gray-800">Verwaltung:</span>{" "}
-        „Installateur beauftragt, Termin Dienstag 9:00 Uhr – Ausführung wird mit Fotos dokumentiert.“
+        <span className="font-semibold text-gray-800">{note.von}:</span> {note.text}
       </div>
+    </MockCard>
+  );
+}
+
+/* ── Kommunikation: Dokumente mit Sichtbarkeit je Zielgruppe ── */
+export function DocumentsVisual() {
+  const docs = [
+    { name: "Teilungserklärung.pdf", sicht: "Alle Eigentümer", tone: "bg-wp-accent-light text-wp-accent-ink" },
+    { name: "Protokoll Versammlung 2026.pdf", sicht: "Alle Eigentümer", tone: "bg-wp-accent-light text-wp-accent-ink" },
+    { name: "Hausordnung.pdf", sicht: "Alle im Haus", tone: "bg-good-light text-good" },
+    { name: "Einzelabrechnung WE 3.pdf", sicht: "Nur WE 3", tone: "bg-warn-light text-warn" },
+  ];
+  return (
+    <MockCard title="Dokumente der Gemeinschaft" chip="4 Dateien">
+      <ul className="space-y-2">
+        {docs.map((doc, i) => (
+          <li
+            key={doc.name}
+            className="mk-anim flex items-center gap-2.5 rounded-lg border border-gray-100 px-2.5 py-2 text-xs"
+            style={{ animation: "mkRowIn 0.5s ease-out both", ...seq(i, 150) }}
+          >
+            <FileText className="h-4 w-4 shrink-0 text-wp-primary" />
+            <span className="min-w-0 flex-1 truncate font-medium text-gray-800">{doc.name}</span>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${doc.tone}`}>
+              {doc.sicht}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-[11px] text-gray-500">
+        Sichtbarkeit je Datei – ausgeliefert wird nur nach Berechtigungsprüfung.
+      </p>
     </MockCard>
   );
 }

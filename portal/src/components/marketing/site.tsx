@@ -308,9 +308,11 @@ export function PhotoBand({
       <div className="absolute inset-0 bg-wp-ink/60" />
       <Reveal className="relative">
         <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
-          <h2 className="text-balance text-3xl font-extrabold leading-tight text-white sm:text-4xl">
+          {/* Ein Slogan, keine Gliederungsebene: Als <h2> zählte er im
+              SEO-Audit zu den „zu vielen Überschriften" der Startseite. */}
+          <p className="text-balance text-3xl font-extrabold leading-tight text-white sm:text-4xl">
             {claim}
-          </h2>
+          </p>
           {sub ? (
             <p className="mx-auto mt-4 max-w-xl text-balance text-white/80">{sub}</p>
           ) : null}

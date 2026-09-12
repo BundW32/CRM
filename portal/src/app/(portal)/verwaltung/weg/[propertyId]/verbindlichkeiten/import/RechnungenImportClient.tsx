@@ -89,6 +89,19 @@ export function RechnungenImportClient({ propertyId }: { propertyId: string }) {
             .
           </p>
 
+          <p className="mt-2 text-xs text-gray-500">
+            {vorschau.geraten
+              ? "Die Datei hat keine Kopfzeile — die Spalten wurden am Inhalt erkannt: "
+              : "Erkannte Spalten: "}
+            {vorschau.zuordnung.map((z, i) => (
+              <span key={z.feld}>
+                {i > 0 ? " · " : ""}
+                <span className="font-medium text-gray-700">{z.feld}</span> ← „{z.spalte}“
+              </span>
+            ))}
+            . Stimmt etwas nicht, benennen Sie die Spalte in der Datei um (siehe Vorlage) und prüfen Sie erneut.
+          </p>
+
           <div className="mt-3">
             <DataTable columns={spalten} rows={vorschau.zeilen} getKey={(z) => String(z.zeile)} minWidth="44rem" caption="Vorschau des Rechnungsimports" />
           </div>

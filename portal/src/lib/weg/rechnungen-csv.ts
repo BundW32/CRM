@@ -41,7 +41,14 @@ export type GepruefteZeile =
   | { zeile: number; ok: false; grund: "betrag" | "datum" | "bezeichnung"; roh: string };
 
 export type RechnungenPruefung =
-  | { ok: true; zeilen: GepruefteZeile[] }
+  | {
+      ok: true;
+      zeilen: GepruefteZeile[];
+      /** Welche Spalte der Datei welches Feld füllt — für die Vorschau. */
+      zuordnung: { feld: string; spalte: string }[];
+      /** Stand keine Kopfzeile in der Datei? Dann wurde am Inhalt geraten. */
+      geraten: boolean;
+    }
   | { ok: false; fehler: Extract<RechnungenCsvFehler, { art: "leer" | "kopfzeile" | "zuviel" }> };
 
 export const GRUND_TEXT: Record<"betrag" | "datum" | "bezeichnung", string> = {
@@ -52,33 +59,184 @@ export const GRUND_TEXT: Record<"betrag" | "datum" | "bezeichnung", string> = {
 
 export const MAX_RECHNUNGEN_JE_IMPORT = 500;
 
-// Reihenfolge = Vorrang. „Fällig" steht vor „Datum", weil „Fälligkeitsdatum"
-// sonst als Rechnungsdatum durchginge.
 type Spalte = "faellig" | "datum" | "betrag" | "glaeubiger" | "nummer" | "bezeichnung" | "notiz";
 
-const MUSTER: [Spalte, RegExp][] = [
-  ["faellig", /faellig|zahlbar bis|zahlungsziel/],
-  ["datum", /rechnungsdatum|belegdatum|entstanden|^datum$|datum/],
-  ["betrag", /brutto|rechnungsbetrag|^betrag|betrag$|gesamt|summe|amount/],
-  ["glaeubiger", /glaeubiger|lieferant|kreditor|rechnungssteller|zahlungsempfaenger|empfaenger|firma|anbieter|creditor/],
-  ["nummer", /rechnungsnr|rechnungsnummer|belegnr|belegnummer|rechnungs nr|beleg nr|^nr$|^nummer$/],
-  ["bezeichnung", /bezeichnung|titel|beschreibung|verwendungszweck|leistung|betreff|gegenstand|text/],
-  ["notiz", /notiz|bemerkung|kommentar|anmerkung/],
+export const SPALTEN_NAMEN: Record<Spalte, string> = {
+  bezeichnung: "Bezeichnung",
+  glaeubiger: "Gläubiger",
+  betrag: "Betrag",
+  datum: "Rechnungsdatum",
+  faellig: "Fällig am",
+  nummer: "Rechnungsnummer",
+  notiz: "Notiz",
+};
+
+/**
+ * Spaltenerkennung an der Kopfzeile — in Stufen, nicht in Reihenfolge der
+ * Datei. Die erste Fassung nahm je Zelle den ersten passenden Namen und traf
+ * in einer DATEV-artigen Liste „Nettobetrag" vor „Bruttobetrag", weil Netto
+ * links stand: Der Import hätte 100 € statt 119 € eingetragen, und niemand
+ * hätte es gesehen. Deshalb je Feld: erst die genauen Namen über die ganze
+ * Kopfzeile, dann die allgemeinen — und für den Betrag ein Ausschluss, der
+ * Netto, Steuer und Skonto nie zum Rechnungsbetrag macht.
+ *
+ * Reihenfolge der Felder = Vorrang beim Belegen: „Fällig" vor „Datum", weil
+ * „Fälligkeitsdatum" sonst als Rechnungsdatum durchginge.
+ */
+const REGELN: { spalte: Spalte; stufen: RegExp[]; ausschluss?: RegExp }[] = [
+  { spalte: "faellig", stufen: [/faellig|zahlbar bis|zahlungsziel|\bdue\b/] },
+  {
+    spalte: "datum",
+    stufen: [/rechnungsdatum|belegdatum|invoice date|entstanden/, /^datum$|^date$|datum|\bdate\b/],
+    ausschluss: /faellig|due|zahlbar|valuta|zahlung|buchung/,
+  },
+  {
+    spalte: "betrag",
+    stufen: [
+      /brutto|gesamt|summe|total|zu zahlen|endbetrag|rechnungsbetrag|gross/,
+      /betrag|amount|preis|price/,
+    ],
+    ausschluss: /netto|\bust\b|mwst|steuer|skonto|\bnet\b|\btax\b|\bvat\b|rabatt/,
+  },
+  {
+    spalte: "glaeubiger",
+    stufen: [
+      /glaeubiger|lieferant|kreditor|rechnungssteller|zahlungsempfaenger|empfaenger|creditor|vendor|supplier|payee/,
+      /firma|anbieter|kontakt|partner|^name$|company/,
+    ],
+  },
+  {
+    spalte: "nummer",
+    stufen: [
+      /rechnungsnr|rechnungsnummer|belegnr|belegnummer|rechnungs nr|beleg nr|invoice number|invoice no|^nr$|^nummer$|^number$|^no$/,
+    ],
+  },
+  {
+    spalte: "bezeichnung",
+    stufen: [
+      /bezeichnung|titel|beschreibung|verwendungszweck|leistung|betreff|gegenstand|description|subject/,
+      /\btext\b|title|position/,
+    ],
+  },
+  { spalte: "notiz", stufen: [/notiz|bemerkung|kommentar|anmerkung|\bnote|comment/] },
 ];
 
 export function erkenneSpalten(header: string[]): Partial<Record<Spalte, number>> {
+  const norm = header.map(normHeader);
   const zuordnung: Partial<Record<Spalte, number>> = {};
-  header.forEach((h, i) => {
-    const n = normHeader(h);
-    if (!n) return;
-    for (const [spalte, muster] of MUSTER) {
-      if (zuordnung[spalte] !== undefined) continue;
-      if (muster.test(n)) {
-        zuordnung[spalte] = i;
-        return;
+  const belegt = new Set<number>();
+  for (const regel of REGELN) {
+    for (const stufe of regel.stufen) {
+      const i = norm.findIndex(
+        (n, idx) => n && !belegt.has(idx) && stufe.test(n) && !regel.ausschluss?.test(n),
+      );
+      if (i >= 0) {
+        zuordnung[regel.spalte] = i;
+        belegt.add(i);
+        break;
       }
     }
-  });
+  }
+  return zuordnung;
+}
+
+/**
+ * Ohne Kopfzeile: die Spalten am Inhalt erkennen. Ein Datum sieht aus wie ein
+ * Datum, ein Betrag wie ein Betrag — das reicht für die Pflichtfelder. Zwei
+ * Datumsspalten: die mit den späteren Werten ist die Fälligkeit. Zwei
+ * Betragsspalten: die mit den größeren Werten ist brutto. Von den Textspalten
+ * wird die längste zur Bezeichnung, die zweite zum Gläubiger; eine kurze
+ * Spalte aus Ziffern und Kürzeln ist die Rechnungsnummer.
+ *
+ * Die Vorschau zeigt die getroffene Zuordnung — wer sie sieht, kann sie
+ * korrigieren, bevor etwas angelegt wird.
+ */
+export function rateSpaltenAusInhalt(rows: string[][]): Partial<Record<Spalte, number>> {
+  const breite = Math.max(0, ...rows.map((r) => r.length));
+  if (breite === 0 || rows.length === 0) return {};
+  const zelleVon = (r: string[], i: number) => (r[i] ?? "").trim();
+  const mind = Math.ceil(rows.length / 2);
+
+  type Info = {
+    i: number;
+    daten: number;
+    betraege: number;
+    summe: number;
+    textLaenge: number;
+    woerter: number;
+    firmenhaft: number;
+    nummerhaft: number;
+  };
+  const FIRMA = /\b(GmbH|AG|KG|OHG|UG|GbR|mbH|e\.?\s?K\.?|e\.?\s?V\.?|Inh\.|& Co|SE|Stadtwerke|Meisterbetrieb|Ltd|Inc)\b/;
+  const infos: Info[] = [];
+  for (let i = 0; i < breite; i++) {
+    const info: Info = { i, daten: 0, betraege: 0, summe: 0, textLaenge: 0, woerter: 0, firmenhaft: 0, nummerhaft: 0 };
+    for (const r of rows) {
+      const z = zelleVon(r, i);
+      if (!z) continue;
+      if (isoTagAus(z)) {
+        info.daten++;
+        continue;
+      }
+      const cents = parseSignedEuroToCents(z);
+      if (cents !== null && /\d/.test(z)) {
+        info.betraege++;
+        info.summe += Math.abs(cents);
+        continue;
+      }
+      info.textLaenge += z.length;
+      info.woerter += z.split(/\s+/).length;
+      if (FIRMA.test(z)) info.firmenhaft++;
+      if (/^[A-Za-z]{0,4}[-/_]?\d[\w\-/.]*$/.test(z)) info.nummerhaft++;
+    }
+    infos.push(info);
+  }
+
+  const zuordnung: Partial<Record<Spalte, number>> = {};
+  const datumSpalten = infos.filter((x) => x.daten >= mind).sort((a, b) => a.i - b.i);
+  if (datumSpalten.length > 0) {
+    let [erst, zweit] = datumSpalten;
+    if (zweit) {
+      // Die Fälligkeit liegt nach dem Rechnungsdatum — in der Mehrzahl der Zeilen.
+      let spaeter = 0;
+      for (const r of rows) {
+        const a = isoTagAus(zelleVon(r, erst.i));
+        const b = isoTagAus(zelleVon(r, zweit.i));
+        if (a && b && b < a) spaeter--;
+        else if (a && b && b > a) spaeter++;
+      }
+      if (spaeter < 0) [erst, zweit] = [zweit, erst];
+      zuordnung.faellig = zweit.i;
+    }
+    zuordnung.datum = erst.i;
+  }
+
+  const betragSpalten = infos
+    .filter((x) => x.betraege >= mind && x.i !== zuordnung.datum && x.i !== zuordnung.faellig)
+    .sort((a, b) => b.summe - a.summe);
+  if (betragSpalten.length > 0) zuordnung.betrag = betragSpalten[0].i;
+
+  const belegt = new Set(Object.values(zuordnung));
+  const textSpalten = infos
+    .filter((x) => !belegt.has(x.i) && x.textLaenge > 0)
+    .sort((a, b) => b.textLaenge - a.textLaenge);
+  const nummer = textSpalten.find((x) => x.nummerhaft >= mind);
+  if (nummer) {
+    zuordnung.nummer = nummer.i;
+    belegt.add(nummer.i);
+  }
+  // Gläubiger: die Spalte, die nach Firma aussieht (GmbH, Stadtwerke …).
+  // Sonst: die Bezeichnung hat die meisten Wörter, bei Gleichstand die
+  // linke Spalte — so steht es auch in der Vorlage.
+  const rest = textSpalten.filter((x) => !belegt.has(x.i));
+  const firma = [...rest].sort((a, b) => b.firmenhaft - a.firmenhaft || a.i - b.i)[0];
+  if (firma && firma.firmenhaft > 0) {
+    zuordnung.glaeubiger = firma.i;
+    belegt.add(firma.i);
+  }
+  const uebrig = rest.filter((x) => !belegt.has(x.i)).sort((a, b) => b.woerter - a.woerter || a.i - b.i);
+  if (uebrig[0]) zuordnung.bezeichnung = uebrig[0].i;
+  if (uebrig[1] && zuordnung.glaeubiger === undefined) zuordnung.glaeubiger = uebrig[1].i;
   return zuordnung;
 }
 
@@ -114,7 +272,9 @@ export function pruefeRechnungenCsv(bytes: Uint8Array): RechnungenPruefung {
   const parsed = parseCsv(text);
   if (parsed.rows.length === 0 && parsed.header.length === 0) return { ok: false, fehler: { art: "leer" } };
 
-  const spalten = erkenneSpalten(parsed.header);
+  // Ohne Kopfzeile am Inhalt raten — die Vorschau zeigt, was geraten wurde.
+  const geraten = !parsed.hasHeader;
+  const spalten = geraten ? rateSpaltenAusInhalt(parsed.rows) : erkenneSpalten(parsed.header);
   const fehlt: ("betrag" | "datum" | "bezeichnung")[] = [];
   if (spalten.betrag === undefined) fehlt.push("betrag");
   if (spalten.datum === undefined) fehlt.push("datum");
@@ -194,7 +354,13 @@ export function pruefeRechnungenCsv(bytes: Uint8Array): RechnungenPruefung {
       },
     });
   }
-  return { ok: true, zeilen };
+  const zuordnung = (Object.entries(spalten) as [Spalte, number][])
+    .sort((a, b) => a[1] - b[1])
+    .map(([feld, i]) => ({
+      feld: SPALTEN_NAMEN[feld],
+      spalte: geraten ? `Spalte ${i + 1}` : parsed.header[i] ?? `Spalte ${i + 1}`,
+    }));
+  return { ok: true, zeilen, zuordnung, geraten };
 }
 
 /**

@@ -2258,7 +2258,14 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      Tabellenimporte (Datei → prüfen → Vorschau → bestätigen): Wer vorher
      sieht, was passiert, muss hinterher nicht zählen, was fehlt. Eine
      unlesbare Zeile hält die anderen nicht auf; sie bleibt sichtbar außen
-     vor. Dazu eine Vorlage zum Herunterladen (Kopfzeile + Beispielzeile),
+     vor. Die Spalten werden **gestuft** erkannt (genaue Namen vor
+     allgemeinen, über die ganze Kopfzeile), mit Ausschluss für Netto, Steuer
+     und Skonto: Die erste Fassung nahm in einer DATEV-artigen Liste
+     „Nettobetrag" vor „Bruttobetrag", weil Netto links stand — 100 statt
+     119 €, unbemerkt. Ohne Kopfzeile wird am Inhalt geraten (Datum sieht aus
+     wie Datum, Betrag wie Betrag, Firma wie Firma), und die Vorschau zeigt
+     die getroffene Zuordnung in jedem Fall („Betrag ← Bruttobetrag"), damit
+     ein Irrtum vor dem Anlegen auffällt. Dazu eine Vorlage zum Herunterladen (Kopfzeile + Beispielzeile),
      damit niemand die Spaltennamen raten muss. Schon erfasste Zeilen
      (Bezeichnung + Betrag + Datum) werden übersprungen und gezählt. Bewusst
      Verbindlichkeiten und nicht Buchungen: Eine Rechnung ist eine Schuld, bis

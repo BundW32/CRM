@@ -29,6 +29,10 @@ export type ImportVorschau =
       fileName: string;
       /** Die Datei, damit Schritt 2 nichts erneut hochladen muss. */
       contentBase64: string;
+      /** Welche Spalte der Datei welches Feld füllt. */
+      zuordnung: { feld: string; spalte: string }[];
+      /** Ohne Kopfzeile am Inhalt geraten — die Vorschau sagt das dazu. */
+      geraten: boolean;
       zeilen: VorschauZeile[];
       neu: number;
       vorhanden: number;
@@ -66,7 +70,10 @@ async function bekannteSchluessel(propertyId: string): Promise<Set<string>> {
 async function pruefen(
   propertyId: string,
   bytes: Uint8Array,
-): Promise<{ zeilen: VorschauZeile[]; anzulegen: RechnungZeile[] } | { error: string }> {
+): Promise<
+  | { zeilen: VorschauZeile[]; anzulegen: RechnungZeile[]; zuordnung: { feld: string; spalte: string }[]; geraten: boolean }
+  | { error: string }
+> {
   const p = pruefeRechnungenCsv(bytes);
   if (!p.ok) {
     const f = p.fehler;
@@ -113,7 +120,7 @@ async function pruefen(
       hinweis: vorhanden ? "schon erfasst — wird übersprungen" : null,
     });
   }
-  return { zeilen, anzulegen };
+  return { zeilen, anzulegen, zuordnung: p.zuordnung, geraten: p.geraten };
 }
 
 async function dateiAus(formData: FormData): Promise<{ bytes: Uint8Array; fileName: string; base64: string } | { error: string }> {
@@ -152,6 +159,8 @@ export async function pruefeRechnungenAction(
     ok: true,
     fileName: datei.fileName,
     contentBase64: datei.base64,
+    zuordnung: ergebnis.zuordnung,
+    geraten: ergebnis.geraten,
     zeilen: ergebnis.zeilen,
     neu: zaehle("neu"),
     vorhanden: zaehle("vorhanden"),

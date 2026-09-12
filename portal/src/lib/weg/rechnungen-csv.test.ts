@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { erkenneSpalten, isoTagAus, parseRechnungenCsv, pruefeRechnungenCsv } from "./rechnungen-csv";
+import { erkenneSpalten, isoTagAus, parseRechnungenCsv, pruefeRechnungenCsv, rateSpaltenAusInhalt } from "./rechnungen-csv";
 
 const bytes = (s: string) => new TextEncoder().encode(s);
 
@@ -13,6 +13,32 @@ describe("erkenneSpalten", () => {
     const z = erkenneSpalten(["Fällig am", "Datum", "Betrag"]);
     expect(z.faellig).toBe(0);
     expect(z.datum).toBe(1);
+  });
+
+  it("nimmt Brutto, auch wenn Netto links davon steht (DATEV-artig)", () => {
+    const z = erkenneSpalten(["Rechnungsnr", "Lieferant", "Nettobetrag", "USt", "Bruttobetrag", "Rechnungsdatum", "Zahlungsziel"]);
+    expect(z).toEqual({ nummer: 0, glaeubiger: 1, betrag: 4, datum: 5, faellig: 6 });
+  });
+
+  it("kennt lexoffice-Namen und englische Exporte", () => {
+    expect(erkenneSpalten(["Belegnummer", "Belegdatum", "Fälligkeit", "Kontakt", "Betrag brutto", "Betrag netto"])).toEqual({
+      nummer: 0, datum: 1, faellig: 2, glaeubiger: 3, betrag: 4,
+    });
+    expect(erkenneSpalten(["Invoice number", "Vendor", "Date", "Due date", "Total", "Description"])).toEqual({
+      nummer: 0, glaeubiger: 1, datum: 2, faellig: 3, betrag: 4, bezeichnung: 5,
+    });
+  });
+});
+
+describe("rateSpaltenAusInhalt", () => {
+  it("erkennt ohne Kopfzeile Datum, Fälligkeit, Brutto, Nummer, Bezeichnung und Gläubiger am Inhalt", () => {
+    const rows = [
+      ["RE-2026-114", "Dachreparatur nach Sturmschaden", "Dachdeckerei Müller GmbH", "1.050,42", "1.250,00", "14.03.2026", "28.03.2026"],
+      ["RE-2026-118", "Wartung Aufzug", "Schindler", "403,36", "480,00", "01.04.2026", "15.04.2026"],
+    ];
+    expect(rateSpaltenAusInhalt(rows)).toEqual({
+      datum: 5, faellig: 6, betrag: 4, nummer: 0, bezeichnung: 1, glaeubiger: 2,
+    });
   });
 });
 
@@ -99,6 +125,18 @@ describe("parseRechnungenCsv", () => {
       [3, false, "betrag"],
       [4, true, "Tor"],
     ]);
+  });
+
+  it("liest eine Datei ohne Kopfzeile über den Inhalt und sagt das in der Zuordnung", () => {
+    const csv = "Dachreparatur;Müller GmbH;1250,00;14.03.2026\nAufzug;Schindler;480,00;01.04.2026\n";
+    const res = pruefeRechnungenCsv(bytes(csv));
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.geraten).toBe(true);
+    expect(res.zuordnung.map((z) => `${z.feld}←${z.spalte}`)).toEqual([
+      "Bezeichnung←Spalte 1", "Gläubiger←Spalte 2", "Betrag←Spalte 3", "Rechnungsdatum←Spalte 4",
+    ]);
+    expect(res.zeilen[0].ok && res.zeilen[0].daten).toMatchObject({ title: "Dachreparatur", creditor: "Müller GmbH", amountCents: 125000 });
   });
 
   it("meldet eine leere Datei", () => {

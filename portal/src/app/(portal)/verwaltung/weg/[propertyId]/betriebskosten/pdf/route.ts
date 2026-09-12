@@ -52,6 +52,7 @@ export async function GET(
       tenant: data.tenant,
       tenantAddress: data.tenant?.address ?? null,
       year: data.year,
+      umlagebasis: data.umlagebasis,
       recoverableRows: data.result.recoverableRows,
       nonRecoverableRows: data.result.nonRecoverableRows,
       recoverableSumCents: data.result.recoverableSumCents,

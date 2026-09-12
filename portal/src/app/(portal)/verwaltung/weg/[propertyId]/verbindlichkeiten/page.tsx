@@ -3,7 +3,7 @@ import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { Badge, DataTable, KeyFigure, KeyFigures, type Column } from "@/components/data-display";
 import { PendingButton } from "@/components/pending-button";
 import { Tipp } from "@/components/tipp";
-import { Alert, Card, EmptyState, PageTitle, buttonClass } from "@/components/ui";
+import { Alert, Card, EmptyState, PageTitle, buttonClass, buttonSecondaryClass } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatDateOnly } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
@@ -40,7 +40,7 @@ export default async function VerbindlichkeitenPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; importiert?: string; uebersprungen?: string }>;
 }) {
   const { propertyId } = await params;
   const { property } = await requireWegProperty(propertyId);
@@ -143,12 +143,20 @@ export default async function VerbindlichkeitenPage({
     <>
       <PageTitle
         action={
-          <Link
-            href={`/verwaltung/weg/${property.id}/verbindlichkeiten/neu`}
-            className={buttonClass}
-          >
-            Verbindlichkeit erfassen
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/verwaltung/weg/${property.id}/verbindlichkeiten/import`}
+              className={buttonSecondaryClass}
+            >
+              Aus CSV importieren
+            </Link>
+            <Link
+              href={`/verwaltung/weg/${property.id}/verbindlichkeiten/neu`}
+              className={buttonClass}
+            >
+              Verbindlichkeit erfassen
+            </Link>
+          </div>
         }
       >
         Verbindlichkeiten — {property.name}
@@ -157,6 +165,18 @@ export default async function VerbindlichkeitenPage({
       {sp.fehler ? (
         <Alert variant="error" className="mb-4">
           {FEHLER[sp.fehler] ?? "Die Eingabe konnte nicht verarbeitet werden."}
+        </Alert>
+      ) : null}
+      {sp.importiert !== undefined ? (
+        // Kein zusätzlicher Flash: Diese Meldung trägt die Zahlen, die ein
+        // „Import abgeschlossen." nicht hätte — vor allem die übersprungenen.
+        <Alert variant={Number(sp.importiert) > 0 ? "success" : "warning"} className="mb-4">
+          {Number(sp.importiert) > 0
+            ? `${sp.importiert} Rechnung${sp.importiert === "1" ? "" : "en"} als offene Verbindlichkeit angelegt.`
+            : "Keine neue Rechnung angelegt."}
+          {Number(sp.uebersprungen ?? 0) > 0
+            ? ` ${sp.uebersprungen} Zeile${sp.uebersprungen === "1" ? "" : "n"} übersprungen, weil sie schon erfasst ${sp.uebersprungen === "1" ? "war" : "waren"} (gleiche Bezeichnung, gleicher Betrag, gleiches Datum).`
+            : ""}
         </Alert>
       ) : null}
 
@@ -185,7 +205,9 @@ export default async function VerbindlichkeitenPage({
           empty={
             <EmptyState>
               Noch nichts erfasst. Wenn die Gemeinschaft nichts schuldet, ist das richtig so —
-              der Vermögensbericht weist dann ausdrücklich keine Verbindlichkeiten aus.
+              der Vermögensbericht weist dann ausdrücklich keine Verbindlichkeiten aus. Eine
+              Rechnung erfassen Sie oben rechts: einzeln (die Rechnungs-PDF füllt die Felder
+              vor) oder viele auf einmal aus einer CSV-Tabelle.
             </EmptyState>
           }
         />
@@ -199,6 +221,7 @@ export default async function VerbindlichkeitenPage({
         </Tipp>
       </Card>
       </div>
+
     </>
   );
 }

@@ -2237,6 +2237,98 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      npm-Fehler ab („edgesOut"), daher die Versionen ausdrücklich gesetzt.
      Prüfkette, Build und alle Tests liefen danach unverändert durch.
 
+323. **Die Abrechnung nennt die Bezugsgrößen der Verteilung, nicht nur den
+     Schlüssel.** (12.09.2026) Ein Testnutzer merkte an, dass in der Spalte
+     „Umlageschlüssel" nur „Miteigentumsanteile" oder „Wohn-/Nutzfläche" stand
+     — der Empfänger sah, *wonach* verteilt wurde, aber nicht, *ob* es stimmt.
+     Jetzt trägt jede Einzel- und Betriebskostenabrechnung einen Block
+     „Grundlage der Verteilung" (Schlüssel · Ihre Einheit · Gesamt, z. B. MEA
+     205 / 1.000, Wohnfläche 90,00 / 500,00 m², Einheiten 1 / 5), und hinter
+     dem Schlüssel in der Tabelle steht derselbe Anteil in Klammern. Genannt
+     werden nur Schlüssel, die in den Positionen vorkommen; Heizkosten bringen
+     die Flächenzeile mit (Grundkosten nach §§ 7, 8 HeizkostenV), ihr Zellentext
+     bleibt der HeizkostenV-Text. Die Nenner sind die **Summen der Stammdaten**,
+     mit denen `weightsForKey` rechnet — nicht `Property.meaTotal` —, damit die
+     Abrechnung nie einen Nenner nennt, mit dem sie nicht gerechnet hat.
+     Der Snapshot der fertigen Jahresabrechnung friert die Bezugsgrößen ein
+     (`StatementView.umlagebasis`, `lib/weg/umlagebasis.ts`): Ändert jemand
+     später eine Wohnfläche, zeigt die alte Abrechnung weiter die Werte, mit
+     denen sie erstellt wurde. Ältere Snapshots ohne das Feld fallen auf die
+     Stammdaten von heute zurück.
+
+324. **Rechnungen kommen auf drei Wegen ins Portal: lokale Belegerkennung,
+     KI-Belegerkennung und CSV-Import — alle legen Verbindlichkeiten an, keine
+     Buchungen.** (12.09.2026) Zweite Anregung desselben Testnutzers. Die
+     Belegerkennung füllt das Formular „Verbindlichkeit erfassen" mit Gläubiger,
+     Rechnungsnummer, Datum, Fälligkeit, Bruttobetrag und Leistung **vor**;
+     gespeichert wird erst mit dem Absenden, der Beleg selbst wird nicht abgelegt.
+     **Der erste Weg ist lokal** (`lib/weg/beleg-lokal.ts`): E-Rechnungen
+     (ZUGFeRD/Factur-X als eingebettetes CII-XML, XRechnung als CII oder UBL)
+     werden exakt ausgelesen, PDFs mit Textebene über pdf.js und feste Muster
+     („Gesamtbetrag", „Rechnungs-Nr.", „zahlbar bis", „innerhalb von 14 Tagen").
+     Kein Byte verlässt den Server, kein Schlüssel nötig. pdf.js läuft dabei
+     über `lib/weg/pdfjs-server.ts`: Es erwartet in Node das native Paket
+     `@napi-rs/canvas` (33 MB) für `DOMMatrix`/`Path2D` und bricht ohne es
+     schon beim Laden ab — lokal vorhanden, im Vercel-Bundle nicht, weil die
+     Ablauf-Verfolgung das `require` hinter `createRequire` nicht sieht. Genau
+     so meldete die Produktion für ein sauberes Text-PDF „vermutlich ein
+     Scan". Zwei Stubs statt des Pakets (gerendert wird nie), der Worker mit
+     festem Namen vorgeladen, technische Fehler werden geworfen und
+     protokolliert statt als „Scan" gemeldet; `pdfjs-server.test.ts` stellt
+     den Produktionsfall in einem Kindprozess ohne das Paket nach. Das ist die
+     belastbare Variante — die Rechtsfrage der Weitergabe stellt sich nicht,
+     und mit der E-Rechnungspflicht (ab 2027/2028 auch im Versand) wird der
+     exakte Weg zum Regelfall. Das XML wird ohne Bibliothek gelesen, wie bei
+     CAMT (Nr. 318). Grenze: Scans und Fotos haben keine Textebene; Tesseract
+     auf dem Server wäre langsam und liest Handyfotos schlecht — dafür keine
+     Scheinlösung.
+     **Der zweite Weg ist die KI** (`lib/weg/beleg-erkennung.ts`, Schalter
+     `AI_BELEG_ERKENNUNG_ENABLED`, fünfte KI-Funktion) — nur für diese Scans und
+     Fotos, und mit doppelter Hürde: Die Funktion muss freigeschaltet sein
+     **und** die Verwaltung stimmt in einem Dialog ausdrücklich zu („Ja, an
+     Google senden"); der Server prüft die Zustimmung erneut (`kiFreigabe`),
+     er verlässt sich nicht auf die Oberfläche. Der Knopf erscheint erst,
+     wenn lokal an dieser Datei nichts lesbar war — vorher gibt es ihn nicht.
+     Der Dialog sagt in Alltagssprache, was passiert (ganze Rechnung samt
+     Namen und Bankverbindung, Verarbeitung ggf. außerhalb der EU, Google als
+     Auftragsverarbeiter, Vorschlag zum Prüfen, keine Ablage) und was die
+     Alternative ist (von Hand, eine Minute) — klar, aber ohne Drohkulisse:
+     Wer den Hinweis liest, soll entscheiden können, nicht erschrecken.
+     Bedienung so knapp wie möglich: Der Block erscheint nur bei der Art
+     „Offene Rechnung" (ein Darlehen hat keinen Beleg), und die Erkennung
+     läuft beim Auswählen der Datei von selbst — kein zweiter Knopf. Angebote
+     und Aufträge werden als solche vorgemerkt („Angebot AG0026"), die
+     Belegart kommt aus der Überschrift oder dem Nummernwort. Die Datei geht wie beim
+     Objekt-Import **vollständig** an Google — Rechnungen tragen Namen und
+     IBANs —, deshalb eigene Freigabe, standardmäßig aus, und der Objekt-Scope
+     wird auch für den Vorschlag geprüft (die Funktion kostet Geld). Das
+     Formular ist dafür eine Client-Komponente geworden; die Server-Action zum
+     Speichern blieb unverändert. Rechtstexte nachgezogen (/datenschutz, /avv,
+     /datenschutz-saas, /ki-transparenz, `rechtstexte-abgleich.test.ts`), AVV
+     mit neuem Stand → `TERMS_VERSION` 2026-09-12.
+     Der CSV-Import (`lib/weg/rechnungen-csv.ts`, eigene Seite
+     `verbindlichkeiten/import`) erkennt Spalten am Namen wie der Bankimport
+     (Bezeichnung, Gläubiger, Betrag, Rechnungsdatum, Fällig, Rechnungsnummer,
+     Notiz) und läuft in **zwei Schritten: prüfen, dann anlegen**. Die Vorschau
+     zeigt jede Zeile mit Status — wird angelegt, schon erfasst, unlesbar mit
+     Grund — und erst die Bestätigung schreibt. Das ist der übliche Weg für
+     Tabellenimporte (Datei → prüfen → Vorschau → bestätigen): Wer vorher
+     sieht, was passiert, muss hinterher nicht zählen, was fehlt. Eine
+     unlesbare Zeile hält die anderen nicht auf; sie bleibt sichtbar außen
+     vor. Die Spalten werden **gestuft** erkannt (genaue Namen vor
+     allgemeinen, über die ganze Kopfzeile), mit Ausschluss für Netto, Steuer
+     und Skonto: Die erste Fassung nahm in einer DATEV-artigen Liste
+     „Nettobetrag" vor „Bruttobetrag", weil Netto links stand — 100 statt
+     119 €, unbemerkt. Ohne Kopfzeile wird am Inhalt geraten (Datum sieht aus
+     wie Datum, Betrag wie Betrag, Firma wie Firma), und die Vorschau zeigt
+     die getroffene Zuordnung in jedem Fall („Betrag ← Bruttobetrag"), damit
+     ein Irrtum vor dem Anlegen auffällt. Dazu eine Vorlage zum Herunterladen (Kopfzeile + Beispielzeile),
+     damit niemand die Spaltennamen raten muss. Schon erfasste Zeilen
+     (Bezeichnung + Betrag + Datum) werden übersprungen und gezählt. Bewusst
+     Verbindlichkeiten und nicht Buchungen: Eine Rechnung ist eine Schuld, bis
+     das Konto sie bezahlt — die Zahlung kommt weiter über den Bankimport
+     (Nr. 318), und „beglichen" markiert der Verwalter wie bisher.
+
 **Offen geblieben** (bewusst, nicht vergessen): Die Nachdokumentation eines
 bereits eingesetzten Subprozessors gehört anwaltlich bewertet — die
 4-Wochen-Ankündigung nach AVV Ziffer 4 ist auf künftige Wechsel zugeschnitten.

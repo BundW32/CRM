@@ -46,6 +46,7 @@ export async function GET(
 
     const pdf = await buildEinzelabrechnungPdf({
       propertyName: statement.property.name,
+      propertyId: statement.property.id,
       organizationId: statement.property.organizationId,
       view,
       units: myUnits,

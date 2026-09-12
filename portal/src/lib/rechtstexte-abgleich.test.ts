@@ -68,12 +68,13 @@ describe("KI-Funktionen: Text und Code stimmen überein", () => {
   };
   durchsuche(src("lib"));
 
-  it("kennt genau die vier dokumentierten Schalter", () => {
+  it("kennt genau die fünf dokumentierten Schalter", () => {
     // Schlägt diese Zusicherung fehl, ist eine KI-Funktion dazugekommen oder
     // weggefallen. Dann gehören /datenschutz, /avv und /ki-transparenz
     // nachgezogen — und die Zahl unten in dieser Datei.
     expect([...schalter].sort()).toEqual([
       "AI_ASSISTANT_ENABLED",
+      "AI_BELEG_ERKENNUNG_ENABLED",
       "AI_KOSTENART_ENABLED",
       "AI_OBJEKT_IMPORT_ENABLED",
       "AI_TRIAGE_ENABLED",
@@ -81,12 +82,12 @@ describe("KI-Funktionen: Text und Code stimmen überein", () => {
   });
 
   it("nennt in Datenschutzerklärung und KI-Transparenz dieselbe Anzahl", () => {
-    expect(schalter.size).toBe(4);
+    expect(schalter.size).toBe(5);
     // Die Texte schreiben die Zahl aus. „zwei" stand dort, als es längst drei
     // waren — der teuerste Zustand, weil er nach Vollständigkeit aussieht.
-    expect(nurText(DATENSCHUTZ)).toContain("vier optionale KI-Funktionen");
-    expect(nurText(KI_TRANSPARENZ)).toContain("vier KI-Funktionen");
-    expect(ohneKommentare(DATENSCHUTZ)).not.toMatch(/(zwei|drei) optionale KI-Funktionen/);
+    expect(nurText(DATENSCHUTZ)).toContain("fünf optionale KI-Funktionen");
+    expect(nurText(KI_TRANSPARENZ)).toContain("fünf KI-Funktionen");
+    expect(ohneKommentare(DATENSCHUTZ)).not.toMatch(/(zwei|drei|vier) optionale KI-Funktionen/);
   });
 
   it("nennt den Kostenart-Vorschlag überall, wo die anderen stehen", () => {
@@ -115,6 +116,25 @@ describe("KI-Funktionen: Text und Code stimmen überein", () => {
         /Objekt-Import/,
       );
     }
+  });
+
+  it("nennt die Belegerkennung überall, wo die anderen stehen", () => {
+    // Sie liest Rechnungen — mit Handwerkernamen, oft Eigentümernamen und
+    // IBAN — und gibt die Datei vollständig weiter. Wie der Objekt-Import
+    // gehört sie damit in jeden der Texte, samt dem Hinweis auf die ganze Datei.
+    for (const [name, text] of [
+      ["/datenschutz", DATENSCHUTZ],
+      ["/avv", AVV],
+      ["/ki-transparenz", KI_TRANSPARENZ],
+      ["/datenschutz-saas", DATENSCHUTZ_SAAS],
+    ] as const) {
+      expect(ohneKommentare(text), `${name} nennt die Belegerkennung nicht`).toMatch(
+        /Belegerkennung/,
+      );
+    }
+    expect(lies(src("lib", "weg", "beleg-erkennung.ts"))).toContain("inline_data");
+    expect(ohneKommentare(KI_TRANSPARENZ)).toMatch(/Belegerkennung[\s\S]{0,600}vollständig/);
+    expect(ohneKommentare(DATENSCHUTZ)).toMatch(/Belegerkennung[\s\S]{0,300}vollständig/);
   });
 
   it("verschweigt nicht, dass der Objekt-Import ganze PDFs weitergibt", () => {
@@ -175,7 +195,7 @@ describe("Stand-Daten", () => {
     const REGISTRIEREN = lies(src("app", "registrieren", "actions.ts"));
     const version = REGISTRIEREN.match(/const TERMS_VERSION = "(\d{4}-\d{2}-\d{2})"/)?.[1];
     expect(version, "TERMS_VERSION nicht gefunden").toBeDefined();
-    expect(ohneKommentare(AVV)).toContain("Stand: 13. August 2026");
-    expect(version).toBe("2026-08-13");
+    expect(ohneKommentare(AVV)).toContain("Stand: 12. September 2026");
+    expect(version).toBe("2026-09-12");
   });
 });

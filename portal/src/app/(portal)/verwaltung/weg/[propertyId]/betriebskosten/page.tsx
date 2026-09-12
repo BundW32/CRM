@@ -130,6 +130,16 @@ export default async function BetriebskostenPage({
             <div className="space-y-5 lg:col-span-2">
               {data && r ? (
                 <Card title={`Abrechnung ${data.year} — ${data.unitLabel}${data.tenantName ? ` (${data.tenantName})` : ""}`}>
+                  {data.umlagebasis.length > 0 ? (
+                    // Dieselben Bezugsgrößen wie im PDF: Der Verwalter sieht hier,
+                    // was der Mieter im Kopf der Abrechnung lesen wird.
+                    <p className="mb-3 text-xs text-gray-500">
+                      <span className="font-medium text-gray-700">Grundlage der Verteilung: </span>
+                      {data.umlagebasis
+                        .map((z) => `${z.schluessel} ${z.einheit} von ${z.gesamt}`)
+                        .join(" · ")}
+                    </p>
+                  ) : null}
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">

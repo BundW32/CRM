@@ -1,10 +1,10 @@
-import { DateField, SelectField, toDateInputValue } from "@/components/fields";
-import { SubmitButton } from "@/components/submit-button";
+import { toDateInputValue } from "@/components/fields";
 import { Tipp } from "@/components/tipp";
-import { Alert, Card, Field, PageTitle, inputClass } from "@/components/ui";
+import { Alert, Card, PageTitle } from "@/components/ui";
 import { db } from "@/lib/db";
+import { isBelegErkennungEnabled } from "@/lib/weg/beleg-erkennung";
 import { requireWegProperty } from "@/lib/weg/scope";
-import { saveVerbindlichkeit } from "../actions";
+import { VerbindlichkeitForm } from "./VerbindlichkeitForm";
 
 export const dynamic = "force-dynamic";
 
@@ -51,87 +51,22 @@ export default async function VerbindlichkeitFormularPage({
       ) : null}
 
       <Card title={property.name}>
-        <form action={saveVerbindlichkeit} className="grid gap-4 sm:grid-cols-2">
-          <input type="hidden" name="propertyId" value={property.id} />
-          {vorhanden ? <input type="hidden" name="id" value={vorhanden.id} /> : null}
-
-          <div className="sm:col-span-2">
-            <Field label="Bezeichnung">
-              <input
-                name="title"
-                required
-                maxLength={200}
-                defaultValue={vorhanden?.title ?? ""}
-                placeholder="z. B. Rechnung 2026-114, Dachreparatur"
-                className={inputClass}
-              />
-            </Field>
-          </div>
-
-          <SelectField
-            label="Art"
-            name="kind"
-            defaultValue={vorhanden?.kind ?? "RECHNUNG"}
-            options={[
-              { value: "RECHNUNG", label: "Offene Rechnung" },
-              { value: "DARLEHEN", label: "Darlehen" },
-              { value: "SONSTIGE", label: "Sonstige Verbindlichkeit" },
-            ]}
-          />
-
-          <Field label="Gläubiger">
-            <input
-              name="creditor"
-              maxLength={160}
-              defaultValue={vorhanden?.creditor ?? ""}
-              placeholder="Wem die Gemeinschaft das schuldet"
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Offener Betrag (€)">
-            <input
-              name="amount"
-              required
-              inputMode="decimal"
-              defaultValue={
-                vorhanden ? (vorhanden.amountCents / 100).toFixed(2).replace(".", ",") : ""
-              }
-              placeholder="1.250,00"
-              className={inputClass}
-            />
-          </Field>
-
-          <DateField
-            label="Entstanden am"
-            name="incurredOn"
-            required
-            defaultValue={toDateInputValue(vorhanden?.incurredOn ?? heute)}
-          />
-
-          <DateField
-            label="Fällig am"
-            name="dueDate"
-            defaultValue={toDateInputValue(vorhanden?.dueDate)}
-          />
-
-          <div className="sm:col-span-2">
-            <Field label="Notiz">
-              <input
-                name="note"
-                maxLength={1000}
-                defaultValue={vorhanden?.note ?? ""}
-                className={inputClass}
-              />
-            </Field>
-          </div>
-
-          <div className="sm:col-span-2">
-            <SubmitButton pendingLabel="Wird gespeichert…">
-              {vorhanden ? "Änderungen speichern" : "Verbindlichkeit erfassen"}
-            </SubmitButton>
-          </div>
-        </form>
+        <VerbindlichkeitForm
+          propertyId={property.id}
+          // Die Belegerkennung nur beim Erfassen: Beim Bearbeiten stehen die
+          // Werte schon da, und ein Vorschlag würde sie überschreiben.
+          belegErkennung={!vorhanden && isBelegErkennungEnabled()}
+          start={{
+            id: vorhanden?.id,
+            title: vorhanden?.title ?? "",
+            kind: vorhanden?.kind ?? "RECHNUNG",
+            creditor: vorhanden?.creditor ?? "",
+            amount: vorhanden ? (vorhanden.amountCents / 100).toFixed(2).replace(".", ",") : "",
+            incurredOn: toDateInputValue(vorhanden?.incurredOn ?? heute) ?? "",
+            dueDate: toDateInputValue(vorhanden?.dueDate) ?? "",
+            note: vorhanden?.note ?? "",
+          }}
+        />
 
         <Tipp className="mt-5">
           <strong>„Entstanden am“</strong> ist das entscheidende Datum, nicht das der Zahlung:

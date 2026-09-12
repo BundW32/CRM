@@ -40,6 +40,12 @@ export type BetriebskostenInput = {
   /** „Straße\nPLZ Ort" */
   tenantAddress: string | null;
   year: number;
+  /**
+   * Bezugsgrößen der Einheit gegenüber dem Haus — „90,00 von 500,00 m²",
+   * „205 von 1.000 Miteigentumsanteilen". Ohne sie kann der Mieter den
+   * Umlageschlüssel zwar lesen, aber seinen Anteil nicht nachrechnen.
+   */
+  umlagebasis?: { schluessel: string; einheit: string; gesamt: string }[];
   /** Je Kostenart: Gesamtkosten der Liegenschaft, Umlageschlüssel, Anteil. */
   recoverableRows: BetriebskostenZeile[];
   nonRecoverableRows: BetriebskostenZeile[];
@@ -167,6 +173,31 @@ export async function generateBetriebskosten(input: BetriebskostenInput): Promis
     lead: mm(8),
   });
 
+  // Zuerst die Bezugsgrößen, dann die Positionen: Wer die Tabelle liest, soll
+  // den Nenner schon kennen, wenn er auf „Wohn-/Nutzfläche (90,00 m² /
+  // 500,00 m²)" stößt.
+  if (input.umlagebasis && input.umlagebasis.length > 0) {
+    doc.text("Grundlage der Verteilung", {
+      size: size.small,
+      font: doc.bold,
+      color: color.muted,
+      lead: mm(5),
+    });
+    doc.table(
+      [
+        { header: "Umlageschlüssel", width: 44 },
+        { header: "Ihre Einheit", width: 26, align: "right" as const },
+        { header: "Haus gesamt", width: 30, align: "right" as const },
+      ],
+      input.umlagebasis.map((z): TableCell[] => [
+        { text: z.schluessel },
+        { text: z.einheit },
+        { text: z.gesamt, color: color.muted },
+      ]),
+    );
+    doc.space(mm(5));
+  }
+
   const spalten = [
     // Beträge brauchen wenig Platz, der Schlüssel viel: „70 % Verbrauch,
     // 30 % Wohnfläche" ist länger als jede Zahl in der Tabelle.
@@ -216,7 +247,8 @@ export async function generateBetriebskosten(input: BetriebskostenInput): Promis
   }
   doc.para(
     "Die Gesamtkosten stammen aus der Jahresabrechnung der Wohnungseigentümergemeinschaft. " +
-      "Ihr Anteil ergibt sich aus dem jeweils angegebenen Umlageschlüssel.",
+      "Ihr Anteil ergibt sich aus dem jeweils angegebenen Umlageschlüssel: Gesamtkosten × " +
+      "Anteil Ihrer Einheit ÷ Gesamtwert des Hauses (siehe „Grundlage der Verteilung“).",
     { size: size.small, color: color.muted },
   );
 

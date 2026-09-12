@@ -5,6 +5,7 @@
 // Mal entstanden. Drei Kopien einer Zuordnung, bei der ein vergessenes Feld
 // dazu führt, dass ein Eigentümer eine andere Zahl sieht als der Verwalter.
 import { getBrandingForOrg } from "@/lib/branding-server";
+import { db } from "@/lib/db";
 import { briefkopfAus } from "@/lib/documents/briefkopf";
 import { distributionKeyLabels } from "@/lib/labels";
 import {
@@ -12,25 +13,43 @@ import {
   type EinzelabrechnungUnit,
 } from "@/lib/documents/einzelabrechnung";
 import type { StatementView } from "./statement-service";
+import { baueUmlagebasis, schluesselMitAnteil, umlagebasisZeilen, type Umlagebasis } from "./umlagebasis";
 
 function fmtDate(iso: string): string {
   const [y, m, d] = iso.split("-");
   return `${d}.${m}.${y}`;
 }
 
+/**
+ * Snapshots aus der Zeit vor der Umlagebasis tragen keine Bezugsgrößen. Dann
+ * zählen die Stammdaten von heute — das sind fast immer dieselben, und ohne
+ * sie stünde in der Abrechnung wieder nur der Name des Schlüssels.
+ */
+async function umlagebasisAusStammdaten(propertyId: string): Promise<Umlagebasis> {
+  const units = await db.unit.findMany({
+    where: { propertyId },
+    select: { id: true, label: true, mea: true, livingArea: true, personCount: true, unitType: true },
+  });
+  return baueUmlagebasis(units);
+}
+
 /** Baut die Einzelabrechnungen — für alle übergebenen Einheiten, eine Seite je Einheit. */
 export async function buildEinzelabrechnungPdf(args: {
   propertyName: string;
+  /** Für die Bezugsgrößen, wenn der Snapshot sie noch nicht trägt. */
+  propertyId: string;
   organizationId: string;
   view: StatementView;
   units: { id: string; label: string }[];
   finalizedAt: Date | null;
 }): Promise<Buffer> {
-  const { propertyName, organizationId, view, units, finalizedAt } = args;
+  const { propertyName, propertyId, organizationId, view, units, finalizedAt } = args;
+  const basis = view.umlagebasis ?? (await umlagebasisAusStammdaten(propertyId));
 
   const abrechnungsEinheiten: EinzelabrechnungUnit[] = units.map((u) => {
     const split = view.ownerSplit[u.id];
     const labor = view.labor[u.id];
+    const verteilt = view.rows.filter((r) => r.perUnit);
     return {
       label: u.label,
       owners: (split?.shares ?? []).map((s) => ({
@@ -39,14 +58,18 @@ export async function buildEinzelabrechnungPdf(args: {
         cents: s.cents,
       })),
       uncoveredCents: split?.uncoveredCents ?? 0,
-      costRows: view.rows
-        .filter((r) => r.perUnit)
-        .map((r) => ({
-          name: r.name,
-          keyLabel: distributionKeyLabels[r.distributionKey] ?? r.distributionKey,
-          totalCents: r.totalCents,
-          shareCents: r.perUnit![u.id] ?? 0,
-        })),
+      umlagebasis: umlagebasisZeilen(verteilt, basis, u.id),
+      costRows: verteilt.map((r) => ({
+        name: r.name,
+        keyLabel: schluesselMitAnteil(
+          distributionKeyLabels[r.distributionKey] ?? r.distributionKey,
+          r,
+          basis,
+          u.id,
+        ),
+        totalCents: r.totalCents,
+        shareCents: r.perUnit![u.id] ?? 0,
+      })),
       kostenanteilCents: view.perUnitTotal[u.id] ?? 0,
       sollCents: view.duePerUnit[u.id] ?? 0,
       peakCents: view.peak[u.id] ?? 0,

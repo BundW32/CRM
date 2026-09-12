@@ -69,7 +69,7 @@ export default function AvvPage() {
               beschäftigt.
             </p>
           ) : null}
-          <p className="mt-2 text-gray-500">Stand: 13. August 2026</p>
+          <p className="mt-2 text-gray-500">Stand: 12. September 2026</p>
         </>
       }
     >
@@ -167,8 +167,9 @@ export default function AvvPage() {
           <li>Optionaler Dokumenten-Import: Google Drive;</li>
           <li>
             Optionale KI-Funktionen (Assistent, Vorqualifizierung von Vorgängen,
-            Objekt-Import aus PDF, Kostenart-Vorschlag beim Bankimport): Google
-            (Gemini API) — nur, wenn die Verantwortliche sie ausdrücklich aktiviert;
+            Objekt-Import aus PDF, Kostenart-Vorschlag beim Bankimport, Belegerkennung
+            beim Erfassen einer Rechnung): Google (Gemini API) — nur, wenn die
+            Verantwortliche sie ausdrücklich aktiviert;
           </li>
           <li>
             Push-Benachrichtigungen: geräteabhängige Push-Dienste von Google, Apple bzw.
@@ -221,8 +222,10 @@ export default function AvvPage() {
           Verantwortliche sie aktiviert, werden die dafür benötigten Inhalte an Google
           übermittelt: bei der Vorqualifizierung Titel und Beschreibung des Vorgangs, beim
           Assistenten die Frage samt der dazu gefundenen Textauszüge, beim Objekt-Import
-          das hochgeladene PDF <strong>vollständig</strong>. Welche Unterlagen sie dort
-          einstellt, entscheidet allein die Verantwortliche. Einzelheiten unter{" "}
+          das hochgeladene PDF <strong>vollständig</strong>, bei der Belegerkennung die
+          hochgeladene Rechnung (PDF oder Foto) <strong>vollständig</strong>. Welche
+          Unterlagen sie dort einstellt, entscheidet allein die Verantwortliche.
+          Einzelheiten unter{" "}
           <Link href="/ki-transparenz" className="text-brand-green hover:underline">
             KI-Transparenz
           </Link>

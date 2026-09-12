@@ -47,7 +47,7 @@ export default function DatenschutzPage() {
             Verarbeitung personenbezogener Daten bei der Nutzung von{" "}
             <strong>{productName()}</strong>.
           </p>
-          <p className="mt-2 text-gray-500">Stand: 18. August 2026</p>
+          <p className="mt-2 text-gray-500">Stand: 12. September 2026</p>
         </>
       }
     >
@@ -186,8 +186,9 @@ export default function DatenschutzPage() {
           </li>
           <li>
             KI-Funktionen (Assistent, Vorqualifizierung eingehender Meldungen,
-            Objekt-Import aus PDF, Kostenart-Vorschlag beim Bankimport) – optional, nur
-            bei Aktivierung durch die Verwaltung:
+            Objekt-Import aus PDF, Kostenart-Vorschlag beim Bankimport, Belegerkennung
+            beim Erfassen einer Rechnung) – optional, nur bei Aktivierung durch die
+            Verwaltung:
             Google (Gemini API); Einzelheiten unter{" "}
             <Link href="/ki-transparenz" className="text-brand-green hover:underline">
               KI-Transparenz
@@ -243,12 +244,14 @@ export default function DatenschutzPage() {
 
       <LegalSection title={weg ? "8. Einsatz von KI-Systemen" : "7. Einsatz von KI-Systemen"}>
         <p>
-          Das Portal enthält <strong>vier</strong> optionale KI-Funktionen: einen
+          Das Portal enthält <strong>fünf</strong> optionale KI-Funktionen: einen
           Assistenten, der Fragen aus den für Sie freigegebenen Unterlagen beantwortet,
           eine Vorqualifizierung eingehender Schadensmeldungen (Vorschlag für Gewerk und
           Dringlichkeit), einen Objekt-Import, der beim Anlegen eines Objekts die
-          Stammdaten aus einem hochgeladenen PDF vorschlägt, und einen Vorschlag für die
-          Kostenart einer importierten Bankausgabe. Alle vier sind standardmäßig
+          Stammdaten aus einem hochgeladenen PDF vorschlägt, einen Vorschlag für die
+          Kostenart einer importierten Bankausgabe und eine Belegerkennung, die beim
+          Erfassen einer offenen Rechnung Betrag, Datum und Rechnungssteller aus dem
+          hochgeladenen Beleg vorschlägt. Alle fünf sind standardmäßig
           deaktiviert und werden nur aktiv, wenn die Verwaltung sie ausdrücklich
           freischaltet. Ist eine Funktion aktiv, werden die dafür benötigten Inhalte an die
           Gemini-API von Google übermittelt; eine Verarbeitung außerhalb der EU ist dabei
@@ -261,7 +264,10 @@ export default function DatenschutzPage() {
           Textauszüge — bei Fragen zu Geld auch Angaben zu Kontostand, Rückständen und
           Hausgeld. Der Objekt-Import übermittelt das hochgeladene PDF{" "}
           <strong>vollständig</strong>; laden Sie dort daher nur Unterlagen hoch, deren
-          Weitergabe an Google Sie verantworten können. Der Kostenart-Vorschlag beim
+          Weitergabe an Google Sie verantworten können. Dasselbe gilt für die
+          Belegerkennung: Sie übermittelt die hochgeladene Rechnung (PDF oder Foto){" "}
+          <strong>vollständig</strong> — samt Namen und Bankverbindung des
+          Rechnungsstellers; abgelegt wird der Beleg dabei nicht. Der Kostenart-Vorschlag beim
           Bankimport übermittelt am wenigsten: nur den Verwendungszweck, aus dem zuvor
           alle Wörter mit Ziffern entfernt wurden — also ohne Beträge, Kontonummern,
           Rechnungs- und Referenznummern — dazu die Bezeichnungen der Kostenarten Ihres

@@ -2,8 +2,9 @@
 // Assistent „Frag deine Gemeinschaft" (lib/assistant.ts) antwortet nur aus
 // Inhalten, die die Rolle des Fragenden sehen darf, die Vorsortierung
 // (lib/triage.ts), der Objekt-Import (lib/objekt-extraction.ts) und der
-// Kostenart-Vorschlag (lib/weg/kostenart-ki.ts) schlagen vor, entscheiden
-// aber nie. Alle vier Funktionen sind standardmäßig abgeschaltet — die Seite
+// Kostenart-Vorschlag (lib/weg/kostenart-ki.ts) und die Belegerkennung
+// (lib/weg/beleg-erkennung.ts) schlagen vor, entscheiden
+// aber nie. Alle fünf Funktionen sind standardmäßig abgeschaltet — die Seite
 // sagt das offen, gleiche Linie wie /ki-transparenz (Art. 50 KI-VO).
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -170,6 +171,7 @@ export default async function KiBeraterPage() {
           "Gespeichert wird erst, wenn Sie die Felder geprüft und abgeschickt haben",
           "Bankimport: Kostenart-Vorschlag nur für Ausgaben, zu denen es keine frühere Buchung gibt",
           "Übermittelt wird dafür nur der von Zahlen und Kontonummern bereinigte Verwendungszweck",
+          "Belegerkennung: Rechnung als PDF oder Foto hochladen — Betrag, Datum, Rechnungssteller und Fälligkeit werden vorgeschlagen",
         ]}
       >
         <p>
@@ -208,7 +210,7 @@ export default async function KiBeraterPage() {
           mahnt nicht und stellt keine Beschlüsse fest.
         </p>
         <p>
-          Welche Daten die vier KI-Funktionen im Einzelnen verarbeiten, legt
+          Welche Daten die fünf KI-Funktionen im Einzelnen verarbeiten, legt
           die Seite{" "}
           <Link
             href="/ki-transparenz"

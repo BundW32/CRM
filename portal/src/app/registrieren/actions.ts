@@ -37,7 +37,9 @@ import { hashToken } from "@/lib/token-hash";
 // erhält) und der Übermittlungsumfang der KI-Funktionen aufgeschlüsselt,
 // einschließlich des Objekt-Imports, der bis dahin in keinem Rechtstext stand.
 // Der AVV ist Teil der Zustimmung bei der Registrierung → neue Version.
-const TERMS_VERSION = "2026-08-13";
+// 12.09.2026: fünfte KI-Funktion — die Belegerkennung gibt hochgeladene
+// Rechnungen vollständig an Google weiter; AVV Ziffer 4 und 5 ergänzt.
+const TERMS_VERSION = "2026-09-12";
 
 const registerSchema = z.object({
   company: z.string().trim().min(2).max(200),

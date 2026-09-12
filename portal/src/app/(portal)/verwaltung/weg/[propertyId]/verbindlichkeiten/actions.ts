@@ -7,6 +7,7 @@ import { AUDIT, logAudit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { parseEuroToCents } from "@/lib/money";
 import { requireVerwalter } from "@/lib/session";
+import { parseRechnungenCsv, type RechnungenCsvFehler } from "@/lib/weg/rechnungen-csv";
 import { loadWegProperty } from "@/lib/weg/scope";
 
 function backTo(propertyId: string, suffix = ""): string {
@@ -170,4 +171,89 @@ export async function deleteVerbindlichkeit(formData: FormData) {
   }
   revalidatePath(backTo(property.id));
   redirect(backTo(property.id, "?flash=geloescht"));
+}
+
+const MAX_CSV_SIZE = 2 * 1024 * 1024; // 2 MB — 500 Zeilen sind ein Bruchteil davon
+
+/** Fehlercode für die URL — die Liste übersetzt ihn in einen Satz. */
+function csvFehlerSuffix(f: RechnungenCsvFehler): string {
+  switch (f.art) {
+    case "leer":
+      return "?fehler=csv-leer";
+    case "zuviel":
+      return `?fehler=csv-zuviel&maximum=${f.maximum}`;
+    case "kopfzeile":
+      return `?fehler=csv-kopfzeile&fehlt=${f.fehlt.join(",")}`;
+    default:
+      return `?fehler=csv-${f.art}&zeile=${f.zeile}`;
+  }
+}
+
+/**
+ * Rechnungen aus einer CSV-Datei als Verbindlichkeiten anlegen.
+ *
+ * Alles oder nichts: Lässt sich eine Zeile nicht lesen, wird nichts angelegt
+ * und die Zeile gemeldet. Zeilen, die es schon gibt (gleiche Bezeichnung,
+ * gleicher Betrag, gleiches Datum), werden übersprungen — wer dieselbe Datei
+ * zweimal hochlädt, bekommt keine Dubletten, sondern die Zahl der
+ * übersprungenen Zeilen.
+ */
+export async function importVerbindlichkeitenCsv(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const property = await loadWegProperty(verwalter, String(formData.get("propertyId") ?? ""));
+  if (!property) redirect("/verwaltung/weg");
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) redirect(backTo(property.id, "?fehler=csv-leer"));
+  if (file.size > MAX_CSV_SIZE) redirect(backTo(property.id, "?fehler=csv-gross"));
+
+  const ergebnis = parseRechnungenCsv(new Uint8Array(await file.arrayBuffer()));
+  if (!ergebnis.ok) redirect(backTo(property.id, csvFehlerSuffix(ergebnis.fehler)));
+
+  const vorhanden = await db.verbindlichkeit.findMany({
+    where: { propertyId: property.id },
+    select: { title: true, amountCents: true, incurredOn: true },
+  });
+  const schluessel = (v: { title: string; amountCents: number; incurredOn: Date }) =>
+    `${v.title.trim().toLowerCase()}|${v.amountCents}|${v.incurredOn.getFullYear()}-${v.incurredOn.getMonth()}-${v.incurredOn.getDate()}`;
+  const bekannt = new Set(vorhanden.map(schluessel));
+
+  const neu = [];
+  let uebersprungen = 0;
+  for (const z of ergebnis.zeilen) {
+    const incurredOn = tag(z.incurredOn)!;
+    const dueDate = z.dueDate ? tag(z.dueDate) : null;
+    const eintrag = {
+      organizationId: verwalter.organizationId,
+      propertyId: property.id,
+      createdById: verwalter.id,
+      title: z.title,
+      kind: "RECHNUNG" as const,
+      creditor: z.creditor,
+      amountCents: z.amountCents,
+      incurredOn,
+      dueDate,
+      note: z.note,
+    };
+    const k = schluessel(eintrag);
+    if (bekannt.has(k)) {
+      uebersprungen++;
+      continue;
+    }
+    bekannt.add(k); // auch Dubletten innerhalb der Datei nur einmal
+    neu.push(eintrag);
+  }
+
+  if (neu.length > 0) {
+    await db.verbindlichkeit.createMany({ data: neu });
+    await logAudit({
+      actorId: verwalter.id,
+      action: AUDIT.WEG_VERBINDLICHKEIT_IMPORTED,
+      targetType: "Property",
+      targetId: property.id,
+      meta: { anzahl: neu.length, uebersprungen, datei: file.name.slice(0, 120) },
+    });
+  }
+  revalidatePath(backTo(property.id));
+  redirect(backTo(property.id, `?importiert=${neu.length}&uebersprungen=${uebersprungen}`));
 }

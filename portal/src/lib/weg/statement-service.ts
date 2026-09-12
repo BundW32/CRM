@@ -16,6 +16,7 @@ import {
 } from "./annual-statement";
 import { fiscalYearRange } from "./economic-plan";
 import { vorzeichenBetrag } from "./journal";
+import { baueUmlagebasis, type Umlagebasis } from "./umlagebasis";
 import { baueVermoegensbericht, type Vermoegensbericht } from "./vermoegensbericht";
 
 export type StatementView = {
@@ -103,6 +104,15 @@ export type StatementView = {
    * wurde, und darf sich nach dem Einfrieren nicht mehr ändern.
    */
   ruecklagenEntwicklung?: RuecklagenEntwicklung | null;
+  /**
+   * Bezugsgrößen der Verteilung (MEA, Fläche, Einheiten, Personen je Einheit
+   * und in Summe), wie sie beim Rechnen galten. Eingefroren im Snapshot,
+   * damit die Einzelabrechnung auch dann die richtigen Nenner nennt, wenn
+   * die Stammdaten später geändert wurden. Optional, weil ältere Snapshots
+   * sie nicht tragen — dort fällt der Aufrufer auf die Stammdaten von heute
+   * zurück.
+   */
+  umlagebasis?: Umlagebasis;
 };
 
 type BookingGroup = {
@@ -496,5 +506,6 @@ export async function computeStatementView(
     receivablesCents,
     vermoegensbericht,
     ruecklagenEntwicklung,
+    umlagebasis: baueUmlagebasis(units),
   };
 }

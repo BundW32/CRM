@@ -153,10 +153,20 @@ describe("Betriebskostenabrechnung: Satzspiegel", () => {
   it("hält die Ränder bei normalen Daten", async () => {
     const pdf = await generateBetriebskosten({
       ...basis,
+      umlagebasis: [
+        { schluessel: "Miteigentumsanteile", einheit: "205", gesamt: "1.000" },
+        { schluessel: "Wohn-/Nutzfläche", einheit: "90,00 m²", gesamt: "500,00 m²" },
+        { schluessel: "Personen", einheit: "2", gesamt: "12" },
+      ],
       recoverableRows: [
         { name: "Heizung und Warmwasser", cents: 90000, totalCents: 900000, keyLabel: "Verbrauch" },
-        { name: "Grundsteuer", cents: 30000, totalCents: 300000, keyLabel: "Miteigentumsanteile" },
-        { name: "Müllentsorgung", cents: 60000, totalCents: 600000, keyLabel: "Personenzahl" },
+        {
+          name: "Grundsteuer",
+          cents: 30000,
+          totalCents: 300000,
+          keyLabel: "Miteigentumsanteile (MEA) (205 / 1.000)",
+        },
+        { name: "Müllentsorgung", cents: 60000, totalCents: 600000, keyLabel: "Personenzahl (2 / 12)" },
       ],
       nonRecoverableRows: [
         { name: "Verwaltervergütung", cents: 30000, totalCents: 300000, keyLabel: "Einheiten" },
@@ -174,6 +184,13 @@ describe("Betriebskostenabrechnung: Satzspiegel", () => {
     }));
     const pdf = await generateBetriebskosten({
       ...basis,
+      umlagebasis: [
+        {
+          schluessel: "Wohn-/Nutzfläche einschließlich anteiliger Gemeinschaftsflächen",
+          einheit: "1.234.567,89 m²",
+          gesamt: "12.345.678,90 m²",
+        },
+      ],
       recoverableRows: viele,
       nonRecoverableRows: viele.slice(0, 20),
     });
@@ -426,6 +443,14 @@ describe("Berichte: Satzspiegel", () => {
             { name: "Krzysztof Wiśniewski-Öztürk", days: 165, cents: 0 },
           ],
           uncoveredCents: 1234,
+          umlagebasis: [
+            {
+              schluessel: "Miteigentumsanteile nach Teilungserklärung vom 12.03.1987",
+              einheit: "1.234.567",
+              gesamt: "10.000.000",
+            },
+            { schluessel: "Wohn-/Nutzfläche", einheit: "1.234.567,89 m²", gesamt: "12.345.678,90 m²" },
+          ],
           costRows: Array.from({ length: 30 }, (_, i) => ({
             name: `${langerName} ${i + 1}`,
             keyLabel: "70 % Verbrauch, 30 % Wohnfläche (HeizkostenV)",

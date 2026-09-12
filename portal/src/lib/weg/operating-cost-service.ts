@@ -3,6 +3,12 @@
 import { db } from "@/lib/db";
 import { co2PerUnit } from "@/lib/weg/co2-allocation";
 import { umlageschluesselText } from "@/lib/weg/umlageschluessel-text";
+import {
+  baueUmlagebasis,
+  schluesselMitAnteil,
+  umlagebasisZeilen,
+  type UmlagebasisZeile,
+} from "@/lib/weg/umlagebasis";
 import { computeOperatingCosts, type OperatingCostResult } from "@/lib/weg/operating-costs";
 import type { StatementView } from "@/lib/weg/statement-service";
 
@@ -28,6 +34,8 @@ export type OperatingCostStatement = {
   co2LandlordCents: number;
   /** Enthält die Abrechnung Heiz-/Warmwasserkosten? Dann braucht sie den Hinweis nach HeizkostenV. */
   heatingPresent: boolean;
+  /** Bezugsgrößen der Einheit (MEA, Fläche, …) gegenüber dem Haus — für Kopf und Anlage. */
+  umlagebasis: UmlagebasisZeile[];
   result: OperatingCostResult;
 };
 
@@ -72,16 +80,18 @@ export async function deriveOperatingCostStatement(params: {
   if (!unit) return null;
 
   const recoverable = new Map(costTypes.map((c) => [c.id, c.recoverableBetrKV]));
-  const rows = view.rows
-    .filter((r) => r.perUnit && (r.perUnit[params.unitId] ?? 0) !== 0)
-    .map((r) => ({
-      name: r.name,
-      unitShareCents: r.perUnit![params.unitId] ?? 0,
-      recoverable: recoverable.get(r.costTypeId) ?? false,
-      totalCents: r.totalCents,
-      keyLabel: umlageschluesselText(r),
-      heatingCost: Boolean(r.heatingCost),
-    }));
+  // Die Bezugsgrößen aus dem Snapshot — so, wie beim Rechnen gegolten. Ältere
+  // Snapshots tragen sie nicht; dann die Stammdaten von heute.
+  const basis = view.umlagebasis ?? baueUmlagebasis(allUnits);
+  const verteilt = view.rows.filter((r) => r.perUnit && (r.perUnit[params.unitId] ?? 0) !== 0);
+  const rows = verteilt.map((r) => ({
+    name: r.name,
+    unitShareCents: r.perUnit![params.unitId] ?? 0,
+    recoverable: recoverable.get(r.costTypeId) ?? false,
+    totalCents: r.totalCents,
+    keyLabel: schluesselMitAnteil(umlageschluesselText(r), r, basis, params.unitId),
+    heatingCost: Boolean(r.heatingCost),
+  }));
 
   // Vermieter-CO2-Anteil dieser Einheit (falls für das Jahr erfasst).
   let co2LandlordCents = 0;
@@ -121,6 +131,7 @@ export async function deriveOperatingCostStatement(params: {
     prepaymentMonthlyCents,
     co2Present: Boolean(allocation),
     heatingPresent: rows.some((r) => r.heatingCost),
+    umlagebasis: umlagebasisZeilen(verteilt, basis, params.unitId),
     co2LandlordCents,
     result,
   };

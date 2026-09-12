@@ -28,6 +28,12 @@ export type EinzelabrechnungUnit = {
   label: string;
   owners: EinzelabrechnungOwner[];
   uncoveredCents: number;
+  /**
+   * Bezugsgrößen dieser Einheit gegenüber der Gemeinschaft — „205 von 1.000
+   * Miteigentumsanteilen", „90,00 von 500,00 m²". Leer bei alten Snapshots
+   * ohne Stammdaten; dann entfällt der Block.
+   */
+  umlagebasis?: { schluessel: string; einheit: string; gesamt: string }[];
   costRows: EinzelabrechnungCostRow[];
   kostenanteilCents: number;
   sollCents: number;
@@ -84,6 +90,32 @@ export async function generateEinzelabrechnungen(input: EinzelabrechnungInput): 
         ["Einheit", unit.label],
       ],
     });
+
+    // ── Grundlage der Verteilung ─────────────────────────────────────────────
+    // Der Schlüsselname allein („Wohn-/Nutzfläche") sagt, wonach verteilt
+    // wurde, aber nicht, ob es stimmt. Erst mit Zähler und Nenner kann der
+    // Eigentümer jede Zeile nachrechnen: Gesamtkosten × Anteil ÷ Gesamt.
+    if (unit.umlagebasis && unit.umlagebasis.length > 0) {
+      doc.text("Grundlage der Verteilung", {
+        size: size.small,
+        font: doc.bold,
+        color: color.muted,
+        lead: mm(5),
+      });
+      doc.table(
+        [
+          { header: "Umlageschlüssel", width: 44 },
+          { header: "Ihre Einheit", width: 26, align: "right" },
+          { header: "Gemeinschaft gesamt", width: 30, align: "right" },
+        ],
+        unit.umlagebasis.map((z): TableCell[] => [
+          { text: z.schluessel },
+          { text: z.einheit },
+          { text: z.gesamt, color: color.muted },
+        ]),
+      );
+      doc.space(mm(5));
+    }
 
     doc.table(
       [

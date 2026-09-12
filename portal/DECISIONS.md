@@ -2180,6 +2180,50 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      SMTP-Konto darf unter `service@wegportal24.de` senden (Send-as/Alias),
      sonst lehnt der Anbieter den Versand ab oder schreibt den Absender um.
 
+321. **Die Abrechnung nennt die Bezugsgrößen der Verteilung, nicht nur den
+     Schlüssel.** (12.09.2026) Ein Testnutzer merkte an, dass in der Spalte
+     „Umlageschlüssel" nur „Miteigentumsanteile" oder „Wohn-/Nutzfläche" stand
+     — der Empfänger sah, *wonach* verteilt wurde, aber nicht, *ob* es stimmt.
+     Jetzt trägt jede Einzel- und Betriebskostenabrechnung einen Block
+     „Grundlage der Verteilung" (Schlüssel · Ihre Einheit · Gesamt, z. B. MEA
+     205 / 1.000, Wohnfläche 90,00 / 500,00 m², Einheiten 1 / 5), und hinter
+     dem Schlüssel in der Tabelle steht derselbe Anteil in Klammern. Genannt
+     werden nur Schlüssel, die in den Positionen vorkommen; Heizkosten bringen
+     die Flächenzeile mit (Grundkosten nach §§ 7, 8 HeizkostenV), ihr Zellentext
+     bleibt der HeizkostenV-Text. Die Nenner sind die **Summen der Stammdaten**,
+     mit denen `weightsForKey` rechnet — nicht `Property.meaTotal` —, damit die
+     Abrechnung nie einen Nenner nennt, mit dem sie nicht gerechnet hat.
+     Der Snapshot der fertigen Jahresabrechnung friert die Bezugsgrößen ein
+     (`StatementView.umlagebasis`, `lib/weg/umlagebasis.ts`): Ändert jemand
+     später eine Wohnfläche, zeigt die alte Abrechnung weiter die Werte, mit
+     denen sie erstellt wurde. Ältere Snapshots ohne das Feld fallen auf die
+     Stammdaten von heute zurück.
+
+322. **Rechnungen kommen auf zwei Wegen ins Portal: KI-Belegerkennung und
+     CSV-Import — beide legen Verbindlichkeiten an, keine Buchungen.**
+     (12.09.2026) Zweite Anregung desselben Testnutzers. Die Belegerkennung
+     (`lib/weg/beleg-erkennung.ts`, Schalter `AI_BELEG_ERKENNUNG_ENABLED`) ist
+     die fünfte KI-Funktion: Rechnung als PDF oder Foto hochladen, Gläubiger,
+     Rechnungsnummer, Datum, Fälligkeit, Bruttobetrag und Leistung werden im
+     Formular „Verbindlichkeit erfassen" **vorbefüllt**; gespeichert wird erst
+     mit dem Absenden, der Beleg selbst wird nicht abgelegt. Die Datei geht wie
+     beim Objekt-Import **vollständig** an Google — Rechnungen tragen Namen und
+     IBANs —, deshalb eigene Freigabe, standardmäßig aus, und der Objekt-Scope
+     wird auch für den Vorschlag geprüft (die Funktion kostet Geld). Das
+     Formular ist dafür eine Client-Komponente geworden; die Server-Action zum
+     Speichern blieb unverändert. Rechtstexte nachgezogen (/datenschutz, /avv,
+     /datenschutz-saas, /ki-transparenz, `rechtstexte-abgleich.test.ts`), AVV
+     mit neuem Stand → `TERMS_VERSION` 2026-09-12.
+     Der CSV-Import (`lib/weg/rechnungen-csv.ts`) erkennt Spalten am Namen wie
+     der Bankimport (Bezeichnung, Gläubiger, Betrag, Rechnungsdatum, Fällig,
+     Rechnungsnummer, Notiz) und ist **alles oder nichts**: Eine unlesbare
+     Zeile bricht ab und wird mit Zeilennummer gemeldet — ein halber Import
+     stünde beim zweiten Anlauf doppelt da. Schon erfasste Zeilen (Bezeichnung
+     + Betrag + Datum) werden übersprungen und gezählt. Bewusst
+     Verbindlichkeiten und nicht Buchungen: Eine Rechnung ist eine Schuld, bis
+     das Konto sie bezahlt — die Zahlung kommt weiter über den Bankimport
+     (Nr. 318), und „beglichen" markiert der Verwalter wie bisher.
+
 **Offen geblieben** (bewusst, nicht vergessen): Die Nachdokumentation eines
 bereits eingesetzten Subprozessors gehört anwaltlich bewertet — die
 4-Wochen-Ankündigung nach AVV Ziffer 4 ist auf künftige Wechsel zugeschnitten.

@@ -34,6 +34,14 @@ describe("isBelegErkennungEnabled", () => {
     expect(isBelegErkennungEnabled()).toBe(false);
     vi.stubEnv("GEMINI_API_KEY", "k");
     expect(isBelegErkennungEnabled()).toBe(true);
+    // Mitkopierte Anführungszeichen und Leerzeichen aus der Vorlage — wie
+    // beim Assistenten: Der Schalter blieb sonst in Vercel still aus.
+    for (const wert of ['"true"', "'true'", " true ", "TRUE"]) {
+      vi.stubEnv("AI_BELEG_ERKENNUNG_ENABLED", wert);
+      expect(isBelegErkennungEnabled(), `Wert: ${wert}`).toBe(true);
+    }
+    vi.stubEnv("AI_BELEG_ERKENNUNG_ENABLED", "yes");
+    expect(isBelegErkennungEnabled()).toBe(false);
     // Die Freigabe des Objekt-Imports schaltet die Belegerkennung NICHT mit ein.
     vi.stubEnv("AI_BELEG_ERKENNUNG_ENABLED", "false");
     vi.stubEnv("AI_OBJEKT_IMPORT_ENABLED", "true");

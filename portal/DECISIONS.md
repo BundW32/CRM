@@ -2294,6 +2294,14 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      Auftragsverarbeiter, Vorschlag zum Prüfen, keine Ablage) und was die
      Alternative ist (von Hand, eine Minute) — klar, aber ohne Drohkulisse:
      Wer den Hinweis liest, soll entscheiden können, nicht erschrecken.
+     Sichtbarkeit der Freigabe: Die Karte „KI-Belegerkennung" unter
+     Einstellungen → Integrationen zeigt wie beim Assistenten, ob beide
+     Variablen im Deployment angekommen sind und welche fehlt — der Knopf im
+     Formular fehlt sonst ohne jede Meldung. Und alle vier übrigen
+     KI-Schalter lesen ihren Wert jetzt so nachsichtig wie der Assistent
+     (`kiSchalter`/`geminiSchluessel` in `lib/assistant.ts`): Ein aus der
+     Vorlage mitkopiertes `"true"` ließ die Belegerkennung still aus, während
+     der Assistent daneben lief.
      Bedienung so knapp wie möglich: Der Block erscheint nur bei der Art
      „Offene Rechnung" (ein Darlehen hat keinen Beleg), und die Erkennung
      läuft beim Auswählen der Datei von selbst — kein zweiter Knopf. Angebote

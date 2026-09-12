@@ -116,7 +116,21 @@ export async function erkenneBeleg(formData: FormData): Promise<BelegErkennungRe
       kiMoeglich,
     };
   }
-  const lokal = await erkenneBelegLokal(new Uint8Array(await file.arrayBuffer()), file.type);
+  let lokal;
+  try {
+    lokal = await erkenneBelegLokal(new Uint8Array(await file.arrayBuffer()), file.type);
+  } catch (err) {
+    // Ein technischer Fehler ist keine Eigenschaft der Datei. Er landet im
+    // Serverprotokoll und wird der Verwaltung als solcher gemeldet — nicht als
+    // „vermutlich ein Scan".
+    console.error("Belegerkennung (lokal) fehlgeschlagen", { datei: file.name, typ: file.type, groesse: file.size }, err);
+    return {
+      ok: false,
+      error:
+        "Die Datei konnte technisch nicht gelesen werden — das liegt nicht an Ihrer Rechnung. " +
+        "Bitte erfassen Sie sie von Hand und melden Sie uns den Fall, wir schauen ins Protokoll.",
+    };
+  }
   if (!lokal) {
     return {
       ok: false,

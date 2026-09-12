@@ -63,7 +63,17 @@ const nextConfig: NextConfig = {
     // Beide Produktlogos: Welches gebraucht wird, entscheidet APP_MODE erst
     // zur Laufzeit (lib/branding.ts → defaultLogoPath) — die Verfolgung sieht
     // das nicht und ließe das andere im Bundle fehlen.
-    "/**": ["public/fonts/**/*.ttf", "public/bw-logo.png", "public/wegportal24-logo.png"],
+    "/**": [
+      "public/fonts/**/*.ttf",
+      "public/bw-logo.png",
+      "public/wegportal24-logo.png",
+      // Die Belegerkennung liest PDFs mit pdf.js (lib/weg/pdfjs-server.ts).
+      // Das Paket ist extern (unten); Kern und Worker gehören trotzdem
+      // ausdrücklich in die Verfolgung — ein Modul, das die Produktion nicht
+      // findet, meldet sich nicht, es liefert nur leere Ergebnisse.
+      "node_modules/pdfjs-dist/legacy/build/pdf.mjs",
+      "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+    ],
   },
   // pdf.js liest auf dem Server Rechnungen aus (lib/weg/beleg-lokal.ts). Als
   // externes Paket bleibt es in node_modules statt gebündelt zu werden — die

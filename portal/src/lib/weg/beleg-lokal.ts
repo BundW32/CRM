@@ -22,6 +22,7 @@
 // Alles hier läuft im Prozess. Kein Byte verlässt den Server.
 import type { ErkannteRechnung } from "./beleg-erkennung";
 import { bruttoCents, isoTag } from "./beleg-erkennung";
+import { ladePdfjs } from "./pdfjs-server";
 
 export type LokaleErkennung = {
   daten: ErkannteRechnung;
@@ -277,10 +278,9 @@ const E_RECHNUNG_DATEIEN = /^(factur-x|zugferd-invoice|xrechnung|ZUGFeRD-invoice
 export async function pdfInhalt(
   bytes: Uint8Array,
 ): Promise<{ zeilen: string[]; xml: string | null }> {
-  // Dynamisch geladen: pdf.js ist groß und wird nur hier auf dem Server
-  // gebraucht; `serverExternalPackages` in next.config.ts lässt es aus
-  // node_modules laden statt es zu bündeln.
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // Über den Server-Lader (Stubs statt Canvas-Paket, Worker vorgeladen) —
+  // siehe pdfjs-server.ts, warum der nackte Import in der Produktion scheitert.
+  const pdfjs = await ladePdfjs();
   const task = pdfjs.getDocument({
     data: new Uint8Array(bytes),
     useWorkerFetch: false,
@@ -338,28 +338,29 @@ export async function pdfInhalt(
 /**
  * Der lokale Weg: erst E-Rechnung, dann Text. Null heißt „nichts Lesbares" —
  * bei einem Scan ohne Textebene oder einem Foto.
+ *
+ * Technische Fehler (pdf.js lädt nicht, Datei beschädigt) werden **nicht**
+ * verschluckt, sondern geworfen: Ein `null` hieß in der Oberfläche „vermutlich
+ * ein Scan" — und genau so wurde ein Ladefehler in der Produktion wochenlang
+ * für eine Eigenschaft der Datei gehalten. Der Aufrufer fängt und protokolliert.
  */
 export async function erkenneBelegLokal(
   datei: Uint8Array,
   mimeType: string,
 ): Promise<LokaleErkennung | null> {
-  try {
-    if (mimeType === "application/xml" || mimeType === "text/xml") {
-      const daten = leseERechnung(new TextDecoder("utf-8").decode(datei));
-      return daten ? { daten, quelle: "e-rechnung" } : null;
-    }
-    if (mimeType !== "application/pdf") return null;
-    const { zeilen, xml } = await pdfInhalt(datei);
-    if (xml) {
-      const daten = leseERechnung(xml);
-      if (daten) return { daten, quelle: "e-rechnung" };
-    }
-    // Ein Scan hat keine oder nur Bruchstücke von Textebene — dann lieber
-    // nichts als eine Zahl aus dem Rauschen.
-    if (zeilen.join(" ").length < 40) return null;
-    const daten = leseRechnungAusText(zeilen);
-    return daten ? { daten, quelle: "text" } : null;
-  } catch {
-    return null;
+  if (mimeType === "application/xml" || mimeType === "text/xml") {
+    const daten = leseERechnung(new TextDecoder("utf-8").decode(datei));
+    return daten ? { daten, quelle: "e-rechnung" } : null;
   }
+  if (mimeType !== "application/pdf") return null;
+  const { zeilen, xml } = await pdfInhalt(datei);
+  if (xml) {
+    const daten = leseERechnung(xml);
+    if (daten) return { daten, quelle: "e-rechnung" };
+  }
+  // Ein Scan hat keine oder nur Bruchstücke von Textebene — dann lieber
+  // nichts als eine Zahl aus dem Rauschen.
+  if (zeilen.join(" ").length < 40) return null;
+  const daten = leseRechnungAusText(zeilen);
+  return daten ? { daten, quelle: "text" } : null;
 }

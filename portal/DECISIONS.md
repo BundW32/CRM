@@ -2209,7 +2209,16 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      (ZUGFeRD/Factur-X als eingebettetes CII-XML, XRechnung als CII oder UBL)
      werden exakt ausgelesen, PDFs mit Textebene über pdf.js und feste Muster
      („Gesamtbetrag", „Rechnungs-Nr.", „zahlbar bis", „innerhalb von 14 Tagen").
-     Kein Byte verlässt den Server, kein Schlüssel nötig. Das ist die
+     Kein Byte verlässt den Server, kein Schlüssel nötig. pdf.js läuft dabei
+     über `lib/weg/pdfjs-server.ts`: Es erwartet in Node das native Paket
+     `@napi-rs/canvas` (33 MB) für `DOMMatrix`/`Path2D` und bricht ohne es
+     schon beim Laden ab — lokal vorhanden, im Vercel-Bundle nicht, weil die
+     Ablauf-Verfolgung das `require` hinter `createRequire` nicht sieht. Genau
+     so meldete die Produktion für ein sauberes Text-PDF „vermutlich ein
+     Scan". Zwei Stubs statt des Pakets (gerendert wird nie), der Worker mit
+     festem Namen vorgeladen, technische Fehler werden geworfen und
+     protokolliert statt als „Scan" gemeldet; `pdfjs-server.test.ts` stellt
+     den Produktionsfall in einem Kindprozess ohne das Paket nach. Das ist die
      belastbare Variante — die Rechtsfrage der Weitergabe stellt sich nicht,
      und mit der E-Rechnungspflicht (ab 2027/2028 auch im Versand) wird der
      exakte Weg zum Regelfall. Das XML wird ohne Bibliothek gelesen, wie bei

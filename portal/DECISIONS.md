@@ -2180,6 +2180,63 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      SMTP-Konto darf unter `service@wegportal24.de` senden (Send-as/Alias),
      sonst lehnt der Anbieter den Versand ab oder schreibt den Absender um.
 
+321. **Hilfe-Lasche („Problem melden") im angemeldeten Bereich, Meldung geht per
+     E-Mail an den Betreiber.** (07.09.2026) Senkrecht beschriftete Lasche am
+     Bildschirmrand in der Portal-Shell (`components/help-widget.tsx`), für
+     jede Rolle — angelehnt an die Hilfe-Lasche gängiger Verwaltungsprogramme,
+     in der eigenen Farbsprache (Grün, weiße Schrift, oranger Fokusring). Sie
+     ist **am Rand verschiebbar** (Maus und Finger, Pointer-Events) und
+     springt beim Ziehen über die Bildschirmmitte an die andere Seite; ihre
+     Lage wird als Anteil der Fensterhöhe im `localStorage` gemerkt. Ein
+     Klick öffnet, erst ab sechs Pixeln Bewegung zählt es als Ziehen. Das
+     Formular fragt nur Art (Fehler/Frage/Sonstiges) und Schilderung; Name,
+     E-Mail, Rolle und Organisation kommen aus der Sitzung, Seite und Browser
+     reicht das Widget versteckt mit — die Angaben, die sonst in der ersten
+     Rückfrage fehlen. Empfänger (`hilfeEmpfaenger` in `lib/hilfe-anfrage.ts`):
+     auf wegportal24 `SERVICE_EMAIL` wie der Kontakt-Funnel (Nr. 320), auf der
+     B&W-Tür die Deployment-Adresse. Die Person erhält eine Eingangsbestätigung.
+     Gespeichert wird **nichts**, Drossel 5 Meldungen je Nutzer und Stunde. Ohne
+     SMTP meldet das Widget den Versand als nicht möglich und nennt die Adresse,
+     statt ein „Danke" zu zeigen. Kein Redirect/Flash: Das Widget sitzt auf
+     jeder Seite und bleibt dort, die Rückmeldung läuft über `useActionState`.
+     Auf der Seite des KI-Assistenten halten Lasche und Fenster unten Abstand
+     zu dessen Bubble. Datenschutzerklärung: Absatz „Kontaktaufnahme" (wegportal24) bzw.
+     neuer Absatz „Hilfe-Knopf" (B&W) nennen die mitgesendeten Angaben; Stand
+     07.09.2026.
+     **Bildschirmfoto als Option:** Beim Öffnen nimmt das Widget den sichtbaren
+     Ausschnitt der Seite auf (`html-to-image`, im Browser; Fenstergröße, um
+     den Scroll-Stand verschoben, JPEG, oberhalb von 1,5 MB kleiner) und zeigt
+     ihn als Vorschau mit gesetztem Häkchen „mitsenden". Vorschau plus Häkchen
+     statt stiller Übertragung, weil das Foto alles zeigt, was auf der Seite
+     steht — auch Angaben Dritter. Es geht nur an den Betreiber (Anhang), nicht
+     in die Eingangsbestätigung. Serverseitig prüft `parseBildschirmfoto`
+     Format (JPEG/PNG-Daten-URL) und Größe (≤ 4 MB Base64); passt es nicht,
+     geht die Meldung **ohne** Bild raus — ein Anhang darf keine Meldung
+     verschlucken. Kann der Browser kein Foto erstellen, sagt das Widget das
+     und sendet ohne. Der Ausschnitt wird über negative Außenabstände
+     verschoben, nicht per `transform` — ein Transform macht die Wurzel zum
+     Bezug für `position: fixed`, und die fixierte Navigation fiel aus dem
+     Bild (im Chromium gegen den echten Screenshot geprüft). Klebende
+     (`sticky`) Elemente stehen im Foto an ihrer Ausgangsstelle, nicht dort,
+     wo sie beim Scrollen kleben — der Preis für die Fenster-Größe; eine
+     Gesamtseite wäre bei langen Listen mehrere Megabyte.
+
+322. **Abhängigkeits-Audit wieder grün: Overrides für ungenutzte
+     Prisma-Unterabhängigkeiten, Patch-Stände für Next, Nodemailer, sharp.**
+     (12.09.2026) Der CI-Schritt `npm audit --omit=dev --audit-level=high`
+     war seit dem 02.09. auch auf dem Standard-Branch rot: `mysql2` und
+     `fast-uri` hängen an der Prisma-CLI, die im Build für `migrate deploy`
+     gebraucht wird und deshalb in `dependencies` steht — genutzt werden
+     beide hier nicht (PostgreSQL). Prisma 7 pinnt eine verwundbare
+     mysql2-Reihe; der Weg über `npm audit fix --force` hätte Prisma auf 6
+     zurückgesetzt. Stattdessen `overrides` in `package.json` (wie schon für
+     `deepmerge-ts`): `mysql2 ^3.24.4`, `fast-uri ^3.1.6`. Dazu die
+     Patch-Stände Next 16.3.5 (kritische Meldungen im Bild-Optimierer und auf
+     Windows-Hosts), Nodemailer 9.1.1 (Adress-Parser, Domain-Allowlist) und
+     sharp 0.35.4 (libheif). `npm audit fix` selbst brach mit einem
+     npm-Fehler ab („edgesOut"), daher die Versionen ausdrücklich gesetzt.
+     Prüfkette, Build und alle Tests liefen danach unverändert durch.
+
 **Offen geblieben** (bewusst, nicht vergessen): Die Nachdokumentation eines
 bereits eingesetzten Subprozessors gehört anwaltlich bewertet — die
 4-Wochen-Ankündigung nach AVV Ziffer 4 ist auf künftige Wechsel zugeschnitten.

@@ -9,6 +9,7 @@ import {
   MarketingHero,
 } from "@/components/marketing/site";
 import {
+  DocumentsVisual,
   OnboardingVisual,
   OrbitVisual,
   RolesVisual,
@@ -82,7 +83,17 @@ export default async function KommunikationPage() {
         eyebrow="Reparaturen"
         title="Reparaturen organisieren und die Ausführung dokumentieren"
         reverse
-        visual={<RolesVisual />}
+        visual={
+          <TicketVisual
+            title="Reparatur · Rohrbruch Keller"
+            note={{
+              von: "Verwaltung",
+              text:
+                "„Ausführung am Dienstag erledigt, Fotos vorher und nachher " +
+                "liegen am Vorgang. Rechnung als Beleg an der Buchung.“",
+            }}
+          />
+        }
         points={[
           "Jede Schadensmeldung wird zum dokumentierten Vorgang mit Status",
           "Termine, Absprachen und Zwischenstände im Kommentarverlauf festhalten",
@@ -107,7 +118,7 @@ export default async function KommunikationPage() {
         id="dokumente"
         eyebrow="Dokumente & Aushänge"
         title="Alle Unterlagen an einem Ort – mit klaren Sichtbarkeiten"
-        visual={<TicketVisual />}
+        visual={<DocumentsVisual />}
         points={[
           "Dokumente hochladen mit Zielgruppen-Sichtbarkeit (alle, nur Eigentümer, einzelne Einheiten)",
           "Digitale Aushänge ersetzen den Zettel im Hausflur",

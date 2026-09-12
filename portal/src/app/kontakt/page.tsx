@@ -8,11 +8,48 @@ import { KontaktFunnel } from "./kontakt-funnel";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Kontakt – Fragen und Anregungen",
+  title: "Kontakt – Fragen zur WEG Selbstverwaltung",
   description:
-    "Frage zu wegportal24 oder eine Anregung für das Portal? In drei Schritten " +
-    "zur Nachricht – Sie erhalten eine Eingangsbestätigung per E-Mail.",
+    "Frage zur WEG Selbstverwaltung mit wegportal24 oder eine Anregung für das " +
+    "Portal? In drei Schritten zur Nachricht – mit Eingangsbestätigung per E-Mail.",
 };
+
+// Was über dieses Formular sinnvoll läuft – und was nicht. Die Seite bestand
+// vorher nur aus Überschrift, zwei Sätzen und dem Formular; ein SEO-Crawler
+// zählte 171 Wörter in zwei Textblöcken. Die Absätze unten sagen, welche
+// Fragen hier richtig sind und wohin die anderen gehören, damit niemand eine
+// Ticket-Frage oder ein Auskunftsersuchen in ein allgemeines Formular tippt.
+const ANLIEGEN = [
+  {
+    titel: "Fragen vor dem Start",
+    text:
+      "Passt wegportal24 zu unserer Gemeinschaft? Wie läuft der Wechsel von " +
+      "der bisherigen Hausverwaltung in die WEG Selbstverwaltung? Was ist im " +
+      "Basic-Tarif enthalten, was bringt Verwalter-Plus? Solche Fragen sind " +
+      "hier richtig – auch dann, wenn Sie das Portal noch gar nicht " +
+      "eingerichtet haben. Vieles beantworten außerdem die Preisseite und die " +
+      "Seite „So funktioniert's“.",
+  },
+  {
+    titel: "Anregungen aus dem Alltag Ihrer WEG",
+    text:
+      "wegportal24 ist aus der täglichen Arbeit einer Hausverwaltung " +
+      "entstanden und wird laufend weiterentwickelt. Fehlt Ihnen eine " +
+      "Funktion, stolpern Sie über einen Begriff oder ist ein Ablauf " +
+      "umständlicher als nötig? Schreiben Sie es uns – jede Anregung wird " +
+      "gelesen, und der Einstieg in die Selbstverwaltung soll mit jeder " +
+      "Rückmeldung einfacher werden.",
+  },
+  {
+    titel: "Was nicht über dieses Formular läuft",
+    text:
+      "Fachfragen zu einer konkreten Abrechnung oder einem Beschluss stellt " +
+      "Ihre Gemeinschaft im Verwalter-Plus-Tarif als Ticket direkt im Portal – " +
+      "dort bleibt die Antwort für alle Eigentümer dokumentiert. Auskunfts- " +
+      "und Löschersuchen nach der DSGVO richten Sie an die in der " +
+      "Datenschutzerklärung genannte verantwortliche Stelle.",
+  },
+];
 
 /**
  * Kontakt-Funnel für Fragen und Anregungen. Drei Schritte statt eines langen
@@ -54,6 +91,20 @@ export default async function KontaktPage({
 
         <div className="mt-8">
           <KontaktFunnel />
+        </div>
+
+        <div className="mt-12 border-t border-wp-ink/10 pt-10">
+          <h2 className="text-balance text-xl font-bold text-wp-ink sm:text-2xl">
+            Womit Sie sich an uns wenden können
+          </h2>
+          <div className="mt-4 space-y-6">
+            {ANLIEGEN.map(({ titel, text }) => (
+              <div key={titel}>
+                <p className="font-semibold text-wp-ink">{titel}</p>
+                <p className="mt-1.5 max-w-xl leading-relaxed text-gray-600">{text}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         <p className="mt-6 text-sm text-gray-500">

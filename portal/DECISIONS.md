@@ -2221,6 +2221,22 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      wo sie beim Scrollen kleben — der Preis für die Fenster-Größe; eine
      Gesamtseite wäre bei langen Listen mehrere Megabyte.
 
+322. **Abhängigkeits-Audit wieder grün: Overrides für ungenutzte
+     Prisma-Unterabhängigkeiten, Patch-Stände für Next, Nodemailer, sharp.**
+     (12.09.2026) Der CI-Schritt `npm audit --omit=dev --audit-level=high`
+     war seit dem 02.09. auch auf dem Standard-Branch rot: `mysql2` und
+     `fast-uri` hängen an der Prisma-CLI, die im Build für `migrate deploy`
+     gebraucht wird und deshalb in `dependencies` steht — genutzt werden
+     beide hier nicht (PostgreSQL). Prisma 7 pinnt eine verwundbare
+     mysql2-Reihe; der Weg über `npm audit fix --force` hätte Prisma auf 6
+     zurückgesetzt. Stattdessen `overrides` in `package.json` (wie schon für
+     `deepmerge-ts`): `mysql2 ^3.24.4`, `fast-uri ^3.1.6`. Dazu die
+     Patch-Stände Next 16.3.5 (kritische Meldungen im Bild-Optimierer und auf
+     Windows-Hosts), Nodemailer 9.1.1 (Adress-Parser, Domain-Allowlist) und
+     sharp 0.35.4 (libheif). `npm audit fix` selbst brach mit einem
+     npm-Fehler ab („edgesOut"), daher die Versionen ausdrücklich gesetzt.
+     Prüfkette, Build und alle Tests liefen danach unverändert durch.
+
 **Offen geblieben** (bewusst, nicht vergessen): Die Nachdokumentation eines
 bereits eingesetzten Subprozessors gehört anwaltlich bewertet — die
 4-Wochen-Ankündigung nach AVV Ziffer 4 ist auf künftige Wechsel zugeschnitten.

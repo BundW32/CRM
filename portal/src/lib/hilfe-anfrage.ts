@@ -36,10 +36,17 @@ export const hilfeSchema = z.object({
 export type HilfeEingabe = z.infer<typeof hilfeSchema>;
 
 /**
- * Empfänger der Meldung: auf wegportal24 das Service-Postfach (wie der
- * Kontakt-Funnel), auf der B&W-Tür die Adresse des Deployment-Brandings.
+ * Empfänger der Meldung.
+ *
+ * Zuerst `HILFE_EMAIL` aus der Umgebung — damit die Meldungen auf jeden Fall
+ * in einem Postfach landen, das jemand liest, auch wenn das Marken-Postfach
+ * (`service@wegportal24.de`) noch nicht eingerichtet ist. Ohne die Variable:
+ * auf wegportal24 das Service-Postfach (wie der Kontakt-Funnel), auf der
+ * B&W-Tür die Adresse des Deployment-Brandings.
  */
 export function hilfeEmpfaenger(): string {
+  const eigene = process.env.HILFE_EMAIL?.trim();
+  if (eigene) return eigene;
   if (isWegSaas()) return SERVICE_EMAIL;
   return fallbackBranding().email ?? "info@bundwimmobilien.de";
 }

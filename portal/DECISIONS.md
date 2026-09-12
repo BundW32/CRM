@@ -2188,7 +2188,11 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      ist **am Rand verschiebbar** (Maus und Finger, Pointer-Events) und
      springt beim Ziehen über die Bildschirmmitte an die andere Seite; ihre
      Lage wird als Anteil der Fensterhöhe im `localStorage` gemerkt. Ein
-     Klick öffnet, erst ab sechs Pixeln Bewegung zählt es als Ziehen. Das
+     Klick öffnet, erst ab sechs Pixeln Bewegung zählt es als Ziehen.
+     **Nachtrag 12.09.2026:** Der Empfänger lässt sich über `HILFE_EMAIL`
+     setzen (beide Türen), damit die Meldungen auch dann ankommen, wenn das
+     Marken-Postfach `service@` noch nicht eingerichtet ist — eine
+     Problemmeldung, die ins Leere läuft, ist schlimmer als keine. Das
      Formular fragt nur Art (Fehler/Frage/Sonstiges) und Schilderung; Name,
      E-Mail, Rolle und Organisation kommen aus der Sitzung, Seite und Browser
      reicht das Widget versteckt mit — die Angaben, die sonst in der ersten

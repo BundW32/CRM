@@ -84,17 +84,36 @@ describe("baueHilfeMail", () => {
 
 describe("hilfeEmpfaenger", () => {
   const vorher = process.env.APP_MODE;
+  const vorherHilfe = process.env.HILFE_EMAIL;
   afterEach(() => {
     if (vorher === undefined) delete process.env.APP_MODE;
     else process.env.APP_MODE = vorher;
+    if (vorherHilfe === undefined) delete process.env.HILFE_EMAIL;
+    else process.env.HILFE_EMAIL = vorherHilfe;
+  });
+
+  it("nimmt HILFE_EMAIL, wenn gesetzt — auf beiden Türen", () => {
+    process.env.HILFE_EMAIL = "postfach@example.org";
+    process.env.APP_MODE = "weg";
+    expect(hilfeEmpfaenger()).toBe("postfach@example.org");
+    process.env.APP_MODE = "verwaltung";
+    expect(hilfeEmpfaenger()).toBe("postfach@example.org");
+  });
+
+  it("ignoriert eine leere HILFE_EMAIL", () => {
+    process.env.HILFE_EMAIL = "  ";
+    process.env.APP_MODE = "weg";
+    expect(hilfeEmpfaenger()).toBe("service@wegportal24.de");
   });
 
   it("geht auf wegportal24 an das Service-Postfach", () => {
+    delete process.env.HILFE_EMAIL;
     process.env.APP_MODE = "weg";
     expect(hilfeEmpfaenger()).toBe("service@wegportal24.de");
   });
 
   it("geht auf der Verwaltungs-Tür an die Betreiber-Adresse", () => {
+    delete process.env.HILFE_EMAIL;
     process.env.APP_MODE = "verwaltung";
     expect(hilfeEmpfaenger()).toBe("info@bundwimmobilien.de");
   });

@@ -6,6 +6,7 @@ import { decryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { INTEGRATION_AREAS } from "@/lib/integrations";
 import { assistentStatus } from "@/lib/assistant";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { belegErkennungStatus } from "@/lib/weg/beleg-erkennung";
 import { requireVerwalter } from "@/lib/session";
 import { clearIntegration, saveIntegration } from "./actions";
@@ -25,8 +26,13 @@ export default async function IntegrationenPage({
 }) {
   const verwalter = await requireVerwalter();
   const sp = await searchParams;
-  const assistent = assistentStatus();
-  const beleg = belegErkennungStatus();
+  // Die KI-Statuskarten nennen Umgebungsvariablen des Deployments. Beheben
+  // kann das nur, wer an die Vercel-Einstellungen kommt — der Betreiber. Für
+  // eine Verwaltung wären die Karten nur Rauschen mit Namen, die sie nichts
+  // angehen. Dieselbe Sperre wie für die Dateiablage-Prüfung.
+  const betreiber = isPlatformAdminUser(verwalter);
+  const assistent = betreiber ? assistentStatus() : null;
+  const beleg = betreiber ? belegErkennungStatus() : null;
 
   const settings = await db.integrationSetting.findMany({
     where: { organizationId: verwalter.organizationId },
@@ -67,6 +73,8 @@ export default async function IntegrationenPage({
         <Alert variant="error" className="mb-4">{FEHLER[sp.fehler] ?? "Eingabe konnte nicht verarbeitet werden."}</Alert>
       ) : null}
 
+      {betreiber && assistent && beleg ? (
+        <>
       {/* Der KI-Assistent hängt nicht an einem hier hinterlegten Schlüssel,
           sondern an zwei Server-Variablen. Fehlt eine, rendert das Layout die
           Sprechblase kommentarlos nicht — ohne Fehlermeldung und ohne
@@ -181,6 +189,9 @@ export default async function IntegrationenPage({
         )}
       </Card>
       </div>
+
+        </>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         {INTEGRATION_AREAS.map((area) => {

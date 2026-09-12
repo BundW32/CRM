@@ -2297,7 +2297,10 @@ Pflichtinformation nach Art. 13 DSGVO, die etwas anderes sagt als die Anwendung.
      Sichtbarkeit der Freigabe: Die Karte „KI-Belegerkennung" unter
      Einstellungen → Integrationen zeigt wie beim Assistenten, ob beide
      Variablen im Deployment angekommen sind und welche fehlt — der Knopf im
-     Formular fehlt sonst ohne jede Meldung. Und alle vier übrigen
+     Formular fehlt sonst ohne jede Meldung. Beide Karten samt Schlüsseltest
+     sieht nur der **Betreiber** (`isPlatformAdminUser`, dieselbe Sperre wie
+     die Dateiablage-Prüfung): Sie nennen Umgebungsvariablen, die eine
+     Verwaltung nichts angehen und die sie nicht ändern kann. Und alle vier übrigen
      KI-Schalter lesen ihren Wert jetzt so nachsichtig wie der Assistent
      (`kiSchalter`/`geminiSchluessel` in `lib/assistant.ts`): Ein aus der
      Vorlage mitkopiertes `"true"` ließ die Belegerkennung still aus, während

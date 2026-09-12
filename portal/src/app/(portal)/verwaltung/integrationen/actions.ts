@@ -6,6 +6,7 @@ import { AUDIT, logAudit } from "@/lib/audit";
 import { encryptSecret } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { integrationArea } from "@/lib/integrations";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { requireVerwalter } from "@/lib/session";
 import { pruefeVerbindung, type VerbindungsErgebnis } from "@/lib/assistant";
 
@@ -80,16 +81,17 @@ export async function clearIntegration(formData: FormData) {
 /**
  * Prüft Schlüssel und Modellnamen direkt bei Google.
  *
- * Nur für SuperAdmins: Das Ergebnis nennt zwar nie den Schlüssel, verrät aber
- * den Zustand der Betreiber-Einrichtung — das geht einen eingeschränkten
- * Verwalter nichts an.
+ * Nur für den Betreiber: Das Ergebnis nennt zwar nie den Schlüssel, verrät aber
+ * den Zustand der Betreiber-Einrichtung — und beheben kann sie nur, wer an die
+ * Umgebungsvariablen kommt. Bis zum 12.09.2026 reichte der Organisations-Admin;
+ * seitdem gilt dieselbe Sperre wie für die Dateiablage-Prüfung.
  */
 export async function testeAssistentVerbindung(): Promise<VerbindungsErgebnis> {
   const verwalter = await requireVerwalter();
-  if (!verwalter.isSuperAdmin) {
+  if (!isPlatformAdminUser(verwalter)) {
     return {
       ok: false,
-      meldung: "Diese Prüfung darf nur der Administrator der Organisation ausführen.",
+      meldung: "Diese Prüfung darf nur der Betreiber des Portals ausführen.",
       details: null,
       modelle: [],
     };

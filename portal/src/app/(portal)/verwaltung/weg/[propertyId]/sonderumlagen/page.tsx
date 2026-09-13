@@ -171,7 +171,7 @@ export default async function SonderumlagenPage({
                         </ConfirmActionButton>
                       </form>
                     </div>
-                    <div className="mt-3 overflow-x-auto">
+                    <div className="scroll-schatten mt-3 overflow-x-auto">
                       <table className="w-full min-w-[360px] text-left text-sm">
                         <thead>
                           <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">

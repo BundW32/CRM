@@ -231,7 +231,14 @@ export const stellplatzTypLabels: Record<StellplatzTyp, string> = {
 export const distributionKeyLabels: Record<DistributionKey, string> = {
   MEA: "Miteigentumsanteile (MEA)",
   FLAECHE: "Wohn-/Nutzfläche",
-  EINHEITEN: "Einheiten (gleichmäßig)",
+  // „Einheiten (gleichmäßig)" stand hier und verschwieg das Entscheidende:
+  // Stellplätze tragen bei diesem Schlüssel **nichts** (Gewicht 0, siehe
+  // `weightsForKey` in `lib/weg/distribution.ts`) — wer die Verwaltervergütung
+  // „je Einheit" umlegt, meint Wohn- und Gewerbeeinheiten, sonst zahlte ein
+  // Tiefgaragenplatz so viel wie eine Wohnung. Die Rechnung war immer richtig,
+  // nur ihre Beschriftung nicht: Ein Prüflauf hielt die 0,00 € beim Stellplatz
+  // für einen Rechenfehler. Für stellplatzbezogene Kosten gibt es JE_STELLPLATZ.
+  EINHEITEN: "Wohn-/Gewerbeeinheiten (gleichmäßig)",
   PERSONEN: "Personenzahl",
   VERBRAUCH: "Verbrauch",
   FESTBETRAG: "Festbetrag",

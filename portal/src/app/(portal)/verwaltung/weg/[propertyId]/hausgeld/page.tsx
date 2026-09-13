@@ -295,7 +295,9 @@ export default async function HausgeldPage({
       <PageTitle
         back={{ href: `/verwaltung/weg/${property.id}`, label: property.name }}
         action={
-          <div className="flex gap-2">
+          /* `flex-wrap`: drei Knöpfe nebeneinander sind auf einem Telefon breiter
+             als der Bildschirm und schoben die ganze Seite seitwärts. */
+          <div className="flex flex-wrap gap-2">
             <Link
               href={`/verwaltung/weg/${property.id}/wirtschaftsplan`}
               className={buttonSecondaryClass}
@@ -498,7 +500,7 @@ export default async function HausgeldPage({
               <FilterBar filters={[STAND_FILTER]} pageParam={[]} className="flex-1" />
               <SortControl sortOptions={standSortOptions} defaultSort="einheit" pageParam={[]} />
             </div>
-            <div className="overflow-x-auto">
+            <div className="scroll-schatten overflow-x-auto">
               <table className="w-full min-w-[560px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">

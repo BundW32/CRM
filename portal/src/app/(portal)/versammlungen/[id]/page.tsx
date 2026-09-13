@@ -61,11 +61,14 @@ export default async function MeetingDetailPage({
     grund?: string;
     hinweis?: string;
     markiert?: string;
+    /** Serverseitige Rückfrage vor der Protokollerstellung: „termin" | „offene_tops". */
+    rueckfrage?: string;
   }>;
 }) {
   const user = await requireUser();
   const { id } = await params;
-  const { eingeladen, protokoll, fehler, grund, hinweis, markiert } = await searchParams;
+  const { eingeladen, protokoll, fehler, grund, hinweis, markiert, rueckfrage } =
+    await searchParams;
 
   // Mandanten-Wand direkt in der Query (Defense-in-Depth): nur Versammlungen der
   // eigenen Organisation werden überhaupt geladen.
@@ -97,6 +100,36 @@ export default async function MeetingDetailPage({
   // Abgeschlossen (durchgeführt/abgesagt) → Tagesordnung & Einladung eingefroren.
   const closed = meeting.status === "DURCHGEFUEHRT" || meeting.status === "ABGESAGT";
   const canEditAgenda = isVerwalter && !closed;
+
+  // ── Was gegen ein Protokoll spricht ────────────────────────────────────────
+  // Dieselben zwei Bedenken wie in `protokollBedenken` (versammlungen/actions.ts);
+  // dort sitzt die verbindliche Prüfung, hier nur ihre Ankündigung. Die Daten
+  // liegen ohnehin schon vor, eine zweite Abfrage wäre Verschwendung.
+  const beschlussTops = meeting.agendaItems.filter((it) => it.type === "BESCHLUSS" && it.resolution);
+  const offeneBeschlussTops = beschlussTops.filter((it) => it.resolution!.status === "OFFEN").length;
+  const protokollBedenken: "termin" | "offene_tops" | null =
+    meeting.status === "ABGESAGT"
+      ? null
+      : meeting.scheduledAt > new Date()
+        ? "termin"
+        : offeneBeschlussTops > 0
+          ? "offene_tops"
+          : null;
+
+  // Ist das bereits verteilte Protokoll veraltet?
+  //
+  // Der Fall aus der Praxis: Das Protokoll entsteht direkt nach der
+  // Versammlung, die Stimmzettel werden am Abend erfasst. Das PDF bei den
+  // Eigentümern trägt dann „offen (Ja 0 · Nein 0)", und niemand sagt der
+  // Verwaltung, dass sie es neu erstellen müsste. Genau dafür ist
+  // `protocolGeneratedAt` da: Ein Beschluss, der NACH der Protokollerstellung
+  // entschieden wurde, macht das Verteilte überholt.
+  const protokollVeraltet =
+    meeting.protocolDocumentId != null &&
+    meeting.protocolGeneratedAt != null &&
+    beschlussTops.some(
+      (it) => it.resolution!.decidedAt != null && it.resolution!.decidedAt > meeting.protocolGeneratedAt!,
+    );
 
   // Empfänger (für den Einzel-PDF-Download) und Fristenrechner nur für Verwalter.
   const owners = isVerwalter
@@ -152,7 +185,9 @@ export default async function MeetingDetailPage({
               ? "Für eine abgesagte Versammlung kann kein Protokoll erstellt werden."
               : fehler === "durchgefuehrt"
                 ? "Eine durchgeführte Versammlung kann nicht geändert oder abgesagt werden."
-                : fehler === "gerade_versendet"
+                : fehler === "top_doppelt"
+              ? "Dieser Tagesordnungspunkt steht bereits auf der Liste — eine Vorlage wird je Versammlung nur einmal übernommen."
+            : fehler === "gerade_versendet"
                   ? "Die Einladung wurde gerade erst versendet – bitte kurz warten, bevor Sie erneut senden."
                   : "Bitte Titel und einen gültigen Termin angeben."}
         </Alert>
@@ -160,6 +195,29 @@ export default async function MeetingDetailPage({
       {hinweis === "neuterminieren" ? (
         <Alert variant="warning" className="mb-4">
           Termin geändert – bitte die Einladung erneut an die Eigentümer senden.
+        </Alert>
+      ) : null}
+      {/* Die serverseitige Rückfrage hat zugeschlagen. Sichtbar wird das nur,
+          wenn jemand die Aktion umgeht (oder sich der Zustand zwischen dem
+          Aufbau der Seite und dem Klick geändert hat) — die Oberfläche fragt
+          sonst schon vorher. Trotzdem braucht der Fall einen Satz: Ein
+          kommentarloser Rücksprung sieht aus wie ein kaputter Knopf. */}
+      {rueckfrage ? (
+        <Alert variant="warning" className="mb-4">
+          {rueckfrage === "termin"
+            ? `Diese Versammlung findet erst am ${formatDate(meeting.scheduledAt)} statt. Ein Protokoll würde sie als durchgeführt vermerken und Tagesordnung wie Einladung einfrieren — bitte unten bestätigen, wenn das gewollt ist.`
+            : "Über mindestens einen Beschluss-Tagesordnungspunkt wurde noch nicht abgestimmt. Das Protokoll würde ihn als \u201eoffen (Ja 0 · Nein 0)\u201c ausweisen und so an alle Eigentümer gehen — bitte unten bestätigen, wenn das gewollt ist."}
+        </Alert>
+      ) : null}
+      {/* Das verteilte Protokoll ist älter als die Beschlussergebnisse. Ohne
+          diesen Hinweis bleibt bei den Eigentümern ein Protokoll liegen, das
+          „Ja 0 · Nein 0" behauptet, und niemand erfährt davon. */}
+      {protokollVeraltet ? (
+        <Alert variant="warning" className="mb-4">
+          Das bereitgestellte Protokoll ist vom{" "}
+          {formatDate(meeting.protocolGeneratedAt!)} — seitdem wurden Beschlussergebnisse
+          eingetragen. Die Eigentümer haben damit ein Protokoll ohne diese Ergebnisse. Bitte
+          unten „Protokoll neu erstellen&ldquo; auslösen; das alte wird dabei ersetzt.
         </Alert>
       ) : null}
 
@@ -522,9 +580,59 @@ export default async function MeetingDetailPage({
                 {meeting.status !== "ABGESAGT" ? (
                   <form action={generateProtocol}>
                     <input type="hidden" name="meetingId" value={meeting.id} />
-                    <button type="submit" className={`${buttonSecondaryClass} w-full`}>
-                      {meeting.protocolDocumentId ? "Protokoll neu erstellen (PDF)" : "Protokoll erstellen (PDF)"}
-                    </button>
+                    {/* Der Knopf tut mehr, als sein Name sagt: Er setzt die
+                        Versammlung auf „Durchgeführt" und friert Tagesordnung
+                        und Einladung ein. Solange dagegen etwas spricht —
+                        Termin in der Zukunft, offene Beschluss-TOPs —, kommt
+                        eine Rückfrage davor, die den Grund NENNT. Die
+                        eigentliche Prüfung sitzt in `generateProtocol`; dies
+                        ist nur ihr sichtbarer Teil. */}
+                    {protokollBedenken ? (
+                      <>
+                        {/* Nur in diesem Zweig im Formular — und der Zweig
+                            lässt sich ausschließlich über die Rückfrage
+                            absenden (der erste Klick ist `type="button"`).
+                            Das Feld ist damit der Beleg, dass jemand die
+                            Rückfrage gelesen und bejaht hat. */}
+                        <input type="hidden" name="bestaetigt" value="1" />
+                        <ConfirmActionButton
+                          className={`${buttonSecondaryClass} w-full`}
+                          confirmLabel={
+                            protokollBedenken === "termin"
+                              ? "Trotzdem als durchgeführt vermerken?"
+                              : "Trotzdem ohne Ergebnisse erstellen?"
+                          }
+                          pendingLabel="Wird erstellt…"
+                        >
+                          {meeting.protocolDocumentId
+                            ? "Protokoll neu erstellen (PDF)"
+                            : "Protokoll erstellen (PDF)"}
+                        </ConfirmActionButton>
+                      </>
+                    ) : (
+                      <PendingButton
+                        className={`${buttonSecondaryClass} w-full`}
+                        pendingLabel="Wird erstellt…"
+                      >
+                        {meeting.protocolDocumentId ? "Protokoll neu erstellen (PDF)" : "Protokoll erstellen (PDF)"}
+                      </PendingButton>
+                    )}
+                    {protokollBedenken === "termin" ? (
+                      <p className="mt-2 text-xs text-amber-700">
+                        ⚠ Diese Versammlung findet erst am {formatDate(meeting.scheduledAt)} statt.
+                        Ein Protokoll darüber dokumentiert etwas, das noch nicht stattgefunden
+                        hat.
+                      </p>
+                    ) : protokollBedenken === "offene_tops" ? (
+                      <p className="mt-2 text-xs text-amber-700">
+                        ⚠ {offeneBeschlussTops}{" "}
+                        {offeneBeschlussTops === 1
+                          ? "Beschluss-TOP hat noch keine Stimmen"
+                          : "Beschluss-TOPs haben noch keine Stimmen"}
+                        . Das Protokoll geht mit &bdquo;offen (Ja 0 · Nein 0)&ldquo; an alle
+                        Eigentümer. Erst die Stimmen eintragen, dann das Protokoll erstellen.
+                      </p>
+                    ) : null}
                   </form>
                 ) : null}
                 <div className="flex items-center justify-between border-t border-gray-100 pt-3">

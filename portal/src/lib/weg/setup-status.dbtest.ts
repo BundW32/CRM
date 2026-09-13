@@ -96,4 +96,65 @@ describe("Einrichtungsstand je Objekt", () => {
     expect(leer.propertyId).toBeNull();
     expect(leer.fertig).toBe(false);
   });
+
+  // ── Verwalterbestellung: der Beschluss hakt den Schritt ab ────────────────
+  //
+  // Der Schritt galt nur über den Vermerk von Hand als erledigt. Eine
+  // Gemeinschaft, die im Portal ordnungsgemäß über die Bestellung abgestimmt
+  // hatte, blieb deshalb bei „7 von 8" stehen — und schlimmer: Der Hinweis
+  // „Abstimmung läuft" verschwand mit der Annahme des Beschlusses wieder, der
+  // Punkt sah danach aus wie nie angefasst. Genau so ist es in einem Prüflauf
+  // gemeldet worden.
+  describe("Schritt „Verwaltung bestellen“", () => {
+    /** Legt einen Bestellungsbeschluss im gewünschten Stand an. */
+    const beschluss = (status: "OFFEN" | "ANGENOMMEN" | "ABGELEHNT") =>
+      db.resolution.create({
+        data: {
+          organizationId: a.org.id,
+          propertyId: a.objekt.id,
+          title: "Bestellung der Verwaltung",
+          description: "Die Eigentümer bestellen … zur Verwaltung.",
+          status,
+          createdById: a.verwalter.id,
+          ...(status === "OFFEN" ? {} : { decidedAt: new Date() }),
+        },
+      });
+
+    const schritt = async () =>
+      (await loadSetupStatus(a.objekt.id)).steps.find((s) => s.key === "bestellung")!;
+
+    it("ist offen, solange es keinen Beschluss gibt", async () => {
+      const s = await schritt();
+      expect(s.done).toBe(false);
+      expect(s.zwischenstand).toBeUndefined();
+    });
+
+    it("zeigt bei laufender Abstimmung einen Zwischenstand, hakt aber nicht ab", async () => {
+      await beschluss("OFFEN");
+      const s = await schritt();
+      expect(s.done).toBe(false);
+      expect(s.zwischenstand?.text).toContain("Abstimmung läuft");
+    });
+
+    it("ist mit einem ANGENOMMENEN Beschluss erledigt — ohne Häkchen von Hand", async () => {
+      const r = await beschluss("ANGENOMMEN");
+      const s = await schritt();
+      expect(s.done).toBe(true);
+      // Und der Zwischenstand ist weg: Er widerspräche dem gesetzten Häkchen.
+      expect(s.zwischenstand).toBeUndefined();
+      // Der Weg führt zum Beschluss, nicht in die Liste — er ist der Nachweis.
+      expect(s.href).toBe(`/beschluesse/${r.id}`);
+    });
+
+    it("bleibt bei einem ABGELEHNTEN Beschluss offen", async () => {
+      await beschluss("ABGELEHNT");
+      const s = await schritt();
+      expect(s.done).toBe(false);
+    });
+
+    it("bleibt über den Vermerk von Hand abhakbar (Bestellung vor dem Portal)", async () => {
+      await db.wegSetupStep.create({ data: { propertyId: a.objekt.id, key: "bestellung" } });
+      expect((await schritt()).done).toBe(true);
+    });
+  });
 });

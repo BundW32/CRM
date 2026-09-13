@@ -3,6 +3,7 @@ import {
   erkennePeriode,
   leererKontext,
   normalisiere,
+  normalisiereDeutsch,
   schlageEinheitVor,
   schlageKostenartVor,
   schlageVorschlagVor,
@@ -221,5 +222,125 @@ describe("schlageVorschlagVor", () => {
 describe("normalisiere", () => {
   it("Satzzeichen und Mehrfach-Leerzeichen fallen weg", () => {
     expect(normalisiere("  Hausgeld/WE-01,  Maerz ")).toBe("hausgeld we 01 maerz");
+  });
+});
+
+// ── Der Befund aus dem Produkttest ───────────────────────────────────────────
+//
+// Gemeldet wurde: „Beide Buchungen erhalten den identischen Kostenart-Vorschlag
+// ‚Hausmeister', obwohl der Text ‚Gartenpflege' wörtlich im zweiten
+// Verwendungszweck steht und ‚Kontoführung' keinerlei Bezug hat."
+//
+// Vermutet wurde ein fester Default für Ausgaben. Den gab es nie. Die Ursache
+// war der Ähnlichkeitsmaßstab: „Januar" zählte als bedeutungstragendes Wort.
+// Bei zwei bis drei Kernwörtern je Text ergibt ein einziges gemeinsames Wort
+// einen Anteil von 0,5 — über der Schwelle von 0,34. Beide Texte „ähnelten"
+// damit derselben Hausmeister-Buchung, und beide bekamen deren Kostenart.
+//
+// Die zweite Hälfte des Befundes war ein echtes Loch: Es gab überhaupt keinen
+// Abgleich mit den Kostenart-NAMEN. „Gartenpflege" konnte gar nicht treffen.
+describe("Kostenart-Vorschlag: die Zeilen aus dem Produkttest", () => {
+  const KOSTENARTEN = [
+    { id: "ct-hausmeister", name: "Hausmeister" },
+    { id: "ct-garten", name: "Gartenpflege" },
+    { id: "ct-konto", name: "Kontoführung" },
+    { id: "ct-strom", name: "Allgemeinstrom" },
+    { id: "ct-versicherung", name: "Gebäudeversicherung" },
+  ];
+
+  // Die eine frühere Buchung, aus der der falsche Vorschlag stammte.
+  const hausmeisterHistorie: HistorienEintrag[] = [
+    {
+      counterparty: "Hausmeisterservice Nord",
+      reference: "Hausmeister Januar 2026",
+      text: "Hausmeister Januar 2026",
+      costTypeId: "ct-hausmeister",
+      costTypeName: "Hausmeister",
+      bookingDate: new Date(Date.UTC(2026, 0, 15)),
+    },
+  ];
+
+  const zeile = (text: string): Umsatz => ({
+    text,
+    reference: text,
+    counterparty: null,
+    amountCents: 1290,
+    kind: "AUSGABE",
+    bookingDate: new Date(Date.UTC(2026, 0, 20)),
+  });
+
+  it("Kontofuehrungsgebuehr Januar 2026 wird nicht mehr Hausmeister", () => {
+    const v = schlageKostenartVor(
+      zeile("Kontofuehrungsgebuehr Januar 2026"),
+      hausmeisterHistorie,
+      KOSTENARTEN,
+    );
+    expect(v?.costTypeName).not.toBe("Hausmeister");
+  });
+
+  it("sondern Kontofuehrung — trotz der Bank-Schreibweise ohne Umlaut", () => {
+    const v = schlageKostenartVor(
+      zeile("Kontofuehrungsgebuehr Januar 2026"),
+      hausmeisterHistorie,
+      KOSTENARTEN,
+    );
+    expect(v?.costTypeId).toBe("ct-konto");
+  });
+
+  it("Rechnung Gartenpflege Januar 2026 Re-Nr 2026-004 wird Gartenpflege", () => {
+    const v = schlageKostenartVor(
+      zeile("Rechnung Gartenpflege Januar 2026 Re-Nr 2026-004"),
+      hausmeisterHistorie,
+      KOSTENARTEN,
+    );
+    expect(v?.costTypeId).toBe("ct-garten");
+  });
+
+  it("die beiden Zeilen bekommen VERSCHIEDENE Vorschläge", () => {
+    const a = schlageKostenartVor(zeile("Kontofuehrungsgebuehr Januar 2026"), hausmeisterHistorie, KOSTENARTEN);
+    const b = schlageKostenartVor(
+      zeile("Rechnung Gartenpflege Januar 2026 Re-Nr 2026-004"),
+      hausmeisterHistorie,
+      KOSTENARTEN,
+    );
+    expect(a?.costTypeId).not.toBe(b?.costTypeId);
+  });
+
+  it("der Namenstreffer wird nie sicher — im Import ist nur sicher vorbelegt", () => {
+    const v = schlageKostenartVor(zeile("Rechnung Gartenpflege"), [], KOSTENARTEN);
+    expect(v?.guete).toBe("wahrscheinlich");
+  });
+
+  it("findet die Kostenart auch ganz ohne Historie (erste Rechnung einer neuen WEG)", () => {
+    const v = schlageKostenartVor(zeile("Abschlag Allgemeinstrom 1. Quartal"), [], KOSTENARTEN);
+    expect(v?.costTypeId).toBe("ct-strom");
+  });
+
+  it("schlägt nichts vor, wenn zwei Kostenarten passen", () => {
+    const v = schlageKostenartVor(zeile("Rechnung Gartenpflege und Hausmeister"), [], KOSTENARTEN);
+    expect(v).toBeNull();
+  });
+
+  it("ein gemeinsamer Monatsname allein trägt keinen Vorschlag mehr", () => {
+    // Ohne Kostenart-Treffer und ohne Zahlungspartner bleibt nur die
+    // Ähnlichkeit — und „Januar" ist keine.
+    const v = schlageKostenartVor(zeile("Kaminkehrer Januar 2026"), hausmeisterHistorie, []);
+    expect(v).toBeNull();
+  });
+
+  it("echte Ähnlichkeit trägt weiterhin", () => {
+    // Gegenprobe zur vorigen: Wird ein bedeutungstragendes Wort geteilt, soll
+    // der Vorschlag sehr wohl kommen. Die Stoppwortliste darf die Regel nicht
+    // aushebeln, nur ihre Fehlgriffe.
+    const v = schlageKostenartVor(zeile("Hausmeister Februar 2026"), hausmeisterHistorie, []);
+    expect(v?.costTypeId).toBe("ct-hausmeister");
+  });
+});
+
+describe("normalisiereDeutsch", () => {
+  it("schreibt Umlaute aus — die Schreibweise der Kontoauszüge", () => {
+    expect(normalisiereDeutsch("Kontoführung")).toBe("kontofuehrung");
+    expect(normalisiereDeutsch("Gebäudeversicherung")).toBe("gebaeudeversicherung");
+    expect(normalisiereDeutsch("Straßenreinigung")).toBe("strassenreinigung");
   });
 });

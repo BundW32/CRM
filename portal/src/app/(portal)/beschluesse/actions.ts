@@ -11,6 +11,8 @@ import { requireUser, requireVerwalter } from "@/lib/session";
 import { planErlaubt } from "@/lib/plan-guard";
 import { DOCUMENT_TYPES, deleteBlob, saveUpload } from "@/lib/storage";
 import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
+import { pruefeStimmverbot } from "@/lib/weg/stimmverbot";
+import { ladeBeteiligte, ladeThema } from "@/lib/weg/stimmverbot-service";
 
 const MAJORITIES = ["EINFACH", "DREIVIERTEL", "DOPPELT_QUALIFIZIERT", "ALLSTIMMIG"] as const;
 
@@ -122,6 +124,32 @@ async function istVersammlungsBeschluss(resolutionId: string): Promise<boolean> 
   return top !== null;
 }
 
+/**
+ * Stimmverbot nach § 25 Abs. 4 WEG durchsetzen.
+ *
+ * Serverseitig und in BEIDEN Stimm-Aktionen — genau wie die Trennung der
+ * Beschlussverfahren darüber. Das Ausblenden in der Oberfläche allein genügt
+ * nicht: Dieselbe Aktion ließe sich direkt aufrufen, und dann liefe eine
+ * verbotene Stimme in die Zählung, die im Protokoll festgehalten wird.
+ *
+ * Die Regel selbst steht in `lib/weg/stimmverbot.ts`, mit der Begründung und
+ * der Abgrenzung (Entlastung sperrt, Verwalterbestellung nicht).
+ */
+async function verbieteStimme(
+  resolutionId: string,
+  propertyId: string,
+  waehlerId: string,
+): Promise<void> {
+  const [thema, beteiligte] = await Promise.all([
+    ladeThema(resolutionId),
+    ladeBeteiligte(propertyId),
+  ]);
+  const befund = pruefeStimmverbot(thema, waehlerId, beteiligte);
+  if (befund?.gesperrt) {
+    redirect(`/beschluesse?fehler=stimmverbot&grund=${befund.code}#${resolutionId}`);
+  }
+}
+
 export async function castVote(formData: FormData) {
   const user = await requireUser();
   const resolutionId = String(formData.get("resolutionId") ?? "");
@@ -150,6 +178,11 @@ export async function castVote(formData: FormData) {
   // Stimmberechtigt ist ausschließlich, wer Eigentümer des Objekts ist
   // (rollenunabhängig: auch der interne Verwalter, sofern er Eigentum hält).
   if (!(await canVoteOnProperty(user.id, resolution.propertyId))) redirect("/beschluesse");
+
+  // § 25 Abs. 4 WEG: Wer über seine eigene Entlastung abstimmt, ist von der
+  // Abstimmung ausgeschlossen. Die Prüfung steht NACH der Stimmberechtigung —
+  // erst muss feststehen, dass die Person überhaupt mitstimmen dürfte.
+  await verbieteStimme(resolutionId, resolution.propertyId, user.id);
 
   // Stimme schreiben und den Status DANACH erneut prüfen (in einer Transaktion):
   // Schließt der Verwalter den Beschluss zwischen unserer Statusprüfung oben und
@@ -190,7 +223,7 @@ export async function castVote(formData: FormData) {
   if (closedMeanwhile) redirect(`/beschluesse?fehler=geschlossen#${resolutionId}`);
 
   revalidatePath("/beschluesse");
-  redirect(`/beschluesse#${resolutionId}?flash=gespeichert`);
+  redirect(`/beschluesse?flash=gespeichert#${resolutionId}`);
 }
 
 // Stellvertretende Stimmabgabe durch den Verwalter (Notiz 8): trägt für einen
@@ -221,6 +254,12 @@ export async function castVoteForOwner(formData: FormData) {
   if (!ownerId || !(await canVoteOnProperty(ownerId, resolution.propertyId))) {
     redirect(`/beschluesse?fehler=eigentuemer#${resolutionId}`);
   }
+
+  // Geprüft wird der EIGENTÜMER, für den eingetragen wird — nicht der Verwalter,
+  // der das Formular bedient. Sonst wäre die Sperre über den Umweg der
+  // stellvertretenden Eintragung zu umgehen, und genau das ist der Weg, den ein
+  // Verwalter in Selbstverwaltung ohnehin nimmt: Er trägt die Stimmzettel ein.
+  await verbieteStimme(resolutionId, resolution.propertyId, ownerId);
 
   // Optionaler Nachweis (Bild/PDF). Fehlerhafte Uploads brechen die Aktion ab.
   let proofStoredName: string | null = null;
@@ -298,7 +337,11 @@ export async function castVoteForOwner(formData: FormData) {
   }
 
   revalidatePath("/beschluesse");
-  redirect(`/beschluesse#${resolutionId}?flash=gespeichert`);
+  // `offen` hält den Eintrag-Block aufgeklappt. Der Anker allein kann das nicht:
+  // Das Fragment einer URL wird nie an den Server geschickt, die Seite weiß also
+  // beim Neuaufbau nicht, wo gearbeitet wurde. Wer sieben Stimmzettel nacheinander
+  // erfasst, klappte den Block sonst sieben Mal von Hand wieder auf.
+  redirect(`/beschluesse?flash=gespeichert&offen=${resolutionId}#${resolutionId}`);
 }
 
 export async function closeResolution(formData: FormData) {
@@ -352,7 +395,7 @@ export async function closeResolution(formData: FormData) {
     }
   }
   revalidatePath("/beschluesse");
-  redirect(`/beschluesse#${id}?flash=gespeichert`);
+  redirect(`/beschluesse?flash=gespeichert#${id}`);
 }
 
 export async function withdrawResolution(formData: FormData) {

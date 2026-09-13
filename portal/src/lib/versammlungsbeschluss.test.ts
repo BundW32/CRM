@@ -38,3 +38,36 @@ describe("Vorab-Abstimmung über Versammlungspunkte", () => {
     expect(actions).toContain("fehler=versammlung");
   });
 });
+
+/**
+ * Zweiter Wachhund an derselben Stelle, aus demselben Grund: Das Stimmverbot
+ * nach § 25 Abs. 4 WEG muss in BEIDEN Stimm-Aktionen serverseitig greifen.
+ *
+ * Der Befund aus dem Produkttest: Ein Eigentümer, der zugleich Verwalter ist,
+ * konnte über seine EIGENE Entlastung abstimmen — das System nahm die Stimme
+ * kommentarlos an und zählte sie mit. Die Entlastung ist ein negatives
+ * Schuldanerkenntnis (§ 397 Abs. 2 BGB), also ein Rechtsgeschäft mit ihm; war
+ * die verbotene Stimme entscheidungserheblich, ist der ganze Beschluss nach
+ * § 44 WEG anfechtbar.
+ *
+ * Die stellvertretende Eintragung ist dabei der wichtigere der beiden Wege:
+ * In einer Selbstverwaltung trägt der Verwalter die Stimmzettel selbst ein.
+ * Griffe die Sperre nur bei `castVote`, wäre sie über `castVoteForOwner`
+ * vollständig zu umgehen.
+ */
+describe("Stimmverbot bei Entlastung (§ 25 Abs. 4 WEG)", () => {
+  it("wird in beiden Stimm-Aktionen serverseitig geprüft", () => {
+    const treffer = actions.match(/await verbieteStimme\(/g) ?? [];
+    expect(treffer.length).toBe(2);
+  });
+
+  it("prüft bei der Vertretung den EIGENTÜMER, nicht den eintragenden Verwalter", () => {
+    // Sonst liefe die Sperre ins Leere: Geprüft würde die Person am Bildschirm
+    // statt die, deren Stimme eingetragen wird.
+    expect(actions).toMatch(/verbieteStimme\(resolutionId,\s*resolution\.propertyId,\s*ownerId\)/);
+  });
+
+  it("führt zu einer erklärenden Meldung statt zu einem stillen Abbruch", () => {
+    expect(actions).toContain("fehler=stimmverbot");
+  });
+});

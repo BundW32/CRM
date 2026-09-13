@@ -126,7 +126,7 @@ export function DataTable<T>({
   const hasHeader = columns.some((c) => c.header);
 
   return (
-    <div className="-mx-1 overflow-x-auto px-1">
+    <div className="scroll-schatten -mx-1 overflow-x-auto px-1">
       <table className="w-full text-sm" style={{ minWidth }}>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         {hasHeader ? (
@@ -227,8 +227,15 @@ export function InlineFigures({
         : t === "critical"
           ? "text-critical"
           : "text-gray-900";
+  // `shrink-0`, und das ist hier keine Kosmetik: Die Zahlen stehen auf
+  // `whitespace-nowrap` — sie können also nicht umbrechen. Als schrumpfbares
+  // Flex-Kind wurde dieser Kasten zwischen einem `flex-1`-Titel und einem
+  // `shrink-0`-Etikettenblock schmaler gerechnet als sein Inhalt, und der Inhalt
+  // lief dann über den Titel. Wer nicht umbrechen kann, darf nicht schrumpfen:
+  // Stattdessen rutscht der ganze Block über `flex-wrap` des Elternteils in eine
+  // eigene Zeile.
   return (
-    <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+    <div className="flex shrink-0 flex-wrap items-baseline gap-x-5 gap-y-1">
       {items.map((it) => (
         <span key={it.label} className="flex items-baseline gap-1.5 whitespace-nowrap">
           <span className={`text-lg font-semibold ${color(it.tone)}`}>{it.value}</span>

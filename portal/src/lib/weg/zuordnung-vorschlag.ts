@@ -62,6 +62,12 @@ export type ZuordnungsKontext = {
   offenePosten: Map<string, OffenerPostenMitPeriode[]>;
   /** frühere Ausgaben mit Kostenart, neueste zuerst */
   ausgabenHistorie: HistorienEintrag[];
+  /**
+   * Aktive Kostenarten des Objekts — für den Abgleich mit dem
+   * Verwendungszweck. Sie fehlten hier, und damit fehlte die einzige Regel,
+   * die ohne Historie auskommt.
+   */
+  kostenarten: Kostenart[];
 };
 
 export type Vorschlag = {
@@ -81,6 +87,7 @@ export function leererKontext(): ZuordnungsKontext {
     nachnameZuEinheit: new Map(),
     offenePosten: new Map(),
     ausgabenHistorie: [],
+    kostenarten: [],
   };
 }
 
@@ -92,6 +99,51 @@ export function normalisiere(s: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * Wie `normalisiere`, zusätzlich mit ausgeschriebenen Umlauten.
+ *
+ * Der Grund steht auf jedem Kontoauszug: Banken schreiben „Kontofuehrungs-
+ * gebuehr", der Kostenkatalog schreibt „Kontoführung". Beides ist dasselbe
+ * Wort, und ohne diese Angleichung findet kein Abgleich es. Ein bloßes
+ * Diakritika-Strippen (ü→u) hilft nicht — es macht „kontofuhrung" und trifft
+ * die Bankschreibweise genauso wenig.
+ */
+export function normalisiereDeutsch(s: string): string {
+  return normalisiere(
+    s
+      .replace(/ä/gi, "ae")
+      .replace(/ö/gi, "oe")
+      .replace(/ü/gi, "ue")
+      .replace(/ß/g, "ss"),
+  );
+}
+
+/**
+ * Wörter, die in einem Buchungstext nichts über die Kostenart sagen.
+ *
+ * Der Anlass ist ein handfester Fehlgriff: „Kontofuehrungsgebuehr Januar 2026"
+ * und „Rechnung Gartenpflege Januar 2026" bekamen beide den Vorschlag
+ * „Hausmeister" — allein deshalb, weil eine frühere Hausmeister-Buchung
+ * ebenfalls „Januar" im Text trug. Bei zwei bis drei Kernwörtern je Text reicht
+ * ein einziges gemeinsames Wort für einen Anteil von 0,5 und damit über die
+ * Schwelle. Monatsnamen sind das häufigste Wort auf deutschen Kontoauszügen und
+ * tragen exakt nichts zur Frage bei, welche Kostenart gemeint ist; dasselbe
+ * gilt für die Formwörter des Zahlungsverkehrs.
+ */
+const STOPPWORTE = new Set([
+  // Monatsnamen, lang und kurz (nach `normalisiereDeutsch`: maerz).
+  "januar", "februar", "maerz", "april", "mai", "juni", "juli",
+  "august", "september", "oktober", "november", "dezember",
+  "jan", "feb", "mrz", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "okt", "nov", "dez",
+  // Formwörter des Zahlungsverkehrs und der Rechnungsstellung.
+  "rechnung", "rechnungsnr", "rechnungsnummer", "gebuehr", "gebuehren",
+  "ueberweisung", "dauerauftrag", "lastschrift", "gutschrift", "zahlung",
+  "zahlungseingang", "beitrag", "betrag", "abschlag", "kunde", "kundennummer",
+  "vertrag", "vertragsnummer", "referenz", "verwendungszweck", "sepa", "basislastschrift",
+  "mandat", "mandatsreferenz", "glaeubiger", "quartal", "monat", "jahr",
+  "folgenr", "erstlastschrift", "einmallastschrift", "buchung", "beleg", "belegnr",
+]);
 
 function heuhaufen(u: Umsatz): string {
   return normalisiere(`${u.text} ${u.reference ?? ""} ${u.counterparty ?? ""}`);
@@ -277,16 +329,89 @@ function bester(treffer: Map<string, Treffer[]>, units: Einheit[]): Vorschlag | 
 
 // ── Kostenart ────────────────────────────────────────────────────────────────
 
+/** Eine Kostenart des Objekts — für den Abgleich mit dem Verwendungszweck. */
+export type Kostenart = { id: string; name: string };
+
+/**
+ * Steht der Name einer Kostenart im Verwendungszweck?
+ *
+ * Die Regel, die hier fehlte — und sie ist die naheliegendste von allen: Wenn
+ * „Gartenpflege" wörtlich im Text steht und die Gemeinschaft eine Kostenart
+ * „Gartenpflege" führt, ist das der Vorschlag. Ohne sie hing alles an der
+ * Historie, und eine frisch eingerichtete WEG hat keine: Ihre erste
+ * Gartenrechnung bekam entweder gar nichts oder — über die Ähnlichkeit zu
+ * irgendeiner anderen Buchung — den falschen Vorschlag.
+ *
+ * Geprüft wird in EINE Richtung: Das Wort der Kostenart muss im Wort des
+ * Buchungstextes stecken, nicht umgekehrt. So findet „Kontofuehrung" die
+ * „Kontofuehrungsgebuehr", aber „Warmwasser" nicht das bloße „Wasser" — sonst
+ * passten bei einer Wasserrechnung zwei Kostenarten, und aus einem klaren
+ * Hinweis würde eine Verwechslung.
+ *
+ * Treffen mehrere Kostenarten zu, gibt es KEINEN Vorschlag. Ein Hinweis, der
+ * auf zwei Kostenarten zeigt, ist keiner — dieselbe Regel wie bei den
+ * Einheiten.
+ */
+function schlageKostenartAusNamenVor(
+  umsatz: Umsatz,
+  kostenarten: Kostenart[],
+): Vorschlag | null {
+  if (kostenarten.length === 0) return null;
+  const worte = new Set(
+    normalisiereDeutsch(`${umsatz.text} ${umsatz.reference ?? ""} ${umsatz.counterparty ?? ""}`)
+      .split(" ")
+      .filter((w) => w.length >= 4 && !/\d/.test(w)),
+  );
+  if (worte.size === 0) return null;
+
+  const treffer: { art: Kostenart; wort: string }[] = [];
+  for (const art of kostenarten) {
+    // Mehrteilige Namen („Wasser/Abwasser") zerfallen in ihre Wörter; jedes
+    // einzelne darf den Treffer tragen.
+    const artWorte = normalisiereDeutsch(art.name)
+      .split(" ")
+      .filter((w) => w.length >= 5 && !/\d/.test(w) && !STOPPWORTE.has(w));
+    const wort = artWorte.find((aw) => [...worte].some((w) => w.includes(aw)));
+    if (wort) treffer.push({ art, wort });
+  }
+
+  const eindeutig = new Set(treffer.map((t) => t.art.id));
+  if (eindeutig.size !== 1) return null;
+  const { art } = treffer[0];
+  return {
+    costTypeId: art.id,
+    costTypeName: art.name,
+    // Bewusst nicht „sicher": Ein Wort im Verwendungszweck ist ein starker
+    // Hinweis, kein Beweis. „Sicher" ist im Import vorbelegt und würde damit
+    // ohne Rückfrage gebucht — das gehört der Historie vorbehalten, die sich
+    // an wiederholtem Verhalten desselben Zahlungspartners belegen lässt.
+    guete: "wahrscheinlich",
+    gruende: [`„${art.name}" steht im Verwendungszweck`],
+  };
+}
+
 /**
  * Welche Kostenart passt zu dieser Ausgabe?
  *
- * Aus der Historie: derselbe Zahlungspartner bekam zuletzt eine bestimmte
- * Kostenart — bei einer Hausverwaltung wiederholt sich das Jahr für Jahr
- * (Stadtwerke, Versicherung, Aufzugswartung). Findet sich kein Partner, zählt
- * die Ähnlichkeit des Verwendungszwecks.
+ * Drei Regeln, in dieser Reihenfolge:
+ *
+ * 1. **Historie über den Zahlungspartner** — derselbe Partner bekam zuletzt
+ *    eine bestimmte Kostenart; bei einer Hausverwaltung wiederholt sich das
+ *    Jahr für Jahr (Stadtwerke, Versicherung, Aufzugswartung). Die einzige
+ *    Regel, die „sicher" erreichen kann, weil sie sich auf wiederholtes
+ *    Verhalten stützt und nicht auf Fließtext.
+ * 2. **Name der Kostenart im Verwendungszweck** — greift auch ohne jede
+ *    Historie und ist damit die Regel für die erste Rechnung einer neuen WEG.
+ * 3. **Ähnlichkeit zu früheren Buchungstexten** — der schwächste Hinweis, und
+ *    er kommt zuletzt.
  */
-export function schlageKostenartVor(umsatz: Umsatz, historie: HistorienEintrag[]): Vorschlag | null {
-  if (umsatz.kind !== "AUSGABE" || historie.length === 0) return null;
+export function schlageKostenartVor(
+  umsatz: Umsatz,
+  historie: HistorienEintrag[],
+  kostenarten: Kostenart[] = [],
+): Vorschlag | null {
+  if (umsatz.kind !== "AUSGABE") return null;
+  if (historie.length === 0) return schlageKostenartAusNamenVor(umsatz, kostenarten);
 
   const partner = normalisiere(umsatz.counterparty ?? "");
   if (partner.length >= 4) {
@@ -315,6 +440,11 @@ export function schlageKostenartVor(umsatz: Umsatz, historie: HistorienEintrag[]
     }
   }
 
+  // Steht der Name einer Kostenart im Text, ist das der bessere Hinweis als
+  // eine bloße Wortüberschneidung mit irgendeiner früheren Buchung.
+  const ausNamen = schlageKostenartAusNamenVor(umsatz, kostenarten);
+  if (ausNamen) return ausNamen;
+
   // Ähnlicher Verwendungszweck — schwächer, deshalb nie „sicher".
   const worte = kernWorte(`${umsatz.text} ${umsatz.reference ?? ""}`);
   if (worte.size === 0) return null;
@@ -336,13 +466,15 @@ export function schlageKostenartVor(umsatz: Umsatz, historie: HistorienEintrag[]
   };
 }
 
-function kernWorte(text: string): Set<string> {
+export function kernWorte(text: string): Set<string> {
   return new Set(
-    normalisiere(text)
+    normalisiereDeutsch(text)
       .split(" ")
       // Zahlen und kurze Wörter tragen nichts: „RE2023613" ist bei jeder
-      // Rechnung anders, „für" bei jeder gleich.
-      .filter((w) => w.length >= 4 && !/\d/.test(w)),
+      // Rechnung anders, „für" bei jeder gleich. Und die Stoppwörter tragen
+      // ebenfalls nichts — nur fielen sie vorher nicht auf, weil sie in JEDEM
+      // Text stehen und deshalb zuverlässig „Ähnlichkeit" erzeugten.
+      .filter((w) => w.length >= 4 && !/\d/.test(w) && !STOPPWORTE.has(w)),
   );
 }
 
@@ -358,5 +490,5 @@ function kuerze(s: string): string {
 export function schlageVorschlagVor(umsatz: Umsatz, kontext: ZuordnungsKontext): Vorschlag | null {
   return umsatz.kind === "EINNAHME"
     ? schlageEinheitVor(umsatz, kontext)
-    : schlageKostenartVor(umsatz, kontext.ausgabenHistorie);
+    : schlageKostenartVor(umsatz, kontext.ausgabenHistorie, kontext.kostenarten);
 }

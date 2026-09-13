@@ -29,6 +29,8 @@ import { Tipp } from "@/components/tipp";
 import { FilterBar, SortControl } from "@/components/filter-bar";
 import { ownedProperties, propertyWhereForVerwalter } from "@/lib/access";
 import { db } from "@/lib/db";
+import { erkenneThema, gesperrtePersonen, type Beteiligte } from "@/lib/weg/stimmverbot";
+import { ladeBeteiligte } from "@/lib/weg/stimmverbot-service";
 import { formatDateOnly, resolutionStatusLabels, voteChoiceLabels } from "@/lib/labels";
 import { propertyScopeFilters } from "@/lib/list-filters";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
@@ -178,7 +180,10 @@ export default async function BeschluessePage({
     redirect("/dashboard");
   }
   const params = await searchParams;
-  const { fehler, grund } = params;
+  // `offen`: welcher Eintrag-Block aufgeklappt bleiben soll (siehe
+  // `castVoteForOwner`). Ein Anker kann das nicht leisten — Fragmente erreichen
+  // den Server nicht.
+  const { fehler, grund, offen } = params;
   const currentPage = parsePage(params.page);
   const sort = resolveSort(params.sort, params.dir, SORT_FIELDS, "datum", "desc");
   const isVerwalter = user.role === "VERWALTER";
@@ -220,6 +225,10 @@ export default async function BeschluessePage({
     votes: { include: { user: true, castBy: true } },
     agendaItems: {
       select: {
+        // `templateKey` und `title` tragen das Thema des Beschlusses — Grundlage
+        // des Stimmverbots (§ 25 Abs. 4 WEG, siehe lib/weg/stimmverbot.ts).
+        templateKey: true,
+        title: true,
         meeting: { select: { id: true, title: true, scheduledAt: true, status: true } },
       },
     },
@@ -265,6 +274,19 @@ export default async function BeschluessePage({
   const vorbereitet = open.filter((r) => bevorstehendeVersammlung(r));
   const laufend = open.filter((r) => !bevorstehendeVersammlung(r));
 
+  /**
+   * Wurde über diesen Beschluss in einer Versammlung abgestimmt?
+   *
+   * Entscheidet allein über die **Beschriftung** des Eintrag-Formulars.
+   * „Schriftlich" ist im WEG-Recht kein Allerweltswort, sondern der Name eines
+   * Verfahrens: der Umlaufbeschluss nach § 23 Abs. 3 WEG. Über einem Formular,
+   * mit dem die Verwaltung Handzeichen aus einer Präsenzversammlung nachträgt,
+   * behauptet es das falsche Verfahren — und wer es glaubt, hält einen
+   * Versammlungsbeschluss für einen Umlaufbeschluss.
+   */
+  const ausVersammlung = (r: (typeof open)[number] | (typeof decided)[number]) =>
+    r.agendaItems.some((a) => a.meeting.status === "DURCHGEFUEHRT");
+
   const resolutions = [...open, ...decided];
   // Beide Listen stehen untereinander auf der Seite und tragen dieselbe
   // Sortierung – für die Sichtbarkeitsgrenze zählt deshalb ihre Summe.
@@ -298,6 +320,26 @@ export default async function BeschluessePage({
       }
     }
   }
+  // ── Stimmverbot (§ 25 Abs. 4 WEG) ─────────────────────────────────────────
+  //
+  // Je Objekt einmal geladen, nicht je Beschluss: Bei acht laufenden
+  // Abstimmungen desselben Objekts wären es sonst acht gleiche Abfragen.
+  //
+  // Die verbindliche Sperre sitzt in `beschluesse/actions.ts`; hier geht es nur
+  // darum, den Betroffenen erst gar nicht zur Auswahl zu stellen. Eine Stimme
+  // anzubieten und danach abzulehnen wäre die schlechtere Reihenfolge — sie
+  // sieht aus wie ein Fehler des Programms statt wie eine Regel des Gesetzes.
+  const beteiligteJeObjekt = new Map<string, Beteiligte>();
+  if (isVerwalter) {
+    for (const pid of propIds) beteiligteJeObjekt.set(pid, await ladeBeteiligte(pid));
+  }
+  /** Thema eines Beschlusses aus dem TOP (oder dem eigenen Titel). */
+  const themaVon = (r: { title: string; agendaItems: { templateKey: string | null; title: string }[] }) =>
+    erkenneThema({
+      templateKey: r.agendaItems[0]?.templateKey ?? null,
+      title: r.agendaItems[0]?.title ?? r.title,
+    });
+
   const ownerInfo = new Map<string, { mea: number | null; voteUnits: number | null }>();
   const meaTotalMap = new Map<string, number>();
   // Objekte, bei denen NICHT für jeden Eigentümer ein MEA hinterlegt ist – dann
@@ -397,7 +439,11 @@ export default async function BeschluessePage({
         </AblageAlert>
       ) : fehler ? (
         <Alert variant="error" className="mb-4">
-          {fehler === "keinweg"
+          {fehler === "stimmverbot"
+            ? grund === "entlastung-beirat"
+              ? "Über die eigene Entlastung darf ein Mitglied des Verwaltungsbeirats nicht mitstimmen (§ 25 Abs. 4 WEG). Die Stimme wurde nicht eingetragen."
+              : "Über die eigene Entlastung darf die Verwaltung nicht mitstimmen (§ 25 Abs. 4 WEG). Die Stimme wurde nicht eingetragen."
+            : fehler === "keinweg"
             ? "Umlaufbeschlüsse sind nur für WEG-Objekte möglich."
             : fehler === "frist"
               ? "Die Abstimmungsfrist ist abgelaufen bzw. liegt in der Vergangenheit."
@@ -443,6 +489,18 @@ export default async function BeschluessePage({
               const myVote = r.votes.find((v) => v.userId === user.id);
               const outcome = outcomeFor(r);
               const expired = r.deadline != null && r.deadline < new Date();
+              // Stimmverbot: wer bei DIESEM Beschluss nicht mitstimmen darf.
+              const alleEigentuemer = ownersByProp.get(r.propertyId) ?? [];
+              const gesperrteIds = gesperrtePersonen(
+                themaVon(r),
+                beteiligteJeObjekt.get(r.propertyId) ?? { verwalterIds: [], beiratsIds: [] },
+              );
+              const gesperrteNamen = alleEigentuemer
+                .filter((o) => gesperrteIds.includes(o.id))
+                .map((o) => o.name);
+              const waehlbareEigentuemer = alleEigentuemer.filter(
+                (o) => !gesperrteIds.includes(o.id),
+              );
               return (
                 <CollapsibleCard
                   key={r.id}
@@ -455,7 +513,12 @@ export default async function BeschluessePage({
                   defaultOpen={ownedIds.has(r.propertyId) && !myVote && !expired}
                   title={
                     <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-                      <div className="min-w-0 flex-1">
+                      {/* `basis-56` gibt dem Titel eine Wunschbreite. Mit
+                          `flex-1` allein ist sie 0 — dann schrumpft der Titel
+                          bis zur Unlesbarkeit, statt die Zahlen daneben in die
+                          nächste Zeile zu schicken. Der Umbruch entscheidet sich
+                          an der Wunschbreite, nicht am Schrumpfen. */}
+                      <div className="min-w-0 flex-1 basis-56">
                         <h3 className="text-base font-semibold text-gray-900">{r.title}</h3>
                         <p className="mt-0.5 text-xs font-normal text-gray-500">
                           {r.property.name}
@@ -484,7 +547,13 @@ export default async function BeschluessePage({
                         ]}
                       />
                       <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        {ownedIds.has(r.propertyId) && !myVote && !expired ? (
+                        {/* „Ihre Stimme fehlt" fordert zu etwas auf. Wer einem
+                            Stimmverbot unterliegt, DARF aber nicht — das Etikett
+                            wäre dort eine Aufforderung zum Rechtsfehler. */}
+                        {ownedIds.has(r.propertyId) &&
+                        !myVote &&
+                        !expired &&
+                        !gesperrteIds.includes(user.id) ? (
                           <Badge tone="accent">Ihre Stimme fehlt</Badge>
                         ) : null}
                         <Badge tone={statusTone[r.status]} dot={r.status === "OFFEN"}>
@@ -515,7 +584,17 @@ export default async function BeschluessePage({
 
                   {/* Abstimmen: jeder Eigentümer dieses Objekts (auch ein interner
                       Verwalter, der zugleich Eigentümer ist), solange die Frist läuft. */}
-                  {ownedIds.has(r.propertyId) && !expired ? (
+                  {/* Die eigene Stimme — aber nicht, wenn sie verboten ist.
+                      Ein Verwalter in Selbstverwaltung ist zugleich Eigentümer
+                      und sähe hier sonst ein Formular für einen Beschluss, an
+                      dem er nicht teilnehmen darf. */}
+                  {ownedIds.has(r.propertyId) && gesperrteIds.includes(user.id) ? (
+                    <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-amber-700">
+                      Sie dürfen über diesen Beschluss nicht mitstimmen — er betrifft Ihre
+                      eigene Entlastung (§ 25 Abs. 4 WEG).
+                    </p>
+                  ) : null}
+                  {ownedIds.has(r.propertyId) && !expired && !gesperrteIds.includes(user.id) ? (
                     <form action={castVote} className="mt-3 space-y-2 border-t border-gray-100 pt-3">
                       <input type="hidden" name="resolutionId" value={r.id} />
                       {myVote ? (
@@ -578,12 +657,43 @@ export default async function BeschluessePage({
                         </ul>
                       ) : null}
 
+                      {/* § 25 Abs. 4 WEG: Wer über seine eigene Entlastung
+                          abstimmt, ist ausgeschlossen. Der Hinweis steht ÜBER dem
+                          Formular, nicht als Fehlermeldung danach — die
+                          Betroffenen fehlen unten in der Auswahl, und ohne
+                          Erklärung wirkt das wie eine unvollständige Liste. */}
+                      {gesperrteIds.length > 0 ? (
+                        <Alert variant="warning" className="mb-3">
+                          <strong>Stimmverbot (§ 25 Abs. 4 WEG):</strong>{" "}
+                          {gesperrteNamen.join(", ")}{" "}
+                          {gesperrteIds.length === 1 ? "darf" : "dürfen"} über{" "}
+                          {gesperrteIds.length === 1 ? "die eigene" : "die eigene"} Entlastung
+                          nicht mitstimmen. Die Entlastung ist ein Rechtsgeschäft mit{" "}
+                          {gesperrteIds.length === 1 ? "der betroffenen Person" : "den betroffenen Personen"}{" "}
+                          (negatives Schuldanerkenntnis, § 397 Abs. 2 BGB). Wird eine solche
+                          Stimme mitgezählt und gab sie den Ausschlag, ist der Beschluss nach
+                          § 44 WEG anfechtbar.
+                        </Alert>
+                      ) : null}
+
                       {/* Stellvertretende Stimmabgabe: Eigentümer, die die App nicht
-                          nutzen, haben u. U. schriftlich abgestimmt (§ 25 WEG). */}
-                      {!expired && (ownersByProp.get(r.propertyId)?.length ?? 0) > 0 ? (
-                        <details className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                          nutzen, haben u. U. schriftlich abgestimmt (§ 25 WEG).
+                          Nach einer Versammlung ist es dagegen die Nacherfassung
+                          des dort Beschlossenen — siehe `ausVersammlung`. */}
+                      {!expired && waehlbareEigentuemer.length > 0 ? (
+                        <details
+                          className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-3"
+                          // Nach dem Absenden baut der Server die Seite neu auf, und
+                          // ein `<details>` ohne `open` startet zugeklappt. Wer drei
+                          // Stimmzettel nacheinander einträgt, klappte es drei Mal
+                          // wieder auf. Springt der Rücksprung genau diesen Beschluss
+                          // an, bleibt es offen.
+                          open={offen === r.id}
+                        >
                           <summary className="cursor-pointer text-xs font-medium text-gray-700">
-                            Stimme für einen Eigentümer eintragen (schriftlich)
+                            {ausVersammlung(r)
+                              ? "Stimme aus der Versammlung nachtragen"
+                              : "Stimme für einen Eigentümer eintragen (schriftlich)"}
                           </summary>
                           <form action={castVoteForOwner} className="mt-2 space-y-2">
                             <input type="hidden" name="resolutionId" value={r.id} />
@@ -592,7 +702,7 @@ export default async function BeschluessePage({
                                 <option value="" disabled>
                                   – Eigentümer –
                                 </option>
-                                {(ownersByProp.get(r.propertyId) ?? []).map((o) => (
+                                {waehlbareEigentuemer.map((o) => (
                                   <option key={o.id} value={o.id}>
                                     {o.name}
                                   </option>

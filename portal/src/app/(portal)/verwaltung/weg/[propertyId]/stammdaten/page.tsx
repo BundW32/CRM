@@ -320,7 +320,7 @@ export default async function WegStammdatenPage({
           {units.length === 0 ? (
             <EmptyState>Dieses Objekt hat noch keine Einheiten.</EmptyState>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="scroll-schatten overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
@@ -818,6 +818,15 @@ export default async function WegStammdatenPage({
                     </option>
                   ))}
                 </select>
+                {/* Der eine Schlüssel, bei dem eine Einheit 0,00 € bekommt und
+                    das richtig ist. Ohne diesen Satz liest man die Null als
+                    Rechenfehler — genau so ist es in einem Prüflauf passiert. */}
+                <Tipp className="mt-1">
+                  „Gleichmäßig&ldquo; verteilt auf Wohn- und Gewerbeeinheiten;{" "}
+                  <strong>Stellplätze zahlen hier nichts</strong> — sonst trüge ein
+                  Tiefgaragenplatz so viel wie eine Wohnung. Für stellplatzbezogene Kosten
+                  gibt es „Je Stellplatz&ldquo;.
+                </Tipp>
               </Field>
               <Field label="§35a">
                 <select name="laborShareType" className={`${inputClass} w-auto`} defaultValue="KEINE">

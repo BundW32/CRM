@@ -103,7 +103,7 @@ async function ladeEinen(propertyId: string): Promise<SetupStatus> {
     konten,
     kostenarten,
     manuell,
-    bestellungsBeschluss,
+    bestellungsBeschluesse,
   ] = await Promise.all([
       db.property.findUnique({
         where: { id: propertyId },
@@ -121,17 +121,22 @@ async function ladeEinen(propertyId: string): Promise<SetupStatus> {
       }),
       db.costType.count({ where: { propertyId, active: true } }),
       db.wegSetupStep.findMany({ where: { propertyId }, select: { key: true } }),
-      // Läuft gerade eine Abstimmung über die Verwalterbestellung?
+      // Abstimmung über die Verwalterbestellung — laufend ODER gefasst.
       //
-      // Erkannt wird sie am Titel — das Modell `Resolution` kennt kein Thema,
+      // Erkannt wird sie am Titel: Das Modell `Resolution` kennt kein Thema,
       // und eines einzuführen hieße, jeden Bestand nachzupflegen. Die Suche ist
-      // deshalb bewusst großzügig und dient nur der Anzeige: Ein Treffer hakt
-      // nichts ab, er zeigt einen Hinweis. Ein verpasster Treffer kostet diesen
-      // Hinweis, ein falscher stiftet keinen Schaden.
-      db.resolution.findFirst({
+      // deshalb bewusst großzügig.
+      //
+      // Bis hierher zählte nur `OFFEN`, und das war die falsche Hälfte. Solange
+      // abgestimmt wurde, stand ein Hinweis am Schritt; sobald der Beschluss
+      // ANGENOMMEN war — also genau dann, wenn der Schritt erledigt ist —
+      // verschwand er wieder, und der Punkt sah aus wie nie angefasst. Eine
+      // Gemeinschaft, die ihre Verwaltung ordnungsgemäß bestellt hatte, blieb
+      // dadurch bei „7 von 8" stehen und musste raten, was noch fehlt.
+      db.resolution.findMany({
         where: {
           propertyId,
-          status: "OFFEN",
+          status: { in: ["OFFEN", "ANGENOMMEN"] },
           AND: [
             { title: { contains: "verwalt", mode: "insensitive" } },
             {
@@ -143,7 +148,7 @@ async function ladeEinen(propertyId: string): Promise<SetupStatus> {
           ],
         },
         orderBy: { createdAt: "desc" },
-        select: { id: true, createdAt: true },
+        select: { id: true, createdAt: true, status: true, decidedAt: true },
       }),
     ]);
 
@@ -161,7 +166,8 @@ async function ladeEinen(propertyId: string): Promise<SetupStatus> {
     ohneStichtag: konten.filter((k) => !k.openingBalanceDate).length,
     kostenarten,
     manuellErledigt: new Set(manuell.map((m) => m.key)),
-    bestellungsBeschluss,
+    bestellungsBeschluss: bestellungsBeschluesse.find((r) => r.status === "OFFEN") ?? null,
+    bestellungGefasst: bestellungsBeschluesse.find((r) => r.status === "ANGENOMMEN") ?? null,
   });
 }
 
@@ -177,6 +183,17 @@ type Befunde = {
   manuellErledigt: Set<string>;
   /** Laufende Abstimmung über die Verwalterbestellung, falls es eine gibt. */
   bestellungsBeschluss?: { id: string; createdAt: Date } | null;
+  /**
+   * Bereits **gefasster** Bestellungsbeschluss.
+   *
+   * Er hakt den Schritt ab, und das ist keine Aufweichung der Regel „manuelle
+   * Schritte finden außerhalb des Systems statt": Ein angenommener Beschluss
+   * findet gerade nicht außerhalb statt — er liegt in der Beschluss-Sammlung
+   * dieses Portals. Das Häkchen von Hand blieb nur deshalb nötig, weil niemand
+   * hinsah. Der Vermerk in `WegSetupStep` bleibt als Rückfall für
+   * Gemeinschaften, die vor der Einführung des Portals bestellt haben.
+   */
+  bestellungGefasst?: { id: string; decidedAt: Date | null } | null;
 };
 
 function leereBefunde(): Befunde {
@@ -285,16 +302,22 @@ function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
         "sein muss die Person nicht, solange die Anlage weniger als neun Einheiten hat, " +
         "ein Eigentümer das Amt übernimmt und kein Drittel der Eigentümer die " +
         "Zertifizierung verlangt (§ 19 Abs. 2 Nr. 6 WEG).",
-      done: b.manuellErledigt.has("bestellung"),
-      href: b.bestellungsBeschluss
-        ? `/beschluesse/${b.bestellungsBeschluss.id}`
-        : "/beschluesse",
+      // Zwei Wege zum Häkchen: der Vermerk von Hand — und ein angenommener
+      // Bestellungsbeschluss. Der zweite ist der eigentliche: Wer im Portal
+      // abstimmen lässt, hat den Nachweis dort liegen und muss nicht zusätzlich
+      // bestätigen, dass er ihn hat.
+      done: b.manuellErledigt.has("bestellung") || Boolean(b.bestellungGefasst),
+      href: b.bestellungGefasst
+        ? `/beschluesse/${b.bestellungGefasst.id}`
+        : b.bestellungsBeschluss
+          ? `/beschluesse/${b.bestellungsBeschluss.id}`
+          : "/beschluesse",
       manual: true,
       // Läuft die Abstimmung schon, sagt der Schritt das — abgehakt wird er
       // trotzdem erst mit dem Ergebnis. Ohne diesen Hinweis sah der Punkt
       // unverändert aus, obwohl genau dafür bereits ein Umlaufbeschluss lief.
       zwischenstand:
-        !b.manuellErledigt.has("bestellung") && b.bestellungsBeschluss
+        !b.manuellErledigt.has("bestellung") && !b.bestellungGefasst && b.bestellungsBeschluss
           ? {
               text: `Abstimmung läuft seit ${new Intl.DateTimeFormat("de-DE", {
                 dateStyle: "medium",

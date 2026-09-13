@@ -168,8 +168,14 @@ export default async function WegBuchhaltungPage({
   if (sp.kostenart) bookingAnd.push({ costTypeId: sp.kostenart });
   // „Ohne Kostenart" ist die Arbeitsliste nach jedem Bankimport: solange hier
   // etwas offen ist, lässt sich die Jahresabrechnung nicht fertigstellen.
+  //
+  // Nur AUSGABEN — dieselbe Grenze wie beim Zähler unten und wie beim echten
+  // Blocker in der Jahresabrechnung. Ein Hausgeld-Eingang hat keine Kostenart,
+  // sondern eine Einheit; er stand hier nur in der Arbeitsliste herum und ließ
+  // sich nicht abarbeiten, weil es nichts abzuarbeiten gab. Wem eine Einnahme
+  // ohne Einheit fehlt, der findet sie unter „Hausgeld".
   if (sp.zuordnung === "offen") {
-    bookingAnd.push({ costTypeId: null, kind: { in: ["EINNAHME", "AUSGABE"] } });
+    bookingAnd.push({ costTypeId: null, kind: "AUSGABE" });
   }
   const jahr = Number.parseInt(sp.jahr ?? "", 10);
   if (Number.isFinite(jahr) && jahr > 1900 && jahr < 2200) {
@@ -243,13 +249,17 @@ export default async function WegBuchhaltungPage({
       take: 5,
       include: { account: { select: { name: true } }, _count: { select: { bookings: true } } },
     }),
-    // Arbeitsvorrat: Einnahmen/Ausgaben ohne Kostenart. Immer über ALLE
-    // Buchungen gezählt – die Zahl soll unabhängig vom Filter stimmen.
+    // Arbeitsvorrat: AUSGABEN ohne Kostenart. Immer über ALLE Buchungen
+    // gezählt – die Zahl soll unabhängig vom Filter stimmen.
+    //
+    // Einnahmen zählen hier nicht mit: Ein Hausgeld-Eingang trägt zu Recht
+    // keine Kostenart. Solange sie mitzählten, meldete die Buchhaltung
+    // Blocker, an denen die Jahresabrechnung nachweislich nicht hängenblieb.
     db.booking.count({
       where: {
         propertyId: property.id,
         costTypeId: null,
-        kind: { in: ["EINNAHME", "AUSGABE"] },
+        kind: "AUSGABE",
         ...NOT_REVERSED,
       },
     }),
@@ -427,8 +437,9 @@ export default async function WegBuchhaltungPage({
 
       {/* Arbeitsvorrat: ohne Kostenart keine Umlage – und keine Jahresabrechnung. */}
       {ohneKostenart > 0 && sp.zuordnung !== "offen" ? (
-        <Alert variant="warning" title="Buchungen ohne Kostenart" className="mb-4">
-          {ohneKostenart} {ohneKostenart === 1 ? "Buchung ist" : "Buchungen sind"} keiner
+        <Alert variant="warning" title="Ausgaben ohne Kostenart" className="mb-4">
+          {ohneKostenart}{" "}
+          {ohneKostenart === 1 ? "Ausgabebuchung ist" : "Ausgabebuchungen sind"} keiner
           Kostenart zugeordnet und {ohneKostenart === 1 ? "kann" : "können"} deshalb nicht auf
           die Einheiten umgelegt werden. Solange das offen ist, lässt sich die
           Jahresabrechnung nicht fertigstellen.{" "}
@@ -754,7 +765,7 @@ export default async function WegBuchhaltungPage({
                 </Tipp>
               </form>
             ) : null}
-            <div className="overflow-x-auto">
+            <div className="scroll-schatten overflow-x-auto">
               <table className="w-full min-w-[920px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">

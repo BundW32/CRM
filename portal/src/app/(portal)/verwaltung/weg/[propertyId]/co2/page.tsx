@@ -113,7 +113,7 @@ export default async function Co2Page({
               </Card>
 
               <Card title={`Aufteilung je Einheit (${allocation.year})`}>
-                <div className="overflow-x-auto">
+                <div className="scroll-schatten overflow-x-auto">
                   <table className="w-full min-w-[520px] text-sm">
                     <thead>
                       <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">
@@ -160,7 +160,7 @@ export default async function Co2Page({
 
           {/* Stufentabelle zur Orientierung */}
           <Card title="10-Stufen-Modell (Wohngebäude)">
-            <div className="overflow-x-auto">
+            <div className="scroll-schatten overflow-x-auto">
               <table className="w-full min-w-[420px] text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">

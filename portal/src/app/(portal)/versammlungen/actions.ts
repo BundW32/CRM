@@ -468,6 +468,24 @@ export async function addAgendaFromTemplate(formData: FormData) {
   const tpl = MEETING_AGENDA_TEMPLATES.find((t) => t.key === key);
   if (!tpl) redirect(`/versammlungen/${meetingId}`);
 
+  // Serverseitiger Schutz gegen den doppelten TOP.
+  //
+  // Der Knopf ist ein `PendingButton` und sperrt während der Anfrage — das
+  // deckt den ungeduldigen Doppelklick ab, aber nicht zwei Tabs, einen
+  // wiederholten Absendevorgang oder einen Client ohne JavaScript. In einem
+  // Prüflauf ist genau das passiert: Ein zweiter Klick erzeugte einen zweiten
+  // Begrüßungs-TOP, der von Hand entfernt werden musste. Die Doppelung
+  // wegzuräumen ist harmlos; auf einer Tagesordnung, die schon mit der
+  // Einladung hinausgegangen ist, ist sie es nicht.
+  //
+  // Der Unique-Index [meetingId, templateKey] macht es unmöglich; hier wird
+  // nur eine verständliche Meldung daraus statt einer Datenbank-Ausnahme.
+  const schonDa = await db.meetingAgendaItem.findFirst({
+    where: { meetingId, templateKey: key },
+    select: { id: true },
+  });
+  if (schonDa) redirect(`/versammlungen/${meetingId}?fehler=top_doppelt`);
+
   let resolutionId: string | null = null;
   if (tpl.type === "BESCHLUSS") {
     const resolution = await db.resolution.create({
@@ -496,11 +514,46 @@ export async function addAgendaFromTemplate(formData: FormData) {
         description: tpl.description,
         type: tpl.type,
         resolutionId,
+        // Die Herkunft festhalten. Sie trägt zweierlei: das Stimmverbot bei
+        // der Entlastung (siehe `lib/weg/stimmverbot.ts`) und die Sperre gegen
+        // den doppelten TOP oben. Ein Titel allein könnte beides nicht — er
+        // ist danach frei änderbar.
+        templateKey: tpl.key,
       },
     });
   });
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}?flash=erstellt`);
+}
+
+/**
+ * Was an dieser Versammlung gegen ein Protokoll spricht — als Code für die
+ * Rückfrage, oder `null`, wenn nichts dagegen spricht.
+ *
+ * Beide Fälle sind Rückfragen, keine Sperren, und das ist Absicht: Für den
+ * Nachtrag einer Versammlung, die außerhalb des Portals stattgefunden hat, muss
+ * beides möglich bleiben. Nur beiläufig darf es nicht passieren — „Protokoll
+ * erstellen" ist der Knopf, der die Versammlung auf DURCHGEFUEHRT setzt und
+ * Tagesordnung wie Einladung einfriert.
+ */
+async function protokollBedenken(meeting: {
+  id: string;
+  scheduledAt: Date;
+}): Promise<"termin" | "offene_tops" | null> {
+  // (1) Termin in der Zukunft. Ein Protokoll über ein Ereignis, das noch nicht
+  //     stattgefunden hat, untergräbt die Beweiskraft der gesamten
+  //     Dokumentation — gegenüber Eigentümern wie vor Gericht.
+  if (meeting.scheduledAt > new Date()) return "termin";
+
+  // (2) Beschluss-TOPs, über die noch nicht abgestimmt wurde. Das PDF trägt
+  //     dann „offen (Ja 0 · Nein 0 · Enthaltung 0)" und geht in dieser Form an
+  //     alle Eigentümer — der übliche Ablauf, wenn das Protokoll direkt nach
+  //     der Versammlung entsteht und die Stimmzettel erst danach erfasst
+  //     werden.
+  const offen = await db.meetingAgendaItem.count({
+    where: { meetingId: meeting.id, type: "BESCHLUSS", resolution: { status: "OFFEN" } },
+  });
+  return offen > 0 ? "offene_tops" : null;
 }
 
 export async function generateProtocol(formData: FormData) {
@@ -510,6 +563,13 @@ export async function generateProtocol(formData: FormData) {
   if (!meeting) redirect("/versammlungen");
   // Für eine abgesagte Versammlung wird kein Protokoll erstellt.
   if (meeting.status === "ABGESAGT") redirect(`/versammlungen/${meetingId}?fehler=abgesagt`);
+
+  // Serverseitig, nicht nur in der Oberfläche: Ein ausgeblendeter Knopf ist
+  // keine Prüfung — dieselbe Aktion ließe sich sonst direkt aufrufen.
+  if (String(formData.get("bestaetigt") ?? "") !== "1") {
+    const bedenken = await protokollBedenken(meeting);
+    if (bedenken) redirect(`/versammlungen/${meetingId}?rueckfrage=${bedenken}`);
+  }
 
   try {
     await buildAndStoreProtocol(verwalter, meeting);
@@ -612,7 +672,13 @@ async function buildAndStoreProtocol(
   // Blob wieder entfernen, statt ein verwaistes Protokoll zurückzulassen.
   const updated = await db.ownersMeeting.updateMany({
     where: { id: meetingId, status: { not: "ABGESAGT" } },
-    data: { protocolDocumentId: doc.id, status: "DURCHGEFUEHRT" },
+    data: {
+      protocolDocumentId: doc.id,
+      status: "DURCHGEFUEHRT",
+      // Der Zeitstempel entscheidet später, ob das verteilte Protokoll noch zu
+      // den Beschlussergebnissen passt (siehe `protocolGeneratedAt` im Schema).
+      protocolGeneratedAt: new Date(),
+    },
   });
   if (updated.count !== 1) {
     await deleteBlob(upload.storedName).catch(() => {});

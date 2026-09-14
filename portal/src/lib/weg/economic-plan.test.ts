@@ -50,8 +50,9 @@ describe("advanceWeightsForKey", () => {
   it("VERBRAUCH/FESTBETRAG/INDIVIDUELL fallen auf MEA zurück", () => {
     for (const key of ["VERBRAUCH", "FESTBETRAG", "INDIVIDUELL"] as const) {
       const w = advanceWeightsForKey(units, key);
-      expect(w.find((s) => s.unitId === "we5")?.weight).toBe(240);
-      expect(w.find((s) => s.unitId === "te6")?.weight).toBe(50);
+      // Zehntausendstel — Anteile mit Nachkommastellen bleiben ganzzahlig.
+      expect(w.find((s) => s.unitId === "we5")?.weight).toBe(2_400_000);
+      expect(w.find((s) => s.unitId === "te6")?.weight).toBe(500_000);
     }
   });
 

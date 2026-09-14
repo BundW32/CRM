@@ -43,6 +43,17 @@ describe("anteilVon", () => {
   });
 });
 
+describe("Anteile mit Nachkommastellen", () => {
+  it("zeigt 250,17 von 1.000 so, wie es in der Teilungserklärung steht", () => {
+    const b = baueUmlagebasis([
+      { id: "a", label: "A", mea: 250.17, livingArea: null, personCount: null, unitType: "WOHNUNG" },
+      { id: "b", label: "B", mea: 749.83, livingArea: null, personCount: null, unitType: "WOHNUNG" },
+    ]);
+    expect(b.meaSumme).toBe(1000);
+    expect(anteilVon("MEA", b, "a")).toEqual({ einheit: "250,17", gesamt: "1.000" });
+  });
+});
+
 describe("schluesselMitAnteil", () => {
   const b = baueUmlagebasis(units);
 

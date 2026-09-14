@@ -31,6 +31,7 @@ import {
   updateOwnershipStart,
   deleteCostType,
 } from "./actions";
+import { formatMea, meaEingabe, meaGleich, summeMea } from "@/lib/weg/mea";
 
 export const dynamic = "force-dynamic";
 
@@ -90,9 +91,9 @@ export default async function WegStammdatenPage({
   ).length;
 
   // MEA-Summenprüfung: Σ Zähler der Einheiten muss den Nenner ergeben.
-  const meaSum = units.reduce((sum, u) => sum + (u.mea ?? 0), 0);
+  const meaSum = summeMea(units.map((u) => u.mea));
   const unitsWithoutMea = units.filter((u) => u.mea == null).length;
-  const meaOk = property.meaTotal != null && meaSum === property.meaTotal && unitsWithoutMea === 0;
+  const meaOk = property.meaTotal != null && meaGleich(meaSum, property.meaTotal) && unitsWithoutMea === 0;
 
   return (
     <>
@@ -155,11 +156,11 @@ export default async function WegStammdatenPage({
             >
               <input
                 name="meaTotal"
-                type="number"
-                min={1}
-                defaultValue={property.meaTotal ?? ""}
+                type="text"
+                inputMode="decimal"
+                defaultValue={meaEingabe(property.meaTotal)}
                 className={inputClass}
-                placeholder={meaSum > 0 ? String(meaSum) : "1000"}
+                placeholder={meaSum > 0 ? meaEingabe(meaSum) : "1000"}
               />
               {/* Der Nenner ist ein zweites, von Hand gepflegtes Feld neben der
                   Summe der Einheiten-Anteile. Das lässt sich nicht auflösen —
@@ -167,9 +168,9 @@ export default async function WegStammdatenPage({
                   bisher erfassten Einheiten ergeben, und genau diese Abweichung
                   soll auffallen. Was ging: die Summe danebenschreiben, statt
                   sie den Verwalter selbst ausrechnen zu lassen. */}
-              {meaSum > 0 && property.meaTotal !== meaSum ? (
+              {meaSum > 0 && !meaGleich(property.meaTotal, meaSum) ? (
                 <p className="mt-1 text-xs text-gray-500">
-                  Summe der erfassten Einheiten: {meaSum.toLocaleString("de-DE")}
+                  Summe der erfassten Einheiten: {formatMea(meaSum)}
                 </p>
               ) : null}
             </Field>
@@ -292,12 +293,11 @@ export default async function WegStammdatenPage({
             häufig 1.000 oder 10.000). Die Verteilung nach{" "}
             <Begriff name="miteigentumsanteil">Miteigentumsanteilen</Begriff> läuft auch
             ohne ihn — aber ohne Nenner lässt sich nicht prüfen, ob alle Einheiten erfasst
-            sind{meaSum > 0 ? ` (Summe bisher: ${meaSum.toLocaleString("de-DE")})` : ""}.
+            sind{meaSum > 0 ? ` (Summe bisher: ${formatMea(meaSum)})` : ""}.
           </Alert>
         ) : !meaOk ? (
           <Alert variant="warning" title="Miteigentumsanteile unvollständig">
-            Summe der Anteile ({meaSum.toLocaleString("de-DE")}) ≠ Nenner (
-            {property.meaTotal.toLocaleString("de-DE")})
+            Summe der Anteile ({formatMea(meaSum)}) ≠ Nenner ({formatMea(property.meaTotal)})
             {unitsWithoutMea > 0
               ? ` — ${unitsWithoutMea} Einheit${unitsWithoutMea !== 1 ? "en" : ""} ohne MEA`
               : ""}
@@ -305,8 +305,7 @@ export default async function WegStammdatenPage({
           </Alert>
         ) : (
           <Alert variant="success">
-            Miteigentumsanteile vollständig: {meaSum.toLocaleString("de-DE")} /{" "}
-            {property.meaTotal.toLocaleString("de-DE")}.
+            Miteigentumsanteile vollständig: {formatMea(meaSum)} / {formatMea(property.meaTotal)}.
           </Alert>
         )}
 
@@ -393,9 +392,10 @@ export default async function WegStammdatenPage({
                           <input
                             form={formId}
                             name="mea"
-                            type="number"
-                            min={0}
-                            defaultValue={u.mea ?? ""}
+                            type="text"
+                            inputMode="decimal"
+                            defaultValue={meaEingabe(u.mea)}
+                            placeholder="z. B. 250,17"
                             className={`${inputClass} w-24`}
                             aria-label={`MEA-Zähler der Einheit ${u.label}`}
                           />

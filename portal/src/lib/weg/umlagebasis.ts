@@ -14,6 +14,7 @@
 // und der kurze Anteil, der hinter dem Schlüssel in der Tabelle steht.
 import type { DistributionKey } from "@/generated/prisma/client";
 import type { UnitForDistribution } from "./distribution";
+import { formatMea, summeMea } from "./mea";
 
 export type UmlagebasisEinheit = {
   mea: number | null;
@@ -54,7 +55,7 @@ export function baueUmlagebasis(units: UnitForDistribution[]): Umlagebasis {
       einheit: !stellplatz,
       stellplatz,
     };
-    basis.meaSumme += u.mea ?? 0;
+    basis.meaSumme = summeMea([basis.meaSumme, u.mea]);
     basis.flaecheSumme += u.livingArea ?? 0;
     basis.personenSumme += u.personCount ?? 0;
     if (stellplatz) basis.stellplaetzeSumme += 1;
@@ -81,7 +82,7 @@ export function anteilVon(
   switch (key) {
     case "MEA":
       if (e.mea == null || basis.meaSumme <= 0) return null;
-      return { einheit: ganz.format(e.mea), gesamt: ganz.format(basis.meaSumme) };
+      return { einheit: formatMea(e.mea), gesamt: formatMea(basis.meaSumme) };
     case "FLAECHE":
       if (e.flaeche == null || basis.flaecheSumme <= 0) return null;
       return { einheit: `${flaeche.format(e.flaeche)} m²`, gesamt: `${flaeche.format(basis.flaecheSumme)} m²` };

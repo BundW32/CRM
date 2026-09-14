@@ -1,6 +1,7 @@
 // Umlage-Verteilungs-Engine: verteilt einen Gesamtbetrag (Integer-Cent)
 // centgenau auf Einheiten nach Gewichten. Kein UI, keine DB — pure Funktionen.
 import type { DistributionKey, UnitType } from "@/generated/prisma/client";
+import { meaGewicht } from "./mea";
 
 export type Share = { unitId: string; weight: number };
 
@@ -101,7 +102,8 @@ export function weightsForKey(units: UnitForDistribution[], key: DistributionKey
     case "MEA":
       return units.map((u) => {
         if (u.mea == null) throw new Error(`Einheit ohne Miteigentumsanteil (MEA): ${u.label}`);
-        return { unitId: u.id, weight: u.mea };
+        // Ganzzahl-Gewichte in Zehntausendsteln — Anteile wie 250,17 bleiben exakt.
+        return { unitId: u.id, weight: meaGewicht(u.mea) };
       });
     case "FLAECHE":
       return units.map((u) => {

@@ -472,14 +472,14 @@ export function ObjektForm({
                 {isWeg ? (
                   <Field label="MEA">
                     <input
-                      type="number"
-                      min={0}
+                      type="text"
+                      inputMode="decimal"
                       name="unitMea"
                       value={u.mea}
                       onChange={(e) =>
                         setUnits((rows) => rows.map((r) => (r.key === u.key ? { ...r, mea: e.target.value } : r)))
                       }
-                      placeholder="z. B. 250"
+                      placeholder="z. B. 250 oder 250,17"
                       className={inputClass}
                     />
                   </Field>

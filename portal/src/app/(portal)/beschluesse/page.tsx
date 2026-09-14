@@ -50,6 +50,7 @@ import {
   deleteResolution,
   withdrawResolution,
 } from "./actions";
+import { formatMea, summeMea } from "@/lib/weg/mea";
 
 export const dynamic = "force-dynamic";
 
@@ -137,7 +138,7 @@ function VoteSummary({
           Nach {weightLabel} – Ja: <strong className="text-gray-800">{outcome.ja}</strong> · Nein:{" "}
           <strong className="text-gray-800">{outcome.nein}</strong> · Enthaltung:{" "}
           <strong className="text-gray-800">{outcome.enthaltung}</strong>
-          {principle === "MEA" && eligibleMea > 0 ? ` von ${eligibleMea} MEA` : ""}
+          {principle === "MEA" && eligibleMea > 0 ? ` von ${formatMea(eligibleMea)} MEA` : ""}
         </p>
       ) : null}
 
@@ -348,7 +349,7 @@ export default async function BeschluessePage({
   for (const o of ownershipData) {
     ownerInfo.set(`${o.propertyId}:${o.userId}`, { mea: o.mea, voteUnits: o.voteUnits });
     if (o.mea != null) {
-      meaTotalMap.set(o.propertyId, (meaTotalMap.get(o.propertyId) ?? 0) + o.mea);
+      meaTotalMap.set(o.propertyId, summeMea([meaTotalMap.get(o.propertyId), o.mea]));
     } else {
       meaIncompleteSet.add(o.propertyId);
     }

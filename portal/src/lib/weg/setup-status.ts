@@ -13,6 +13,7 @@
 // (Unterlagen, Bankkonto, Verwalterbestellung), sind Vermerke in `WegSetupStep`.
 
 import { db } from "@/lib/db";
+import { formatMea, meaGleich, rundeMea } from "@/lib/weg/mea";
 
 export type SetupStepKey =
   | "objekt"
@@ -152,7 +153,7 @@ async function ladeEinen(propertyId: string): Promise<SetupStatus> {
       }),
     ]);
 
-  const meaSumme = unitAgg._sum.mea ?? 0;
+  const meaSumme = rundeMea(unitAgg._sum.mea ?? 0);
   const meaNenner = property?.meaTotal ?? null;
 
   return baueStatus(propertyId, {
@@ -219,7 +220,7 @@ function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
   // MEA stimmt, wenn ein Nenner gesetzt ist und die Anteile ihn treffen. Ohne
   // Nenner ist der Schritt trotzdem erledigt – MEA ist optional, solange die
   // Gemeinschaft nach Einheiten oder Fläche umlegt.
-  const meaStimmt = b.meaNenner === null || b.meaSumme === b.meaNenner;
+  const meaStimmt = b.meaNenner === null || meaGleich(b.meaSumme, b.meaNenner);
 
   const steps: SetupStep[] = [
     {
@@ -239,7 +240,7 @@ function baueStatus(propertyId: string | null, b: Befunde): SetupStatus {
       done: b.unitCount > 0 && meaStimmt,
       warnung:
         b.unitCount > 0 && !meaStimmt
-          ? `Die Anteile ergeben ${b.meaSumme}, der Nenner ist ${b.meaNenner}. Solange das nicht aufgeht, verteilt die Abrechnung falsch.`
+          ? `Die Anteile ergeben ${formatMea(b.meaSumme)}, der Nenner ist ${formatMea(b.meaNenner)}. Solange das nicht aufgeht, verteilt die Abrechnung falsch.`
           : undefined,
       href: stammdaten("einheiten"),
       manual: false,

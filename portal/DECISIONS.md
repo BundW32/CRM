@@ -2385,3 +2385,31 @@ technische.
      Zahlungen, die schon über den Bankimport gebucht sind; die Tipps auf
      Liste und CSV-Import erklären beide Wege. KI-Transparenz Ziffer e) nennt
      den neuen Ort und den Lohnanteil; die Datenverarbeitung ist dieselbe.
+
+326. **Miteigentumsanteile mit Nachkommastellen — „250,17 von 1.000" wird so
+     gespeichert, gerechnet und angezeigt, wie es in der Teilungserklärung
+     steht.** (14.09.2026) Derselbe Testnutzer: Seine Teilungserklärung nennt
+     Anteile mit zwei Nachkommastellen, das Feld nahm nur ganze Zahlen. Der
+     Umweg über 100.000stel (25.017 von 100.000) rechnet zwar richtig, aber
+     jede Abrechnung zeigte dann eine Zahl, die in keinem Dokument steht — und
+     der Eigentümer soll seine Abrechnung mit der Teilungserklärung in der Hand
+     nachprüfen können (Nr. 323). Deshalb nativ: `Unit.mea`, `Property.meaTotal`
+     und `Ownership.mea` sind jetzt `Float` (Migration
+     `20260914090000_mea_nachkommastellen`, bestehende Ganzzahlen bleiben
+     dieselben Werte), gerundet auf vier Nachkommastellen — mehr nennt keine
+     Teilungserklärung. **Gerechnet wird nie mit der Gleitkommazahl selbst**
+     (`lib/weg/mea.ts`): Die Verteilung (`weightsForKey`,
+     `advanceWeightsForKey`) bekommt ganzzahlige Gewichte in Zehntausendsteln
+     wie die Fläche in cm², `mea-sync` verteilt den Anteil einer Einheit auf
+     Miteigentümer in Zehntausendsteln und rechnet zurück (250,17 zu je 50 %
+     → zweimal 125,085, Summe exakt), und Summen werden über `meaGleich`
+     verglichen — 250,17 + 749,83 ist in IEEE-754 nicht 1000, die
+     Summenkontrolle auf den Stammdaten (und in `setup-status`, auf der
+     Gemeinschaftsseite) darf daran nicht scheitern. Eingabe über `leseMea`
+     (Komma oder Punkt, höchstens vier Stellen, kein Tausenderpunkt — bei
+     „1.000" wäre nicht entscheidbar, was gemeint ist), Anzeige über
+     `formatMea` („205", „250,17", „1.000"); die Felder sind Textfelder mit
+     `inputMode="decimal"`, weil `type="number"` je nach Browser das Komma
+     verweigert. Unverändert: Der Nenner bleibt ein eigenes Feld neben der
+     Summe (Nr. 323 ff.), die Mehrheitsrechnung nach § 25 WEG
+     (`2 * meaJa > meaTotal`) funktioniert mit Dezimalzahlen unverändert.

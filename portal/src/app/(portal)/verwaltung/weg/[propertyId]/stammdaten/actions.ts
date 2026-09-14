@@ -14,6 +14,7 @@ import { WEG_COST_CATALOG, costTypeFieldsFrom } from "@/lib/weg/cost-catalog";
 import { parseAnteil } from "@/lib/weg/anteil";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
 import { loadWegProperty } from "@/lib/weg/scope";
+import { leseMea } from "@/lib/weg/mea";
 
 const UNIT_TYPES = ["WOHNUNG", "TEILEIGENTUM", "STELLPLATZ", "SONSTIGES"] as const;
 const DISTRIBUTION_KEYS = ["MEA", "FLAECHE", "EINHEITEN", "PERSONEN", "VERBRAUCH", "FESTBETRAG", "INDIVIDUELL", "JE_STELLPLATZ"] as const;
@@ -64,6 +65,9 @@ const optionalInt = z.preprocess(
   (v) => (typeof v === "string" && v.trim() !== "" ? Number(v.trim()) : null),
   z.number().int().min(0).nullable(),
 );
+// Miteigentumsanteil mit bis zu vier Nachkommastellen („250,17"), siehe lib/weg/mea.ts.
+// Ungültiges lehnt das Schema ab, statt still null zu speichern.
+const optionalMea = z.preprocess((v) => leseMea(v), z.number().min(0).nullable());
 const optionalFloat = z.preprocess(
   (v) => (typeof v === "string" && v.trim() !== "" ? Number(v.trim().replace(",", ".")) : null),
   z.number().min(0).nullable(),
@@ -73,7 +77,7 @@ const optionalFloat = z.preprocess(
 
 const settingsSchema = z.object({
   propertyId: z.string().min(1),
-  meaTotal: optionalInt,
+  meaTotal: optionalMea,
   fiscalYearStartMonth: z.coerce.number().int().min(1).max(12),
   dueDayRule: z.enum(["MONATSERSTER", "DRITTER_WERKTAG", "FREIER_TAG"]),
   // Auf den 28. begrenzt, damit es den Termin in jedem Monat gibt.
@@ -155,7 +159,7 @@ const unitSchema = z.object({
   stellplatzTyp: z
     .union([z.enum(STELLPLATZ_TYPEN), z.literal(""), z.null()])
     .transform((v) => (v ? v : null)),
-  mea: optionalInt,
+  mea: optionalMea,
   livingArea: optionalFloat,
   personCount: optionalInt,
 });

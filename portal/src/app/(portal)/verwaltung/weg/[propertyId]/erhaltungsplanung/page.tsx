@@ -169,7 +169,7 @@ export default async function ErhaltungsplanungPage({
           {/* ── Jahresprognose ──────────────────────────────────────────── */}
           {projection.rows.length > 0 ? (
             <Card title="Prognose je Jahr">
-              <div className="overflow-x-auto">
+              <div className="scroll-schatten overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">

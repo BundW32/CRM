@@ -485,6 +485,35 @@ summary:focus-visible,
   }
 }
 
+/* ── Waagerecht scrollende Kästen sagen, dass sie scrollen ─────────────────
+ *
+ * Eine breite Tabelle steckt in einem `overflow-x-auto`-Kasten. Das ist
+ * richtig – nur sah man ihm nichts an: Auf einem schmalen Fenster endete die
+ * Tabelle einfach am Rand, und die Spalten dahinter (bei der Kontenprüfung der
+ * Jahresabrechnung ausgerechnet die EINGABEFELDER) existierten für den
+ * Betrachter nicht. Genau das ist in einem Prüflauf als „Bedienelemente
+ * versteckt" gemeldet worden.
+ *
+ * Die Lösung braucht kein JavaScript und keinen Zustand: Zwei weiße Verläufe
+ * liegen `local` (sie scrollen mit dem Inhalt und decken die Schatten ab,
+ * solange nichts abgeschnitten ist), zwei Schatten liegen `scroll` (sie bleiben
+ * am Kastenrand stehen). Ist links oder rechts etwas verborgen, wandert der
+ * weiße Verlauf weg und der Schatten kommt zum Vorschein – von selbst, in
+ * genau der Richtung, in der es weitergeht.
+ *
+ * Die Farbe ist bewusst weiß statt `transparent`: Die Kästen sitzen auf weißen
+ * Karten. Auf farbigem Grund müsste die Deckfarbe mitziehen. */
+.scroll-schatten {
+  background:
+    linear-gradient(to right, white 30%, rgb(255 255 255 / 0)) left center / 2.5rem 100% no-repeat,
+    linear-gradient(to left, white 30%, rgb(255 255 255 / 0)) right center / 2.5rem 100% no-repeat,
+    radial-gradient(farthest-side at 0 50%, rgb(24 20 15 / 0.16), rgb(24 20 15 / 0)) left center /
+      0.75rem 100% no-repeat,
+    radial-gradient(farthest-side at 100% 50%, rgb(24 20 15 / 0.16), rgb(24 20 15 / 0)) right center /
+      0.75rem 100% no-repeat;
+  background-attachment: local, local, scroll, scroll;
+}
+
 /* ── Marken-Bereich der SaaS-Variante ──────────────────────────────────────
    Login und Registrierung sind gemeinsame Seiten beider Varianten. Statt in
    ihnen jede Farbklasse zu verzweigen, zeigen die allgemeinen Marken-Tokens

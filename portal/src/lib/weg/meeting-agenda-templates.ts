@@ -33,11 +33,32 @@ export const MEETING_AGENDA_TEMPLATES: AgendaTemplate[] = [
       "Beschlussvorschlag: Die Eigentümer beschließen die Einforderung bzw. Erstattung der Nachschüsse und Anpassungsbeträge (Abrechnungsspitze) aus der vorgelegten Jahresabrechnung (§ 28 Abs. 2 WEG). Fällig 14 Tage nach Beschlussfassung.",
     type: "BESCHLUSS",
   },
+  // ── Warum die Entlastung ZWEI Punkte sind ──────────────────────────────────
+  //
+  // Bis hierher stand hier ein gemeinsamer TOP „Entlastung der Verwaltung / des
+  // Verwaltungsbeirats". Das ist bequem und in einer Selbstverwaltung
+  // gefährlich: Wer über seine eigene Entlastung abstimmt, unterliegt dem
+  // Stimmverbot des § 25 Abs. 4 WEG (die Entlastung ist ein negatives
+  // Schuldanerkenntnis nach § 397 Abs. 2 BGB und damit ein Rechtsgeschäft mit
+  // dem Betroffenen). Bei einem gemeinsamen Beschluss trifft das den Verwalter
+  // UND jedes Beiratsmitglied gleichzeitig — in einer kleinen Gemeinschaft
+  // bleiben davon womöglich zwei Stimmberechtigte übrig, und der Punkt ist
+  // faktisch nicht mehr beschließbar.
+  //
+  // Getrennt abgestimmt, ist beim Beirats-TOP der Verwalter stimmberechtigt und
+  // beim Verwalter-TOP der Beirat. Das ist zugleich die übliche Praxis.
   {
-    key: "ENTLASTUNG",
-    title: "Entlastung der Verwaltung / des Verwaltungsbeirats",
+    key: "ENTLASTUNG_VERWALTUNG",
+    title: "Entlastung der Verwaltung",
     description:
-      "Beschlussvorschlag: Der Verwaltung und dem Verwaltungsbeirat wird für das abgelaufene Wirtschaftsjahr Entlastung erteilt.",
+      "Beschlussvorschlag: Der Verwaltung wird für das abgelaufene Wirtschaftsjahr Entlastung erteilt. — Hinweis: Ist die Verwaltung zugleich Wohnungseigentümer, darf sie über ihre eigene Entlastung nicht mitstimmen (§ 25 Abs. 4 WEG).",
+    type: "BESCHLUSS",
+  },
+  {
+    key: "ENTLASTUNG_BEIRAT",
+    title: "Entlastung des Verwaltungsbeirats",
+    description:
+      "Beschlussvorschlag: Dem Verwaltungsbeirat wird für das abgelaufene Wirtschaftsjahr Entlastung erteilt. — Hinweis: Die Beiratsmitglieder dürfen über ihre eigene Entlastung nicht mitstimmen (§ 25 Abs. 4 WEG).",
     type: "BESCHLUSS",
   },
   {

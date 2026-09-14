@@ -17,11 +17,26 @@ const connectSrcGoogle = googleTagAktiv
   ? " https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://googleads.g.doubleclick.net https://www.google.com https://www.googleadservices.com"
   : "";
 
+// `next dev` braucht `eval` — der Produktions-Build nicht.
+//
+// Ohne diese Ausnahme blockt die CSP im Entwicklungsmodus das Client-Bundle,
+// und dann hydratisiert **keine einzige** Client-Komponente: Kein
+// `PendingButton` sperrt, kein `ConfirmActionButton` fragt zurück, kein
+// ToastHost meldet etwas, keine Combobox öffnet. Die Seiten sehen dabei völlig
+// normal aus — Server-Rendering liefert das Markup ja —, nur reagiert nichts.
+// Genau dieses Bild („ich klicke, und es passiert nichts") stand in einem
+// Prüfbericht als Produktfehler, und es kostete einen halben Prüflauf, es dem
+// Browser statt dem Programm zuzuordnen.
+//
+// Streng bleibt, was ausgeliefert wird: In der Produktion ist `unsafe-eval`
+// nicht gesetzt.
+const evalFuerDev = process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'";
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
-  `script-src 'self' 'unsafe-inline'${scriptSrcGoogle}`,
+  `script-src 'self' 'unsafe-inline'${evalFuerDev}${scriptSrcGoogle}`,
   // pdf.js rendert die Dokumentvorschau in einem Web Worker. Ohne worker-src
   // greift die Vorschau auf script-src zurück; der Blob-Fallback von pdf.js
   // bräuchte dann blob: und würde sonst still scheitern.

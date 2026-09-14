@@ -50,11 +50,22 @@ export async function WegArbeitsbereich({
     }),
     // Buchhalterischer Arbeitsvorrat. Beide Zahlen kennt der Jahresfahrplan
     // nicht — sie haben keine Frist, blockieren aber den Jahresabschluss.
+    //
+    // NUR Ausgaben, und das ist der ganze Punkt: Die Zahl stand hier für
+    // Einnahmen UND Ausgaben, der Satz daneben behauptete aber, sie
+    // „blockieren die Jahresabrechnung". Blockierend sind ausschließlich
+    // Ausgaben ohne Kostenart (`annual-statement.ts`, Befund
+    // „ohne-kostenart"); ein Hausgeld-Eingang trägt zu Recht keine Kostenart,
+    // sondern eine Einheitenzuordnung — und die zählt `offeneZahlungen`
+    // gleich darunter. So meldete die Übersicht sieben Blocker, während die
+    // Prüfliste der Jahresabrechnung sauber durchlief. Zwei widersprüchliche
+    // Aussagen über dieselbe Sache, und die falsche stand am prominenteren
+    // Ort.
     db.booking.count({
       where: {
         propertyId: property.id,
         costTypeId: null,
-        kind: { in: ["EINNAHME", "AUSGABE"] },
+        kind: "AUSGABE",
         ...NOT_REVERSED,
       },
     }),
@@ -144,7 +155,8 @@ export async function WegArbeitsbereich({
             {ohneKostenart > 0 ? (
               <li className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 px-4 py-3">
                 <span className="min-w-0 flex-1 text-sm text-gray-700">
-                  {ohneKostenart} {ohneKostenart === 1 ? "Buchung ist" : "Buchungen sind"} keiner
+                  {ohneKostenart}{" "}
+                  {ohneKostenart === 1 ? "Ausgabebuchung ist" : "Ausgabebuchungen sind"} keiner
                   Kostenart zugeordnet — sie {ohneKostenart === 1 ? "kann" : "können"} nicht
                   umgelegt werden und {ohneKostenart === 1 ? "blockiert" : "blockieren"} die
                   Jahresabrechnung.

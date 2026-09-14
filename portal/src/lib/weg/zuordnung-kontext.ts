@@ -25,7 +25,7 @@ export async function ladeZuordnungsKontext(
 ): Promise<ZuordnungsKontext> {
   const stichtag = optionen.stichtag ?? new Date();
   const mitHistorie = optionen.mitHistorie ?? true;
-  const [units, mandate, eigentuemer, posten, historie] = await Promise.all([
+  const [units, mandate, eigentuemer, posten, historie, kostenarten] = await Promise.all([
     db.unit.findMany({
       where: { propertyId },
       select: { id: true, label: true },
@@ -72,6 +72,19 @@ export async function ladeZuordnungsKontext(
           },
           orderBy: { bookingDate: "desc" },
           take: HISTORIE_MAX,
+        })
+      : [],
+    // Die Kostenarten des Objekts. Sie fehlten hier, und damit fehlte dem
+    // Vorschlag die naheliegendste Regel überhaupt: nachzusehen, ob der Name
+    // einer Kostenart wörtlich im Verwendungszweck steht. Ohne sie hing alles
+    // an der Historie — und eine frisch eingerichtete WEG hat keine. Nur bei
+    // `mitHistorie`, denn die Hausgeld-Seite fragt ausschließlich nach
+    // Einheiten und braucht die Kostenarten nicht.
+    mitHistorie
+      ? db.costType.findMany({
+          where: { propertyId, active: true },
+          select: { id: true, name: true },
+          orderBy: [{ orderIndex: "asc" }, { name: "asc" }],
         })
       : [],
   ]);
@@ -126,5 +139,6 @@ export async function ladeZuordnungsKontext(
       costTypeName: h.costType?.name ?? "",
       bookingDate: h.bookingDate,
     })),
+    kostenarten,
   };
 }

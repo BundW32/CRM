@@ -141,8 +141,22 @@ export function PageTitle({
 // und bei einem Listenrahmen, der seine Zeilen selbst abteilt und deshalb keinen
 // Innenabstand verträgt. Ohne diesen Export schrieben beide die vier Klassen ab –
 // und wichen beim nächsten Feinschliff voneinander ab.
+// `min-w-0` ist hier der wichtigste Teil, und er sieht aus wie keiner.
+//
+// Karten stehen fast überall als Kinder eines `grid`. Ein Grid-Kind hat von
+// sich aus `min-width: auto` und weigert sich damit, unter die min-content-
+// Breite seines Inhalts zu schrumpfen. Steckt in der Karte eine Tabelle oder
+// eine Formularzeile, wächst die Karte über die Spalte hinaus, und weil sie
+// wächst, bekommen die `overflow-x-auto`-Kästen DARIN nie einen Anlass zu
+// scrollen — die vorhandene Vorkehrung lief also leer. Auf einem Telefon
+// (390 px) schob das den ganzen Seitenkörper um 308–683 px nach rechts:
+// Umbuchungsmaske, Planwerte und die Kontenprüfung der Jahresabrechnung waren
+// dort nicht erreichbar, und die Seite scrollte seitwärts. Gemessen an
+// /buchhaltung, /wirtschaftsplan, /jahresabrechnung, /hausgeld und
+// /stammdaten; mit dieser einen Angabe ist der Überlauf auf allen fünf 0 px,
+// und die Scroll-Kästen arbeiten wie gedacht.
 export const cardSurfaceClass =
-  "rounded-2xl border border-gray-200 bg-white shadow-sm";
+  "min-w-0 rounded-2xl border border-gray-200 bg-white shadow-sm";
 
 export function Card({
   title,

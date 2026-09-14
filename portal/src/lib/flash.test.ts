@@ -47,5 +47,41 @@ describe("Codes im Quelltext", () => {
     const unbekannt = [...new Set(treffer)].filter((c) => !(c in flashMessages));
     expect(unbekannt, `Unbekannte Flash-Codes: ${unbekannt.join(", ")}`).toEqual([]);
   });
+
+  /**
+   * Der zweitstillste Fehler, und der Test darüber hatte ihn nicht gesehen:
+   * Reihenfolge.
+   *
+   * `redirect("/beschluesse#abc?flash=gespeichert")` sieht richtig aus und ist
+   * es nicht. Nach den URL-Regeln beginnt das Fragment beim ersten `#` und
+   * reicht bis zum Ende — `abc?flash=gespeichert` ist also **vollständig**
+   * Fragment, und einen Suchparameter `flash` gibt es nicht. Der ToastHost
+   * liest `searchParams` und schweigt. So lagen drei Rückmeldungen der
+   * Beschlüsse-Seite still, darunter die nach jeder Stimmabgabe.
+   *
+   * Der Test oben greift das nicht ab: Sein `grep` findet `?flash=gespeichert`
+   * auch mitten im Fragment und hält den Code für in Ordnung — er ist es ja
+   * auch, er kommt nur nie an. Die richtige Reihenfolge steht in AGENTS.md
+   * („Buttons"): erst der Parameter, dann der Anker.
+   */
+  it("setzt den Parameter VOR den Anker, nicht dahinter", () => {
+    // grep endet mit Code 1, wenn es nichts findet — und genau das ist hier der
+    // Erfolgsfall. `execFileSync` wirft dann, deshalb der Fang.
+    let zeilen = "";
+    try {
+      zeilen = execFileSync(
+        "grep",
+        ["-rnE", "[\"'`][^\"'`]*#[^\"'`]*[?&]flash=", "src/app", "src/components"],
+        { encoding: "utf8" },
+      ).trim();
+    } catch {
+      zeilen = "";
+    }
+
+    expect(
+      zeilen,
+      `Anker steht vor dem flash-Parameter, die Meldung kommt nie an:\n${zeilen}`,
+    ).toBe("");
+  });
 });
 

@@ -50,7 +50,13 @@ export type Pruefziel =
  * `finalizeStatement` gelesen.
  */
 export type StatementBefund = {
-  art: "verteilung" | "stammdaten" | "ohne-kostenart" | "zufuehrung-plan" | "leer";
+  art:
+    | "verteilung"
+    | "stammdaten"
+    | "ohne-kostenart"
+    | "zufuehrung-plan"
+    | "leer"
+    | "jahr-laeuft";
   /** true = verhindert das Fertigstellen. */
   blockierend: boolean;
   /** Kurz, für die Prüfliste. */
@@ -72,6 +78,13 @@ export type StatementInput = {
    * Kostenart" lässt offen, ob eine Buchung oder dreißig zu bearbeiten sind.
    */
   otherExpenseCount?: number;
+  /**
+   * Ende des Wirtschaftsjahres, WENN es noch in der Zukunft liegt — sonst
+   * `null`/`undefined`. Der Aufrufer entscheidet das, weil „heute" keine
+   * Eingabe einer reinen Funktion sein soll: Ein Test, dessen Ergebnis vom
+   * Kalender abhängt, geht irgendwann von selbst kaputt.
+   */
+  jahrLaeuftBis?: Date | null;
   // manuelle Verteilung je Kostenart → Einheit (für MANUAL_KEYS)
   manualAmounts: Map<string, Map<string, number>>;
   // tatsächliche Umbuchungen Giro → Rücklage im Jahr
@@ -377,6 +390,41 @@ export function computeStatement(input: StatementInput): StatementResult {
         filter: { zuordnung: "offen", art: "AUSGABE" },
         label: "Die betroffenen Buchungen zuordnen",
       },
+    });
+  }
+
+  // Wirtschaftsjahr noch nicht abgelaufen?
+  //
+  // § 28 Abs. 4 WEG: Der Vermögensbericht wird „nach Ablauf des Kalenderjahres"
+  // erstellt, und die Abrechnung nach Abs. 2 setzt ein abgelaufenes Jahr
+  // ebenso voraus. Das Programm ließ jedes Jahr von 2000 bis 2100 zu und
+  // stellte kommentarlos fertig.
+  //
+  // Das Tückische daran ist nicht die Rechnung — die stimmt. Es ist die
+  // Lesart: Der Vermögensbericht weist „Forderungen gegen Eigentümer" allein
+  // aus den bis dahin erzeugten Sollstellungen aus. Im Produkttest waren das
+  // zehn von zwölf Monaten; die Summe sah aus wie eine Jahresforderung und war
+  // eine Zwischensumme. Wer sie ungeprüft in eine Versammlung trägt, verhandelt
+  // über eine Zahl, die sich noch ändert.
+  //
+  // Bewusst NICHT blockierend: Eine unterjährige Vorschau ist ein zulässiger
+  // und nützlicher Arbeitsschritt. Nur stillschweigend darf sie nicht bleiben.
+  if (input.jahrLaeuftBis) {
+    const bis = new Intl.DateTimeFormat("de-DE", {
+      dateStyle: "medium",
+      timeZone: "Europe/Berlin",
+    }).format(input.jahrLaeuftBis);
+    befunde.push({
+      art: "jahr-laeuft",
+      blockierend: false,
+      titel: "Wirtschaftsjahr läuft noch",
+      text:
+        `Das Wirtschaftsjahr endet erst am ${bis}. Ausgaben, Zahlungen und ` +
+        "Sollstellungen der verbleibenden Monate fehlen deshalb noch — die " +
+        "ausgewiesenen Forderungen gegen Eigentümer sind eine Zwischensumme, " +
+        "keine Jahresforderung. Die Abrechnung nach § 28 Abs. 2 WEG und der " +
+        "Vermögensbericht nach § 28 Abs. 4 WEG gehören nach Ablauf des Jahres.",
+      ziel: { art: "buchhaltung", filter: {}, label: "Buchhaltung des Jahres öffnen" },
     });
   }
 

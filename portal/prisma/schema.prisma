@@ -1135,6 +1135,16 @@ model OwnersMeeting {
   invitationSentAt   DateTime?
   attendanceNote     String? // Anwesenheits-/Vertretungsvermerk fürs Protokoll
   protocolDocumentId String? // Id des erzeugten Protokoll-Dokuments
+  // Wann das Protokoll zuletzt erzeugt wurde.
+  //
+  // Ohne diesen Zeitstempel lässt sich die wichtigste Frage nicht beantworten:
+  // Ist das an die Eigentümer verteilte Protokoll noch aktuell? In der Praxis
+  // schreibt die Verwaltung es direkt nach der Versammlung, während die
+  // Stimmzettel noch nicht erfasst sind — das PDF trägt dann „offen (Ja 0 ·
+  // Nein 0)" und geht so an alle. Trägt danach jemand die Ergebnisse nach,
+  // gibt es bislang keinen Hinweis, dass das Verteilte veraltet ist. Mit dem
+  // Zeitstempel genügt ein Vergleich gegen `Resolution.decidedAt`.
+  protocolGeneratedAt DateTime?
   createdById        String
   createdBy          User                @relation("MeetingCreatedBy", fields: [createdById], references: [id])
   createdAt          DateTime            @default(now())
@@ -1155,8 +1165,25 @@ model MeetingAgendaItem {
   type         AgendaItemType @default(INFO)
   resolutionId String? // bei type BESCHLUSS: verknüpfter Beschluss
   resolution   Resolution?    @relation(fields: [resolutionId], references: [id], onDelete: SetNull)
+  // Aus welcher Vorlage dieser TOP stammt (`MEETING_AGENDA_TEMPLATES`).
+  //
+  // Das Modell kannte bislang kein Thema — ein TOP war Titel plus Freitext.
+  // Für das Stimmverbot nach § 25 Abs. 4 WEG reicht das nicht: Ob ein Beschluss
+  // die Entlastung der Verwaltung betrifft, entscheidet darüber, WER mitstimmen
+  // darf, und diese Frage über einen frei änderbaren Titel zu beantworten wäre
+  // zu wenig. Wer die Vorlage benutzt, bekommt hier die verlässliche Antwort;
+  // für von Hand angelegte TOPs und den Bestand bleibt der Titelabgleich als
+  // Rückfall (siehe `lib/weg/stimmverbot.ts`).
+  //
+  // Nullable und ohne Vorbelegung: Bestehende TOPs stammen aus einer Zeit ohne
+  // dieses Feld, und ein geratener Schlüssel wäre schlimmer als keiner.
+  templateKey  String?
 
   @@index([meetingId])
+  // Ein Vorlagen-TOP höchstens einmal je Versammlung. Der Doppelklick auf
+  // „Vorlage übernehmen" erzeugte sonst zwei gleiche Tagesordnungspunkte —
+  // clientseitig war er schon gesperrt, serverseitig nicht.
+  @@unique([meetingId, templateKey])
 }
 
 // Aufgabe/Notiz des Verwaltungsbeirats (eigener Beirats-Bereich). Nur für

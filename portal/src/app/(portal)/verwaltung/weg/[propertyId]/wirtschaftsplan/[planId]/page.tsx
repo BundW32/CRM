@@ -120,17 +120,23 @@ export default async function WirtschaftsplanDetailPage({
       : [];
 
   const isDraft = plan.status === "ENTWURF";
-  // Einmal gebaut, an drei Stellen gezeigt: bei fehlgeschlagener Ablage, bei
-  // übersprungenen Einheiten und dauerhaft im Hinweis zum beschlossenen Plan.
-  const ablageWiederholen = (
+  // Derselbe Knopf an drei Stellen — aber nicht mit derselben Beschriftung.
+  //
+  // „Erneut versuchen" setzt einen gescheiterten Versuch voraus. Im dauerhaften
+  // Hinweis zum beschlossenen Plan steht der Knopf jedoch, obwohl alles
+  // geklappt hat: Er ist dort für später gedacht — nach einem Eigentümerwechsel
+  // oder wenn jemand nachgetragen wurde. Wer ihn dort las, hielt eine gelungene
+  // Ablage für misslungen und drückte ihn zur Sicherheit. Deshalb sagt der
+  // Knopf, was er tut, und nur im Fehlerfall, dass er etwas wiederholt.
+  const ablageKnopf = (beschriftung: string) => (
     <form action={wiederholeAblage} className="mt-2">
       <input type="hidden" name="propertyId" value={property.id} />
       <input type="hidden" name="planId" value={plan.id} />
-      <PendingButton className={buttonSecondaryClass}>
-        Ablage erneut versuchen
-      </PendingButton>
+      <PendingButton className={buttonSecondaryClass}>{beschriftung}</PendingButton>
     </form>
   );
+  const ablageWiederholen = ablageKnopf("Ablage erneut versuchen");
+  const ablageErneut = ablageKnopf("Einzelwirtschaftspläne erneut ablegen");
 
   // Vorschussbedarf = geplante Ausgaben − geplante Einnahmen (§ 28 Abs. 1 WEG).
   // Die rohe Summe aller Positionen wäre falsch, sobald es Erträge gibt.
@@ -303,7 +309,7 @@ mit der Jahresabrechnung verrechnet.`
           {sp.ohne && sp.ohne !== "0" ? (
             <>
               {` Für ${sp.ohne} ${sp.ohne === "1" ? "Einheit" : "Einheiten"} ist kein Eigentümer erfasst — dort wurde nichts abgelegt, damit der Plan nicht für alle sichtbar wird. Eigentümer in den Stammdaten nachtragen, dann hier erneut ablegen.`}
-              {ablageWiederholen}
+              {ablageErneut}
             </>
           ) : null}
         </Alert>
@@ -345,7 +351,7 @@ mit der Jahresabrechnung verrechnet.`
           &bdquo;Dokumente&ldquo;; sie lassen sich jederzeit erneut ablegen — etwa nach einem
           Eigentümerwechsel oder wenn ein Eigentümer nachgetragen wurde. Vorhandene Dokumente
           werden dabei ersetzt, nicht verdoppelt.
-          {ablageWiederholen}
+          {ablageErneut}
         </Alert>
       ) : null}
 
@@ -361,7 +367,7 @@ mit der Jahresabrechnung verrechnet.`
           <form action={updatePlanItems}>
             <input type="hidden" name="propertyId" value={property.id} />
             <input type="hidden" name="planId" value={plan.id} />
-            <div className="overflow-x-auto">
+            <div className="scroll-schatten overflow-x-auto">
               <table className="w-full min-w-[640px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
@@ -444,7 +450,7 @@ mit der Jahresabrechnung verrechnet.`
               .
             </Alert>
           ) : advances ? (
-            <div className="overflow-x-auto">
+            <div className="scroll-schatten overflow-x-auto">
               <table className="w-full min-w-[520px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">

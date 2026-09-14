@@ -342,6 +342,11 @@ export async function computeStatementView(
     reserveSpendByCostType,
     otherExpenseCents: otherAgg._sum.amountCents ?? 0,
     otherExpenseCount: otherAgg._count,
+    // `end` ist der erste Tag NACH dem Wirtschaftsjahr (exklusiv). Liegt er in
+    // der Zukunft, läuft das Jahr noch — dann sagt die Prüfliste das, statt
+    // eine Zwischensumme wie eine Jahresforderung aussehen zu lassen.
+    // Ausgewiesen wird der letzte Tag des Jahres, nicht der erste danach.
+    jahrLaeuftBis: end > new Date() ? new Date(end.getTime() - 86_400_000) : null,
     manualAmounts,
     reserveTransferCents,
     reserveTransferKey,

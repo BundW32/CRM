@@ -136,6 +136,39 @@ describe("computeStatement", () => {
     expect(r.errors.some((e) => e.includes("ohne Kostenart"))).toBe(true);
   });
 
+  // ── Noch laufendes Wirtschaftsjahr ────────────────────────────────────────
+  //
+  // Aus dem Produkttest: Eine im September fertiggestellte Abrechnung für 2026
+  // wies „Forderungen gegen Eigentümer: 34.987,00 €" aus — zehn von zwölf
+  // Monatsraten. Die Zahl war richtig gerechnet und las sich wie eine
+  // Jahresforderung. Genau dieser Unterschied fehlte als Aussage.
+  describe("Wirtschaftsjahr läuft noch", () => {
+    it("meldet einen Hinweis, wenn das Jahresende in der Zukunft liegt", () => {
+      const r = computeStatement(baseInput({ jahrLaeuftBis: new Date(Date.UTC(2026, 11, 31)) }));
+      const b = r.befunde.find((x) => x.art === "jahr-laeuft");
+      expect(b).toBeDefined();
+      expect(b!.text).toContain("31.12.2026");
+      expect(b!.text).toContain("Zwischensumme");
+    });
+
+    it("blockiert das Fertigstellen NICHT — eine unterjährige Abrechnung bleibt möglich", () => {
+      const r = computeStatement(baseInput({ jahrLaeuftBis: new Date(Date.UTC(2026, 11, 31)) }));
+      expect(r.befunde.find((x) => x.art === "jahr-laeuft")!.blockierend).toBe(false);
+      expect(r.errors).toEqual([]);
+      // Als Hinweis muss er trotzdem sichtbar sein.
+      expect(r.warnings.some((w) => w.includes("Wirtschaftsjahr endet erst"))).toBe(true);
+    });
+
+    it("schweigt beim abgelaufenen Jahr", () => {
+      // Der Aufrufer setzt das Feld nur, wenn das Jahresende in der Zukunft
+      // liegt — „heute" ist bewusst keine Eingabe dieser reinen Funktion.
+      expect(computeStatement(baseInput()).befunde.some((x) => x.art === "jahr-laeuft")).toBe(false);
+      expect(
+        computeStatement(baseInput({ jahrLaeuftBis: null })).befunde.some((x) => x.art === "jahr-laeuft"),
+      ).toBe(false);
+    });
+  });
+
   // Die Prüfung „Summe der Einzelabrechnungen == Gesamtkosten" ist bei einer
   // leeren Abrechnung 0 == 0. Sie besteht also — und die Seite meldete daraufhin
   // „Verteilung vollständig und centgenau" für ein Jahr ohne eine einzige

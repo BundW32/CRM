@@ -277,6 +277,11 @@ export default async function JahresabrechnungDetailPage({
   const letzterTagDatum = new Date(new Date(view.fyEnd).getTime() - 86_400_000);
   const letzterTag = letzterTagDatum.toISOString().slice(0, 10);
 
+  // Läuft das Wirtschaftsjahr noch? Nur für den Entwurf gefragt: Eine
+  // fertiggestellte Abrechnung trägt ihren Snapshot, und der Hinweis wäre dort
+  // eine Aussage über den heutigen Tag zu einem eingefrorenen Stand.
+  const jahrLaeuft = isDraft && new Date(view.fyEnd) > new Date();
+
   const [units, manualRows, checks] = await Promise.all([
     db.unit.findMany({
       where: { propertyId: property.id },
@@ -509,7 +514,7 @@ Muster — ersetzt keine Rechtsberatung.`;
           <form action={saveAccountChecks}>
             <input type="hidden" name="propertyId" value={property.id} />
             <input type="hidden" name="statementId" value={statement.id} />
-            <div className="overflow-x-auto">
+            <div className="scroll-schatten overflow-x-auto">
               <table className="w-full min-w-[880px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
@@ -743,7 +748,7 @@ Muster — ersetzt keine Rechtsberatung.`;
 
         {/* Kostenverteilung */}
         <Card title="Kostenverteilung (Gesamt → Schlüssel)">
-          <div className="overflow-x-auto">
+          <div className="scroll-schatten overflow-x-auto">
             <table className="w-full min-w-[520px] text-left text-sm">
               <thead>
                 <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
@@ -806,7 +811,7 @@ Muster — ersetzt keine Rechtsberatung.`;
               Alle Einzelabrechnungen als PDF
             </FilePreviewLink>
           </div>
-          <div className="overflow-x-auto">
+          <div className="scroll-schatten overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
@@ -1028,6 +1033,23 @@ Muster — ersetzt keine Rechtsberatung.`;
         <Card
           title={`Vermögensbericht zum ${formatDateOnly(letzterTagDatum)} (§ 28 Abs. 4 WEG)`}
         >
+          {/* Der Bericht ist die Stelle, an der ein noch laufendes
+              Wirtschaftsjahr am meisten schadet: „Forderungen gegen
+              Eigentümer" summiert die BISHER erzeugten Sollstellungen. Bei
+              zehn von zwölf Monaten steht dort eine Zwischensumme, die wie
+              eine Jahresforderung aussieht — und über die dann in einer
+              Versammlung verhandelt wird. Die Prüfliste sagt es oben schon;
+              hier steht es nochmal, weil dieser Abschnitt einzeln ausgedruckt
+              und weitergereicht wird. */}
+          {jahrLaeuft ? (
+            <Alert variant="warning" className="mb-3">
+              Das Wirtschaftsjahr läuft noch bis {formatDateOnly(letzterTagDatum)}. Die
+              ausgewiesenen Forderungen umfassen nur die bis heute gestellten Monate und
+              werden sich bis zum Jahresende erhöhen — es ist eine Zwischensumme, keine
+              Jahresforderung. Der Vermögensbericht nach § 28 Abs. 4 WEG gehört nach Ablauf
+              des Jahres.
+            </Alert>
+          ) : null}
           {(() => {
             // Ältere, vor dieser Erweiterung fertiggestellte Abrechnungen haben
             // den Bericht nicht im Snapshot. Sie nachträglich live zu rechnen
@@ -1139,9 +1161,29 @@ Muster — ersetzt keine Rechtsberatung.`;
               <form action={finalizeStatement}>
                 <input type="hidden" name="propertyId" value={property.id} />
                 <input type="hidden" name="statementId" value={statement.id} />
-                <button type="submit" className={buttonClass} disabled={!readyToFinalize}>
-                  Abrechnung fertigstellen (einfrieren)
-                </button>
+                {/* Läuft das Jahr noch, kommt eine Rückfrage davor. Kein
+                    Hard-Block: Eine unterjährige Abrechnung einzufrieren ist
+                    fachlich möglich (Verwalterwechsel, Verkauf) und darf nicht
+                    unmöglich sein. Nur beiläufig darf es nicht passieren —
+                    Einfrieren ist endgültig, und die Forderungen darin sind
+                    dann für immer eine Zwischensumme. */}
+                {jahrLaeuft ? (
+                  <ConfirmActionButton
+                    className={buttonClass}
+                    confirmLabel={`Wirklich? Das Jahr endet erst am ${formatDateOnly(letzterTagDatum)}`}
+                    pendingLabel="Wird eingefroren…"
+                  >
+                    Abrechnung fertigstellen (einfrieren)
+                  </ConfirmActionButton>
+                ) : (
+                  <PendingButton
+                    className={buttonClass}
+                    disabled={!readyToFinalize}
+                    pendingLabel="Wird eingefroren…"
+                  >
+                    Abrechnung fertigstellen (einfrieren)
+                  </PendingButton>
+                )}
               </form>
               {!readyToFinalize ? (
                 <span className="text-sm text-amber-700">

@@ -186,7 +186,7 @@ export function ImportClient({
 
           {mappingReady ? (
             <>
-              <div className="mt-4 overflow-x-auto">
+              <div className="scroll-schatten mt-4 overflow-x-auto">
                 <table className="w-full min-w-[680px] text-left text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">

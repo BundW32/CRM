@@ -107,7 +107,7 @@ describe("leseRechnungAusText", () => {
 
   it("findet Nummer, Daten, Bruttobetrag, Lohnanteil und Rechnungssteller", () => {
     expect(leseRechnungAusText(rechnung)).toEqual({
-      creditor: "Dachdeckerei Müller GmbH · Hauptstraße 5 · 45964 Gladbeck",
+      creditor: "Dachdeckerei Müller GmbH",
       invoiceNumber: "2026-114",
       invoiceDate: "2026-03-14",
       dueDate: "2026-03-28",

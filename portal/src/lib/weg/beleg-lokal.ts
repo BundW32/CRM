@@ -278,7 +278,10 @@ export function leseRechnungAusText(zeilen: string[]): ErkannteRechnung | null {
   const firma = kopf.find(
     (z) => FIRMA.test(z) && !/wohnungseigent|eigent[üu]mergemeinschaft|\bWEG\b|hausverwaltung|c\/o/i.test(z),
   );
-  if (firma) r.creditor = firma.replace(/\s{2,}.*$/, "").trim().slice(0, 160);
+  // Die Kopfzeile trägt oft die Anschrift hinter einem Trennzeichen:
+  // „Müller GmbH · Hauptstraße 5 · 45964 Gladbeck" — als Zahlungspartner
+  // gehört nur der Name in die Buchung.
+  if (firma) r.creditor = firma.split(/\s{2,}|\s[·•|]\s|\s-\s/)[0].trim().slice(0, 160);
 
   // Leistung: „Betreff: …", „Bauvorhaben: …", „Leistung: …" — sonst die erste
   // Position der Tabelle, ohne Positionsnummer, Menge und Preise.

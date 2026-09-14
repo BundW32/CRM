@@ -17,6 +17,8 @@
 // und wird nur übernommen, wenn der Verwalter diesen Gütegrad ausdrücklich
 // bestätigt. Fehler oder fehlender Schlüssel = kein Vorschlag, nie ein Abbruch.
 
+import { geminiSchluessel, kiSchalter } from "@/lib/assistant";
+
 /** Höchstzahl verschiedener Verwendungszwecke je Anfrage — eine Anfrage, nicht 391. */
 const MAX_ZWECKE = 40;
 
@@ -42,7 +44,7 @@ export function bereinigeZweck(zweck: string): string {
 
 /** Ist die Funktion überhaupt freigegeben? Ohne Freigabe passiert nichts. */
 export function kiKostenartAktiv(): boolean {
-  return process.env.AI_KOSTENART_ENABLED === "true" && Boolean(process.env.GEMINI_API_KEY);
+  return kiSchalter(process.env.AI_KOSTENART_ENABLED) && Boolean(geminiSchluessel());
 }
 
 /**
@@ -65,7 +67,7 @@ export async function klassifiziereKostenarten(
   );
   if (bereinigt.length === 0) return leer;
 
-  const key = process.env.GEMINI_API_KEY as string;
+  const key = geminiSchluessel();
   const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
   const namen = kostenarten.map((k) => k.name);
 

@@ -171,3 +171,4 @@ export async function deleteVerbindlichkeit(formData: FormData) {
   revalidatePath(backTo(property.id));
   redirect(backTo(property.id, "?flash=geloescht"));
 }
+

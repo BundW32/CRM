@@ -2,8 +2,9 @@
 // Assistent „Frag deine Gemeinschaft" (lib/assistant.ts) antwortet nur aus
 // Inhalten, die die Rolle des Fragenden sehen darf, die Vorsortierung
 // (lib/triage.ts), der Objekt-Import (lib/objekt-extraction.ts) und der
-// Kostenart-Vorschlag (lib/weg/kostenart-ki.ts) schlagen vor, entscheiden
-// aber nie. Alle vier Funktionen sind standardmäßig abgeschaltet — die Seite
+// Kostenart-Vorschlag (lib/weg/kostenart-ki.ts) und die Belegerkennung
+// (lib/weg/beleg-erkennung.ts) schlagen vor, entscheiden
+// aber nie. Alle fünf Funktionen sind standardmäßig abgeschaltet — die Seite
 // sagt das offen, gleiche Linie wie /ki-transparenz (Art. 50 KI-VO).
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -28,10 +29,11 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "KI-Berater für die WEG-Verwaltung",
+  // Unter 1000 Pixeln halten – die längere Fassung wurde im Suchergebnis
+  // abgeschnitten (Seobility: 1256 Pixel).
   description:
-    "Der KI-Berater beantwortet Fragen aus den Daten Ihrer WEG, sortiert " +
-    "Schadensmeldungen vor und liest Objektdaten aus PDFs – optional, " +
-    "standardmäßig abgeschaltet, ohne KI bei Geld und Beschlüssen.",
+    "KI-Berater für Ihre WEG: Antworten aus eigenen Daten, Schäden vorsortiert – " +
+    "optional, standardmäßig abgeschaltet, keine KI bei Geld und Beschlüssen.",
 };
 
 const KI_FRAGEN = [
@@ -138,7 +140,17 @@ export default async function KiBeraterPage() {
         eyebrow="Vorsortierung"
         title="Schadensmeldungen kommen vorsortiert an"
         reverse
-        visual={<TicketVisual />}
+        visual={
+          <TicketVisual
+            title="Schaden · Wasser tritt unter der Spüle aus"
+            note={{
+              von: "KI-Vorschlag",
+              text:
+                "Gewerk Sanitär, Dringlichkeit hoch – Wasser tritt weiter aus. " +
+                "Vorschlag prüfen, ändern oder übernehmen.",
+            }}
+          />
+        }
         points={[
           "Gewerk und Dringlichkeit werden vorgeschlagen, der Fall in einem Satz zusammengefasst",
           "Der Vorschlag steht als klar gekennzeichnete Notiz am Vorgang",
@@ -170,6 +182,7 @@ export default async function KiBeraterPage() {
           "Gespeichert wird erst, wenn Sie die Felder geprüft und abgeschickt haben",
           "Bankimport: Kostenart-Vorschlag nur für Ausgaben, zu denen es keine frühere Buchung gibt",
           "Übermittelt wird dafür nur der von Zahlen und Kontonummern bereinigte Verwendungszweck",
+          "Belegerkennung: Rechnung als PDF oder Foto hochladen — Betrag, Datum, Rechnungssteller und Fälligkeit werden vorgeschlagen",
         ]}
       >
         <p>
@@ -208,7 +221,7 @@ export default async function KiBeraterPage() {
           mahnt nicht und stellt keine Beschlüsse fest.
         </p>
         <p>
-          Welche Daten die vier KI-Funktionen im Einzelnen verarbeiten, legt
+          Welche Daten die fünf KI-Funktionen im Einzelnen verarbeiten, legt
           die Seite{" "}
           <Link
             href="/ki-transparenz"

@@ -1,7 +1,7 @@
 // Öffentliche KI-Transparenzseite (Art. 50 KI-VO / EU AI Act).
 // Die Verordnung (EU) 2024/1689 ist seit dem 2. August 2026 in vollem Umfang
-// anwendbar. Anbieter der vier KI-Funktionen (Assistent, Triage, Objekt-Import
-// und Kostenart-Vorschlag beim Bankimport) ist der Portalbetreiber, die selbstverwaltende WEG bzw.
+// anwendbar. Anbieter der fünf KI-Funktionen (Assistent, Triage, Objekt-Import,
+// Kostenart-Vorschlag beim Bankimport und Belegerkennung) ist der Portalbetreiber, die selbstverwaltende WEG bzw.
 // Hausverwaltung ist deren Betreiber. Der Produktname kommt aus `productName()`
 // – die Seite wird in BEIDEN Türen ausgeliefert (Art. 50 KI-VO gilt auch für
 // die B&W-Tür).
@@ -54,14 +54,15 @@ export default function KiTransparenzPage() {
       <LegalSection title="1. Kurzfassung">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            {productName()} enthält vier KI-Funktionen: einen Assistenten
+            {productName()} enthält fünf KI-Funktionen: einen Assistenten
             für Rückfragen zu Ihren eigenen Unterlagen, eine Vorsortierung eingehender
             Schadensmeldungen, einen Objekt-Import, der Stammdaten aus einem PDF
-            vorschlägt, und einen Vorschlag für die Kostenart einer importierten
-            Bankausgabe.
+            vorschlägt, einen Vorschlag für die Kostenart einer importierten
+            Bankausgabe und eine Belegerkennung, die aus einer hochgeladenen Rechnung
+            Betrag, Datum und Rechnungssteller vorschlägt.
           </li>
           <li>
-            Alle vier sind <strong>standardmäßig ausgeschaltet</strong> und werden erst
+            Alle fünf sind <strong>standardmäßig ausgeschaltet</strong> und werden erst
             aktiv, wenn Ihre Gemeinschaft bzw. Verwaltung sie ausdrücklich freischaltet.
           </li>
           <li>
@@ -71,9 +72,11 @@ export default function KiTransparenzPage() {
           <li>
             Es gibt keine KI bei Recht, Geld und Abstimmungen: keine
             Bonitätsbewertung, keine automatischen Mahnungen, keine Beschlüsse, keine
-            Abrechnungen, keine Zuordnung von Zahlungen zu Eigentümern. Die einzige
-            Ausnahme im Finanzbereich ist ein <em>Vorschlag</em> für die Kostenart einer
-            Ausgabe beim Bankimport — gekennzeichnet, und erst nach Bestätigung gebucht.
+            Abrechnungen, keine Zuordnung von Zahlungen zu Eigentümern. Die einzigen
+            Ausnahmen im Finanzbereich sind zwei <em>Vorschläge</em>: für die Kostenart
+            einer Ausgabe beim Bankimport und für die Felder einer Rechnung, die als
+            Verbindlichkeit erfasst wird — beide gekennzeichnet, und erst nach
+            Bestätigung gespeichert.
           </li>
         </ul>
       </LegalSection>
@@ -130,6 +133,25 @@ export default function KiTransparenzPage() {
           diesen Gütegrad ausdrücklich bestätigt. Welcher Eigentümer eine Zahlung
           geleistet hat, entscheidet <strong>nie</strong> die KI.
         </p>
+        <h3 className="pt-2 font-semibold text-gray-900">
+          e) KI-Belegerkennung beim Erfassen einer Rechnung
+        </h3>
+        <p>
+          Erfasst die Verwaltung eine offene Rechnung als Verbindlichkeit, kann sie den
+          Beleg hochladen. Zuerst liest das Portal ihn <strong>ohne KI</strong> und ohne
+          dass etwas den Server verlässt: E-Rechnungen (ZUGFeRD, XRechnung) aus ihrem
+          XML, PDF-Rechnungen aus ihrer Textebene. Nur wenn das nicht möglich ist — bei
+          einem Scan oder Foto — kann die Verwaltung die KI hinzuziehen. Das geschieht
+          nie von selbst: Sie muss die Funktion freigeschaltet haben und im Formular
+          einen Datenschutzhinweis bestätigen, der sagt, was übermittelt wird. Erst dann
+          geht die Datei — wie beim Objekt-Import — <strong>vollständig</strong> an
+          Google, siehe Ziffer 6. Die KI liest Rechnungssteller, Rechnungsnummer,
+          Rechnungsdatum, Fälligkeit, Bruttobetrag und die abgerechnete Leistung und füllt
+          damit das Formular vor. Gespeichert wird nichts, bevor die Verwaltung die Felder
+          geprüft und das Formular abgeschickt hat; der Beleg selbst wird dabei nicht
+          abgelegt. Gebucht wird nichts: Die Funktion erfasst, was die Gemeinschaft
+          schuldet, nicht, was sie bezahlt hat.
+        </p>
       </LegalSection>
 
       <LegalSection title="3. Wer welche Rolle hat">
@@ -139,14 +161,14 @@ export default function KiTransparenzPage() {
             <Link href="/impressum" className="text-brand-green hover:underline">
               Impressum
             </Link>
-            ): Wir stellen die vier KI-Systeme unter eigenem Namen bereit.
+            ): Wir stellen die fünf KI-Systeme unter eigenem Namen bereit.
           </li>
           <li>
             <strong>Betreiber</strong> ist Ihre Eigentümergemeinschaft bzw. Hausverwaltung,
             sobald sie die Funktionen freischaltet und im Alltag nutzt.
           </li>
           <li>
-            <strong>Modellanbieter</strong> ist Google: Alle vier Funktionen nutzen die
+            <strong>Modellanbieter</strong> ist Google: Alle fünf Funktionen nutzen die
             Gemini-API. Wir trainieren kein eigenes Modell.
           </li>
         </ul>
@@ -154,7 +176,7 @@ export default function KiTransparenzPage() {
 
       <LegalSection title="4. Risikoeinstufung">
         <p>
-          Alle vier Funktionen sind nach unserer Einschätzung <strong>keine
+          Alle fünf Funktionen sind nach unserer Einschätzung <strong>keine
           Hochrisiko-KI-Systeme</strong> im Sinne von Artikel 6 in Verbindung mit Anhang III
           der KI-Verordnung, und sie fallen nicht unter die verbotenen Praktiken nach
           Artikel 5. Sie unterstützen bei Auskunft, Vorsortierung und Dateneingabe; sie
@@ -222,10 +244,17 @@ export default function KiTransparenzPage() {
           </li>
           <li>
             <strong>Objekt-Import:</strong> das hochgeladene PDF{" "}
-            <strong>vollständig und unverändert</strong>. Diese Funktion ist die einzige,
-            die eine Datei als Ganzes weitergibt. Wer sie freischaltet, sollte wissen, was
-            in den Unterlagen steht, die dort eingelesen werden — eine Teilungserklärung
-            etwa enthält Namen.
+            <strong>vollständig und unverändert</strong>. Wer die Funktion freischaltet,
+            sollte wissen, was in den Unterlagen steht, die dort eingelesen werden — eine
+            Teilungserklärung etwa enthält Namen.
+          </li>
+          <li>
+            <strong>Belegerkennung:</strong> die hochgeladene Rechnung (PDF oder Foto){" "}
+            <strong>vollständig und unverändert</strong> — mit allem, was auf ihr steht:
+            dem Namen des Handwerkers, gegebenenfalls Namen von Eigentümern oder Mietern
+            und der Bankverbindung des Rechnungsstellers. Objekt-Import und Belegerkennung
+            sind die beiden Funktionen, die eine Datei als Ganzes weitergeben. Nicht
+            übermittelt werden Objektname, Einheiten und Kostenarten.
           </li>
         </ul>
         <p>
@@ -251,7 +280,8 @@ export default function KiTransparenzPage() {
           KI-Systeme können sich irren. Antworten des Assistenten können unvollständig sein
           oder eine Quelle falsch zusammenfassen; eine vorgeschlagene Dringlichkeit kann
           danebenliegen; ein aus einem PDF gelesener Wert — Wohnfläche, Baujahr, die Zahl
-          der Einheiten — kann schlicht falsch sein und gehört vor dem Speichern geprüft.
+          der Einheiten, der Betrag oder das Datum einer Rechnung — kann schlicht falsch
+          sein und gehört vor dem Speichern geprüft.
           Prüfen Sie die genannten Quellen, bevor Sie auf eine Auskunft hin handeln. Der Assistent ist ausdrücklich <strong>keine Rechtsberatung</strong> und
           ersetzt weder Verwalterentscheidung noch Beschluss der Gemeinschaft. Fällt die
           KI aus, läuft das Portal unverändert weiter – sie ist nie Voraussetzung dafür,
@@ -281,7 +311,7 @@ export default function KiTransparenzPage() {
           </a>
           . Wir antworten und dokumentieren gemeldete Fehler.
         </p>
-        <p className="text-xs text-gray-500">Stand: 13. August 2026.</p>
+        <p className="text-xs text-gray-500">Stand: 12. September 2026.</p>
       </LegalSection>
     </LegalPage>
   );

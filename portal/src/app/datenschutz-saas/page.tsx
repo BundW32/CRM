@@ -28,7 +28,7 @@ export default function SaasDatenschutzPage() {
           </a>{" "}
           (für Bewohner des Portals) und unterscheidet die beiden datenschutzrechtlichen
           Rollen des Anbieters.
-          <span className="mt-2 block text-gray-500">Stand: 13. August 2026</span>
+          <span className="mt-2 block text-gray-500">Stand: 12. September 2026</span>
         </p>
       }
     >
@@ -68,9 +68,10 @@ export default function SaasDatenschutzPage() {
           Datei-Speicher „Blob“), Neon (Datenbank, EU-Region), Google (Gmail / Google
           Workspace) für den E-Mail-Versand sowie Stripe für die Zahlungsabwicklung
           kostenpflichtiger Tarife. Hinzu kommen Dienste, die erst nach ausdrücklicher
-          Freischaltung durch den Kunden anlaufen: Google (Gemini API) für die vier
+          Freischaltung durch den Kunden anlaufen: Google (Gemini API) für die fünf
           optionalen KI-Funktionen — Assistent, Vorqualifizierung eingehender Meldungen,
-          Objekt-Import aus PDF und Kostenart-Vorschlag beim Bankimport —, Google Drive
+          Objekt-Import aus PDF, Kostenart-Vorschlag beim Bankimport und Belegerkennung
+          beim Erfassen einer Rechnung —, Google Drive
           für den optionalen Dokumenten-Import
           sowie die geräteabhängigen Push-Dienste von Google, Apple bzw. Mozilla für
           Benachrichtigungen. Es werden jeweils nur die erforderlichen Daten übermittelt;

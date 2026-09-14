@@ -460,9 +460,13 @@ function Stufen({
             <p className="text-xs font-semibold uppercase tracking-wider text-wp-accent-ink lg:text-sm lg:normal-case lg:tracking-normal">
               {s.step}
             </p>
-            <h3 className="mt-1 text-lg font-semibold text-gray-900 lg:mt-2 lg:text-4xl lg:font-extrabold lg:leading-tight lg:text-wp-ink">
+            {/* Kein <h3>: Die sechs Stufen sind Einträge einer nummerierten
+                Liste unter EINER Überschrift, keine Gliederungsebenen der
+                Seite. Als Überschriften zählten sie im SEO-Audit zu den „zu
+                vielen Überschriften" der Startseite. */}
+            <p className="mt-1 text-lg font-semibold text-gray-900 lg:mt-2 lg:text-4xl lg:font-extrabold lg:leading-tight lg:text-wp-ink">
               {s.title}
-            </h3>
+            </p>
             <p className="mt-1.5 text-sm leading-relaxed text-gray-600 lg:mt-4 lg:max-w-md lg:text-base">
               {s.text}
             </p>
@@ -552,7 +556,7 @@ export function ScrollyBuild({
     return (
       <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
         <h2 className="text-2xl font-bold text-wp-ink sm:text-3xl">
-          So bauen Sie Ihre Selbstverwaltung auf
+          So bauen Sie Ihre WEG Selbstverwaltung auf
         </h2>
         <div className="mt-8">
           <Stufen stage={0} statisch registrierenHref={registrierenHref} />
@@ -585,7 +589,7 @@ export function ScrollyBuild({
           {/* Linke Spalte: Überschrift, Fortschritt und die sechs Stufen */}
           <div className="relative">
             <h2 className="text-2xl font-bold text-wp-ink sm:text-3xl lg:text-xs lg:font-semibold lg:uppercase lg:tracking-[0.2em] lg:text-wp-accent-ink">
-              So bauen Sie Ihre Selbstverwaltung auf
+              So bauen Sie Ihre WEG Selbstverwaltung auf
             </h2>
 
             {/* Schritt-Ziffer + kontinuierlich mitlaufende Fortschrittsleiste */}

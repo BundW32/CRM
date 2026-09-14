@@ -7,6 +7,8 @@
 // standardmäßig AUS – nur aktiv bei AI_OBJEKT_IMPORT_ENABLED="true" UND gesetztem
 // GEMINI_API_KEY. Fehler blockieren nie das manuelle Anlegen.
 
+import { geminiSchluessel, kiSchalter } from "@/lib/assistant";
+
 export type ExtractedUnit = { label: string; floor?: string };
 
 export type ExtractedObjekt = {
@@ -24,7 +26,7 @@ export type ExtractedObjekt = {
 };
 
 export function isObjektImportEnabled(): boolean {
-  return process.env.AI_OBJEKT_IMPORT_ENABLED === "true" && Boolean(process.env.GEMINI_API_KEY);
+  return kiSchalter(process.env.AI_OBJEKT_IMPORT_ENABLED) && Boolean(geminiSchluessel());
 }
 
 const RESPONSE_SCHEMA = {
@@ -86,7 +88,7 @@ export async function extractObjektFromPdf(
   mimeType: string,
 ): Promise<ExtractedObjekt | null> {
   if (!isObjektImportEnabled()) return null;
-  const key = process.env.GEMINI_API_KEY;
+  const key = geminiSchluessel();
   if (!key) return null;
   if (mimeType !== "application/pdf") return null;
   const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";

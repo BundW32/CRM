@@ -5,6 +5,7 @@
 // Google sowie eine Offenlegung in der Datenschutzerklärung erforderlich.
 // Fehler blockieren nie eine Aktion.
 import type { TicketPriority, Trade } from "@/generated/prisma/client";
+import { geminiSchluessel, kiSchalter } from "./assistant";
 import { tradeLabels } from "./labels";
 
 const TRADE_KEYS = Object.keys(tradeLabels) as Trade[];
@@ -22,8 +23,8 @@ export async function classifyTicket(input: {
 }): Promise<TriageResult | null> {
   // DSGVO: Opt-in-Pflicht. Ohne ausdrückliche Freigabe werden KEINE Inhalte an
   // Google gesendet (auch wenn ein Key vorhanden wäre).
-  if (process.env.AI_TRIAGE_ENABLED !== "true") return null;
-  const key = process.env.GEMINI_API_KEY;
+  if (!kiSchalter(process.env.AI_TRIAGE_ENABLED)) return null;
+  const key = geminiSchluessel();
   if (!key) return null;
   const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
 

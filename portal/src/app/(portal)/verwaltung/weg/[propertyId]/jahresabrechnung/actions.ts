@@ -574,6 +574,7 @@ async function verteileEinzelabrechnungen(
       fileName: `Einzelabrechnung_${year}_${u.label.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
       pdf: await buildEinzelabrechnungPdf({
         propertyName: property.name,
+        propertyId: property.id,
         organizationId: property.organizationId,
         view,
         units: [u],

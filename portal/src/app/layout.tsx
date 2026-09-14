@@ -34,12 +34,12 @@ export function generateMetadata(): Metadata {
     // frisst „ | wegportal24" etwa 126. Für die Aussage der Seite bleiben also
     // knapp 455 Pixel ≈ 45 Zeichen — Titel entsprechend knapp halten.
     title: {
-      default: weg ? "wegportal24 – WEG selbst verwalten" : "B&W Kundenportal",
+      default: weg ? "wegportal24 – WEG Selbstverwaltung" : "B&W Kundenportal",
       template: `%s | ${marke}`,
     },
     description: weg
-      ? "Portal für selbstverwaltete Wohnungseigentümergemeinschaften – " +
-        "Wirtschaftsplan, Jahresabrechnung, Hausgeld, Versammlung und Beschlüsse an einem Ort."
+      ? "Software für die WEG Selbstverwaltung – Wirtschaftsplan, Jahresabrechnung, " +
+        "Hausgeld, Versammlung und Beschlüsse Ihrer Eigentümergemeinschaft an einem Ort."
       : "Kundenportal der B&W Immobilien Management UG – für Mieter, Eigentümer und Verwaltung.",
     // Selbstverweisendes Canonical für JEDE Seite. "./" löst Next gegen
     // metadataBase und den aktuellen Pfad auf – eine Zeile hier ersetzt einen

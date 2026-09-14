@@ -29,10 +29,12 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Sondereigentum & Mietermanagement",
+  // Unter 1000 Pixeln halten – die längere Fassung wurde im Suchergebnis
+  // abgeschnitten (Seobility: 1191 Pixel).
   description:
-    "Vermietete Wohnung in der WEG? Mieterzugang, Mietverhältnis mit " +
-    "Kaltmiete und Vertrag, Betriebskostenabrechnung aus der " +
-    "Jahresabrechnung und CO₂-Aufteilung – inklusive, ohne Aufpreis.",
+    "Vermietete Wohnung in der WEG? Mieterzugang, Mietverhältnis, " +
+    "Betriebskostenabrechnung aus der Jahresabrechnung und CO₂-Aufteilung – " +
+    "ohne Aufpreis.",
 };
 
 const SEV_FRAGEN = [
@@ -94,7 +96,7 @@ export default async function SondereigentumPage() {
         intro={
           // Bewusst knapp: Bei 375 × 667 muss der Haupt-CTA über der Falz
           // liegen — die längere Fassung schob ihn auf 737 px.
-          "In vielen WEGs sind Wohnungen vermietet. Das Portal verwaltet Ihr " +
+          "In vielen WEGs sind Wohnungen vermietet. Im Portal verwalten Sie Ihr " +
           "Sondereigentum gleich mit: Mieterzugang, Betriebskostenabrechnung " +
           "aus der Jahresabrechnung, CO₂-Aufteilung – ohne Aufpreis."
         }
@@ -239,7 +241,8 @@ export default async function SondereigentumPage() {
           </h2>
           <p className="mt-3 text-wp-ink/70">
             Was das Mietermanagement kann, wo seine Grenzen liegen – und was
-            es kostet. Allgemeine Information, keine Rechtsberatung.
+            es kostet, wenn Sie vermietetes Sondereigentum im Portal gleich mit
+            verwalten. Allgemeine Information, keine Rechtsberatung.
           </p>
         </Reveal>
         <div className="mt-6 space-y-3">

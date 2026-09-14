@@ -39,7 +39,9 @@ export default function DatenschutzPage() {
 
   return (
     <LegalPage
-      title="Datenschutzerklärung"
+      // Nicht nur „Datenschutzerklärung": Eine Ein-Wort-H1 sagt nichts über
+      // die Seite – und der Name des Portals gehört in die Überschrift.
+      title={`Datenschutzerklärung für ${productName()}`}
       intro={
         <>
           <p>
@@ -47,7 +49,7 @@ export default function DatenschutzPage() {
             Verarbeitung personenbezogener Daten bei der Nutzung von{" "}
             <strong>{productName()}</strong>.
           </p>
-          <p className="mt-2 text-gray-500">Stand: 18. August 2026</p>
+          <p className="mt-2 text-gray-500">Stand: 12. September 2026</p>
         </>
       }
     >
@@ -120,6 +122,17 @@ export default function DatenschutzPage() {
             Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an einer effizienten
             Verwaltung).
           </p>
+          <p>
+            <strong>Hilfe-Knopf:</strong> Wenn Sie uns über den Hilfe-Knopf im
+            angemeldeten Bereich ein Problem melden, senden wir Ihre Schilderung zusammen
+            mit Ihrem Namen, Ihrer E-Mail-Adresse, Ihrer Rolle, der gerade geöffneten Seite
+            und der Kennung Ihres Browsers (User-Agent) per E-Mail an uns, um das Problem
+            nachzuvollziehen und Ihnen zu antworten. Auf Wunsch fügen Sie ein Bildschirmfoto
+            des gerade sichtbaren Seitenausschnitts bei — es wird im Browser erstellt, Ihnen
+            vorab als Vorschau gezeigt und nur übermittelt, wenn Sie das Häkchen gesetzt
+            lassen. Gespeichert wird die Meldung nur im E-Mail-Postfach. Rechtsgrundlage ist
+            Art. 6 Abs. 1 lit. b DSGVO.
+          </p>
         </LegalSection>
       )}
 
@@ -137,10 +150,18 @@ export default function DatenschutzPage() {
             berechtigte Interesse besteht in der Sicherheit des Dienstes.
           </p>
           <p>
-            <strong>Kontaktaufnahme:</strong> Wenn Sie uns über das Kontaktformular oder
-            per E-Mail eine Frage oder Anregung senden, verarbeiten wir die dabei
-            angegebenen Daten (Name, E-Mail-Adresse, Inhalt der Nachricht), um Ihr
-            Anliegen zu bearbeiten und zu beantworten. Rechtsgrundlage ist Art. 6
+            <strong>Kontaktaufnahme:</strong> Wenn Sie uns über das Kontaktformular, den
+            Hilfe-Knopf im angemeldeten Bereich oder per E-Mail eine Frage, Anregung oder
+            Problemmeldung senden, verarbeiten wir die dabei angegebenen Daten (Name,
+            E-Mail-Adresse, Inhalt der Nachricht), um Ihr Anliegen zu bearbeiten und zu
+            beantworten. Beim Hilfe-Knopf übermitteln wir zusätzlich Ihre Rolle, den Namen
+            Ihrer Gemeinschaft, die gerade geöffnete Seite und die Kennung Ihres Browsers
+            (User-Agent), damit wir ein gemeldetes Problem nachvollziehen können; das
+            Formular weist darauf hin. Auf Wunsch senden Sie zusätzlich ein Bildschirmfoto
+            des gerade sichtbaren Seitenausschnitts mit — es wird im Browser erstellt, Ihnen
+            vorab als Vorschau gezeigt und nur übermittelt, wenn Sie das Häkchen gesetzt
+            lassen; es kann Angaben zu anderen Personen enthalten, die auf der Seite zu
+            sehen sind. Rechtsgrundlage ist Art. 6
             Abs. 1 lit. b DSGVO, soweit sich die Anfrage auf einen Vertrag oder dessen
             Anbahnung bezieht, im Übrigen Art. 6 Abs. 1 lit. f DSGVO — das berechtigte
             Interesse besteht in der Beantwortung an uns gerichteter Anfragen. Die
@@ -186,8 +207,9 @@ export default function DatenschutzPage() {
           </li>
           <li>
             KI-Funktionen (Assistent, Vorqualifizierung eingehender Meldungen,
-            Objekt-Import aus PDF, Kostenart-Vorschlag beim Bankimport) – optional, nur
-            bei Aktivierung durch die Verwaltung:
+            Objekt-Import aus PDF, Kostenart-Vorschlag beim Bankimport, Belegerkennung
+            beim Erfassen einer Rechnung) – optional, nur bei Aktivierung durch die
+            Verwaltung:
             Google (Gemini API); Einzelheiten unter{" "}
             <Link href="/ki-transparenz" className="text-brand-green hover:underline">
               KI-Transparenz
@@ -243,12 +265,14 @@ export default function DatenschutzPage() {
 
       <LegalSection title={weg ? "8. Einsatz von KI-Systemen" : "7. Einsatz von KI-Systemen"}>
         <p>
-          Das Portal enthält <strong>vier</strong> optionale KI-Funktionen: einen
+          Das Portal enthält <strong>fünf</strong> optionale KI-Funktionen: einen
           Assistenten, der Fragen aus den für Sie freigegebenen Unterlagen beantwortet,
           eine Vorqualifizierung eingehender Schadensmeldungen (Vorschlag für Gewerk und
           Dringlichkeit), einen Objekt-Import, der beim Anlegen eines Objekts die
-          Stammdaten aus einem hochgeladenen PDF vorschlägt, und einen Vorschlag für die
-          Kostenart einer importierten Bankausgabe. Alle vier sind standardmäßig
+          Stammdaten aus einem hochgeladenen PDF vorschlägt, einen Vorschlag für die
+          Kostenart einer importierten Bankausgabe und eine Belegerkennung, die beim
+          Erfassen einer offenen Rechnung Betrag, Datum und Rechnungssteller aus dem
+          hochgeladenen Beleg vorschlägt. Alle fünf sind standardmäßig
           deaktiviert und werden nur aktiv, wenn die Verwaltung sie ausdrücklich
           freischaltet. Ist eine Funktion aktiv, werden die dafür benötigten Inhalte an die
           Gemini-API von Google übermittelt; eine Verarbeitung außerhalb der EU ist dabei
@@ -261,7 +285,13 @@ export default function DatenschutzPage() {
           Textauszüge — bei Fragen zu Geld auch Angaben zu Kontostand, Rückständen und
           Hausgeld. Der Objekt-Import übermittelt das hochgeladene PDF{" "}
           <strong>vollständig</strong>; laden Sie dort daher nur Unterlagen hoch, deren
-          Weitergabe an Google Sie verantworten können. Der Kostenart-Vorschlag beim
+          Weitergabe an Google Sie verantworten können. Dasselbe gilt für die
+          Belegerkennung: E-Rechnungen und Text-PDFs liest das Portal zunächst selbst,
+          ohne Übermittlung. Nur auf ausdrückliche Anforderung der Verwaltung — nach
+          Bestätigung eines Hinweises im Formular — übermittelt sie die hochgeladene
+          Rechnung (PDF oder Foto) <strong>vollständig</strong> an Google, samt Namen und
+          Bankverbindung des Rechnungsstellers; abgelegt wird der Beleg dabei nicht. Der
+          Kostenart-Vorschlag beim
           Bankimport übermittelt am wenigsten: nur den Verwendungszweck, aus dem zuvor
           alle Wörter mit Ziffern entfernt wurden — also ohne Beträge, Kontonummern,
           Rechnungs- und Referenznummern — dazu die Bezeichnungen der Kostenarten Ihres

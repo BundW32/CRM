@@ -134,11 +134,11 @@ export default function KiTransparenzPage() {
           geleistet hat, entscheidet <strong>nie</strong> die KI.
         </p>
         <h3 className="pt-2 font-semibold text-gray-900">
-          e) KI-Belegerkennung beim Erfassen einer Rechnung
+          e) KI-Belegerkennung beim Erfassen einer Rechnung oder Zahlung
         </h3>
         <p>
-          Erfasst die Verwaltung eine offene Rechnung als Verbindlichkeit, kann sie den
-          Beleg hochladen. Zuerst liest das Portal ihn <strong>ohne KI</strong> und ohne
+          Erfasst die Verwaltung eine offene Rechnung als Verbindlichkeit oder bucht sie
+          deren Zahlung, kann sie den Beleg hochladen. Zuerst liest das Portal ihn <strong>ohne KI</strong> und ohne
           dass etwas den Server verlässt: E-Rechnungen (ZUGFeRD, XRechnung) aus ihrem
           XML, PDF-Rechnungen aus ihrer Textebene. Nur wenn das nicht möglich ist — bei
           einem Scan oder Foto — kann die Verwaltung die KI hinzuziehen. Das geschieht
@@ -146,7 +146,8 @@ export default function KiTransparenzPage() {
           einen Datenschutzhinweis bestätigen, der sagt, was übermittelt wird. Erst dann
           geht die Datei — wie beim Objekt-Import — <strong>vollständig</strong> an
           Google, siehe Ziffer 6. Die KI liest Rechnungssteller, Rechnungsnummer,
-          Rechnungsdatum, Fälligkeit, Bruttobetrag und die abgerechnete Leistung und füllt
+          Rechnungsdatum, Fälligkeit, Bruttobetrag, den ausgewiesenen Lohnanteil nach
+          § 35a EStG und die abgerechnete Leistung und füllt
           damit das Formular vor. Gespeichert wird nichts, bevor die Verwaltung die Felder
           geprüft und das Formular abgeschickt hat; der Beleg selbst wird dabei nicht
           abgelegt. Gebucht wird nichts: Die Funktion erfasst, was die Gemeinschaft

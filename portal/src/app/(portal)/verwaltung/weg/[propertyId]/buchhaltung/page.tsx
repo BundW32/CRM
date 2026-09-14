@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AblageAlert } from "@/components/ablage-alert";
-import { FileInput } from "@/components/file-input";
 import { ConfirmActionButton } from "@/components/confirm-action-button";
 import { PendingButton } from "@/components/pending-button";
 import type { Prisma } from "@/generated/prisma/client";
@@ -10,23 +9,23 @@ import { db } from "@/lib/db";
 import { bookingKindLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
 import { normalizeSearch, parsePage, resolveSort, toOrderBy, pageHrefFor } from "@/lib/list-query";
 import { formatCents } from "@/lib/money";
-import { BauabzugHinweis } from "@/components/bauabzug-hinweis";
 import { bauleistungenJeHandwerker } from "@/lib/weg/bauabzugsteuer-service";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import { fiscalYearRange } from "@/lib/weg/economic-plan";
+import { isBelegErkennungEnabled } from "@/lib/weg/beleg-erkennung";
 import { requireWegProperty } from "@/lib/weg/scope";
 import { isDateLocked } from "@/lib/weg/statement-lock";
 import {
   assignCostType,
   setLaborShare,
-  createBooking,
   createTransfer,
   reverseBooking,
   undoImportBatch,
 } from "./actions";
+import { DateField } from "@/components/fields";
+import { BuchungForm } from "./BuchungForm";
 import { ImportClient } from "./ImportClient";
 import { FilePreviewLink } from "@/components/file-preview-link";
-import { DateField } from "@/components/fields";
 import { Tipp } from "@/components/tipp";
 
 export const dynamic = "force-dynamic";
@@ -75,6 +74,8 @@ const FEHLER_TEXTE: Record<string, string> = {
     "Das Wirtschaftsjahr ist abgeschlossen — für dieses Jahr liegt eine fertige Jahresabrechnung vor. Buchungen abgeschlossener Jahre bleiben unverändert.",
   schonstorniert: "Diese Buchung ist bereits storniert (oder ist selbst eine Stornobuchung).",
   handwerker: "Der gewählte Handwerker gehört nicht zu Ihrer Organisation.",
+  verbindlichkeit:
+    "Die offene Rechnung wurde nicht gefunden oder ist schon als beglichen markiert. Die Buchung wurde nicht angelegt — bitte ohne Verknüpfung erneut erfassen.",
   // Nachträglich, also nach der Zahlung. Bewusst anders formuliert als die
   // Warnung im Buchungsformular: Einbehalten lässt sich hier nichts mehr, das
   // Geld ist überwiesen. Was bleibt, ist die Anmeldung und die Bescheinigung
@@ -261,6 +262,16 @@ export default async function WegBuchhaltungPage({
   ]);
   const lockedYears = new Set(fertigeJahre.map((s) => s.year));
 
+  // „Als bezahlt buchen" aus den Verbindlichkeiten: Die offene Rechnung
+  // belegt das Formular vor. Nur Einträge dieses Objekts, nur offene — eine
+  // schon beglichene lässt sich nicht noch einmal bezahlen.
+  const zahlungFuer = sp.verbindlichkeit
+    ? await db.verbindlichkeit.findFirst({
+        where: { id: sp.verbindlichkeit, propertyId: property.id, settledAt: null },
+        select: { id: true, title: true, creditor: true, amountCents: true },
+      })
+    : null;
+
   // Handwerker für die Auswahl, angereichert um die Jahressumme. `…Summen`
   // enthält nur die, an die dieses Jahr schon Bauleistungen gezahlt wurden —
   // zur Auswahl stehen muss aber jeder.
@@ -361,11 +372,21 @@ export default async function WegBuchhaltungPage({
 
       {sp.gespeichert ? (
         <Alert variant="success" className="mb-4">
-          {sp.gespeichert === "umbuchung"
-            ? "Umbuchung erfasst."
-            : sp.gespeichert === "lohnanteil"
-              ? "Lohnanteil gespeichert."
-              : "Buchung erfasst."}
+          {sp.gespeichert === "umbuchung" ? (
+            "Umbuchung erfasst."
+          ) : sp.gespeichert === "lohnanteil" ? (
+            "Lohnanteil gespeichert."
+          ) : sp.gespeichert === "zahlung" ? (
+            <>
+              Buchung erfasst — die offene Rechnung ist in den{" "}
+              <Link href={`/verwaltung/weg/${property.id}/verbindlichkeiten`} className="underline">
+                Verbindlichkeiten
+              </Link>{" "}
+              als beglichen markiert.
+            </>
+          ) : (
+            "Buchung erfasst."
+          )}
         </Alert>
       ) : null}
       {sp.import !== undefined ? (
@@ -493,99 +514,33 @@ export default async function WegBuchhaltungPage({
           </Card>
         </div>
 
-        {/* Manuelle Buchung */}
-        <Card title="Buchung erfassen">
-          {accounts.length === 0 ? (
-            <EmptyState>Zuerst in den Stammdaten ein Konto anlegen.</EmptyState>
-          ) : (
-            <form action={createBooking} className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Festes Raster statt `flex-wrap`. Bei umbrechenden Zeilen
-                  verschiebt jeder eingeblendete Block (hier der Bauabzug-Hinweis)
-                  die gesamte Feldfolge — mitten in der Eingabe. So landete
-                  „15012026" im Lohnanteil § 35a statt im Buchungstag. Im Raster
-                  behält jedes Feld seinen Platz. */}
-              <input type="hidden" name="propertyId" value={property.id} />
-              <Field label="Konto">
-                <select name="accountId" className={`${inputClass} w-full`} required>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({ledgerAccountKindLabels[a.kind]})
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Art">
-                <select name="kind" className={`${inputClass} w-full`} defaultValue="AUSGABE">
-                  <option value="EINNAHME">Einnahme</option>
-                  <option value="AUSGABE">Ausgabe</option>
-                </select>
-              </Field>
-              <DateField
-                label="Buchungstag"
-                name="bookingDate"
-                required
-                className="w-auto"
-              />
-              <Field label="Betrag (€)">
-                <input
-                  name="amount"
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  className={`${inputClass} w-full`}
-                  required
-                />
-              </Field>
-              <Field label="Kostenart">
-                <select name="costTypeId" className={`${inputClass} w-full`} defaultValue="">
-                  <option value="">— keine —</option>
-                  {costTypes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              {/* §35a: nur der Lohn-, Fahrt- und Maschinenkostenanteil ist
-                  begünstigt. Er steht auf der Rechnung; leer lassen ist besser
-                  als raten — die Abrechnung weist die Lücke dann aus. */}
-              <Field label="davon Lohnanteil § 35a (€, optional)">
-                <input
-                  name="laborShare"
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  className={`${inputClass} w-full`}
-                />
-              </Field>
-              <Field label="Buchungstext">
-                <input
-                  name="text"
-                  className={`${inputClass} w-full`}
-                  placeholder="z. B. Rechnung Hausmeister März"
-                  required
-                  minLength={2}
-                />
-              </Field>
-              <Field label="Zahlungspartner (optional)">
-                <input name="counterparty" className={`${inputClass} w-full`} />
-              </Field>
-              {/* Der Handwerker als Verknüpfung — Grundlage der Prüfung nach
-                  § 48 EStG. Über den Freitext daneben ließe sich nicht
-                  summieren, und die 5.000-€-Grenze gilt je Leistendem. */}
-              <BauabzugHinweis
+        {/* Manuelle Buchung — das Formular ist eine Client-Komponente
+            (Belegerkennung, Vorbelegung aus einer offenen Rechnung). */}
+        <div id="buchen">
+          <Card title="Buchung erfassen">
+            {accounts.length === 0 ? (
+              <EmptyState>Zuerst in den Stammdaten ein Konto anlegen.</EmptyState>
+            ) : (
+              <BuchungForm
+                propertyId={property.id}
+                konten={accounts.map((a) => ({ id: a.id, name: a.name, artLabel: ledgerAccountKindLabels[a.kind] }))}
+                kostenarten={costTypes.map((c) => ({ id: c.id, name: c.name, constructionWork: c.constructionWork }))}
                 handwerker={handwerkerWahl}
-                bauleistungKostenarten={costTypes.filter((c) => c.constructionWork).map((c) => c.id)}
-                inputClass={inputClass}
+                kiErkennung={isBelegErkennungEnabled()}
+                zahlungFuer={
+                  zahlungFuer
+                    ? {
+                        id: zahlungFuer.id,
+                        title: zahlungFuer.title,
+                        creditor: zahlungFuer.creditor ?? "",
+                        amount: (zahlungFuer.amountCents / 100).toFixed(2).replace(".", ","),
+                      }
+                    : null
+                }
               />
-              <Field label="Beleg (Foto/PDF, optional)">
-                <FileInput
-                  name="beleg"
-                  accept="image/*,application/pdf"
-                />
-              </Field>
-              <PendingButton className={`${buttonClass} w-full sm:w-auto`}>Buchen</PendingButton>
-            </form>
-          )}
-        </Card>
+            )}
+          </Card>
+        </div>
 
         {/* Umbuchung */}
         {accounts.length >= 2 ? (

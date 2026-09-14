@@ -63,6 +63,8 @@ const bookingSchema = z.object({
   craftsmanId: z.string().optional(),
   /** Der Nutzer hat die Bauabzugsteuer-Warnung gesehen und trotzdem gebucht. */
   bauabzugBestaetigt: z.string().optional(),
+  /** Diese Buchung bezahlt eine offene Verbindlichkeit — die wird damit beglichen. */
+  verbindlichkeitId: z.string().optional(),
 });
 
 export async function createBooking(formData: FormData) {
@@ -83,6 +85,7 @@ export async function createBooking(formData: FormData) {
     reference: String(formData.get("reference") ?? "") || undefined,
     craftsmanId: String(formData.get("craftsmanId") ?? "") || undefined,
     bauabzugBestaetigt: String(formData.get("bauabzugBestaetigt") ?? "") || undefined,
+    verbindlichkeitId: String(formData.get("verbindlichkeitId") ?? "") || undefined,
   });
   if (!parsed.success) redirect("/verwaltung/weg");
   const property = await loadWegProperty(verwalter, parsed.data.propertyId);
@@ -116,6 +119,20 @@ export async function createBooking(formData: FormData) {
     if (laborShareCents === null || laborShareCents < 0 || laborShareCents > amountCents) {
       back(property.id, "fehler=lohnanteil");
     }
+  }
+
+  // Die Verbindlichkeit, die diese Zahlung begleicht: nur aus diesem Objekt
+  // (IDOR-Schutz) und nur, wenn sie noch offen ist. Geprüft **vor** dem
+  // Anlegen — eine Buchung mit ins Leere zeigender Verknüpfung soll es nicht
+  // geben. Eine Einnahme begleicht keine Schuld.
+  let verbindlichkeit: { id: string } | null = null;
+  if (parsed.data.verbindlichkeitId) {
+    if (parsed.data.kind !== "AUSGABE") back(property.id, "fehler=verbindlichkeit");
+    verbindlichkeit = await db.verbindlichkeit.findFirst({
+      where: { id: parsed.data.verbindlichkeitId, propertyId: property.id, settledAt: null },
+      select: { id: true },
+    });
+    if (!verbindlichkeit) back(property.id, "fehler=verbindlichkeit");
   }
 
   // Handwerker muss zur eigenen Organisation gehören (IDOR-Schutz).
@@ -215,8 +232,25 @@ export async function createBooking(formData: FormData) {
         : {}),
     },
   });
+  // Die Rechnung gilt ab dem Buchungstag als beglichen — nicht ab heute:
+  // Der Vermögensbericht blickt auf einen Stichtag, und maßgeblich ist der
+  // Tag, an dem das Geld das Konto verlassen hat.
+  if (verbindlichkeit) {
+    await db.verbindlichkeit.update({
+      where: { id: verbindlichkeit.id },
+      data: { settledAt: bookingDate },
+    });
+    await logAudit({
+      actorId: verwalter.id,
+      action: AUDIT.WEG_VERBINDLICHKEIT_SETTLED,
+      targetType: "Verbindlichkeit",
+      targetId: verbindlichkeit.id,
+      meta: { bookingId: created.id },
+    });
+    revalidatePath(`/verwaltung/weg/${property.id}/verbindlichkeiten`);
+  }
   revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
-  back(property.id, "gespeichert=buchung");
+  back(property.id, verbindlichkeit ? "gespeichert=zahlung" : "gespeichert=buchung");
 }
 
 // ── Umbuchung Giro ↔ Rücklage ────────────────────────────────────────────────

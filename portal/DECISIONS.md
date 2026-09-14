@@ -2350,3 +2350,38 @@ hat weiterhin keine Überwachung: Fällt er still aus, laufen alle Löschfristen
 ins Leere. Das `draft`-Etikett auf `/datenschutz-saas` und `/ki-transparenz`
 bleibt stehen — es zu entfernen ist eine Freigabeentscheidung, keine
 technische.
+
+325. **Die Belegerkennung sitzt auch bei „Buchung erfassen", liest den
+     Lohnanteil § 35a mit, und eine offene Rechnung wird mit „Als bezahlt
+     buchen" in einem Schritt Ausgabe und beglichen.** (14.09.2026) Dritte
+     Rückmeldung desselben Testnutzers: Er hatte die PDF-Erkennung dort
+     erwartet, wo er die Handwerkerrechnung bezahlt — samt dem § 35a-Betrag —
+     und verstand nicht, warum eine erfasste Verbindlichkeit „über den
+     Bankimport" bezahlt werden soll, wenn der Handwerker gar nicht einzieht.
+     Beides ist berechtigt. Die zwei Ebenen bleiben (Verbindlichkeit = Schuld
+     am Stichtag für den Vermögensbericht, Buchung = Zahlung nach Ist-Prinzip
+     für die Jahresabrechnung, Nr. 324), aber der Weg zwischen ihnen war
+     nicht gebaut. **Erkennung:** `BelegErkennungBlock` (`components/`) ist
+     jetzt der eine Block für beide Formulare — lokal zuerst, KI nur nach
+     Dialog, gleiche Action `erkenneBeleg`. Die Buchung übernimmt Betrag,
+     Zahlungspartner, Buchungstext („Rechnung 2026-114, Dachreparatur") und
+     den Lohnanteil; der Buchungstag bleibt bewusst leer, denn er ist der Tag
+     der Zahlung, nicht das Rechnungsdatum — der Hinweis im Block sagt das.
+     Anders als bei der Verbindlichkeit geht die Datei hier als Beleg mit
+     (Feld `beleg`): Die Buchung ist der Nachweis, die Rechnung gehört zu
+     ihr. **Lohnanteil:** lokal über Zeilen mit „Lohnanteil", „Arbeitskosten",
+     „§ 35a", „haushaltsnah" (brutto vor netto, nie der Stundensatz, nie mehr
+     als der Rechnungsbetrag, und solche Zeilen sind aus der Suche nach dem
+     Rechnungsbetrag ausgenommen — „Arbeitskosten brutto 785,40" ist kein
+     Gesamtbetrag); bei der KI als Feld `laborAmount` mit derselben Grenze.
+     Im E-Rechnungs-XML gibt es dafür kein Standardfeld, dort bleibt er leer.
+     **Als bezahlt buchen:** Link in der Verbindlichkeiten-Liste →
+     `buchhaltung?verbindlichkeit=<id>`; das Formular ist vorbelegt und trägt
+     die ID versteckt. `createBooking` prüft sie **vor** dem Anlegen (eigenes
+     Objekt, noch offen, Art Ausgabe — sonst `fehler=verbindlichkeit` und
+     keine Buchung) und setzt danach `settledAt` auf den **Buchungstag**,
+     nicht auf heute: Der Vermögensbericht fragt, wann das Geld weg war. Der
+     bisherige Knopf heißt jetzt „nur als beglichen markieren" und bleibt für
+     Zahlungen, die schon über den Bankimport gebucht sind; die Tipps auf
+     Liste und CSV-Import erklären beide Wege. KI-Transparenz Ziffer e) nennt
+     den neuen Ort und den Lohnanteil; die Datenverarbeitung ist dieselbe.

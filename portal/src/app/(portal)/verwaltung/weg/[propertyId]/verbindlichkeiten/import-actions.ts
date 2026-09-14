@@ -23,7 +23,11 @@ export type BelegVorschlag = {
   incurredOn: string;
   dueDate: string;
   note: string;
+  /** Lohnanteil § 35a, deutsche Schreibweise — leer, wenn die Rechnung keinen ausweist. */
+  labor: string;
 };
+
+const euro = (cents: number) => (cents / 100).toFixed(2).replace(".", ",");
 
 export type BelegErkennungResult =
   | {
@@ -48,17 +52,19 @@ function alsVorschlag(r: ErkannteRechnung): BelegVorschlag {
   return {
     title,
     creditor: r.creditor ?? "",
-    amount: r.grossCents != null ? (r.grossCents / 100).toFixed(2).replace(".", ",") : "",
+    amount: r.grossCents != null ? euro(r.grossCents) : "",
     incurredOn: r.invoiceDate ?? "",
     dueDate: r.dueDate ?? "",
     note: r.invoiceNumber && !title.includes(r.invoiceNumber) ? `Rechnungsnr. ${r.invoiceNumber}` : "",
+    labor: r.laborCents != null ? euro(r.laborCents) : "",
   };
 }
 
 /**
- * Wird imperativ aus dem Formular aufgerufen: Beleg hochladen → Felder lesen
- * und als Vorschlag zurückgeben. Speichert nichts — der Verwalter prüft und
- * korrigiert die Werte anschließend im Formular und schickt es selbst ab.
+ * Wird imperativ aus einem Formular aufgerufen — „Verbindlichkeit erfassen"
+ * und „Buchung erfassen" nutzen dieselbe Erkennung: Beleg hochladen → Felder
+ * lesen und als Vorschlag zurückgeben. Speichert nichts — der Verwalter prüft
+ * und korrigiert die Werte anschließend im Formular und schickt es selbst ab.
  *
  * Zwei Wege, die der Aufrufer ausdrücklich wählt (`weg`):
  * - `lokal` (Vorgabe): E-Rechnung-XML oder Textebene der PDF, alles auf dem

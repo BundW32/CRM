@@ -31,8 +31,10 @@ export default async function RechnungenImportPage({ params }: { params: Promise
         <RechnungenImportClient propertyId={property.id} />
         <Tipp className="mt-5">
           Jede Zeile wird als <strong>offene Rechnung</strong> angelegt — als Schuld der
-          Gemeinschaft, nicht als Buchung. Bezahlt wird sie später über den Bankimport, und Sie
-          markieren sie hier als „beglichen“. Zeilen, die es schon gibt (gleiche Bezeichnung,
+          Gemeinschaft, nicht als Buchung. Bezahlt wird sie später in der Liste über „Als
+          bezahlt buchen“ (legt die Ausgabe an und markiert die Rechnung als beglichen) — oder,
+          wenn die Zahlung schon über den Bankimport gebucht ist, über „nur als beglichen
+          markieren“. Zeilen, die es schon gibt (gleiche Bezeichnung,
           gleicher Betrag, gleiches Datum), werden übersprungen: Dieselbe Datei zweimal hochzuladen
           erzeugt keine Dubletten.
         </Tipp>

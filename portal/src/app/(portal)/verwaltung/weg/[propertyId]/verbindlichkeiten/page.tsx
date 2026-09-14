@@ -115,12 +115,24 @@ export default async function VerbindlichkeitenPage({
       align: "right",
       className: "w-px whitespace-nowrap",
       cell: (v) => (
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-3">
+          {/* Der Regelfall bei einer Handwerkerrechnung ohne Bankeinzug: Die
+              Überweisung wird als Ausgabe gebucht, und die Rechnung ist damit
+              beglichen — ein Schritt statt zwei. „als beglichen markieren"
+              bleibt für Zahlungen, die schon über den Bankimport gebucht sind. */}
+          {!v.settledAt ? (
+            <Link
+              href={`/verwaltung/weg/${property.id}/buchhaltung?verbindlichkeit=${v.id}#buchen`}
+              className="text-xs font-medium text-brand-green underline"
+            >
+              Als bezahlt buchen
+            </Link>
+          ) : null}
           <form action={toggleBeglichen}>
             <input type="hidden" name="propertyId" value={property.id} />
             <input type="hidden" name="id" value={v.id} />
             <PendingButton className="text-xs underline" pendingLabel="…">
-              {v.settledAt ? "wieder offen" : "beglichen"}
+              {v.settledAt ? "wieder offen" : "nur als beglichen markieren"}
             </PendingButton>
           </form>
           <form action={deleteVerbindlichkeit}>
@@ -217,7 +229,11 @@ export default async function VerbindlichkeitenPage({
           und im Januar bezahlt wurde, ein Darlehen, eine Nachzahlung an den Versorger. Der
           Vermögensbericht (§ 28 Abs. 4 WEG) zieht sie von Rücklage, Kontoständen und
           Forderungen ab. Ohne sie sieht die Gemeinschaft reicher aus, als sie ist — und
-          genau danach wird über Sonderumlagen entschieden.
+          genau danach wird über Sonderumlagen entschieden.{" "}
+          <strong>Bezahlt wird auf zwei Wegen:</strong> „Als bezahlt buchen“ legt die Überweisung
+          als Ausgabe in der Buchhaltung an und markiert die Rechnung zugleich als beglichen —
+          der übliche Weg bei einer Handwerkerrechnung. Kam die Zahlung schon über den
+          Bankimport herein, genügt „nur als beglichen markieren“.
         </Tipp>
       </Card>
       </div>

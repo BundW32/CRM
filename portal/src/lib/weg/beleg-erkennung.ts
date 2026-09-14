@@ -27,6 +27,11 @@ export type ErkannteRechnung = {
   grossCents?: number;
   /** Kurze Beschreibung der Leistung, z. B. „Dachreparatur nach Sturmschaden". */
   description?: string;
+  /**
+   * Lohn-, Fahrt- und Maschinenkostenanteil nach § 35a EStG in Cent, wie ihn
+   * die Rechnung ausweist („davon Lohnanteil …"). Nie größer als der Betrag.
+   */
+  laborCents?: number;
   /** Was der Beleg ist — ein Angebot wird als „Angebot AG0026" vorgemerkt, nicht als „Rechnung". */
   belegart?: "Rechnung" | "Angebot" | "Auftrag";
 };
@@ -70,6 +75,7 @@ const RESPONSE_SCHEMA = {
     invoiceDate: { type: "string" },
     dueDate: { type: "string" },
     grossAmount: { type: "number" },
+    laborAmount: { type: "number" },
     description: { type: "string" },
   },
 } as const;
@@ -81,9 +87,11 @@ const PROMPT =
   "Firmenname ohne Anschrift), invoiceNumber (Rechnungsnummer), invoiceDate " +
   "(Rechnungsdatum als YYYY-MM-DD), dueDate (Fälligkeitsdatum als YYYY-MM-DD, falls " +
   "genannt; bei „zahlbar innerhalb von X Tagen“ vom Rechnungsdatum aus rechnen), " +
-  "grossAmount (Rechnungsbetrag brutto in Euro als Zahl, Dezimalpunkt), description " +
-  "(die abgerechnete Leistung in höchstens 80 Zeichen, z. B. „Dachreparatur nach " +
-  "Sturmschaden“). Keine IBAN, keine Kontonummern.";
+  "grossAmount (Rechnungsbetrag brutto in Euro als Zahl, Dezimalpunkt), laborAmount " +
+  "(nur wenn die Rechnung einen Lohn-, Fahrt- oder Maschinenkostenanteil nach § 35a EStG " +
+  "gesondert ausweist, z. B. „davon Lohnanteil“ oder „Arbeitskosten“: dieser Betrag brutto " +
+  "in Euro; sonst weglassen), description (die abgerechnete Leistung in höchstens 80 " +
+  "Zeichen, z. B. „Dachreparatur nach Sturmschaden“). Keine IBAN, keine Kontonummern.";
 
 function str(v: unknown, max = 200): string | undefined {
   if (typeof v !== "string") return undefined;
@@ -183,6 +191,12 @@ export async function extractRechnung(
       grossCents: bruttoCents(raw.grossAmount),
       description: str(raw.description, 120),
     };
+    // Ein Lohnanteil über dem Rechnungsbetrag ist keiner — dann lieber leer
+    // als ein Ausweis, den das Finanzamt zurückweist.
+    const labor = bruttoCents(raw.laborAmount);
+    if (labor != null && (ergebnis.grossCents == null || labor <= ergebnis.grossCents)) {
+      ergebnis.laborCents = labor;
+    }
     // Ein Ergebnis ohne jeden Wert ist keins — dann lieber „von Hand" als ein
     // leeres „übernommen".
     return Object.values(ergebnis).some((v) => v !== undefined) ? ergebnis : null;

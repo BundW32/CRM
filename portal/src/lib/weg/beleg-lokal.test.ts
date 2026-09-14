@@ -100,20 +100,41 @@ describe("leseRechnungAusText", () => {
     "Nettobetrag 1.050,42",
     "zzgl. 19 % MwSt. 199,58",
     "Gesamtbetrag 1.250,00 €",
+    "Darin enthaltener Lohnanteil gem. § 35a EStG (brutto): 928,20 €",
     "Zahlbar innerhalb von 14 Tagen ohne Abzug.",
     "IBAN DE89 3704 0044 0532 0130 00",
   ];
 
-  it("findet Nummer, Daten, Bruttobetrag und Rechnungssteller", () => {
+  it("findet Nummer, Daten, Bruttobetrag, Lohnanteil und Rechnungssteller", () => {
     expect(leseRechnungAusText(rechnung)).toEqual({
       creditor: "Dachdeckerei Müller GmbH · Hauptstraße 5 · 45964 Gladbeck",
       invoiceNumber: "2026-114",
       invoiceDate: "2026-03-14",
       dueDate: "2026-03-28",
       grossCents: 125000,
+      laborCents: 92820,
       description: "Dachreparatur nach Sturmschaden, Lindenstraße 12",
       belegart: "Rechnung",
     });
+  });
+
+  it("nimmt beim Lohnanteil brutto vor netto, nie den Stundensatz, nie mehr als die Rechnung", () => {
+    const r = leseRechnungAusText([
+      "Malermeister Kunz GmbH",
+      "Rechnung Nr. 88",
+      "1 Arbeitslohn 12 Std. Stundensatz 55,00 660,00",
+      "Arbeitskosten netto 660,00",
+      "Arbeitskosten brutto 785,40",
+      "Gesamtbetrag 1.190,00",
+    ]);
+    expect(r?.laborCents).toBe(78540);
+    expect(r?.grossCents).toBe(119000);
+    // Netto allein wird genommen — besser als nichts, der Verwalter prüft.
+    expect(leseRechnungAusText(["Rechnung Nr. 1", "davon Lohnanteil (netto) 100,00", "Gesamtbetrag 500,00"])?.laborCents).toBe(10000);
+    // Über dem Rechnungsbetrag: verworfen.
+    expect(leseRechnungAusText(["Rechnung Nr. 2", "Lohnkosten 900,00", "Gesamtbetrag 500,00"])?.laborCents).toBeUndefined();
+    // Ohne Ausweis: kein Anteil.
+    expect(leseRechnungAusText(["Rechnung Nr. 3", "Gesamtbetrag 500,00"])?.laborCents).toBeUndefined();
   });
 
   it("nimmt nie den Nettobetrag und liest ein ausdrückliches Fälligkeitsdatum", () => {

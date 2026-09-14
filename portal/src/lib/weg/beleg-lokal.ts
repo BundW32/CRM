@@ -173,6 +173,9 @@ const BETRAG_WOERTER = [
   /\bbrutto\b|\bgesamt\b|\btotal\b/i,
 ];
 
+/** Zeilen, in denen Handwerker den nach § 35a EStG begünstigten Anteil ausweisen. */
+const LOHN = /lohnanteil|lohnkosten|arbeitskosten|arbeitslohn|lohn-?\s?(?:und|u\.|,)\s?(?:fahrt|maschinen)|davon\s+lohn|§\s?35\s?a|haushaltsnah|handwerkerleistung/i;
+
 const FIRMA = /\b(GmbH|AG|KG|OHG|UG|GbR|mbH|e\.\s?K\.|e\.\s?V\.|Inh\.|& Co|SE|Meisterbetrieb|Stadtwerke|Versorgung)\b/;
 
 /**
@@ -232,7 +235,9 @@ export function leseRechnungAusText(zeilen: string[]): ErkannteRechnung | null {
     let gefunden: number | undefined;
     for (let i = zeilen.length - 1; i >= 0; i--) {
       const z = zeilen[i];
-      if (!wort.test(z) || /netto|zwischensumme|mwst|ust\b|umsatzsteuer|steuer/i.test(z.replace(/brutto/gi, ""))) continue;
+      // Der Lohnanteil („Arbeitskosten brutto 785,40") ist nie der Rechnungsbetrag.
+      if (!wort.test(z) || LOHN.test(z)) continue;
+      if (/netto|zwischensumme|mwst|ust\b|umsatzsteuer|steuer/i.test(z.replace(/brutto/gi, ""))) continue;
       const hier = betraegeIn(z);
       const dort = hier.length === 0 && zeilen[i + 1] ? betraegeIn(zeilen[i + 1]) : [];
       const kandidat = hier.at(-1) ?? dort.at(-1);
@@ -246,6 +251,26 @@ export function leseRechnungAusText(zeilen: string[]): ErkannteRechnung | null {
       break;
     }
   }
+
+  // Lohnanteil § 35a: Handwerker weisen ihn gesondert aus — „davon Lohnanteil",
+  // „Arbeitskosten gem. § 35a EStG", „Lohn- und Fahrtkosten". Genommen wird die
+  // Zeile mit dem Wort und einem Betrag (notfalls in der Folgezeile); steht der
+  // Anteil netto und brutto da, gilt brutto — der Steuervorteil rechnet mit
+  // dem Bruttobetrag. Ein Anteil über dem Rechnungsbetrag ist ein Fehlgriff
+  // (etwa der Stundensatz) und wird verworfen.
+  let lohnBrutto: number | undefined;
+  let lohnSonst: number | undefined;
+  for (let i = 0; i < zeilen.length; i++) {
+    const z = zeilen[i];
+    if (!LOHN.test(z) || /stundensatz|je\s+stunde|\/\s?std|pro\s+stunde/i.test(z)) continue;
+    const hier = betraegeIn(z);
+    const kandidat = hier.at(-1) ?? (hier.length === 0 && zeilen[i + 1] ? betraegeIn(zeilen[i + 1]).at(-1) : undefined);
+    if (kandidat == null) continue;
+    if (/brutto|inkl/i.test(z)) lohnBrutto = kandidat;
+    else if (lohnSonst == null || !/netto/i.test(z)) lohnSonst = kandidat;
+  }
+  const lohn = lohnBrutto ?? lohnSonst;
+  if (lohn != null && (r.grossCents == null || lohn <= r.grossCents)) r.laborCents = lohn;
 
   // Rechnungssteller: die erste Zeile im oberen Teil, die nach Firma aussieht
   // und nicht die Gemeinschaft selbst ist (die steht als Empfänger ebenfalls oben).

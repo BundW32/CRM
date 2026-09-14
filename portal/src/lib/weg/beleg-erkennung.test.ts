@@ -100,6 +100,7 @@ describe("extractRechnung", () => {
         invoiceDate: "14.03.2026",
         dueDate: "2026-03-28",
         grossAmount: "1.250,00",
+        laborAmount: 928.2,
         description: "Dachreparatur nach Sturmschaden",
       }),
     );
@@ -111,11 +112,19 @@ describe("extractRechnung", () => {
       invoiceDate: "2026-03-14",
       dueDate: "2026-03-28",
       grossCents: 125000,
+      laborCents: 92820,
       description: "Dachreparatur nach Sturmschaden",
     });
     const aufruf = fetchMock.mock.calls[0] as unknown as [string, { body: string }];
     const body = JSON.parse(aufruf[1].body);
     expect(body.contents[0].parts[0].inline_data.mime_type).toBe("application/pdf");
+  });
+
+  it("verwirft einen Lohnanteil über dem Rechnungsbetrag", async () => {
+    enable();
+    vi.stubGlobal("fetch", vi.fn(async () => geminiResponse({ grossAmount: 100, laborAmount: 250 })));
+    const res = await extractRechnung(Buffer.from("x"), "image/jpeg");
+    expect(res).toEqual({ grossCents: 10000 });
   });
 
   it("gibt null zurück, wenn nichts erkannt wurde oder die API fehlschlägt", async () => {

@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { normalizeSearch, pageHrefFor, parsePage, resolveSort, toOrderBy } from "@/lib/list-query";
 import { requireVerwalter } from "@/lib/session";
 import { updateBoardMember, updateVotingPrinciple } from "./actions";
+import { formatMea, rundeMea } from "@/lib/weg/mea";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,7 @@ export default async function EigentuemerPage({
         }),
       ])
     : [[], 0, { _sum: { mea: null } }];
-  const totalMea = meaAgg._sum.mea ?? 0;
+  const totalMea = rundeMea(meaAgg._sum.mea ?? 0);
 
   const pageHref = pageHrefFor(`/verwaltung/eigentuemer`, sp);
 
@@ -226,7 +227,7 @@ export default async function EigentuemerPage({
                               <div className="flex flex-wrap items-center gap-3 text-sm text-gray-700">
                                 <span>
                                   <span className="text-xs text-gray-400">MEA </span>
-                                  {o.mea ?? "—"}
+                                  {formatMea(o.mea)}
                                 </span>
                                 <span>
                                   <span className="text-xs text-gray-400">Einheiten </span>

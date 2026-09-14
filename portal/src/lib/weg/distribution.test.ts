@@ -108,12 +108,26 @@ describe("weightsForKey", () => {
     { id: "c", label: "c", mea: 200, livingArea: 102.17, personCount: 4, unitType: "WOHNUNG" as const },
   ];
 
-  it("MEA nutzt Miteigentumsanteile", () => {
+  it("MEA nutzt Miteigentumsanteile — ganzzahlig in Zehntausendsteln", () => {
     expect(weightsForKey(units, "MEA")).toEqual([
-      { unitId: "a", weight: 500 },
-      { unitId: "b", weight: 300 },
-      { unitId: "c", weight: 200 },
+      { unitId: "a", weight: 5_000_000 },
+      { unitId: "b", weight: 3_000_000 },
+      { unitId: "c", weight: 2_000_000 },
     ]);
+  });
+
+  it("MEA mit Nachkommastellen (250,17 von 1.000) verteilt exakt", () => {
+    const dezimal: UnitForDistribution[] = [
+      { ...units[0], mea: 250.17 },
+      { ...units[1], mea: 749.83 },
+    ];
+    expect(weightsForKey(dezimal, "MEA")).toEqual([
+      { unitId: "a", weight: 2_501_700 },
+      { unitId: "b", weight: 7_498_300 },
+    ]);
+    const r = distributeByWeight(100_000, weightsForKey(dezimal, "MEA"));
+    expect(r.get("a")).toBe(25_017);
+    expect(r.get("b")).toBe(74_983);
   });
 
   it("FLAECHE nutzt cm²-Ganzzahlen (keine Float-Artefakte)", () => {

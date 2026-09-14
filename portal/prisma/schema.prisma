@@ -561,7 +561,7 @@ model Property {
   managementType        ManagementType         @default(MIETVERWALTUNG)
   votingPrinciple       VotingPrinciple        @default(KOPF) // Stimmprinzip (nur WEG)
   // WEG-Finanzstammdaten
-  meaTotal              Int? // MEA-Nenner (Summe aller Anteile, z. B. 1000)
+  meaTotal              Float? // MEA-Nenner (Summe aller Anteile, z. B. 1000) — bis 4 Nachkommastellen, siehe lib/weg/mea.ts
   fiscalYearStartMonth  Int                    @default(1) // Wirtschaftsjahr-Beginn (1 = Januar)
   // Wann das monatliche Hausgeld fällig wird. Steuert die Sollstellungen und
   // zugleich den Wortlaut der Beschlussvorlage — beides muss dasselbe sagen,
@@ -645,7 +645,7 @@ model Unit {
   // Nur für unitType STELLPLATZ: Außenstellplatz, Carport, Garage oder
   // Tiefgaragen-Stellplatz. Beschreibend — am Preis ändert der Untertyp nichts.
   stellplatzTyp        StellplatzTyp?
-  mea                  Int? // MEA-Zähler dieser Einheit (Nenner: Property.meaTotal)
+  mea                  Float? // MEA-Zähler dieser Einheit (Nenner: Property.meaTotal), z. B. 250,17
   livingArea           Float? // Wohn-/Nutzfläche in m²
   personCount          Int? // Personenzahl (Umlageschlüssel PERSONEN)
   orderIndex           Int                   @default(0)
@@ -705,7 +705,7 @@ model Ownership {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   propertyId    String
   property      Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  mea           Int? // Miteigentumsanteil (z. B. von 1000) – Stimmgewicht beim Wertprinzip
+  mea           Float? // Miteigentumsanteil (z. B. 250,17 von 1000) – Stimmgewicht beim Wertprinzip, abgeleitet aus Unit.mea
   voteUnits     Int? // Anzahl Stimmen beim Objektprinzip (Einheiten dieses Eigentümers)
   isBoardMember Boolean  @default(false) // Mitglied des Verwaltungsbeirats (Selbstverwaltung)
 

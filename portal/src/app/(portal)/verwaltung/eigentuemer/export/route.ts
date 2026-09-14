@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { canVerwalterAccessProperty } from "@/lib/access";
 import { db } from "@/lib/db";
 import { getUser } from "@/lib/session";
+import { meaEingabe, summeMea } from "@/lib/weg/mea";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
       include: { user: { select: { name: true, email: true } } },
       orderBy: { user: { name: "asc" } },
     });
-    const totalMea = owners.reduce((s, o) => s + (o.mea ?? 0), 0);
+    const totalMea = summeMea(owners.map((o) => o.mea));
 
     // CSV-Escaping + Schutz vor Formel-Injection: Zellen, die mit =,+,-,@ oder
     // einem Steuerzeichen beginnen, werden mit ' entwertet (Excel/LibreOffice
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
       ["Eigentümer", "E-Mail", "MEA", "Stimmanteil %"].map(esc).join(";"),
       ...owners.map((o) => {
         const share = totalMea > 0 && o.mea != null ? deDecimal((o.mea / totalMea) * 100) : "";
-        return [o.user.name, o.user.email ?? "", o.mea?.toString() ?? "", share]
+        return [o.user.name, o.user.email ?? "", meaEingabe(o.mea), share]
           .map((v) => esc(String(v)))
           .join(";");
       }),

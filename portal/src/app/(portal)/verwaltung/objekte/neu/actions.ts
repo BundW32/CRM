@@ -18,6 +18,7 @@ import { inviteOrLetter } from "@/lib/user-invite";
 import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 import { parseAnteil } from "@/lib/weg/anteil";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
+import { leseMea, summeMea } from "@/lib/weg/mea";
 
 const MAX_UNITS = 100;
 const MAX_TENANTS = 100;
@@ -165,7 +166,7 @@ export async function createObjekt(formData: FormData) {
       externalLabel: (unitExternals[i] ?? "").slice(0, 200) || null,
       floor: unitFloors[i] || undefined,
       livingArea: optFloat(unitAreas[i] ?? null),
-      mea: managementType === "WEG" ? optInt(unitMeas[i] ?? null) : null,
+      mea: managementType === "WEG" ? (leseMea(unitMeas[i] ?? null) ?? null) : null,
       personCount: optInt(unitPersonsRaw[i] ?? null),
     }))
     .filter((u) => u.label.length > 0)
@@ -204,7 +205,7 @@ export async function createObjekt(formData: FormData) {
     // Teilungserklärung nennt gelegentlich 10.000) bleiben in den Stammdaten
     // änderbar.
     if (managementType === "WEG" && unitsToCreate.every((u) => u.mea != null)) {
-      const summe = unitsToCreate.reduce((s, u) => s + (u.mea ?? 0), 0);
+      const summe = summeMea(unitsToCreate.map((u) => u.mea));
       if (summe > 0) {
         await db.property.update({ where: { id: property.id }, data: { meaTotal: summe } });
       }

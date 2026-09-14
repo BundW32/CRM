@@ -2,6 +2,7 @@
 // Einzelwirtschaftspläne und monatliche Hausgeld-Raten. Pure Funktionen —
 // DB/UI übernehmen die Server Actions.
 import type { CostCategory, DistributionKey, HausgeldRounding } from "@/generated/prisma/client";
+import { meaGewicht } from "./mea";
 import { formatCents } from "@/lib/money";
 import { distributeByWeight, type Share, type UnitForDistribution } from "./distribution";
 
@@ -41,7 +42,7 @@ export function advanceWeightsForKey(units: UnitForDistribution[], key: Distribu
     case "MEA":
       return units.map((u) => {
         if (u.mea == null) throw new Error(`Einheit ohne Miteigentumsanteil (MEA): ${u.label}`);
-        return { unitId: u.id, weight: u.mea };
+        return { unitId: u.id, weight: meaGewicht(u.mea) };
       });
     case "FLAECHE":
       return units.map((u) => ({ unitId: u.id, weight: Math.round((u.livingArea ?? 0) * 10000) }));

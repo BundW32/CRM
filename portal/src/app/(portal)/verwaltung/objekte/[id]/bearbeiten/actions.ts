@@ -16,6 +16,7 @@ import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 import { inviteOrLetter } from "@/lib/user-invite";
 import { parseAnteil } from "@/lib/weg/anteil";
 import { syncOwnerVotingWeights } from "@/lib/weg/mea-sync";
+import { leseMea } from "@/lib/weg/mea";
 
 function optInt(raw: FormDataEntryValue | null): number | null {
   const v = String(raw ?? "").trim();
@@ -172,7 +173,7 @@ export async function addUnit(formData: FormData) {
       floor: optStr(formData.get("floor"), 50),
       ...parseUnitArt(formData),
       livingArea: optFloat(formData.get("livingArea")),
-      mea: optInt(formData.get("mea")),
+      mea: leseMea(formData.get("mea")) ?? null,
       personCount: optInt(formData.get("personCount")),
       orderIndex: (max._max.orderIndex ?? 0) + 1,
     },
@@ -200,7 +201,7 @@ export async function updateUnit(formData: FormData) {
       floor: optStr(formData.get("floor"), 50),
       ...parseUnitArt(formData),
       livingArea: optFloat(formData.get("livingArea")),
-      mea: optInt(formData.get("mea")),
+      mea: leseMea(formData.get("mea")) ?? null,
       personCount: optInt(formData.get("personCount")),
     },
   });

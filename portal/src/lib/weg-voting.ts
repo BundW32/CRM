@@ -1,3 +1,4 @@
+import { formatMea } from "@/lib/weg/mea";
 // WEG-Abstimmungslogik: berechnet das voraussichtliche Beschlussergebnis nach
 // Stimmprinzip (Gewichtung kommt vom Aufrufer) UND erforderlicher Mehrheit.
 // Bewusst eine reine Funktion (testbar). Das Ergebnis ist ein VORSCHLAG –
@@ -106,7 +107,7 @@ export function computeOutcome(input: OutcomeInput): OutcomeResult {
         reliable = false;
       }
       accepted = stimmenOk && meaOk;
-      rule += ` (Ja-Stimmen ${ja}/${cast}, Ja-MEA ${meaJa}/${meaTotal}).`;
+      rule += ` (Ja-Stimmen ${ja}/${cast}, Ja-MEA ${formatMea(meaJa)}/${formatMea(meaTotal)}).`;
       break;
     }
     case "ALLSTIMMIG": {

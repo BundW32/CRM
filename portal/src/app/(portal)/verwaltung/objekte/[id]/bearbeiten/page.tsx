@@ -38,6 +38,7 @@ import {
   updateTenancy,
   updateUnit,
 } from "./actions";
+import { formatMea, meaEingabe } from "@/lib/weg/mea";
 
 export const dynamic = "force-dynamic";
 
@@ -514,7 +515,7 @@ export default async function ObjektBearbeitenPage({
                       </Field>
                       {isWeg ? (
                         <Field label="MEA">
-                          <input type="number" min={0} name="mea" defaultValue={u.mea ?? ""} className={inputClass} placeholder="z. B. 250" />
+                          <input type="text" inputMode="decimal" name="mea" defaultValue={meaEingabe(u.mea)} className={inputClass} placeholder="z. B. 250 oder 250,17" />
                         </Field>
                       ) : null}
                       <Field label="Personen">
@@ -552,7 +553,7 @@ export default async function ObjektBearbeitenPage({
                     <div className="mt-3 border-t border-gray-100 pt-3">
                       <p className="text-xs font-medium text-gray-500">
                         Eigentümer
-                        {u.mea != null ? ` · MEA ${u.mea}` : ""}
+                        {u.mea != null ? ` · MEA ${formatMea(u.mea)}` : ""}
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         {u.unitOwnerships.length === 0 ? (
@@ -651,7 +652,7 @@ export default async function ObjektBearbeitenPage({
               </Field>
               {isWeg ? (
                 <Field label="MEA">
-                  <input type="number" min={0} name="mea" className={inputClass} placeholder="z. B. 200" />
+                  <input type="text" inputMode="decimal" name="mea" className={inputClass} placeholder="z. B. 200 oder 250,17" />
                 </Field>
               ) : null}
               <Field label="Personen">

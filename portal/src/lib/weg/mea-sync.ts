@@ -5,6 +5,7 @@
 // nach jeder Änderung an Unit.mea oder an der Einheiten-Eigentümerschaft.
 import { db } from "@/lib/db";
 import { distributeByWeight } from "@/lib/weg/distribution";
+import { MEA_NACHKOMMASTELLEN, meaGewicht, rundeMea } from "@/lib/weg/mea";
 
 // Setzt Ownership.mea / voteUnits für alle Eigentümer eines Objekts neu:
 //   mea       = Σ (Unit.mea × Anteil%) der aktuell gehaltenen Einheiten
@@ -64,18 +65,21 @@ export async function syncOwnerVotingWeights(propertyId: string): Promise<void> 
       zaehle(list[0].userId, mea);
       continue;
     }
+    // Verteilt wird in Zehntausendsteln (ganzzahlig, wie `distributeByWeight`
+    // es verlangt) und zurückgerechnet: 250,17 Anteile zu je 50 % ergeben
+    // 125,085 und 125,085 — Summe exakt 250,17.
     const verteilt = distributeByWeight(
-      mea,
+      meaGewicht(mea),
       list.map((h, i) => ({ unitId: `${i}`, weight: h.sharePercent })),
     );
-    list.forEach((h, i) => zaehle(h.userId, verteilt.get(`${i}`) ?? 0));
+    list.forEach((h, i) => zaehle(h.userId, (verteilt.get(`${i}`) ?? 0) / 10 ** MEA_NACHKOMMASTELLEN));
   }
 
   await db.$transaction(
     ownerships.map((o) => {
       const agg = byUser.get(o.userId);
       const voteUnits = agg && agg.count > 0 ? agg.count : null;
-      const mea = agg && agg.count > 0 && !agg.incomplete ? agg.meaSum : null;
+      const mea = agg && agg.count > 0 && !agg.incomplete ? rundeMea(agg.meaSum) : null;
       return db.ownership.update({ where: { id: o.id }, data: { mea, voteUnits } });
     }),
   );

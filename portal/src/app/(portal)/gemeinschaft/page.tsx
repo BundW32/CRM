@@ -15,6 +15,7 @@ import {
 import { pageHrefFor, parsePage } from "@/lib/list-query";
 import { getOrganization, requireUser } from "@/lib/session";
 import { FilePreviewLink } from "@/components/file-preview-link";
+import { formatMea, meaGleich, summeMea } from "@/lib/weg/mea";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +72,7 @@ export default async function GemeinschaftPage({
         orderBy: { user: { name: "asc" } },
       })
     : [];
-  const totalMea = owners.reduce((s, o) => s + (o.mea ?? 0), 0);
+  const totalMea = summeMea(owners.map((o) => o.mea));
   // Nur die Verwaltung kann die Anteile korrigieren – ein Eigentümer bekäme
   // sonst einen Link auf eine Seite, die ihm verschlossen ist.
   const isVerwalter = user.role === "VERWALTER";
@@ -181,7 +182,7 @@ export default async function GemeinschaftPage({
                                   ) : null}
                                 </span>
                               </td>
-                              <td className="px-3 py-2 text-gray-600">{o.mea ?? "—"}</td>
+                              <td className="px-3 py-2 text-gray-600">{formatMea(o.mea)}</td>
                               <td className="px-3 py-2 text-gray-600">{share}</td>
                             </tr>
                           );
@@ -189,10 +190,10 @@ export default async function GemeinschaftPage({
                         <tr className="border-t border-gray-200">
                           <td className="px-3 py-2 font-medium text-gray-700">Summe</td>
                           <td className="px-3 py-2 font-medium text-gray-700" colSpan={2}>
-                            {totalMea.toLocaleString("de-DE")} MEA
+                            {formatMea(totalMea)} MEA
                             {selected.meaTotal != null ? (
                               <span className="ml-2 font-normal text-gray-500">
-                                von {selected.meaTotal.toLocaleString("de-DE")}
+                                von {formatMea(selected.meaTotal)}
                               </span>
                             ) : null}
                           </td>
@@ -206,11 +207,10 @@ export default async function GemeinschaftPage({
                         zu überlassen, zwei Zahlen im Kopf zu vergleichen. In
                         einem Test stand hier 1.147 statt 1.000, ohne dass die
                         Seite darauf hingewiesen hätte. */}
-                    {selected.meaTotal != null && totalMea !== selected.meaTotal ? (
+                    {selected.meaTotal != null && !meaGleich(totalMea, selected.meaTotal) ? (
                       <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                         Die Summe der Stimmanteile weicht vom MEA-Nenner ab (
-                        {totalMea.toLocaleString("de-DE")} statt{" "}
-                        {selected.meaTotal.toLocaleString("de-DE")}). Bis das stimmt, sind
+                        {formatMea(totalMea)} statt {formatMea(selected.meaTotal)}). Bis das stimmt, sind
                         Mehrheiten nach Anteilen nicht belastbar.{" "}
                         {isVerwalter ? (
                           <Link

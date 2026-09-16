@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Audio, Sequence, staticFile } from "remotion";
+import { createTikTokStyleCaptions, type Caption } from "@remotion/captions";
 import { FARBEN, LAUTSTAERKE, SAFE_ZONE } from "./marke";
 import { KineticText } from "./bausteine/KineticText";
 import { Untertitel } from "./bausteine/Untertitel";
@@ -9,9 +10,35 @@ import { Untertitel } from "./bausteine/Untertitel";
  *
  * Zeigt in einem Durchlauf: geladene Schrift, gestapelten Kinetic-Text mit
  * Akzentwort, Wort-für-Wort-Untertitel mit aktivem Wort, einen Klangakzent und
- * die eingezeichnete Instagram-Safe-Zone. Wenn das sauber rendert, hängt am
- * ersten echten Reel nur noch der Schnitt.
+ * die eingezeichnete Instagram-Safe-Zone.
+ *
+ * Die Beispiel-Untertitel sind absichtlich so geformt, wie Whisper wirklich
+ * liefert: ein Kompositum kommt in Wortteilen an. Wenn hier
+ * „Wohnungseigentümergemeinschaft" als ein Wort aufleuchtet und nicht als
+ * sieben Fragmente, funktioniert die Zusammenführung.
  */
+
+const roheWorte: Caption[] = [
+  { text: "Eine", startMs: 0, endMs: 380, timestampMs: 190, confidence: 1 },
+  { text: " kleine", startMs: 380, endMs: 780, timestampMs: 580, confidence: 1 },
+  { text: " Wohnung", startMs: 900, endMs: 1150, timestampMs: 1020, confidence: 1 },
+  { text: "se", startMs: 1150, endMs: 1260, timestampMs: 1200, confidence: 1 },
+  { text: "igent", startMs: 1260, endMs: 1420, timestampMs: 1340, confidence: 1 },
+  { text: "ü", startMs: 1420, endMs: 1500, timestampMs: 1460, confidence: 1 },
+  { text: "mer", startMs: 1500, endMs: 1650, timestampMs: 1570, confidence: 1 },
+  { text: "geme", startMs: 1650, endMs: 1800, timestampMs: 1720, confidence: 1 },
+  { text: "ins", startMs: 1800, endMs: 1900, timestampMs: 1850, confidence: 1 },
+  { text: "chaft", startMs: 1900, endMs: 2100, timestampMs: 2000, confidence: 1 },
+  { text: " macht", startMs: 2200, endMs: 2520, timestampMs: 2360, confidence: 1 },
+  { text: " das", startMs: 2520, endMs: 2740, timestampMs: 2630, confidence: 1 },
+  { text: " selbst", startMs: 2740, endMs: 3000, timestampMs: 2870, confidence: 1 },
+];
+
+const { pages } = createTikTokStyleCaptions({
+  captions: roheWorte,
+  combineTokensWithinMilliseconds: 900,
+});
+
 export const Gruesttest: React.FC = () => (
   <AbsoluteFill style={{ backgroundColor: FARBEN.gruen }}>
     <AbsoluteFill
@@ -32,16 +59,7 @@ export const Gruesttest: React.FC = () => (
       ]}
     />
 
-    <Untertitel
-      woerter={[
-        { text: "Schrift", startMs: 0, endMs: 500 },
-        { text: "Text", startMs: 500, endMs: 1000 },
-        { text: "Ton", startMs: 1000, endMs: 1500 },
-        { text: "Safe-Zone", startMs: 1500, endMs: 2200 },
-        { text: "alles", startMs: 2200, endMs: 2600 },
-        { text: "da", startMs: 2600, endMs: 3000 },
-      ]}
-    />
+    <Untertitel seiten={pages} />
 
     <SafeZone />
   </AbsoluteFill>

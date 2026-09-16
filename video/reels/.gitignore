@@ -1,0 +1,7 @@
+node_modules/
+out/
+.whisper/
+# Rohmaterial und fertige Reels gehören nicht ins Repo – nur der Bauplan.
+public/roh/
+public/schriften/
+public/sfx/

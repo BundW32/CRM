@@ -1,0 +1,30 @@
+{
+  "name": "wegportal24-reels",
+  "private": true,
+  "description": "Instagram-Reels für wegportal24: Schnitt, Untertitel und Kinetic-Texte in Remotion (siehe README.md)",
+  "type": "module",
+  "scripts": {
+    "material": "NODE_USE_ENV_PROXY=1 node werkzeuge/material-laden.mjs",
+    "studio": "remotion studio src/index.ts",
+    "rendern": "remotion render src/index.ts",
+    "standbild": "remotion still src/index.ts"
+  },
+  "dependencies": {
+    "@remotion/captions": "4.0.525",
+    "@remotion/cli": "4.0.525",
+    "@remotion/fonts": "4.0.525",
+    "@remotion/install-whisper-cpp": "4.0.525",
+    "@remotion/layout-utils": "4.0.525",
+    "@remotion/media-utils": "4.0.525",
+    "@remotion/renderer": "4.0.525",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "4.0.525"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

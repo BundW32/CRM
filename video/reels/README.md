@@ -49,3 +49,52 @@ npm run rendern -- Gruesttest out/gruesttest.mp4
 
 Rohmaterial, geladene Schriften/Klänge und fertige Reels stehen in
 `.gitignore`. Im Repo liegt der Bauplan, nicht die Bytes.
+
+## Rohmaterial aus dem Drive (nur lokal auf dem Mac)
+
+Diese Kette braucht das Rohmaterial als Datei. **In einer Cloud-Session geht das
+nicht:** Dort gibt es keinen Drive-Ordner, nur den Drive-Connector, und der
+deckelt Downloads bei 10 MB — ein Reel-Rohvideo hat 50 bis 300 MB. Läuft die
+Session dagegen auf dem Mac (Claude Code im Terminal, `environment_kind:
+bridge`), ist Drive ein ganz normaler Ordner und es ist schlichtes Kopieren.
+
+Die Ordner in der geteilten Ablage:
+
+```
+B&W / 07_Social Media / Rohmaterial        ← das Gedrehte
+B&W / 07_Social Media / Remotion Claude / Renders   ← die fertigen Reels
+```
+
+Auf dem Mac liegen sie unter `~/Library/CloudStorage/GoogleDrive-<adresse>/
+Geteilte Ablagen/B&W/07_Social Media/` (Pfad einmal nachsehen, er hängt am
+Konto).
+
+### Ein Reel von vorn bis hinten
+
+```bash
+cd video/reels
+npm install
+npm run material                      # Schriften + Klänge (einmalig)
+
+DRIVE="$HOME/Library/CloudStorage/GoogleDrive-<adresse>/Geteilte Ablagen/B&W/07_Social Media"
+node werkzeuge/normalisieren.mjs "$DRIVE/Rohmaterial/<datei>.MOV"
+node werkzeuge/transkribieren.mjs public/roh/<datei>-1080x1920.mp4
+node werkzeuge/pausen.mjs public/roh/<datei>-1080x1920.mp4 public/roh/<datei>-1080x1920-transkript.json
+
+# Schnittplan als src/<thema>.tsx schreiben (siehe src/Reelprobe.tsx als Vorlage),
+# in src/Root.tsx eintragen, dann:
+npm run rendern -- <CompositionId> out/roh.mp4
+node werkzeuge/lautheit.mjs out/roh.mp4 "$DRIVE/Remotion Claude/Renders/wegportal24_<thema>_v1.mp4"
+```
+
+### Was auf dem Mac anders ist
+
+- **Schneller.** Whisper läuft über Metal statt über vier CPU-Kerne; auch das
+  Rendern zieht deutlich an.
+- **Remotion lädt seinen eigenen Chrome.** Die Zeile `Config.setBrowserExecutable`
+  in `remotion.config.ts` zeigt auf den Browser dieser Cloud-Umgebung — lokal
+  greift die Umgebungsvariable `REMOTION_BROWSER`, sonst den Pfad anpassen.
+- **Freistellung** braucht ein Python-Environment: `python3 -m venv .venv &&
+  .venv/bin/pip install "rembg[cpu]" onnxruntime pillow numpy`.
+- Schriften und Klänge kommen weiterhin über `npm run material` lokal ins
+  `public/` — das bleibt auch dort die Regel, nicht Nachladen beim Rendern.

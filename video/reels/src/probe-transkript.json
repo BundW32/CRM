@@ -1,0 +1,338 @@
+[
+  {
+    "text": "Ganz",
+    "startMs": 150,
+    "endMs": 330,
+    "timestampMs": 400,
+    "confidence": 0.953476
+  },
+  {
+    "text": " ehrlich",
+    "startMs": 330,
+    "endMs": 890,
+    "timestampMs": 880,
+    "confidence": 0.999418
+  },
+  {
+    "text": ",",
+    "startMs": 890,
+    "endMs": 1300,
+    "timestampMs": 1320,
+    "confidence": 0.328787
+  },
+  {
+    "text": " die",
+    "startMs": 1300,
+    "endMs": 1410,
+    "timestampMs": 2060,
+    "confidence": 0.738975
+  },
+  {
+    "text": " meisten",
+    "startMs": 1410,
+    "endMs": 2000,
+    "timestampMs": 2540,
+    "confidence": 0.999533
+  },
+  {
+    "text": " kleinen",
+    "startMs": 2000,
+    "endMs": 2530,
+    "timestampMs": 3020,
+    "confidence": 0.993942
+  },
+  {
+    "text": " Wohnung",
+    "startMs": 2530,
+    "endMs": 3010,
+    "timestampMs": 3400,
+    "confidence": 0.99309
+  },
+  {
+    "text": "se",
+    "startMs": 3010,
+    "endMs": 3170,
+    "timestampMs": 3700,
+    "confidence": 0.999554
+  },
+  {
+    "text": "igent",
+    "startMs": 3170,
+    "endMs": 3580,
+    "timestampMs": 3940,
+    "confidence": 0.999085
+  },
+  {
+    "text": "ü",
+    "startMs": 3580,
+    "endMs": 3740,
+    "timestampMs": 4100,
+    "confidence": 0.999199
+  },
+  {
+    "text": "mer",
+    "startMs": 3740,
+    "endMs": 4020,
+    "timestampMs": 4240,
+    "confidence": 0.999985
+  },
+  {
+    "text": "geme",
+    "startMs": 4020,
+    "endMs": 4310,
+    "timestampMs": 4460,
+    "confidence": 0.960556
+  },
+  {
+    "text": "ins",
+    "startMs": 4310,
+    "endMs": 4540,
+    "timestampMs": 4720,
+    "confidence": 0.999354
+  },
+  {
+    "text": "chaft",
+    "startMs": 4540,
+    "endMs": 5060,
+    "timestampMs": 4940,
+    "confidence": 0.999983
+  },
+  {
+    "text": "en",
+    "startMs": 5060,
+    "endMs": 5200,
+    "timestampMs": 5160,
+    "confidence": 0.99999
+  },
+  {
+    "text": " brauchen",
+    "startMs": 5200,
+    "endMs": 5680,
+    "timestampMs": 5560,
+    "confidence": 0.951342
+  },
+  {
+    "text": " keinen",
+    "startMs": 5680,
+    "endMs": 6040,
+    "timestampMs": 6100,
+    "confidence": 0.99194
+  },
+  {
+    "text": " Ver",
+    "startMs": 6040,
+    "endMs": 6240,
+    "timestampMs": 6360,
+    "confidence": 0.995845
+  },
+  {
+    "text": "wal",
+    "startMs": 6240,
+    "endMs": 6400,
+    "timestampMs": 6540,
+    "confidence": 0.999851
+  },
+  {
+    "text": "ter",
+    "startMs": 6400,
+    "endMs": 6630,
+    "timestampMs": 6740,
+    "confidence": 0.999802
+  },
+  {
+    "text": ".",
+    "startMs": 6630,
+    "endMs": 6780,
+    "timestampMs": 7040,
+    "confidence": 0.987943
+  },
+  {
+    "text": " Ihr",
+    "startMs": 6780,
+    "endMs": 7000,
+    "timestampMs": 7380,
+    "confidence": 0.999645
+  },
+  {
+    "text": " braucht",
+    "startMs": 7000,
+    "endMs": 7520,
+    "timestampMs": 7720,
+    "confidence": 0.99992
+  },
+  {
+    "text": " nur",
+    "startMs": 7520,
+    "endMs": 7660,
+    "timestampMs": 7940,
+    "confidence": 0.999989
+  },
+  {
+    "text": " einen",
+    "startMs": 7660,
+    "endMs": 8190,
+    "timestampMs": 8260,
+    "confidence": 0.999975
+  },
+  {
+    "text": " Wirtschaft",
+    "startMs": 8190,
+    "endMs": 8850,
+    "timestampMs": 8600,
+    "confidence": 0.999779
+  },
+  {
+    "text": "s",
+    "startMs": 8850,
+    "endMs": 8920,
+    "timestampMs": 8900,
+    "confidence": 0.998264
+  },
+  {
+    "text": "plan",
+    "startMs": 8920,
+    "endMs": 9310,
+    "timestampMs": 9240,
+    "confidence": 0.999899
+  },
+  {
+    "text": ",",
+    "startMs": 9310,
+    "endMs": 9350,
+    "timestampMs": 9520,
+    "confidence": 0.969699
+  },
+  {
+    "text": " eine",
+    "startMs": 9350,
+    "endMs": 9640,
+    "timestampMs": 10000,
+    "confidence": 0.991563
+  },
+  {
+    "text": " Jahres",
+    "startMs": 9640,
+    "endMs": 10080,
+    "timestampMs": 10460,
+    "confidence": 0.9998
+  },
+  {
+    "text": "ab",
+    "startMs": 10080,
+    "endMs": 10220,
+    "timestampMs": 10700,
+    "confidence": 0.996398
+  },
+  {
+    "text": "re",
+    "startMs": 10220,
+    "endMs": 10370,
+    "timestampMs": 10900,
+    "confidence": 0.99846
+  },
+  {
+    "text": "chn",
+    "startMs": 10370,
+    "endMs": 10580,
+    "timestampMs": 11080,
+    "confidence": 0.999956
+  },
+  {
+    "text": "ung",
+    "startMs": 10580,
+    "endMs": 10800,
+    "timestampMs": 11280,
+    "confidence": 0.999994
+  },
+  {
+    "text": " und",
+    "startMs": 10800,
+    "endMs": 11020,
+    "timestampMs": 11580,
+    "confidence": 0.99964
+  },
+  {
+    "text": " eine",
+    "startMs": 11020,
+    "endMs": 11310,
+    "timestampMs": 11880,
+    "confidence": 0.999922
+  },
+  {
+    "text": " Bes",
+    "startMs": 11310,
+    "endMs": 11550,
+    "timestampMs": 12120,
+    "confidence": 0.966669
+  },
+  {
+    "text": "chluss",
+    "startMs": 11550,
+    "endMs": 11970,
+    "timestampMs": 12300,
+    "confidence": 0.997364
+  },
+  {
+    "text": "s",
+    "startMs": 11970,
+    "endMs": 12050,
+    "timestampMs": 12500,
+    "confidence": 0.998407
+  },
+  {
+    "text": "amm",
+    "startMs": 12050,
+    "endMs": 12260,
+    "timestampMs": 12620,
+    "confidence": 0.999907
+  },
+  {
+    "text": "lung",
+    "startMs": 12260,
+    "endMs": 12600,
+    "timestampMs": 12860,
+    "confidence": 0.99996
+  },
+  {
+    "text": ".",
+    "startMs": 12600,
+    "endMs": 12880,
+    "timestampMs": 13120,
+    "confidence": 0.998713
+  },
+  {
+    "text": " Das",
+    "startMs": 12880,
+    "endMs": 13120,
+    "timestampMs": 13580,
+    "confidence": 0.999949
+  },
+  {
+    "text": " macht",
+    "startMs": 13120,
+    "endMs": 13530,
+    "timestampMs": 13840,
+    "confidence": 0.999947
+  },
+  {
+    "text": " ihr",
+    "startMs": 13530,
+    "endMs": 13790,
+    "timestampMs": 14020,
+    "confidence": 0.996546
+  },
+  {
+    "text": " selbst",
+    "startMs": 13790,
+    "endMs": 14290,
+    "timestampMs": 14520,
+    "confidence": 0.999901
+  },
+  {
+    "text": ".",
+    "startMs": 14290,
+    "endMs": 14540,
+    "timestampMs": 14520,
+    "confidence": 0.979593
+  }
+]

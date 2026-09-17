@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
     "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "bundler",
@@ -9,7 +12,15 @@
     "skipLibCheck": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "types": [
+      "node",
+      "react"
+    ]
   },
-  "include": ["src", "werkzeuge"]
+  "include": [
+    "src",
+    "werkzeuge"
+  ]
 }

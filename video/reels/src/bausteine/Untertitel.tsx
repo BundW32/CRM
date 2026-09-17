@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { TikTokPage } from "@remotion/captions";
-import { fitText } from "@remotion/layout-utils";
+import { fitTextOnNLines } from "@remotion/layout-utils";
 import { FARBEN, FORMAT, SAFE_ZONE, SCHRIFT } from "../marke";
 import { useSchriften } from "../schriften";
 import { worteAusSeite } from "../worte";
@@ -34,23 +34,21 @@ export const Untertitel: React.FC<{
   const worte = worteAusSeite(seite);
   const aktiv = worte.findIndex((w) => ms >= w.vonMs && ms < w.bisMs);
 
-  // Größe rechnen, nicht festschreiben: „Wohnungseigentümergemeinschaft" ist
-  // 31 Zeichen und kann nicht umbrechen — bei fester Größe läuft es aus dem
-  // Bild. Die Zeile bleibt dadurch immer vollständig lesbar.
+  // Größe rechnen, nicht festschreiben: „Wohnungseigentümergemeinschaften" ist
+  // 32 Zeichen und lässt sich nicht umbrechen. Auf einer Zeile bliebe davon
+  // bei lesbarer Größe die Hälfte außerhalb des Bildes, deshalb wird auf zwei
+  // Zeilen gerechnet — das Wort bleibt ganz und groß genug.
   const innen = FORMAT.breite - SAFE_ZONE.links - SAFE_ZONE.rechts;
-  const groesse = Math.max(
-    44,
-    Math.min(
-      70,
-      fitText({
-        text: worte.map((w) => w.text).join(" "),
-        fontFamily: SCHRIFT.display.family,
-        fontWeight: SCHRIFT.display.gewicht,
-        letterSpacing: "-0.01em",
-        withinWidth: innen,
-      }).fontSize,
-    ),
-  );
+  const { fontSize } = fitTextOnNLines({
+    text: worte.map((w) => w.text).join(" "),
+    maxLines: 2,
+    maxBoxWidth: innen,
+    fontFamily: SCHRIFT.display.family,
+    fontWeight: SCHRIFT.display.gewicht,
+    letterSpacing: "-0.01em",
+    maxFontSize: 70,
+  });
+  const groesse = Math.max(42, fontSize);
 
   return (
     <AbsoluteFill

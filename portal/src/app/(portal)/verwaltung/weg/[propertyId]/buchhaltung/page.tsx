@@ -24,6 +24,7 @@ import {
 } from "./actions";
 import { DateField } from "@/components/fields";
 import { BuchungForm } from "./BuchungForm";
+import { BelegNachtrag } from "./BelegNachtrag";
 import { ImportClient } from "./ImportClient";
 import { FilePreviewLink } from "@/components/file-preview-link";
 import { Tipp } from "@/components/tipp";
@@ -64,6 +65,9 @@ const FEHLER_TEXTE: Record<string, string> = {
   lohnanteil:
     "Der Lohnanteil konnte nicht gelesen werden. Er gehört nur zu Ausgaben und darf den Rechnungsbetrag nicht übersteigen.",
   beleg: "Der Beleg konnte nicht gespeichert werden (erlaubt: Foto oder PDF).",
+  belegfehlt: "Bitte eine Datei auswählen (Foto oder PDF).",
+  belegvorhanden:
+    "An dieser Buchung hängt schon ein Beleg. Zum Austauschen in der Zeile „ersetzen“ wählen.",
   gleicheskonto: "Quell- und Zielkonto müssen unterschiedlich sein.",
   mapping: "Bitte die Spalten für Datum, Betrag und Verwendungszweck zuordnen.",
   keinezeilen: "Die Datei enthält keine importierbaren Umsätze.",
@@ -178,6 +182,12 @@ export default async function WegBuchhaltungPage({
   if (sp.zuordnung === "offen") {
     bookingAnd.push({ costTypeId: null, kind: "AUSGABE" });
   }
+  // „Ohne Beleg" — die erste Frage jeder Beiratsprüfung. Nur Ausgaben: Ein
+  // Hausgeld-Eingang hat keinen Beleg, das ist kein Mangel. Stornopaare
+  // bleiben draußen, dort ist nichts mehr nachzureichen.
+  if (sp.beleg === "ohne") {
+    bookingAnd.push({ belegStoredName: null, kind: "AUSGABE", ...NOT_REVERSED });
+  }
   const jahr = Number.parseInt(sp.jahr ?? "", 10);
   if (Number.isFinite(jahr) && jahr > 1900 && jahr < 2200) {
     bookingAnd.push({
@@ -196,7 +206,7 @@ export default async function WegBuchhaltungPage({
   const bookingWhere: Prisma.BookingWhereInput = { AND: bookingAnd };
   const sonderfilter = Boolean(sp.buchung || zeitraum);
   const hasFilter = Boolean(
-    q || sp.konto || sp.art || sp.kostenart || sp.jahr || sp.zuordnung || sonderfilter,
+    q || sp.konto || sp.art || sp.kostenart || sp.jahr || sp.zuordnung || sp.beleg || sonderfilter,
   );
 
   const [handwerkerSummen, alleHandwerker, accounts, costTypes, sums, bookingTotal, bookings, aeltesteBuchung, batches, ohneKostenart, fertigeJahre] = await Promise.all([
@@ -351,6 +361,11 @@ export default async function WegBuchhaltungPage({
       primary: ohneKostenart > 0,
       options: [{ value: "offen", label: "Ohne Kostenart" }],
     },
+    {
+      key: "beleg",
+      label: "Beleg",
+      options: [{ value: "ohne", label: "Ohne Beleg" }],
+    },
   ];
 
   const pageHref = pageHrefFor(`/verwaltung/weg/${property.id}/buchhaltung`, sp);
@@ -386,6 +401,8 @@ export default async function WegBuchhaltungPage({
             "Umbuchung erfasst."
           ) : sp.gespeichert === "lohnanteil" ? (
             "Lohnanteil gespeichert."
+          ) : sp.gespeichert === "beleg" ? (
+            "Beleg angehängt."
           ) : sp.gespeichert === "zahlung" ? (
             <>
               Buchung erfasst — die offene Rechnung ist in den{" "}
@@ -444,7 +461,7 @@ export default async function WegBuchhaltungPage({
       {sonderfilter ? (
         <Alert variant="info" className="mb-4">
           {sp.buchung
-            ? "Gefiltert auf eine einzelne Buchung — aus der Prüfliste der Jahresabrechnung."
+            ? "Gefiltert auf eine einzelne Buchung."
             : `Gefiltert auf das Wirtschaftsjahr${
                 sp.von && sp.bis
                   ? ` ${formatDateOnly(new Date(`${sp.von}T00:00:00.000Z`))} bis ${formatDateOnly(new Date(`${sp.bis}T00:00:00.000Z`))}`
@@ -843,7 +860,23 @@ export default async function WegBuchhaltungPage({
                             >
                               Beleg
                             </FilePreviewLink>
-                          ) : (
+                          ) : null}
+                          {/* Nachträglich anhängen — der Weg für importierte
+                              Buchungen. Umbuchungen tragen keinen Beleg, und
+                              gesperrte Buchungen bleiben, wie sie sind. */}
+                          {b.kind !== "UMBUCHUNG" && !gesperrt ? (
+                            <div className={b.belegStoredName ? "mt-0.5" : ""}>
+                              <BelegNachtrag
+                                propertyId={property.id}
+                                bookingId={b.id}
+                                amountCents={b.amountCents}
+                                bookingDateIso={b.bookingDate.toISOString().slice(0, 10)}
+                                text={b.text}
+                                hatBeleg={b.belegStoredName !== null}
+                                lohnanteilOffen={lohnanteilMoeglich && b.laborShareCents == null}
+                              />
+                            </div>
+                          ) : b.belegStoredName ? null : (
                             <span className="text-gray-300">—</span>
                           )}
                         </td>

@@ -1024,6 +1024,99 @@ export async function setLaborShare(formData: FormData) {
   back(property.id, "gespeichert=lohnanteil");
 }
 
+// ── Beleg nachträglich anhängen ──────────────────────────────────────────────
+// Importierte Bankumsätze kommen ohne Beleg herein — die Bank kennt nur den
+// Umsatz, die Rechnung liegt im Postfach. Bisher ließ sich der Beleg nur beim
+// Erfassen von Hand mitgeben; wer den Kontoauszug importierte, konnte die
+// Rechnung nirgends mehr ablegen. Das war die größte Lücke im Rechnungsweg
+// (Rückmeldung aus dem Produkttest, September 2026).
+//
+// Gleiche Sperren wie bei Kostenart und Lohnanteil: abgeschlossene Jahre und
+// Stornopaare bleiben unverändert. Ein vorhandener Beleg wird nicht still
+// überschrieben — Ersetzen nur mit ausdrücklicher Angabe.
+
+export async function attachBeleg(formData: FormData) {
+  const verwalter = await requireVerwalter();
+  const propertyId = String(formData.get("propertyId") ?? "");
+  const bookingId = String(formData.get("bookingId") ?? "");
+  const ersetzen = formData.get("ersetzen") === "ja";
+  const lohnanteilEingabe = String(formData.get("laborShare") ?? "").trim();
+
+  const property = await loadWegProperty(verwalter, propertyId);
+  if (!property) redirect("/verwaltung/weg");
+
+  const booking = await db.booking.findFirst({
+    where: {
+      id: bookingId,
+      propertyId: property.id,
+      kind: { in: ["EINNAHME", "AUSGABE"] },
+      ...NOT_REVERSED,
+    },
+    select: {
+      id: true,
+      kind: true,
+      amountCents: true,
+      bookingDate: true,
+      laborShareCents: true,
+      belegStoredName: true,
+      costType: { select: { laborShareType: true } },
+    },
+  });
+  if (!booking) back(property.id, "fehler=buchung");
+
+  if (!(await allDatesEditable(property, [booking.bookingDate]))) {
+    back(property.id, "fehler=abgeschlossen");
+  }
+  if (booking.belegStoredName && !ersetzen) back(property.id, "fehler=belegvorhanden");
+
+  // Der Lohnanteil § 35a kommt als Vorschlag aus der Belegerkennung mit —
+  // aber nur, wenn die Buchung ihn tragen kann und noch keinen hat. Ein
+  // erfasster Wert wird hier nicht überschrieben; dafür gibt es das Feld in
+  // der Liste.
+  let laborShareCents: number | null = null;
+  if (
+    lohnanteilEingabe !== "" &&
+    booking.kind === "AUSGABE" &&
+    booking.laborShareCents == null &&
+    booking.costType != null &&
+    booking.costType.laborShareType !== "KEINE"
+  ) {
+    laborShareCents = parseEuroToCents(lohnanteilEingabe);
+    if (laborShareCents === null || laborShareCents < 0 || laborShareCents > booking.amountCents) {
+      back(property.id, "fehler=lohnanteil");
+    }
+  }
+
+  const file = formData.get("beleg");
+  if (!(file instanceof File) || file.size === 0) back(property.id, "fehler=belegfehlt");
+  let beleg: { storedName: string; fileName: string; mimeType: string };
+  try {
+    beleg = await saveUpload(file, DOCUMENT_TYPES);
+  } catch (err) {
+    console.error("Ablage eines Belegs fehlgeschlagen", err);
+    back(property.id, `fehler=beleg&grund=${encodeURIComponent(ablageFehlerText(err))}`);
+  }
+
+  await db.booking.update({
+    where: { id: booking.id },
+    data: {
+      belegStoredName: beleg.storedName,
+      belegFileName: beleg.fileName,
+      belegMimeType: beleg.mimeType,
+      ...(laborShareCents != null ? { laborShareCents } : {}),
+    },
+  });
+  await logAudit({
+    actorId: verwalter.id,
+    action: AUDIT.WEG_BOOKING_BELEG_ATTACHED,
+    targetType: "Booking",
+    targetId: booking.id,
+    meta: { ersetzt: Boolean(booking.belegStoredName), fileName: beleg.fileName, laborShareCents },
+  });
+  revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
+  back(property.id, "gespeichert=beleg");
+}
+
 // ── Storno ───────────────────────────────────────────────────────────────────
 // Buchungen werden nie geändert oder gelöscht. Eine falsche Buchung wird durch
 // eine Gegenbuchung neutralisiert: gleicher Betrag, gleiches Konto, gleicher

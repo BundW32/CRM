@@ -3,7 +3,7 @@ import { Composition } from "remotion";
 import { FORMAT } from "./marke";
 import { Gruesttest } from "./Gruesttest";
 import { Reelprobe, probePlan } from "./Reelprobe";
-import { reelLaengeInFrames } from "./Reel";
+import { reelMetadaten } from "./pruefung";
 
 /**
  * Je Reel eine Composition. Die beiden Prüfstücke sind keine Reels:
@@ -20,13 +20,19 @@ export const RemotionRoot: React.FC = () => (
       width={FORMAT.breite}
       height={FORMAT.hoehe}
     />
+    {/*
+      Die Länge kommt aus dem Plan, und `calculateMetadata` prüft ihn dabei
+      gegen das echte Quellmaterial. Ein Segment über das Ende der Quelle
+      hinaus bricht den Render ab, statt Bildschnipsel zu erzeugen.
+    */}
     <Composition
       id="Reelprobe"
       component={Reelprobe}
-      durationInFrames={reelLaengeInFrames(probePlan)}
       fps={FORMAT.fps}
       width={FORMAT.breite}
       height={FORMAT.hoehe}
+      durationInFrames={1}
+      calculateMetadata={() => reelMetadaten(probePlan)}
     />
   </>
 );

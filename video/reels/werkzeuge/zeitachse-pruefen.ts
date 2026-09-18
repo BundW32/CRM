@@ -8,6 +8,8 @@ import assert from "node:assert/strict";
 import type { Caption } from "@remotion/captions";
 import { bauZeitachse, pausenAusTranskript, reelDauerMs, rohZuReel, schnittstellen, segmenteAusPausen, untertitelUmrechnen } from "../src/zeitachse.ts";
 import { MAX_ZOOM, kameraFahrten } from "../src/kamera.ts";
+import { pruefePlan } from "../src/pruefung.ts";
+import type { ReelPlan } from "../src/plan.ts";
 
 const wort = (text: string, startMs: number, endMs: number): Caption => ({
   text,
@@ -136,6 +138,44 @@ assert.equal(fahrten.filter((f) => f.zoomBis !== 1).length, 3, "nur jedes dritte
 assert.ok(
   fahrten.every((f) => f.zoomVon === 1 && (f.zoomBis ?? 1) <= MAX_ZOOM),
   "jede Fahrt beginnt bei 1,0 und bleibt unter der Obergrenze",
+);
+
+// Ein Segment, das über das Ende der Quelle hinausreicht, ist der Grund für
+// die Bildschnipsel am Schluss des ersten echten Reels. Das muss auffallen,
+// bevor gerendert wird.
+const planZuLang: ReelPlan = {
+  titel: "zu lang",
+  segmente: [
+    { datei: "roh.mp4", vonSekunde: 0, bisSekunde: 5 },
+    { datei: "roh.mp4", vonSekunde: 6, bisSekunde: 12 },
+  ],
+  untertitelRoh: [],
+};
+
+const befunde = pruefePlan(planZuLang, { "roh.mp4": 10 });
+assert.equal(befunde.filter((b) => b.schwere === "fehler").length, 1, "das zu lange Segment wird als Fehler gemeldet");
+assert.match(befunde[0].text, /nur 10\.00 s lang/, "die Meldung nennt die echte Länge der Quelle");
+
+assert.deepEqual(
+  pruefePlan(
+    { titel: "passt", segmente: [{ datei: "roh.mp4", vonSekunde: 0, bisSekunde: 10 }], untertitelRoh: [] },
+    { "roh.mp4": 10 },
+  ),
+  [],
+  "ein Segment exakt bis zum Ende der Quelle ist in Ordnung",
+);
+
+// Ein Kinetic-Text, der über das Reelende hinausläuft, ist eine Warnung.
+const planUeberhang: ReelPlan = {
+  titel: "Überhang",
+  segmente: [{ datei: "roh.mp4", vonSekunde: 0, bisSekunde: 4 }],
+  untertitelRoh: [],
+  kinetic: [{ abSekunde: 3, dauerSekunden: 3, zeilen: [{ text: "ZU SPÄT", groesse: "gross", abFrame: 0 }] }],
+};
+assert.equal(
+  pruefePlan(planUeberhang, { "roh.mp4": 10 }).filter((b) => b.schwere === "warnung").length,
+  1,
+  "Kinetic-Text über das Reelende hinaus wird gemeldet",
 );
 
 console.log("Zeitachse: alle Prüfungen bestanden");

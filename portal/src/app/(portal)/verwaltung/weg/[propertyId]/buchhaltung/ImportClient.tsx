@@ -24,6 +24,7 @@ import {
   importCsvAction,
   type ImportAnalysis,
   type ImportDiagnose,
+  type ImportPreviewRow,
   type ImportVorschlag,
 } from "./actions";
 
@@ -211,7 +212,9 @@ export function ImportClient({
                         <td className="py-1.5 pr-3">
                           {row.vorschlag ? <VorschlagZelle vorschlag={row.vorschlag} /> : "—"}
                         </td>
-                        <td className="py-1.5">{row.duplicate ? "Duplikat" : "neu"}</td>
+                        <td className="py-1.5">
+                          {row.duplicate ? "Duplikat" : row.zwilling ? "passt zu Handbuchung" : "neu"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -267,6 +270,8 @@ export function ImportClient({
                       value={`${r.hash}|${r.vorschlag?.costTypeId}`}
                     />
                   ))}
+
+                <ZwillingsEntscheidung zeilen={analysis.preview.filter((r) => r.zwilling)} />
 
                 <VorschlagsBestaetigung vorschlaege={analysis.vorschlaege} />
 
@@ -342,6 +347,61 @@ function VorschlagZelle({ vorschlag }: { vorschlag: ImportVorschlag }) {
       {/* KI-Ausgaben werden als solche gekennzeichnet (Art. 50 KI-VO). */}
       {vorschlag.ki ? <Badge tone="info">KI</Badge> : null}
     </span>
+  );
+}
+
+/**
+ * Zeilen, zu denen eine Handbuchung passt — je Zeile eine Entscheidung.
+ *
+ * Vorgabe ist „zusammenführen": Der Fall ist häufig (Rechnung über „Als
+ * bezahlt buchen" erfasst, Kontoauszug kommt später), und die Handbuchung
+ * weiß mehr als der Bankumsatz — Beleg, Kostenart, Lohnanteil, Verbindlichkeit.
+ * „Trotzdem neu anlegen" ist für die echte zweite Zahlung gleicher Höhe.
+ */
+function ZwillingsEntscheidung({ zeilen }: { zeilen: ImportPreviewRow[] }) {
+  if (zeilen.length === 0) return null;
+  return (
+    <fieldset className="rounded-xl border border-amber-200 bg-amber-50/40 p-3">
+      <legend className="px-1 text-sm font-medium text-gray-800">
+        {zeilen.length === 1
+          ? "1 Umsatz passt zu einer Buchung, die Sie schon von Hand erfasst haben"
+          : `${zeilen.length} Umsätze passen zu Buchungen, die Sie schon von Hand erfasst haben`}
+      </legend>
+      <p className="text-xs text-gray-600">
+        Gleicher Betrag, gleiche Richtung, Buchungstag wenige Tage auseinander. Beim
+        Zusammenführen bleibt die Handbuchung mit Beleg, Kostenart und Lohnanteil bestehen und
+        bekommt den Verwendungszweck der Bank — der Umsatz wird nicht ein zweites Mal gebucht.
+      </p>
+      <ul className="mt-2 grid gap-2">
+        {zeilen.map((r) => (
+          <li key={r.hash} className="rounded-lg border border-gray-200 bg-white p-2 text-sm">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <span className="text-gray-800">
+                <span className="text-xs uppercase tracking-wide text-gray-400">Bank</span>{" "}
+                {formatDe(r.date)} · {r.amountLabel} · {truncate(r.text, 50)}
+              </span>
+              <span className="text-gray-800">
+                <span className="text-xs uppercase tracking-wide text-gray-400">Handbuchung</span>{" "}
+                {formatDe(r.zwilling!.datum)} · {truncate(r.zwilling!.text, 50)}
+                {r.zwilling!.costTypeName ? ` · ${r.zwilling!.costTypeName}` : ""}
+                {r.zwilling!.hatBeleg ? " · mit Beleg" : ""}
+                {r.zwilling!.verbindlichkeit ? ` · bezahlt „${truncate(r.zwilling!.verbindlichkeit, 30)}“` : ""}
+              </span>
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-4 text-xs text-gray-700">
+              <label className="flex items-center gap-1.5">
+                <input type="radio" name={`zwilling_${r.hash}`} value="merge" defaultChecked className="h-4 w-4" />
+                Zusammenführen (empfohlen)
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input type="radio" name={`zwilling_${r.hash}`} value="neu" className="h-4 w-4" />
+                Trotzdem neu anlegen — es ist eine zweite Zahlung
+              </label>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </fieldset>
   );
 }
 

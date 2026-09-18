@@ -2591,3 +2591,37 @@ Antwort an ihn nennt zehn Zusagen. Die ersten drei sind hier umgesetzt.
      mit Link in die Stammdaten, was fehlt. Der Gesamtwirtschaftsplan bekommt
      den Kopfblock nicht: Dort steht die Verteilung je Einheit ohnehin in der
      Tabelle.
+
+335. **Bankimport gleicht gegen Handbuchungen ab (Paket 9).** Der Fall aus dem
+     Produkttest: Rechnung über „Als bezahlt buchen" erfasst (Beleg, Kostenart,
+     Lohnanteil, Verbindlichkeit dran), Wochen später der Kontoauszug — und die
+     Überweisung stand zweimal im Buch, weil der Duplikatschutz nur den
+     `dedupeHash` kennt und Handbuchungen keinen haben. Jetzt findet
+     `findeManuelleZwillinge` (`import-abgleich.ts`, reine Funktion, getestet)
+     zu jeder importierten Zeile die Handbuchung desselben Kontos mit
+     gleichem Betrag, gleicher Richtung und Buchungstag im Fenster von fünf
+     Tagen; jede Seite höchstens einmal, bei mehreren Kandidaten gewinnt der
+     nächste Tag. Die Vorschau zeigt die Paare (Bank ↔ Handbuchung mit
+     Kostenart, Beleg, bezahlter Verbindlichkeit) und fragt je Paar:
+     **„Zusammenführen (empfohlen)"** oder „Trotzdem neu anlegen". Der Server
+     rechnet die Zwillinge beim Import **neu** (wie die Zuordnungsvorschläge:
+     aus dem Browser kommt nur die Entscheidung) und führt zusammen, indem die
+     Handbuchung `dedupeHash`, Verwendungszweck, Wertstellung und — wo leer —
+     den Zahlungspartner der Bank bekommt; Beleg, Kostenart, Lohnanteil und
+     Verbindlichkeit bleiben. **Bewusst ohne `importBatchId`**: „Import
+     zurücknehmen" löscht die Buchungen des Imports (`deleteMany` über die
+     Batch-ID), und eine Handbuchung mit Beleg darf dabei nicht verschwinden;
+     der Hash allein verhindert, dass derselbe Umsatz je wieder hereinkommt.
+     Schlägt die Aktualisierung fehl (`updateMany` mit `dedupeHash: null`
+     trifft nichts, weil die Handbuchung inzwischen selbst einen Hash hat),
+     wird die Zeile doch angelegt. Zeilen mit Zwilling bekommen keinen
+     Zuordnungsvorschlag und gehen nicht an die KI — die Handbuchung trägt die
+     Zuordnung schon. Dazu die sechste Verdachtart der Kontendiagnose,
+     `doppelt-erfasst`: zwei Ausgaben gleicher Höhe wenige Tage auseinander,
+     eine von Hand, eine importiert (`DiagnoseBuchung.importiert` aus dem
+     Hash), wenn der Auszug genau diesen Betrag weniger ausweist — mit Sprung
+     zur Handbuchung. So nennt die Abstimmung zum Jahresende die
+     wahrscheinlichste Ursache statt nur die Abweichung. Der Verwalter, der
+     schon nach der alten Arbeitsregel gearbeitet hat (nur „als beglichen
+     markieren", wenn der Auszug regelmäßig importiert wird), verliert nichts:
+     ohne Handbuchung gibt es keinen Zwilling.

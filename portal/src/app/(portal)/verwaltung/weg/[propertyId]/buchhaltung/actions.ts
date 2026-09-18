@@ -23,6 +23,7 @@ import {
 } from "@/lib/weg/bank-import";
 import { erkenneFormat, leseBankdatei, type BankDateiFormat } from "@/lib/weg/bank-datei";
 import { baueImportProfil, leseImportProfil } from "@/lib/weg/import-profil";
+import { ZWILLING_TOLERANZ_TAGE, findeManuelleZwillinge, type ManuelleBuchung } from "@/lib/weg/import-abgleich";
 import { bereinigeZweck, kiKostenartAktiv, klassifiziereKostenarten } from "@/lib/weg/kostenart-ki";
 import { ladeZuordnungsKontext } from "@/lib/weg/zuordnung-kontext";
 import { schlageVorschlagVor, type Guete } from "@/lib/weg/zuordnung-vorschlag";
@@ -371,6 +372,22 @@ export type ImportPreviewRow = {
   counterparty?: string;
   duplicate: boolean;
   vorschlag?: ImportVorschlag;
+  /**
+   * Eine von Hand gebuchte Zahlung, die dieselbe sein könnte (gleicher Betrag,
+   * gleiche Richtung, Buchungstag im Toleranzfenster). Der Verwalter
+   * entscheidet in der Vorschau: zusammenführen oder trotzdem neu anlegen.
+   */
+  zwilling?: ImportZwilling;
+};
+
+export type ImportZwilling = {
+  bookingId: string;
+  datum: string;
+  text: string;
+  counterparty?: string | null;
+  costTypeName?: string | null;
+  hatBeleg: boolean;
+  verbindlichkeit?: string | null;
 };
 
 /**
@@ -409,8 +426,55 @@ export type ImportAnalysis =
       preview: ImportPreviewRow[];
       /** Anzahl Vorschläge je Gütegrad — Grundlage der Bestätigungs-Häkchen. */
       vorschlaege: Record<Guete, number>;
+      /** Zeilen, zu denen eine Handbuchung passt (siehe `ImportZwilling`). */
+      zwillinge: number;
     }
   | { ok: false; error: string; diagnose?: ImportDiagnose };
+
+/**
+ * Manuelle Buchungen des Kontos im Zeitfenster der Datei — die Kandidaten für
+ * den Abgleich. Nur ohne `dedupeHash` (also nicht selbst importiert), keine
+ * Stornopaare, keine Umbuchungen. Dieselbe Abfrage für Vorschau und Import,
+ * damit beide dieselben Zwillinge sehen.
+ */
+async function ladeManuelleKandidaten(accountId: string, zeilen: ParsedBooking[]): Promise<ManuelleBuchung[]> {
+  if (zeilen.length === 0) return [];
+  const zeiten = zeilen.map((z) => z.bookingDate.getTime());
+  const rand = ZWILLING_TOLERANZ_TAGE * 86_400_000;
+  const von = new Date(Math.min(...zeiten) - rand);
+  const bis = new Date(Math.max(...zeiten) + rand + 86_400_000);
+  const rows = await db.booking.findMany({
+    where: {
+      accountId,
+      dedupeHash: null,
+      kind: { in: ["EINNAHME", "AUSGABE"] },
+      bookingDate: { gte: von, lt: bis },
+      ...NOT_REVERSED,
+    },
+    select: {
+      id: true,
+      bookingDate: true,
+      kind: true,
+      amountCents: true,
+      text: true,
+      counterparty: true,
+      belegStoredName: true,
+      costType: { select: { name: true } },
+      verbindlichkeiten: { select: { title: true }, take: 1 },
+    },
+  });
+  return rows.map((b) => ({
+    id: b.id,
+    bookingDate: b.bookingDate,
+    kind: b.kind as "EINNAHME" | "AUSGABE",
+    amountCents: b.amountCents,
+    text: b.text,
+    counterparty: b.counterparty,
+    costTypeName: b.costType?.name ?? null,
+    hatBeleg: b.belegStoredName !== null,
+    verbindlichkeitTitel: b.verbindlichkeiten[0]?.title ?? null,
+  }));
+}
 
 /**
  * Das von Hand gesetzte Mapping aus dem Formular.
@@ -534,6 +598,7 @@ async function analyzeInternal(
       duplicates: 0,
       preview: [],
       vorschlaege: leerVorschlaege,
+      zwillinge: 0,
     };
   }
 
@@ -570,14 +635,20 @@ async function vorschau(eingabe: {
   buchungen: ParsedBooking[];
 }): Promise<ImportAnalysis> {
   const { accountId, buchungen } = eingabe;
-  const [existing, kontext] = await Promise.all([
+  const [existing, kontext, kandidaten] = await Promise.all([
     db.booking.findMany({
       where: { accountId, dedupeHash: { in: buchungen.map((r) => r.dedupeHash) } },
       select: { dedupeHash: true },
     }),
     ladeZuordnungsKontext(eingabe.propertyId),
+    ladeManuelleKandidaten(accountId, buchungen),
   ]);
   const known = new Set(existing.map((e) => e.dedupeHash));
+  // Zwillinge nur für Zeilen, die nicht ohnehin Duplikate sind.
+  const zwillinge = findeManuelleZwillinge(
+    buchungen.filter((r) => !known.has(r.dedupeHash)),
+    kandidaten,
+  );
   const seen = new Set<string>();
   let duplicates = 0;
   const vorschlaege: Record<Guete, number> = { sicher: 0, wahrscheinlich: 0, unsicher: 0 };
@@ -585,7 +656,10 @@ async function vorschau(eingabe: {
     const duplicate = known.has(r.dedupeHash) || seen.has(r.dedupeHash);
     seen.add(r.dedupeHash);
     if (duplicate) duplicates++;
-    const roh = duplicate ? null : schlageVorschlagVor(r, kontext);
+    const zwilling = duplicate ? undefined : zwillinge.get(r.dedupeHash);
+    // Wer mit einer Handbuchung zusammengeführt wird, braucht keinen
+    // Zuordnungsvorschlag — die Handbuchung trägt Kostenart und Einheit schon.
+    const roh = duplicate || zwilling ? null : schlageVorschlagVor(r, kontext);
     if (roh) vorschlaege[roh.guete]++;
     return {
       hash: r.dedupeHash,
@@ -596,6 +670,17 @@ async function vorschau(eingabe: {
       text: r.text,
       counterparty: r.counterparty,
       duplicate,
+      zwilling: zwilling
+        ? {
+            bookingId: zwilling.buchung.id,
+            datum: zwilling.buchung.bookingDate.toISOString().slice(0, 10),
+            text: zwilling.buchung.text,
+            counterparty: zwilling.buchung.counterparty,
+            costTypeName: zwilling.buchung.costTypeName,
+            hatBeleg: zwilling.buchung.hatBeleg,
+            verbindlichkeit: zwilling.buchung.verbindlichkeitTitel,
+          }
+        : undefined,
       vorschlag: roh
         ? {
             label: roh.unitLabel ?? roh.costTypeName ?? "",
@@ -626,6 +711,7 @@ async function vorschau(eingabe: {
     duplicates,
     preview,
     vorschlaege,
+    zwillinge: zwillinge.size,
   };
 }
 
@@ -643,7 +729,7 @@ async function ergaenzeKiVorschlaege(
   zaehler: Record<Guete, number>,
 ): Promise<void> {
   if (!kiKostenartAktiv()) return;
-  const offene = preview.filter((r) => !r.vorschlag && !r.duplicate && r.kind === "AUSGABE");
+  const offene = preview.filter((r) => !r.vorschlag && !r.duplicate && !r.zwilling && r.kind === "AUSGABE");
   if (offene.length === 0) return;
   const kostenarten = await db.costType.findMany({
     where: { propertyId },
@@ -815,7 +901,46 @@ export async function importCsvAction(formData: FormData) {
     }
   }
 
+  // ── Abgleich mit Handbuchungen ────────────────────────────────────────────
+  //
+  // Eine Zahlung, die schon über „Als bezahlt buchen" im Buch steht, darf der
+  // Import nicht ein zweites Mal anlegen. Die Zwillinge werden hier wie die
+  // Vorschläge **neu gerechnet**; aus dem Formular kommt nur die Entscheidung je
+  // Zeile („zusammenführen" ist die Vorgabe, „neu" die Ausnahme für die echte
+  // zweite Zahlung). Zusammenführen heißt: Die manuelle Buchung bekommt den
+  // `dedupeHash` (damit derselbe Umsatz nie wieder hereinkommt), den
+  // Verwendungszweck und — wo leer — den Zahlungspartner der Bank. Beleg,
+  // Kostenart, Lohnanteil und Verbindlichkeit bleiben, wie sie sind. Bewusst
+  // **ohne** `importBatchId`: „Import zurücknehmen" löscht die Buchungen des
+  // Imports, und eine Handbuchung mit Beleg darf dabei nicht verschwinden.
+  const zwillinge = findeManuelleZwillinge(toImport, await ladeManuelleKandidaten(account.id, toImport));
+  const zusammenfuehren = new Map<string, ManuelleBuchung>();
+  for (const [hash, z] of zwillinge) {
+    if (String(formData.get(`zwilling_${hash}`) ?? "merge") === "neu") continue;
+    zusammenfuehren.set(hash, z.buchung);
+  }
+  const anzulegen = toImport.filter((r) => !zusammenfuehren.has(r.dedupeHash));
+
   const batch = await db.$transaction(async (tx) => {
+    // Zusammenführen zuerst — schlägt eine Aktualisierung fehl (die Handbuchung
+    // hat inzwischen selbst einen Hash bekommen), wird die Zeile doch angelegt.
+    for (const r of toImport) {
+      const m = zusammenfuehren.get(r.dedupeHash);
+      if (!m) continue;
+      const geaendert = await tx.booking.updateMany({
+        where: { id: m.id, accountId: account.id, dedupeHash: null },
+        data: {
+          dedupeHash: r.dedupeHash,
+          reference: r.reference || null,
+          ...(m.counterparty ? {} : { counterparty: r.counterparty ?? null }),
+          valueDate: r.bookingDate,
+        },
+      });
+      if (geaendert.count === 0) {
+        zusammenfuehren.delete(r.dedupeHash);
+        anzulegen.push(r);
+      }
+    }
     const created = await tx.bankImportBatch.create({
       data: {
         organizationId: verwalter.organizationId,
@@ -824,14 +949,14 @@ export async function importCsvAction(formData: FormData) {
         fileName,
         source: "CSV",
         rowsTotal: gelesen,
-        rowsImported: toImport.length,
-        rowsSkipped: gelesen - toImport.length,
+        rowsImported: anzulegen.length,
+        rowsSkipped: gelesen - anzulegen.length,
         createdById: verwalter.id,
       },
     });
-    if (toImport.length > 0) {
+    if (anzulegen.length > 0) {
       await tx.booking.createMany({
-        data: toImport.map((r) => ({
+        data: anzulegen.map((r) => ({
           organizationId: verwalter.organizationId,
           propertyId: property.id,
           accountId: account.id,
@@ -876,8 +1001,10 @@ export async function importCsvAction(formData: FormData) {
     targetId: batch.id,
     meta: {
       fileName,
-      imported: toImport.length,
+      imported: anzulegen.length,
       skipped: gelesen - toImport.length,
+      // Mit einer Handbuchung zusammengeführt statt neu angelegt.
+      zusammengefuehrt: zusammenfuehren.size,
       // Wie viele Buchungen mit einem bestätigten Vorschlag hereinkamen — bei
       // einer späteren Rückfrage ist genau das die Frage.
       zugeordnet: zuordnung.size,
@@ -885,7 +1012,10 @@ export async function importCsvAction(formData: FormData) {
     },
   });
   revalidatePath(`/verwaltung/weg/${property.id}/buchhaltung`);
-  back(property.id, `import=${toImport.length}&uebersprungen=${gelesen - toImport.length}`);
+  back(
+    property.id,
+    `import=${anzulegen.length}&uebersprungen=${gelesen - toImport.length}&zusammengefuehrt=${zusammenfuehren.size}`,
+  );
 }
 
 // ── Kostenart nachträglich zuordnen ──────────────────────────────────────────

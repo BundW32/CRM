@@ -31,6 +31,7 @@ const BUCHUNG_SELECT = {
   transferOut: true,
   amountCents: true,
   text: true,
+  dedupeHash: true,
   costType: { select: { name: true, category: true } },
 } satisfies Prisma.BookingSelect;
 
@@ -47,6 +48,7 @@ function zuDiagnose(b: BuchungZeile): DiagnoseBuchung {
     text: b.text,
     costTypeName: b.costType?.name ?? null,
     costTypeCategory: b.costType?.category ?? null,
+    importiert: b.dedupeHash !== null,
   };
 }
 
@@ -69,7 +71,7 @@ export async function stimmeKontenDerAbrechnungAb(
   // `lt`, deshalb ein Tag mehr: sonst fiele der zehnte Tag nach Jahresende raus.
   const fensterBis = new Date(jahr.end.getTime() + (RANDTAGE + 1) * TAG_MS);
 
-  const [checks, konten, randBuchungen, ruecklagenBuchungen, vorjahr] = await Promise.all([
+  const [checks, konten, randBuchungen, ruecklagenBuchungen, vorjahr, ausgabenBuchungen] = await Promise.all([
     db.statementAccountCheck.findMany({ where: { statementId: statement.id } }),
     db.ledgerAccount.findMany({
       where: { propertyId: property.id, active: true },
@@ -109,6 +111,19 @@ export async function stimmeKontenDerAbrechnungAb(
       where: { propertyId: property.id, year: statement.year - 1, status: "FERTIG" },
       select: { id: true, snapshot: true },
     }),
+    // Alle Ausgaben des Jahres — für den Verdacht „doppelt erfasst" (von Hand
+    // gebucht und über den Kontoauszug importiert). Eine WEG hat wenige
+    // hundert Ausgaben im Jahr; das ist billiger als eine Paar-Abfrage in SQL.
+    db.booking.findMany({
+      where: {
+        propertyId: property.id,
+        kind: "AUSGABE",
+        bookingDate: { gte: jahr.start, lt: jahr.end },
+        ...NOT_REVERSED,
+      },
+      select: BUCHUNG_SELECT,
+      orderBy: { bookingDate: "asc" },
+    }),
   ]);
 
   const reported = new Map(checks.map((c) => [c.accountId, c.reportedEndCents]));
@@ -130,6 +145,7 @@ export async function stimmeKontenDerAbrechnungAb(
     konten: eingaben,
     randBuchungen: randBuchungen.map(zuDiagnose),
     ruecklagenBuchungen: ruecklagenBuchungen.map(zuDiagnose),
+    ausgabenBuchungen: ausgabenBuchungen.map(zuDiagnose),
   });
 }
 

@@ -42,6 +42,12 @@ export type DiagnoseBuchung = {
   text: string;
   costTypeName: string | null;
   costTypeCategory: CostCategory | null;
+  /**
+   * Aus einem Bankimport (`dedupeHash` gesetzt) oder von Hand gebucht. Nur
+   * für den Verdacht „doppelt erfasst" nötig — die anderen Prüfungen fragen
+   * nicht danach.
+   */
+  importiert?: boolean;
 };
 
 export type KontoEingabe = {
@@ -67,7 +73,8 @@ export type VerdachtArt =
   | "zufuehrung-falsche-art"
   | "zinsen-fehlen"
   | "ausgabe-falsches-konto"
-  | "buchung-am-jahresrand";
+  | "buchung-am-jahresrand"
+  | "doppelt-erfasst";
 
 export type Verdacht = {
   art: VerdachtArt;
@@ -168,7 +175,18 @@ export type KontenabstimmungEingabe = {
    * RUECKLAGENZUFUEHRUNG oder INSTANDHALTUNG.
    */
   ruecklagenBuchungen: DiagnoseBuchung[];
+  /**
+   * Ausgaben des Wirtschaftsjahres auf den abzustimmenden Konten, mit dem
+   * Kennzeichen `importiert`. Grundlage des Verdachts „doppelt erfasst": eine
+   * Zahlung, die von Hand gebucht wurde („Als bezahlt buchen") und später
+   * noch einmal über den Kontoauszug hereinkam. Optional — ohne diese Liste
+   * entfällt nur dieser eine Verdacht.
+   */
+  ausgabenBuchungen?: DiagnoseBuchung[];
 };
+
+/** Wie viele Tage zwischen Handbuchung und Bankumsatz liegen dürfen (wie im Import-Abgleich). */
+const DOPPELT_TOLERANZ_TAGE = 5;
 
 export function stimmeKontenAb(eingabe: KontenabstimmungEingabe): KontoAbstimmung[] {
   const diffs = new Map<string, number | null>(
@@ -329,6 +347,32 @@ function diagnostiziere(
           ziel: zurBuchung(b),
         });
       }
+    }
+  }
+
+  // ── 6. Zahlung doppelt erfasst ────────────────────────────────────────────
+  // Von Hand gebucht („Als bezahlt buchen") UND über den Kontoauszug
+  // importiert: zwei Ausgaben gleicher Höhe wenige Tage auseinander, eine
+  // manuell, eine importiert. Der Auszug weist dann genau diesen Betrag
+  // weniger aus als die Buchungen. Rückmeldung aus dem Produkttest — bis
+  // dahin nannte die Diagnose nur die Abweichung, nicht diese Ursache.
+  if (diff !== null && diff < 0 && eingabe.ausgabenBuchungen) {
+    const eigeneAusgaben = eingabe.ausgabenBuchungen.filter(
+      (b) => eigene(b) && b.kind === "AUSGABE" && b.amountCents === -diff,
+    );
+    const manuelle = eigeneAusgaben.filter((b) => !b.importiert);
+    const importierte = eigeneAusgaben.filter((b) => b.importiert);
+    for (const m of manuelle) {
+      const partner = importierte.find(
+        (i) => Math.abs(Date.parse(`${i.datum}T00:00:00Z`) - Date.parse(`${m.datum}T00:00:00Z`)) / 86_400_000 <= DOPPELT_TOLERANZ_TAGE,
+      );
+      if (!partner) continue;
+      verdachte.push({
+        art: "doppelt-erfasst",
+        text: `${nenne(m)} wurde von Hand gebucht, und ${nenne(partner)} kam über den Kontoauszug herein — derselbe Betrag, wenige Tage auseinander. Vermutlich dieselbe Zahlung zweimal. Eine der beiden stornieren; künftig fragt der Bankimport bei solchen Paaren nach.`,
+        ziel: zurBuchung(m),
+      });
+      break;
     }
   }
 

@@ -374,3 +374,38 @@ describe("Verdacht: Buchung am Jahresrand", () => {
     expect(fuer(r, "giro").verdachte.map((v) => v.art)).not.toContain("buchung-am-jahresrand");
   });
 });
+
+describe("Verdacht: Zahlung doppelt erfasst", () => {
+  // Der Kontoauszug weist 1.240,00 weniger aus als die Buchungen: eine
+  // Handwerkerrechnung wurde von Hand gebucht und kam über den Import noch
+  // einmal herein.
+  const giroZuViel: KontoEingabe = { ...giro, reportedEndCents: giro.endCents - 124_000 };
+  const manuell = buchung({ id: "hand", datum: "2026-03-10", amountCents: 124_000, text: "Rechnung 2026-114" });
+  const importiert = buchung({ id: "bank", datum: "2026-03-12", amountCents: 124_000, text: "DACHDECKER MEIER", importiert: true });
+
+  it("findet das Paar aus Handbuchung und Import und führt zur Handbuchung", () => {
+    const r = abstimmen({ konten: [giroZuViel, ruecklage], ausgabenBuchungen: [manuell, importiert] });
+    const v = fuer(r, "giro").verdachte.find((x) => x.art === "doppelt-erfasst")!;
+    expect(v).toBeDefined();
+    expect(v.text).toContain("Rechnung 2026-114");
+    expect(v.text).toContain("DACHDECKER MEIER");
+    expect(v.ziel).toEqual({ art: "buchhaltung", filter: { buchung: "hand" }, label: "Diese Buchung öffnen" });
+  });
+
+  it("schweigt, wenn beide importiert oder beide von Hand sind", () => {
+    const r1 = abstimmen({ konten: [giroZuViel, ruecklage], ausgabenBuchungen: [manuell, { ...manuell, id: "hand2" }] });
+    expect(fuer(r1, "giro").verdachte.some((x) => x.art === "doppelt-erfasst")).toBe(false);
+    const r2 = abstimmen({ konten: [giroZuViel, ruecklage], ausgabenBuchungen: [importiert, { ...importiert, id: "bank2" }] });
+    expect(fuer(r2, "giro").verdachte.some((x) => x.art === "doppelt-erfasst")).toBe(false);
+  });
+
+  it("schweigt, wenn die Tage zu weit auseinanderliegen oder die Abweichung nicht passt", () => {
+    const r1 = abstimmen({
+      konten: [giroZuViel, ruecklage],
+      ausgabenBuchungen: [manuell, { ...importiert, datum: "2026-03-20" }],
+    });
+    expect(fuer(r1, "giro").verdachte.some((x) => x.art === "doppelt-erfasst")).toBe(false);
+    const r2 = abstimmen({ ausgabenBuchungen: [manuell, importiert] }); // giro stimmt
+    expect(fuer(r2, "giro").verdachte.some((x) => x.art === "doppelt-erfasst")).toBe(false);
+  });
+});

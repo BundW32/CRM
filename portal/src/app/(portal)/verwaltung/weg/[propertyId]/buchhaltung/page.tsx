@@ -428,6 +428,9 @@ export default async function WegBuchhaltungPage({
       {sp.import !== undefined ? (
         <Alert variant="success" className="mb-4">
           Import abgeschlossen: {sp.import} Buchung(en) übernommen
+          {sp.zusammengefuehrt && sp.zusammengefuehrt !== "0"
+            ? `, ${sp.zusammengefuehrt} mit vorhandenen Handbuchungen zusammengeführt`
+            : ""}
           {sp.uebersprungen && sp.uebersprungen !== "0"
             ? `, ${sp.uebersprungen} Zeile(n) übersprungen (Duplikate/nicht lesbar)`
             : ""}

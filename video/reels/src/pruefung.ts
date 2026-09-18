@@ -113,6 +113,11 @@ export const reelMetadaten = async (plan: ReelPlan) => {
       const { durationInSeconds } = await parseMedia({
         src: staticFile(datei),
         fields: { durationInSeconds: true },
+        // Die Freie Lizenz gilt laut node_modules/remotion/LICENSE.md für
+        // „a for-profit organization with up to 3 employees". Die Betreiberin
+        // hat zwei — bestätigt am 18.09.2026. Damit entfällt der Hinweis bei
+        // jedem Render.
+        acknowledgeRemotionLicense: true,
       });
       if (durationInSeconds !== null) quellen[datei] = durationInSeconds;
     } catch (fehler) {

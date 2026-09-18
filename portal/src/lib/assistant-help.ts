@@ -13,6 +13,12 @@ export type HelpTopic = {
 // Reihenfolge ist unerheblich – Auswahl erfolgt über Begriffs-Treffer im Assistenten.
 export const HELP_TOPICS: HelpTopic[] = [
   {
+    title: "Handbuch",
+    roles: ["VERWALTER", "EIGENTUEMER", "MIETER"],
+    href: "/hilfe",
+    body: `Das Handbuch unter „Handbuch" im Menü erklärt jeden Bereich Schritt für Schritt — Rechnungen und Belege, Bankimport, Wirtschaftsplan, Jahresabrechnung, Beschlüsse, Versammlungen, Konto und Einstellungen. Die Kapitel sind auf die Rolle zugeschnitten.`,
+  },
+  {
     title: "Objekt anlegen",
     roles: ["VERWALTER"],
     href: "/verwaltung/objekte/neu",

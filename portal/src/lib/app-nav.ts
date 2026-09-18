@@ -38,7 +38,8 @@ export type NavIcon =
   | "quellen"
   | "abrechnung"
   | "ablage"
-  | "audit";
+  | "audit"
+  | "hilfe";
 
 export type NavItem = {
   href: string;
@@ -186,6 +187,13 @@ export function settingsItems(selfManaged: boolean, platformAdmin = false): NavI
   ];
 }
 
+// ── Handbuch ────────────────────────────────────────────────────────────────
+// Für jede Rolle, immer als letzter Punkt: Die Übersicht dort filtert die
+// Kapitel selbst auf das, was die Person im Portal sieht. Ein Eintrag hier —
+// und damit auch in der ⌘K-Palette — statt eines Links, den man suchen muss.
+const HILFE_ITEM: NavItem = { href: "/hilfe", title: "Handbuch", icon: "hilfe" };
+const HILFE_GRUPPE: NavGroup = { items: [HILFE_ITEM] };
+
 // ── Hauptnavigation je Rolle ────────────────────────────────────────────────
 
 function verwalterGroups(ctx: NavContext): NavGroup[] {
@@ -230,6 +238,7 @@ function verwalterGroups(ctx: NavContext): NavGroup[] {
         { href: "/uebergabe", title: "Wohnungsübergabe", icon: "uebergabe" },
       ],
     },
+    HILFE_GRUPPE,
   ];
 }
 
@@ -270,6 +279,7 @@ function selfManagedVerwalterGroups(): NavGroup[] {
         { href: "/verwaltung/verwalter-tickets", title: "Verwalter-Tickets", icon: "vorgaenge" },
       ],
     },
+    HILFE_GRUPPE,
   ];
 }
 
@@ -299,6 +309,7 @@ function eigentuemerItems(ctx: NavContext): NavItem[] {
     { href: "/aushaenge", title: "Aushänge", icon: "aushaenge" },
     { href: "/dokumente", title: "Dokumente", icon: "dokumente" },
     ...(ctx.boardMember ? [{ href: "/beirat", title: "Beirat", icon: "beirat" as const }] : []),
+    HILFE_ITEM,
   ];
 }
 
@@ -311,6 +322,7 @@ function mieterItems(): NavItem[] {
     { href: "/dokumente", title: "Dokumente", icon: "dokumente" },
     { href: "/zaehler", title: "Zähler", icon: "zaehler" },
     { href: "/verbrauch", title: "Verbrauch", icon: "verbrauch" },
+    HILFE_ITEM,
   ];
 }
 

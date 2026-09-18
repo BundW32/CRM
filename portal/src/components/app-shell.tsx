@@ -12,6 +12,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
+  BookOpen,
   Building2,
   CalendarDays,
   ClipboardList,
@@ -82,6 +83,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   abrechnung: Receipt,
   ablage: Database,
   audit: ShieldCheck,
+  hilfe: BookOpen,
 };
 
 export type CountBadge = { label: string; tone?: "ok" | "warn" };

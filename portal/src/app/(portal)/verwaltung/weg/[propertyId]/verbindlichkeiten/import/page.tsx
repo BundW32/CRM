@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Tipp } from "@/components/tipp";
 import { Card, PageTitle } from "@/components/ui";
 import { requireWegProperty } from "@/lib/weg/scope";
@@ -38,6 +39,11 @@ export default async function RechnungenImportPage({ params }: { params: Promise
           gleicher Betrag, gleiches Datum), werden übersprungen: Dieselbe Datei zweimal hochzuladen
           erzeugt keine Dubletten.
         </Tipp>
+        <p className="mt-2 text-xs">
+          <Link href="/hilfe/rechnungen" className="text-brand-green hover:underline">
+            Handbuch: Rechnungen und Belege
+          </Link>
+        </p>
       </Card>
     </>
   );

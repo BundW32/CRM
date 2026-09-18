@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   useActionState,
@@ -185,7 +186,12 @@ export function HelpWidget({ versetzt = false }: { versetzt?: boolean }) {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold leading-tight">Problem melden</p>
-              <p className="truncate text-[11px] text-white/70">Wir melden uns per E-Mail</p>
+              <p className="truncate text-[11px] text-white/70">
+                Wir melden uns per E-Mail ·{" "}
+                <Link href="/hilfe" onClick={() => setOpen(false)} className="underline hover:text-white">
+                  Handbuch
+                </Link>
+              </p>
             </div>
             <button
               type="button"

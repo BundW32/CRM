@@ -2660,3 +2660,36 @@ Antwort an ihn nennt zehn Zusagen. Die ersten drei sind hier umgesetzt.
      eine echte Anmeldung als Kunde, ohne Hinweisleiste und ohne Protokoll.
      Ohne Einstellung ändert sich nichts: `idle` 0 heißt wie bisher sieben
      Tage.
+
+337. **Handbuch im Portal, alle Bereiche, je Rolle gefiltert (Paket 11).** Die
+     Zusage aus der Kundenantwort war das Kapitel „Rechnungen"; gebaut ist
+     das ganze Handbuch: 25 Kapitel in sechs Bereichen (Erste Schritte,
+     Alltag, Gemeinschaft, Finanzen, Betrieb, Konto und Einstellungen), als
+     Markdown unter `src/content/hilfe/*.md` mit einem kleinen Kopf (Titel,
+     Kurzsatz, Bereich, Reihenfolge, Rollen, optional „nur
+     selbstverwaltung/professionell"). **Kein CMS, kein Drittdienst, keine
+     Markdown-Bibliothek:** Der Leser in `lib/hilfe/markdown.ts` kann
+     Überschriften, Absätze, Listen, Tabellen, Zitate und Auszeichnungen im
+     Satz — mehr brauchen die Kapitel nicht, und was er nicht kennt, bleibt
+     Text; rohes HTML wird nie ausgegeben. Die Kapitel liegen im Repository
+     neben dem Code, den sie beschreiben, und ändern sich im selben Commit;
+     `next.config.ts` nimmt den Ordner in die Ablauf-Verfolgung auf, sonst
+     fehlten die Dateien im Serverless-Bundle (wie die Schriften der
+     PDF-Erzeugung). Die Übersicht `/hilfe` zeigt jeder Person nur die
+     Kapitel ihrer Rolle und Verwaltungsart — ein Mieter bekommt keine
+     Jahresabrechnung erklärt, ein Selbstverwalter keine Vorgänge —, ein
+     direkter Link führt aber immer hin: Das Handbuch enthält keine
+     Geheimnisse, und ein Eigentümer, dem der Verwalter einen Link schickt,
+     soll ihn öffnen können. Vor und Zurück blättern nur durch die eigenen
+     Kapitel. Menüpunkt „Handbuch" als letzter Punkt jeder Rolle in
+     `app-nav.ts` (damit auch in der ⌘K-Palette), Link im Kopf der
+     Hilfe-Lasche, Eintrag in `HELP_TOPICS` für den Assistenten. Die
+     Verbindlichkeiten-Seiten verlinken das Kapitel „Rechnungen und Belege"
+     **außerhalb** des `<Tipp>`, damit der Weg auch mit abgeschalteten
+     Erklärungen bleibt. `lib/hilfe/handbuch.test.ts` prüft jeden internen
+     Link gegen die Seiten des Portals und jeden Kapitel-Anker gegen die
+     Überschriften — ein Handbuch, das ins Leere verweist, ist schlimmer als
+     keines. Die Texte nennen die Beschriftungen der Knöpfe und Felder
+     wörtlich, wie sie im Code stehen; Bildschirmfotos aus dem Plan sind
+     bewusst weggelassen: Sie veralten mit jeder Änderung der Oberfläche,
+     ein Text mit den echten Beschriftungen nicht.

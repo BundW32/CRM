@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Easing, OffthreadVideo, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { FORMAT } from "../marke";
+import { MAX_ZOOM } from "../kamera";
 
 /**
  * Ein Sprech-Segment aus dem normalisierten Rohvideo.
@@ -30,10 +31,14 @@ export const Clip: React.FC<{
   lautstaerke = 1,
 }) => {
   const frame = useCurrentFrame();
+  // Gedeckelt, damit ein Tippfehler im Schnittplan nicht in einem Close-up
+  // endet. Im ersten echten Reel war genau das der Fehler.
+  const von = Math.min(zoomVon, MAX_ZOOM);
+  const bis = Math.min(zoomBis, MAX_ZOOM);
   const zoom =
-    zoomVon === zoomBis
-      ? zoomVon
-      : interpolate(frame, [0, fahrtFrames], [zoomVon, zoomBis], {
+    von === bis
+      ? von
+      : interpolate(frame, [0, fahrtFrames], [von, bis], {
           extrapolateRight: "clamp",
           easing: Easing.out(Easing.cubic),
         });

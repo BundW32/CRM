@@ -50,14 +50,14 @@ die drei Umgebungs-Eigenheiten stehen in `README.md`. Kurzform:
 cd video/reels && npm install && npm run material
 node werkzeuge/normalisieren.mjs "<Drive>/Rohmaterial/<datei>.MOV"
 node werkzeuge/transkribieren.mjs public/roh/<datei>-1080x1920.mp4
-node werkzeuge/pausen.mjs public/roh/<datei>-1080x1920.mp4 public/roh/<datei>-1080x1920-transkript.json
+node --experimental-strip-types werkzeuge/pausen.ts public/roh/<datei>-1080x1920.mp4 public/roh/<datei>-1080x1920-transkript.json
 # Schnittplan als src/<thema>.tsx (Vorlage: src/Reelprobe.tsx), in src/Root.tsx eintragen
 npm run rendern -- <CompositionId> out/roh.mp4
 node werkzeuge/lautheit.mjs out/roh.mp4 "<Drive>/Remotion Claude/Renders/wegportal24_<thema>_v1.mp4"
 ```
 
 Zuerst Versprecher, „äh" und Denkpausen herausnehmen, damit die Länge stimmt —
-`werkzeuge/pausen.mjs` liefert die Fundstellen aus zwei Quellen, entschieden
+`werkzeuge/pausen.ts` liefert die Fundstellen aus zwei Quellen, entschieden
 wird im Schnittplan. Ein kurzer Bruch vor der wichtigsten Aussage bleibt
 bewusst stehen.
 

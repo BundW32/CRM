@@ -6,7 +6,8 @@
  */
 import assert from "node:assert/strict";
 import type { Caption } from "@remotion/captions";
-import { bauZeitachse, reelDauerMs, rohZuReel, segmenteAusPausen, untertitelUmrechnen } from "../src/zeitachse.ts";
+import { bauZeitachse, pausenAusTranskript, reelDauerMs, rohZuReel, schnittstellen, segmenteAusPausen, untertitelUmrechnen } from "../src/zeitachse.ts";
+import { MAX_ZOOM, kameraFahrten } from "../src/kamera.ts";
 
 const wort = (text: string, startMs: number, endMs: number): Caption => ({
   text,
@@ -80,5 +81,61 @@ const amAnfang = segmenteAusPausen({
   luftMs: 0,
 });
 assert.deepEqual(amAnfang.map((s) => [s.vonSekunde, s.bisSekunde]), [[1, 5]], "kein leeres Segment vor einer Pause am Anfang");
+
+// Kein Schnitt landet je in einem Wort. Das ist der Fehler aus dem ersten
+// echten Reel: Eine gemessene Stille lag über dem leisen Ende von „gehört",
+// und beim Herausschneiden verschwand das Wort.
+const sicher = schnittstellen({
+  stillen: [{ von: 1.0, bis: 2.4, grund: "Stille" }],
+  captions: [wort("gehört", 1_800, 2_100)],
+  mindestMs: 200,
+  toleranzMs: 0,
+});
+
+assert.deepEqual(
+  sicher.map((s) => [s.von, s.bis]),
+  [
+    [1.0, 1.8],
+    [2.1, 2.4],
+  ],
+  "die Stille zerfällt am Wort in zwei Stücke, das Wort selbst bleibt stehen",
+);
+
+assert.deepEqual(
+  schnittstellen({ stillen: [{ von: 1.7, bis: 2.2 }], captions: [wort("gehört", 1_800, 2_100)], mindestMs: 200, toleranzMs: 0 }),
+  [],
+  "eine Stille, die fast ganz im Wort liegt, ergibt gar keinen Schnitt",
+);
+
+// Ein kurzes Wort wird trotz Toleranz vollständig geschützt — sonst bliebe von
+// ihm bei 120 ms Toleranz an beiden Seiten nichts übrig.
+assert.deepEqual(
+  schnittstellen({
+    stillen: [{ von: 1.0, bis: 2.4 }],
+    captions: [wort("ja", 1_900, 2_050)],
+    mindestMs: 200,
+  }).map((s) => [Number(s.von.toFixed(3)), Number(s.bis.toFixed(3))]),
+  [
+    [1.0, 1.9],
+    [2.05, 2.4],
+  ],
+  "kurzes Wort bleibt ganz stehen",
+);
+
+// Lange Wort-Token werden nicht mehr hinten beschnitten — genau daran sind
+// im ersten Reel Wörter verschwunden.
+assert.deepEqual(
+  pausenAusTranskript([wort("gehört", 1_000, 2_600), wort(",", 2_600, 3_100)], 300).map((p) => p.grund),
+  ['Pause bei „,"'],
+  "nur Satzzeichen zählen als Pause, lange Wörter nicht",
+);
+
+// Punch-ins sind Akzente und summieren sich nicht auf.
+const fahrten = kameraFahrten(9);
+assert.equal(fahrten.filter((f) => f.zoomBis !== 1).length, 3, "nur jedes dritte Segment bekommt eine Fahrt");
+assert.ok(
+  fahrten.every((f) => f.zoomVon === 1 && (f.zoomBis ?? 1) <= MAX_ZOOM),
+  "jede Fahrt beginnt bei 1,0 und bleibt unter der Obergrenze",
+);
 
 console.log("Zeitachse: alle Prüfungen bestanden");

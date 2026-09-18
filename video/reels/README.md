@@ -79,7 +79,7 @@ npm run material                      # Schriften + Klänge (einmalig)
 DRIVE="$HOME/Library/CloudStorage/GoogleDrive-<adresse>/Geteilte Ablagen/B&W/07_Social Media"
 node werkzeuge/normalisieren.mjs "$DRIVE/Rohmaterial/<datei>.MOV"
 node werkzeuge/transkribieren.mjs public/roh/<datei>-1080x1920.mp4
-node werkzeuge/pausen.mjs public/roh/<datei>-1080x1920.mp4 public/roh/<datei>-1080x1920-transkript.json
+node --experimental-strip-types werkzeuge/pausen.ts public/roh/<datei>-1080x1920.mp4 public/roh/<datei>-1080x1920-transkript.json
 
 # Schnittplan als src/<thema>.tsx schreiben (siehe src/Reelprobe.tsx als Vorlage),
 # in src/Root.tsx eintragen, dann:

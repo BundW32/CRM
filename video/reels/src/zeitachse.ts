@@ -80,7 +80,7 @@ export const untertitelUmrechnen = (captions: Caption[], achse: Abschnitt[]): Ca
 };
 
 /**
- * Dreht die Fundstellen aus werkzeuge/pausen.mjs in Segmente um: Was nicht
+ * Dreht die Fundstellen aus werkzeuge/pausen.ts in Segmente um: Was nicht
  * weggeschnitten wird, bleibt.
  *
  * `luftMs` lässt an jedem Schnitt etwas Atem stehen. Ohne das klebt das nächste
@@ -91,7 +91,7 @@ export const segmenteAusPausen = ({
   datei,
   gesamtSekunden,
   pausen,
-  luftMs = 60,
+  luftMs = 100,
   mindestSegmentMs = 200,
 }: {
   datei: string;
@@ -100,11 +100,14 @@ export const segmenteAusPausen = ({
   luftMs?: number;
   mindestSegmentMs?: number;
 }): Segment[] => {
-  const luft = luftMs / 1000;
   const segmente: Segment[] = [];
   let cursor = 0;
 
   for (const p of [...pausen].sort((a, b) => a.von - b.von)) {
+    // Luft anteilig: Bei fester Luft bliebe von einer 0,4-Sekunden-Pause nach
+    // Abzug an beiden Seiten fast nichts übrig — die Pause bliebe stehen,
+    // obwohl sie erkannt wurde. Höchstens ein Viertel je Seite.
+    const luft = Math.min(luftMs / 1000, (p.bis - p.von) / 4);
     const schnittVon = Math.max(cursor, p.von + luft);
     const schnittBis = Math.min(gesamtSekunden, p.bis - luft);
     if (schnittBis <= schnittVon) continue;
@@ -121,6 +124,13 @@ export const segmenteAusPausen = ({
   return segmente;
 };
 
+const NUR_SATZZEICHEN = /^[.,!?;:…»«"'\-–—]+$/;
+
+const istSatzzeichen = (text: string) => {
+  const t = text.trim();
+  return t.length > 0 && NUR_SATZZEICHEN.test(t);
+};
+
 /**
  * Findet Sprechpausen im Transkript.
  *
@@ -129,37 +139,93 @@ export const segmenteAusPausen = ({
  * „Ganz ehrlich" läuft von 890 bis 1300 ms, also 410 ms, in denen niemand
  * spricht. Wer nach Lücken sucht, findet an echtem Token-Material nichts.
  *
- * Zwei Fälle liefern also die Pausen:
- *   * Satzzeichen-Token, die länger als die Schwelle dauern
- *   * ungewöhnlich lange Wort-Token — dort liegt die Pause am Ende des Wortes,
- *     weshalb nur der Überhang geschnitten wird
+ * Gewertet werden nur Satzzeichen-Token, denn die liegen sicher ZWISCHEN zwei
+ * Wörtern. Eine frühere Fassung hat zusätzlich lange Wort-Token hinten
+ * beschnitten, in der Annahme, dort hänge Stille. Das hat im ersten echten
+ * Reel ganze Wörter gekostet — Whispers Zeitstempel sitzen nicht genau genug,
+ * um innerhalb eines Wortes zu schneiden. Diese Regel ist deshalb raus, und
+ * `schnittstellen()` sorgt zusätzlich dafür, dass kein Schnitt je in einem
+ * Wort landet.
  *
- * Bleibt trotzdem nur der halbe Beleg: Ein „äh" verschluckt Whisper oft ganz.
- * Die zweite Quelle ist und bleibt `silencedetect` auf dem Ton.
+ * Das bleibt der halbe Beleg: Ein „äh" verschluckt Whisper oft ganz. Die
+ * zweite Quelle ist und bleibt `silencedetect` auf dem Ton.
  */
 export const pausenAusTranskript = (
   captions: { text: string; startMs: number; endMs: number }[],
   mindestMs = 300,
-): { von: number; bis: number; grund: string }[] => {
-  const pausen: { von: number; bis: number; grund: string }[] = [];
+): { von: number; bis: number; grund: string }[] =>
+  captions
+    .filter((c) => istSatzzeichen(c.text) && c.endMs - c.startMs >= mindestMs)
+    .map((c) => ({ von: c.startMs / 1000, bis: c.endMs / 1000, grund: `Pause bei „${c.text.trim()}"` }));
 
-  for (const c of captions) {
-    const dauer = c.endMs - c.startMs;
-    const text = c.text.trim();
-    const nurSatzzeichen = text.length > 0 && /^[.,!?;:…»«"'\-–—]+$/.test(text);
+/**
+ * Macht aus gemessenen Stillen die Stellen, an denen wirklich geschnitten
+ * werden darf.
+ *
+ * Der Grund steht im ersten echten Reel: Dort fehlte mitten im Satz das Wort
+ * „gehört". Eine gemessene Stille darf sich nämlich mit einem Wort
+ * überschneiden — leise Wortenden, ausklingende Vokale, ein „t" am Schluss
+ * liegen unter der Schwelle. Wer die Stille dann roh herausschneidet, nimmt
+ * das Wortende mit, und bei kurzen Wörtern das ganze Wort.
+ *
+ * Deshalb wird jede Stille gegen die Sprech-Bereiche des Transkripts
+ * verrechnet: Übrig bleibt nur, was zwischen zwei Wörtern liegt. Was danach
+ * kürzer als `mindestMs` ist, lohnt den Schnitt nicht.
+ */
+export const schnittstellen = ({
+  stillen,
+  captions,
+  mindestMs = 250,
+  toleranzMs = 120,
+}: {
+  stillen: { von: number; bis: number; grund?: string }[];
+  captions: { text: string; startMs: number; endMs: number }[];
+  mindestMs?: number;
+  /**
+   * Wie weit eine Stille in ein Wort hineinreichen darf. Whisper setzt die
+   * Wortgrenzen gepolstert — es hängt die folgende Stille mit an das Wort. Mit
+   * `0` bliebe fast keine Schnittstelle übrig und die Pausen blieben im Video
+   * stehen; mit zu viel verliert man Wortenden. Geschützt bleibt immer der
+   * Kern des Wortes.
+   */
+  toleranzMs?: number;
+}): { von: number; bis: number; grund: string }[] => {
+  const sprich = captions
+    .filter((c) => !istSatzzeichen(c.text))
+    .map((c) => {
+      const kern = c.endMs - c.startMs - 2 * toleranzMs;
+      // Kurze Wörter werden ganz geschützt, sonst bliebe von ihnen nichts.
+      return kern <= 0
+        ? ([c.startMs, c.endMs] as const)
+        : ([c.startMs + toleranzMs, c.endMs - toleranzMs] as const);
+    })
+    .sort((a, b) => a[0] - b[0]);
 
-    if (nurSatzzeichen && dauer >= mindestMs) {
-      pausen.push({ von: c.startMs / 1000, bis: c.endMs / 1000, grund: `Pause bei „${text}"` });
-      continue;
+  const raus: { von: number; bis: number; grund: string }[] = [];
+
+  for (const stille of stillen) {
+    // Kann in mehrere Stücke zerfallen, wenn ein Wort mitten hineinragt.
+    let stuecke: [number, number][] = [[stille.von * 1000, stille.bis * 1000]];
+
+    for (const [wortVon, wortBis] of sprich) {
+      const naechste: [number, number][] = [];
+      for (const [von, bis] of stuecke) {
+        if (wortBis <= von || wortVon >= bis) {
+          naechste.push([von, bis]);
+          continue;
+        }
+        if (wortVon > von) naechste.push([von, wortVon]);
+        if (wortBis < bis) naechste.push([wortBis, bis]);
+      }
+      stuecke = naechste;
     }
 
-    // Ein Wort braucht selten mehr als ~90 ms je Zeichen. Was darüber liegt,
-    // ist nachgehaltene Stille am Wortende.
-    const erwartet = Math.max(400, text.length * 90);
-    if (!nurSatzzeichen && dauer > erwartet + mindestMs) {
-      pausen.push({ von: (c.startMs + erwartet) / 1000, bis: c.endMs / 1000, grund: `Hänger nach „${text}"` });
+    for (const [von, bis] of stuecke) {
+      if (bis - von >= mindestMs) {
+        raus.push({ von: von / 1000, bis: bis / 1000, grund: stille.grund ?? "Stille" });
+      }
     }
   }
 
-  return pausen;
+  return raus.sort((a, b) => a.von - b.von);
 };

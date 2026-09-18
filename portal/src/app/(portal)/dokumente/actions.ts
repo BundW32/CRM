@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -80,7 +81,7 @@ export async function uploadOwnerDocument(formData: FormData) {
     redirect(zurueckZumFormular(formData, { fehler: "ablage", grund: ablageFehlerText(err) }));
   }
 
-  const doc = await db.document.create({
+  const doc = await auditMutation(user, async (tx) => tx.document.create({
     data: {
       title: parsed.data.title,
       category: parsed.data.category,
@@ -90,7 +91,7 @@ export async function uploadOwnerDocument(formData: FormData) {
       organizationId: user.organizationId,
       ...upload,
     },
-  });
+  }));
 
   // Empfänger: der Eigentümer selbst; optional die aktiven Mieter des Objekts.
   // Die Verwaltung sieht das Dokument ohnehin über den Objekt-Scope.
@@ -102,10 +103,10 @@ export async function uploadOwnerDocument(formData: FormData) {
     });
     for (const t of tenancies) recipientIds.add(t.userId);
   }
-  await db.documentRecipient.createMany({
+  await auditMutation(user, async (tx) => tx.documentRecipient.createMany({
     data: [...recipientIds].map((uid) => ({ documentId: doc.id, userId: uid })),
     skipDuplicates: true,
-  });
+  }));
 
   await notifyDocumentPublished(doc.id);
   revalidatePath("/dokumente");
@@ -175,7 +176,7 @@ export async function deleteDocument(formData: FormData) {
   // canVerwalterAccessProperty(user, null) bildet das ab.
   if (!(await canVerwalterAccessProperty(user, doc.propertyId))) redirect("/dokumente");
 
-  await db.document.delete({ where: { id } });
+  await auditMutation(user, async (tx) => tx.document.delete({ where: { id } }));
   await deleteBlob(doc.storedName);
   revalidatePath("/dokumente");
   redirect("/dokumente?geloescht=1");
@@ -235,7 +236,7 @@ export async function uploadDocument(formData: FormData) {
     redirect(zurueckZumFormular(formData, { fehler: "ablage", grund: ablageFehlerText(err) }));
   }
 
-  const doc = await db.document.create({
+  const doc = await auditMutation(user, async (tx) => tx.document.create({
     data: {
       title: parsed.data.title,
       category: parsed.data.category,
@@ -246,7 +247,7 @@ export async function uploadDocument(formData: FormData) {
       organizationId: user.organizationId,
       ...upload,
     },
-  });
+  }));
 
   // Optionale gezielte Empfänger: nur Nutzer im eigenen Scope zulassen. Sind
   // Empfänger gesetzt, sehen NUR diese Personen (plus Verwalter) das Dokument.
@@ -257,10 +258,10 @@ export async function uploadDocument(formData: FormData) {
       select: { id: true },
     });
     if (valid.length > 0) {
-      await db.documentRecipient.createMany({
+      await auditMutation(user, async (tx) => tx.documentRecipient.createMany({
         data: valid.map((r) => ({ documentId: doc.id, userId: r.id })),
         skipDuplicates: true,
-      });
+      }));
     }
   }
 
@@ -292,7 +293,7 @@ export async function requestDocument(formData: FormData) {
     redirect("/dokumente/anfordern?fehler=anfrage");
   }
 
-  const ticket = await db.ticket.create({
+  const ticket = await auditMutation(user, async (tx) => tx.ticket.create({
     data: {
       type: "DOKUMENT_ANFRAGE",
       title: art ? `Dokumentanforderung: ${art}` : "Dokumentanforderung",
@@ -302,7 +303,7 @@ export async function requestDocument(formData: FormData) {
       createdById: user.id,
       organizationId: user.organizationId,
     },
-  });
+  }));
 
   revalidatePath("/vorgaenge");
   redirect(`/vorgaenge/${ticket.id}?flash=gespeichert`);

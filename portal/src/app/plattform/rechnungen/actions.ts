@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { PlatformInvoiceStatus } from "@/generated/prisma/client";
@@ -177,7 +178,7 @@ export async function createInvoice(formData: FormData) {
   let createdId: string | null = null;
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      const invoice = await db.$transaction(async (tx) => {
+      const invoice = await auditMutation(admin, async (tx) => {
         const last = await tx.platformInvoice.findFirst({
           where: { year },
           orderBy: { number: "desc" },

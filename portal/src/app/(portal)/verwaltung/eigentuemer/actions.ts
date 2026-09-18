@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { canVerwalterAccessProperty } from "@/lib/access";
@@ -34,7 +35,7 @@ export async function updateBoardMember(formData: FormData) {
     redirect("/verwaltung/eigentuemer");
   }
   const isBoardMember = String(formData.get("isBoardMember") ?? "") === "1";
-  await db.ownership.update({ where: { id }, data: { isBoardMember } });
+  await auditMutation(actor, async (tx) => tx.ownership.update({ where: { id }, data: { isBoardMember } }));
   revalidatePath("/verwaltung/eigentuemer");
   redirect(backTo(ownership.propertyId));
 }
@@ -53,7 +54,7 @@ export async function updateVotingPrinciple(formData: FormData) {
   }
   const vpRaw = String(formData.get("votingPrinciple") ?? "");
   const principle = vpRaw === "MEA" ? "MEA" : vpRaw === "OBJEKT" ? "OBJEKT" : "KOPF";
-  await db.property.update({ where: { id: propertyId }, data: { votingPrinciple: principle } });
+  await auditMutation(actor, async (tx) => tx.property.update({ where: { id: propertyId }, data: { votingPrinciple: principle } }));
   revalidatePath("/verwaltung/eigentuemer");
   redirect(backTo(propertyId));
 }

@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -230,10 +231,10 @@ export async function updatePersonContact(formData: FormData) {
     }
   }
 
-  await db.user.update({
+  await auditMutation(verwalter, async (tx) => tx.user.update({
     where: { id },
     data: { name: parsed.data.name, email, phone: parsed.data.phone || null, preferredContact },
-  });
+  }));
   revalidatePath("/verwaltung/kontakte");
   redirect(zurueckZu(formData, "?flash=kontakt-gespeichert"));
 }

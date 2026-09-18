@@ -40,6 +40,8 @@ export type DateRangeFilterConfig = {
   toKey: string;
   /** Beschriftung vor den Feldern, z. B. „Zeitraum". */
   label: string;
+  /** Opt-in for narrow audit views; existing screens retain their layout. */
+  wrap?: boolean;
 };
 
 export type ComboboxFilterConfig = {
@@ -158,11 +160,11 @@ function DateRangeFilter({
   const { apply, searchParams } = useUrlUpdater(pageParam);
   const von = searchParams.get(config.fromKey) ?? "";
   const bis = searchParams.get(config.toKey) ?? "";
-  const feld = `${fieldOnDarkClass} w-[9.5rem] [color-scheme:dark]`;
+  const feld = `${fieldOnDarkClass} ${config.wrap ? "w-32 sm:w-[9.5rem]" : "w-[9.5rem]"} [color-scheme:dark]`;
 
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-xs font-medium text-gray-400">{config.label}</span>
+    <div className={`flex items-center gap-1.5${config.wrap ? " min-w-0 flex-wrap" : ""}`}>
+      <span className={`text-xs font-medium text-gray-400${config.wrap ? " basis-full sm:basis-auto" : ""}`}>{config.label}</span>
       <DateInput
         value={von}
         max={bis || undefined}
@@ -282,9 +284,11 @@ function FilterOptionen({
 function MoreFilters({
   filters,
   pageParam,
+  label = "Filter",
 }: {
   filters: FilterConfig[];
   pageParam?: string | string[];
+  label?: string;
 }) {
   const { apply, searchParams } = useUrlUpdater(pageParam);
   const [open, setOpen] = useState(false);
@@ -314,7 +318,7 @@ function MoreFilters({
         }`}
       >
         <SlidersHorizontal className="h-4 w-4" />
-        Filter
+        {label}
         {activeCount > 0 ? (
           <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-xs font-semibold text-brand-green-dark">
             {activeCount}
@@ -326,7 +330,7 @@ function MoreFilters({
           liefe das Menü rechts aus dem Bild. Auf schmalen Schirmen, wo die
           Leiste umbricht und der Button links steht, andersherum. */}
       {open ? (
-        <div className="absolute right-0 z-30 mt-1.5 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200/70 bg-white p-3 shadow-e2 max-sm:left-0 max-sm:right-auto">
+        <div className={`absolute right-0 z-30 mt-1.5 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200/70 bg-white p-3 shadow-e2 max-sm:left-0 max-sm:right-auto ${label === "Weitere Filter" ? "max-h-[60vh] overflow-y-auto" : ""}`}>
           {/* Optionen direkt, nicht als weiteres Auswahlfeld.
               Vorher stand hier je Filter eine Combobox – man klickte auf
               „Filter", sah ein zugeklapptes Feld und musste es erst öffnen,
@@ -408,6 +412,8 @@ export function FilterBar({
   dateRange,
   pageParam,
   className = "",
+  moreFiltersLabel,
+  resetKeepParams = [],
 }: {
   searchParamKey?: string;
   /** Wenn gesetzt, wird die Freitextsuche angezeigt. */
@@ -425,6 +431,10 @@ export function FilterBar({
    */
   pageParam?: string | string[];
   className?: string;
+  /** Opt-in wording; other screens retain their existing label. */
+  moreFiltersLabel?: string;
+  /** Keep the selected audit view when clearing filters; opt-in only. */
+  resetKeepParams?: string[];
 }) {
   const { apply, searchParams, pathname, router } = useUrlUpdater(pageParam);
 
@@ -482,7 +492,7 @@ export function FilterBar({
 
         {dateRange ? <DateRangeFilter config={dateRange} pageParam={pageParam} /> : null}
 
-        {secondaryFilters.length > 0 ? <MoreFilters filters={secondaryFilters} pageParam={pageParam} /> : null}
+        {secondaryFilters.length > 0 ? <MoreFilters filters={secondaryFilters} pageParam={pageParam} label={moreFiltersLabel} /> : null}
       </div>
 
       {anyActive ? (
@@ -490,7 +500,14 @@ export function FilterBar({
           <SecondaryChips filters={secondaryFilters} pageParam={pageParam} />
           <button
             type="button"
-            onClick={() => router.replace(pathname, { scroll: false })}
+            onClick={() => {
+              const kept = new URLSearchParams();
+              for (const key of resetKeepParams) {
+                const value = searchParams.get(key);
+                if (value) kept.set(key, value);
+              }
+              router.replace(kept.size ? `${pathname}?${kept}` : pathname, { scroll: false });
+            }}
             className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-gray-400 transition hover:text-red-400"
           >
             <X className="h-3.5 w-3.5" />

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { auditMutation } from "@/lib/audit-transaction";
 import { requireUser, requireVerwalter } from "@/lib/session";
 
 const meterSchema = z.object({
@@ -16,7 +17,7 @@ const meterSchema = z.object({
 });
 
 export async function createMeter(formData: FormData) {
-  await requireVerwalter();
+  const actor = await requireVerwalter();
   const parsed = meterSchema.safeParse({
     target: formData.get("target"),
     type: formData.get("type"),
@@ -32,7 +33,7 @@ export async function createMeter(formData: FormData) {
     redirect("/zaehler?fehler=eingabe");
   }
 
-  await db.meter.create({
+  await auditMutation(actor, (tx) => tx.meter.create({
     data: {
       unitId: kind === "unit" ? refId : null,
       propertyId: kind === "prop" ? refId : null,
@@ -41,16 +42,16 @@ export async function createMeter(formData: FormData) {
       location: parsed.data.location || null,
       remoteReadable: parsed.data.remoteReadable ?? false,
     },
-  });
+  }));
   revalidatePath("/zaehler");
   redirect("/zaehler?flash=erstellt");
 }
 
 export async function deleteMeter(formData: FormData) {
-  await requireVerwalter();
+  const actor = await requireVerwalter();
   const id = String(formData.get("id") ?? "");
   if (id) {
-    await db.meter.delete({ where: { id } }).catch(() => {});
+    await auditMutation(actor, (tx) => tx.meter.delete({ where: { id } })).catch(() => {});
   }
   revalidatePath("/zaehler");
   redirect("/zaehler?flash=geloescht");
@@ -90,7 +91,7 @@ export async function submitReading(formData: FormData) {
   }
   const readingDate = dateRaw ? new Date(dateRaw) : new Date();
 
-  await db.meterReading.create({
+  await auditMutation(user, (tx) => tx.meterReading.create({
     data: {
       meterId,
       value,
@@ -98,7 +99,7 @@ export async function submitReading(formData: FormData) {
       note,
       createdById: user.id,
     },
-  });
+  }));
   revalidatePath("/zaehler");
   redirect("/zaehler?gespeichert=1");
 }

@@ -1,5 +1,8 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { safeAuditMeta } from "@/lib/audit-display";
+import { auditTargetScope } from "@/lib/audit-scope";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 
 // Aktions-Konstanten – zentral definiert, um Tippfehler zu vermeiden.
 export const AUDIT = {
@@ -29,6 +32,7 @@ export const AUDIT = {
   CRAFTSMAN_LINK_ROTATED: "CRAFTSMAN_LINK_ROTATED",
   CRAFTSMAN_LINK_REVOKED: "CRAFTSMAN_LINK_REVOKED",
   DSGVO_EXPORT: "DSGVO_EXPORT",
+  AUDIT_EXPORTED: "AUDIT_EXPORTED",
   // Bescheinigungen im Namen des Eigentümers (§ 19 Abs. 5 BMG): Erteilung,
   // Widerruf und jede erzeugte Bescheinigung sind nachweispflichtig.
   CERT_MANDATE_GRANTED: "CERT_MANDATE_GRANTED",
@@ -105,8 +109,11 @@ export const AUDIT = {
   HANDWERKER_INVOICE_REJECTED: "HANDWERKER_INVOICE_REJECTED",
 } as const;
 
-// Schreibt einen Audit-Log-Eintrag. Wirft nie – ein Logging-Fehler darf den
-// Hauptfluss nicht unterbrechen.
+// Ergänzende Aktions-/Sicherheitsereignisse. Fachliche Vorher-/Nachher-Werte
+// werden unabhängig hiervon zwingend in derselben DB-Transaktion geschrieben.
+// Bestehende Aufrufer laufen nach bereits erfolgten externen Effekten (z. B.
+// Mailversand); ein Fehler ist deshalb sichtbar zu melden, aber nicht dort
+// nachträglich als fehlgeschlagene Fachaktion auszugeben. Exporte nutzen strict.
 export async function logAudit(params: {
   actorId?: string | null;
   action: string;
@@ -114,19 +121,50 @@ export async function logAudit(params: {
   targetId?: string;
   meta?: Record<string, unknown>;
   ip?: string;
+  organizationId?: string;
+  strict?: boolean;
 }): Promise<void> {
   try {
+    const effective = params.actorId ? await db.user.findUnique({ where: { id: params.actorId } }) : null;
+    let actor = effective;
+    let support = actor ? isPlatformAdminUser(actor) : false;
+    if (effective) {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session.impersonating && session.user?.id === effective.id && session.realUser) {
+        actor = session.realUser;
+        support = true;
+      }
+    }
+    const scope = await auditTargetScope(params.targetType, params.targetId);
+    const category = /^(WEG_|HANDWERKER_|TICKET_|CERT_)/.test(params.action) || params.action === AUDIT.CERTIFICATE_GENERATED ? "JOURNAL" : "SECURITY";
+    // No unapproved statutory retention duration is invented. The operator can
+    // enable a documented, approved security retention period explicitly.
+    const days = Number(process.env.AUDIT_SECURITY_RETENTION_DAYS);
+    const expiresAt = category === "SECURITY" && Number.isInteger(days) && days > 0 && days <= 3650
+      ? new Date(Date.now() + days * 86_400_000) : null;
     await db.auditLog.create({
       data: {
-        actorId: params.actorId ?? null,
+        actorId: actor?.id ?? null,
+        actorName: actor?.name ?? null,
+        actorKind: support ? "SUPPORT" : actor ? "USER" : "UNKNOWN",
+        effectiveActorId: effective?.id ?? null,
+        organizationId: scope?.organizationId ?? params.organizationId ?? effective?.organizationId ?? null,
+        propertyId: scope?.propertyId ?? null,
+        category,
+        schemaVersion: 1,
+        createdAt: new Date(),
+        expiresAt,
         action: params.action,
         targetType: params.targetType ?? null,
         targetId: params.targetId ?? null,
-        meta: (params.meta ?? undefined) as Prisma.InputJsonObject | undefined,
-        ip: params.ip ?? null,
+        meta: safeAuditMeta(params.meta) as Prisma.InputJsonObject,
+        ip: category === "SECURITY" ? params.ip ?? null : null,
       },
     });
   } catch {
-    // intentionally silent
+    // Never print the exception/params: database errors can contain secrets.
+    console.error(JSON.stringify({ code: "AUDIT_WRITE_FAILED", action: params.action.slice(0, 100) }));
+    if (params.strict) throw new Error("Das Audit-Ereignis konnte nicht gespeichert werden.");
   }
 }

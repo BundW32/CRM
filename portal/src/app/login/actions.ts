@@ -83,7 +83,9 @@ export async function login(formData: FormData) {
     roleBlocked ||
     !(await bcrypt.compare(password, user.passwordHash))
   ) {
-    await logAudit({ action: AUDIT.LOGIN_FAILED, meta: { kennung: kennung || null }, ip });
+    // An attempted account is the target, NOT a verified actor. Never retain
+    // arbitrary submitted identifiers (which can also contain passwords).
+    await logAudit({ action: AUDIT.LOGIN_FAILED, targetType: user ? "User" : undefined, targetId: user?.id, ip });
     redirect("/login?fehler=1");
   }
 

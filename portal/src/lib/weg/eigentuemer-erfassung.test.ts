@@ -96,7 +96,7 @@ describe("Stammdaten: Anteil bleibt korrigierbar", () => {
     // Ohne diesen Lauf stünde die Korrektur in der Zuordnung, und die
     // MEA-Summe zeigte weiter den alten, falschen Wert.
     expect(STAMMDATEN_ACTIONS).toMatch(
-      /updateOwnershipStart[\s\S]{0,3000}?syncOwnerVotingWeights\(property\.id\)/,
+      /updateOwnershipStart[\s\S]{0,3000}?syncOwnerVotingWeights\(property\.id, verwalter\)/,
     );
   });
 });

@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -93,7 +94,7 @@ async function saveBranding(formData: FormData): Promise<void> {
     data.logoStoredName = upload.storedName;
   }
 
-  await db.organization.update({ where: { id: actor.organizationId }, data });
+  await auditMutation(actor, async (tx) => tx.organization.update({ where: { id: actor.organizationId }, data }));
   revalidatePath("/", "layout");
 }
 

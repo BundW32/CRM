@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -116,7 +117,7 @@ export async function saveFinanceSettings(formData: FormData) {
     mahnkostenCents = wert;
   }
 
-  await db.property.update({
+  await auditMutation(verwalter, async (tx) => tx.property.update({
     where: { id: property.id },
     data: {
       meaTotal: parsed.data.meaTotal,
@@ -133,7 +134,7 @@ export async function saveFinanceSettings(formData: FormData) {
       hausgeldRounding: parsed.data.hausgeldRounding,
       mahnkostenCents,
     },
-  });
+  }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_FINANCE_SETTINGS_SAVED,
@@ -186,7 +187,7 @@ export async function saveUnitFinanceData(formData: FormData) {
   });
   if (!unit) back(property.id, "fehler=einheit");
 
-  await db.unit.update({
+  await auditMutation(verwalter, async (tx) => tx.unit.update({
     where: { id: parsed.data.unitId },
     data: {
       unitType: parsed.data.unitType,
@@ -196,9 +197,9 @@ export async function saveUnitFinanceData(formData: FormData) {
       livingArea: parsed.data.livingArea,
       personCount: parsed.data.personCount,
     },
-  });
+  }));
   // Stimmgewichte der Eigentümer aus den (neuen) Einheiten-MEA ableiten.
-  await syncOwnerVotingWeights(property.id);
+  await syncOwnerVotingWeights(property.id, verwalter);
   // Der Einheiten-Typ entscheidet über die Abo-Position (Tarif je Einheit
   // oder Stellplatz-Pauschale) — ein Typwechsel verschiebt die Mengen und
   // muss das Stripe-Abo nachziehen. Fehler brechen das Speichern nie ab.
@@ -232,14 +233,14 @@ export async function adoptCostCatalog(formData: FormData) {
   const existingNames = new Set(existing.map((c) => c.name.toLowerCase()));
   const toCreate = WEG_COST_CATALOG.filter((e) => !existingNames.has(e.name.toLowerCase()));
   if (toCreate.length > 0) {
-    await db.costType.createMany({
+    await auditMutation(verwalter, async (tx) => tx.costType.createMany({
       data: toCreate.map((e, i) => ({
         organizationId: verwalter.organizationId,
         propertyId: property.id,
         ...costTypeFieldsFrom(e),
         orderIndex: existing.length + i,
       })),
-    });
+    }));
   }
   await logAudit({
     actorId: verwalter.id,
@@ -311,12 +312,12 @@ export async function saveCostType(formData: FormData) {
     // Kostenart muss zum Objekt gehören (IDOR-Schutz)
     const found = await db.costType.findFirst({ where: { id: targetId, propertyId: property.id }, select: { id: true } });
     if (!found) back(property.id, "fehler=kostenart");
-    await db.costType.update({ where: { id: targetId }, data });
+    await auditMutation(verwalter, async (tx) => tx.costType.update({ where: { id: targetId }, data }));
   } else {
     const count = await db.costType.count({ where: { propertyId: property.id } });
-    const created = await db.costType.create({
+    const created = await auditMutation(verwalter, async (tx) => tx.costType.create({
       data: { ...data, organizationId: verwalter.organizationId, propertyId: property.id, orderIndex: count },
-    });
+    }));
     targetId = created.id;
   }
   await logAudit({
@@ -372,7 +373,7 @@ export async function addUnitOwnership(formData: FormData) {
   if (isNaN(validFrom.getTime())) back(property.id, "fehler=datum");
 
   const endPrevious = formData.get("endPrevious") === "on";
-  await db.$transaction(async (tx) => {
+  await auditMutation(verwalter, async (tx) => {
     if (endPrevious) {
       // Eigentümerwechsel: offene Einträge dieser Einheit zum Stichtag beenden
       await tx.unitOwnership.updateMany({
@@ -397,7 +398,7 @@ export async function addUnitOwnership(formData: FormData) {
     targetId: unit.id,
     meta: { userId: user.id, validFrom: parsed.data.validFrom, endPrevious },
   });
-  await syncOwnerVotingWeights(property.id);
+  await syncOwnerVotingWeights(property.id, verwalter);
   revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
   revalidatePath("/verwaltung/eigentuemer");
   back(property.id, "gespeichert=eigentuemer");
@@ -426,9 +427,9 @@ export async function endUnitOwnership(formData: FormData) {
   if (validToRaw) {
     const validTo = new Date(validToRaw);
     if (isNaN(validTo.getTime())) back(property.id, "fehler=datum");
-    await db.unitOwnership.update({ where: { id: ownership.id }, data: { validTo } });
+    await auditMutation(verwalter, async (tx) => tx.unitOwnership.update({ where: { id: ownership.id }, data: { validTo } }));
   } else {
-    await db.unitOwnership.delete({ where: { id: ownership.id } });
+    await auditMutation(verwalter, async (tx) => tx.unitOwnership.delete({ where: { id: ownership.id } }));
   }
   await logAudit({
     actorId: verwalter.id,
@@ -437,7 +438,7 @@ export async function endUnitOwnership(formData: FormData) {
     targetId: ownership.unitId,
     meta: { ownershipId: ownership.id, validTo: validToRaw || "gelöscht" },
   });
-  await syncOwnerVotingWeights(property.id);
+  await syncOwnerVotingWeights(property.id, verwalter);
   revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
   revalidatePath("/verwaltung/eigentuemer");
   back(property.id, "gespeichert=eigentuemer");
@@ -511,11 +512,11 @@ export async function saveAccount(formData: FormData) {
       select: { id: true },
     });
     if (!found) back(property.id, "fehler=konto");
-    await db.ledgerAccount.update({ where: { id: targetId }, data });
+    await auditMutation(verwalter, async (tx) => tx.ledgerAccount.update({ where: { id: targetId }, data }));
   } else {
-    const created = await db.ledgerAccount.create({
+    const created = await auditMutation(verwalter, async (tx) => tx.ledgerAccount.create({
       data: { ...data, organizationId: verwalter.organizationId, propertyId: property.id },
-    });
+    }));
     targetId = created.id;
   }
   await logAudit({
@@ -570,10 +571,10 @@ export async function updateOwnershipStart(formData: FormData) {
   // damit hinter genau dem Fehler, den sie melden sollte.
   const sharePercent = parseAnteil(formData.get("sharePercent"));
 
-  await db.unitOwnership.update({
+  await auditMutation(verwalter, async (tx) => tx.unitOwnership.update({
     where: { id: ownership.id },
     data: { validFrom, sharePercent },
-  });
+  }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_UNIT_OWNERSHIP_SAVED,
@@ -584,7 +585,7 @@ export async function updateOwnershipStart(formData: FormData) {
   // Anteil geändert → abgeleitete Stimmgewichte neu rechnen. Ohne diesen Lauf
   // stünde die Korrektur in der Zuordnung, und die MEA-Summe zeigte weiter den
   // alten, falschen Wert.
-  await syncOwnerVotingWeights(property.id);
+  await syncOwnerVotingWeights(property.id, verwalter);
   revalidatePath(`/verwaltung/weg/${property.id}/stammdaten`);
   revalidatePath("/gemeinschaft");
   back(property.id, "gespeichert=eigentuemer");
@@ -625,7 +626,7 @@ export async function deleteCostType(formData: FormData) {
   const benutzt = buchungen + planwerte + abrechnungen;
 
   if (benutzt > 0) {
-    await db.costType.update({ where: { id: costType.id }, data: { active: false } });
+    await auditMutation(verwalter, async (tx) => tx.costType.update({ where: { id: costType.id }, data: { active: false } }));
     await logAudit({
       actorId: verwalter.id,
       action: AUDIT.WEG_COSTTYPE_SAVED,
@@ -637,7 +638,7 @@ export async function deleteCostType(formData: FormData) {
     back(property.id, "gespeichert=deaktiviert");
   }
 
-  await db.costType.delete({ where: { id: costType.id } });
+  await auditMutation(verwalter, async (tx) => tx.costType.delete({ where: { id: costType.id } }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_COSTTYPE_SAVED,

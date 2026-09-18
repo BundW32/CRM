@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AUDIT, logAudit } from "@/lib/audit";
@@ -47,10 +48,10 @@ export async function assignPayment(formData: FormData) {
     if (!unit) back(property.id, "fehler=einheit");
   }
 
-  await db.booking.update({
+  await auditMutation(verwalter, async (tx) => tx.booking.update({
     where: { id: booking.id },
     data: { unitId: unitId || null },
-  });
+  }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_PAYMENT_ASSIGNED,
@@ -162,7 +163,7 @@ export async function createMahnung(formData: FormData) {
     interestCents += z.zinsenCents;
   }
 
-  const mahnung = await db.hausgeldMahnung.create({
+  const mahnung = await auditMutation(verwalter, async (tx) => tx.hausgeldMahnung.create({
     data: {
       organizationId: verwalter.organizationId,
       propertyId: property.id,
@@ -181,7 +182,7 @@ export async function createMahnung(formData: FormData) {
       recipientLastName: alleine ? first.lastName : null,
       createdById: verwalter.id,
     },
-  });
+  }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_MAHNUNG_CREATED,
@@ -211,7 +212,7 @@ export async function markMahnungSent(formData: FormData) {
   const mahnung = await loadMahnung(verwalter.organizationId, property.id, mahnungId);
   if (!mahnung) back(property.id, "fehler=mahnung");
   if (!mahnung.sentAt) {
-    await db.hausgeldMahnung.update({ where: { id: mahnung.id }, data: { sentAt: new Date() } });
+    await auditMutation(verwalter, async (tx) => tx.hausgeldMahnung.update({ where: { id: mahnung.id }, data: { sentAt: new Date() } }));
     await logAudit({
       actorId: verwalter.id,
       action: AUDIT.WEG_MAHNUNG_SENT,
@@ -235,7 +236,7 @@ export async function deleteMahnung(formData: FormData) {
   if (!mahnung) back(property.id, "fehler=mahnung");
   if (mahnung.sentAt) back(property.id, "fehler=versendet");
 
-  await db.hausgeldMahnung.delete({ where: { id: mahnung.id } });
+  await auditMutation(verwalter, async (tx) => tx.hausgeldMahnung.delete({ where: { id: mahnung.id } }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_MAHNUNG_DELETED,
@@ -307,10 +308,10 @@ export async function saveUebernahme(formData: FormData) {
 
   // Ersetzen statt ergänzen: Die Übernahme ist ein einmaliger Stand, kein
   // Zugang. Zweimaliges Speichern darf ihn nicht verdoppeln.
-  await db.$transaction([
-    db.duePosting.deleteMany({ where: { propertyId: property.id, source: "UEBERNAHME" } }),
-    ...(postings.length > 0 ? [db.duePosting.createMany({ data: postings })] : []),
-  ]);
+  await auditMutation(verwalter, async (tx) => Promise.all([
+    tx.duePosting.deleteMany({ where: { propertyId: property.id, source: "UEBERNAHME" } }),
+    ...(postings.length > 0 ? [tx.duePosting.createMany({ data: postings })] : []),
+  ]));
 
   await logAudit({
     actorId: verwalter.id,
@@ -359,6 +360,7 @@ export async function schreibeSollstellungenFort(formData: FormData) {
   let ergebnis;
   try {
     ergebnis = await synchronisiereSollstellungen({
+      actor: verwalter,
       organizationId: verwalter.organizationId,
       property,
       planId: plan.id,
@@ -434,9 +436,8 @@ export async function ordneZahlungZu(formData: FormData) {
   const vorschlag = schlageZuordnungVor(rest, posten, new Date(), zweck);
   if (vorschlag.zuordnungen.length === 0) back(property.id, "fehler=keineforderung");
 
-  await db.$transaction(
-    vorschlag.zuordnungen.map((z) =>
-      db.paymentAllocation.upsert({
+  await auditMutation(verwalter, async (tx) => Promise.all(vorschlag.zuordnungen.map((z) =>
+      tx.paymentAllocation.upsert({
         where: { bookingId_duePostingId: { bookingId: booking.id, duePostingId: z.duePostingId } },
         // Addieren ist hier richtig: Der Vorschlag rechnet ausschließlich mit
         // dem, was an Zahlung UND an Forderung noch offen ist — eine bereits
@@ -451,8 +452,7 @@ export async function ordneZahlungZu(formData: FormData) {
           createdById: verwalter.id,
         },
       }),
-    ),
-  );
+    )));
 
   await logAudit({
     actorId: verwalter.id,
@@ -491,7 +491,7 @@ export async function loeseZuordnung(formData: FormData) {
   });
   if (!booking) back(property.id, "fehler=buchung");
 
-  const { count } = await db.paymentAllocation.deleteMany({ where: { bookingId: booking.id } });
+  const { count } = await auditMutation(verwalter, async (tx) => tx.paymentAllocation.deleteMany({ where: { bookingId: booking.id } }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_PAYMENT_ALLOCATION_CLEARED,

@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AUDIT, logAudit } from "@/lib/audit";
@@ -38,10 +39,10 @@ export async function monatAngemeldet(formData: FormData) {
   const ids = offen.filter((b) => anmeldemonat(b.bookingDate) === monat).map((b) => b.id);
   if (ids.length === 0) redirect(backTo("?fehler=leer"));
 
-  await db.booking.updateMany({
+  await auditMutation(verwalter, async (tx) => tx.booking.updateMany({
     where: { id: { in: ids }, organizationId: verwalter.organizationId },
     data: { bauabzugAngemeldetAt: new Date() },
-  });
+  }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_BAUABZUG_ANGEMELDET,

@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -20,7 +21,7 @@ export async function saveCreditorId(formData: FormData) {
   const property = await loadWegProperty(verwalter, propertyId);
   if (!property) redirect("/verwaltung/weg");
 
-  await db.property.update({ where: { id: property.id }, data: { sepaCreditorId: creditorId } });
+  await auditMutation(verwalter, async (tx) => tx.property.update({ where: { id: property.id }, data: { sepaCreditorId: creditorId } }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_SEPA_MANDATE_SAVED,
@@ -75,7 +76,7 @@ export async function saveMandate(formData: FormData) {
     parsed.data.mandateRef?.trim() ||
     `HG-${property.id.slice(-6)}-${String(unit.orderIndex).padStart(3, "0")}`.toUpperCase();
 
-  await db.sepaMandate.upsert({
+  await auditMutation(verwalter, async (tx) => tx.sepaMandate.upsert({
     where: { propertyId_unitId: { propertyId: property.id, unitId: unit.id } },
     create: {
       organizationId: verwalter.organizationId,
@@ -97,7 +98,7 @@ export async function saveMandate(formData: FormData) {
       signedDate: signed,
       sequence: parsed.data.sequence,
     },
-  });
+  }));
 
   await logAudit({
     actorId: verwalter.id,
@@ -121,7 +122,7 @@ export async function deleteMandate(formData: FormData) {
     select: { id: true },
   });
   if (mandate) {
-    await db.sepaMandate.delete({ where: { id: mandate.id } }).catch(() => {});
+    await auditMutation(verwalter, async (tx) => tx.sepaMandate.delete({ where: { id: mandate.id } })).catch(() => {});
     await logAudit({
       actorId: verwalter.id,
       action: AUDIT.WEG_SEPA_MANDATE_DELETED,

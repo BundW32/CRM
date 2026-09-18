@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import bcrypt from "bcryptjs";
 import { signOffName } from "@/lib/branding";
 import crypto from "crypto";
@@ -150,7 +151,7 @@ export async function uploadStammdaten(formData: FormData) {
       }
     }
 
-    await db.user.update({ where: { id }, data });
+    await auditMutation(actor, async (tx) => tx.user.update({ where: { id }, data }));
     revalidatePath("/verwaltung/nutzer");
     redirect(zurueckZu(formData, "?flash=stammdaten-gespeichert"));
   } catch (e) {
@@ -195,7 +196,7 @@ export async function recordPaperMandate(formData: FormData) {
     redirect(zurueckZu(formData, "?fehler=vollmacht_datum"));
   }
 
-  await db.user.update({
+  await auditMutation(actor, async (tx) => tx.user.update({
     where: { id },
     data: {
       certMandateGrantedAt: parsed.data.datum,
@@ -204,7 +205,7 @@ export async function recordPaperMandate(formData: FormData) {
       certMandateNote: parsed.data.fundstelle,
       certMandateRecordedById: actor.id,
     },
-  });
+  }));
 
   await logAudit({
     actorId: actor.id,
@@ -230,10 +231,10 @@ export async function revokePaperMandate(formData: FormData) {
   const user = await db.user.findUnique({ where: { id } });
   if (!user) redirect(zurueckZu(formData));
 
-  await db.user.update({
+  await auditMutation(actor, async (tx) => tx.user.update({
     where: { id },
     data: { certMandateRevokedAt: new Date() },
-  });
+  }));
 
   await logAudit({
     actorId: actor.id,
@@ -342,7 +343,7 @@ export async function createUser(formData: FormData) {
     const inviteToken = crypto.randomBytes(32).toString("hex");
     const inviteExpiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
 
-    const user = await db.user.create({
+    const user = await auditMutation(actor, async (tx) => tx.user.create({
       data: {
         name,
         firstName: parsed.data.firstName,
@@ -360,7 +361,7 @@ export async function createUser(formData: FormData) {
         organizationId: actor.organizationId,
         showHints,
       },
-    });
+    }));
     await assignRole(user.id, parsed.data.role, parsed.data.unitId, parsed.data.propertyId);
 
     const link = await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`);
@@ -398,7 +399,7 @@ export async function createUser(formData: FormData) {
   const tempPassword = generatePassword(10);
   const username = email ? null : await generateUsername(name);
 
-  const user = await db.user.create({
+  const user = await auditMutation(actor, async (tx) => tx.user.create({
     data: {
       name,
       firstName: parsed.data.firstName,
@@ -414,7 +415,7 @@ export async function createUser(formData: FormData) {
       organizationId: actor.organizationId,
       showHints,
     },
-  });
+  }));
   await assignRole(user.id, parsed.data.role, parsed.data.unitId, parsed.data.propertyId);
 
   revalidatePath("/verwaltung/nutzer");
@@ -462,16 +463,16 @@ export async function anonymizeUser(formData: FormData) {
     ip,
   });
 
-  await db.$transaction([
-    db.acknowledgement.deleteMany({ where: { userId: id } }),
-    db.conversationParticipant.deleteMany({ where: { userId: id } }),
+  await auditMutation(verwalter, async (tx) => Promise.all([
+    tx.acknowledgement.deleteMany({ where: { userId: id } }),
+    tx.conversationParticipant.deleteMany({ where: { userId: id } }),
     // Verwaiste Eigentümer-/Mietverhältnisse entfernen: ein gelöschter Nutzer soll
     // nicht länger als „Gelöschter Nutzer" in Eigentümer-/Kontaktlisten erscheinen.
-    db.ownership.deleteMany({ where: { userId: id } }),
-    db.tenancy.deleteMany({ where: { userId: id } }),
+    tx.ownership.deleteMany({ where: { userId: id } }),
+    tx.tenancy.deleteMany({ where: { userId: id } }),
     // Interne Notizen ÜBER die gelöschte Person entfernen.
-    db.note.deleteMany({ where: { targetUserId: id } }),
-    db.user.update({
+    tx.note.deleteMany({ where: { targetUserId: id } }),
+    tx.user.update({
       where: { id },
       data: {
         name: "Gelöschter Nutzer",
@@ -494,7 +495,7 @@ export async function anonymizeUser(formData: FormData) {
         passwordHash: await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12),
       },
     }),
-  ]);
+  ]));
 
   // DSGVO Art. 17: In Wohnungsübergabe-Protokollen werden Personendaten als
   // Freitext-Schnappschuss gespeichert (kein Fremdschlüssel auf den Nutzer). Diese
@@ -503,8 +504,8 @@ export async function anonymizeUser(formData: FormData) {
   const oldEmail = user.email;
   if (oldEmail) {
     const org = user.organizationId;
-    await db.$transaction([
-      db.handover.updateMany({
+    await auditMutation(verwalter, async (tx) => Promise.all([
+      tx.handover.updateMany({
         where: { organizationId: org, tenantEmail: oldEmail },
         data: {
           tenantName: null,
@@ -519,15 +520,15 @@ export async function anonymizeUser(formData: FormData) {
           tenant2Signature: null,
         },
       }),
-      db.handover.updateMany({
+      tx.handover.updateMany({
         where: { organizationId: org, ownerEmail: oldEmail },
         data: { ownerName: null, ownerEmail: null, ownerPhone: null },
       }),
-      db.handover.updateMany({
+      tx.handover.updateMany({
         where: { organizationId: org, managerEmail: oldEmail },
         data: { managerName: null, managerEmail: null, managerPhone: null },
       }),
-    ]);
+    ]));
   }
 
   revalidatePath("/verwaltung/nutzer");
@@ -541,7 +542,7 @@ export async function toggleUserActive(formData: FormData) {
     await ensureCanManageUser(verwalter, id);
     const user = await db.user.findUnique({ where: { id } });
     if (user) {
-      await db.user.update({ where: { id }, data: { active: !user.active } });
+      await auditMutation(verwalter, async (tx) => tx.user.update({ where: { id }, data: { active: !user.active } }));
     }
   }
   revalidatePath("/verwaltung/nutzer");
@@ -557,11 +558,11 @@ export async function resendInvite(formData: FormData) {
 
   const inviteToken = crypto.randomBytes(32).toString("hex");
   const inviteExpiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
-  await db.user.update({
+  await auditMutation(actor, async (tx) => tx.user.update({
     where: { id },
     // Nur der Hash landet in der Datenbank – der Rohwert bleibt allein im Link.
     data: { passwordResetToken: hashToken(inviteToken), passwordResetExpiry: inviteExpiry },
-  });
+  }));
 
   const link = await portalUrlFromRequest(`/login/reset/${inviteToken}?einladung=1`);
   const branding = await getBrandingForOrg(user.organizationId);
@@ -587,11 +588,11 @@ export async function addOwnership(formData: FormData) {
   if (!userId || !propertyId) redirect(zurueckZu(formData));
   await ensurePropertyInScope(actor, propertyId);
   await ensureUserInOrg(actor, userId); // Begünstigte userId validieren (deferred-fix)
-  await db.ownership.upsert({
+  await auditMutation(actor, async (tx) => tx.ownership.upsert({
     where: { userId_propertyId: { userId, propertyId } },
     create: { userId, propertyId },
     update: {},
-  });
+  }));
   revalidatePath("/verwaltung/nutzer");
   redirect(zurueckZu(formData, "?flash=erstellt"));
 }
@@ -603,7 +604,7 @@ export async function removeOwnership(formData: FormData) {
   const ownership = await db.ownership.findUnique({ where: { id }, select: { propertyId: true } });
   if (!ownership) redirect(zurueckZu(formData));
   await ensurePropertyInScope(actor, ownership.propertyId);
-  await db.ownership.delete({ where: { id } });
+  await auditMutation(actor, async (tx) => tx.ownership.delete({ where: { id } }));
   revalidatePath("/verwaltung/nutzer");
   redirect(zurueckZu(formData, "?flash=entfernt"));
 }
@@ -615,11 +616,11 @@ export async function addTenancy(formData: FormData) {
   if (!userId || !unitId) redirect(zurueckZu(formData));
   await ensureUnitInScope(actor, unitId);
   await ensureUserInOrg(actor, userId); // Begünstigte userId validieren (deferred-fix)
-  await db.tenancy.upsert({
+  await auditMutation(actor, async (tx) => tx.tenancy.upsert({
     where: { userId_unitId: { userId, unitId } },
     create: { userId, unitId },
     update: { active: true },
-  });
+  }));
   revalidatePath("/verwaltung/nutzer");
   redirect(zurueckZu(formData, "?flash=erstellt"));
 }
@@ -634,7 +635,7 @@ export async function removeTenancy(formData: FormData) {
   });
   if (!tenancy) redirect(zurueckZu(formData));
   await ensurePropertyInScope(actor, tenancy.unit.propertyId);
-  await db.tenancy.delete({ where: { id } });
+  await auditMutation(actor, async (tx) => tx.tenancy.delete({ where: { id } }));
   revalidatePath("/verwaltung/nutzer");
   redirect(zurueckZu(formData, "?flash=entfernt"));
 }
@@ -654,10 +655,10 @@ export async function addPropertyAssignment(formData: FormData) {
     select: { id: true },
   });
   if (validProps.length === 0) redirect(zurueckZu(formData));
-  await db.propertyAssignment.createMany({
+  await auditMutation(actor, async (tx) => tx.propertyAssignment.createMany({
     data: validProps.map((p) => ({ userId, propertyId: p.id })),
     skipDuplicates: true,
-  });
+  }));
   revalidatePath("/verwaltung/nutzer");
   redirect(zurueckZu(formData, "?flash=erstellt"));
 }
@@ -673,7 +674,7 @@ export async function removePropertyAssignment(formData: FormData) {
     select: { user: { select: { organizationId: true } } },
   });
   if (!a || a.user.organizationId !== actor.organizationId) redirect(zurueckZu(formData));
-  await db.propertyAssignment.delete({ where: { id } });
+  await auditMutation(actor, async (tx) => tx.propertyAssignment.delete({ where: { id } }));
   revalidatePath("/verwaltung/nutzer");
   redirect(zurueckZu(formData, "?flash=entfernt"));
 }
@@ -692,10 +693,10 @@ export async function addCraftsmanAssignment(formData: FormData) {
     select: { id: true },
   });
   if (validCraftsmen.length === 0) redirect(zurueckZu(formData));
-  await db.craftsmanAssignment.createMany({
+  await auditMutation(actor, async (tx) => tx.craftsmanAssignment.createMany({
     data: validCraftsmen.map((c) => ({ userId, craftsmanId: c.id })),
     skipDuplicates: true,
-  });
+  }));
   revalidatePath("/verwaltung/nutzer");
   redirect(zurueckZu(formData, "?flash=erstellt"));
 }
@@ -711,7 +712,7 @@ export async function removeCraftsmanAssignment(formData: FormData) {
     select: { user: { select: { organizationId: true } } },
   });
   if (!a || a.user.organizationId !== actor.organizationId) redirect(zurueckZu(formData));
-  await db.craftsmanAssignment.delete({ where: { id } });
+  await auditMutation(actor, async (tx) => tx.craftsmanAssignment.delete({ where: { id } }));
   revalidatePath("/verwaltung/nutzer");
   redirect(zurueckZu(formData, "?flash=entfernt"));
 }
@@ -725,7 +726,7 @@ export async function toggleSuperAdmin(formData: FormData) {
   if (!target || target.role !== "VERWALTER") redirect(zurueckZu(formData));
   // Nur Verwalter der eigenen Org dürfen zum SuperAdmin (de)ernannt werden.
   if (target.organizationId !== actor.organizationId) redirect(zurueckZu(formData));
-  await db.user.update({ where: { id }, data: { isSuperAdmin: !target.isSuperAdmin } });
+  await auditMutation(actor, async (tx) => tx.user.update({ where: { id }, data: { isSuperAdmin: !target.isSuperAdmin } }));
   revalidatePath("/verwaltung/nutzer");
   redirect(zurueckZu(formData, "?flash=gespeichert"));
 }
@@ -742,7 +743,7 @@ export async function regenerateAccessLetter(formData: FormData) {
   // Falls weder E-Mail noch Benutzername existiert, jetzt einen Benutzernamen vergeben
   const username = user.username ?? (user.email ? null : await generateUsername(user.name));
 
-  await db.user.update({
+  await auditMutation(actor, async (tx) => tx.user.update({
     where: { id },
     data: {
       passwordHash: await bcrypt.hash(tempPassword, 12),
@@ -754,7 +755,7 @@ export async function regenerateAccessLetter(formData: FormData) {
       sessionsValidFrom: new Date(),
       ...(username && !user.username ? { username } : {}),
     },
-  });
+  }));
 
   await merkeErstzugang(id, tempPassword);
   redirect(`/zugangsschreiben/${id}`);

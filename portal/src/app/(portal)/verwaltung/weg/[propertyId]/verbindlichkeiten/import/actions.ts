@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AUDIT, logAudit } from "@/lib/audit";
@@ -185,7 +186,7 @@ export async function importiereRechnungenAction(formData: FormData) {
 
   const uebersprungen = ergebnis.zeilen.length - ergebnis.anzulegen.length;
   if (ergebnis.anzulegen.length > 0) {
-    await db.verbindlichkeit.createMany({
+    await auditMutation(verwalter, async (tx) => tx.verbindlichkeit.createMany({
       data: ergebnis.anzulegen.map((z) => ({
         organizationId: verwalter.organizationId,
         propertyId: property.id,
@@ -198,7 +199,7 @@ export async function importiereRechnungenAction(formData: FormData) {
         dueDate: z.dueDate ? tag(z.dueDate) : null,
         note: z.note,
       })),
-    });
+    }));
     await logAudit({
       actorId: verwalter.id,
       action: AUDIT.WEG_VERBINDLICHKEIT_IMPORTED,

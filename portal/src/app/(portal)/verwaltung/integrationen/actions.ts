@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AUDIT, logAudit } from "@/lib/audit";
@@ -35,7 +36,7 @@ export async function saveIntegration(formData: FormData) {
   const secretEnc = apiKey ? encryptSecret(apiKey) : existing?.secretEnc ?? null;
   if (!secretEnc) back("fehler=schluessel");
 
-  await db.integrationSetting.upsert({
+  await auditMutation(verwalter, async (tx) => tx.integrationSetting.upsert({
     where: { organizationId_area: { organizationId: verwalter.organizationId, area } },
     create: {
       organizationId: verwalter.organizationId,
@@ -46,7 +47,7 @@ export async function saveIntegration(formData: FormData) {
       updatedById: verwalter.id,
     },
     update: { provider, secretEnc, enabled: true, updatedById: verwalter.id },
-  });
+  }));
 
   await logAudit({
     actorId: verwalter.id,
@@ -65,9 +66,9 @@ export async function clearIntegration(formData: FormData) {
   const area = String(formData.get("area") ?? "");
   if (!integrationArea(area)) back("fehler=bereich");
 
-  await db.integrationSetting.deleteMany({
+  await auditMutation(verwalter, async (tx) => tx.integrationSetting.deleteMany({
     where: { organizationId: verwalter.organizationId, area },
-  });
+  }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.INTEGRATION_CLEARED,

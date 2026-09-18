@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -58,16 +59,16 @@ export async function saveMeasure(formData: FormData) {
       select: { id: true },
     });
     if (!existing) back(property.id, "fehler=nichtgefunden");
-    await db.maintenanceMeasure.update({ where: { id: measureId }, data });
+    await auditMutation(verwalter, async (tx) => tx.maintenanceMeasure.update({ where: { id: existing.id }, data }));
   } else {
-    const created = await db.maintenanceMeasure.create({
+    const created = await auditMutation(verwalter, async (tx) => tx.maintenanceMeasure.create({
       data: {
         ...data,
         organizationId: verwalter.organizationId,
         propertyId: property.id,
         createdById: verwalter.id,
       },
-    });
+    }));
     measureId = created.id;
   }
 
@@ -94,10 +95,10 @@ export async function toggleMeasureDone(formData: FormData) {
     select: { id: true, done: true },
   });
   if (!measure) back(property.id, "fehler=nichtgefunden");
-  await db.maintenanceMeasure.update({
+  await auditMutation(verwalter, async (tx) => tx.maintenanceMeasure.update({
     where: { id: measure.id },
     data: { done: !measure.done },
-  });
+  }));
   revalidatePath(`/verwaltung/weg/${property.id}/erhaltungsplanung`);
   back(property.id, "gespeichert=status");
 }
@@ -114,7 +115,7 @@ export async function deleteMeasure(formData: FormData) {
     select: { id: true },
   });
   if (measure) {
-    await db.maintenanceMeasure.delete({ where: { id: measure.id } }).catch(() => {});
+    await auditMutation(verwalter, async (tx) => tx.maintenanceMeasure.delete({ where: { id: measure.id } })).catch(() => {});
     await logAudit({
       actorId: verwalter.id,
       action: AUDIT.WEG_MEASURE_DELETED,

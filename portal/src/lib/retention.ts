@@ -21,8 +21,13 @@ export async function runRetentionCleanup(now: Date = new Date()) {
 
   // 1) Audit-Log: IP nach 90 Tagen entfernen; die reine Aktions-Historie bleibt.
   const auditIp = await db.auditLog.updateMany({
-    where: { createdAt: { lt: ipCutoff }, NOT: { ip: null } },
+    where: { createdAt: { lt: ipCutoff }, legalHold: false, NOT: { ip: null } },
     data: { ip: null },
+  });
+  // Only explicitly assigned expiry dates; legacy/financial records without an
+  // approved policy remain untouched. Legal holds always take precedence.
+  const auditExpired = await db.auditLog.deleteMany({
+    where: { expiresAt: { lt: now }, legalHold: false },
   });
 
   // 2) Abgelaufene Rate-Limit-Zeilen sicher entfernen (bisher nur ~1 % zufällig).
@@ -55,6 +60,7 @@ export async function runRetentionCleanup(now: Date = new Date()) {
 
   return {
     auditIpCleared: auditIp.count,
+    auditExpiredDeleted: auditExpired.count,
     rateLimitDeleted: rateLimit.count,
     stripeEventsDeleted: stripeEvents.count,
     trackEventsDeleted: trackEvents.count,

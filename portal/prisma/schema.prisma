@@ -1499,11 +1499,24 @@ model RateLimit {
   @@index([expiresAt])
 }
 
-// Unveränderliches Audit-Log für sicherheitsrelevante Aktionen (DSGVO-Löschung,
-// Login, Statuswechsel, Freigaben). Einträge werden nie gelöscht – nur SuperAdmin
-// darf das Log einsehen.
+// Sicherheitsereignisse und transaktionales Fachjournal. SQL-Trigger schützen
+// Beweisinhalte vor normalen Änderungen; genehmigte Löschfristen/Legal Holds
+// und rollenabhängige Projektionen stehen in audit-query.ts und der Migration.
+// Kein Schutz vor privilegierten DB-Administratoren; siehe Betriebsdokumentation.
 model AuditLog {
   id         String   @id @default(cuid())
+  organizationId String?
+  propertyId String?
+  category   String   @default("SECURITY")
+  schemaVersion Int   @default(0)
+  actorName  String?
+  actorKind  String   @default("UNKNOWN")
+  effectiveActorId String?
+  requestId  String?
+  operation  String?
+  changes    Json?
+  expiresAt  DateTime?
+  legalHold  Boolean  @default(false)
   actorId    String?
   actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
   action     String
@@ -1516,6 +1529,9 @@ model AuditLog {
   @@index([actorId])
   @@index([createdAt])
   @@index([action])
+  @@index([organizationId, category, createdAt, id])
+  @@index([propertyId, createdAt])
+  @@index([expiresAt])
 }
 
 // ── WEG-Finanzfundament: Kostenarten, Konten, Buchungen ─────────────────────

@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -64,7 +65,7 @@ export async function createResolution(formData: FormData) {
     redirect("/beschluesse/neu?fehler=frist");
   }
 
-  const resolution = await db.resolution.create({
+  const resolution = await auditMutation(user, async (tx) => tx.resolution.create({
     data: {
       propertyId: parsed.data.propertyId,
       title: parsed.data.title,
@@ -74,7 +75,7 @@ export async function createResolution(formData: FormData) {
       createdById: user.id,
       organizationId: user.organizationId,
     },
-  });
+  }));
 
   // Eigentümer des Objekts per E-Mail über die Abstimmung informieren
   const owners = await db.ownership.findMany({
@@ -192,7 +193,7 @@ export async function castVote(formData: FormData) {
   // Zählungen nachträglich verändern.
   let closedMeanwhile = false;
   try {
-    await db.$transaction(async (tx) => {
+    await auditMutation(user, async (tx) => {
       await tx.resolutionVote.upsert({
         where: { resolutionId_userId: { resolutionId, userId: user.id } },
         create: { resolutionId, userId: user.id, choice, comment },
@@ -292,7 +293,7 @@ export async function castVoteForOwner(formData: FormData) {
 
   let closedMeanwhile = false;
   try {
-    await db.$transaction(async (tx) => {
+    await auditMutation(verwalter, async (tx) => {
       await tx.resolutionVote.upsert({
         where: { resolutionId_userId: { resolutionId, userId: ownerId } },
         create: {
@@ -370,7 +371,7 @@ export async function closeResolution(formData: FormData) {
   // gleichzeitige Schließungen dieselbe Nummer lesen) – bei P2002 neu versuchen.
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      await db.$transaction(async (tx) => {
+      await auditMutation(user, async (tx) => {
         const current = await tx.resolution.findFirst({
           where: { id, status: "OFFEN" },
           select: { id: true },
@@ -407,10 +408,10 @@ export async function withdrawResolution(formData: FormData) {
     resolution.status === "OFFEN" &&
     (await canVerwalterAccessProperty(user, resolution.propertyId))
   ) {
-    await db.resolution.update({
+    await auditMutation(user, async (tx) => tx.resolution.update({
       where: { id },
       data: { status: "ZURUECKGEZOGEN", decidedAt: new Date() },
-    });
+    }));
   }
   revalidatePath("/beschluesse");
   redirect("/beschluesse?flash=gespeichert");
@@ -434,7 +435,7 @@ export async function deleteResolution(formData: FormData) {
   if (resolution.number != null || (resolution.status !== "OFFEN" && resolution.status !== "ZURUECKGEZOGEN")) {
     redirect("/beschluesse?fehler=gefasst");
   }
-  await db.resolution.delete({ where: { id } });
+  await auditMutation(user, async (tx) => tx.resolution.delete({ where: { id } }));
   revalidatePath("/beschluesse");
   redirect("/beschluesse?flash=geloescht");
 }

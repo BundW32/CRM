@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { isBoardMemberOf } from "@/lib/access";
@@ -42,9 +43,9 @@ export async function setBeiratReview(formData: FormData) {
     beiratReviewedAt: new Date(),
   };
   if (kind === "plan") {
-    await db.economicPlan.update({ where: { id }, data });
+    await auditMutation(user, async (tx) => tx.economicPlan.update({ where: { id }, data }));
   } else {
-    await db.annualStatement.update({ where: { id }, data });
+    await auditMutation(user, async (tx) => tx.annualStatement.update({ where: { id }, data }));
   }
   revalidatePath(back);
   redirect(back);

@@ -22,6 +22,7 @@
 // sieht **nur** diese Person das Dokument (siehe `documentWhereForUser`).
 // Niemand bekommt den Einzelplan des Nachbarn zu Gesicht.
 import { db } from "@/lib/db";
+import { auditMutation } from "@/lib/audit-transaction";
 import { deleteBlob, saveBuffer } from "@/lib/storage";
 
 /** Ein Dokument, das für genau eine Einheit erzeugt wurde. */
@@ -126,7 +127,8 @@ export async function legeEigentuemerDokumenteAb(args: {
   // ── 2) Datenbank in einer Transaktion ─────────────────────────────────────
   const ergebnis: AblageErgebnis = { erstellt: 0, ersetzt: 0, uebersprungen };
   try {
-    await db.$transaction(
+    const actor = await db.user.findUnique({ where: { id: uploadedById } });
+    await auditMutation(actor,
       async (tx) => {
         for (const { doc, ref, upload } of hochgeladen) {
           const empfaenger = empfaengerJeEinheit.get(doc.unitId) ?? [];

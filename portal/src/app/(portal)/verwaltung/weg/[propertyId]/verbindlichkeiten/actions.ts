@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -85,16 +86,16 @@ export async function saveVerbindlichkeit(formData: FormData) {
       select: { id: true },
     });
     if (!vorhanden) redirect(backTo(property.id, "?fehler=nichtgefunden"));
-    await db.verbindlichkeit.update({ where: { id }, data });
+    await auditMutation(verwalter, async (tx) => tx.verbindlichkeit.update({ where: { id: vorhanden.id }, data }));
   } else {
-    const created = await db.verbindlichkeit.create({
+    const created = await auditMutation(verwalter, async (tx) => tx.verbindlichkeit.create({
       data: {
         ...data,
         organizationId: verwalter.organizationId,
         propertyId: property.id,
         createdById: verwalter.id,
       },
-    });
+    }));
     id = created.id;
   }
 
@@ -128,10 +129,10 @@ export async function toggleBeglichen(formData: FormData) {
   });
   if (!vorhanden) redirect(backTo(property.id, "?fehler=nichtgefunden"));
 
-  await db.verbindlichkeit.update({
+  await auditMutation(verwalter, async (tx) => tx.verbindlichkeit.update({
     where: { id: vorhanden.id },
     data: { settledAt: vorhanden.settledAt ? null : new Date() },
-  });
+  }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_VERBINDLICHKEIT_SETTLED,
@@ -160,7 +161,7 @@ export async function deleteVerbindlichkeit(formData: FormData) {
     select: { id: true },
   });
   if (vorhanden) {
-    await db.verbindlichkeit.delete({ where: { id: vorhanden.id } }).catch(() => {});
+    await auditMutation(verwalter, async (tx) => tx.verbindlichkeit.delete({ where: { id: vorhanden.id } })).catch(() => {});
     await logAudit({
       actorId: verwalter.id,
       action: AUDIT.WEG_VERBINDLICHKEIT_DELETED,
@@ -171,4 +172,3 @@ export async function deleteVerbindlichkeit(formData: FormData) {
   revalidatePath(backTo(property.id));
   redirect(backTo(property.id, "?flash=geloescht"));
 }
-

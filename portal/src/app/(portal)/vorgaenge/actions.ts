@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { signOffName } from "@/lib/branding";
 import { istCraftsmanTokenGueltig, neuesCraftsmanToken } from "@/lib/craftsman-token";
 import { redirect } from "next/navigation";
@@ -135,7 +136,7 @@ export async function createTicket(formData: FormData) {
     ? []
     : await collectPhotoUploads(formData, "/vorgaenge/neu?fehler=dateien");
 
-  const ticket = await db.ticket.create({
+  const ticket = await auditMutation(user, async (tx) => tx.ticket.create({
     data: {
       type: parsed.data.type,
       title: parsed.data.title,
@@ -149,7 +150,7 @@ export async function createTicket(formData: FormData) {
       organizationId: user.organizationId,
       attachments: { create: uploads },
     },
-  });
+  }));
 
   // KI-Triage nur bei Schäden/Anfragen ohne gewähltes Gewerk (nicht bei Dokumentanforderungen)
   let triaged = ticket;
@@ -162,10 +163,10 @@ export async function createTicket(formData: FormData) {
   }
 
   // SLA-Fälligkeitsdatum aus der (ggf. durch Triage angepassten) Priorität
-  await db.ticket.update({
+  await auditMutation(user, async (tx) => tx.ticket.update({
     where: { id: ticket.id },
     data: { dueAt: computeDueAt(triaged.priority) },
-  });
+  }));
 
   if (user.role !== "VERWALTER") {
     await notifyVerwalterNewTicket(triaged, user);
@@ -194,8 +195,8 @@ export async function addComment(formData: FormData) {
     `/vorgaenge/${ticketId}?fehler=dateien`
   );
 
-  await db.$transaction([
-    db.ticketComment.create({
+  await auditMutation(user, async (tx) => Promise.all([
+    tx.ticketComment.create({
       data: {
         ticketId,
         authorId: user.id,
@@ -206,8 +207,8 @@ export async function addComment(formData: FormData) {
           : {}),
       },
     }),
-    db.ticket.update({ where: { id: ticketId }, data: { updatedAt: new Date() } }),
-  ]);
+    tx.ticket.update({ where: { id: ticketId }, data: { updatedAt: new Date() } }),
+  ]));
 
   if (!internal) {
     await notifyCreatorNewComment(ticketId, user);
@@ -300,7 +301,7 @@ export async function updateTicket(formData: FormData) {
   const costCents = parseEuroToCents(parsed.data.cost ?? "");
   const costNote = (parsed.data.costNote ?? "").trim().slice(0, 300) || null;
 
-  await db.ticket.update({
+  await auditMutation(verwalter, async (tx) => tx.ticket.update({
     where: { id: parsed.data.ticketId },
     data: {
       status: next,
@@ -311,7 +312,7 @@ export async function updateTicket(formData: FormData) {
       ...statusFields,
       ...dueAtUpdate,
     },
-  });
+  }));
 
   if (parsed.data.status !== before.status) {
     await notifyCreatorStatusChange(parsed.data.ticketId, verwalter);
@@ -343,10 +344,10 @@ export async function assignTicketTarget(formData: FormData) {
     redirect(`/vorgaenge/${ticketId}`);
   }
 
-  await db.ticket.update({
+  await auditMutation(user, async (tx) => tx.ticket.update({
     where: { id: ticketId },
     data: { propertyId, unitId: unitId || null },
-  });
+  }));
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}?zugeordnet=1`);
 }
@@ -376,14 +377,14 @@ export async function assignCraftsman(formData: FormData) {
     craftsmanIdToSet = craftsman.id;
   }
 
-  await db.ticket.update({
+  await auditMutation(verwalter, async (tx) => tx.ticket.update({
     where: { id: ticketId },
     data: {
       trade,
       craftsmanId: craftsmanIdToSet,
       ...(setBeauftragt && craftsmanIdToSet ? { status: "BEAUFTRAGT" as const } : {}),
     },
-  });
+  }));
 
   revalidatePath(`/vorgaenge/${ticketId}`);
   redirect(`/vorgaenge/${ticketId}?flash=zugeordnet`);
@@ -397,10 +398,10 @@ export async function releaseExternalCraftsman(formData: FormData) {
   const ticketId = String(formData.get("ticketId") ?? "");
   await requireTicketInScope(verwalter, ticketId);
 
-  await db.ticket.update({
+  await auditMutation(verwalter, async (tx) => tx.ticket.update({
     where: { id: ticketId },
     data: { externalReleasedAt: new Date(), externalReleasedById: verwalter.id },
-  });
+  }));
   await db.ticketComment.create({
     data: {
       ticketId,
@@ -432,10 +433,10 @@ export async function confirmAppointment(formData: FormData) {
   if (!ticket || !(await canViewTicket(verwalter, ticket))) redirect("/vorgaenge");
   if (!ticket.appointmentNote) redirect(`/vorgaenge/${ticketId}`);
 
-  await db.ticket.update({
+  await auditMutation(verwalter, async (tx) => tx.ticket.update({
     where: { id: ticketId },
     data: { appointmentConfirmedAt: new Date(), appointmentConfirmedById: verwalter.id },
-  });
+  }));
   await db.ticketComment.create({
     data: {
       ticketId,
@@ -481,10 +482,10 @@ export async function declineAppointment(formData: FormData) {
   if (!ticket.appointmentNote) redirect(`/vorgaenge/${ticketId}`);
 
   const abgelehnt = ticket.appointmentNote;
-  await db.ticket.update({
+  await auditMutation(verwalter, async (tx) => tx.ticket.update({
     where: { id: ticketId },
     data: { appointmentNote: null, appointmentConfirmedAt: null, appointmentConfirmedById: null },
-  });
+  }));
   await db.ticketComment.create({
     data: {
       ticketId,
@@ -533,10 +534,10 @@ export async function reportCompletion(formData: FormData) {
   const ticket = await requireTicketInScope(verwalter, ticketId);
   if (ticket.status === "GESCHLOSSEN") redirect(`/vorgaenge/${ticketId}`);
 
-  await db.ticket.update({
+  await auditMutation(verwalter, async (tx) => tx.ticket.update({
     where: { id: ticketId },
     data: { status: "ERLEDIGT", completionReportedAt: new Date(), completionReportedVia: via },
-  });
+  }));
   await db.ticketComment.create({
     data: {
       ticketId,
@@ -556,14 +557,14 @@ export async function confirmCompletion(formData: FormData) {
   const ticketId = String(formData.get("ticketId") ?? "");
   await requireTicketInScope(verwalter, ticketId);
 
-  await db.ticket.update({
+  await auditMutation(verwalter, async (tx) => tx.ticket.update({
     where: { id: ticketId },
     data: {
       status: "GESCHLOSSEN",
       closedAt: new Date(),
       closedById: verwalter.id,
     },
-  });
+  }));
   await db.ticketComment.create({
     data: {
       ticketId,
@@ -608,12 +609,12 @@ export async function acceptInvoice(formData: FormData) {
   const invoice = ticket.invoice;
   if (!invoice || invoice.status !== "EINGEREICHT") redirect(`/vorgaenge/${ticketId}`);
 
-  await db.$transaction([
-    db.craftsmanInvoice.update({
+  await auditMutation(verwalter, async (tx) => Promise.all([
+    tx.craftsmanInvoice.update({
       where: { id: invoice.id },
       data: { status: "AKZEPTIERT", reviewedAt: new Date(), reviewedById: verwalter.id },
     }),
-    db.ticket.update({
+    tx.ticket.update({
       where: { id: ticketId },
       data: {
         costCents: invoice.amountCents,
@@ -624,10 +625,10 @@ export async function acceptInvoice(formData: FormData) {
         updatedAt: new Date(),
       },
     }),
-    db.ticketComment.create({
+    tx.ticketComment.create({
       data: { ticketId, authorId: verwalter.id, internal: true, body: "Rechnung akzeptiert und als Kosten übernommen." },
     }),
-  ]);
+  ]));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.HANDWERKER_INVOICE_ACCEPTED,
@@ -651,12 +652,12 @@ export async function rejectInvoice(formData: FormData) {
   const invoice = ticket.invoice;
   if (!invoice || invoice.status !== "EINGEREICHT") redirect(`/vorgaenge/${ticketId}`);
 
-  await db.$transaction([
-    db.craftsmanInvoice.update({
+  await auditMutation(verwalter, async (tx) => Promise.all([
+    tx.craftsmanInvoice.update({
       where: { id: invoice.id },
       data: { status: "ABGELEHNT", reviewedAt: new Date(), reviewedById: verwalter.id },
     }),
-    db.ticketComment.create({
+    tx.ticketComment.create({
       data: {
         ticketId,
         authorId: verwalter.id,
@@ -664,7 +665,7 @@ export async function rejectInvoice(formData: FormData) {
         body: `Rechnung abgelehnt${reason ? `: ${reason}` : ""}.`,
       },
     }),
-  ]);
+  ]));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.HANDWERKER_INVOICE_REJECTED,
@@ -702,7 +703,7 @@ export async function reopenTicket(formData: FormData) {
   // Zurück in einen aktiven Status: war ein Handwerker beauftragt → BEAUFTRAGT,
   // sonst IN_BEARBEITUNG. Meldekennzeichen und Abschluss zurücksetzen.
   const nextStatus = ticket.craftsmanId ? "BEAUFTRAGT" : "IN_BEARBEITUNG";
-  await db.ticket.update({
+  await auditMutation(verwalter, async (tx) => tx.ticket.update({
     where: { id: ticketId },
     data: {
       status: nextStatus,
@@ -711,7 +712,7 @@ export async function reopenTicket(formData: FormData) {
       closedAt: null,
       closedById: null,
     },
-  });
+  }));
   await db.ticketComment.create({
     data: {
       ticketId,
@@ -790,7 +791,7 @@ export async function notifyCraftsman(formData: FormData) {
     : neuesCraftsmanToken();
 
   // DB-Schreibvorgänge atomisch: Token setzen + Kommentar + Statuswechsel
-  await db.$transaction(async (tx) => {
+  await auditMutation(verwalter, async (tx) => {
     await tx.craftsman.update({
       where: { id: ticket.craftsman!.id },
       data: { accessToken: token, accessTokenIssuedAt: new Date() },
@@ -881,8 +882,8 @@ export async function uploadRequestedDocument(formData: FormData) {
         ? "MIETER"
         : "ALLE";
 
-  await db.$transaction([
-    db.document.create({
+  await auditMutation(verwalter, async (tx) => Promise.all([
+    tx.document.create({
       data: {
         title,
         category,
@@ -894,15 +895,15 @@ export async function uploadRequestedDocument(formData: FormData) {
         ...upload,
       },
     }),
-    db.ticketComment.create({
+    tx.ticketComment.create({
       data: {
         ticketId,
         authorId: verwalter.id,
         body: `Dokument bereitgestellt: „${title}". Sie finden es unter „Dokumente".`,
       },
     }),
-    db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } }),
-  ]);
+    tx.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } }),
+  ]));
   await notifyCreatorNewComment(ticketId, verwalter);
 
   revalidatePath(`/vorgaenge/${ticketId}`);
@@ -1091,8 +1092,8 @@ export async function generateCertificate(formData: FormData) {
     );
   }
 
-  await db.$transaction([
-    db.document.create({
+  await auditMutation(verwalter, async (tx) => Promise.all([
+    tx.document.create({
       data: {
         title: `${title} – ${ticket.createdBy.name}`,
         category: "BESCHEINIGUNG",
@@ -1104,15 +1105,15 @@ export async function generateCertificate(formData: FormData) {
         ...upload,
       },
     }),
-    db.ticketComment.create({
+    tx.ticketComment.create({
       data: {
         ticketId,
         authorId: verwalter.id,
         body: `${title} automatisch erstellt und bereitgestellt. Abrufbar unter „Dokumente".`,
       },
     }),
-    db.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } }),
-  ]);
+    tx.ticket.update({ where: { id: ticketId }, data: { status: "ERLEDIGT" } }),
+  ]));
   await notifyCreatorNewComment(ticketId, verwalter);
 
   // Nachweis: Wer hat wann in wessen Namen auf welcher Grundlage bescheinigt?
@@ -1156,7 +1157,7 @@ export async function setOwnTicketStatus(formData: FormData) {
     redirect("/vorgaenge");
   }
 
-  await db.ticket.update({
+  await auditMutation(user, async (tx) => tx.ticket.update({
     where: { id: ticketId },
     data: {
       status: status as "IN_BEARBEITUNG" | "ERLEDIGT",
@@ -1165,7 +1166,7 @@ export async function setOwnTicketStatus(formData: FormData) {
         ? { completionReportedAt: new Date(), completionReportedVia: "Portal" }
         : {}),
     },
-  });
+  }));
   await notifyCreatorStatusChange(ticketId, user);
 
   revalidatePath(`/vorgaenge/${ticketId}`);
@@ -1193,7 +1194,7 @@ export async function deleteTicket(formData: FormData) {
   if (!ticket || ticket.organizationId !== verwalter.organizationId) redirect("/vorgaenge");
   if (!(await canVerwalterAccessProperty(verwalter, ticket.propertyId))) redirect("/vorgaenge");
 
-  await db.ticket.delete({ where: { id: ticketId } });
+  await auditMutation(verwalter, async (tx) => tx.ticket.delete({ where: { id: ticketId } }));
   // Dateien nach erfolgreichem DB-Löschen entfernen (Anhänge + Handwerker-Rechnung).
   for (const a of ticket.attachments) await deleteBlob(a.storedName);
   if (ticket.invoice?.storedName) await deleteBlob(ticket.invoice.storedName);

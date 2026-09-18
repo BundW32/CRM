@@ -3,6 +3,7 @@ import {
   RESERVE_ROW_ID,
   RESERVE_WITHDRAWAL_ROW_ID,
   baueRuecklagenEntwicklung,
+  computeLaborDetail,
   computeLaborShares,
   computePeakAmounts,
   computeStatement,
@@ -406,6 +407,36 @@ describe("computeLaborShares (§35a)", () => {
     // Kein Prüffehler „Verteilung offen": Der INDIVIDUELL-Schlüssel der
     // Kostenart spielt für die Direktzeile keine Rolle.
     expect(r.befunde.some((b) => b.art === "verteilung")).toBe(false);
+  });
+
+  it("liefert die Aufstellung je Kostenart, deren Zeilen exakt die Summen des Ausweises ergeben", () => {
+    const r = computeStatement(
+      baseInput({
+        expenseByCostType: new Map([["hausmeister", 480_000], ["aufzug", 240_000]]),
+        manualAmounts: new Map(),
+        laborByCostType: new Map([
+          ["hausmeister", { baseCents: 300_001, unerfasstCents: 0 }],
+          ["aufzug", { baseCents: 90_000, unerfasstCents: 50_000 }],
+        ]),
+      }),
+    );
+    const summen = computeLaborShares(r.rows);
+    const detail = computeLaborDetail(r.rows);
+    for (const u of units) {
+      const zeilen = detail.get(u.id) ?? [];
+      const haushaltsnah = zeilen.filter((z) => z.art === "haushaltsnah").reduce((s, z) => s + z.anteilCents, 0);
+      const handwerker = zeilen.filter((z) => z.art === "handwerker").reduce((s, z) => s + z.anteilCents, 0);
+      const unerfasst = zeilen.reduce((s, z) => s + z.unerfasstAnteilCents, 0);
+      expect(haushaltsnah).toBe(summen.get(u.id)?.haushaltsnah ?? 0);
+      expect(handwerker).toBe(summen.get(u.id)?.handwerker ?? 0);
+      expect(unerfasst).toBe(summen.get(u.id)?.unerfasst ?? 0);
+    }
+    const we5 = detail.get("we5")!;
+    expect(we5.map((z) => z.name)).toEqual(["Hausmeister", "Aufzug"]);
+    expect(we5[0].gesamtCents).toBe(300_001);
+    expect(we5[0].distributionKey).toBe("MEA");
+    // te6 hat keine Wohnfläche und trägt am Aufzug nichts — keine Zeile dafür.
+    expect((detail.get("te6") ?? []).map((z) => z.name)).toEqual(["Hausmeister"]);
   });
 
   it("verteilt den Lohnanteil centgenau — Σ Einheiten == Lohnanteil", () => {

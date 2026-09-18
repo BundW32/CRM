@@ -2544,3 +2544,32 @@ Antwort an ihn nennt zehn Zusagen. Die ersten drei sind hier umgesetzt.
      behandeln den alten Wert weiter richtig. Der Erklärtext am Schlüssel
      verweist für Kosten einer einzelnen Einheit auf die Direktzuordnung
      (Nr. 331), damit niemand den manuellen Schlüssel dafür missbraucht.
+
+333. **Einzelabrechnung: umlagefähig / nicht umlagefähig, § 35a je Kostenart,
+     Bescheinigung als eigenes Blatt (Paket 7).** Drei Wünsche aus dem
+     Produkttest, alle an derselben Seite. (1) Die Kostentabelle steht jetzt
+     in zwei Blöcken mit Zwischensummen — „Umlagefähige Kosten (BetrKV)" und
+     „Nicht umlagefähige Kosten" —, gespeist aus dem vorhandenen
+     `CostType.recoverableBetrKV`, das bisher nur die Betriebskostenabrechnung
+     las (Nr. 64). Das Kennzeichen wandert dafür in die Abrechnungszeilen und
+     damit in den Snapshot (`rows[].recoverableBetrKV`); **alte Snapshots
+     ohne Kennzeichen zeigen weiter einen Block** (`zeichneKostenBloecke`
+     prüft, ob irgendeine Zeile es trägt). Rücklagenzuführung und Entnahme
+     tragen keins und landen im nicht umlagefähigen Block — richtig so.
+     (2) Die Schlüsselspalte der Positionen zeigt nur noch den Namen des
+     Schlüssels (`umlageschluesselText`, Heizkosten behalten den
+     HeizkostenV-Text); Zähler und Nenner stehen im Kopfblock „Grundlage der
+     Verteilung" und wiederholten sich in jeder Zeile — der Kunde fand das
+     unübersichtlich, und er hat recht. (3) `computeLaborDetail` liefert die
+     § 35a-Aufstellung je Kostenart und Einheit über dieselbe `distributeAlong`
+     wie `computeLaborShares`, damit die Zeilen exakt die Summen ergeben
+     (Test). Sie steht als `laborDetail` im Snapshot; ältere Snapshots rechnen
+     sie aus ihren Zeilen nach (`laborDetailAus`). Die Einzelabrechnung zeigt
+     sie als Tabelle über den beiden Summen, und das neue Dokument
+     `documents/steuerbescheinigung.ts` gibt sie als eigenes Blatt je Einheit
+     aus — nur § 35a, mit dem Hinweis auf unbare Zahlung und Belege (§ 35a
+     Abs. 5 EStG). Routen wie bei der Einzelabrechnung: Verwalter mit
+     `?einheit=`, Eigentümer nur für FERTIGe Abrechnungen; ein gemeinsamer
+     Bauer (`steuerbescheinigung-pdf.ts`) nach dem Muster von Nr. 52. Damit
+     ist Befund C2 der Buchhaltungsprüfung („der Steuerberater will ein
+     Blatt") geschlossen.

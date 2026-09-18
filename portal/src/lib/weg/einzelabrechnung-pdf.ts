@@ -7,13 +7,15 @@
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { db } from "@/lib/db";
 import { briefkopfAus } from "@/lib/documents/briefkopf";
-import { statementKeyLabels } from "@/lib/labels";
 import {
   generateEinzelabrechnungen,
+  type EinzelabrechnungLaborRow,
   type EinzelabrechnungUnit,
 } from "@/lib/documents/einzelabrechnung";
+import { computeLaborDetail, type LaborDetailRow } from "./annual-statement";
 import type { StatementView } from "./statement-service";
-import { baueUmlagebasis, schluesselMitAnteil, umlagebasisZeilen, type Umlagebasis } from "./umlagebasis";
+import { baueUmlagebasis, umlagebasisZeilen, type Umlagebasis } from "./umlagebasis";
+import { umlageschluesselText } from "./umlageschluessel-text";
 
 function fmtDate(iso: string): string {
   const [y, m, d] = iso.split("-");
@@ -33,6 +35,35 @@ async function umlagebasisAusStammdaten(propertyId: string): Promise<Umlagebasis
   return baueUmlagebasis(units);
 }
 
+/**
+ * § 35a je Kostenart und Einheit. Seit 18.09.2026 im Snapshot; ältere
+ * Snapshots tragen nur die Summen — dann wird die Aufstellung aus den Zeilen
+ * nachgerechnet, mit derselben Funktion, die auch die Summen gebildet hat.
+ */
+export function laborDetailAus(view: StatementView): Record<string, LaborDetailRow[]> {
+  if (view.laborDetail) return view.laborDetail;
+  return Object.fromEntries(
+    computeLaborDetail(
+      view.rows.map((r) => ({
+        ...r,
+        perUnit: r.perUnit ? new Map(Object.entries(r.perUnit)) : null,
+      })),
+    ),
+  );
+}
+
+export function laborZeilenFuer(detail: Record<string, LaborDetailRow[]>, unitId: string): EinzelabrechnungLaborRow[] {
+  return (detail[unitId] ?? [])
+    .filter((r) => r.anteilCents > 0)
+    .map((r) => ({
+      name: r.name,
+      keyLabel: umlageschluesselText(r),
+      art: r.art,
+      gesamtCents: r.gesamtCents,
+      anteilCents: r.anteilCents,
+    }));
+}
+
 /** Baut die Einzelabrechnungen — für alle übergebenen Einheiten, eine Seite je Einheit. */
 export async function buildEinzelabrechnungPdf(args: {
   propertyName: string;
@@ -45,6 +76,7 @@ export async function buildEinzelabrechnungPdf(args: {
 }): Promise<Buffer> {
   const { propertyName, propertyId, organizationId, view, units, finalizedAt } = args;
   const basis = view.umlagebasis ?? (await umlagebasisAusStammdaten(propertyId));
+  const laborDetail = laborDetailAus(view);
 
   const abrechnungsEinheiten: EinzelabrechnungUnit[] = units.map((u) => {
     const split = view.ownerSplit[u.id];
@@ -67,17 +99,18 @@ export async function buildEinzelabrechnungPdf(args: {
       })),
       uncoveredCents: split?.uncoveredCents ?? 0,
       umlagebasis: umlagebasisZeilen(verteilt, basis, u.id),
+      // Schlüsselspalte nur mit dem Namen des Schlüssels: Zähler und Nenner
+      // stehen im Block „Grundlage der Verteilung" darüber; in jeder Zeile
+      // wiederholt machten sie die Tabelle unübersichtlich (Kundenwunsch).
+      // Heizkosten behalten den HeizkostenV-Text.
       costRows: beteiligt.map((r) => ({
         name: r.name,
-        keyLabel: schluesselMitAnteil(
-          statementKeyLabels[r.distributionKey] ?? r.distributionKey,
-          r,
-          basis,
-          u.id,
-        ),
+        keyLabel: umlageschluesselText(r),
         totalCents: r.totalCents,
         shareCents: r.perUnit![u.id] ?? 0,
+        recoverable: r.recoverableBetrKV,
       })),
+      laborRows: laborZeilenFuer(laborDetail, u.id),
       nichtBeteiligt: verteilt.length - beteiligt.length,
       kostenanteilCents: view.perUnitTotal[u.id] ?? 0,
       sollCents: view.duePerUnit[u.id] ?? 0,

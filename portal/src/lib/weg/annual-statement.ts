@@ -701,6 +701,58 @@ export function computeLaborShares(rows: StatementCostRow[]): Map<string, LaborS
  * aus der Rücklage bezahlt wurde (alle Anteile 0) — dann gibt es kein Gewicht,
  * an dem sich der Lohnanteil ausrichten könnte, und umgelegt wurde ohnehin nichts.
  */
+/** Eine Zeile der § 35a-Aufstellung je Kostenart — für eine Einheit. */
+export type LaborDetailRow = {
+  costTypeId: string;
+  directUnitId?: string;
+  name: string;
+  distributionKey: StatementKey;
+  art: "haushaltsnah" | "handwerker";
+  /** Begünstigter Lohnanteil der ganzen Position (Gemeinschaft). */
+  gesamtCents: number;
+  /** Davon der Anteil dieser Einheit — centgenau entlang der Verteilung. */
+  anteilCents: number;
+  /** Anteil dieser Einheit an Ausgaben der Position ohne erfassten Lohnanteil. */
+  unerfasstAnteilCents: number;
+};
+
+/**
+ * Die § 35a-Aufstellung je Kostenart und Einheit — dieselbe Rechnung wie
+ * `computeLaborShares`, nur nicht summiert. Der Steuerberater will je
+ * Position sehen, woher die Zahl kommt: Gesamtbetrag, Umlageschlüssel,
+ * Anteil (Rückmeldung aus dem Produkttest 09/2026). Beide Funktionen laufen
+ * über `distributeAlong`, damit die Summe der Zeilen exakt der Summe des
+ * Ausweises entspricht.
+ */
+export function computeLaborDetail(rows: StatementCostRow[]): Map<string, LaborDetailRow[]> {
+  const result = new Map<string, LaborDetailRow[]>();
+  for (const row of rows) {
+    if (row.laborShareType === "KEINE" || !row.perUnit) continue;
+    const art = row.laborShareType === "HAUSHALTSNAHE_DIENSTLEISTUNG" ? "haushaltsnah" : "handwerker";
+    const anteile = distributeAlong(row.perUnit, row.laborBaseCents ?? 0);
+    const unerfasst = distributeAlong(row.perUnit, row.laborUnerfasstCents ?? 0);
+    if (!anteile && !unerfasst) continue;
+    for (const unitId of row.perUnit.keys()) {
+      const anteilCents = anteile?.get(unitId) ?? 0;
+      const unerfasstAnteilCents = unerfasst?.get(unitId) ?? 0;
+      if (anteilCents === 0 && unerfasstAnteilCents === 0) continue;
+      const liste = result.get(unitId) ?? [];
+      liste.push({
+        costTypeId: row.costTypeId,
+        directUnitId: row.directUnitId,
+        name: row.name,
+        distributionKey: row.distributionKey,
+        art,
+        gesamtCents: row.laborBaseCents ?? 0,
+        anteilCents,
+        unerfasstAnteilCents,
+      });
+      result.set(unitId, liste);
+    }
+  }
+  return result;
+}
+
 function distributeAlong(perUnit: Map<string, number>, cents: number): Map<string, number> | null {
   if (cents <= 0) return null;
   const shares = [...perUnit].map(([unitId, weight]) => ({ unitId, weight: weight > 0 ? weight : 0 }));

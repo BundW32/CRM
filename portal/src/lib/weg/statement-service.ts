@@ -7,10 +7,12 @@ import { db } from "@/lib/db";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import {
   baueRuecklagenEntwicklung,
+  computeLaborDetail,
   computeLaborShares,
   computePeakAmounts,
   computeStatement,
   splitByOwnership,
+  type LaborDetailRow,
   type RuecklagenEntwicklung,
   type StatementBefund,
 } from "./annual-statement";
@@ -28,6 +30,12 @@ export type StatementView = {
     costTypeId: string;
     /** Nur bei Schlüssel DIREKT: die Einheit, die diese Kosten allein trägt. */
     directUnitId?: string;
+    /**
+     * Umlagefähig nach BetrKV (Mieter) — Kennzeichen der Kostenart. Seit
+     * 18.09.2026 im Snapshot; ältere Snapshots tragen es nicht, dann zeigt die
+     * Einzelabrechnung einen Block statt zwei.
+     */
+    recoverableBetrKV?: boolean;
     name: string;
     distributionKey: StatementKey;
     laborShareType: LaborShareType;
@@ -59,6 +67,11 @@ export type StatementView = {
   duePerUnit: Record<string, number>;
   peak: Record<string, number>; // Abrechnungsspitze: + Nachschuss / − Guthaben
   labor: Record<string, { haushaltsnah: number; handwerker: number; unerfasst: number }>;
+  /**
+   * § 35a je Kostenart und Einheit (seit 18.09.2026). Ältere Snapshots tragen
+   * das Feld nicht; die PDF-Bauer rechnen es dann aus den Zeilen nach.
+   */
+  laborDetail?: Record<string, LaborDetailRow[]>;
   ownerSplit: Record<
     string,
     { shares: { userName: string; days: number; cents: number }[]; uncoveredCents: number }
@@ -165,6 +178,7 @@ export async function computeStatementView(
           laborShareType: true,
           heatingCost: true,
           heatingConsumptionPercent: true,
+          recoverableBetrKV: true,
         },
       }),
       db.unit.findMany({
@@ -520,6 +534,7 @@ export async function computeStatementView(
     rows: result.rows.map((r) => ({
       costTypeId: r.costTypeId,
       directUnitId: r.directUnitId,
+      recoverableBetrKV: costTypes.find((c) => c.id === r.costTypeId)?.recoverableBetrKV,
       name: r.name,
       distributionKey: r.distributionKey,
       laborShareType: r.laborShareType,
@@ -540,6 +555,7 @@ export async function computeStatementView(
     duePerUnit: Object.fromEntries(duePerUnit),
     peak: Object.fromEntries(peak),
     labor: Object.fromEntries(labor.entries()),
+    laborDetail: Object.fromEntries(computeLaborDetail(result.rows)),
     ownerSplit,
     accounts: accountViews,
     incomeCents: incomeAgg._sum.amountCents ?? 0,

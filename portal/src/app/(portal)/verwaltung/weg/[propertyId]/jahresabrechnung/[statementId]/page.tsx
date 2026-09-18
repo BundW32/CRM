@@ -812,13 +812,23 @@ Muster — ersetzt keine Rechtsberatung.`;
               Jede Einzelabrechnung lässt sich als druckfertiges PDF (DIN A4) an den jeweiligen
               Eigentümer geben.
             </p>
-            <FilePreviewLink
-              src={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/pdf`}
-              title={`Einzelabrechnungen ${statement.year} — ${property.name}`}
-              className={buttonSecondaryClass}
-            >
-              Alle Einzelabrechnungen als PDF
-            </FilePreviewLink>
+            <div className="flex flex-wrap gap-2">
+              <FilePreviewLink
+                src={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/pdf`}
+                title={`Einzelabrechnungen ${statement.year} — ${property.name}`}
+                className={buttonSecondaryClass}
+              >
+                Alle Einzelabrechnungen als PDF
+              </FilePreviewLink>
+              {/* Das eigene Blatt für den Steuerberater: nur § 35a, je Kostenart. */}
+              <FilePreviewLink
+                src={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/steuerbescheinigung/pdf`}
+                title={`Bescheinigungen § 35a EStG ${statement.year} — ${property.name}`}
+                className={buttonSecondaryClass}
+              >
+                Alle Bescheinigungen § 35a als PDF
+              </FilePreviewLink>
+            </div>
           </div>
           <div className="scroll-schatten overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
@@ -878,7 +888,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                           </span>
                         ) : null}
                       </td>
-                      <td className="py-2 pr-3 text-right text-gray-700">
+                      <td className="py-2 pr-3 text-right text-gray-700 whitespace-nowrap">
                         <a
                           href={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/pdf?einheit=${u.id}`}
                           target="_blank"
@@ -886,6 +896,15 @@ Muster — ersetzt keine Rechtsberatung.`;
                           className="text-sm text-gray-700 underline"
                         >
                           PDF
+                        </a>
+                        <a
+                          href={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/steuerbescheinigung/pdf?einheit=${u.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="ml-2 text-sm text-gray-500 underline"
+                          title="Bescheinigung nach § 35a EStG für diese Einheit"
+                        >
+                          § 35a
                         </a>
                       </td>
                     </tr>

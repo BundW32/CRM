@@ -16,6 +16,7 @@ import {
   type TableCell,
 } from "./kit";
 import type { RGB } from "pdf-lib";
+import { zeichneUmlagebasisBlock } from "./umlagebasis-block";
 
 export type EinzelabrechnungOwner = { name: string; days: number; cents: number };
 export type EinzelabrechnungCostRow = {
@@ -23,6 +24,22 @@ export type EinzelabrechnungCostRow = {
   keyLabel: string;
   totalCents: number;
   shareCents: number;
+  /**
+   * Umlagefähig nach BetrKV. Ist das Kennzeichen an keiner Zeile gesetzt
+   * (alte Snapshots), bleibt es bei einer Tabelle; sonst zwei Blöcke mit
+   * Zwischensummen — der Eigentümer, der vermietet, will die Trennung sehen.
+   */
+  recoverable?: boolean;
+};
+/** Eine Zeile der § 35a-Aufstellung: je Kostenart der Lohnanteil und der Anteil der Einheit. */
+export type EinzelabrechnungLaborRow = {
+  name: string;
+  keyLabel: string;
+  art: "haushaltsnah" | "handwerker";
+  /** Begünstigter Lohnanteil der Gemeinschaft für diese Position. */
+  gesamtCents: number;
+  /** Davon der Anteil dieser Einheit. */
+  anteilCents: number;
 };
 export type EinzelabrechnungUnit = {
   label: string;
@@ -35,6 +52,13 @@ export type EinzelabrechnungUnit = {
    */
   umlagebasis?: { schluessel: string; einheit: string; gesamt: string }[];
   costRows: EinzelabrechnungCostRow[];
+  /**
+   * Positionen der Gemeinschaft, an denen diese Einheit nicht beteiligt ist
+   * (bei der Verteilung von Hand kein Betrag erfasst). Sie fehlen in der
+   * Tabelle; ein Satz darunter sagt das, damit die kürzere Liste nicht wie
+   * eine unvollständige aussieht.
+   */
+  nichtBeteiligt?: number;
   kostenanteilCents: number;
   sollCents: number;
   peakCents: number; // + Nachschuss, − Guthaben
@@ -42,6 +66,8 @@ export type EinzelabrechnungUnit = {
   laborHandwerkerCents: number;
   /** Anteil an Kosten, für die kein Lohnanteil erfasst ist (§ 35a EStG). */
   laborUnerfasstCents: number;
+  /** § 35a je Kostenart — die Aufstellung hinter den beiden Summen. */
+  laborRows?: EinzelabrechnungLaborRow[];
 };
 export type EinzelabrechnungInput = {
   propertyName: string;
@@ -58,6 +84,81 @@ export type EinzelabrechnungInput = {
 
 function fmtDate(d: Date): string {
   return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+}
+
+const KOSTEN_SPALTEN = [
+  { header: "Position", width: 38 },
+  { header: "Umlageschlüssel", width: 30 },
+  { header: "Gesamtkosten", width: 18, align: "right" as const },
+  { header: "Ihr Anteil", width: 18, align: "right" as const },
+];
+
+function kostenZeile(row: EinzelabrechnungCostRow): TableCell[] {
+  return [
+    { text: row.name },
+    { text: row.keyLabel, color: color.muted },
+    { text: formatCents(row.totalCents), color: color.muted },
+    { text: formatCents(row.shareCents) },
+  ];
+}
+
+function summenZeile(label: string, rows: EinzelabrechnungCostRow[]): TableCell[] {
+  return [
+    { text: label, strong: true },
+    { text: "" },
+    { text: formatCents(rows.reduce((s, r) => s + r.totalCents, 0)), strong: true, color: color.muted },
+    { text: formatCents(rows.reduce((s, r) => s + r.shareCents, 0)), strong: true },
+  ];
+}
+
+/**
+ * Die Kostentabelle — als ein Block oder, sobald die Zeilen das
+ * BetrKV-Kennzeichen tragen, als zwei: umlagefähig (das, was ein vermietender
+ * Eigentümer an seinen Mieter weitergeben kann) und nicht umlagefähig
+ * (Verwaltung, Instandhaltung, Rücklage), je mit Zwischensumme. Ein
+ * Testnutzer hatte genau diese Trennung aus seiner bisherigen Abrechnung
+ * vermisst — ohne sie muss er die Positionen selbst sortieren.
+ */
+function zeichneKostenBloecke(doc: Doc, rows: EinzelabrechnungCostRow[]): void {
+  const getrennt = rows.some((r) => r.recoverable !== undefined);
+  if (!getrennt) {
+    doc.table(KOSTEN_SPALTEN, rows.map(kostenZeile));
+    return;
+  }
+  const umlagefaehig = rows.filter((r) => r.recoverable === true);
+  const uebrige = rows.filter((r) => r.recoverable !== true);
+  const bloecke: [string, string, EinzelabrechnungCostRow[]][] = [
+    ["Umlagefähige Kosten (BetrKV)", "Summe umlagefähige Kosten", umlagefaehig],
+    ["Nicht umlagefähige Kosten", "Summe nicht umlagefähige Kosten", uebrige],
+  ];
+  for (const [titel, summe, zeilen] of bloecke) {
+    if (zeilen.length === 0) continue;
+    doc.text(titel, { size: size.small, font: doc.bold, color: color.muted, lead: mm(5) });
+    doc.table(KOSTEN_SPALTEN, [...zeilen.map(kostenZeile), summenZeile(summe, zeilen)]);
+    doc.space(mm(3));
+  }
+}
+
+/** § 35a je Kostenart: Position, Schlüssel, Lohnanteil gesamt, Anteil der Einheit. */
+export function zeichneLaborTabelle(doc: Doc, rows: EinzelabrechnungLaborRow[] | undefined): void {
+  if (!rows || rows.length === 0) return;
+  doc.table(
+    [
+      { header: "Position", width: 34 },
+      { header: "Umlageschlüssel", width: 26 },
+      { header: "Art", width: 16 },
+      { header: "Lohnanteil gesamt", width: 16, align: "right" },
+      { header: "Ihr Anteil", width: 14, align: "right" },
+    ],
+    rows.map((r): TableCell[] => [
+      { text: r.name },
+      { text: r.keyLabel, color: color.muted },
+      { text: r.art === "haushaltsnah" ? "haushaltsnah" : "Handwerker", color: color.muted },
+      { text: formatCents(r.gesamtCents), color: color.muted },
+      { text: formatCents(r.anteilCents) },
+    ]),
+  );
+  doc.space(mm(1));
 }
 
 export async function generateEinzelabrechnungen(input: EinzelabrechnungInput): Promise<Buffer> {
@@ -92,45 +193,18 @@ export async function generateEinzelabrechnungen(input: EinzelabrechnungInput): 
     });
 
     // ── Grundlage der Verteilung ─────────────────────────────────────────────
-    // Der Schlüsselname allein („Wohn-/Nutzfläche") sagt, wonach verteilt
-    // wurde, aber nicht, ob es stimmt. Erst mit Zähler und Nenner kann der
-    // Eigentümer jede Zeile nachrechnen: Gesamtkosten × Anteil ÷ Gesamt.
-    if (unit.umlagebasis && unit.umlagebasis.length > 0) {
-      doc.text("Grundlage der Verteilung", {
-        size: size.small,
-        font: doc.bold,
-        color: color.muted,
-        lead: mm(5),
-      });
-      doc.table(
-        [
-          { header: "Umlageschlüssel", width: 44 },
-          { header: "Ihre Einheit", width: 26, align: "right" },
-          { header: "Gemeinschaft gesamt", width: 30, align: "right" },
-        ],
-        unit.umlagebasis.map((z): TableCell[] => [
-          { text: z.schluessel },
-          { text: z.einheit },
-          { text: z.gesamt, color: color.muted },
-        ]),
-      );
-      doc.space(mm(5));
-    }
+    zeichneUmlagebasisBlock(doc, unit.umlagebasis);
 
-    doc.table(
-      [
-        { header: "Position", width: 38 },
-        { header: "Umlageschlüssel", width: 30 },
-        { header: "Gesamtkosten", width: 18, align: "right" },
-        { header: "Ihr Anteil", width: 18, align: "right" },
-      ],
-      unit.costRows.map((row): TableCell[] => [
-        { text: row.name },
-        { text: row.keyLabel, color: color.muted },
-        { text: formatCents(row.totalCents), color: color.muted },
-        { text: formatCents(row.shareCents) },
-      ]),
-    );
+    zeichneKostenBloecke(doc, unit.costRows);
+    if (unit.nichtBeteiligt && unit.nichtBeteiligt > 0) {
+      doc.space(mm(1));
+      doc.para(
+        unit.nichtBeteiligt === 1
+          ? "Eine Position der Gemeinschaft betrifft Ihre Einheit nicht und ist deshalb nicht aufgeführt."
+          : `${unit.nichtBeteiligt} Positionen der Gemeinschaft betreffen Ihre Einheit nicht und sind deshalb nicht aufgeführt.`,
+        { size: size.foot, color: color.muted, width: CONTENT_WIDTH, lead: mm(4) },
+      );
+    }
 
     // ── Ergebniskette ────────────────────────────────────────────────────────
     doc.rule({ gapAbove: mm(2), gapBelow: mm(4) });
@@ -190,6 +264,7 @@ export async function generateEinzelabrechnungen(input: EinzelabrechnungInput): 
         color: color.muted,
         lead: mm(5),
       });
+      zeichneLaborTabelle(doc, unit.laborRows);
       doc.amountRow("Haushaltsnahe Dienstleistungen", formatCents(unit.laborHaushaltsnahCents));
       doc.amountRow("Handwerkerleistungen", formatCents(unit.laborHandwerkerCents));
       if (unit.laborUnerfasstCents > 0) {

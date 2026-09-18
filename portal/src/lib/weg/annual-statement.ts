@@ -5,11 +5,11 @@
 // Pure Funktionen — DB/UI übernehmen die Server Actions.
 import type { CostCategory, DistributionKey, LaborShareType } from "@/generated/prisma/client";
 import { formatCents } from "@/lib/money";
-import { distributeByWeight, weightsForKey, type UnitForDistribution } from "./distribution";
+import { distributeByWeight, weightsForKey, type StatementKey, type UnitForDistribution } from "./distribution";
 import { advanceWeightsForKey } from "./economic-plan";
 
 // Schlüssel, die in der Abrechnung eine manuelle Verteilung je Einheit brauchen
-export const MANUAL_KEYS: DistributionKey[] = ["VERBRAUCH", "FESTBETRAG", "INDIVIDUELL"];
+export const MANUAL_KEYS: StatementKey[] = ["VERBRAUCH", "FESTBETRAG", "INDIVIDUELL"];
 
 export type StatementCostTypeInput = {
   id: string;
@@ -56,7 +56,9 @@ export type StatementBefund = {
     | "ohne-kostenart"
     | "zufuehrung-plan"
     | "leer"
-    | "jahr-laeuft";
+    | "jahr-laeuft"
+    /** Lohnanteil § 35a erfasst, aber die Kostenart ist nicht als § 35a-Leistung gekennzeichnet. */
+    | "lohnanteil-kennzeichen";
   /** true = verhindert das Fertigstellen. */
   blockierend: boolean;
   /** Kurz, für die Prüfliste. */
@@ -106,12 +108,31 @@ export type StatementInput = {
   // (`baseCents`) und der Teil der Ausgaben, für den kein Anteil erfasst ist
   // (`unerfasstCents`). Siehe `computeLaborShares`.
   laborByCostType?: Map<string, { baseCents: number; unerfasstCents: number }>;
+  /**
+   * Direkt zugeordnete Ausgaben (`Booking.directUnitId`), vom laufenden Konto
+   * bezahlt: je Kostenart und Einheit der Betrag samt § 35a-Anteil. Sie sind
+   * NICHT in `expenseByCostType`/`laborByCostType` enthalten — die werden
+   * verteilt, diese nicht. Aus der Rücklage bezahlte Direktbuchungen zählen
+   * wie jede Rücklagenausgabe (`reserveSpendByCostType`), also ohne Umlage.
+   */
+  directByCostType?: Map<string, Map<string, { cents: number; laborBaseCents: number; laborUnerfasstCents: number }>>;
 };
+
+/** Eindeutiger Schlüssel einer Zeile — Direktzeilen teilen sich die Kostenart. */
+export function rowKey(r: { costTypeId: string; directUnitId?: string | null }): string {
+  return r.directUnitId ? `${r.costTypeId}:${r.directUnitId}` : r.costTypeId;
+}
 
 export type StatementCostRow = {
   costTypeId: string;
   name: string;
-  distributionKey: DistributionKey;
+  distributionKey: StatementKey;
+  /**
+   * Gesetzt bei Zeilen mit Schlüssel DIREKT: die eine Einheit, die diese
+   * Kosten allein trägt. Je Kostenart und Einheit eine Zeile — `costTypeId`
+   * allein ist dann kein Schlüssel mehr (siehe `rowKey`).
+   */
+  directUnitId?: string;
   laborShareType: LaborShareType;
   totalCents: number; // Ist-Ausgabe gesamt (Giro + Rücklage)
   /** Davon aus der Erhaltungsrücklage bezahlt — nicht umgelegt. */
@@ -257,7 +278,37 @@ export function computeStatement(input: StatementInput): StatementResult {
     const ausRuecklageCents = reserveSpend.get(ct.id) ?? 0;
     const totalCents = giroCents + ausRuecklageCents;
     const manual = input.manualAmounts.get(ct.id);
-    if (totalCents === 0 && (!manual || manual.size === 0)) continue;
+
+    // Direkt zugeordnete Ausgaben: je Einheit eine eigene Zeile mit Schlüssel
+    // DIREKT, `perUnit` kennt nur diese Einheit — die anderen sind nicht
+    // beteiligt (Nr. 329) und sehen die Position nicht. Der Lohnanteil § 35a
+    // folgt der Zeile und landet damit vollständig bei dieser Einheit.
+    const direktZeilen: StatementCostRow[] = [];
+    let direktLaborCents = 0;
+    for (const [unitId, d] of input.directByCostType?.get(ct.id) ?? []) {
+      if (d.cents === 0) continue;
+      const einheit = input.units.find((u) => u.id === unitId);
+      const perUnit = new Map([[unitId, d.cents]]);
+      direktZeilen.push({
+        costTypeId: ct.id,
+        directUnitId: unitId,
+        name: `${ct.name} (direkt: ${einheit?.label ?? unitId})`,
+        distributionKey: "DIREKT",
+        laborShareType: ct.laborShareType,
+        totalCents: d.cents,
+        perUnit,
+        laborBaseCents: d.laborBaseCents,
+        laborUnerfasstCents: ct.laborShareType === "KEINE" ? undefined : d.laborUnerfasstCents,
+      });
+      direktLaborCents += d.laborBaseCents;
+      addToUnits(perUnit);
+      totalExpenseCents += d.cents;
+    }
+
+    if (totalCents === 0 && (!manual || manual.size === 0)) {
+      rows.push(...direktZeilen);
+      continue;
+    }
 
     totalExpenseCents += totalCents;
     reserveWithdrawalCents += ausRuecklageCents;
@@ -283,10 +334,40 @@ export function computeStatement(input: StatementInput): StatementResult {
           : (labor.get(ct.id)?.unerfasstCents ?? verteilbarCents),
     };
 
+    // § 35a ohne Kennzeichen: An Buchungen dieser Kostenart ist ein Lohnanteil
+    // erfasst, aber die Kostenart steht auf „kein § 35a-Lohnanteil". Der
+    // Ausweis überspringt sie dann — bisher stumm. Ein Testnutzer hat genau
+    // das als „der Betrag lässt sich nicht verteilen" gemeldet: Der Betrag war
+    // da, nur das Kennzeichen fehlte, und nichts sagte es ihm. Kein Blocker,
+    // denn die Abrechnung stimmt; nur die Steuerbescheinigung ist unvollständig.
+    const kennzeichenlosCents = (labor.get(ct.id)?.baseCents ?? 0) + direktLaborCents;
+    if (ct.laborShareType === "KEINE" && kennzeichenlosCents > 0) {
+      befunde.push({
+        art: "lohnanteil-kennzeichen",
+        blockierend: false,
+        titel: `§ 35a-Kennzeichen fehlt: ${ct.name}`,
+        text: `${ct.name}: Für ${formatCents(kennzeichenlosCents)} ist ein Lohnanteil § 35a erfasst, aber die Kostenart ist nicht als Handwerkerleistung oder haushaltsnahe Dienstleistung gekennzeichnet — der Anteil erscheint nicht auf der Steuerbescheinigung der Eigentümer.`,
+        ziel: { art: "stammdaten", anker: "kostenarten", label: "Kostenart in den Stammdaten kennzeichnen" },
+      });
+    }
+
     if (MANUAL_KEYS.includes(ct.distributionKey)) {
       const manualSum = manual ? [...manual.values()].reduce((a, b) => a + b, 0) : 0;
       if (manualSum !== verteilbarCents) {
-        row.error = `Manuelle Verteilung unvollständig: erfasst ${formatCents(manualSum)} von ${formatCents(verteilbarCents)}.`;
+        // Die Differenz steht dabei: „erfasst 4.800 von 6.200" verlangt vom
+        // Leser das Kopfrechnen, „es fehlen noch 1.400" nennt den Handgriff.
+        const differenz =
+          manualSum < verteilbarCents
+            ? `es fehlen noch ${formatCents(verteilbarCents - manualSum)}`
+            : `${formatCents(manualSum - verteilbarCents)} zu viel`;
+        // Der Lohnanteil § 35a folgt der Verteilung — ohne sie gibt es ihn
+        // nicht. Das steht hier dabei, damit niemand ihn an anderer Stelle
+        // sucht, solange die Verteilung offen ist.
+        const lohnanteil =
+          ct.laborShareType !== "KEINE" && (row.laborBaseCents ?? 0) > 0
+            ? ` Auch der Lohnanteil § 35a (${formatCents(row.laborBaseCents!)}) wird erst nach vollständiger Verteilung ausgewiesen.`
+            : "";
+        row.error = `Manuelle Verteilung unvollständig: erfasst ${formatCents(manualSum)} von ${formatCents(verteilbarCents)}, ${differenz}.${lohnanteil}`;
         verteilungsfehler(ct, row.error, "verteilung");
       } else {
         row.perUnit = new Map(manual);
@@ -303,7 +384,7 @@ export function computeStatement(input: StatementInput): StatementResult {
       }
     }
     if (row.perUnit) addToUnits(row.perUnit);
-    rows.push(row);
+    rows.push(row, ...direktZeilen);
   }
 
   // Gegenposition zu den aus der Rücklage bezahlten Ausgaben. Sie steht in der
@@ -620,6 +701,58 @@ export function computeLaborShares(rows: StatementCostRow[]): Map<string, LaborS
  * aus der Rücklage bezahlt wurde (alle Anteile 0) — dann gibt es kein Gewicht,
  * an dem sich der Lohnanteil ausrichten könnte, und umgelegt wurde ohnehin nichts.
  */
+/** Eine Zeile der § 35a-Aufstellung je Kostenart — für eine Einheit. */
+export type LaborDetailRow = {
+  costTypeId: string;
+  directUnitId?: string;
+  name: string;
+  distributionKey: StatementKey;
+  art: "haushaltsnah" | "handwerker";
+  /** Begünstigter Lohnanteil der ganzen Position (Gemeinschaft). */
+  gesamtCents: number;
+  /** Davon der Anteil dieser Einheit — centgenau entlang der Verteilung. */
+  anteilCents: number;
+  /** Anteil dieser Einheit an Ausgaben der Position ohne erfassten Lohnanteil. */
+  unerfasstAnteilCents: number;
+};
+
+/**
+ * Die § 35a-Aufstellung je Kostenart und Einheit — dieselbe Rechnung wie
+ * `computeLaborShares`, nur nicht summiert. Der Steuerberater will je
+ * Position sehen, woher die Zahl kommt: Gesamtbetrag, Umlageschlüssel,
+ * Anteil (Rückmeldung aus dem Produkttest 09/2026). Beide Funktionen laufen
+ * über `distributeAlong`, damit die Summe der Zeilen exakt der Summe des
+ * Ausweises entspricht.
+ */
+export function computeLaborDetail(rows: StatementCostRow[]): Map<string, LaborDetailRow[]> {
+  const result = new Map<string, LaborDetailRow[]>();
+  for (const row of rows) {
+    if (row.laborShareType === "KEINE" || !row.perUnit) continue;
+    const art = row.laborShareType === "HAUSHALTSNAHE_DIENSTLEISTUNG" ? "haushaltsnah" : "handwerker";
+    const anteile = distributeAlong(row.perUnit, row.laborBaseCents ?? 0);
+    const unerfasst = distributeAlong(row.perUnit, row.laborUnerfasstCents ?? 0);
+    if (!anteile && !unerfasst) continue;
+    for (const unitId of row.perUnit.keys()) {
+      const anteilCents = anteile?.get(unitId) ?? 0;
+      const unerfasstAnteilCents = unerfasst?.get(unitId) ?? 0;
+      if (anteilCents === 0 && unerfasstAnteilCents === 0) continue;
+      const liste = result.get(unitId) ?? [];
+      liste.push({
+        costTypeId: row.costTypeId,
+        directUnitId: row.directUnitId,
+        name: row.name,
+        distributionKey: row.distributionKey,
+        art,
+        gesamtCents: row.laborBaseCents ?? 0,
+        anteilCents,
+        unerfasstAnteilCents,
+      });
+      result.set(unitId, liste);
+    }
+  }
+  return result;
+}
+
 function distributeAlong(perUnit: Map<string, number>, cents: number): Map<string, number> | null {
   if (cents <= 0) return null;
   const shares = [...perUnit].map(([unitId, weight]) => ({ unitId, weight: weight > 0 ? weight : 0 }));

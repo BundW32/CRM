@@ -8,9 +8,9 @@ import { Badge } from "@/components/data-display";
 import { Begriff } from "@/components/begriff";
 import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
-import { distributionKeyLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
+import { formatDateOnly, ledgerAccountKindLabels, statementKeyLabels } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
-import { MANUAL_KEYS, type Pruefziel } from "@/lib/weg/annual-statement";
+import { MANUAL_KEYS, type Pruefziel, rowKey } from "@/lib/weg/annual-statement";
 import { computeStatementView, type StatementView } from "@/lib/weg/statement-service";
 import { stimmeKontenDerAbrechnungAb } from "@/lib/weg/kontendiagnose-service";
 import { bauePruefliste, type Pruefliste, type Pruefpunkt } from "@/lib/weg/pruefliste";
@@ -634,11 +634,20 @@ Muster — ersetzt keine Rechtsberatung.`;
               // Sprungziel der Prüfliste: „Verteilung offen: Heizung" führt
               // hierher, nicht bloß auf die Seite.
               id={`verteilung-${row.costTypeId}`}
-              title={`Verteilung je Einheit: ${row.name} — ${euro(zielCents)} (${distributionKeyLabels[row.distributionKey]})`}
+              title={`Verteilung je Einheit: ${row.name} — ${euro(zielCents)} (${statementKeyLabels[row.distributionKey]})`}
             >
               <p className="mb-3 text-sm text-gray-600">
                 Ergebnisse je Einheit erfassen (z. B. aus der Messdienst-Abrechnung). Die Summe
-                muss exakt {euro(zielCents)} ergeben — aktuell erfasst: {euro(savedSum)}.
+                muss exakt {euro(zielCents)} ergeben — aktuell erfasst: {euro(savedSum)}
+                {savedSum !== zielCents
+                  ? savedSum < zielCents
+                    ? `, es fehlen noch ${euro(zielCents - savedSum)}`
+                    : `, das sind ${euro(savedSum - zielCents)} zu viel`
+                  : ""}
+                . Verteilt wird auf die Einheiten, bei denen ein Betrag steht — nicht immer
+                auf alle: <strong>Leer heißt nicht beteiligt</strong>, und die Position
+                erscheint dann nicht auf der Einzelabrechnung dieser Einheit. „0,00“ heißt
+                beteiligt mit null Euro.
               </p>
               {isDraft && row.distributionKey === "VERBRAUCH" ? (
                 <form
@@ -707,7 +716,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                       name={`amount_${u.id}`}
                       defaultValue={cellInput(saved.get(u.id))}
                       inputMode="decimal"
-                      placeholder="0,00"
+                      placeholder="nicht beteiligt"
                       className={`${inputClass} w-24 text-right`}
                       disabled={!isDraft}
                     />
@@ -760,10 +769,10 @@ Muster — ersetzt keine Rechtsberatung.`;
               </thead>
               <tbody>
                 {view.rows.map((r) => (
-                  <tr key={r.costTypeId} className="border-b border-gray-100">
+                  <tr key={rowKey(r)} className="border-b border-gray-100">
                     <td className="py-2 pr-3 font-medium text-gray-900">{r.name}</td>
                     <td className="py-2 pr-3 text-gray-600">
-                      {distributionKeyLabels[r.distributionKey]}
+                      {statementKeyLabels[r.distributionKey]}
                     </td>
                     <td className="py-2 pr-3 text-right text-gray-700">
                       {euro(r.totalCents)}
@@ -803,13 +812,23 @@ Muster — ersetzt keine Rechtsberatung.`;
               Jede Einzelabrechnung lässt sich als druckfertiges PDF (DIN A4) an den jeweiligen
               Eigentümer geben.
             </p>
-            <FilePreviewLink
-              src={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/pdf`}
-              title={`Einzelabrechnungen ${statement.year} — ${property.name}`}
-              className={buttonSecondaryClass}
-            >
-              Alle Einzelabrechnungen als PDF
-            </FilePreviewLink>
+            <div className="flex flex-wrap gap-2">
+              <FilePreviewLink
+                src={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/pdf`}
+                title={`Einzelabrechnungen ${statement.year} — ${property.name}`}
+                className={buttonSecondaryClass}
+              >
+                Alle Einzelabrechnungen als PDF
+              </FilePreviewLink>
+              {/* Das eigene Blatt für den Steuerberater: nur § 35a, je Kostenart. */}
+              <FilePreviewLink
+                src={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/steuerbescheinigung/pdf`}
+                title={`Bescheinigungen § 35a EStG ${statement.year} — ${property.name}`}
+                className={buttonSecondaryClass}
+              >
+                Alle Bescheinigungen § 35a als PDF
+              </FilePreviewLink>
+            </div>
           </div>
           <div className="scroll-schatten overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
@@ -869,7 +888,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                           </span>
                         ) : null}
                       </td>
-                      <td className="py-2 pr-3 text-right text-gray-700">
+                      <td className="py-2 pr-3 text-right text-gray-700 whitespace-nowrap">
                         <a
                           href={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/pdf?einheit=${u.id}`}
                           target="_blank"
@@ -877,6 +896,15 @@ Muster — ersetzt keine Rechtsberatung.`;
                           className="text-sm text-gray-700 underline"
                         >
                           PDF
+                        </a>
+                        <a
+                          href={`/verwaltung/weg/${property.id}/jahresabrechnung/${statement.id}/steuerbescheinigung/pdf?einheit=${u.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="ml-2 text-sm text-gray-500 underline"
+                          title="Bescheinigung nach § 35a EStG für diese Einheit"
+                        >
+                          § 35a
                         </a>
                       </td>
                     </tr>

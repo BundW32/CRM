@@ -24,6 +24,7 @@ import {
 } from "./actions";
 import { DateField } from "@/components/fields";
 import { BuchungForm } from "./BuchungForm";
+import { BelegNachtrag } from "./BelegNachtrag";
 import { ImportClient } from "./ImportClient";
 import { FilePreviewLink } from "@/components/file-preview-link";
 import { Tipp } from "@/components/tipp";
@@ -64,6 +65,9 @@ const FEHLER_TEXTE: Record<string, string> = {
   lohnanteil:
     "Der Lohnanteil konnte nicht gelesen werden. Er gehört nur zu Ausgaben und darf den Rechnungsbetrag nicht übersteigen.",
   beleg: "Der Beleg konnte nicht gespeichert werden (erlaubt: Foto oder PDF).",
+  belegfehlt: "Bitte eine Datei auswählen (Foto oder PDF).",
+  belegvorhanden:
+    "An dieser Buchung hängt schon ein Beleg. Zum Austauschen in der Zeile „ersetzen“ wählen.",
   gleicheskonto: "Quell- und Zielkonto müssen unterschiedlich sein.",
   mapping: "Bitte die Spalten für Datum, Betrag und Verwendungszweck zuordnen.",
   keinezeilen: "Die Datei enthält keine importierbaren Umsätze.",
@@ -74,6 +78,8 @@ const FEHLER_TEXTE: Record<string, string> = {
     "Das Wirtschaftsjahr ist abgeschlossen — für dieses Jahr liegt eine fertige Jahresabrechnung vor. Buchungen abgeschlossener Jahre bleiben unverändert.",
   schonstorniert: "Diese Buchung ist bereits storniert (oder ist selbst eine Stornobuchung).",
   handwerker: "Der gewählte Handwerker gehört nicht zu Ihrer Organisation.",
+  einheit:
+    "Die Direktzuordnung an eine Einheit gilt nur für Ausgaben, und die Einheit muss zu diesem Objekt gehören.",
   verbindlichkeit:
     "Die offene Rechnung wurde nicht gefunden oder ist schon als beglichen markiert. Die Buchung wurde nicht angelegt — bitte ohne Verknüpfung erneut erfassen.",
   // Nachträglich, also nach der Zahlung. Bewusst anders formuliert als die
@@ -178,6 +184,12 @@ export default async function WegBuchhaltungPage({
   if (sp.zuordnung === "offen") {
     bookingAnd.push({ costTypeId: null, kind: "AUSGABE" });
   }
+  // „Ohne Beleg" — die erste Frage jeder Beiratsprüfung. Nur Ausgaben: Ein
+  // Hausgeld-Eingang hat keinen Beleg, das ist kein Mangel. Stornopaare
+  // bleiben draußen, dort ist nichts mehr nachzureichen.
+  if (sp.beleg === "ohne") {
+    bookingAnd.push({ belegStoredName: null, kind: "AUSGABE", ...NOT_REVERSED });
+  }
   const jahr = Number.parseInt(sp.jahr ?? "", 10);
   if (Number.isFinite(jahr) && jahr > 1900 && jahr < 2200) {
     bookingAnd.push({
@@ -196,10 +208,10 @@ export default async function WegBuchhaltungPage({
   const bookingWhere: Prisma.BookingWhereInput = { AND: bookingAnd };
   const sonderfilter = Boolean(sp.buchung || zeitraum);
   const hasFilter = Boolean(
-    q || sp.konto || sp.art || sp.kostenart || sp.jahr || sp.zuordnung || sonderfilter,
+    q || sp.konto || sp.art || sp.kostenart || sp.jahr || sp.zuordnung || sp.beleg || sonderfilter,
   );
 
-  const [handwerkerSummen, alleHandwerker, accounts, costTypes, sums, bookingTotal, bookings, aeltesteBuchung, batches, ohneKostenart, fertigeJahre] = await Promise.all([
+  const [handwerkerSummen, alleHandwerker, accounts, costTypes, sums, bookingTotal, bookings, aeltesteBuchung, batches, ohneKostenart, fertigeJahre, einheiten] = await Promise.all([
     // Jahressummen je Handwerker für die Bauabzugsteuer-Warnung (§ 48 EStG).
     // Bewusst hier und nicht im Client nachgeladen: Die Warnung muss stehen,
     // bevor gebucht wird, und ein Nachladen bei jedem Tastendruck im
@@ -232,6 +244,7 @@ export default async function WegBuchhaltungPage({
       include: {
         account: { select: { name: true, kind: true } },
         costType: { select: { name: true, laborShareType: true, laborSharePercent: true } },
+        directUnit: { select: { label: true } },
         reversedBy: { select: { id: true } },
       },
       orderBy: [toOrderBy(sort.field, sort.dir), { createdAt: "desc" }],
@@ -268,6 +281,12 @@ export default async function WegBuchhaltungPage({
     db.annualStatement.findMany({
       where: { propertyId: property.id, status: "FERTIG" },
       select: { year: true },
+    }),
+    // Für die Direktzuordnung einer Ausgabe an eine Einheit.
+    db.unit.findMany({
+      where: { propertyId: property.id },
+      orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
+      select: { id: true, label: true },
     }),
   ]);
   const lockedYears = new Set(fertigeJahre.map((s) => s.year));
@@ -351,6 +370,11 @@ export default async function WegBuchhaltungPage({
       primary: ohneKostenart > 0,
       options: [{ value: "offen", label: "Ohne Kostenart" }],
     },
+    {
+      key: "beleg",
+      label: "Beleg",
+      options: [{ value: "ohne", label: "Ohne Beleg" }],
+    },
   ];
 
   const pageHref = pageHrefFor(`/verwaltung/weg/${property.id}/buchhaltung`, sp);
@@ -386,6 +410,8 @@ export default async function WegBuchhaltungPage({
             "Umbuchung erfasst."
           ) : sp.gespeichert === "lohnanteil" ? (
             "Lohnanteil gespeichert."
+          ) : sp.gespeichert === "beleg" ? (
+            "Beleg angehängt."
           ) : sp.gespeichert === "zahlung" ? (
             <>
               Buchung erfasst — die offene Rechnung ist in den{" "}
@@ -402,6 +428,9 @@ export default async function WegBuchhaltungPage({
       {sp.import !== undefined ? (
         <Alert variant="success" className="mb-4">
           Import abgeschlossen: {sp.import} Buchung(en) übernommen
+          {sp.zusammengefuehrt && sp.zusammengefuehrt !== "0"
+            ? `, ${sp.zusammengefuehrt} mit vorhandenen Handbuchungen zusammengeführt`
+            : ""}
           {sp.uebersprungen && sp.uebersprungen !== "0"
             ? `, ${sp.uebersprungen} Zeile(n) übersprungen (Duplikate/nicht lesbar)`
             : ""}
@@ -444,7 +473,7 @@ export default async function WegBuchhaltungPage({
       {sonderfilter ? (
         <Alert variant="info" className="mb-4">
           {sp.buchung
-            ? "Gefiltert auf eine einzelne Buchung — aus der Prüfliste der Jahresabrechnung."
+            ? "Gefiltert auf eine einzelne Buchung."
             : `Gefiltert auf das Wirtschaftsjahr${
                 sp.von && sp.bis
                   ? ` ${formatDateOnly(new Date(`${sp.von}T00:00:00.000Z`))} bis ${formatDateOnly(new Date(`${sp.bis}T00:00:00.000Z`))}`
@@ -535,7 +564,8 @@ export default async function WegBuchhaltungPage({
               <BuchungForm
                 propertyId={property.id}
                 konten={accounts.map((a) => ({ id: a.id, name: a.name, artLabel: ledgerAccountKindLabels[a.kind] }))}
-                kostenarten={costTypes.map((c) => ({ id: c.id, name: c.name, constructionWork: c.constructionWork }))}
+                kostenarten={costTypes.map((c) => ({ id: c.id, name: c.name, constructionWork: c.constructionWork, laborShareType: c.laborShareType }))}
+                einheiten={einheiten}
                 handwerker={handwerkerWahl}
                 kiErkennung={isBelegErkennungEnabled()}
                 zahlungFuer={
@@ -712,11 +742,26 @@ export default async function WegBuchhaltungPage({
                     ))}
                   </select>
                 </Field>
+                {/* Direktzuordnung nachträglich: Der Bankimport weiß nicht,
+                    dass die Gasrechnung nur den Kamin von WE 3 betrifft. */}
+                <Field label="Nur für eine Einheit (optional)">
+                  <select name="directUnitId" className={`${inputClass} w-auto`} defaultValue="">
+                    <option value="">— unverändert lassen —</option>
+                    <option value="OHNE">— Direktzuordnung aufheben —</option>
+                    {einheiten.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
                 <PendingButton className={buttonSecondaryClass}>Zuordnen</PendingButton>
                 <Tipp className="w-full">
                   Erst in der Liste auswählen, dann Kostenart wählen und setzen. Umbuchungen
                   tragen keine Kostenart — sie sind kein Aufwand, sondern verschieben Geld
-                  zwischen den Konten der Gemeinschaft.
+                  zwischen den Konten der Gemeinschaft. „Nur für eine Einheit“ stellt eine
+                  Ausgabe dieser Einheit allein in Rechnung, statt sie nach Umlageschlüssel zu
+                  verteilen — für Kosten, die nur sie betreffen.
                 </Tipp>
               </form>
             ) : null}
@@ -796,6 +841,9 @@ export default async function WegBuchhaltungPage({
                               {b.kind === "UMBUCHUNG" ? "—" : "fehlt"}
                             </span>
                           )}
+                          {b.directUnit ? (
+                            <span className="block text-xs text-brand-green">nur {b.directUnit.label}</span>
+                          ) : null}
                         </td>
                         <td className="py-2 pr-3 whitespace-nowrap">
                           {lohnanteilMoeglich ? (
@@ -843,7 +891,23 @@ export default async function WegBuchhaltungPage({
                             >
                               Beleg
                             </FilePreviewLink>
-                          ) : (
+                          ) : null}
+                          {/* Nachträglich anhängen — der Weg für importierte
+                              Buchungen. Umbuchungen tragen keinen Beleg, und
+                              gesperrte Buchungen bleiben, wie sie sind. */}
+                          {b.kind !== "UMBUCHUNG" && !gesperrt ? (
+                            <div className={b.belegStoredName ? "mt-0.5" : ""}>
+                              <BelegNachtrag
+                                propertyId={property.id}
+                                bookingId={b.id}
+                                amountCents={b.amountCents}
+                                bookingDateIso={b.bookingDate.toISOString().slice(0, 10)}
+                                text={b.text}
+                                hatBeleg={b.belegStoredName !== null}
+                                lohnanteilOffen={lohnanteilMoeglich && b.laborShareCents == null}
+                              />
+                            </div>
+                          ) : b.belegStoredName ? null : (
                             <span className="text-gray-300">—</span>
                           )}
                         </td>

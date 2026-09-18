@@ -15,7 +15,9 @@ import { db } from "@/lib/db";
 import { distributionKeyLabels } from "@/lib/labels";
 import { generateEinzelwirtschaftsplaene } from "@/lib/documents/einzelwirtschaftsplan";
 import { generateWirtschaftsplan, type WirtschaftsplanUnit } from "@/lib/documents/wirtschaftsplan";
-import { computeUnitAdvances, monthlyInstallmentPlan } from "@/lib/weg/economic-plan";
+import { advanceKeyFor, computeUnitAdvances, monthlyInstallmentPlan } from "@/lib/weg/economic-plan";
+import { MANUAL_KEYS } from "@/lib/weg/annual-statement";
+import { baueUmlagebasis, umlagebasisZeilen } from "@/lib/weg/umlagebasis";
 
 type PlanWithItems = EconomicPlan & {
   items: (EconomicPlanItem & { costType: CostType })[];
@@ -106,6 +108,23 @@ export async function buildEinzelwirtschaftsplanPdf(args: {
   const auswahl = onlyUnitIds ? new Set(onlyUnitIds) : null;
   const gewaehlt = auswahl ? units.filter((u) => auswahl.has(u.id)) : units;
 
+  // Grundlage der Verteilung: nach welchem Schlüssel der Vorschuss tatsächlich
+  // läuft (Verbrauch/„Betrag je Einheit" → MEA), mit Zähler und Nenner je
+  // Einheit — derselbe Block wie in der Einzelabrechnung.
+  const basis = baueUmlagebasis(units);
+  const planSchluessel = plan.items.map((i) => ({
+    distributionKey: advanceKeyFor(i.costType.distributionKey),
+  }));
+  const vorschussNachMea = plan.items.some((i) => MANUAL_KEYS.includes(i.costType.distributionKey));
+
+  // Bankverbindung der Gemeinschaft — beim Rendern gelesen (Nr. 32), damit sie
+  // immer aktuell ist. Ohne IBAN entfällt der Block.
+  const giro = await db.ledgerAccount.findFirst({
+    where: { propertyId: plan.propertyId, kind: "GIRO", active: true },
+    orderBy: { createdAt: "asc" },
+    select: { iban: true },
+  });
+
   const kopf = await briefkopfAus(await getBrandingForOrg(organizationId));
   return generateEinzelwirtschaftsplaene({
     propertyName,
@@ -122,6 +141,8 @@ export async function buildEinzelwirtschaftsplanPdf(args: {
       return {
         label: u.label,
         ownerNames: ownerNamesByUnit?.get(u.id) ?? [],
+        umlagebasis: umlagebasisZeilen(planSchluessel, basis, u.id),
+        vorschussNachMea,
         positions: plan.items
           .map((i) => ({
             name: i.costType.category === "ERTRAG" ? `${i.costType.name} (Einnahme)` : i.costType.name,
@@ -135,6 +156,7 @@ export async function buildEinzelwirtschaftsplanPdf(args: {
         raten,
       };
     }),
+    bank: giro?.iban ? { inhaber: propertyName, iban: giro.iban } : null,
     generatedAt: new Date(),
   });
 }

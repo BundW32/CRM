@@ -2413,3 +2413,283 @@ technische.
      verweigert. Unverändert: Der Nenner bleibt ein eigenes Feld neben der
      Summe (Nr. 323 ff.), die Mehrheitsrechnung nach § 25 WEG
      (`2 * meaJa > meaTotal`) funktioniert mit Dezimalzahlen unverändert.
+
+## Schritt 49 — Rückmeldung Haneklaus, Pakete 1–3 (18.09.2026)
+
+Basis: `docs/PLAN-Rueckmeldung-Haneklaus.md`. Ein Testnutzer hat mit echten
+Rechnungen und Abrechnungs-PDFs gearbeitet und seine Befunde geschickt; die
+Antwort an ihn nennt zehn Zusagen. Die ersten drei sind hier umgesetzt.
+
+327. **Die Verbindlichkeit kennt ihre Zahlung (`Verbindlichkeit.bookingId`).**
+     Bisher stand die Verknüpfung nur im Audit-Log (`meta.bookingId`); von der
+     beglichenen Rechnung führte kein Weg zur Buchung. Jetzt setzt
+     `createBooking` das Feld beim „Als bezahlt buchen"-Pfad, die Liste zeigt
+     „Zahlung ansehen" (Filter `?buchung=` der Buchhaltung), und „wieder
+     offen" löst die Verknüpfung mit (die Buchung selbst bleibt — Storno ist
+     ihr eigener Weg). Additiv, `onDelete: SetNull`, Migration
+     `20260918090000_verbindlichkeit_booking`. Gebraucht wird das Feld auch
+     vom kommenden Import-Abgleich (Paket A2): Er muss wissen, welche
+     manuelle Buchung eine Rechnung bezahlt hat, um den Bankumsatz damit
+     zusammenzuführen statt eine zweite Ausgabe anzulegen.
+
+328. **Beleg nachträglich an jede Buchung — `attachBeleg`, in der Zeile.**
+     Importierte Bankumsätze hatten grundsätzlich keinen Beleg und konnten
+     keinen bekommen (`name="beleg"` gab es nur im Buchungsformular). Das war
+     die größte Lücke im Rechnungsweg des Testnutzers: Lastschrift des
+     Versorgers → Kontoauszug importieren → und die Rechnung nirgends
+     ablegen. Jetzt trägt jede Einnahme/Ausgabe, die nicht gesperrt ist
+     (Stornopaar, abgeschlossenes Jahr — dieselben Sperren wie Kostenart und
+     Lohnanteil), einen Knopf „Beleg anhängen"; ein vorhandener Beleg wird
+     nicht still überschrieben („ersetzen" ist ein eigener Weg mit
+     `ersetzen=ja`, sonst `fehler=belegvorhanden`). Beim Auswählen liest das
+     Portal die Datei wie im Buchungsformular (lokal, kein Drittdienst) —
+     hier aber zum **Vergleichen**, nicht zum Füllen: Weicht der
+     Rechnungsbetrag vom gebuchten ab oder liegt das Rechnungsdatum nach dem
+     Buchungstag, sagt die Zeile das, bevor der Beleg an der falschen Buchung
+     landet. Angehängt wird trotzdem, wenn man will — Teilzahlung und Skonto
+     sind keine Fehler. Ein erkannter Lohnanteil § 35a wird zur Übernahme
+     angeboten, wenn die Buchung ihn tragen kann und noch keinen hat
+     (`laborShareCents == null`); ein erfasster Wert wird hier nie
+     überschrieben. Dazu der Filter **„Ohne Beleg"** (nur Ausgaben, ohne
+     Stornopaare) — Befund D6 der Buchhaltungsprüfung, die erste Frage jeder
+     Beiratsprüfung. Audit `WEG_BOOKING_BELEG_ATTACHED`.
+
+329. **Leer heißt „nicht beteiligt", nicht „0,00".** `saveManualAmounts`
+     schrieb für jede Einheit einen `StatementUnitAmount`, leere Felder als
+     0 — die Einheit ohne Anteil bekam in ihrer Einzelabrechnung die Zeile
+     mit dem vollen Gemeinschaftsbetrag und „Ihr Anteil 0,00 €" (der Gaskamin,
+     den nur eine Wohnung hat, stand auf allen Abrechnungen). Jetzt löscht ein
+     leeres Feld den Datensatz, „0,00" bleibt möglich und heißt: beteiligt mit
+     null Euro. Der Rechenkern brauchte dafür nichts: `computeStatement` legt
+     `perUnit` bei manuellen Schlüsseln ohnehin nur mit den vorhandenen
+     Einheiten an (Test „Teilmenge"). Die Einzelabrechnung zeigt nur noch
+     Positionen, an denen die Einheit beteiligt ist (`u.id in r.perUnit`), und
+     sagt darunter, wie viele Positionen der Gemeinschaft sie nicht betreffen
+     — eine kürzere Liste ohne diesen Satz sähe unvollständig aus. Alte
+     Snapshots tragen für jede Einheit einen Eintrag und rendern unverändert.
+     Die Betriebskostenabrechnung filterte schon vorher auf Anteil ≠ 0 und ist
+     nicht betroffen. Dazu nennt der Prüfbefund die Differenz („es fehlen noch
+     1.400,00 €" / „… zu viel") statt nur „erfasst X von Y" (Beobachtung aus
+     `REVIEW-WEG-Buchhaltung.md`, Z. 465). **Nicht** gemacht: die
+     Bildschirmtabelle „Einzelabrechnungen" hat keine Spalten je Kostenart,
+     dort gab es kein „0,00" zu ersetzen — der Plan hatte das angenommen.
+
+330. **§ 35a: sagen, warum der Lohnanteil fehlt (Paket 4).** Der Testnutzer
+     meldete „bei Festbetrag und Individuell kann der 35a-Betrag nicht
+     verteilt werden". Im Code gab es keine Sperre, sondern zwei stumme
+     Stellen: `computeLaborShares` überspringt Kostenarten mit
+     `laborShareType = KEINE` und Zeilen ohne `perUnit` (manuelle Verteilung
+     noch offen) — beides ohne Hinweis, und die Abfrage der Lohnanteil-
+     Buchungen in `statement-service.ts` sah Buchungen auf KEINE-Kostenarten
+     gar nicht. Jetzt: (1) Der Befund „Verteilung offen" nennt den
+     Lohnanteil mit („Auch der Lohnanteil § 35a (90,00 €) wird erst nach
+     vollständiger Verteilung ausgewiesen"), damit ihn niemand woanders
+     sucht. (2) Neuer, nicht blockierender Befund `lohnanteil-kennzeichen`:
+     An Buchungen ist ein Lohnanteil erfasst, die Kostenart steht aber auf
+     „kein § 35a" — mit Sprung zu den Kostenarten in den Stammdaten. Dafür
+     liest die Abfrage zusätzlich jede Buchung mit `laborShareCents`, egal
+     welche Kostenart; für KEINE-Kostenarten entsteht daraus nur der Befund,
+     kein Ausweis. Nicht blockierend, weil die Abrechnung stimmt — nur die
+     Steuerbescheinigung wäre unvollständig. (3) Das Buchungsformular sagt
+     beim Eintippen eines Lohnanteils, wenn die gewählte Kostenart (oder
+     „keine") ihn nicht tragen kann; dafür ist `costTypeId` jetzt ein
+     kontrolliertes Feld und `BuchungKostenart` kennt `laborShareType`.
+     (4) Das Stammdaten-Formular erklärt das Kennzeichen beim Anlegen
+     (`Tipp`) und in der Liste (`title`). Der Katalog war schon richtig
+     (Hausmeister, Gartenpflege, Reinigung, Winterdienst, Aufzug,
+     Instandhaltung tragen das Kennzeichen). Kein Schema-Delta.
+
+331. **Direktzuordnung einer Ausgabe an eine Einheit (`Booking.directUnitId`,
+     Paket 5).** Der Gaskamin, den nur eine Wohnung hat: Bisher ging das nur
+     über den Umweg „eigene Kostenart, Schlüssel Individuell, Betrag in der
+     Jahresabrechnung auf eine Einheit". Jetzt wählt man beim Buchen (und in
+     der Massenzuordnung, für importierte Umsätze) „Nur für eine Einheit".
+     **Eigenes Feld neben `unitId`**: Das ist die Zahlungszuordnung des
+     Hausgelds und bedeutet etwas anderes — ein Feld für beides hätte
+     Hausgeld-Eingänge und Direktausgaben nicht mehr unterscheiden lassen.
+     Nur für AUSGABEN; die beiden Relationen Booking↔Unit sind jetzt benannt
+     (`BookingHausgeldUnit`, `BookingDirectUnit`), ohne Wirkung auf die
+     Datenbank. Migration `20260918120000_booking_direct_unit`.
+     **Im Rechenkern eine Zeile je Kostenart und Einheit** mit Schlüssel
+     `DIREKT`, `perUnit` kennt nur diese Einheit — die anderen sind nicht
+     beteiligt (Nr. 329) und sehen die Position nicht; der Lohnanteil § 35a
+     der Direktbuchungen folgt der Zeile und landet ganz bei der Einheit,
+     getrennt vom verteilten Anteil. `DIREKT` ist **kein Wert des
+     Prisma-Enums** (Abweichung vom Plan): ein TypeScript-Typ
+     `StatementKey = DistributionKey | "DIREKT"` (`distribution.ts`) hält ihn
+     aus den Auswahllisten der Kostenarten heraus, ohne Enum-Migration und
+     ohne dass jemand ihn je an einer Kostenart setzen könnte;
+     `statementKeyLabels` beschriftet die Zeilen, `distributionKeyLabels`
+     bleibt für die Kostenarten. Weil Direktzeilen die `costTypeId` mit der
+     verteilten Zeile teilen, liefert `rowKey()` den React-Schlüssel. Aus der
+     Rücklage bezahlte Direktbuchungen zählen wie jede Rücklagenausgabe (nicht
+     umgelegt). Die Vorjahres-Istwerte des Wirtschaftsplans lassen
+     Direktbuchungen aus — sie sind kein Gemeinschaftsaufwand. Die
+     Betriebskostenabrechnung übernimmt den Einheitsanteil wie jede Zeile.
+
+332. **FESTBETRAG und INDIVIDUELL zusammengeführt (Paket 6).** Die beiden
+     Schlüssel standen an jeder Stelle im selben Zweig (`MANUAL_KEYS`,
+     `advanceWeightsForKey`, `anteilVon`, Sonderumlagen-Ausschluss) — sie
+     waren funktional identisch und unterschieden sich nur im Namen. Der
+     Testnutzer fragte, worin der Unterschied liege; es gab keinen. Jetzt:
+     Beide heißen „Betrag je Einheit (manuell erfassen)", die Auswahllisten
+     der Kostenarten nehmen `waehlbareDistributionKeyLabels` (ohne
+     FESTBETRAG), `saveCostType` mappt ein eingehendes FESTBETRAG auf
+     INDIVIDUELL, und die Migration
+     `20260918130000_festbetrag_zusammenfuehren` setzt den Bestand um.
+     **Der Enum-Wert bleibt**: Fertige Abrechnungen tragen ihn im Snapshot,
+     und Postgres lässt einen Enum-Wert nicht ohne Neubau des Typs entfernen;
+     weil beide gleich beschriftet sind, zeigt eine alte Abrechnung denselben
+     Namen wie eine neue. Alle Codestellen, die beide nennen, bleiben — sie
+     behandeln den alten Wert weiter richtig. Der Erklärtext am Schlüssel
+     verweist für Kosten einer einzelnen Einheit auf die Direktzuordnung
+     (Nr. 331), damit niemand den manuellen Schlüssel dafür missbraucht.
+
+333. **Einzelabrechnung: umlagefähig / nicht umlagefähig, § 35a je Kostenart,
+     Bescheinigung als eigenes Blatt (Paket 7).** Drei Wünsche aus dem
+     Produkttest, alle an derselben Seite. (1) Die Kostentabelle steht jetzt
+     in zwei Blöcken mit Zwischensummen — „Umlagefähige Kosten (BetrKV)" und
+     „Nicht umlagefähige Kosten" —, gespeist aus dem vorhandenen
+     `CostType.recoverableBetrKV`, das bisher nur die Betriebskostenabrechnung
+     las (Nr. 64). Das Kennzeichen wandert dafür in die Abrechnungszeilen und
+     damit in den Snapshot (`rows[].recoverableBetrKV`); **alte Snapshots
+     ohne Kennzeichen zeigen weiter einen Block** (`zeichneKostenBloecke`
+     prüft, ob irgendeine Zeile es trägt). Rücklagenzuführung und Entnahme
+     tragen keins und landen im nicht umlagefähigen Block — richtig so.
+     (2) Die Schlüsselspalte der Positionen zeigt nur noch den Namen des
+     Schlüssels (`umlageschluesselText`, Heizkosten behalten den
+     HeizkostenV-Text); Zähler und Nenner stehen im Kopfblock „Grundlage der
+     Verteilung" und wiederholten sich in jeder Zeile — der Kunde fand das
+     unübersichtlich, und er hat recht. (3) `computeLaborDetail` liefert die
+     § 35a-Aufstellung je Kostenart und Einheit über dieselbe `distributeAlong`
+     wie `computeLaborShares`, damit die Zeilen exakt die Summen ergeben
+     (Test). Sie steht als `laborDetail` im Snapshot; ältere Snapshots rechnen
+     sie aus ihren Zeilen nach (`laborDetailAus`). Die Einzelabrechnung zeigt
+     sie als Tabelle über den beiden Summen, und das neue Dokument
+     `documents/steuerbescheinigung.ts` gibt sie als eigenes Blatt je Einheit
+     aus — nur § 35a, mit dem Hinweis auf unbare Zahlung und Belege (§ 35a
+     Abs. 5 EStG). Routen wie bei der Einzelabrechnung: Verwalter mit
+     `?einheit=`, Eigentümer nur für FERTIGe Abrechnungen; ein gemeinsamer
+     Bauer (`steuerbescheinigung-pdf.ts`) nach dem Muster von Nr. 52. Damit
+     ist Befund C2 der Buchhaltungsprüfung („der Steuerberater will ein
+     Blatt") geschlossen.
+
+334. **Einzelwirtschaftsplan: Umlageschlüssel im Kopf, Bankverbindung unter
+     dem Hausgeld (Paket 8).** Der Kunde hatte den Block „Grundlage der
+     Verteilung" in der Einzelabrechnung gelobt und im Einzelwirtschaftsplan
+     vermisst; dort stand je Position nur der Name des Schlüssels. Jetzt
+     zeichnet ein gemeinsamer Zeichner (`documents/umlagebasis-block.ts`) den
+     Block in beiden Dokumenten — eine Quelle, kein Auseinanderlaufen. Im
+     Plan werden die Bezugsgrößen nach dem **tatsächlich angesetzten**
+     Schlüssel gebildet (`advanceKeyFor`: Verbrauch und „Betrag je Einheit"
+     → MEA), und der Satz dazu, der bisher nur auf der Bildschirmseite stand,
+     steht als Hinweis unter dem Block. Die IBAN des ersten aktiven
+     Girokontos wird beim Rendern gelesen (Nr. 32, wie bei der Mahnung) und
+     mit Kontoinhaber, Verwendungszweck „Hausgeld <Einheit>" und Fälligkeit
+     unter das Panel „Monatliches Hausgeld" gesetzt — dort, wo die Frage
+     „wohin?" entsteht. Ohne IBAN entfällt der Block; die Planseite sagt dann
+     mit Link in die Stammdaten, was fehlt. Der Gesamtwirtschaftsplan bekommt
+     den Kopfblock nicht: Dort steht die Verteilung je Einheit ohnehin in der
+     Tabelle.
+
+335. **Bankimport gleicht gegen Handbuchungen ab (Paket 9).** Der Fall aus dem
+     Produkttest: Rechnung über „Als bezahlt buchen" erfasst (Beleg, Kostenart,
+     Lohnanteil, Verbindlichkeit dran), Wochen später der Kontoauszug — und die
+     Überweisung stand zweimal im Buch, weil der Duplikatschutz nur den
+     `dedupeHash` kennt und Handbuchungen keinen haben. Jetzt findet
+     `findeManuelleZwillinge` (`import-abgleich.ts`, reine Funktion, getestet)
+     zu jeder importierten Zeile die Handbuchung desselben Kontos mit
+     gleichem Betrag, gleicher Richtung und Buchungstag im Fenster von fünf
+     Tagen; jede Seite höchstens einmal, bei mehreren Kandidaten gewinnt der
+     nächste Tag. Die Vorschau zeigt die Paare (Bank ↔ Handbuchung mit
+     Kostenart, Beleg, bezahlter Verbindlichkeit) und fragt je Paar:
+     **„Zusammenführen (empfohlen)"** oder „Trotzdem neu anlegen". Der Server
+     rechnet die Zwillinge beim Import **neu** (wie die Zuordnungsvorschläge:
+     aus dem Browser kommt nur die Entscheidung) und führt zusammen, indem die
+     Handbuchung `dedupeHash`, Verwendungszweck, Wertstellung und — wo leer —
+     den Zahlungspartner der Bank bekommt; Beleg, Kostenart, Lohnanteil und
+     Verbindlichkeit bleiben. **Bewusst ohne `importBatchId`**: „Import
+     zurücknehmen" löscht die Buchungen des Imports (`deleteMany` über die
+     Batch-ID), und eine Handbuchung mit Beleg darf dabei nicht verschwinden;
+     der Hash allein verhindert, dass derselbe Umsatz je wieder hereinkommt.
+     Schlägt die Aktualisierung fehl (`updateMany` mit `dedupeHash: null`
+     trifft nichts, weil die Handbuchung inzwischen selbst einen Hash hat),
+     wird die Zeile doch angelegt. Zeilen mit Zwilling bekommen keinen
+     Zuordnungsvorschlag und gehen nicht an die KI — die Handbuchung trägt die
+     Zuordnung schon. Dazu die sechste Verdachtart der Kontendiagnose,
+     `doppelt-erfasst`: zwei Ausgaben gleicher Höhe wenige Tage auseinander,
+     eine von Hand, eine importiert (`DiagnoseBuchung.importiert` aus dem
+     Hash), wenn der Auszug genau diesen Betrag weniger ausweist — mit Sprung
+     zur Handbuchung. So nennt die Abstimmung zum Jahresende die
+     wahrscheinlichste Ursache statt nur die Abweichung. Der Verwalter, der
+     schon nach der alten Arbeitsregel gearbeitet hat (nur „als beglichen
+     markieren", wenn der Auszug regelmäßig importiert wird), verliert nichts:
+     ohne Handbuchung gibt es keinen Zwilling.
+
+336. **Automatische Abmeldung bei Inaktivität, je Konto wählbar (Paket 10).**
+     Rückmeldung aus dem Produkttest 09/2026: Ein Beirat, der am gemeinsam
+     genutzten Rechner arbeitet, will nach einer Weile automatisch draußen
+     sein — die sieben Tage der Anmeldung sind dort zu lang. Neue Karte
+     „Automatische Abmeldung" unter *Konto* mit den Stufen aus, 15, 30 und
+     60 Minuten (`IDLE_TIMEOUT_STUFEN`); gespeichert als
+     `User.idleTimeoutMinutes`, eine Vorliebe der Person wie die Hinweise,
+     nicht der Organisation. **Die Regel steht im Token, nicht nur in der
+     Datenbank:** `createSession` schreibt `idle` (Minuten) und `lat`
+     (letzte Aktivität, Unix-Sekunden) hinein, weil der Proxy — Edge, ohne
+     Datenbank — die einzige Stelle ist, die bei einer gewöhnlichen
+     Seitenanfrage einen Cookie setzen kann. Er schreibt `lat` fort, sobald
+     es eine Minute alt ist (nicht bei jedem Klick ein neuer Cookie;
+     Vorab-Ladungen des Routers zählen nicht als Aktivität), lässt `iat` und
+     `exp` dabei stehen (Sieben-Tage-Obergrenze und Widerruf über
+     `sessionsValidFrom` rechnen mit dem Ausstellungszeitpunkt) und leitet
+     bei einem Seitenaufruf nach Ablauf auf `/login?grund=inaktiv` um, wo
+     die Anmeldeseite den Grund nennt. Die Rechenregel liegt in
+     `session-inaktiv.ts` (rein, getestet) und gilt in `getSession` als
+     Gegenprobe für alles, was am Proxy vorbeigeht (API-Routen,
+     Server-Actions) — beide lesen dasselbe `lat` aus dem Token und kommen
+     zwingend zum selben Schluss; die Datenbank wird bewusst **nicht** als
+     zweite Quelle befragt, sonst könnte der Proxy eine Sitzung erneuern,
+     die der Server schon verwirft. Folge: Eine Änderung der Stufe wirkt auf
+     dem eigenen Gerät sofort (die Aktion stellt das Token neu aus), auf
+     anderen Geräten mit deren nächster Anmeldung — die Karte sagt das.
+     Ein Token ohne `lat` gilt als abgelaufen, sobald ein Timeout gesetzt
+     ist: Eine Sitzung, deren letzte Aktivität niemand kennt, läuft nicht
+     auf Verdacht weiter. Bei einer Stellvertretung („Als Kunde ansehen")
+     speichert die Aktion nur die Einstellung des Kunden und stellt **kein**
+     Token neu aus — `createSession(kunde)` machte aus der Stellvertretung
+     eine echte Anmeldung als Kunde, ohne Hinweisleiste und ohne Protokoll.
+     Ohne Einstellung ändert sich nichts: `idle` 0 heißt wie bisher sieben
+     Tage.
+
+337. **Handbuch im Portal, alle Bereiche, je Rolle gefiltert (Paket 11).** Die
+     Zusage aus der Kundenantwort war das Kapitel „Rechnungen"; gebaut ist
+     das ganze Handbuch: 27 Kapitel in sechs Bereichen (Erste Schritte,
+     Alltag, Gemeinschaft, Finanzen, Betrieb, Konto und Einstellungen), als
+     Markdown unter `src/content/hilfe/*.md` mit einem kleinen Kopf (Titel,
+     Kurzsatz, Bereich, Reihenfolge, Rollen, optional „nur
+     selbstverwaltung/professionell"). **Kein CMS, kein Drittdienst, keine
+     Markdown-Bibliothek:** Der Leser in `lib/hilfe/markdown.ts` kann
+     Überschriften, Absätze, Listen, Tabellen, Zitate und Auszeichnungen im
+     Satz — mehr brauchen die Kapitel nicht, und was er nicht kennt, bleibt
+     Text; rohes HTML wird nie ausgegeben. Die Kapitel liegen im Repository
+     neben dem Code, den sie beschreiben, und ändern sich im selben Commit;
+     `next.config.ts` nimmt den Ordner in die Ablauf-Verfolgung auf, sonst
+     fehlten die Dateien im Serverless-Bundle (wie die Schriften der
+     PDF-Erzeugung). Die Übersicht `/hilfe` zeigt jeder Person nur die
+     Kapitel ihrer Rolle und Verwaltungsart — ein Mieter bekommt keine
+     Jahresabrechnung erklärt, ein Selbstverwalter keine Vorgänge —, ein
+     direkter Link führt aber immer hin: Das Handbuch enthält keine
+     Geheimnisse, und ein Eigentümer, dem der Verwalter einen Link schickt,
+     soll ihn öffnen können. Vor und Zurück blättern nur durch die eigenen
+     Kapitel. Menüpunkt „Handbuch" als letzter Punkt jeder Rolle in
+     `app-nav.ts` (damit auch in der ⌘K-Palette), Link im Kopf der
+     Hilfe-Lasche, Eintrag in `HELP_TOPICS` für den Assistenten. Die
+     Verbindlichkeiten-Seiten verlinken das Kapitel „Rechnungen und Belege"
+     **außerhalb** des `<Tipp>`, damit der Weg auch mit abgeschalteten
+     Erklärungen bleibt. `lib/hilfe/handbuch.test.ts` prüft jeden internen
+     Link gegen die Seiten des Portals und jeden Kapitel-Anker gegen die
+     Überschriften — ein Handbuch, das ins Leere verweist, ist schlimmer als
+     keines. Die Texte nennen die Beschriftungen der Knöpfe und Felder
+     wörtlich, wie sie im Code stehen; Bildschirmfotos aus dem Plan sind
+     bewusst weggelassen: Sie veralten mit jeder Änderung der Oberfläche,
+     ein Text mit den echten Beschriftungen nicht.

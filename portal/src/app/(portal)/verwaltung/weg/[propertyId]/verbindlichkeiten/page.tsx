@@ -33,6 +33,7 @@ type Zeile = {
   dueDate: Date | null;
   settledAt: Date | null;
   note: string | null;
+  bookingId: string | null;
 };
 
 export default async function VerbindlichkeitenPage({
@@ -62,6 +63,7 @@ export default async function VerbindlichkeitenPage({
       dueDate: true,
       settledAt: true,
       note: true,
+      bookingId: true,
     },
   })) as Zeile[];
 
@@ -106,7 +108,21 @@ export default async function VerbindlichkeitenPage({
       header: "Status",
       cell: (v) =>
         v.settledAt ? (
-          <Badge tone="success">beglichen {formatDateOnly(v.settledAt)}</Badge>
+          <div>
+            <Badge tone="success">beglichen {formatDateOnly(v.settledAt)}</Badge>
+            {/* Von der Rechnung zur Zahlung: die Buchung, die sie beglichen hat.
+                Ohne Verknüpfung (Zahlung kam über den Bankimport) gibt es
+                nichts zu zeigen — der Beleg hängt dann an der importierten
+                Buchung. */}
+            {v.bookingId ? (
+              <Link
+                href={`/verwaltung/weg/${property.id}/buchhaltung?buchung=${v.bookingId}`}
+                className="mt-1 block text-xs text-gray-500 underline"
+              >
+                Zahlung ansehen
+              </Link>
+            ) : null}
+          </div>
         ) : (
           <Badge tone="warning">offen</Badge>
         ),
@@ -235,6 +251,13 @@ export default async function VerbindlichkeitenPage({
           der übliche Weg bei einer Handwerkerrechnung. Kam die Zahlung schon über den
           Bankimport herein, genügt „nur als beglichen markieren“.
         </Tipp>
+        {/* Bewusst außerhalb des <Tipp>: Der Weg zur Anleitung bleibt auch
+            dem erreichbar, der die Erklärungen abgeschaltet hat. */}
+        <p className="mt-2 text-xs">
+          <Link href="/hilfe/rechnungen" className="text-brand-green hover:underline">
+            Handbuch: Rechnungen und Belege — die drei Wege, wie eine Rechnung ins Buch kommt
+          </Link>
+        </p>
       </Card>
       </div>
 

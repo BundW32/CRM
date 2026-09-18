@@ -16,7 +16,8 @@ import {
 } from "@/lib/eigene-daten";
 import { isMailEnabled, portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { createSession, requireUser, revokeSessions } from "@/lib/session";
+import { createSession, getSession, requireUser, revokeSessions } from "@/lib/session";
+import { istIdleTimeoutStufe, loginNachInaktivitaet } from "@/lib/session-inaktiv";
 import { IMAGE_TYPES, deleteBlob, saveBuffer } from "@/lib/storage";
 import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 
@@ -284,4 +285,30 @@ export async function saveShowHints(formData: FormData) {
   });
   revalidatePath("/", "layout");
   redirect(backTo("?gespeichert=hinweise"));
+}
+
+// ── Automatische Abmeldung bei Inaktivität ──────────────────────────────────
+// Rückmeldung aus dem Produkttest 09/2026: Wer am gemeinsam genutzten Rechner
+// arbeitet, will nach einer Weile automatisch draußen sein. Eine Vorliebe der
+// Person, deshalb am Nutzer. Die Stufe steht im Sitzungs-Token — das eigene
+// Gerät bekommt sofort ein neues, andere Geräte übernehmen sie mit der
+// nächsten Anmeldung (`createSession`).
+//
+// Bei einer Stellvertretung („Als Kunde ansehen") wird nur die Einstellung
+// des Kunden gespeichert; die Sitzung des Betreibers bleibt unangetastet —
+// ein `createSession(kunde)` machte aus der Stellvertretung eine echte
+// Anmeldung als Kunde, ohne Hinweisleiste und ohne Protokoll.
+export async function saveIdleTimeout(formData: FormData) {
+  const { user, impersonating, inaktivNach } = await getSession();
+  if (!user) redirect(inaktivNach ? loginNachInaktivitaet(inaktivNach) : "/login");
+  const minuten = Number(formData.get("idleTimeoutMinutes"));
+  if (!Number.isInteger(minuten) || !istIdleTimeoutStufe(minuten)) redirect(backTo("#abmeldung"));
+
+  await db.user.update({
+    where: { id: user.id },
+    data: { idleTimeoutMinutes: minuten === 0 ? null : minuten },
+  });
+  if (!impersonating) await createSession(user.id);
+  revalidatePath("/konto");
+  redirect(backTo("?gespeichert=abmeldung#abmeldung"));
 }

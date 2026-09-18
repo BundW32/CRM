@@ -551,13 +551,21 @@ export default async function FinanzenPage({
                           );
                         })
                       : null}
-                    <div className="mt-3">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <FilePreviewLink
                         src={`/finanzen/abrechnung/${s.id}/pdf`}
                         title={`Meine Einzelabrechnung ${s.year}`}
                         className={buttonSecondaryClass}
                       >
                         Meine Einzelabrechnung als PDF
+                      </FilePreviewLink>
+                      {/* Für die Steuererklärung: nur die § 35a-Aufstellung, ein Blatt. */}
+                      <FilePreviewLink
+                        src={`/finanzen/abrechnung/${s.id}/steuerbescheinigung/pdf`}
+                        title={`Bescheinigung § 35a EStG ${s.year}`}
+                        className={buttonSecondaryClass}
+                      >
+                        Bescheinigung § 35a als PDF
                       </FilePreviewLink>
                     </div>
                     <ReviewBlock

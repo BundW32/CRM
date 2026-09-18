@@ -13,7 +13,7 @@
 // die Zeilen für einen Block „Grundlage der Verteilung" im Kopf der Abrechnung
 // und der kurze Anteil, der hinter dem Schlüssel in der Tabelle steht.
 import type { DistributionKey } from "@/generated/prisma/client";
-import type { UnitForDistribution } from "./distribution";
+import type { StatementKey, UnitForDistribution } from "./distribution";
 import { formatMea, summeMea } from "./mea";
 
 export type UmlagebasisEinheit = {
@@ -73,7 +73,7 @@ const flaeche = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maxim
  * individuell) oder die Einheit keinen Wert dafür trägt.
  */
 export function anteilVon(
-  key: DistributionKey,
+  key: StatementKey,
   basis: Umlagebasis,
   unitId: string,
 ): { einheit: string; gesamt: string } | null {
@@ -110,7 +110,7 @@ export function anteilVon(
  */
 export function schluesselMitAnteil(
   label: string,
-  row: { distributionKey: DistributionKey; heatingCost?: boolean | null },
+  row: { distributionKey: StatementKey; heatingCost?: boolean | null },
   basis: Umlagebasis | null | undefined,
   unitId: string,
 ): string {
@@ -140,12 +140,12 @@ const NAMEN: Partial<Record<DistributionKey, string>> = {
  * auch wenn ihr Schlüssel „Verbrauch" heißt.
  */
 export function umlagebasisZeilen(
-  rows: { distributionKey: DistributionKey; heatingCost?: boolean | null }[],
+  rows: { distributionKey: StatementKey; heatingCost?: boolean | null }[],
   basis: Umlagebasis | null | undefined,
   unitId: string,
 ): UmlagebasisZeile[] {
   if (!basis) return [];
-  const genutzt = new Set<DistributionKey>();
+  const genutzt = new Set<StatementKey>();
   for (const r of rows) {
     genutzt.add(r.distributionKey);
     if (r.heatingCost) genutzt.add("FLAECHE");

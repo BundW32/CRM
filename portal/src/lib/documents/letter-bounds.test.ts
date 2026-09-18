@@ -28,6 +28,7 @@ import { generateMeetingInvitation } from "./meeting-invitation";
 import { renderPlatformInvoicePdf } from "./platform-invoice";
 import { generateWirtschaftsplan } from "./wirtschaftsplan";
 import { generateEinzelabrechnungen } from "./einzelabrechnung";
+import { generateSteuerbescheinigungen } from "./steuerbescheinigung";
 import { generateMeetingProtocol } from "./meeting-protocol";
 import { generateBeschlussSammlung } from "./beschluss-sammlung";
 import { generateVerwaltervertrag } from "./verwaltervertrag";
@@ -399,7 +400,7 @@ describe("Wirtschaftsplan: Satzspiegel", () => {
     expect(alle).toContain("WE 30");
   });
 
-  it("Einzelwirtschaftsplan hält die Ränder", async () => {
+  it("Einzelwirtschaftsplan hält die Ränder — mit Umlageschlüssel-Kopf und Bankverbindung", async () => {
     const pdf = await generateEinzelwirtschaftsplaene({
       propertyName: "Wohnungseigentümergemeinschaft Lindenhof, Lindenstraße 12–16, 45964 Gladbeck-Zweckel",
       issuer: langerKitIssuer,
@@ -409,6 +410,11 @@ describe("Wirtschaftsplan: Satzspiegel", () => {
         {
           label: "WE 07 · 3. OG rechts",
           ownerNames: ["Ayşe Şahin-Grünewald", "Krzysztof Wiśniewski-Öztürk"],
+          umlagebasis: [
+            { schluessel: "Miteigentumsanteile", einheit: "250,17", gesamt: "1.000" },
+            { schluessel: "Wohn-/Nutzfläche", einheit: "90,00 m²", gesamt: "500,00 m²" },
+          ],
+          vorschussNachMea: true,
           positions: positionen.map((p) => ({
             name: p.name,
             keyLabel: p.keyLabel,
@@ -418,9 +424,42 @@ describe("Wirtschaftsplan: Satzspiegel", () => {
           raten: monthlyInstallmentPlan(445750, "ZEHN_CENT"),
         },
       ],
+      bank: { inhaber: "WEG Lindenhof, Lindenstraße 12–16", iban: "DE02 1203 0000 0000 2020 51" },
       generatedAt: new Date(2026, 6, 29),
     });
-    assertInsideMargins(await drawnTexts(pdf));
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    const alle = items.map((it) => it.text).join(" ");
+    expect(alle).toContain("Grundlage der Verteilung");
+    expect(alle).toContain("Vorschuss nach Miteigentumsanteilen");
+    expect(alle).toContain("DE02 1203 0000 0000 2020 51");
+    expect(alle).toContain("Hausgeld WE 07");
+  });
+
+  it("Einzelwirtschaftsplan ohne IBAN und ohne Bezugsgrößen bleibt wie bisher", async () => {
+    const pdf = await generateEinzelwirtschaftsplaene({
+      propertyName: "WEG Lindenhof",
+      issuer: langerKitIssuer,
+      year: 2027,
+      resolved: null,
+      units: [
+        {
+          label: "WE 01",
+          ownerNames: [],
+          positions: positionen.slice(0, 3).map((p) => ({
+            name: p.name,
+            keyLabel: p.keyLabel,
+            totalCents: p.amountCents,
+            shareCents: Math.round(p.amountCents / 12),
+          })),
+          raten: monthlyInstallmentPlan(120000, "CENT"),
+        },
+      ],
+      generatedAt: new Date(2026, 6, 29),
+    });
+    const alle = (await drawnTexts(pdf)).map((it) => it.text).join(" ");
+    expect(alle).not.toContain("Grundlage der Verteilung");
+    expect(alle).not.toContain("Bankverbindung");
   });
 });
 
@@ -472,6 +511,105 @@ describe("Berichte: Satzspiegel", () => {
     const alle = items.map((it) => it.text).join(" ");
     expect(alle).toContain("35a");
     expect(alle).toContain("Nachschuss");
+  });
+
+  it("Einzelabrechnung trennt umlagefähig / nicht umlagefähig mit Zwischensummen und listet § 35a je Kostenart", async () => {
+    const pdf = await generateEinzelabrechnungen({
+      propertyName: "WEG Lindenhof",
+      issuer: langerKitIssuer,
+      year: 2026,
+      periodLabel: "01.01.2026 – 31.12.2026",
+      finalizedAt: new Date(2027, 2, 14),
+      units: [
+        {
+          label: "WE 03",
+          owners: [{ name: "Günter Haneklaus", days: 365, cents: 0 }],
+          uncoveredCents: 0,
+          umlagebasis: [{ schluessel: "Miteigentumsanteile", einheit: "250,17", gesamt: "1.000" }],
+          costRows: [
+            ...Array.from({ length: 14 }, (_, i) => ({
+              name: `${langerName} umlagefähig ${i + 1}`,
+              keyLabel: "Miteigentumsanteile (MEA)",
+              totalCents: 100_000,
+              shareCents: 25_017,
+              recoverable: true,
+            })),
+            ...Array.from({ length: 12 }, (_, i) => ({
+              name: `${langerName} nicht umlagefähig ${i + 1}`,
+              keyLabel: "Wohn-/Gewerbeeinheiten (gleichmäßig)",
+              totalCents: 50_000,
+              shareCents: 12_500,
+              recoverable: false,
+            })),
+          ],
+          kostenanteilCents: 500_238,
+          sollCents: 480_000,
+          peakCents: 20_238,
+          laborHaushaltsnahCents: 41_200,
+          laborHandwerkerCents: 18_700,
+          laborUnerfasstCents: 0,
+          laborRows: Array.from({ length: 8 }, (_, i) => ({
+            name: `${langerName} § 35a ${i + 1}`,
+            keyLabel: "Miteigentumsanteile (MEA)",
+            art: i % 2 === 0 ? ("haushaltsnah" as const) : ("handwerker" as const),
+            gesamtCents: 30_000,
+            anteilCents: 7_505,
+          })),
+        },
+      ],
+      generatedAt: new Date(2027, 2, 14),
+    });
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    const alle = items.map((it) => it.text).join(" ");
+    expect(alle).toContain("Summe umlagefähige Kosten");
+    expect(alle).toContain("Summe nicht umlagefähige Kosten");
+    expect(alle).toContain("Lohnanteil gesamt");
+    // Zwischensumme des umlagefähigen Blocks: 14 × 25.017 = 350.238
+    expect(alle).toContain("3.502,38");
+  });
+
+  it("Bescheinigung § 35a hält die Ränder und behält jede Position", async () => {
+    const pdf = await generateSteuerbescheinigungen({
+      propertyName: "Wohnungseigentümergemeinschaft Lindenhof, Lindenstraße 12–16, 45964 Gladbeck-Zweckel",
+      issuer: langerKitIssuer,
+      year: 2026,
+      periodLabel: "01.01.2026 – 31.12.2026",
+      finalizedAt: new Date(2027, 2, 14),
+      units: [
+        {
+          label: "WE 07 · Dachgeschoss links",
+          owners: [{ name: "Ayşe Şahin-Grünewald", days: 365, cents: 0 }],
+          laborRows: Array.from({ length: 28 }, (_, i) => ({
+            name: `${langerName} ${i + 1}`,
+            keyLabel: "70 % Verbrauch, 30 % Wohnfläche",
+            art: i % 3 === 0 ? ("handwerker" as const) : ("haushaltsnah" as const),
+            gesamtCents: 123_456,
+            anteilCents: 10_288,
+          })),
+          laborHaushaltsnahCents: 195_472,
+          laborHandwerkerCents: 92_592,
+          laborUnerfasstCents: 9_800,
+        },
+        {
+          label: "WE 08",
+          owners: [],
+          laborRows: [],
+          laborHaushaltsnahCents: 0,
+          laborHandwerkerCents: 0,
+          laborUnerfasstCents: 0,
+        },
+      ],
+      generatedAt: new Date(2027, 2, 14),
+    });
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    const alle = items.map((it) => it.text).join(" ");
+    expect(alle).toContain("35a");
+    for (let i = 1; i <= 28; i++) expect(alle).toContain(`${langerName} ${i}`);
+    expect(alle).toContain("keine begünstigten Aufwendungen");
+    const pages = (await PDFDocument.load(pdf)).getPageCount();
+    expect(pages).toBeGreaterThanOrEqual(3);
   });
 
   it("Protokoll hält die Ränder und behält jedes Ergebnis", async () => {

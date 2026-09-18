@@ -404,6 +404,10 @@ model User {
   // der Organisation: Zwei Eigentümer derselben WEG dürfen es verschieden
   // wollen. Warnungen und Fehlermeldungen hängen NICHT daran.
   showHints                   Boolean                     @default(true)
+  // Automatische Abmeldung nach Minuten ohne Aktivität; null = aus (nur die
+  // Sieben-Tage-Obergrenze der Sitzung). Wandert bei der Anmeldung als `idle`
+  // ins Sitzungs-Token; der Proxy hält `lat` (letzte Aktivität) nach.
+  idleTimeoutMinutes          Int?
   // Wann die geführte Einrichtung durchlaufen wurde. `null` = noch nie —
   // dann erscheint sie einmal von selbst. Zurücksetzen startet sie neu.
   tourDoneAt                  DateTime?
@@ -650,7 +654,8 @@ model Unit {
   personCount          Int? // Personenzahl (Umlageschlüssel PERSONEN)
   orderIndex           Int                   @default(0)
   duePostings          DuePosting[]
-  hausgeldPayments     Booking[] // zugeordnete Zahlungseingänge (Hausgeld)
+  hausgeldPayments     Booking[]            @relation("BookingHausgeldUnit") // zugeordnete Zahlungseingänge (Hausgeld)
+  directBookings       Booking[]            @relation("BookingDirectUnit") // direkt zugeordnete Ausgaben (nicht umgelegt)
   unitOwnerships       UnitOwnership[]
   statementUnitAmounts StatementUnitAmount[]
   hausgeldMahnungen    HausgeldMahnung[]
@@ -1609,7 +1614,15 @@ model Booking {
   costType             CostType?           @relation(fields: [costTypeId], references: [id], onDelete: SetNull)
   // Zahlungszuordnung: Hausgeld-Eingang einer Einheit zugeordnet (offene Posten)
   unitId               String?
-  unit                 Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unit                 Unit?               @relation("BookingHausgeldUnit", fields: [unitId], references: [id], onDelete: SetNull)
+  // Direktzuordnung einer AUSGABE: Diese Kosten trägt genau diese Einheit
+  // allein — sie werden nicht nach dem Umlageschlüssel der Kostenart verteilt,
+  // sondern ihr in der Jahresabrechnung vollständig in Rechnung gestellt
+  // (Gasrechnung für den Kamin, den nur eine Wohnung hat). Bewusst ein
+  // eigenes Feld neben `unitId`: Das ist die Zahlungszuordnung des Hausgelds
+  // und bedeutet etwas anderes. Rückmeldung aus dem Produkttest 09/2026.
+  directUnitId         String?
+  directUnit           Unit?               @relation("BookingDirectUnit", fields: [directUnitId], references: [id], onDelete: SetNull)
   // Wer bezahlt wurde — als Verknüpfung, nicht als getippter Name.
   //
   // `counterparty` bleibt daneben bestehen und ist weiterhin der Normalfall:
@@ -1649,6 +1662,8 @@ model Booking {
   reversedBy           Booking?            @relation("BookingReversal")
   // Auf welche Forderungen diese Zahlung angerechnet wurde (§§ 366, 367 BGB).
   allocations          PaymentAllocation[]
+  // Verbindlichkeiten, die mit dieser Buchung bezahlt wurden.
+  verbindlichkeiten    Verbindlichkeit[]   @relation("VerbindlichkeitBooking")
   // ── Bauabzugsteuer (§§ 48, 48a EStG) ──────────────────────────────────────
   // Tatsächlich einbehaltener Betrag. `null` heißt „nicht einbehalten" — das
   // ist der Normalfall (keine Bauleistung oder Freistellungsbescheinigung) und
@@ -1678,6 +1693,7 @@ model Booking {
   @@index([costTypeId])
   @@index([importBatchId])
   @@index([unitId])
+  @@index([directUnitId])
   @@index([craftsmanId])
 }
 
@@ -2214,12 +2230,20 @@ model Verbindlichkeit {
   // **vor** diesem Datum — gelöscht wird nichts, sonst änderte sich ein bereits
   // beschlossener Vermögensbericht rückwirkend.
   settledAt      DateTime?
+  // Die Buchung, mit der die Verbindlichkeit bezahlt wurde („Als bezahlt
+  // buchen"). Bisher stand die Verknüpfung nur im Audit-Log — damit ließ sich
+  // von der Rechnung nicht zur Zahlung springen, und der Bankimport konnte
+  // nicht erkennen, dass eine Überweisung schon von Hand gebucht ist.
+  // Leer bei „nur als beglichen markieren" (Zahlung kam über den Bankimport).
+  bookingId      String?
+  booking        Booking?            @relation("VerbindlichkeitBooking", fields: [bookingId], references: [id], onDelete: SetNull)
   createdById    String
   createdBy      User                @relation("VerbindlichkeitCreatedBy", fields: [createdById], references: [id])
   createdAt      DateTime            @default(now())
 
   @@index([propertyId])
   @@index([propertyId, settledAt])
+  @@index([bookingId])
 }
 
 // ── Verwalter-Plus: Ticket-System zum zertifizierten Verwalter (§ 26a WEG) ───

@@ -19,7 +19,14 @@ import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { createBooking } from "./actions";
 
 export type BuchungKonto = { id: string; name: string; artLabel: string };
-export type BuchungKostenart = { id: string; name: string; constructionWork: boolean };
+export type BuchungEinheit = { id: string; label: string };
+export type BuchungKostenart = {
+  id: string;
+  name: string;
+  constructionWork: boolean;
+  /** „KEINE" = die Kostenart ist nicht als § 35a-Leistung gekennzeichnet. */
+  laborShareType: "KEINE" | "HAUSHALTSNAHE_DIENSTLEISTUNG" | "HANDWERKERLEISTUNG";
+};
 
 /** Vorbelegung aus einer offenen Verbindlichkeit („Als bezahlt buchen"). */
 export type ZahlungFuer = {
@@ -36,12 +43,14 @@ type Werte = {
   laborShare: string;
   text: string;
   counterparty: string;
+  costTypeId: string;
 };
 
 export function BuchungForm({
   propertyId,
   konten,
   kostenarten,
+  einheiten,
   handwerker,
   kiErkennung,
   zahlungFuer,
@@ -49,6 +58,7 @@ export function BuchungForm({
   propertyId: string;
   konten: BuchungKonto[];
   kostenarten: BuchungKostenart[];
+  einheiten: BuchungEinheit[];
   handwerker: HandwerkerWahl[];
   kiErkennung: boolean;
   zahlungFuer: ZahlungFuer | null;
@@ -59,8 +69,19 @@ export function BuchungForm({
     laborShare: "",
     text: zahlungFuer?.title ?? "",
     counterparty: zahlungFuer?.creditor ?? "",
+    costTypeId: "",
   });
   const setze = (feld: keyof Werte) => (wert: string) => setW((alt) => ({ ...alt, [feld]: wert }));
+
+  // Ein Lohnanteil an einer Kostenart ohne § 35a-Kennzeichen kommt auf keiner
+  // Steuerbescheinigung an — die Abrechnung überspringt die Kostenart. Das soll
+  // hier stehen, wo der Betrag eingetippt wird, nicht erst in der Prüfliste
+  // der Jahresabrechnung Monate später.
+  const gewaehlteKostenart = kostenarten.find((c) => c.id === w.costTypeId);
+  const lohnanteilOhneKennzeichen =
+    w.laborShare.trim() !== "" &&
+    w.kind === "AUSGABE" &&
+    (gewaehlteKostenart == null || gewaehlteKostenart.laborShareType === "KEINE");
 
   // Der Bauabzug-Hinweis hört auf Eingaben im Formular. Werte, die der Code
   // setzt (Erkennung, Vorbelegung), lösen kein Eingabe-Ereignis aus — deshalb
@@ -152,7 +173,12 @@ export function BuchungForm({
         />
       </Field>
       <Field label="Kostenart">
-        <select name="costTypeId" className={`${inputClass} w-full`} defaultValue="">
+        <select
+          name="costTypeId"
+          className={`${inputClass} w-full`}
+          value={w.costTypeId}
+          onChange={(e) => setze("costTypeId")(e.target.value)}
+        >
           <option value="">— keine —</option>
           {kostenarten.map((c) => (
             <option key={c.id} value={c.id}>
@@ -172,7 +198,24 @@ export function BuchungForm({
           className={`${inputClass} w-full`}
           value={w.laborShare}
           onChange={(e) => setze("laborShare")(e.target.value)}
+          aria-describedby={lohnanteilOhneKennzeichen ? "lohnanteil-kennzeichen" : undefined}
         />
+        {lohnanteilOhneKennzeichen ? (
+          <p id="lohnanteil-kennzeichen" className="mt-1 text-xs text-amber-700">
+            {gewaehlteKostenart ? (
+              <>
+                „{gewaehlteKostenart.name}“ ist nicht als § 35a-Leistung gekennzeichnet — der
+                Lohnanteil erscheint dann auf keiner Steuerbescheinigung.{" "}
+                <Link href={`/verwaltung/weg/${propertyId}/stammdaten#kostenarten`} className="underline">
+                  Kennzeichen in den Stammdaten setzen
+                </Link>
+                .
+              </>
+            ) : (
+              "Ohne Kostenart kommt der Lohnanteil auf keine Steuerbescheinigung — bitte eine § 35a-Kostenart wählen."
+            )}
+          </p>
+        ) : null}
       </Field>
       <Field label="Buchungstext">
         <input
@@ -193,6 +236,27 @@ export function BuchungForm({
           onChange={(e) => setze("counterparty")(e.target.value)}
         />
       </Field>
+      {/* Direktzuordnung: Kosten, die nur eine Einheit betreffen (der Gaskamin
+          einer Wohnung), werden nicht nach Schlüssel verteilt, sondern dieser
+          Einheit in der Jahresabrechnung ganz in Rechnung gestellt. Die
+          übrigen Eigentümer sehen die Position nicht. Nur bei Ausgaben — eine
+          Einnahme „für eine Einheit" ist die Hausgeld-Zuordnung, ein anderer Weg. */}
+      {w.kind === "AUSGABE" && einheiten.length > 0 ? (
+        <Field label="Nur für eine Einheit (optional)">
+          <select name="directUnitId" className={`${inputClass} w-full`} defaultValue="">
+            <option value="">— nein, nach Umlageschlüssel verteilen —</option>
+            {einheiten.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            Für Kosten, die nur diese Einheit betreffen: Sie werden ihr in der Jahresabrechnung
+            vollständig in Rechnung gestellt, nicht auf alle verteilt.
+          </p>
+        </Field>
+      ) : null}
       {/* Der Handwerker als Verknüpfung — Grundlage der Prüfung nach
           § 48 EStG. Über den Freitext daneben ließe sich nicht
           summieren, und die 5.000-€-Grenze gilt je Leistendem. */}

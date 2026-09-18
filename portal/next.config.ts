@@ -82,6 +82,8 @@ const nextConfig: NextConfig = {
       "public/fonts/**/*.ttf",
       "public/bw-logo.png",
       "public/wegportal24-logo.png",
+      // Das Handbuch liest seine Kapitel zur Laufzeit (lib/hilfe/handbuch.ts).
+      "src/content/hilfe/**/*.md",
       // Die Belegerkennung liest PDFs mit pdf.js (lib/weg/pdfjs-server.ts).
       // Das Paket ist extern (unten); Kern und Worker gehören trotzdem
       // ausdrücklich in die Verfolgung — ein Modul, das die Produktion nicht

@@ -7,15 +7,15 @@
 // zwischen Grundkosten (Fläche) und Verbrauchskosten aufteilt. Ein Mieter, der
 // das so liest, hätte allen Grund, das Kürzungsrecht von 15 % nach § 12 Abs. 1
 // HeizkostenV geltend zu machen.
-import type { DistributionKey } from "@/generated/prisma/client";
-import { distributionKeyLabels } from "@/lib/labels";
+import type { StatementKey } from "@/lib/weg/distribution";
+import { statementKeyLabels } from "@/lib/labels";
 
 export function umlageschluesselText(row: {
-  distributionKey: DistributionKey;
+  distributionKey: StatementKey;
   heatingCost?: boolean | null;
   heatingConsumptionPercent?: number | null;
 }): string {
-  const basis = distributionKeyLabels[row.distributionKey] ?? row.distributionKey;
+  const basis = statementKeyLabels[row.distributionKey] ?? row.distributionKey;
   if (!row.heatingCost) return basis;
 
   const anteil = row.heatingConsumptionPercent;

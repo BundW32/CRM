@@ -35,6 +35,13 @@ export type EinzelabrechnungUnit = {
    */
   umlagebasis?: { schluessel: string; einheit: string; gesamt: string }[];
   costRows: EinzelabrechnungCostRow[];
+  /**
+   * Positionen der Gemeinschaft, an denen diese Einheit nicht beteiligt ist
+   * (bei der Verteilung von Hand kein Betrag erfasst). Sie fehlen in der
+   * Tabelle; ein Satz darunter sagt das, damit die kürzere Liste nicht wie
+   * eine unvollständige aussieht.
+   */
+  nichtBeteiligt?: number;
   kostenanteilCents: number;
   sollCents: number;
   peakCents: number; // + Nachschuss, − Guthaben
@@ -131,6 +138,15 @@ export async function generateEinzelabrechnungen(input: EinzelabrechnungInput): 
         { text: formatCents(row.shareCents) },
       ]),
     );
+    if (unit.nichtBeteiligt && unit.nichtBeteiligt > 0) {
+      doc.space(mm(1));
+      doc.para(
+        unit.nichtBeteiligt === 1
+          ? "Eine Position der Gemeinschaft betrifft Ihre Einheit nicht und ist deshalb nicht aufgeführt."
+          : `${unit.nichtBeteiligt} Positionen der Gemeinschaft betreffen Ihre Einheit nicht und sind deshalb nicht aufgeführt.`,
+        { size: size.foot, color: color.muted, width: CONTENT_WIDTH, lead: mm(4) },
+      );
+    }
 
     // ── Ergebniskette ────────────────────────────────────────────────────────
     doc.rule({ gapAbove: mm(2), gapBelow: mm(4) });

@@ -2413,3 +2413,63 @@ technische.
      verweigert. Unverändert: Der Nenner bleibt ein eigenes Feld neben der
      Summe (Nr. 323 ff.), die Mehrheitsrechnung nach § 25 WEG
      (`2 * meaJa > meaTotal`) funktioniert mit Dezimalzahlen unverändert.
+
+## Schritt 49 — Rückmeldung Haneklaus, Pakete 1–3 (18.09.2026)
+
+Basis: `docs/PLAN-Rueckmeldung-Haneklaus.md`. Ein Testnutzer hat mit echten
+Rechnungen und Abrechnungs-PDFs gearbeitet und seine Befunde geschickt; die
+Antwort an ihn nennt zehn Zusagen. Die ersten drei sind hier umgesetzt.
+
+327. **Die Verbindlichkeit kennt ihre Zahlung (`Verbindlichkeit.bookingId`).**
+     Bisher stand die Verknüpfung nur im Audit-Log (`meta.bookingId`); von der
+     beglichenen Rechnung führte kein Weg zur Buchung. Jetzt setzt
+     `createBooking` das Feld beim „Als bezahlt buchen"-Pfad, die Liste zeigt
+     „Zahlung ansehen" (Filter `?buchung=` der Buchhaltung), und „wieder
+     offen" löst die Verknüpfung mit (die Buchung selbst bleibt — Storno ist
+     ihr eigener Weg). Additiv, `onDelete: SetNull`, Migration
+     `20260918090000_verbindlichkeit_booking`. Gebraucht wird das Feld auch
+     vom kommenden Import-Abgleich (Paket A2): Er muss wissen, welche
+     manuelle Buchung eine Rechnung bezahlt hat, um den Bankumsatz damit
+     zusammenzuführen statt eine zweite Ausgabe anzulegen.
+
+328. **Beleg nachträglich an jede Buchung — `attachBeleg`, in der Zeile.**
+     Importierte Bankumsätze hatten grundsätzlich keinen Beleg und konnten
+     keinen bekommen (`name="beleg"` gab es nur im Buchungsformular). Das war
+     die größte Lücke im Rechnungsweg des Testnutzers: Lastschrift des
+     Versorgers → Kontoauszug importieren → und die Rechnung nirgends
+     ablegen. Jetzt trägt jede Einnahme/Ausgabe, die nicht gesperrt ist
+     (Stornopaar, abgeschlossenes Jahr — dieselben Sperren wie Kostenart und
+     Lohnanteil), einen Knopf „Beleg anhängen"; ein vorhandener Beleg wird
+     nicht still überschrieben („ersetzen" ist ein eigener Weg mit
+     `ersetzen=ja`, sonst `fehler=belegvorhanden`). Beim Auswählen liest das
+     Portal die Datei wie im Buchungsformular (lokal, kein Drittdienst) —
+     hier aber zum **Vergleichen**, nicht zum Füllen: Weicht der
+     Rechnungsbetrag vom gebuchten ab oder liegt das Rechnungsdatum nach dem
+     Buchungstag, sagt die Zeile das, bevor der Beleg an der falschen Buchung
+     landet. Angehängt wird trotzdem, wenn man will — Teilzahlung und Skonto
+     sind keine Fehler. Ein erkannter Lohnanteil § 35a wird zur Übernahme
+     angeboten, wenn die Buchung ihn tragen kann und noch keinen hat
+     (`laborShareCents == null`); ein erfasster Wert wird hier nie
+     überschrieben. Dazu der Filter **„Ohne Beleg"** (nur Ausgaben, ohne
+     Stornopaare) — Befund D6 der Buchhaltungsprüfung, die erste Frage jeder
+     Beiratsprüfung. Audit `WEG_BOOKING_BELEG_ATTACHED`.
+
+329. **Leer heißt „nicht beteiligt", nicht „0,00".** `saveManualAmounts`
+     schrieb für jede Einheit einen `StatementUnitAmount`, leere Felder als
+     0 — die Einheit ohne Anteil bekam in ihrer Einzelabrechnung die Zeile
+     mit dem vollen Gemeinschaftsbetrag und „Ihr Anteil 0,00 €" (der Gaskamin,
+     den nur eine Wohnung hat, stand auf allen Abrechnungen). Jetzt löscht ein
+     leeres Feld den Datensatz, „0,00" bleibt möglich und heißt: beteiligt mit
+     null Euro. Der Rechenkern brauchte dafür nichts: `computeStatement` legt
+     `perUnit` bei manuellen Schlüsseln ohnehin nur mit den vorhandenen
+     Einheiten an (Test „Teilmenge"). Die Einzelabrechnung zeigt nur noch
+     Positionen, an denen die Einheit beteiligt ist (`u.id in r.perUnit`), und
+     sagt darunter, wie viele Positionen der Gemeinschaft sie nicht betreffen
+     — eine kürzere Liste ohne diesen Satz sähe unvollständig aus. Alte
+     Snapshots tragen für jede Einheit einen Eintrag und rendern unverändert.
+     Die Betriebskostenabrechnung filterte schon vorher auf Anteil ≠ 0 und ist
+     nicht betroffen. Dazu nennt der Prüfbefund die Differenz („es fehlen noch
+     1.400,00 €" / „… zu viel") statt nur „erfasst X von Y" (Beobachtung aus
+     `REVIEW-WEG-Buchhaltung.md`, Z. 465). **Nicht** gemacht: die
+     Bildschirmtabelle „Einzelabrechnungen" hat keine Spalten je Kostenart,
+     dort gab es kein „0,00" zu ersetzen — der Plan hatte das angenommen.

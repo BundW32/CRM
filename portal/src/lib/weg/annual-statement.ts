@@ -286,7 +286,13 @@ export function computeStatement(input: StatementInput): StatementResult {
     if (MANUAL_KEYS.includes(ct.distributionKey)) {
       const manualSum = manual ? [...manual.values()].reduce((a, b) => a + b, 0) : 0;
       if (manualSum !== verteilbarCents) {
-        row.error = `Manuelle Verteilung unvollständig: erfasst ${formatCents(manualSum)} von ${formatCents(verteilbarCents)}.`;
+        // Die Differenz steht dabei: „erfasst 4.800 von 6.200" verlangt vom
+        // Leser das Kopfrechnen, „es fehlen noch 1.400" nennt den Handgriff.
+        const differenz =
+          manualSum < verteilbarCents
+            ? `es fehlen noch ${formatCents(verteilbarCents - manualSum)}`
+            : `${formatCents(manualSum - verteilbarCents)} zu viel`;
+        row.error = `Manuelle Verteilung unvollständig: erfasst ${formatCents(manualSum)} von ${formatCents(verteilbarCents)}, ${differenz}.`;
         verteilungsfehler(ct, row.error, "verteilung");
       } else {
         row.perUnit = new Map(manual);

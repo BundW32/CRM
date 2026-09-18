@@ -129,6 +129,38 @@ describe("computeStatement", () => {
     input.manualAmounts.get("heizung")!.set("we5", 199_999); // 1 Cent zu wenig
     const r = computeStatement(input);
     expect(r.errors.some((e) => e.includes("Heizung"))).toBe(true);
+    // Die Differenz steht im Befund — nicht nur „erfasst X von Y".
+    expect(r.errors.find((e) => e.includes("Heizung"))).toContain("es fehlen noch 0,01");
+    input.manualAmounts.get("heizung")!.set("we5", 200_100); // 1 Euro zu viel
+    expect(computeStatement(input).errors.find((e) => e.includes("Heizung"))).toContain("1,00");
+    expect(computeStatement(input).errors.find((e) => e.includes("Heizung"))).toContain("zu viel");
+  });
+
+  // Rückmeldung aus dem Produkttest (September 2026): Eine Kostenart, die nur
+  // eine Wohnung betrifft (Gaskamin), wird von Hand auf genau diese Einheit
+  // verteilt. Die übrigen Einheiten sind dann **nicht beteiligt** — sie tragen
+  // keinen Anteil von 0,00 €, sondern gar keinen. Die Verteilung kennt sie
+  // nicht, und ihre Einzelabrechnung führt die Position nicht auf.
+  it("manuelle Verteilung auf eine Teilmenge: nicht erfasste Einheiten sind nicht beteiligt", () => {
+    const input = baseInput({
+      costTypes: [
+        ...costTypes,
+        { id: "kamin", name: "Gas Kamin WE 1", category: B, distributionKey: "INDIVIDUELL" as const, laborShareType: "KEINE" as const },
+      ],
+    });
+    input.expenseByCostType.set("kamin", 42_000);
+    input.manualAmounts.set("kamin", new Map([["we1", 42_000]]));
+    const r = computeStatement(input);
+    expect(r.errors).toEqual([]);
+    const row = r.rows.find((x) => x.costTypeId === "kamin");
+    expect(row?.perUnit?.get("we1")).toBe(42_000);
+    expect(row?.perUnit?.has("we2")).toBe(false);
+    expect(row?.perUnit?.has("te6")).toBe(false);
+    // Eine mit „0,00" erfasste Einheit ist dagegen beteiligt — mit null Euro.
+    input.manualAmounts.get("kamin")!.set("we2", 0);
+    const r2 = computeStatement(input);
+    expect(r2.errors).toEqual([]);
+    expect(r2.rows.find((x) => x.costTypeId === "kamin")?.perUnit?.get("we2")).toBe(0);
   });
 
   it("Ausgaben ohne Kostenart erzeugen einen Prüffehler", () => {

@@ -50,6 +50,14 @@ export async function buildEinzelabrechnungPdf(args: {
     const split = view.ownerSplit[u.id];
     const labor = view.labor[u.id];
     const verteilt = view.rows.filter((r) => r.perUnit);
+    // Nur Positionen, an denen diese Einheit beteiligt ist. Bei Schlüsseln, die
+    // das Portal selbst verteilt, ist das jede Einheit; bei der Verteilung von
+    // Hand nur die, für die ein Betrag erfasst wurde — auch „0,00" zählt als
+    // beteiligt. Was für die Einheit nicht erfasst ist, gehört nicht auf ihre
+    // Abrechnung: Die anderen Eigentümer sehen sonst den Gaskamin des
+    // Nachbarn mit „Ihr Anteil 0,00 €". Alte Snapshots tragen für jede Einheit
+    // einen Eintrag und rendern deshalb unverändert.
+    const beteiligt = verteilt.filter((r) => u.id in r.perUnit!);
     return {
       label: u.label,
       owners: (split?.shares ?? []).map((s) => ({
@@ -59,7 +67,7 @@ export async function buildEinzelabrechnungPdf(args: {
       })),
       uncoveredCents: split?.uncoveredCents ?? 0,
       umlagebasis: umlagebasisZeilen(verteilt, basis, u.id),
-      costRows: verteilt.map((r) => ({
+      costRows: beteiligt.map((r) => ({
         name: r.name,
         keyLabel: schluesselMitAnteil(
           distributionKeyLabels[r.distributionKey] ?? r.distributionKey,
@@ -70,6 +78,7 @@ export async function buildEinzelabrechnungPdf(args: {
         totalCents: r.totalCents,
         shareCents: r.perUnit![u.id] ?? 0,
       })),
+      nichtBeteiligt: verteilt.length - beteiligt.length,
       kostenanteilCents: view.perUnitTotal[u.id] ?? 0,
       sollCents: view.duePerUnit[u.id] ?? 0,
       peakCents: view.peak[u.id] ?? 0,

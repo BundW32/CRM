@@ -101,10 +101,26 @@ export async function saveManualAmounts(formData: FormData) {
     where: { propertyId: property.id },
     select: { id: true },
   });
+  // Leer heißt „nicht beteiligt" — nicht „0,00". Bisher wurde für jede
+  // Einheit ein Datensatz geschrieben, leere Felder als 0; die Einheit ohne
+  // Anteil bekam dann in ihrer Einzelabrechnung eine Zeile „Ihr Anteil
+  // 0,00 €" mit dem vollen Gemeinschaftsbetrag daneben (Rückmeldung aus dem
+  // Produkttest: der Gaskamin, den nur eine Wohnung hat). Ein leeres Feld
+  // löscht deshalb den Datensatz; „0,00" bleibt möglich und heißt: beteiligt,
+  // mit null Euro. Die Summenprüfung in `computeStatement` rechnet ohnehin
+  // nur über vorhandene Datensätze.
   const writes = [];
   for (const u of units) {
     const raw = String(formData.get(`amount_${u.id}`) ?? "").trim();
-    const cents = raw === "" ? 0 : parseEuroToCents(raw);
+    if (raw === "") {
+      writes.push(
+        db.statementUnitAmount.deleteMany({
+          where: { statementId: statement.id, costTypeId: costType.id, unitId: u.id },
+        }),
+      );
+      continue;
+    }
+    const cents = parseEuroToCents(raw);
     if (cents === null) back(property.id, `/${statement.id}`, "fehler=betrag");
     writes.push(
       db.statementUnitAmount.upsert({

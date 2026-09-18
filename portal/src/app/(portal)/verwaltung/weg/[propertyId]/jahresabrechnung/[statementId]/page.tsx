@@ -638,7 +638,16 @@ Muster — ersetzt keine Rechtsberatung.`;
             >
               <p className="mb-3 text-sm text-gray-600">
                 Ergebnisse je Einheit erfassen (z. B. aus der Messdienst-Abrechnung). Die Summe
-                muss exakt {euro(zielCents)} ergeben — aktuell erfasst: {euro(savedSum)}.
+                muss exakt {euro(zielCents)} ergeben — aktuell erfasst: {euro(savedSum)}
+                {savedSum !== zielCents
+                  ? savedSum < zielCents
+                    ? `, es fehlen noch ${euro(zielCents - savedSum)}`
+                    : `, das sind ${euro(savedSum - zielCents)} zu viel`
+                  : ""}
+                . Verteilt wird auf die Einheiten, bei denen ein Betrag steht — nicht immer
+                auf alle: <strong>Leer heißt nicht beteiligt</strong>, und die Position
+                erscheint dann nicht auf der Einzelabrechnung dieser Einheit. „0,00“ heißt
+                beteiligt mit null Euro.
               </p>
               {isDraft && row.distributionKey === "VERBRAUCH" ? (
                 <form
@@ -707,7 +716,7 @@ Muster — ersetzt keine Rechtsberatung.`;
                       name={`amount_${u.id}`}
                       defaultValue={cellInput(saved.get(u.id))}
                       inputMode="decimal"
-                      placeholder="0,00"
+                      placeholder="nicht beteiligt"
                       className={`${inputClass} w-24 text-right`}
                       disabled={!isDraft}
                     />

@@ -238,7 +238,7 @@ export async function createBooking(formData: FormData) {
   if (verbindlichkeit) {
     await db.verbindlichkeit.update({
       where: { id: verbindlichkeit.id },
-      data: { settledAt: bookingDate },
+      data: { settledAt: bookingDate, bookingId: created.id },
     });
     await logAudit({
       actorId: verwalter.id,

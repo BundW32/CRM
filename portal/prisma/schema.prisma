@@ -1649,6 +1649,8 @@ model Booking {
   reversedBy           Booking?            @relation("BookingReversal")
   // Auf welche Forderungen diese Zahlung angerechnet wurde (§§ 366, 367 BGB).
   allocations          PaymentAllocation[]
+  // Verbindlichkeiten, die mit dieser Buchung bezahlt wurden.
+  verbindlichkeiten    Verbindlichkeit[]   @relation("VerbindlichkeitBooking")
   // ── Bauabzugsteuer (§§ 48, 48a EStG) ──────────────────────────────────────
   // Tatsächlich einbehaltener Betrag. `null` heißt „nicht einbehalten" — das
   // ist der Normalfall (keine Bauleistung oder Freistellungsbescheinigung) und
@@ -2214,12 +2216,20 @@ model Verbindlichkeit {
   // **vor** diesem Datum — gelöscht wird nichts, sonst änderte sich ein bereits
   // beschlossener Vermögensbericht rückwirkend.
   settledAt      DateTime?
+  // Die Buchung, mit der die Verbindlichkeit bezahlt wurde („Als bezahlt
+  // buchen"). Bisher stand die Verknüpfung nur im Audit-Log — damit ließ sich
+  // von der Rechnung nicht zur Zahlung springen, und der Bankimport konnte
+  // nicht erkennen, dass eine Überweisung schon von Hand gebucht ist.
+  // Leer bei „nur als beglichen markieren" (Zahlung kam über den Bankimport).
+  bookingId      String?
+  booking        Booking?            @relation("VerbindlichkeitBooking", fields: [bookingId], references: [id], onDelete: SetNull)
   createdById    String
   createdBy      User                @relation("VerbindlichkeitCreatedBy", fields: [createdById], references: [id])
   createdAt      DateTime            @default(now())
 
   @@index([propertyId])
   @@index([propertyId, settledAt])
+  @@index([bookingId])
 }
 
 // ── Verwalter-Plus: Ticket-System zum zertifizierten Verwalter (§ 26a WEG) ───

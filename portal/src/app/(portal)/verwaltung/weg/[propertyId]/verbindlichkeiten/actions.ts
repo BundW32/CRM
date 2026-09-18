@@ -128,9 +128,12 @@ export async function toggleBeglichen(formData: FormData) {
   });
   if (!vorhanden) redirect(backTo(property.id, "?fehler=nichtgefunden"));
 
+  // „wieder offen" löst auch die Verknüpfung zur Zahlung: Die Buchung bleibt
+  // im Journal (Storno ist ihr eigener Weg), aber sie bezahlt diese Rechnung
+  // dann nicht mehr — sonst zeigte die Liste eine offene Rechnung mit Zahlung.
   await db.verbindlichkeit.update({
     where: { id: vorhanden.id },
-    data: { settledAt: vorhanden.settledAt ? null : new Date() },
+    data: vorhanden.settledAt ? { settledAt: null, bookingId: null } : { settledAt: new Date() },
   });
   await logAudit({
     actorId: verwalter.id,

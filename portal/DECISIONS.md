@@ -2625,3 +2625,38 @@ Antwort an ihn nennt zehn Zusagen. Die ersten drei sind hier umgesetzt.
      schon nach der alten Arbeitsregel gearbeitet hat (nur „als beglichen
      markieren", wenn der Auszug regelmäßig importiert wird), verliert nichts:
      ohne Handbuchung gibt es keinen Zwilling.
+
+336. **Automatische Abmeldung bei Inaktivität, je Konto wählbar (Paket 10).**
+     Rückmeldung aus dem Produkttest 09/2026: Ein Beirat, der am gemeinsam
+     genutzten Rechner arbeitet, will nach einer Weile automatisch draußen
+     sein — die sieben Tage der Anmeldung sind dort zu lang. Neue Karte
+     „Automatische Abmeldung" unter *Konto* mit den Stufen aus, 15, 30 und
+     60 Minuten (`IDLE_TIMEOUT_STUFEN`); gespeichert als
+     `User.idleTimeoutMinutes`, eine Vorliebe der Person wie die Hinweise,
+     nicht der Organisation. **Die Regel steht im Token, nicht nur in der
+     Datenbank:** `createSession` schreibt `idle` (Minuten) und `lat`
+     (letzte Aktivität, Unix-Sekunden) hinein, weil der Proxy — Edge, ohne
+     Datenbank — die einzige Stelle ist, die bei einer gewöhnlichen
+     Seitenanfrage einen Cookie setzen kann. Er schreibt `lat` fort, sobald
+     es eine Minute alt ist (nicht bei jedem Klick ein neuer Cookie;
+     Vorab-Ladungen des Routers zählen nicht als Aktivität), lässt `iat` und
+     `exp` dabei stehen (Sieben-Tage-Obergrenze und Widerruf über
+     `sessionsValidFrom` rechnen mit dem Ausstellungszeitpunkt) und leitet
+     bei einem Seitenaufruf nach Ablauf auf `/login?grund=inaktiv` um, wo
+     die Anmeldeseite den Grund nennt. Die Rechenregel liegt in
+     `session-inaktiv.ts` (rein, getestet) und gilt in `getSession` als
+     Gegenprobe für alles, was am Proxy vorbeigeht (API-Routen,
+     Server-Actions) — beide lesen dasselbe `lat` aus dem Token und kommen
+     zwingend zum selben Schluss; die Datenbank wird bewusst **nicht** als
+     zweite Quelle befragt, sonst könnte der Proxy eine Sitzung erneuern,
+     die der Server schon verwirft. Folge: Eine Änderung der Stufe wirkt auf
+     dem eigenen Gerät sofort (die Aktion stellt das Token neu aus), auf
+     anderen Geräten mit deren nächster Anmeldung — die Karte sagt das.
+     Ein Token ohne `lat` gilt als abgelaufen, sobald ein Timeout gesetzt
+     ist: Eine Sitzung, deren letzte Aktivität niemand kennt, läuft nicht
+     auf Verdacht weiter. Bei einer Stellvertretung („Als Kunde ansehen")
+     speichert die Aktion nur die Einstellung des Kunden und stellt **kein**
+     Token neu aus — `createSession(kunde)` machte aus der Stellvertretung
+     eine echte Anmeldung als Kunde, ohne Hinweisleiste und ohne Protokoll.
+     Ohne Einstellung ändert sich nichts: `idle` 0 heißt wie bisher sieben
+     Tage.

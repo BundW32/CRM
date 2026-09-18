@@ -1,5 +1,13 @@
+import { SignJWT, jwtVerify } from "jose";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  SESSION_COOKIE,
+  SESSION_TYP,
+  istInaktiv,
+  latVeraltet,
+  sessionCookieAttribute,
+} from "@/lib/session-inaktiv";
 
 // Tenant-/Mandanten-Auflösung pro Subdomain (White-Label, Phase 4.4).
 // Der Proxy bleibt bewusst DB-frei: er ermittelt nur den Mandanten-Slug aus
@@ -54,7 +62,70 @@ const ICONS: Record<string, { weg: string; verwaltung: string }> = {
   },
 };
 
-export function proxy(request: NextRequest) {
+// ── Inaktivitäts-Timeout der Anmeldung ───────────────────────────────────────
+// Das Sitzungs-Token trägt `idle` (Minuten, 0 = aus) und `lat` (letzte
+// Aktivität, Unix-Sekunden); die Regel steht in `lib/session-inaktiv.ts` und
+// gilt hier und in `getSession` gleichermaßen. Der Proxy ist die einzige
+// Stelle, die bei einer gewöhnlichen Seitenanfrage einen Cookie setzen kann —
+// Server-Komponenten dürfen das nicht. Deshalb schreibt er `lat` fort und
+// beendet die Sitzung, sobald sie zu lange still war. `iat` und `exp` bleiben
+// beim Fortschreiben stehen: Die Sieben-Tage-Obergrenze und der Widerruf über
+// `sessionsValidFrom` rechnen mit dem Ausstellungszeitpunkt der Anmeldung.
+//
+// Ohne `SESSION_SECRET` oder bei einem ungültigen Token tut der Proxy nichts —
+// die Sitzung verwirft dann `getSession`, wie bisher.
+type Sitzung = {
+  sub: string;
+  idle: number | null;
+  lat: number | null;
+  iat: number;
+  exp: number;
+};
+
+function secret(): Uint8Array | null {
+  const value = process.env.SESSION_SECRET;
+  if (!value || value.length < 32) return null;
+  return new TextEncoder().encode(value);
+}
+
+async function leseSitzung(token: string | undefined, key: Uint8Array): Promise<Sitzung | null> {
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, key);
+    if (typeof payload.sub !== "string" || payload.typ !== SESSION_TYP) return null;
+    if (typeof payload.iat !== "number" || typeof payload.exp !== "number") return null;
+    return {
+      sub: payload.sub,
+      idle: typeof payload.idle === "number" ? payload.idle : null,
+      lat: typeof payload.lat === "number" ? payload.lat : null,
+      iat: payload.iat,
+      exp: payload.exp,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Dasselbe Token mit neuem `lat`; Ausstellung und Ablauf bleiben. */
+function erneuereToken(sitzung: Sitzung, nowSekunden: number, key: Uint8Array): Promise<string> {
+  return new SignJWT({ sub: sitzung.sub, typ: SESSION_TYP, idle: sitzung.idle ?? 0, lat: nowSekunden })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt(sitzung.iat)
+    .setExpirationTime(sitzung.exp)
+    .sign(key);
+}
+
+// Vorab-Ladungen des Routers (Links im Sichtfeld) sind keine Handlung der
+// Person — sie halten die Sitzung nicht wach.
+function istPrefetch(request: NextRequest): boolean {
+  return (
+    request.headers.get("next-router-prefetch") === "1" ||
+    request.headers.get("purpose") === "prefetch" ||
+    request.headers.get("sec-purpose")?.includes("prefetch") === true
+  );
+}
+
+export async function proxy(request: NextRequest) {
   const icon = ICONS[request.nextUrl.pathname];
   if (icon) {
     const ziel = process.env.APP_MODE === "weg" ? icon.weg : icon.verwaltung;
@@ -74,7 +145,31 @@ export function proxy(request: NextRequest) {
     requestHeaders.delete("x-tenant-slug");
   }
 
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  const key = secret();
+  const sitzung = key ? await leseSitzung(request.cookies.get(SESSION_COOKIE)?.value, key) : null;
+  const now = Date.now();
+
+  if (key && sitzung && istInaktiv(sitzung.lat, sitzung.idle, now)) {
+    // Abgelaufen: Cookie weg, und bei einem Seitenaufruf zur Anmeldung mit
+    // dem Grund. Auf der Anmeldeseite selbst und bei Server-Actions (POST)
+    // nur der Cookie — dort meldet `requireUser` den Grund auf demselben Weg.
+    const seitenaufruf = request.method === "GET" && !request.nextUrl.pathname.startsWith("/login");
+    const response = seitenaufruf
+      ? NextResponse.redirect(new URL("/login?grund=inaktiv", request.url))
+      : NextResponse.next({ request: { headers: requestHeaders } });
+    response.cookies.delete(SESSION_COOKIE);
+    return response;
+  }
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  if (key && sitzung && sitzung.idle && !istPrefetch(request) && latVeraltet(sitzung.lat, now)) {
+    // Nicht bei jedem Klick ein neuer Cookie — erst, wenn `lat` eine Minute
+    // alt ist. Der Cookie läuft mit dem Token ab, nicht sieben Tage ab jetzt.
+    const nowSekunden = Math.floor(now / 1000);
+    const token = await erneuereToken(sitzung, nowSekunden, key);
+    response.cookies.set(SESSION_COOKIE, token, sessionCookieAttribute(Math.max(sitzung.exp - nowSekunden, 0)));
+  }
+  return response;
 }
 
 export const config = {

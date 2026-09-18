@@ -9,6 +9,7 @@ import { CONTACT_METHODS, EMAIL_WECHSEL_GUELTIG_STUNDEN } from "@/lib/eigene-dat
 import { contactMethodLabels, formatDate, roleLabels } from "@/lib/labels";
 import { isMailEnabled } from "@/lib/mailer";
 import { getOrganization, requireUser } from "@/lib/session";
+import { IDLE_TIMEOUT_STUFEN } from "@/lib/session-inaktiv";
 import {
   deaktiviereMfa,
   erneuereRecoveryCodes,
@@ -20,6 +21,7 @@ import {
   changePassword,
   requestEmailChange,
   saveContactData,
+  saveIdleTimeout,
   saveShowHints,
 } from "./actions";
 import { tourNeuStarten } from "./tour-actions";
@@ -69,6 +71,11 @@ export default async function AccountPage({
       {gespeichert === "hinweise" ? (
         <Alert variant="success" className="mb-4">
           Gespeichert.
+        </Alert>
+      ) : gespeichert === "abmeldung" ? (
+        <Alert variant="success" className="mb-4">
+          Gespeichert. Auf diesem Gerät gilt die Einstellung ab jetzt, auf anderen ab der
+          nächsten Anmeldung.
         </Alert>
       ) : null}
 
@@ -451,6 +458,33 @@ export default async function AccountPage({
             <PushToggle />
           </Card>
         ) : null}
+
+        {/* Automatische Abmeldung. Ohne Angabe gilt die Anmeldung sieben Tage —
+            bequem am eigenen Gerät, ungeeignet am gemeinsam genutzten Rechner
+            im Büro oder in der Familie. Die Stufe wählt die Person selbst; die
+            Verwaltung kann sie nicht für andere setzen. */}
+        <Card title="Automatische Abmeldung" id="abmeldung">
+          <form action={saveIdleTimeout} className="space-y-3">
+            <SelectField
+              label="Abmelden nach"
+              name="idleTimeoutMinutes"
+              defaultValue={String(user.idleTimeoutMinutes ?? 0)}
+            >
+              {IDLE_TIMEOUT_STUFEN.map((m) => (
+                <option key={m} value={m}>
+                  {m === 0 ? "Keine automatische Abmeldung" : `${m} Minuten ohne Aktivität`}
+                </option>
+              ))}
+            </SelectField>
+            <p className="text-xs text-gray-500">
+              Ohne Einstellung bleiben Sie sieben Tage angemeldet — auch wenn Sie das
+              Fenster nur schließen. Am gemeinsam genutzten Rechner wählen Sie besser eine
+              Frist: Nach so vielen Minuten ohne Klick müssen Sie sich neu anmelden. Die
+              sieben Tage bleiben in jedem Fall die Obergrenze.
+            </p>
+            <PendingButton className={buttonClass}>Speichern</PendingButton>
+          </form>
+        </Card>
 
         {/* Hinweise ein/aus. Bewusst hier und nicht in den
             Verwalter-Einstellungen: Es ist eine Vorliebe der Person, nicht der

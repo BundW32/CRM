@@ -40,12 +40,12 @@ export function generateMetadata(): Metadata {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string }>;
+  searchParams: Promise<{ fehler?: string; grund?: string }>;
 }) {
   const user = await getUser();
   if (user) redirect("/dashboard");
   if ((await db.user.count()) === 0) redirect("/setup");
-  const { fehler } = await searchParams;
+  const { fehler, grund } = await searchParams;
 
   // Mandanten-Branding anhand der Subdomain (sofern vorhanden).
   const tenantOrg = await getTenantOrg();
@@ -109,6 +109,15 @@ export default async function LoginPage({
           {fehler ? (
             <div className="mb-4">
               <Alert variant="error">Anmeldedaten oder Passwort sind falsch.</Alert>
+            </div>
+          ) : grund === "inaktiv" ? (
+            // Wer nach der eingestellten Frist ohne Aktivität hier landet,
+            // soll wissen, warum — sonst sieht es nach einem Fehler aus.
+            <div className="mb-4">
+              <Alert variant="info">
+                Sie wurden nach längerer Inaktivität automatisch abgemeldet. Bitte melden
+                Sie sich erneut an.
+              </Alert>
             </div>
           ) : null}
           <form action={login} className="space-y-4">

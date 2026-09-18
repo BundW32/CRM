@@ -404,6 +404,10 @@ model User {
   // der Organisation: Zwei Eigentümer derselben WEG dürfen es verschieden
   // wollen. Warnungen und Fehlermeldungen hängen NICHT daran.
   showHints                   Boolean                     @default(true)
+  // Automatische Abmeldung nach Minuten ohne Aktivität; null = aus (nur die
+  // Sieben-Tage-Obergrenze der Sitzung). Wandert bei der Anmeldung als `idle`
+  // ins Sitzungs-Token; der Proxy hält `lat` (letzte Aktivität) nach.
+  idleTimeoutMinutes          Int?
   // Wann die geführte Einrichtung durchlaufen wurde. `null` = noch nie —
   // dann erscheint sie einmal von selbst. Zurücksetzen startet sie neu.
   tourDoneAt                  DateTime?

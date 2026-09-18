@@ -56,7 +56,9 @@ export type StatementBefund = {
     | "ohne-kostenart"
     | "zufuehrung-plan"
     | "leer"
-    | "jahr-laeuft";
+    | "jahr-laeuft"
+    /** Lohnanteil § 35a erfasst, aber die Kostenart ist nicht als § 35a-Leistung gekennzeichnet. */
+    | "lohnanteil-kennzeichen";
   /** true = verhindert das Fertigstellen. */
   blockierend: boolean;
   /** Kurz, für die Prüfliste. */
@@ -283,6 +285,22 @@ export function computeStatement(input: StatementInput): StatementResult {
           : (labor.get(ct.id)?.unerfasstCents ?? verteilbarCents),
     };
 
+    // § 35a ohne Kennzeichen: An Buchungen dieser Kostenart ist ein Lohnanteil
+    // erfasst, aber die Kostenart steht auf „kein § 35a-Lohnanteil". Der
+    // Ausweis überspringt sie dann — bisher stumm. Ein Testnutzer hat genau
+    // das als „der Betrag lässt sich nicht verteilen" gemeldet: Der Betrag war
+    // da, nur das Kennzeichen fehlte, und nichts sagte es ihm. Kein Blocker,
+    // denn die Abrechnung stimmt; nur die Steuerbescheinigung ist unvollständig.
+    if (ct.laborShareType === "KEINE" && (labor.get(ct.id)?.baseCents ?? 0) > 0) {
+      befunde.push({
+        art: "lohnanteil-kennzeichen",
+        blockierend: false,
+        titel: `§ 35a-Kennzeichen fehlt: ${ct.name}`,
+        text: `${ct.name}: Für ${formatCents(labor.get(ct.id)!.baseCents)} ist ein Lohnanteil § 35a erfasst, aber die Kostenart ist nicht als Handwerkerleistung oder haushaltsnahe Dienstleistung gekennzeichnet — der Anteil erscheint nicht auf der Steuerbescheinigung der Eigentümer.`,
+        ziel: { art: "stammdaten", anker: "kostenarten", label: "Kostenart in den Stammdaten kennzeichnen" },
+      });
+    }
+
     if (MANUAL_KEYS.includes(ct.distributionKey)) {
       const manualSum = manual ? [...manual.values()].reduce((a, b) => a + b, 0) : 0;
       if (manualSum !== verteilbarCents) {
@@ -292,7 +310,14 @@ export function computeStatement(input: StatementInput): StatementResult {
           manualSum < verteilbarCents
             ? `es fehlen noch ${formatCents(verteilbarCents - manualSum)}`
             : `${formatCents(manualSum - verteilbarCents)} zu viel`;
-        row.error = `Manuelle Verteilung unvollständig: erfasst ${formatCents(manualSum)} von ${formatCents(verteilbarCents)}, ${differenz}.`;
+        // Der Lohnanteil § 35a folgt der Verteilung — ohne sie gibt es ihn
+        // nicht. Das steht hier dabei, damit niemand ihn an anderer Stelle
+        // sucht, solange die Verteilung offen ist.
+        const lohnanteil =
+          ct.laborShareType !== "KEINE" && (row.laborBaseCents ?? 0) > 0
+            ? ` Auch der Lohnanteil § 35a (${formatCents(row.laborBaseCents!)}) wird erst nach vollständiger Verteilung ausgewiesen.`
+            : "";
+        row.error = `Manuelle Verteilung unvollständig: erfasst ${formatCents(manualSum)} von ${formatCents(verteilbarCents)}, ${differenz}.${lohnanteil}`;
         verteilungsfehler(ct, row.error, "verteilung");
       } else {
         row.perUnit = new Map(manual);

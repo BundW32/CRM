@@ -2473,3 +2473,28 @@ Antwort an ihn nennt zehn Zusagen. Die ersten drei sind hier umgesetzt.
      `REVIEW-WEG-Buchhaltung.md`, Z. 465). **Nicht** gemacht: die
      Bildschirmtabelle „Einzelabrechnungen" hat keine Spalten je Kostenart,
      dort gab es kein „0,00" zu ersetzen — der Plan hatte das angenommen.
+
+330. **§ 35a: sagen, warum der Lohnanteil fehlt (Paket 4).** Der Testnutzer
+     meldete „bei Festbetrag und Individuell kann der 35a-Betrag nicht
+     verteilt werden". Im Code gab es keine Sperre, sondern zwei stumme
+     Stellen: `computeLaborShares` überspringt Kostenarten mit
+     `laborShareType = KEINE` und Zeilen ohne `perUnit` (manuelle Verteilung
+     noch offen) — beides ohne Hinweis, und die Abfrage der Lohnanteil-
+     Buchungen in `statement-service.ts` sah Buchungen auf KEINE-Kostenarten
+     gar nicht. Jetzt: (1) Der Befund „Verteilung offen" nennt den
+     Lohnanteil mit („Auch der Lohnanteil § 35a (90,00 €) wird erst nach
+     vollständiger Verteilung ausgewiesen"), damit ihn niemand woanders
+     sucht. (2) Neuer, nicht blockierender Befund `lohnanteil-kennzeichen`:
+     An Buchungen ist ein Lohnanteil erfasst, die Kostenart steht aber auf
+     „kein § 35a" — mit Sprung zu den Kostenarten in den Stammdaten. Dafür
+     liest die Abfrage zusätzlich jede Buchung mit `laborShareCents`, egal
+     welche Kostenart; für KEINE-Kostenarten entsteht daraus nur der Befund,
+     kein Ausweis. Nicht blockierend, weil die Abrechnung stimmt — nur die
+     Steuerbescheinigung wäre unvollständig. (3) Das Buchungsformular sagt
+     beim Eintippen eines Lohnanteils, wenn die gewählte Kostenart (oder
+     „keine") ihn nicht tragen kann; dafür ist `costTypeId` jetzt ein
+     kontrolliertes Feld und `BuchungKostenart` kennt `laborShareType`.
+     (4) Das Stammdaten-Formular erklärt das Kennzeichen beim Anlegen
+     (`Tipp`) und in der Liste (`title`). Der Katalog war schon richtig
+     (Hausmeister, Gartenpflege, Reinigung, Winterdienst, Aufzug,
+     Instandhaltung tragen das Kennzeichen). Kein Schema-Delta.

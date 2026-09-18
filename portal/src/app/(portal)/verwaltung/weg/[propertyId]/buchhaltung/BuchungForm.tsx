@@ -19,7 +19,13 @@ import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { createBooking } from "./actions";
 
 export type BuchungKonto = { id: string; name: string; artLabel: string };
-export type BuchungKostenart = { id: string; name: string; constructionWork: boolean };
+export type BuchungKostenart = {
+  id: string;
+  name: string;
+  constructionWork: boolean;
+  /** „KEINE" = die Kostenart ist nicht als § 35a-Leistung gekennzeichnet. */
+  laborShareType: "KEINE" | "HAUSHALTSNAHE_DIENSTLEISTUNG" | "HANDWERKERLEISTUNG";
+};
 
 /** Vorbelegung aus einer offenen Verbindlichkeit („Als bezahlt buchen"). */
 export type ZahlungFuer = {
@@ -36,6 +42,7 @@ type Werte = {
   laborShare: string;
   text: string;
   counterparty: string;
+  costTypeId: string;
 };
 
 export function BuchungForm({
@@ -59,8 +66,19 @@ export function BuchungForm({
     laborShare: "",
     text: zahlungFuer?.title ?? "",
     counterparty: zahlungFuer?.creditor ?? "",
+    costTypeId: "",
   });
   const setze = (feld: keyof Werte) => (wert: string) => setW((alt) => ({ ...alt, [feld]: wert }));
+
+  // Ein Lohnanteil an einer Kostenart ohne § 35a-Kennzeichen kommt auf keiner
+  // Steuerbescheinigung an — die Abrechnung überspringt die Kostenart. Das soll
+  // hier stehen, wo der Betrag eingetippt wird, nicht erst in der Prüfliste
+  // der Jahresabrechnung Monate später.
+  const gewaehlteKostenart = kostenarten.find((c) => c.id === w.costTypeId);
+  const lohnanteilOhneKennzeichen =
+    w.laborShare.trim() !== "" &&
+    w.kind === "AUSGABE" &&
+    (gewaehlteKostenart == null || gewaehlteKostenart.laborShareType === "KEINE");
 
   // Der Bauabzug-Hinweis hört auf Eingaben im Formular. Werte, die der Code
   // setzt (Erkennung, Vorbelegung), lösen kein Eingabe-Ereignis aus — deshalb
@@ -152,7 +170,12 @@ export function BuchungForm({
         />
       </Field>
       <Field label="Kostenart">
-        <select name="costTypeId" className={`${inputClass} w-full`} defaultValue="">
+        <select
+          name="costTypeId"
+          className={`${inputClass} w-full`}
+          value={w.costTypeId}
+          onChange={(e) => setze("costTypeId")(e.target.value)}
+        >
           <option value="">— keine —</option>
           {kostenarten.map((c) => (
             <option key={c.id} value={c.id}>
@@ -172,7 +195,24 @@ export function BuchungForm({
           className={`${inputClass} w-full`}
           value={w.laborShare}
           onChange={(e) => setze("laborShare")(e.target.value)}
+          aria-describedby={lohnanteilOhneKennzeichen ? "lohnanteil-kennzeichen" : undefined}
         />
+        {lohnanteilOhneKennzeichen ? (
+          <p id="lohnanteil-kennzeichen" className="mt-1 text-xs text-amber-700">
+            {gewaehlteKostenart ? (
+              <>
+                „{gewaehlteKostenart.name}“ ist nicht als § 35a-Leistung gekennzeichnet — der
+                Lohnanteil erscheint dann auf keiner Steuerbescheinigung.{" "}
+                <Link href={`/verwaltung/weg/${propertyId}/stammdaten#kostenarten`} className="underline">
+                  Kennzeichen in den Stammdaten setzen
+                </Link>
+                .
+              </>
+            ) : (
+              "Ohne Kostenart kommt der Lohnanteil auf keine Steuerbescheinigung — bitte eine § 35a-Kostenart wählen."
+            )}
+          </p>
+        ) : null}
       </Field>
       <Field label="Buchungstext">
         <input

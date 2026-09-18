@@ -306,6 +306,50 @@ describe("computeLaborShares (§35a)", () => {
     expect(labor.get("we5")?.unerfasst ?? 0).toBe(0);
   });
 
+  // Rückmeldung aus dem Produkttest: „Bei Festbetrag/Individuell kann der
+  // 35a-Betrag nicht verteilt werden." Zwei Ursachen, beide sagen es jetzt.
+  it("nennt den Lohnanteil im Befund, solange die manuelle Verteilung offen ist", () => {
+    const input = baseInput({
+      costTypes: [
+        ...costTypes,
+        { id: "kamin", name: "Kaminkehrer", category: B, distributionKey: "INDIVIDUELL" as const, laborShareType: "HANDWERKERLEISTUNG" as const },
+      ],
+      laborByCostType: new Map([["kamin", { baseCents: 9_000, unerfasstCents: 0 }]]),
+    });
+    input.expenseByCostType.set("kamin", 30_000);
+    // Nichts verteilt → Verteilung offen, und der Lohnanteil hängt daran.
+    const r = computeStatement(input);
+    const befund = r.befunde.find((b) => b.art === "verteilung" && b.titel.includes("Kaminkehrer"));
+    expect(befund?.blockierend).toBe(true);
+    expect(befund?.text).toContain("Lohnanteil § 35a (90,00");
+    expect(computeLaborShares(r.rows).get("we1")?.handwerker ?? 0).toBe(0);
+    // Verteilt → kein Befund mehr, der Lohnanteil landet bei der Einheit.
+    input.manualAmounts.set("kamin", new Map([["we1", 30_000]]));
+    const r2 = computeStatement(input);
+    expect(r2.befunde.some((b) => b.titel.includes("Kaminkehrer"))).toBe(false);
+    expect(computeLaborShares(r2.rows).get("we1")?.handwerker).toBe(9_000);
+  });
+
+  it("meldet einen erfassten Lohnanteil an einer Kostenart ohne § 35a-Kennzeichen — ohne zu blockieren", () => {
+    // Kontoführung steht auf KEINE; an einer Buchung wurde trotzdem ein
+    // Lohnanteil erfasst. Der Ausweis überspringt die Kostenart — und sagt es.
+    const r = computeStatement(
+      baseInput({
+        laborByCostType: new Map([["konto", { baseCents: 5_000, unerfasstCents: 0 }]]),
+      }),
+    );
+    const befund = r.befunde.find((b) => b.art === "lohnanteil-kennzeichen");
+    expect(befund?.blockierend).toBe(false);
+    expect(befund?.text).toContain("Kontoführung");
+    expect(befund?.text).toContain("50,00");
+    expect(befund?.ziel).toEqual({ art: "stammdaten", anker: "kostenarten", label: "Kostenart in den Stammdaten kennzeichnen" });
+    expect(r.errors).toEqual([]);
+    expect(r.warnings.some((w) => w.includes("Kennzeichen") || w.includes("gekennzeichnet"))).toBe(true);
+    expect(computeLaborShares(r.rows).get("we1")?.handwerker ?? 0).toBe(0);
+    // Ohne erfassten Lohnanteil gibt es nichts zu melden.
+    expect(computeStatement(baseInput()).befunde.some((b) => b.art === "lohnanteil-kennzeichen")).toBe(false);
+  });
+
   it("verteilt den Lohnanteil centgenau — Σ Einheiten == Lohnanteil", () => {
     const r = nurHausmeister(new Map([["hausmeister", { baseCents: 100_001, unerfasstCents: 0 }]]));
     const labor = computeLaborShares(r.rows);

@@ -724,6 +724,7 @@ export default async function WegStammdatenPage({
                       defaultValue={c.laborShareType}
                       className={`${inputClass} w-auto`}
                       aria-label="§35a-Einstufung"
+                      title="Nur mit diesem Kennzeichen landet der Lohnanteil der Buchungen auf der Steuerbescheinigung der Eigentümer. Bei „kein §35a-Lohnanteil“ wird ein erfasster Lohnanteil nicht ausgewiesen."
                     >
                       {Object.entries(laborShareTypeLabels).map(([value, label]) => (
                         <option key={value} value={value}>
@@ -836,6 +837,16 @@ export default async function WegStammdatenPage({
                     </option>
                   ))}
                 </select>
+                {/* Das Kennzeichen entscheidet, ob ein Lohnanteil überhaupt
+                    ausgewiesen wird. Wer es hier auf „kein" lässt und an der
+                    Buchung trotzdem einen Lohnanteil einträgt, sah bisher
+                    nirgends, warum er in der Abrechnung fehlt. */}
+                <Tipp className="mt-1">
+                  Handwerker, Hausmeister, Reinigung, Gartenpflege, Winterdienst: Hier
+                  kennzeichnen, sonst kommt der Lohnanteil der Rechnungen auf{" "}
+                  <strong>keine Steuerbescheinigung</strong>. Lieferungen, Versicherungen,
+                  Versorger: „kein §35a-Lohnanteil&ldquo;.
+                </Tipp>
               </Field>
               <Field label="Lohnanteil %">
                 <input

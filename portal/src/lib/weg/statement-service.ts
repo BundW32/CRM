@@ -254,7 +254,11 @@ export async function computeStatementView(
           propertyId: property.id,
           kind: "AUSGABE",
           bookingDate: inYear,
-          costType: { laborShareType: { not: "KEINE" } },
+          // Kostenarten mit § 35a-Kennzeichen vollständig (dort zählt auch
+          // die Lücke) — und dazu jede Buchung, an der ein Lohnanteil steht,
+          // obwohl ihre Kostenart auf „kein § 35a" steht: Die erzeugt den
+          // Befund „Kennzeichen fehlt" (annual-statement.ts).
+          OR: [{ costType: { laborShareType: { not: "KEINE" } } }, { laborShareCents: { not: null } }],
           ...NOT_REVERSED,
         },
         select: {

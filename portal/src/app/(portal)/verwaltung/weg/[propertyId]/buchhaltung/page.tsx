@@ -552,7 +552,7 @@ export default async function WegBuchhaltungPage({
               <BuchungForm
                 propertyId={property.id}
                 konten={accounts.map((a) => ({ id: a.id, name: a.name, artLabel: ledgerAccountKindLabels[a.kind] }))}
-                kostenarten={costTypes.map((c) => ({ id: c.id, name: c.name, constructionWork: c.constructionWork }))}
+                kostenarten={costTypes.map((c) => ({ id: c.id, name: c.name, constructionWork: c.constructionWork, laborShareType: c.laborShareType }))}
                 handwerker={handwerkerWahl}
                 kiErkennung={isBelegErkennungEnabled()}
                 zahlungFuer={

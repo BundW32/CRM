@@ -84,7 +84,7 @@ node --experimental-strip-types werkzeuge/pausen.ts public/roh/<datei>-1080x1920
 # Schnittplan als src/<thema>.tsx schreiben (siehe src/Reelprobe.tsx als Vorlage),
 # in src/Root.tsx eintragen, dann:
 npm run rendern -- <CompositionId> out/roh.mp4
-node werkzeuge/lautheit.mjs out/roh.mp4 "$DRIVE/Remotion Claude/Renders/wegportal24_<thema>_v1.mp4"
+node --experimental-strip-types werkzeuge/ausliefern.ts out/roh.mp4 "$DRIVE/Remotion Claude/Renders/wegportal24_<thema>_v1.mp4"
 ```
 
 ### Was auf dem Mac anders ist
@@ -98,3 +98,39 @@ node werkzeuge/lautheit.mjs out/roh.mp4 "$DRIVE/Remotion Claude/Renders/wegporta
   .venv/bin/pip install "rembg[cpu]" onnxruntime pillow numpy`.
 - Schriften und Klänge kommen weiterhin über `npm run material` lokal ins
   `public/` — das bleibt auch dort die Regel, nicht Nachladen beim Rendern.
+
+## Bildaufbau
+
+Der Sprecher füllt nicht mehr das ganze Bild, sondern sitzt als **4:5-Fläche
+unten** (`BUEHNE` in `src/marke.ts`); darüber bleibt ein **425 px hohes Band**
+für Untertitel, Kinetic-Texte und Animationen frei, und dahinter liegt ein
+stark unscharfes Foto.
+
+Der Grund steht in `marke.ts`: Bei formatfüllendem Porträt standen die
+Untertitel entweder vor dem Gesicht oder hinter der Instagram-Leiste. Bloßes
+Verkleinern half nicht — ein 9:16-Bild im 9:16-Rahmen schrumpft in beide
+Richtungen. Erst der 4:5-Beschnitt macht das Band auf.
+
+Im Schnittplan: `bildaufbau: "buehne"` (Vorgabe) und `hintergrund: "<datei>"`.
+`bildaufbau: "vollbild"` stellt den alten Aufbau wieder her.
+
+Zum Abstimmen: `node werkzeuge/demo-material.mjs` und dann die Composition
+`Bildaufbau` als Standbild rendern (mit `--props='{"hilfslinien":true}'` samt
+Safe-Zone).
+
+## Prüfen — dreistufig
+
+```bash
+npm run pruefen                        # Zeitachse und Typen
+npm run pruefe-render -- out/reel.mp4 --erwartet 38.5
+npm run pruefe-worte -- out/reel.mp4 public/roh/<datei>-1080x1920-transkript.json
+```
+
+`pruefe-render` findet Standbilder, Schwarzbilder, Tonabbrüche und falsches
+Format und legt Kontrollbilder nach `out/kontrolle`.
+
+`pruefe-worte` transkribiert das **fertige** Reel noch einmal und vergleicht es
+Wort für Wort mit dem Rohmaterial. Die zugrundeliegende Regel: Geschnitten wird
+nur Stille, nie ein Wort — was fehlt, ist ein Befund. Bewusst gestrichene
+Stellen mit `--gestrichen 12.5-18.0` (Rohzeiten) ausnehmen. Der Lauf dauert
+etwa so lang wie das Rohmaterial.

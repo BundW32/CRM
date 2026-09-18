@@ -52,4 +52,14 @@ export type ReelPlan = {
   klaenge?: KlangMoment[];
   /** Punch-in je Segment, gleiche Reihenfolge wie `segmente`. */
   kamera?: { zoomVon?: number; zoomBis?: number; versatzY?: number }[];
+  /**
+   * „buehne": Sprecher als 4:5-Fläche unten, darüber freies Band für
+   * Untertitel und Einblendungen. „vollbild": formatfüllend wie bisher.
+   */
+  bildaufbau?: "buehne" | "vollbild";
+  /**
+   * Bild hinter der Bühne, stark unscharf gezeichnet — eine Datei unter
+   * public/. Ohne Angabe bleibt es beim dunklen Markenverlauf.
+   */
+  hintergrund?: string;
 };

@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Easing, OffthreadVideo, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { FORMAT } from "../marke";
+import { BUEHNE, FARBEN, FORMAT } from "../marke";
 import { MAX_ZOOM } from "../kamera";
 
 /**
@@ -21,6 +21,11 @@ export const Clip: React.FC<{
   /** Bildausschnitt verschieben, z. B. wenn der Kopf zu weit unten sitzt. */
   versatzY?: number;
   lautstaerke?: number;
+  /**
+   * Zeigt das Sprecherbild als 4:5-Fläche im unteren Bildteil statt
+   * formatfüllend. Darüber bleibt das Textband frei — siehe BUEHNE in marke.ts.
+   */
+  alsBuehne?: boolean;
 }> = ({
   datei,
   vonSekunde,
@@ -29,6 +34,7 @@ export const Clip: React.FC<{
   fahrtFrames = 45,
   versatzY = 0,
   lautstaerke = 1,
+  alsBuehne = false,
 }) => {
   const frame = useCurrentFrame();
   // Gedeckelt, damit ein Tippfehler im Schnittplan nicht in einem Close-up
@@ -43,16 +49,50 @@ export const Clip: React.FC<{
           easing: Easing.out(Easing.cubic),
         });
 
-  return (
-    <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "black" }}>
-      <AbsoluteFill style={{ transform: `scale(${zoom}) translateY(${versatzY}px)` }}>
-        <OffthreadVideo
-          src={staticFile(datei)}
-          trimBefore={Math.round(vonSekunde * FORMAT.fps)}
-          volume={lautstaerke}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
+  const video = (
+    <OffthreadVideo
+      src={staticFile(datei)}
+      trimBefore={Math.round(vonSekunde * FORMAT.fps)}
+      volume={lautstaerke}
+      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+    />
+  );
+
+  if (!alsBuehne) {
+    return (
+      <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "black" }}>
+        <AbsoluteFill style={{ transform: `scale(${zoom}) translateY(${versatzY}px)` }}>{video}</AbsoluteFill>
       </AbsoluteFill>
+    );
+  }
+
+  // Der Ausschnitt wird über die Höhe gesteuert: Das Rohbild ist 9:16, die
+  // Fläche 4:5 — das Video ist darin also höher als der Rahmen und wird oben
+  // angesetzt, damit der Kopf drin bleibt und der Tisch unten wegfällt.
+  const ueberhoehung = (FORMAT.hoehe / FORMAT.breite) / (BUEHNE.hoehe / BUEHNE.breite);
+
+  return (
+    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: BUEHNE.vonUnten }}>
+      <div
+        style={{
+          width: BUEHNE.breite,
+          height: BUEHNE.hoehe,
+          borderRadius: BUEHNE.radius,
+          overflow: "hidden",
+          backgroundColor: FARBEN.tinte,
+          boxShadow: "0 40px 90px -30px rgba(0,0,0,0.75)",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            height: `${ueberhoehung * 100}%`,
+            transform: `scale(${zoom}) translateY(${versatzY - BUEHNE.ausschnittVonOben * BUEHNE.hoehe * ueberhoehung}px)`,
+          }}
+        >
+          {video}
+        </div>
+      </div>
     </AbsoluteFill>
   );
 };

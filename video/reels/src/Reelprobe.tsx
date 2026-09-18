@@ -40,6 +40,8 @@ const segmente = segmenteAusPausen({
 
 export const probePlan: ReelPlan = {
   titel: "Prüfstück",
+  bildaufbau: "buehne",
+  hintergrund: "demo/hintergrund.jpg",
   segmente,
   untertitelRoh: captions,
   kamera: segmente.map((_, i) => (i % 2 === 0 ? { zoomVon: 1, zoomBis: 1.12 } : {})),

@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { TikTokPage } from "@remotion/captions";
 import { fitTextOnNLines } from "@remotion/layout-utils";
-import { FARBEN, FORMAT, SAFE_ZONE, SCHRIFT } from "../marke";
+import { FARBEN, FORMAT, SAFE_ZONE, SCHRIFT, TEXTBAND } from "../marke";
 import { useSchriften } from "../schriften";
 import { worteAusSeite } from "../worte";
 
@@ -22,7 +22,13 @@ export const Untertitel: React.FC<{
   abstandUnten?: number;
   /** Während ein großer Kinetic-Text steht, bleiben die Untertitel aus. */
   aus?: boolean;
-}> = ({ seiten, abstandUnten = SAFE_ZONE.unten + 40, aus = false }) => {
+  /**
+   * Setzt die Untertitel in das freie Band ÜBER dem Sprecher statt unten ins
+   * Bild. Unten standen sie entweder vor dem Gesicht oder hinter der
+   * Instagram-Leiste — im Band haben sie Platz und verdecken niemanden.
+   */
+  imBand?: boolean;
+}> = ({ seiten, abstandUnten = SAFE_ZONE.unten + 40, aus = false, imBand = false }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const bereit = useSchriften();
@@ -46,16 +52,18 @@ export const Untertitel: React.FC<{
     fontFamily: SCHRIFT.display.family,
     fontWeight: SCHRIFT.display.gewicht,
     letterSpacing: "-0.01em",
-    maxFontSize: 70,
+    maxFontSize: imBand ? 96 : 70,
   });
   const groesse = Math.max(42, fontSize);
 
   return (
     <AbsoluteFill
       style={{
+        top: imBand ? TEXTBAND.oben : undefined,
+        height: imBand ? TEXTBAND.unten - TEXTBAND.oben : undefined,
         justifyContent: "flex-end",
         alignItems: "center",
-        paddingBottom: abstandUnten,
+        paddingBottom: imBand ? 32 : abstandUnten,
         paddingLeft: SAFE_ZONE.links,
         paddingRight: SAFE_ZONE.rechts,
       }}

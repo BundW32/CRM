@@ -4,6 +4,7 @@ import { FORMAT } from "./marke";
 import { Gruesttest } from "./Gruesttest";
 import { Reelprobe, probePlan } from "./Reelprobe";
 import { reelMetadaten } from "./pruefung";
+import { Bildaufbau } from "./Bildaufbau";
 
 /**
  * Je Reel eine Composition. Die beiden Prüfstücke sind keine Reels:
@@ -33,6 +34,15 @@ export const RemotionRoot: React.FC = () => (
       height={FORMAT.hoehe}
       durationInFrames={1}
       calculateMetadata={() => reelMetadaten(probePlan)}
+    />
+    <Composition
+      id="Bildaufbau"
+      component={Bildaufbau}
+      durationInFrames={1}
+      fps={FORMAT.fps}
+      width={FORMAT.breite}
+      height={FORMAT.hoehe}
+      defaultProps={{ hilfslinien: false }}
     />
   </>
 );

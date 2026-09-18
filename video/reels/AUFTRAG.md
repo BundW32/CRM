@@ -53,7 +53,7 @@ node werkzeuge/transkribieren.mjs public/roh/<datei>-1080x1920.mp4
 node --experimental-strip-types werkzeuge/pausen.ts public/roh/<datei>-1080x1920.mp4 public/roh/<datei>-1080x1920-transkript.json
 # Schnittplan als src/<thema>.tsx (Vorlage: src/Reelprobe.tsx), in src/Root.tsx eintragen
 npm run rendern -- <CompositionId> out/roh.mp4
-node werkzeuge/lautheit.mjs out/roh.mp4 "<Drive>/Remotion Claude/Renders/wegportal24_<thema>_v1.mp4"
+node --experimental-strip-types werkzeuge/ausliefern.ts out/roh.mp4 "<Drive>/Remotion Claude/Renders/wegportal24_<thema>_v1.mp4"
 ```
 
 Zuerst Versprecher, „äh" und Denkpausen herausnehmen, damit die Länge stimmt —

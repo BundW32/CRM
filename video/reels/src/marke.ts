@@ -54,6 +54,40 @@ export const SCHRIFT = {
   text: { family: "SourceSansSemibold", datei: "sourcesans3-600.woff2", gewicht: "600" },
 } as const;
 
+/**
+ * Der Sprecher füllt NICHT das ganze Bild.
+ *
+ * Alex' Beobachtung am zweiten Reel: Die Untertitel standen entweder direkt vor
+ * seinem Gesicht oder waren ganz verdeckt, und für Einblendungen blieb kein
+ * Platz. Ursache ist der Bildaufbau — ein formatfüllendes Hochkant-Porträt
+ * lässt oben nichts frei.
+ *
+ * Bloßes Verkleinern reicht dafür nicht: Ein 9:16-Bild in einem 9:16-Rahmen
+ * schrumpft in beide Richtungen, das Band oben bliebe schmal. Das Sprecherbild
+ * wird deshalb auf 4:5 BESCHNITTEN und sitzt als Fläche unten — so werden aus
+ * dem Rest 425 px freies Band, genug für zwei Zeilen großer Untertitel.
+ */
+export const BUEHNE = {
+  breite: 900,
+  hoehe: 1125,
+  /** Abstand der Unterkante vom unteren Bildrand. */
+  vonUnten: 120,
+  /** Abgerundete Ecken, damit die Fläche als Gestaltung gelesen wird. */
+  radius: 44,
+  /**
+   * Welcher senkrechte Ausschnitt des Rohbildes gezeigt wird, von oben gerechnet
+   * (0 = Bildoberkante). 0.06 lässt etwas Luft über dem Kopf und schneidet unten
+   * den Tisch weg. Je nach Aufnahme im Schnittplan nachjustieren.
+   */
+  ausschnittVonOben: 0.06,
+} as const;
+
+/** Das freie Band über der Bühne — hier stehen Untertitel und Einblendungen. */
+export const TEXTBAND = {
+  oben: SAFE_ZONE.oben,
+  unten: FORMAT.hoehe - BUEHNE.vonUnten - BUEHNE.hoehe,
+} as const;
+
 /** Tonhöhen relativ zur Stimme – die Stimme bleibt immer vorn. */
 export const LAUTSTAERKE = {
   stimme: 1,

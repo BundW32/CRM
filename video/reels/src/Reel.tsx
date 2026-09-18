@@ -1,7 +1,7 @@
 import React from "react";
-import { AbsoluteFill, Audio, OffthreadVideo, Sequence, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, staticFile, useCurrentFrame } from "remotion";
 import { createTikTokStyleCaptions } from "@remotion/captions";
-import { FORMAT, LAUTSTAERKE } from "./marke";
+import { FARBEN, FORMAT, LAUTSTAERKE } from "./marke";
 import { bauZeitachse, reelDauerMs, untertitelUmrechnen } from "./zeitachse";
 import type { ReelPlan } from "./plan";
 import { Clip } from "./bausteine/Clip";
@@ -35,9 +35,43 @@ export const Reel: React.FC<{ plan: ReelPlan }> = ({ plan }) => {
   });
 
   const kinetic = plan.kinetic ?? [];
+  const buehne = (plan.bildaufbau ?? "buehne") === "buehne";
 
   return (
-    <AbsoluteFill style={{ backgroundColor: "black" }}>
+    <AbsoluteFill style={{ backgroundColor: FARBEN.tinte }}>
+      {/* Hintergrund hinter der Bühne — unscharf, damit Text darauf trägt */}
+      {buehne ? (
+        <>
+          <AbsoluteFill
+            style={{
+              background: `radial-gradient(120% 80% at 50% 20%, ${FARBEN.gruenHell} 0%, ${FARBEN.gruen} 55%, ${FARBEN.tinte} 100%)`,
+            }}
+          />
+          {plan.hintergrund ? (
+            <>
+              <AbsoluteFill style={{ overflow: "hidden" }}>
+                <Img
+                  src={staticFile(plan.hintergrund)}
+                  style={{
+                    width: "110%",
+                    height: "110%",
+                    objectFit: "cover",
+                    filter: "blur(38px) saturate(0.85) brightness(0.55)",
+                    transform: "translate(-5%, -5%)",
+                  }}
+                />
+              </AbsoluteFill>
+              <AbsoluteFill
+                style={{
+                  background:
+                    "linear-gradient(180deg, rgba(0,36,31,0.55) 0%, rgba(0,36,31,0.15) 45%, rgba(0,36,31,0.75) 100%)",
+                }}
+              />
+            </>
+          ) : null}
+        </>
+      ) : null}
+
       {achse.map((a, i) => {
         const kamera = plan.kamera?.[i] ?? {};
         return (
@@ -54,6 +88,7 @@ export const Reel: React.FC<{ plan: ReelPlan }> = ({ plan }) => {
               zoomBis={kamera.zoomBis ?? 1}
               versatzY={kamera.versatzY ?? 0}
               lautstaerke={LAUTSTAERKE.stimme}
+              alsBuehne={buehne}
             />
           </Sequence>
         );
@@ -91,7 +126,7 @@ export const Reel: React.FC<{ plan: ReelPlan }> = ({ plan }) => {
         </Sequence>
       ))}
 
-      <UntertitelSpur seiten={pages} kinetic={kinetic} />
+      <UntertitelSpur seiten={pages} kinetic={kinetic} imBand={buehne} />
 
       {(plan.klaenge ?? []).map((k) => (
         <Sequence key={`klang-${k.abSekunde}-${k.klang}`} from={frames(k.abSekunde)} durationInFrames={frames(2)}>
@@ -106,12 +141,13 @@ export const Reel: React.FC<{ plan: ReelPlan }> = ({ plan }) => {
 const UntertitelSpur: React.FC<{
   seiten: ReturnType<typeof createTikTokStyleCaptions>["pages"];
   kinetic: NonNullable<ReelPlan["kinetic"]>;
-}> = ({ seiten, kinetic }) => {
+  imBand: boolean;
+}> = ({ seiten, kinetic, imBand }) => {
   const frame = useCurrentFrame();
   const aus = kinetic.some(
     (k) => frame >= frames(k.abSekunde) && frame < frames(k.abSekunde + k.dauerSekunden),
   );
-  return <Untertitel seiten={seiten} aus={aus} />;
+  return <Untertitel seiten={seiten} aus={aus} imBand={imBand} />;
 };
 
 /** Die Reellänge steht im Plan, nicht in der Composition. */

@@ -2663,7 +2663,7 @@ Antwort an ihn nennt zehn Zusagen. Die ersten drei sind hier umgesetzt.
 
 337. **Handbuch im Portal, alle Bereiche, je Rolle gefiltert (Paket 11).** Die
      Zusage aus der Kundenantwort war das Kapitel „Rechnungen"; gebaut ist
-     das ganze Handbuch: 25 Kapitel in sechs Bereichen (Erste Schritte,
+     das ganze Handbuch: 27 Kapitel in sechs Bereichen (Erste Schritte,
      Alltag, Gemeinschaft, Finanzen, Betrieb, Konto und Einstellungen), als
      Markdown unter `src/content/hilfe/*.md` mit einem kleinen Kopf (Titel,
      Kurzsatz, Bereich, Reihenfolge, Rollen, optional „nur

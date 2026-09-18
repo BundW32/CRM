@@ -6,6 +6,7 @@ import {
   SESSION_TYP,
   istInaktiv,
   latVeraltet,
+  loginNachInaktivitaet,
   sessionCookieAttribute,
 } from "@/lib/session-inaktiv";
 
@@ -155,7 +156,7 @@ export async function proxy(request: NextRequest) {
     // nur der Cookie — dort meldet `requireUser` den Grund auf demselben Weg.
     const seitenaufruf = request.method === "GET" && !request.nextUrl.pathname.startsWith("/login");
     const response = seitenaufruf
-      ? NextResponse.redirect(new URL("/login?grund=inaktiv", request.url))
+      ? NextResponse.redirect(new URL(loginNachInaktivitaet(sitzung.idle), request.url))
       : NextResponse.next({ request: { headers: requestHeaders } });
     response.cookies.delete(SESSION_COOKIE);
     return response;

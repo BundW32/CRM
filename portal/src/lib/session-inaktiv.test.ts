@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { istIdleTimeoutStufe, istInaktiv, latVeraltet } from "./session-inaktiv";
+import {
+  istIdleTimeoutStufe,
+  istInaktiv,
+  latVeraltet,
+  loginNachInaktivitaet,
+} from "./session-inaktiv";
 
 const NOW = Date.parse("2026-09-18T10:00:00Z");
 const vorMinuten = (m: number) => Math.floor((NOW - m * 60_000) / 1000);
@@ -28,6 +33,13 @@ describe("latVeraltet", () => {
     expect(latVeraltet(Math.floor(NOW / 1000) - 10, NOW)).toBe(false);
     expect(latVeraltet(Math.floor(NOW / 1000) - 60, NOW)).toBe(true);
     expect(latVeraltet(null, NOW)).toBe(true);
+  });
+});
+
+describe("loginNachInaktivitaet", () => {
+  it("nimmt die Frist mit, damit die Anmeldeseite sie nennen kann", () => {
+    expect(loginNachInaktivitaet(30)).toBe("/login?grund=inaktiv&minuten=30");
+    expect(loginNachInaktivitaet(null)).toBe("/login?grund=inaktiv");
   });
 });
 

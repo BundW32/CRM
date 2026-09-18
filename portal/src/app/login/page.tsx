@@ -40,12 +40,15 @@ export function generateMetadata(): Metadata {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ fehler?: string; grund?: string }>;
+  searchParams: Promise<{ fehler?: string; grund?: string; minuten?: string }>;
 }) {
   const user = await getUser();
   if (user) redirect("/dashboard");
   if ((await db.user.count()) === 0) redirect("/setup");
-  const { fehler, grund } = await searchParams;
+  const { fehler, grund, minuten } = await searchParams;
+  // Die Frist kommt aus der URL und wird nur als Zahl übernommen — alles
+  // andere fällt auf die allgemeine Formulierung zurück.
+  const inaktivMinuten = /^\d{1,4}$/.test(minuten ?? "") ? Number(minuten) : null;
 
   // Mandanten-Branding anhand der Subdomain (sofern vorhanden).
   const tenantOrg = await getTenantOrg();
@@ -115,8 +118,11 @@ export default async function LoginPage({
             // soll wissen, warum — sonst sieht es nach einem Fehler aus.
             <div className="mb-4">
               <Alert variant="info">
-                Sie wurden nach längerer Inaktivität automatisch abgemeldet. Bitte melden
-                Sie sich erneut an.
+                Sie wurden{" "}
+                {inaktivMinuten
+                  ? `nach ${inaktivMinuten} Minuten ohne Aktivität`
+                  : "nach längerer Inaktivität"}{" "}
+                automatisch abgemeldet. Bitte melden Sie sich erneut an.
               </Alert>
             </div>
           ) : null}

@@ -59,6 +59,15 @@ export function istInaktiv(
   return nowMs - lat * 1000 > idleMinuten * 60_000;
 }
 
+/**
+ * Ziel nach dem Ablauf: die Anmeldeseite mit Grund und Frist, damit sie
+ * sagen kann „nach 30 Minuten ohne Aktivität" statt nur „abgemeldet".
+ */
+export function loginNachInaktivitaet(idleMinuten: number | null | undefined): string {
+  const minuten = idleMinuten && idleMinuten > 0 ? `&minuten=${idleMinuten}` : "";
+  return `/login?grund=inaktiv${minuten}`;
+}
+
 /** Lohnt sich das Neuschreiben von `lat`? (Nicht bei jedem Klick ein neuer Cookie.) */
 export function latVeraltet(lat: number | null | undefined, nowMs: number): boolean {
   if (lat == null) return true;

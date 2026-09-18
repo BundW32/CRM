@@ -17,7 +17,7 @@ import {
 import { isMailEnabled, portalUrlFromRequest, sendMail } from "@/lib/mailer";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { createSession, getSession, requireUser, revokeSessions } from "@/lib/session";
-import { istIdleTimeoutStufe } from "@/lib/session-inaktiv";
+import { istIdleTimeoutStufe, loginNachInaktivitaet } from "@/lib/session-inaktiv";
 import { IMAGE_TYPES, deleteBlob, saveBuffer } from "@/lib/storage";
 import { ablageFehlerText } from "@/lib/weg/ablage-fehler";
 
@@ -299,8 +299,8 @@ export async function saveShowHints(formData: FormData) {
 // ein `createSession(kunde)` machte aus der Stellvertretung eine echte
 // Anmeldung als Kunde, ohne Hinweisleiste und ohne Protokoll.
 export async function saveIdleTimeout(formData: FormData) {
-  const { user, impersonating, inaktiv } = await getSession();
-  if (!user) redirect(inaktiv ? "/login?grund=inaktiv" : "/login");
+  const { user, impersonating, inaktivNach } = await getSession();
+  if (!user) redirect(inaktivNach ? loginNachInaktivitaet(inaktivNach) : "/login");
   const minuten = Number(formData.get("idleTimeoutMinutes"));
   if (!Number.isInteger(minuten) || !istIdleTimeoutStufe(minuten)) redirect(backTo("#abmeldung"));
 

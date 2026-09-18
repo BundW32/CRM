@@ -9,6 +9,7 @@ import {
   SESSION_TAGE,
   SESSION_TYP,
   istInaktiv,
+  loginNachInaktivitaet,
   sessionCookieAttribute,
 } from "./session-inaktiv";
 
@@ -175,16 +176,17 @@ export type SessionContext = {
   realUser: Awaited<ReturnType<typeof loadUser>>;
   user: Awaited<ReturnType<typeof loadUser>>;
   impersonating: boolean;
-  /** Wahr, wenn ein gültiges Token nur wegen Inaktivität verworfen wurde —
-   *  dann sagt die Anmeldeseite, warum man dort gelandet ist. */
-  inaktiv: boolean;
+  /** Die Frist in Minuten, wenn ein gültiges Token nur wegen Inaktivität
+   *  verworfen wurde — dann sagt die Anmeldeseite, warum man dort gelandet
+   *  ist. Sonst null. */
+  inaktivNach: number | null;
 };
 
 const NICHT_ANGEMELDET: SessionContext = {
   realUser: null,
   user: null,
   impersonating: false,
-  inaktiv: false,
+  inaktivNach: null,
 };
 
 // Pro Request gecacht: echte Session + ggf. aktive Impersonation auflösen.
@@ -199,7 +201,9 @@ export const getSession = cache(async (): Promise<SessionContext> => {
   // jeder Seite und leitet um; hier steht die Gegenprobe für alles, was am
   // Proxy vorbeigeht (API-Routen, Server-Actions), mit derselben Regel und
   // demselben `lat` aus dem Token — beide kommen zwingend zum selben Schluss.
-  if (istInaktiv(real.lat, real.idle, Date.now())) return { ...NICHT_ANGEMELDET, inaktiv: true };
+  if (istInaktiv(real.lat, real.idle, Date.now())) {
+    return { ...NICHT_ANGEMELDET, inaktivNach: real.idle };
+  }
 
   // Impersonation nur wirksam, wenn die ECHTE Session ein Plattform-Betreiber ist
   // (wird bei jedem Request neu geprüft – verlorene Rechte beenden sie sofort).
@@ -207,10 +211,10 @@ export const getSession = cache(async (): Promise<SessionContext> => {
   if (imp && imp.sub !== realUser.id && isPlatformAdminUser(realUser)) {
     const target = await loadUser(imp.sub, false);
     if (target && !tokenWiderrufen(imp, target.sessionsValidFrom)) {
-      return { realUser, user: target, impersonating: true, inaktiv: false };
+      return { realUser, user: target, impersonating: true, inaktivNach: null };
     }
   }
-  return { realUser, user: realUser, impersonating: false, inaktiv: false };
+  return { realUser, user: realUser, impersonating: false, inaktivNach: null };
 });
 
 // Pro Request gecacht: der EFFEKTIVE Nutzer (bei Impersonation der Kunde).
@@ -218,7 +222,9 @@ export const getUser = cache(async () => (await getSession()).user);
 
 export async function requireUser() {
   const session = await getSession();
-  if (!session.user) redirect(session.inaktiv ? "/login?grund=inaktiv" : "/login");
+  if (!session.user) {
+    redirect(session.inaktivNach ? loginNachInaktivitaet(session.inaktivNach) : "/login");
+  }
   return session.user;
 }
 

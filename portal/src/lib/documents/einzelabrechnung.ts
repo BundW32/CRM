@@ -16,6 +16,7 @@ import {
   type TableCell,
 } from "./kit";
 import type { RGB } from "pdf-lib";
+import { zeichneUmlagebasisBlock } from "./umlagebasis-block";
 
 export type EinzelabrechnungOwner = { name: string; days: number; cents: number };
 export type EinzelabrechnungCostRow = {
@@ -192,30 +193,7 @@ export async function generateEinzelabrechnungen(input: EinzelabrechnungInput): 
     });
 
     // ── Grundlage der Verteilung ─────────────────────────────────────────────
-    // Der Schlüsselname allein („Wohn-/Nutzfläche") sagt, wonach verteilt
-    // wurde, aber nicht, ob es stimmt. Erst mit Zähler und Nenner kann der
-    // Eigentümer jede Zeile nachrechnen: Gesamtkosten × Anteil ÷ Gesamt.
-    if (unit.umlagebasis && unit.umlagebasis.length > 0) {
-      doc.text("Grundlage der Verteilung", {
-        size: size.small,
-        font: doc.bold,
-        color: color.muted,
-        lead: mm(5),
-      });
-      doc.table(
-        [
-          { header: "Umlageschlüssel", width: 44 },
-          { header: "Ihre Einheit", width: 26, align: "right" },
-          { header: "Gemeinschaft gesamt", width: 30, align: "right" },
-        ],
-        unit.umlagebasis.map((z): TableCell[] => [
-          { text: z.schluessel },
-          { text: z.einheit },
-          { text: z.gesamt, color: color.muted },
-        ]),
-      );
-      doc.space(mm(5));
-    }
+    zeichneUmlagebasisBlock(doc, unit.umlagebasis);
 
     zeichneKostenBloecke(doc, unit.costRows);
     if (unit.nichtBeteiligt && unit.nichtBeteiligt > 0) {

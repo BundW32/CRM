@@ -22,6 +22,7 @@ import {
   type TableCell,
 } from "./kit";
 import type { RGB } from "pdf-lib";
+import { zeichneUmlagebasisBlock } from "./umlagebasis-block";
 
 export type EinzelplanPosition = {
   name: string;
@@ -36,6 +37,18 @@ export type EinzelplanUnit = {
   label: string;
   /** Aktuelle Eigentümer der Einheit, für die Anschrift. */
   ownerNames: string[];
+  /**
+   * Bezugsgrößen dieser Einheit gegenüber der Gemeinschaft — wie in der
+   * Einzelabrechnung („205 von 1.000 Miteigentumsanteilen"). Der Kunde hat
+   * den Block dort gelobt und hier vermisst.
+   */
+  umlagebasis?: { schluessel: string; einheit: string; gesamt: string }[];
+  /**
+   * Der Plan kennt Verbrauch und „Betrag je Einheit" noch nicht: Solche
+   * Positionen werden als Vorschuss nach MEA angesetzt, die Jahresabrechnung
+   * korrigiert centgenau. Stand bisher nur auf der Bildschirmseite.
+   */
+  vorschussNachMea?: boolean;
   positions: EinzelplanPosition[];
   /**
    * Jahresvorschuss (= Σ Anteile, Ausgaben − Einnahmen), die zwölf Monatsraten
@@ -53,6 +66,12 @@ export type EinzelwirtschaftsplanInput = {
   year: number;
   resolved: { date: Date; note: string | null } | null; // null = Entwurf
   units: EinzelplanUnit[];
+  /**
+   * Bankverbindung der Gemeinschaft (Girokonto) für das Hausgeld. Beim
+   * Rendern gelesen, nicht gespeichert — sie soll immer aktuell sein (Nr. 32).
+   * Ohne IBAN entfällt der Block; die Bildschirmseite sagt dann, wo sie fehlt.
+   */
+  bank?: { inhaber: string; iban: string } | null;
   generatedAt: Date;
 };
 
@@ -127,6 +146,16 @@ export async function generateEinzelwirtschaftsplaene(
       ],
     });
 
+    zeichneUmlagebasisBlock(
+      doc,
+      unit.umlagebasis,
+      unit.vorschussNachMea
+        ? "Positionen mit Schlüssel „Verbrauch“ oder „Betrag je Einheit“ werden im Wirtschaftsplan " +
+            "als Vorschuss nach Miteigentumsanteilen angesetzt; die Jahresabrechnung verteilt sie " +
+            "nach dem tatsächlichen Verbrauch bzw. den erfassten Beträgen und korrigiert centgenau."
+        : null,
+    );
+
     doc.table(
       [
         { header: "Kostenposition", width: 44 },
@@ -162,6 +191,25 @@ export async function generateEinzelwirtschaftsplaene(
       min === max ? formatCents(max) : `${formatCents(min)} – ${formatCents(max)}`,
       { sub: "Fällig jeweils zum 1. eines Monats", tone: "due" },
     );
+
+    // ── Bankverbindung ───────────────────────────────────────────────────────
+    // Dort, wo die Frage entsteht: Wer den Betrag liest, will wissen, wohin.
+    // Gleiche Angaben wie auf der Hausgeld-Mahnung.
+    if (input.bank) {
+      doc.space(mm(2));
+      doc.text("Bankverbindung für das Hausgeld", {
+        size: size.small,
+        font: doc.bold,
+        color: color.muted,
+        lead: mm(5),
+      });
+      doc.defList([
+        ["Kontoinhaber", input.bank.inhaber],
+        ["IBAN", input.bank.iban],
+        ["Verwendungszweck", `Hausgeld ${unit.label}`],
+        ["Fälligkeit", "monatlich zum 1., am besten per Dauerauftrag"],
+      ]);
+    }
 
     doc.space(mm(2));
     doc.para(hinweisFuer(unit.raten), {

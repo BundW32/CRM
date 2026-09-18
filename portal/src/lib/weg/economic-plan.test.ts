@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  advanceKeyFor,
   advanceWeightsForKey,
   computeUnitAdvances,
   fiscalYearMonths,
@@ -384,5 +385,15 @@ describe("Umlageschlüssel JE_STELLPLATZ im Wirtschaftsplan", () => {
         ohneStellplatz,
       ),
     ).toThrow(/Stellplatz/);
+  });
+});
+
+describe("advanceKeyFor", () => {
+  it("setzt Verbrauch und Betrag je Einheit im Plan nach MEA an, alles andere bleibt", () => {
+    expect(advanceKeyFor("VERBRAUCH")).toBe("MEA");
+    expect(advanceKeyFor("INDIVIDUELL")).toBe("MEA");
+    expect(advanceKeyFor("FESTBETRAG")).toBe("MEA");
+    expect(advanceKeyFor("FLAECHE")).toBe("FLAECHE");
+    expect(advanceKeyFor("JE_STELLPLATZ")).toBe("JE_STELLPLATZ");
   });
 });

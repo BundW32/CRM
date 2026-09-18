@@ -34,10 +34,19 @@ export function fiscalYearRange(year: number, startMonth: number): { start: Date
  *   Wohnfläche trägt solche Kosten nicht mit).
  * - MEA bleibt strikt: ohne vollständige MEA kein Plan.
  */
+/**
+ * Nach welchem Schlüssel der Vorschuss tatsächlich verteilt wird: Verbrauch
+ * und „Betrag je Einheit" kennt der Plan noch nicht, dort gilt MEA. Steht
+ * getrennt, damit das Einzelwirtschaftsplan-PDF dieselbe Regel im Kopfblock
+ * nennen kann, statt sie zu erraten.
+ */
+export function advanceKeyFor(key: DistributionKey): DistributionKey {
+  return key === "VERBRAUCH" || key === "FESTBETRAG" || key === "INDIVIDUELL" ? "MEA" : key;
+}
+
 export function advanceWeightsForKey(units: UnitForDistribution[], key: DistributionKey): Share[] {
   if (units.length === 0) throw new Error("Mindestens eine Einheit erforderlich.");
-  const effective: DistributionKey =
-    key === "VERBRAUCH" || key === "FESTBETRAG" || key === "INDIVIDUELL" ? "MEA" : key;
+  const effective = advanceKeyFor(key);
   switch (effective) {
     case "MEA":
       return units.map((u) => {

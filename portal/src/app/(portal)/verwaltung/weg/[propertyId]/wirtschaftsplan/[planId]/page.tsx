@@ -97,6 +97,14 @@ export default async function WirtschaftsplanDetailPage({
   ]);
   if (!plan) notFound();
 
+  // Steht die IBAN des Girokontos in den Stammdaten? Der Einzelwirtschaftsplan
+  // druckt sie unter dem Hausgeld — ohne sie fehlt dort der Block, und der
+  // Eigentümer sucht, wohin er überweisen soll.
+  const giroMitIban = await db.ledgerAccount.findFirst({
+    where: { propertyId: property.id, kind: "GIRO", active: true, iban: { not: null } },
+    select: { id: true },
+  });
+
   // Bis zu welchem Monat Sollstellungen bestehen. Ohne diese Angabe wirkt die
   // Anzahl unplausibel: Bei neun Einheiten und einem Jahresplan erwartet man
   // 108, es sind aber 90 — weil bewusst nur bis zum laufenden Monat plus zwei
@@ -264,6 +272,15 @@ mit der Jahresabrechnung verrechnet.`
         </Badge>
       </PageTitle>
 
+      {!giroMitIban ? (
+        <Alert variant="info" className="mb-4">
+          Für das Girokonto ist keine IBAN hinterlegt. Der Einzelwirtschaftsplan nennt sie
+          unter dem monatlichen Hausgeld, damit jeder Eigentümer weiß, wohin er überweist.{" "}
+          <Link href={`/verwaltung/weg/${property.id}/stammdaten#konten`} className="underline">
+            IBAN in den Stammdaten eintragen
+          </Link>
+        </Alert>
+      ) : null}
       {sp.gespeichert ? (
         <Alert variant="success" className="mb-4">
           Planwerte gespeichert.

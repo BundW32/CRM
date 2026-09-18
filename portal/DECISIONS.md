@@ -2573,3 +2573,21 @@ Antwort an ihn nennt zehn Zusagen. Die ersten drei sind hier umgesetzt.
      Bauer (`steuerbescheinigung-pdf.ts`) nach dem Muster von Nr. 52. Damit
      ist Befund C2 der Buchhaltungsprüfung („der Steuerberater will ein
      Blatt") geschlossen.
+
+334. **Einzelwirtschaftsplan: Umlageschlüssel im Kopf, Bankverbindung unter
+     dem Hausgeld (Paket 8).** Der Kunde hatte den Block „Grundlage der
+     Verteilung" in der Einzelabrechnung gelobt und im Einzelwirtschaftsplan
+     vermisst; dort stand je Position nur der Name des Schlüssels. Jetzt
+     zeichnet ein gemeinsamer Zeichner (`documents/umlagebasis-block.ts`) den
+     Block in beiden Dokumenten — eine Quelle, kein Auseinanderlaufen. Im
+     Plan werden die Bezugsgrößen nach dem **tatsächlich angesetzten**
+     Schlüssel gebildet (`advanceKeyFor`: Verbrauch und „Betrag je Einheit"
+     → MEA), und der Satz dazu, der bisher nur auf der Bildschirmseite stand,
+     steht als Hinweis unter dem Block. Die IBAN des ersten aktiven
+     Girokontos wird beim Rendern gelesen (Nr. 32, wie bei der Mahnung) und
+     mit Kontoinhaber, Verwendungszweck „Hausgeld <Einheit>" und Fälligkeit
+     unter das Panel „Monatliches Hausgeld" gesetzt — dort, wo die Frage
+     „wohin?" entsteht. Ohne IBAN entfällt der Block; die Planseite sagt dann
+     mit Link in die Stammdaten, was fehlt. Der Gesamtwirtschaftsplan bekommt
+     den Kopfblock nicht: Dort steht die Verteilung je Einheit ohnehin in der
+     Tabelle.

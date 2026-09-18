@@ -400,7 +400,7 @@ describe("Wirtschaftsplan: Satzspiegel", () => {
     expect(alle).toContain("WE 30");
   });
 
-  it("Einzelwirtschaftsplan hält die Ränder", async () => {
+  it("Einzelwirtschaftsplan hält die Ränder — mit Umlageschlüssel-Kopf und Bankverbindung", async () => {
     const pdf = await generateEinzelwirtschaftsplaene({
       propertyName: "Wohnungseigentümergemeinschaft Lindenhof, Lindenstraße 12–16, 45964 Gladbeck-Zweckel",
       issuer: langerKitIssuer,
@@ -410,6 +410,11 @@ describe("Wirtschaftsplan: Satzspiegel", () => {
         {
           label: "WE 07 · 3. OG rechts",
           ownerNames: ["Ayşe Şahin-Grünewald", "Krzysztof Wiśniewski-Öztürk"],
+          umlagebasis: [
+            { schluessel: "Miteigentumsanteile", einheit: "250,17", gesamt: "1.000" },
+            { schluessel: "Wohn-/Nutzfläche", einheit: "90,00 m²", gesamt: "500,00 m²" },
+          ],
+          vorschussNachMea: true,
           positions: positionen.map((p) => ({
             name: p.name,
             keyLabel: p.keyLabel,
@@ -419,9 +424,42 @@ describe("Wirtschaftsplan: Satzspiegel", () => {
           raten: monthlyInstallmentPlan(445750, "ZEHN_CENT"),
         },
       ],
+      bank: { inhaber: "WEG Lindenhof, Lindenstraße 12–16", iban: "DE02 1203 0000 0000 2020 51" },
       generatedAt: new Date(2026, 6, 29),
     });
-    assertInsideMargins(await drawnTexts(pdf));
+    const items = await drawnTexts(pdf);
+    assertInsideMargins(items);
+    const alle = items.map((it) => it.text).join(" ");
+    expect(alle).toContain("Grundlage der Verteilung");
+    expect(alle).toContain("Vorschuss nach Miteigentumsanteilen");
+    expect(alle).toContain("DE02 1203 0000 0000 2020 51");
+    expect(alle).toContain("Hausgeld WE 07");
+  });
+
+  it("Einzelwirtschaftsplan ohne IBAN und ohne Bezugsgrößen bleibt wie bisher", async () => {
+    const pdf = await generateEinzelwirtschaftsplaene({
+      propertyName: "WEG Lindenhof",
+      issuer: langerKitIssuer,
+      year: 2027,
+      resolved: null,
+      units: [
+        {
+          label: "WE 01",
+          ownerNames: [],
+          positions: positionen.slice(0, 3).map((p) => ({
+            name: p.name,
+            keyLabel: p.keyLabel,
+            totalCents: p.amountCents,
+            shareCents: Math.round(p.amountCents / 12),
+          })),
+          raten: monthlyInstallmentPlan(120000, "CENT"),
+        },
+      ],
+      generatedAt: new Date(2026, 6, 29),
+    });
+    const alle = (await drawnTexts(pdf)).map((it) => it.text).join(" ");
+    expect(alle).not.toContain("Grundlage der Verteilung");
+    expect(alle).not.toContain("Bankverbindung");
   });
 });
 

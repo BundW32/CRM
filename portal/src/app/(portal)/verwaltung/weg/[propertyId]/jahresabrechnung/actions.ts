@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -59,14 +60,14 @@ export async function createStatement(formData: FormData) {
   });
   if (existing) back(property.id, `/${existing.id}`);
 
-  const statement = await db.annualStatement.create({
+  const statement = await auditMutation(verwalter, async (tx) => tx.annualStatement.create({
     data: {
       organizationId: verwalter.organizationId,
       propertyId: property.id,
       year: parsed.data.year,
       createdById: verwalter.id,
     },
-  });
+  }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_STATEMENT_SAVED,
@@ -101,13 +102,13 @@ export async function saveManualAmounts(formData: FormData) {
     where: { propertyId: property.id },
     select: { id: true },
   });
-  const writes = [];
+  const writes: ((tx: Prisma.TransactionClient) => Promise<unknown>)[] = [];
   for (const u of units) {
     const raw = String(formData.get(`amount_${u.id}`) ?? "").trim();
     const cents = raw === "" ? 0 : parseEuroToCents(raw);
     if (cents === null) back(property.id, `/${statement.id}`, "fehler=betrag");
     writes.push(
-      db.statementUnitAmount.upsert({
+      (tx: Prisma.TransactionClient) => tx.statementUnitAmount.upsert({
         where: {
           statementId_costTypeId_unitId: {
             statementId: statement.id,
@@ -125,7 +126,7 @@ export async function saveManualAmounts(formData: FormData) {
       }),
     );
   }
-  await db.$transaction(writes);
+  await auditMutation(verwalter, (tx) => Promise.all(writes.map((write) => write(tx))));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_STATEMENT_SAVED,
@@ -239,10 +240,10 @@ export async function distributeByMeters(formData: FormData) {
       }).perUnit;
       // Den angewandten Anteil festhalten: Nur so kann die Abrechnung später
       // „70 % Verbrauch, 30 % Wohnfläche" ausweisen statt bloß „Verbrauch".
-      await db.costType.update({
+      await auditMutation(verwalter, async (tx) => tx.costType.update({
         where: { id: costType.id },
         data: { heatingConsumptionPercent: consumptionPercent },
-      });
+      }));
     } catch {
       back(property.id, `/${statement.id}`, "fehler=flaeche");
     }
@@ -250,7 +251,7 @@ export async function distributeByMeters(formData: FormData) {
     distributed = distributeByWeight(totalCents, weights);
   }
   const writes = units.map((u) =>
-    db.statementUnitAmount.upsert({
+    (tx: Prisma.TransactionClient) => tx.statementUnitAmount.upsert({
       where: {
         statementId_costTypeId_unitId: {
           statementId: statement.id,
@@ -267,7 +268,7 @@ export async function distributeByMeters(formData: FormData) {
       },
     }),
   );
-  await db.$transaction(writes);
+  await auditMutation(verwalter, (tx) => Promise.all(writes.map((write) => write(tx))));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_STATEMENT_SAVED,
@@ -316,17 +317,15 @@ export async function importHeatingAmounts(formData: FormData) {
   });
   const match = matchHeatingRows(units, parsed.rows);
   if (match.matched.length > 0) {
-    await db.$transaction(
-      match.matched.map((m) =>
-        db.statementUnitAmount.upsert({
+    await auditMutation(verwalter, async (tx) => Promise.all(match.matched.map((m) =>
+        tx.statementUnitAmount.upsert({
           where: {
             statementId_costTypeId_unitId: { statementId: statement.id, costTypeId: costType.id, unitId: m.unitId },
           },
           update: { amountCents: m.amountCents },
           create: { statementId: statement.id, costTypeId: costType.id, unitId: m.unitId, amountCents: m.amountCents },
         }),
-      ),
-    );
+      )));
   }
   await logAudit({
     actorId: verwalter.id,
@@ -355,7 +354,7 @@ export async function saveAccountChecks(formData: FormData) {
     where: { propertyId: property.id, active: true },
     select: { id: true },
   });
-  const writes = [];
+  const writes: ((tx: Prisma.TransactionClient) => Promise<unknown>)[] = [];
   for (const a of accounts) {
     const raw = String(formData.get(`check_${a.id}`) ?? "").trim();
     if (raw === "") continue;
@@ -365,14 +364,14 @@ export async function saveAccountChecks(formData: FormData) {
     if (cents === null) back(property.id, `/${statement.id}`, "fehler=betrag");
     const reportedEndCents = negative ? -cents : cents;
     writes.push(
-      db.statementAccountCheck.upsert({
+      (tx: Prisma.TransactionClient) => tx.statementAccountCheck.upsert({
         where: { statementId_accountId: { statementId: statement.id, accountId: a.id } },
         update: { reportedEndCents },
         create: { statementId: statement.id, accountId: a.id, reportedEndCents },
       }),
     );
   }
-  await db.$transaction(writes);
+  await auditMutation(verwalter, (tx) => Promise.all(writes.map((write) => write(tx))));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_STATEMENT_SAVED,
@@ -396,7 +395,7 @@ export async function deleteStatement(formData: FormData) {
   if (!statement) back(property.id);
   if (statement.status !== "ENTWURF") back(property.id, `/${statement.id}`, "fehler=fertig");
 
-  await db.annualStatement.delete({ where: { id: statement.id } });
+  await auditMutation(verwalter, async (tx) => tx.annualStatement.delete({ where: { id: statement.id } }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_STATEMENT_DELETED,
@@ -438,14 +437,14 @@ export async function finalizeStatement(formData: FormData) {
   }
 
   const finalizedAt = new Date();
-  await db.annualStatement.update({
+  await auditMutation(verwalter, async (tx) => tx.annualStatement.update({
     where: { id: statement.id },
     data: {
       status: "FERTIG",
       finalizedAt,
       snapshot: view as unknown as Prisma.InputJsonValue,
     },
-  });
+  }));
 
   // Jede Einheit bekommt ihre Einzelabrechnung in die Dokumente gelegt —
   // gezielt an ihre Eigentümer. Der Zeitpunkt ist bewusst dieser: Die

@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { signOffName } from "@/lib/branding";
 import { revalidatePath } from "next/cache";
@@ -64,10 +65,10 @@ export async function createMeeting(formData: FormData) {
   // wird der eingegebene Link als neuer Standard des Objekts gespeichert.
   const videoLink = videoLinkInput ?? property.defaultVideoLink;
   if (saveVideoDefault && videoLinkInput && videoLinkInput !== property.defaultVideoLink) {
-    await db.property.update({ where: { id: propertyId }, data: { defaultVideoLink: videoLinkInput } });
+    await auditMutation(verwalter, async (tx) => tx.property.update({ where: { id: propertyId }, data: { defaultVideoLink: videoLinkInput } }));
   }
 
-  const meeting = await db.ownersMeeting.create({
+  const meeting = await auditMutation(verwalter, async (tx) => tx.ownersMeeting.create({
     data: {
       organizationId: verwalter.organizationId,
       propertyId,
@@ -77,7 +78,7 @@ export async function createMeeting(formData: FormData) {
       videoLink,
       createdById: verwalter.id,
     },
-  });
+  }));
   revalidatePath("/versammlungen");
   redirect(`/versammlungen/${meeting.id}`);
 }
@@ -98,7 +99,7 @@ export async function addAgendaItem(formData: FormData) {
   // Beschluss-TOP: verknüpften Beschluss (OFFEN) anlegen → vorhandene Abstimmlogik.
   let resolutionId: string | null = null;
   if (type === "BESCHLUSS") {
-    const resolution = await db.resolution.create({
+    const resolution = await auditMutation(verwalter, async (tx) => tx.resolution.create({
       data: {
         propertyId: meeting.propertyId,
         title,
@@ -106,12 +107,12 @@ export async function addAgendaItem(formData: FormData) {
         createdById: verwalter.id,
         organizationId: verwalter.organizationId,
       },
-    });
+    }));
     resolutionId = resolution.id;
   }
 
   // sortOrder atomar bestimmen (max+1), sonst kollidieren parallele TOP-Anlagen.
-  await db.$transaction(async (tx) => {
+  await auditMutation(verwalter, async (tx) => {
     const max = await tx.meetingAgendaItem.aggregate({
       where: { meetingId },
       _max: { sortOrder: true },
@@ -140,7 +141,7 @@ export async function deleteAgendaItem(formData: FormData) {
     select: { resolutionId: true, resolution: { select: { status: true, _count: { select: { votes: true } } } } },
   });
   if (item) {
-    await db.$transaction(async (tx) => {
+    await auditMutation(verwalter, async (tx) => {
       await tx.meetingAgendaItem.deleteMany({ where: { id: itemId, meetingId } });
       if (item.resolutionId && item.resolution?.status === "OFFEN") {
         if (item.resolution._count.votes > 0) {
@@ -179,16 +180,17 @@ export async function updateAgendaItem(formData: FormData) {
   if (!item) redirect(`/versammlungen/${meetingId}`);
 
   // Kind an die validierte meetingId binden.
-  await db.meetingAgendaItem.updateMany({
+  await auditMutation(verwalter, async (tx) => tx.meetingAgendaItem.updateMany({
     where: { id: itemId, meetingId },
     data: { title, description },
-  });
+  }));
   // Verknüpften, noch offenen Beschluss titelgleich halten.
   if (item.resolutionId) {
-    await db.resolution.updateMany({
-      where: { id: item.resolutionId, status: "OFFEN" },
+    const resolutionId = item.resolutionId;
+    await auditMutation(verwalter, async (tx) => tx.resolution.updateMany({
+      where: { id: resolutionId, status: "OFFEN" },
       data: { title, description: description ?? title },
-    });
+    }));
   }
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}?flash=aktualisiert`);
@@ -219,11 +221,9 @@ export async function moveAgendaItem(formData: FormData) {
   // heilt eventuelle Duplikate/Lücken statt nur zwei Werte zu tauschen.
   const reordered = items.map((it) => it.id);
   [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
-  await db.$transaction(
-    reordered.map((id, i) =>
-      db.meetingAgendaItem.updateMany({ where: { id, meetingId }, data: { sortOrder: i } }),
-    ),
-  );
+  await auditMutation(verwalter, async (tx) => Promise.all(reordered.map((id, i) =>
+      tx.meetingAgendaItem.updateMany({ where: { id, meetingId }, data: { sortOrder: i } }),
+    )));
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}?flash=aktualisiert`);
 }
@@ -240,7 +240,7 @@ export async function cancelMeeting(formData: FormData) {
 
   // Absagen + offene Beschluss-TOPs zurückziehen (keine Abstimmung für eine
   // abgesagte Versammlung) – in einer Transaktion.
-  await db.$transaction(async (tx) => {
+  await auditMutation(verwalter, async (tx) => {
     await tx.ownersMeeting.update({ where: { id: meetingId }, data: { status: "ABGESAGT" } });
     const items = await tx.meetingAgendaItem.findMany({
       where: { meetingId, resolutionId: { not: null } },
@@ -302,13 +302,13 @@ export async function updateMeeting(formData: FormData) {
 
   // Auf Wunsch den Link als Standard des Objekts übernehmen (für künftige Termine).
   if (saveVideoDefault && videoLink) {
-    await db.property.update({
+    await auditMutation(verwalter, async (tx) => tx.property.update({
       where: { id: meeting.propertyId },
       data: { defaultVideoLink: videoLink },
-    });
+    }));
   }
 
-  await db.ownersMeeting.update({
+  await auditMutation(verwalter, async (tx) => tx.ownersMeeting.update({
     where: { id: meetingId },
     data: {
       title,
@@ -317,7 +317,7 @@ export async function updateMeeting(formData: FormData) {
       videoLink,
       ...(meeting.status === "ABGESAGT" ? { status: "GEPLANT" as const } : {}),
     },
-  });
+  }));
   // Wurde bereits eingeladen und der Termin geändert → Hinweis, erneut einzuladen.
   const rescheduled =
     meeting.status === "EINBERUFEN" && scheduledAt.getTime() !== meeting.scheduledAt.getTime();
@@ -336,7 +336,7 @@ export async function updateAttendance(formData: FormData) {
   const meeting = await meetingInScope(verwalter, meetingId);
   if (!meeting) redirect("/versammlungen");
   const note = String(formData.get("attendanceNote") ?? "").trim().slice(0, 1000) || null;
-  await db.ownersMeeting.update({ where: { id: meetingId }, data: { attendanceNote: note } });
+  await auditMutation(verwalter, async (tx) => tx.ownersMeeting.update({ where: { id: meetingId }, data: { attendanceNote: note } }));
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}?flash=aktualisiert`);
 }
@@ -353,7 +353,7 @@ export async function sendInvitation(formData: FormData) {
   // Doppelklick-/Mehrfachversand-Schutz: den Versand-Zeitstempel ATOMAR
   // beanspruchen (nur wer die Sperrfrist von 2 Minuten „gewinnt", verschickt).
   // Verhindert doppelte Massen-Mails an die gesamte WEG.
-  const claimed = await db.ownersMeeting.updateMany({
+  const claimed = await auditMutation(verwalter, async (tx) => tx.ownersMeeting.updateMany({
     where: {
       id: meetingId,
       OR: [
@@ -362,7 +362,7 @@ export async function sendInvitation(formData: FormData) {
       ],
     },
     data: { invitationSentAt: new Date() },
-  });
+  }));
   if (claimed.count !== 1) redirect(`/versammlungen/${meetingId}?fehler=gerade_versendet`);
 
   const [property, items, owners, branding] = await Promise.all([
@@ -400,10 +400,10 @@ export async function sendInvitation(formData: FormData) {
   // der Status-Übergang: nur aus „Geplant" heraus einberufen – eine bereits
   // durchgeführte Versammlung darf nicht zurückgestuft werden.
   if (meeting.status === "GEPLANT") {
-    await db.ownersMeeting.updateMany({
+    await auditMutation(verwalter, async (tx) => tx.ownersMeeting.updateMany({
       where: { id: meetingId, status: "GEPLANT" },
       data: { status: "EINBERUFEN" },
-    });
+    }));
   }
   await logAudit({
     actorId: verwalter.id,
@@ -427,7 +427,7 @@ export async function markInvitationSent(formData: FormData) {
   if (!meeting) redirect("/versammlungen");
   if (isMeetingClosed(meeting.status)) redirect(`/versammlungen/${meetingId}?fehler=gesperrt`);
 
-  const claimed = await db.ownersMeeting.updateMany({
+  const claimed = await auditMutation(verwalter, async (tx) => tx.ownersMeeting.updateMany({
     where: {
       id: meetingId,
       OR: [
@@ -436,14 +436,14 @@ export async function markInvitationSent(formData: FormData) {
       ],
     },
     data: { invitationSentAt: new Date() },
-  });
+  }));
   if (claimed.count !== 1) redirect(`/versammlungen/${meetingId}?fehler=gerade_versendet`);
 
   if (meeting.status === "GEPLANT") {
-    await db.ownersMeeting.updateMany({
+    await auditMutation(verwalter, async (tx) => tx.ownersMeeting.updateMany({
       where: { id: meetingId, status: "GEPLANT" },
       data: { status: "EINBERUFEN" },
-    });
+    }));
   }
   await logAudit({
     actorId: verwalter.id,
@@ -488,7 +488,7 @@ export async function addAgendaFromTemplate(formData: FormData) {
 
   let resolutionId: string | null = null;
   if (tpl.type === "BESCHLUSS") {
-    const resolution = await db.resolution.create({
+    const resolution = await auditMutation(verwalter, async (tx) => tx.resolution.create({
       data: {
         propertyId: meeting.propertyId,
         title: tpl.title,
@@ -496,11 +496,11 @@ export async function addAgendaFromTemplate(formData: FormData) {
         createdById: verwalter.id,
         organizationId: verwalter.organizationId,
       },
-    });
+    }));
     resolutionId = resolution.id;
   }
 
-  await db.$transaction(async (tx) => {
+  await auditMutation(verwalter, async (tx) => {
     const max = await tx.meetingAgendaItem.aggregate({
       where: { meetingId },
       _max: { sortOrder: true },
@@ -726,7 +726,7 @@ export async function deleteMeeting(formData: FormData) {
     protocolBlob = doc?.storedName ?? null;
   }
 
-  await db.$transaction(async (tx) => {
+  await auditMutation(verwalter, async (tx) => {
     if (openResIds.length > 0) {
       await tx.resolution.deleteMany({ where: { id: { in: openResIds }, status: "OFFEN" } });
     }
@@ -781,11 +781,9 @@ export async function reorderAgendaItems(formData: FormData) {
   const fehlende = vorhanden.map((i) => i.id).filter((id) => !gefiltert.includes(id));
   const endgueltig = [...gefiltert, ...fehlende];
 
-  await db.$transaction(
-    endgueltig.map((id, index) =>
-      db.meetingAgendaItem.update({ where: { id }, data: { sortOrder: index } }),
-    ),
-  );
+  await auditMutation(verwalter, async (tx) => Promise.all(endgueltig.map((id, index) =>
+      tx.meetingAgendaItem.update({ where: { id }, data: { sortOrder: index } }),
+    )));
   revalidatePath(`/versammlungen/${meetingId}`);
   redirect(`/versammlungen/${meetingId}?flash=gespeichert`);
 }

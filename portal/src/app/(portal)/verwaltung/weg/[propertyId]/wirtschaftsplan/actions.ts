@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation, type AuditActor } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -74,7 +75,7 @@ export async function createPlan(formData: FormData) {
   });
   const actualByCostType = new Map(actuals.map((a) => [a.costTypeId as string, a._sum.amountCents ?? 0]));
 
-  const plan = await db.economicPlan.create({
+  const plan = await auditMutation(verwalter, async (tx) => tx.economicPlan.create({
     data: {
       organizationId: verwalter.organizationId,
       propertyId: property.id,
@@ -88,7 +89,7 @@ export async function createPlan(formData: FormData) {
         })),
       },
     },
-  });
+  }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_PLAN_SAVED,
@@ -119,6 +120,7 @@ async function abgleicheVorgaenger(
     hausgeldRounding: HausgeldRounding;
   },
   neuerPlanId: string,
+  actor: AuditActor,
 ) {
   const vorgaenger = await db.economicPlan.findMany({
     where: {
@@ -138,6 +140,7 @@ async function abgleicheVorgaenger(
   for (const v of vorgaenger) {
     try {
       await synchronisiereSollstellungen({
+        actor,
         organizationId,
         property,
         planId: v.id,
@@ -206,11 +209,9 @@ export async function updatePlanItems(formData: FormData) {
     if (cents !== item.amountCents) updates.push({ id: item.id, amountCents: cents });
   }
   if (updates.length > 0) {
-    await db.$transaction(
-      updates.map((u) =>
-        db.economicPlanItem.update({ where: { id: u.id }, data: { amountCents: u.amountCents } }),
-      ),
-    );
+    await auditMutation(verwalter, async (tx) => Promise.all(updates.map((u) =>
+        tx.economicPlanItem.update({ where: { id: u.id }, data: { amountCents: u.amountCents } }),
+      )));
   }
   await logAudit({
     actorId: verwalter.id,
@@ -244,7 +245,7 @@ export async function deletePlan(formData: FormData) {
   if (!plan) back(property.id);
   if (plan.status !== "ENTWURF") back(property.id, `/${plan.id}`, "fehler=beschlossen");
 
-  await db.economicPlan.delete({ where: { id: plan.id } });
+  await auditMutation(verwalter, async (tx) => tx.economicPlan.delete({ where: { id: plan.id } }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_PLAN_DELETED,
@@ -357,7 +358,7 @@ export async function resolvePlan(formData: FormData) {
   // Vorgänger abgrenzen: Alle bisher fortgeltenden Pläne dieses Objekts enden
   // dort, wo der neue beginnt. Ohne diesen Schritt trügen zwei Pläne dieselben
   // Monate und der Eigentümer schuldete sein Hausgeld doppelt.
-  await db.economicPlan.updateMany({
+  await auditMutation(verwalter, async (tx) => tx.economicPlan.updateMany({
     where: {
       propertyId: property.id,
       status: "BESCHLOSSEN",
@@ -366,7 +367,7 @@ export async function resolvePlan(formData: FormData) {
       OR: [{ validUntil: null }, { validUntil: { gt: validFrom } }],
     },
     data: { validUntil: validFrom },
-  });
+  }));
 
   // Die Rundung der Monatsraten wird **hier** festgeschrieben, nicht bei jeder
   // Berechnung neu aus den Stammdaten gelesen. Genau das ist der Bestandsschutz:
@@ -375,7 +376,7 @@ export async function resolvePlan(formData: FormData) {
   // gilt erst für den nächsten Beschluss.
   const rounding = property.hausgeldRounding;
 
-  await db.economicPlan.update({
+  await auditMutation(verwalter, async (tx) => tx.economicPlan.update({
     where: { id: plan.id },
     data: {
       status: "BESCHLOSSEN",
@@ -385,12 +386,13 @@ export async function resolvePlan(formData: FormData) {
       validUntil: null,
       hausgeldRounding: rounding,
     },
-  });
+  }));
 
   // Sollstellungen abgleichen statt löschen und neu anlegen: Eine bereits
   // fällige Forderung kann bezahlt oder gemahnt sein — sie verschwinden zu
   // lassen, verfälschte die Historie. Siehe `synchronisiereSollstellungen`.
   const abgleich = await synchronisiereSollstellungen({
+    actor: verwalter,
     organizationId: verwalter.organizationId,
     property,
     planId: plan.id,
@@ -408,7 +410,7 @@ export async function resolvePlan(formData: FormData) {
   // Der Vorgänger trägt seine Monate ab dem Wechsel nicht mehr. Sein Abgleich
   // räumt die noch nicht fälligen Sollstellungen weg — die bereits fälligen
   // bleiben, denn sie waren geschuldet.
-  await abgleicheVorgaenger(verwalter.organizationId, property, plan.id);
+  await abgleicheVorgaenger(verwalter.organizationId, property, plan.id, verwalter);
   // Jeder Eigentümer bekommt seinen Einzelwirtschaftsplan in die Dokumente
   // gelegt. Der Beschluss ist der richtige Moment: Erst er macht die Vorschüsse
   // fällig (§ 28 Abs. 1 WEG), und dies ist die Fassung, die der Eigentümer
@@ -637,7 +639,7 @@ export async function planZurAbstimmung(formData: FormData) {
     });
     if (!meeting) back(property.id, `/${plan.id}`, "fehler=versammlung");
 
-    const resolution = await db.resolution.create({
+    const resolution = await auditMutation(verwalter, async (tx) => tx.resolution.create({
       data: {
         propertyId: property.id,
         title: titel,
@@ -647,8 +649,8 @@ export async function planZurAbstimmung(formData: FormData) {
         createdById: verwalter.id,
         organizationId: verwalter.organizationId,
       },
-    });
-    await db.$transaction(async (tx) => {
+    }));
+    await auditMutation(verwalter, async (tx) => {
       const max = await tx.meetingAgendaItem.aggregate({
         where: { meetingId: meeting.id },
         _max: { sortOrder: true },
@@ -669,7 +671,7 @@ export async function planZurAbstimmung(formData: FormData) {
   }
 
   // Umlaufbeschluss: Allstimmigkeit ist hier gesetzlich zwingend.
-  await db.resolution.create({
+  await auditMutation(verwalter, async (tx) => tx.resolution.create({
     data: {
       propertyId: property.id,
       title: titel,
@@ -678,7 +680,7 @@ export async function planZurAbstimmung(formData: FormData) {
       createdById: verwalter.id,
       organizationId: verwalter.organizationId,
     },
-  });
+  }));
   revalidatePath("/beschluesse");
   redirect("/beschluesse?flash=erstellt");
 }

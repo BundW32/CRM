@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -67,7 +68,7 @@ export async function createSonderumlage(formData: FormData) {
     );
   }
 
-  const created = await db.$transaction(async (tx) => {
+  const created = await auditMutation(verwalter, async (tx) => {
     const su = await tx.sonderumlage.create({
       data: {
         organizationId: verwalter.organizationId,
@@ -128,7 +129,7 @@ export async function deleteSonderumlage(formData: FormData) {
   });
   if (!su) back(property.id, "fehler=nichtgefunden");
 
-  await db.sonderumlage.delete({ where: { id: su.id } });
+  await auditMutation(verwalter, async (tx) => tx.sonderumlage.delete({ where: { id: su.id } }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_SONDERUMLAGE_DELETED,

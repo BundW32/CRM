@@ -4,6 +4,7 @@
 // separat eingegeben. Diese Funktion synchronisiert die abgeleiteten Werte
 // nach jeder Änderung an Unit.mea oder an der Einheiten-Eigentümerschaft.
 import { db } from "@/lib/db";
+import { auditMutation, type AuditActor } from "@/lib/audit-transaction";
 import { distributeByWeight } from "@/lib/weg/distribution";
 import { MEA_NACHKOMMASTELLEN, meaGewicht, rundeMea } from "@/lib/weg/mea";
 
@@ -12,7 +13,7 @@ import { MEA_NACHKOMMASTELLEN, meaGewicht, rundeMea } from "@/lib/weg/mea";
 //               (null, wenn eine gehaltene Einheit noch keinen MEA hat →
 //                weg-voting kann die Unvollständigkeit erkennen)
 //   voteUnits = Anzahl aktuell gehaltener Einheiten (null, wenn keine)
-export async function syncOwnerVotingWeights(propertyId: string): Promise<void> {
+export async function syncOwnerVotingWeights(propertyId: string, actor?: AuditActor): Promise<void> {
   const now = new Date();
   const [ownerships, holdings] = await Promise.all([
     db.ownership.findMany({ where: { propertyId }, select: { id: true, userId: true } }),
@@ -75,12 +76,12 @@ export async function syncOwnerVotingWeights(propertyId: string): Promise<void> 
     list.forEach((h, i) => zaehle(h.userId, (verteilt.get(`${i}`) ?? 0) / 10 ** MEA_NACHKOMMASTELLEN));
   }
 
-  await db.$transaction(
+  await auditMutation(actor ?? null, (tx) => Promise.all(
     ownerships.map((o) => {
       const agg = byUser.get(o.userId);
       const voteUnits = agg && agg.count > 0 ? agg.count : null;
       const mea = agg && agg.count > 0 && !agg.incomplete ? rundeMea(agg.meaSum) : null;
-      return db.ownership.update({ where: { id: o.id }, data: { mea, voteUnits } });
+      return tx.ownership.update({ where: { id: o.id }, data: { mea, voteUnits } });
     }),
-  );
+  ));
 }

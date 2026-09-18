@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AUDIT, logAudit } from "@/lib/audit";
@@ -32,7 +33,7 @@ export async function adoptComplianceCatalog(formData: FormData) {
 
   const now = new Date();
   if (toCreate.length > 0) {
-    await db.maintenanceTask.createMany({
+    await auditMutation(verwalter, async (tx) => tx.maintenanceTask.createMany({
       data: toCreate.map((d) => ({
         organizationId: verwalter.organizationId,
         propertyId: property.id,
@@ -42,7 +43,7 @@ export async function adoptComplianceCatalog(formData: FormData) {
         dueDate: addMonths(now, d.initialDueMonths),
         catalogKey: d.key,
       })),
-    });
+    }));
   }
 
   await logAudit({
@@ -75,18 +76,18 @@ export async function completeCompliance(formData: FormData) {
   const months = maintenanceIntervalMonths[task.interval];
   const now = new Date();
   if (months === null) {
-    await db.maintenanceTask.update({
+    await auditMutation(verwalter, async (tx) => tx.maintenanceTask.update({
       where: { id: task.id },
       data: { lastDoneAt: now, active: false },
-    });
+    }));
   } else {
     // Basis ist das spätere von bisheriger Fälligkeit und heute – so bleibt der
     // Turnus stabil, ohne eine Fälligkeit in der Vergangenheit zu erzeugen.
     const base = task.dueDate.getTime() > now.getTime() ? task.dueDate : now;
-    await db.maintenanceTask.update({
+    await auditMutation(verwalter, async (tx) => tx.maintenanceTask.update({
       where: { id: task.id },
       data: { lastDoneAt: now, dueDate: addMonths(base, months), lastReminderAt: null },
-    });
+    }));
   }
 
   await logAudit({
@@ -118,10 +119,10 @@ export async function updateComplianceDue(formData: FormData) {
   });
   if (!task) back(property.id, "fehler=nichtgefunden");
 
-  await db.maintenanceTask.update({
+  await auditMutation(verwalter, async (tx) => tx.maintenanceTask.update({
     where: { id: task.id },
     data: { dueDate: due, lastReminderAt: null },
-  });
+  }));
   revalidatePath(`/verwaltung/weg/${property.id}/pruefpflichten`);
   revalidatePath("/dashboard");
   back(property.id, "gespeichert=faelligkeit");
@@ -139,7 +140,7 @@ export async function deleteCompliance(formData: FormData) {
     select: { id: true },
   });
   if (task) {
-    await db.maintenanceTask.delete({ where: { id: task.id } }).catch(() => {});
+    await auditMutation(verwalter, async (tx) => tx.maintenanceTask.delete({ where: { id: task.id } })).catch(() => {});
     await logAudit({
       actorId: verwalter.id,
       action: AUDIT.WEG_PRUEFPFLICHT_DELETED,

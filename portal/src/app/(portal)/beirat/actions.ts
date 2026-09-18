@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { User } from "@/generated/prisma/client";
@@ -23,7 +24,7 @@ export async function addBeiratTask(formData: FormData) {
   if (!title) redirect("/beirat");
   if (!(await canAccessBeiratProperty(user, propertyId))) redirect("/beirat");
 
-  await db.beiratTask.create({
+  await auditMutation(user, async (tx) => tx.beiratTask.create({
     data: {
       organizationId: user.organizationId,
       propertyId,
@@ -31,7 +32,7 @@ export async function addBeiratTask(formData: FormData) {
       description,
       createdById: user.id,
     },
-  });
+  }));
   revalidatePath("/beirat");
   redirect("/beirat?flash=erstellt");
 }
@@ -46,7 +47,7 @@ export async function toggleBeiratTask(formData: FormData) {
   });
   if (!task || !(await canAccessBeiratProperty(user, task.propertyId))) redirect("/beirat");
 
-  await db.beiratTask.update({ where: { id }, data: { done: !task.done } });
+  await auditMutation(user, async (tx) => tx.beiratTask.update({ where: { id }, data: { done: !task.done } }));
   revalidatePath("/beirat");
   redirect("/beirat?flash=gespeichert");
 }
@@ -61,7 +62,7 @@ export async function deleteBeiratTask(formData: FormData) {
   });
   if (!task || !(await canAccessBeiratProperty(user, task.propertyId))) redirect("/beirat");
 
-  await db.beiratTask.delete({ where: { id } });
+  await auditMutation(user, async (tx) => tx.beiratTask.delete({ where: { id } }));
   revalidatePath("/beirat");
   redirect("/beirat?flash=geloescht");
 }

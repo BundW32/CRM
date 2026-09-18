@@ -1,9 +1,9 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { canVerwalterAccessProperty } from "@/lib/access";
-import { db } from "@/lib/db";
 import { requireVerwalter } from "@/lib/session";
 
 const INTERVALLE = [
@@ -47,7 +47,7 @@ export async function addOwnTermin(formData: FormData) {
   if (!dueRaw || Number.isNaN(dueDate.getTime())) redirect("/dashboard");
   if (!(await canVerwalterAccessProperty(actor, propertyId))) redirect("/dashboard");
 
-  await db.maintenanceTask.create({
+  await auditMutation(actor, async (tx) => tx.maintenanceTask.create({
     data: {
       organizationId: actor.organizationId,
       propertyId,
@@ -57,7 +57,7 @@ export async function addOwnTermin(formData: FormData) {
       // Kein `catalogKey`: Das unterscheidet den eigenen Termin von einer
       // übernommenen Prüfpflicht.
     },
-  });
+  }));
 
   revalidatePath("/dashboard");
   redirect("/dashboard?flash=erstellt");

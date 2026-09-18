@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -59,7 +60,7 @@ export async function createMaintenanceTask(formData: FormData) {
     craftsmanId = null;
   }
 
-  await db.maintenanceTask.create({
+  await auditMutation(verwalter, async (tx) => tx.maintenanceTask.create({
     data: {
       title: parsed.data.title,
       description: parsed.data.description || null,
@@ -69,7 +70,7 @@ export async function createMaintenanceTask(formData: FormData) {
       craftsmanId,
       organizationId: verwalter.organizationId,
     },
-  });
+  }));
   revalidatePath("/verwaltung/wartung");
   redirect("/verwaltung/wartung?flash=erstellt");
 }
@@ -88,17 +89,17 @@ export async function completeMaintenanceTask(formData: FormData) {
   const months = maintenanceIntervalMonths[task.interval];
   if (months === null) {
     // Einmalige Aufgabe abschließen
-    await db.maintenanceTask.update({
+    await auditMutation(verwalter, async (tx) => tx.maintenanceTask.update({
       where: { id },
       data: { lastDoneAt: new Date(), active: false },
-    });
+    }));
   } else {
     const next = new Date();
     next.setMonth(next.getMonth() + months);
-    await db.maintenanceTask.update({
+    await auditMutation(verwalter, async (tx) => tx.maintenanceTask.update({
       where: { id },
       data: { lastDoneAt: new Date(), dueDate: next },
-    });
+    }));
   }
   revalidatePath("/verwaltung/wartung");
   revalidatePath("/dashboard");
@@ -115,7 +116,7 @@ export async function deleteMaintenanceTask(formData: FormData) {
       select: { propertyId: true },
     });
     if (task && (await canVerwalterAccessProperty(verwalter, task.propertyId))) {
-      await db.maintenanceTask.delete({ where: { id } }).catch(() => {});
+      await auditMutation(verwalter, async (tx) => tx.maintenanceTask.delete({ where: { id } })).catch(() => {});
     }
   }
   revalidatePath("/verwaltung/wartung");
@@ -151,7 +152,7 @@ export async function createTicketFromTask(formData: FormData) {
   });
   if (existing) redirect(`/vorgaenge/${existing.id}`);
 
-  const ticket = await db.ticket.create({
+  const ticket = await auditMutation(verwalter, async (tx) => tx.ticket.create({
     data: {
       type: "SONSTIGES",
       title: task.title,
@@ -163,7 +164,7 @@ export async function createTicketFromTask(formData: FormData) {
       sourceMaintenanceTaskId: id,
       organizationId: verwalter.organizationId,
     },
-  });
+  }));
 
   revalidatePath("/verwaltung/wartung");
   redirect(`/vorgaenge/${ticket.id}`);

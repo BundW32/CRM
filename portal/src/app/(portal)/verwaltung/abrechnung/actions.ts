@@ -1,11 +1,11 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { MAX_EINHEITEN } from "@/app/preise/preise-daten";
 import { checkoutJeEinheitCents, isBillingEnabled } from "@/lib/billing";
 import { parseTarif, starteCheckout } from "@/lib/billing-checkout";
 import { zaehleWegMengen } from "@/lib/billing-mengen";
-import { db } from "@/lib/db";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 import {
   createPortalUrl,
@@ -121,7 +121,7 @@ export async function wechsleTarif(formData: FormData) {
   if (!ok) redirect("/verwaltung/abrechnung?fehler=checkout_fehlgeschlagen");
 
   // Sofort speichern — der Webhook (subscription.updated) bestätigt es nur noch.
-  await db.organization.update({ where: { id: org.id }, data: { plan: ziel } });
+  await auditMutation(actor, async (tx) => tx.organization.update({ where: { id: org.id }, data: { plan: ziel } }));
   redirect("/verwaltung/abrechnung?flash=tarif-gewechselt");
 }
 

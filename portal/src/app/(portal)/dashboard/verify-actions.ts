@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import crypto from "crypto";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -22,11 +23,11 @@ export async function resendVerification() {
 
   const token = crypto.randomBytes(32).toString("hex");
   const expiry = new Date(Date.now() + 1000 * 60 * 60 * 24 * 3);
-  await db.user.update({
+  await auditMutation(user, async (tx) => tx.user.update({
     where: { id: user.id },
     // Nur der Hash landet in der Datenbank – der Rohwert bleibt allein im Link.
     data: { emailVerifyToken: hashToken(token), emailVerifyExpiry: expiry },
-  });
+  }));
 
   const org = await db.organization.findUnique({ where: { id: user.organizationId } });
   const branding = brandingFromOrg(org);

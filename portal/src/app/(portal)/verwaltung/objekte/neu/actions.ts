@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { User } from "@/generated/prisma/client";
@@ -130,7 +131,7 @@ export async function createObjekt(formData: FormData) {
   }
 
   // ── Objekt anlegen (inkl. optionaler Stammdaten) ────────────────────
-  const property = await db.property.create({
+  const property = await auditMutation(actor, async (tx) => tx.property.create({
     data: {
       name,
       street,
@@ -147,7 +148,7 @@ export async function createObjekt(formData: FormData) {
       notes: optStr(formData.get("notes"), 2000),
       titleImageStoredName,
     },
-  });
+  }));
 
   // ── Einheiten ───────────────────────────────────────────────────────
   // Fläche/MEA/Personen je Einheit indexgleich zu unitLabel einlesen (VOR dem
@@ -173,7 +174,7 @@ export async function createObjekt(formData: FormData) {
     .slice(0, MAX_UNITS);
 
   if (unitsToCreate.length > 0) {
-    await db.unit.createMany({
+    await auditMutation(actor, async (tx) => tx.unit.createMany({
       data: unitsToCreate.map((u) => ({
         propertyId: property.id,
         label: u.label,
@@ -183,7 +184,7 @@ export async function createObjekt(formData: FormData) {
         mea: u.mea,
         personCount: u.personCount,
       })),
-    });
+    }));
     const created = await db.unit.findMany({
       where: { propertyId: property.id },
       select: { id: true, label: true },
@@ -207,7 +208,7 @@ export async function createObjekt(formData: FormData) {
     if (managementType === "WEG" && unitsToCreate.every((u) => u.mea != null)) {
       const summe = summeMea(unitsToCreate.map((u) => u.mea));
       if (summe > 0) {
-        await db.property.update({ where: { id: property.id }, data: { meaTotal: summe } });
+        await auditMutation(actor, async (tx) => tx.property.update({ where: { id: property.id }, data: { meaTotal: summe } }));
       }
     }
   }
@@ -227,7 +228,7 @@ export async function createObjekt(formData: FormData) {
       const stellplatzTyp = (
         ["AUSSENSTELLPLATZ", "CARPORT", "GARAGE", "TIEFGARAGE"] as const
       ).find((t) => t === typRaw);
-      await db.unit.createMany({
+      await auditMutation(actor, async (tx) => tx.unit.createMany({
         data: Array.from({ length: anzahl }, (_, i) => ({
           propertyId: property.id,
           label: `Stellplatz ${i + 1}`,
@@ -235,7 +236,7 @@ export async function createObjekt(formData: FormData) {
           stellplatzTyp: stellplatzTyp ?? null,
           orderIndex: 1000 + i,
         })),
-      });
+      }));
     }
   }
 
@@ -356,7 +357,7 @@ export async function createObjekt(formData: FormData) {
       }
     }
     // Stimmgewichte (voteUnits/MEA) aus der Einheiten-Eigentümerschaft ableiten.
-    await syncOwnerVotingWeights(property.id);
+    await syncOwnerVotingWeights(property.id, actor);
   }
 
   // ── Mieter (optional, je eine Karte) ────────────────────────────────

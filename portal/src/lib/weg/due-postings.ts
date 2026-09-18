@@ -10,6 +10,7 @@
 // Zukunft — siehe `synchronisiereSollstellungen`.
 import type { DueDayRule, HausgeldRounding } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { auditMutation, type AuditActor } from "@/lib/audit-transaction";
 import { computeUnitAdvances, monthlyInstallments, type PlanItemInput } from "./economic-plan";
 import type { UnitForDistribution } from "./distribution";
 import { faelligkeitFuer, sollHorizont, sollMonate, type PlanGeltung } from "./plan-validity";
@@ -38,6 +39,7 @@ export type AbgleichErgebnis = {
  * Zeit bestanden.
  */
 export async function synchronisiereSollstellungen(args: {
+  actor?: AuditActor;
   organizationId: string;
   property: {
     id: string;
@@ -150,13 +152,13 @@ export async function synchronisiereSollstellungen(args: {
     });
   }
 
-  await db.$transaction([
-    ...(entfernen.length > 0 ? [db.duePosting.deleteMany({ where: { id: { in: entfernen } } })] : []),
+  await auditMutation(args.actor ?? null, (tx) => Promise.all([
+    ...(entfernen.length > 0 ? [tx.duePosting.deleteMany({ where: { id: { in: entfernen } } })] : []),
     ...aendern.map((a) =>
-      db.duePosting.update({ where: { id: a.id }, data: { amountCents: a.amountCents, dueDate: a.dueDate } }),
+      tx.duePosting.update({ where: { id: a.id }, data: { amountCents: a.amountCents, dueDate: a.dueDate } }),
     ),
-    ...(anlegen.length > 0 ? [db.duePosting.createMany({ data: anlegen, skipDuplicates: true })] : []),
-  ]);
+    ...(anlegen.length > 0 ? [tx.duePosting.createMany({ data: anlegen, skipDuplicates: true })] : []),
+  ]), { timeout: 30_000 });
 
   const letzter = monate.at(-1);
   return {

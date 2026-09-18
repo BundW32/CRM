@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -41,10 +42,10 @@ export async function changePassword(formData: FormData) {
     redirect(backTo("?fehler=wiederholung"));
   }
 
-  await db.user.update({
+  await auditMutation(user, async (tx) => tx.user.update({
     where: { id: user.id },
     data: { passwordHash: await bcrypt.hash(next, 12) },
-  });
+  }));
   // Alle anderen Geraete abmelden – das ist der Zweck eines Passwortwechsels.
   // Die eigene Sitzung wird gleich darauf neu ausgestellt und bleibt gueltig.
   await revokeSessions(user.id);
@@ -278,10 +279,10 @@ export async function revokeCertMandate() {
 // Handlung — und ein Protokoll darüber wäre eher Überwachung als Nachweis.
 export async function saveShowHints(formData: FormData) {
   const user = await requireUser();
-  await db.user.update({
+  await auditMutation(user, async (tx) => tx.user.update({
     where: { id: user.id },
     data: { showHints: formData.get("showHints") === "on" },
-  });
+  }));
   revalidatePath("/", "layout");
   redirect(backTo("?gespeichert=hinweise"));
 }

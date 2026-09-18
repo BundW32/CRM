@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AUDIT, logAudit } from "@/lib/audit";
@@ -34,10 +35,10 @@ export async function savePrepayment(formData: FormData) {
   const cents = amountRaw.trim() === "" ? null : parseEuroToCents(amountRaw);
   if (cents !== null && (cents < 0 || Number.isNaN(cents))) back(property.id, `${query}&fehler=betrag`);
 
-  await db.tenancy.update({
+  await auditMutation(verwalter, async (tx) => tx.tenancy.update({
     where: { id: tenancy.id },
     data: { bkPrepaymentMonthlyCents: cents },
-  });
+  }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_BK_PREPAYMENT_SAVED,

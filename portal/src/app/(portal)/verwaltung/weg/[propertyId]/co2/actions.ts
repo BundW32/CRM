@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -39,7 +40,7 @@ export async function saveCo2Allocation(formData: FormData) {
   const emissionsKg = Number(parsed.data.emissionsKg.replace(",", "."));
   if (!Number.isFinite(emissionsKg) || emissionsKg < 0) back(property.id, "fehler=emissionen");
 
-  await db.co2Allocation.upsert({
+  await auditMutation(verwalter, async (tx) => tx.co2Allocation.upsert({
     where: { propertyId_year: { propertyId: property.id, year: parsed.data.year } },
     create: {
       organizationId: verwalter.organizationId,
@@ -55,7 +56,7 @@ export async function saveCo2Allocation(formData: FormData) {
       emissionsKg,
       note: parsed.data.note ?? null,
     },
-  });
+  }));
 
   await logAudit({
     actorId: verwalter.id,
@@ -80,7 +81,7 @@ export async function deleteCo2Allocation(formData: FormData) {
     select: { id: true },
   });
   if (alloc) {
-    await db.co2Allocation.delete({ where: { id: alloc.id } }).catch(() => {});
+    await auditMutation(verwalter, async (tx) => tx.co2Allocation.delete({ where: { id: alloc.id } })).catch(() => {});
     await logAudit({
       actorId: verwalter.id,
       action: AUDIT.WEG_CO2_DELETED,

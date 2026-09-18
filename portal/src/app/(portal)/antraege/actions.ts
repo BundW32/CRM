@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -44,7 +45,7 @@ export async function submitMotion(formData: FormData) {
   });
   if (!property || property.managementType !== "WEG") redirect("/antraege?fehler=keinweg");
 
-  await db.ownerMotion.create({
+  await auditMutation(user, async (tx) => tx.ownerMotion.create({
     data: {
       organizationId: user.organizationId,
       propertyId: parsed.data.propertyId,
@@ -53,7 +54,7 @@ export async function submitMotion(formData: FormData) {
       description: parsed.data.description,
       type: parsed.data.type,
     },
-  });
+  }));
   revalidatePath("/antraege");
   redirect("/antraege?eingereicht=1");
 }
@@ -118,7 +119,7 @@ export async function adoptMotionAsResolution(formData: FormData) {
     redirect("/antraege");
   }
 
-  const resolution = await db.resolution.create({
+  const resolution = await auditMutation(verwalter, async (tx) => tx.resolution.create({
     data: {
       propertyId: motion.propertyId,
       title: motion.title,
@@ -126,13 +127,13 @@ export async function adoptMotionAsResolution(formData: FormData) {
       createdById: verwalter.id,
       organizationId: verwalter.organizationId,
     },
-  });
+  }));
 
   // resolutionId am (bereits beanspruchten) Antrag nachtragen.
-  await db.ownerMotion.update({
+  await auditMutation(verwalter, async (tx) => tx.ownerMotion.update({
     where: { id: motion.id },
     data: { resolutionId: resolution.id },
-  });
+  }));
 
   // Eigentümer über die neue Abstimmung informieren (wie bei createResolution).
   const owners = await db.ownership.findMany({
@@ -191,7 +192,7 @@ export async function adoptMotionToMeeting(formData: FormData) {
   // Beschluss-TOP: verknüpften Beschluss (OFFEN) anlegen.
   let resolutionId: string | null = null;
   if (isBeschluss) {
-    const resolution = await db.resolution.create({
+    const resolution = await auditMutation(verwalter, async (tx) => tx.resolution.create({
       data: {
         propertyId: motion.propertyId,
         title: motion.title,
@@ -199,12 +200,12 @@ export async function adoptMotionToMeeting(formData: FormData) {
         createdById: verwalter.id,
         organizationId: verwalter.organizationId,
       },
-    });
+    }));
     resolutionId = resolution.id;
   }
 
   // sortOrder atomar bestimmen (max+1), sonst kollidieren parallele TOP-Anlagen.
-  await db.$transaction(async (tx) => {
+  await auditMutation(verwalter, async (tx) => {
     const max = await tx.meetingAgendaItem.aggregate({
       where: { meetingId },
       _max: { sortOrder: true },
@@ -223,10 +224,10 @@ export async function adoptMotionToMeeting(formData: FormData) {
   });
 
   // Verknüpfungen (Versammlung + ggf. Beschluss) am Antrag nachtragen.
-  await db.ownerMotion.update({
+  await auditMutation(verwalter, async (tx) => tx.ownerMotion.update({
     where: { id: motion.id },
     data: { meetingId, resolutionId },
-  });
+  }));
 
   await notifySubmitter(
     verwalter.organizationId,

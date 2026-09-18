@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { StellplatzTyp, UnitType, User } from "@/generated/prisma/client";
@@ -110,7 +111,7 @@ export async function updateObjekt(formData: FormData) {
   }
 
   // updateMany mit Org-Bindung: trifft garantiert nur das eigene Objekt.
-  await db.property.updateMany({
+  await auditMutation(actor, async (tx) => tx.property.updateMany({
     where: { id, organizationId: actor.organizationId },
     data: {
       name: name.slice(0, 200),
@@ -125,7 +126,7 @@ export async function updateObjekt(formData: FormData) {
       notes: optStr(formData.get("notes"), 2000),
       ...titleImageUpdate,
     },
-  });
+  }));
 
   // Altes Bild erst nach erfolgreichem Update entfernen (Blob-Store).
   if (blobToDelete) await deleteBlob(blobToDelete);
@@ -165,7 +166,7 @@ export async function addUnit(formData: FormData) {
   if (!label) redirect(`/verwaltung/objekte/${propertyId}/bearbeiten?fehler=einheit`);
 
   const max = await db.unit.aggregate({ where: { propertyId }, _max: { orderIndex: true } });
-  await db.unit.create({
+  await auditMutation(actor, async (tx) => tx.unit.create({
     data: {
       propertyId,
       label: label.slice(0, 200),
@@ -177,7 +178,7 @@ export async function addUnit(formData: FormData) {
       personCount: optInt(formData.get("personCount")),
       orderIndex: (max._max.orderIndex ?? 0) + 1,
     },
-  });
+  }));
   // Die Tarife rechnen je Einheit — ein laufendes Abo zieht die Menge nach.
   await aboMengeSynchronisieren(actor.organizationId);
   revalidatePath(`/verwaltung/objekte/${propertyId}/bearbeiten`);
@@ -193,7 +194,7 @@ export async function updateUnit(formData: FormData) {
   const label = String(formData.get("label") ?? "").trim();
   if (!label) redirect(`/verwaltung/objekte/${propertyId}/bearbeiten?fehler=einheit`);
 
-  await db.unit.update({
+  await auditMutation(actor, async (tx) => tx.unit.update({
     where: { id: unitId },
     data: {
       label: label.slice(0, 200),
@@ -204,7 +205,7 @@ export async function updateUnit(formData: FormData) {
       mea: leseMea(formData.get("mea")) ?? null,
       personCount: optInt(formData.get("personCount")),
     },
-  });
+  }));
   // Ein Wechsel Wohnung ↔ Stellplatz verschiebt die Abo-Mengen (Einheiten-
   // gegen Stellplatz-Posten) — das Abo zieht sofort nach.
   await aboMengeSynchronisieren(actor.organizationId);
@@ -255,7 +256,7 @@ export async function removeUnit(formData: FormData) {
       `/verwaltung/objekte/${unit.propertyId}/bearbeiten?fehler=einheit_belegt&belegt=${encodeURIComponent(belegt)}`,
     );
   }
-  await db.unit.delete({ where: { id: unitId } });
+  await auditMutation(actor, async (tx) => tx.unit.delete({ where: { id: unitId } }));
   // Die Tarife rechnen je Einheit — ein laufendes Abo zieht die Menge nach.
   await aboMengeSynchronisieren(actor.organizationId);
   revalidatePath(`/verwaltung/objekte/${unit.propertyId}/bearbeiten`);
@@ -278,10 +279,10 @@ export async function archiveProperty(formData: FormData) {
   const actor = await requireVerwalter();
   const id = String(formData.get("id") ?? "").trim();
   await requireSuperAdminProperty(actor, id);
-  await db.property.updateMany({
+  await auditMutation(actor, async (tx) => tx.property.updateMany({
     where: { id, organizationId: actor.organizationId },
     data: { active: false },
-  });
+  }));
   // Archivierte Objekte zählen nicht mehr zur Abo-Menge (zaehleWegMengen).
   await aboMengeSynchronisieren(actor.organizationId);
   revalidatePath("/verwaltung/objekte");
@@ -292,10 +293,10 @@ export async function unarchiveProperty(formData: FormData) {
   const actor = await requireVerwalter();
   const id = String(formData.get("id") ?? "").trim();
   await requireSuperAdminProperty(actor, id);
-  await db.property.updateMany({
+  await auditMutation(actor, async (tx) => tx.property.updateMany({
     where: { id, organizationId: actor.organizationId },
     data: { active: true },
-  });
+  }));
   // Reaktiviert heißt: die Einheiten zählen wieder — Abo nachziehen.
   await aboMengeSynchronisieren(actor.organizationId);
   revalidatePath("/verwaltung/objekte");
@@ -348,7 +349,7 @@ export async function deleteProperty(formData: FormData) {
     );
   }
   try {
-    await db.property.delete({ where: { id } });
+    await auditMutation(actor, async (tx) => tx.property.delete({ where: { id } }));
   } catch {
     // Falls doch eine Fremdschlüssel-Beziehung greift: nicht hart löschen.
     redirect(`/verwaltung/objekte/${id}/bearbeiten?fehler=objekt_belegt`);
@@ -398,11 +399,11 @@ export async function addUnitTenant(formData: FormData) {
     if (!(await canVerwalterManageUser(actor, vorhandeneId))) {
       redirect(backTo(propertyId, "fehler=person_org"));
     }
-    await db.tenancy.upsert({
+    await auditMutation(actor, async (tx) => tx.tenancy.upsert({
       where: { userId_unitId: { userId: vorhandeneId, unitId } },
       create: { userId: vorhandeneId, unitId },
       update: { active: true },
-    });
+    }));
     revalidatePath(backTo(propertyId, "").split("?")[0]);
     redirect(backTo(propertyId, "person=gespeichert"));
   }
@@ -414,11 +415,11 @@ export async function addUnitTenant(formData: FormData) {
     role: "MIETER", organizationId: actor.organizationId,
   });
   if (!result) redirect(backTo(propertyId, "fehler=person_org"));
-  await db.tenancy.upsert({
+  await auditMutation(actor, async (tx) => tx.tenancy.upsert({
     where: { userId_unitId: { userId: result.id, unitId } },
     create: { userId: result.id, unitId },
     update: { active: true },
-  });
+  }));
   revalidatePath(backTo(propertyId, "").split("?")[0]);
   if (result.pw) {
     await merkeErstzugang(result.id, result.pw);
@@ -440,7 +441,7 @@ export async function removeUnitTenant(formData: FormData) {
   }
   const propertyId = tenancy.unit.propertyId;
   if (!(await canVerwalterAccessProperty(actor, propertyId))) redirect("/verwaltung/objekte");
-  await db.tenancy.delete({ where: { id: tenancyId } });
+  await auditMutation(actor, async (tx) => tx.tenancy.delete({ where: { id: tenancyId } }));
   revalidatePath(backTo(propertyId, "").split("?")[0]);
   redirect(backTo(propertyId, "person=entfernt"));
 }
@@ -476,12 +477,12 @@ export async function addUnitOwner(formData: FormData) {
     await db.unitOwnership
       .create({ data: { organizationId: actor.organizationId, unitId, userId: vorhandeneId, sharePercent, validFrom } })
       .catch(() => {});
-    await db.ownership.upsert({
+    await auditMutation(actor, async (tx) => tx.ownership.upsert({
       where: { userId_propertyId: { userId: vorhandeneId, propertyId } },
       create: { userId: vorhandeneId, propertyId },
       update: {},
-    });
-    await syncOwnerVotingWeights(propertyId);
+    }));
+    await syncOwnerVotingWeights(propertyId, actor);
     revalidatePath(backTo(propertyId, "").split("?")[0]);
     redirect(backTo(propertyId, "person=gespeichert"));
   }
@@ -496,12 +497,12 @@ export async function addUnitOwner(formData: FormData) {
   await db.unitOwnership
     .create({ data: { organizationId: actor.organizationId, unitId, userId: result.id, sharePercent, validFrom } })
     .catch(() => {});
-  await db.ownership.upsert({
+  await auditMutation(actor, async (tx) => tx.ownership.upsert({
     where: { userId_propertyId: { userId: result.id, propertyId } },
     create: { userId: result.id, propertyId },
     update: {},
-  });
-  await syncOwnerVotingWeights(propertyId);
+  }));
+  await syncOwnerVotingWeights(propertyId, actor);
   revalidatePath(backTo(propertyId, "").split("?")[0]);
   if (result.pw) {
     await merkeErstzugang(result.id, result.pw);
@@ -521,14 +522,14 @@ export async function removeUnitOwner(formData: FormData) {
   if (!uo || uo.unit.property.organizationId !== actor.organizationId) redirect("/verwaltung/objekte");
   const propertyId = uo.unit.propertyId;
   if (!(await canVerwalterAccessProperty(actor, propertyId))) redirect("/verwaltung/objekte");
-  await db.unitOwnership.delete({ where: { id: unitOwnershipId } });
+  await auditMutation(actor, async (tx) => tx.unitOwnership.delete({ where: { id: unitOwnershipId } }));
   // Besitzt der Eigentümer keine weitere Einheit dieses Objekts mehr, auch die
   // objektweite Eigentümerschaft (Stimmrecht) entfernen.
   const remaining = await db.unitOwnership.count({ where: { userId: uo.userId, unit: { propertyId } } });
   if (remaining === 0) {
-    await db.ownership.deleteMany({ where: { userId: uo.userId, propertyId } });
+    await auditMutation(actor, async (tx) => tx.ownership.deleteMany({ where: { userId: uo.userId, propertyId } }));
   }
-  await syncOwnerVotingWeights(propertyId);
+  await syncOwnerVotingWeights(propertyId, actor);
   revalidatePath(backTo(propertyId, "").split("?")[0]);
   redirect(backTo(propertyId, "person=entfernt"));
 }
@@ -546,11 +547,11 @@ export async function addPropertyOwner(formData: FormData) {
     role: "EIGENTUEMER", organizationId: actor.organizationId,
   });
   if (!result) redirect(backTo(propertyId, "fehler=person_org"));
-  await db.ownership.upsert({
+  await auditMutation(actor, async (tx) => tx.ownership.upsert({
     where: { userId_propertyId: { userId: result.id, propertyId } },
     create: { userId: result.id, propertyId },
     update: {},
-  });
+  }));
   revalidatePath(backTo(propertyId, "").split("?")[0]);
   if (result.pw) {
     await merkeErstzugang(result.id, result.pw);
@@ -617,7 +618,7 @@ export async function updateTenancy(formData: FormData) {
     blobToDelete = tenancy.contractStoredName;
   }
 
-  await db.tenancy.update({
+  await auditMutation(actor, async (tx) => tx.tenancy.update({
     where: { id: tenancyId },
     data: {
       rentColdCents: parseEuroToCents(String(formData.get("rentCold") ?? "")),
@@ -628,7 +629,7 @@ export async function updateTenancy(formData: FormData) {
       endDate,
       ...contractUpdate,
     },
-  });
+  }));
   if (blobToDelete) await deleteBlob(blobToDelete);
   revalidatePath(backTo(propertyId, "").split("?")[0]);
   redirect(
@@ -651,7 +652,7 @@ export async function removePropertyOwner(formData: FormData) {
   });
   if (!own || own.property.organizationId !== actor.organizationId) redirect("/verwaltung/objekte");
   if (!(await canVerwalterAccessProperty(actor, own.propertyId))) redirect("/verwaltung/objekte");
-  await db.ownership.delete({ where: { id: ownershipId } });
+  await auditMutation(actor, async (tx) => tx.ownership.delete({ where: { id: ownershipId } }));
   revalidatePath(backTo(own.propertyId, "").split("?")[0]);
   redirect(backTo(own.propertyId, "person=entfernt"));
 }

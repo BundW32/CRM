@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -187,7 +188,7 @@ export async function createBooking(formData: FormData) {
     }
   }
 
-  const created = await db.booking.create({
+  const created = await auditMutation(verwalter, async (tx) => tx.booking.create({
     data: {
       organizationId: verwalter.organizationId,
       propertyId: property.id,
@@ -209,7 +210,7 @@ export async function createBooking(formData: FormData) {
       bauabzugCents: einbehalten && bauabzug.pflicht ? bauabzug.einbehaltCents : null,
       createdById: verwalter.id,
     },
-  });
+  }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_BOOKING_CREATED,
@@ -236,10 +237,10 @@ export async function createBooking(formData: FormData) {
   // Der Vermögensbericht blickt auf einen Stichtag, und maßgeblich ist der
   // Tag, an dem das Geld das Konto verlassen hat.
   if (verbindlichkeit) {
-    await db.verbindlichkeit.update({
+    await auditMutation(verwalter, async (tx) => tx.verbindlichkeit.update({
       where: { id: verbindlichkeit.id },
       data: { settledAt: bookingDate },
-    });
+    }));
     await logAudit({
       actorId: verwalter.id,
       action: AUDIT.WEG_VERBINDLICHKEIT_SETTLED,
@@ -303,10 +304,10 @@ export async function createTransfer(formData: FormData) {
     transferGroupId,
     createdById: verwalter.id,
   };
-  await db.$transaction([
-    db.booking.create({ data: { ...common, accountId: from.id, transferOut: true } }),
-    db.booking.create({ data: { ...common, accountId: to.id, transferOut: false } }),
-  ]);
+  await auditMutation(verwalter, async (tx) => Promise.all([
+    tx.booking.create({ data: { ...common, accountId: from.id, transferOut: true } }),
+    tx.booking.create({ data: { ...common, accountId: to.id, transferOut: false } }),
+  ]));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_TRANSFER_CREATED,
@@ -799,7 +800,7 @@ export async function importCsvAction(formData: FormData) {
     }
   }
 
-  const batch = await db.$transaction(async (tx) => {
+  const batch = await auditMutation(verwalter, async (tx) => {
     const created = await tx.bankImportBatch.create({
       data: {
         organizationId: verwalter.organizationId,
@@ -933,13 +934,13 @@ export async function assignCostType(formData: FormData) {
     back(property.id, "fehler=abgeschlossen");
   }
 
-  await db.booking.updateMany({
+  await auditMutation(verwalter, async (tx) => tx.booking.updateMany({
     where: { id: { in: bookings.map((b) => b.id) } },
     data: {
       costTypeId: costTypeId || null,
       ...(craftsmanId ? { craftsmanId: craftsmanId === "OHNE" ? null : craftsmanId } : {}),
     },
-  });
+  }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_BOOKING_COSTTYPE_ASSIGNED,
@@ -1012,7 +1013,7 @@ export async function setLaborShare(formData: FormData) {
     }
   }
 
-  await db.booking.update({ where: { id: booking.id }, data: { laborShareCents } });
+  await auditMutation(verwalter, async (tx) => tx.booking.update({ where: { id: booking.id }, data: { laborShareCents } }));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_BOOKING_LABOR_SHARE_SET,
@@ -1063,9 +1064,8 @@ export async function reverseBooking(formData: FormData) {
   const reverseKind = (kind: string) =>
     kind === "EINNAHME" ? "AUSGABE" : kind === "AUSGABE" ? "EINNAHME" : "UMBUCHUNG";
 
-  await db.$transaction(
-    originals.map((o) =>
-      db.booking.create({
+  await auditMutation(verwalter, async (tx) => Promise.all(originals.map((o) =>
+      tx.booking.create({
         data: {
           organizationId: verwalter.organizationId,
           propertyId: property.id,
@@ -1086,8 +1086,7 @@ export async function reverseBooking(formData: FormData) {
           createdById: verwalter.id,
         },
       }),
-    ),
-  );
+    )));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_BOOKING_REVERSED,
@@ -1138,10 +1137,10 @@ export async function undoImportBatch(formData: FormData) {
   if (reversedCount > 0) back(property.id, "fehler=importstorniert");
 
   const count = batch.bookings.length;
-  await db.$transaction([
-    db.booking.deleteMany({ where: { importBatchId: batch.id } }),
-    db.bankImportBatch.delete({ where: { id: batch.id } }),
-  ]);
+  await auditMutation(verwalter, async (tx) => Promise.all([
+    tx.booking.deleteMany({ where: { importBatchId: batch.id } }),
+    tx.bankImportBatch.delete({ where: { id: batch.id } }),
+  ]));
   await logAudit({
     actorId: verwalter.id,
     action: AUDIT.WEG_BANK_IMPORT_UNDONE,

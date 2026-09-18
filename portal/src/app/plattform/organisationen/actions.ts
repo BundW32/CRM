@@ -1,5 +1,6 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { PLANS, SUBSCRIPTION_STATUSES, type PlanId, type SubscriptionStatus } from "@/lib/billing";
@@ -25,7 +26,7 @@ export async function setOrganizationActive(formData: FormData) {
   const org = await db.organization.findUnique({ where: { id }, select: { active: true } });
   if (!org) redirect("/plattform/organisationen");
 
-  await db.organization.update({ where: { id }, data: { active } });
+  await auditMutation(admin, async (tx) => tx.organization.update({ where: { id }, data: { active } }));
   await logAudit({
     actorId: admin.id,
     action: active ? AUDIT.PLATFORM_ORG_REACTIVATED : AUDIT.PLATFORM_ORG_DEACTIVATED,
@@ -55,10 +56,10 @@ export async function setOrganizationPlan(formData: FormData) {
   });
   if (!before) redirect("/plattform/organisationen");
 
-  await db.organization.update({
+  await auditMutation(admin, async (tx) => tx.organization.update({
     where: { id },
     data: { plan: plan as PlanId, subscriptionStatus: status as SubscriptionStatus },
-  });
+  }));
   await logAudit({
     actorId: admin.id,
     action: AUDIT.PLATFORM_ORG_PLAN_CHANGED,
@@ -92,10 +93,10 @@ export async function extendTrial(formData: FormData) {
   }
   if (!newEnd) redirect(`${backTo(id)}?fehler=eingabe`);
 
-  await db.organization.update({
+  await auditMutation(admin, async (tx) => tx.organization.update({
     where: { id },
     data: { trialEndsAt: newEnd, subscriptionStatus: "trialing" },
-  });
+  }));
   await logAudit({
     actorId: admin.id,
     action: AUDIT.PLATFORM_TRIAL_EXTENDED,
@@ -147,7 +148,7 @@ export async function savePlatformNote(formData: FormData) {
   const org = await db.organization.findUnique({ where: { id }, select: { id: true } });
   if (!org) redirect("/plattform/organisationen");
 
-  await db.organization.update({ where: { id }, data: { platformNote: note } });
+  await auditMutation(admin, async (tx) => tx.organization.update({ where: { id }, data: { platformNote: note } }));
   await logAudit({
     actorId: admin.id,
     action: AUDIT.PLATFORM_NOTE_SAVED,

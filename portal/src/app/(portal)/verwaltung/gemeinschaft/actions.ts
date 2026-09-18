@@ -1,9 +1,9 @@
 "use server";
 
+import { auditMutation } from "@/lib/audit-transaction";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { isSelfManaged } from "@/lib/access";
-import { db } from "@/lib/db";
 import { getOrganization, requireVerwalter } from "@/lib/session";
 
 /**
@@ -26,7 +26,7 @@ export async function updateGemeinschaftsname(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim().slice(0, 200);
   if (name.length < 2) redirect("/verwaltung/gemeinschaft?fehler=name");
 
-  await db.organization.update({ where: { id: actor.organizationId }, data: { name } });
+  await auditMutation(actor, async (tx) => tx.organization.update({ where: { id: actor.organizationId }, data: { name } }));
   // Der Name steht in der Navigationsleiste jeder Seite.
   revalidatePath("/", "layout");
   redirect("/verwaltung/gemeinschaft?flash=gespeichert");

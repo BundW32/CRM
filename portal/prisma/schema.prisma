@@ -650,7 +650,8 @@ model Unit {
   personCount          Int? // Personenzahl (Umlageschlüssel PERSONEN)
   orderIndex           Int                   @default(0)
   duePostings          DuePosting[]
-  hausgeldPayments     Booking[] // zugeordnete Zahlungseingänge (Hausgeld)
+  hausgeldPayments     Booking[]            @relation("BookingHausgeldUnit") // zugeordnete Zahlungseingänge (Hausgeld)
+  directBookings       Booking[]            @relation("BookingDirectUnit") // direkt zugeordnete Ausgaben (nicht umgelegt)
   unitOwnerships       UnitOwnership[]
   statementUnitAmounts StatementUnitAmount[]
   hausgeldMahnungen    HausgeldMahnung[]
@@ -1609,7 +1610,15 @@ model Booking {
   costType             CostType?           @relation(fields: [costTypeId], references: [id], onDelete: SetNull)
   // Zahlungszuordnung: Hausgeld-Eingang einer Einheit zugeordnet (offene Posten)
   unitId               String?
-  unit                 Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  unit                 Unit?               @relation("BookingHausgeldUnit", fields: [unitId], references: [id], onDelete: SetNull)
+  // Direktzuordnung einer AUSGABE: Diese Kosten trägt genau diese Einheit
+  // allein — sie werden nicht nach dem Umlageschlüssel der Kostenart verteilt,
+  // sondern ihr in der Jahresabrechnung vollständig in Rechnung gestellt
+  // (Gasrechnung für den Kamin, den nur eine Wohnung hat). Bewusst ein
+  // eigenes Feld neben `unitId`: Das ist die Zahlungszuordnung des Hausgelds
+  // und bedeutet etwas anderes. Rückmeldung aus dem Produkttest 09/2026.
+  directUnitId         String?
+  directUnit           Unit?               @relation("BookingDirectUnit", fields: [directUnitId], references: [id], onDelete: SetNull)
   // Wer bezahlt wurde — als Verknüpfung, nicht als getippter Name.
   //
   // `counterparty` bleibt daneben bestehen und ist weiterhin der Normalfall:
@@ -1680,6 +1689,7 @@ model Booking {
   @@index([costTypeId])
   @@index([importBatchId])
   @@index([unitId])
+  @@index([directUnitId])
   @@index([craftsmanId])
 }
 

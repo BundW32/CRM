@@ -19,6 +19,7 @@ import { Alert, Field, buttonClass, inputClass } from "@/components/ui";
 import { createBooking } from "./actions";
 
 export type BuchungKonto = { id: string; name: string; artLabel: string };
+export type BuchungEinheit = { id: string; label: string };
 export type BuchungKostenart = {
   id: string;
   name: string;
@@ -49,6 +50,7 @@ export function BuchungForm({
   propertyId,
   konten,
   kostenarten,
+  einheiten,
   handwerker,
   kiErkennung,
   zahlungFuer,
@@ -56,6 +58,7 @@ export function BuchungForm({
   propertyId: string;
   konten: BuchungKonto[];
   kostenarten: BuchungKostenart[];
+  einheiten: BuchungEinheit[];
   handwerker: HandwerkerWahl[];
   kiErkennung: boolean;
   zahlungFuer: ZahlungFuer | null;
@@ -233,6 +236,27 @@ export function BuchungForm({
           onChange={(e) => setze("counterparty")(e.target.value)}
         />
       </Field>
+      {/* Direktzuordnung: Kosten, die nur eine Einheit betreffen (der Gaskamin
+          einer Wohnung), werden nicht nach Schlüssel verteilt, sondern dieser
+          Einheit in der Jahresabrechnung ganz in Rechnung gestellt. Die
+          übrigen Eigentümer sehen die Position nicht. Nur bei Ausgaben — eine
+          Einnahme „für eine Einheit" ist die Hausgeld-Zuordnung, ein anderer Weg. */}
+      {w.kind === "AUSGABE" && einheiten.length > 0 ? (
+        <Field label="Nur für eine Einheit (optional)">
+          <select name="directUnitId" className={`${inputClass} w-full`} defaultValue="">
+            <option value="">— nein, nach Umlageschlüssel verteilen —</option>
+            {einheiten.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            Für Kosten, die nur diese Einheit betreffen: Sie werden ihr in der Jahresabrechnung
+            vollständig in Rechnung gestellt, nicht auf alle verteilt.
+          </p>
+        </Field>
+      ) : null}
       {/* Der Handwerker als Verknüpfung — Grundlage der Prüfung nach
           § 48 EStG. Über den Freitext daneben ließe sich nicht
           summieren, und die 5.000-€-Grenze gilt je Leistendem. */}

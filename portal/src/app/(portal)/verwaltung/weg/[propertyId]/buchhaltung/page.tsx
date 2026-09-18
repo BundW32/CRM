@@ -78,6 +78,8 @@ const FEHLER_TEXTE: Record<string, string> = {
     "Das Wirtschaftsjahr ist abgeschlossen — für dieses Jahr liegt eine fertige Jahresabrechnung vor. Buchungen abgeschlossener Jahre bleiben unverändert.",
   schonstorniert: "Diese Buchung ist bereits storniert (oder ist selbst eine Stornobuchung).",
   handwerker: "Der gewählte Handwerker gehört nicht zu Ihrer Organisation.",
+  einheit:
+    "Die Direktzuordnung an eine Einheit gilt nur für Ausgaben, und die Einheit muss zu diesem Objekt gehören.",
   verbindlichkeit:
     "Die offene Rechnung wurde nicht gefunden oder ist schon als beglichen markiert. Die Buchung wurde nicht angelegt — bitte ohne Verknüpfung erneut erfassen.",
   // Nachträglich, also nach der Zahlung. Bewusst anders formuliert als die
@@ -209,7 +211,7 @@ export default async function WegBuchhaltungPage({
     q || sp.konto || sp.art || sp.kostenart || sp.jahr || sp.zuordnung || sp.beleg || sonderfilter,
   );
 
-  const [handwerkerSummen, alleHandwerker, accounts, costTypes, sums, bookingTotal, bookings, aeltesteBuchung, batches, ohneKostenart, fertigeJahre] = await Promise.all([
+  const [handwerkerSummen, alleHandwerker, accounts, costTypes, sums, bookingTotal, bookings, aeltesteBuchung, batches, ohneKostenart, fertigeJahre, einheiten] = await Promise.all([
     // Jahressummen je Handwerker für die Bauabzugsteuer-Warnung (§ 48 EStG).
     // Bewusst hier und nicht im Client nachgeladen: Die Warnung muss stehen,
     // bevor gebucht wird, und ein Nachladen bei jedem Tastendruck im
@@ -242,6 +244,7 @@ export default async function WegBuchhaltungPage({
       include: {
         account: { select: { name: true, kind: true } },
         costType: { select: { name: true, laborShareType: true, laborSharePercent: true } },
+        directUnit: { select: { label: true } },
         reversedBy: { select: { id: true } },
       },
       orderBy: [toOrderBy(sort.field, sort.dir), { createdAt: "desc" }],
@@ -278,6 +281,12 @@ export default async function WegBuchhaltungPage({
     db.annualStatement.findMany({
       where: { propertyId: property.id, status: "FERTIG" },
       select: { year: true },
+    }),
+    // Für die Direktzuordnung einer Ausgabe an eine Einheit.
+    db.unit.findMany({
+      where: { propertyId: property.id },
+      orderBy: [{ orderIndex: "asc" }, { label: "asc" }],
+      select: { id: true, label: true },
     }),
   ]);
   const lockedYears = new Set(fertigeJahre.map((s) => s.year));
@@ -553,6 +562,7 @@ export default async function WegBuchhaltungPage({
                 propertyId={property.id}
                 konten={accounts.map((a) => ({ id: a.id, name: a.name, artLabel: ledgerAccountKindLabels[a.kind] }))}
                 kostenarten={costTypes.map((c) => ({ id: c.id, name: c.name, constructionWork: c.constructionWork, laborShareType: c.laborShareType }))}
+                einheiten={einheiten}
                 handwerker={handwerkerWahl}
                 kiErkennung={isBelegErkennungEnabled()}
                 zahlungFuer={
@@ -729,11 +739,26 @@ export default async function WegBuchhaltungPage({
                     ))}
                   </select>
                 </Field>
+                {/* Direktzuordnung nachträglich: Der Bankimport weiß nicht,
+                    dass die Gasrechnung nur den Kamin von WE 3 betrifft. */}
+                <Field label="Nur für eine Einheit (optional)">
+                  <select name="directUnitId" className={`${inputClass} w-auto`} defaultValue="">
+                    <option value="">— unverändert lassen —</option>
+                    <option value="OHNE">— Direktzuordnung aufheben —</option>
+                    {einheiten.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
                 <PendingButton className={buttonSecondaryClass}>Zuordnen</PendingButton>
                 <Tipp className="w-full">
                   Erst in der Liste auswählen, dann Kostenart wählen und setzen. Umbuchungen
                   tragen keine Kostenart — sie sind kein Aufwand, sondern verschieben Geld
-                  zwischen den Konten der Gemeinschaft.
+                  zwischen den Konten der Gemeinschaft. „Nur für eine Einheit“ stellt eine
+                  Ausgabe dieser Einheit allein in Rechnung, statt sie nach Umlageschlüssel zu
+                  verteilen — für Kosten, die nur sie betreffen.
                 </Tipp>
               </form>
             ) : null}
@@ -813,6 +838,9 @@ export default async function WegBuchhaltungPage({
                               {b.kind === "UMBUCHUNG" ? "—" : "fehlt"}
                             </span>
                           )}
+                          {b.directUnit ? (
+                            <span className="block text-xs text-brand-green">nur {b.directUnit.label}</span>
+                          ) : null}
                         </td>
                         <td className="py-2 pr-3 whitespace-nowrap">
                           {lohnanteilMoeglich ? (

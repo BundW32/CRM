@@ -2498,3 +2498,31 @@ Antwort an ihn nennt zehn Zusagen. Die ersten drei sind hier umgesetzt.
      (`Tipp`) und in der Liste (`title`). Der Katalog war schon richtig
      (Hausmeister, Gartenpflege, Reinigung, Winterdienst, Aufzug,
      Instandhaltung tragen das Kennzeichen). Kein Schema-Delta.
+
+331. **Direktzuordnung einer Ausgabe an eine Einheit (`Booking.directUnitId`,
+     Paket 5).** Der Gaskamin, den nur eine Wohnung hat: Bisher ging das nur
+     über den Umweg „eigene Kostenart, Schlüssel Individuell, Betrag in der
+     Jahresabrechnung auf eine Einheit". Jetzt wählt man beim Buchen (und in
+     der Massenzuordnung, für importierte Umsätze) „Nur für eine Einheit".
+     **Eigenes Feld neben `unitId`**: Das ist die Zahlungszuordnung des
+     Hausgelds und bedeutet etwas anderes — ein Feld für beides hätte
+     Hausgeld-Eingänge und Direktausgaben nicht mehr unterscheiden lassen.
+     Nur für AUSGABEN; die beiden Relationen Booking↔Unit sind jetzt benannt
+     (`BookingHausgeldUnit`, `BookingDirectUnit`), ohne Wirkung auf die
+     Datenbank. Migration `20260918120000_booking_direct_unit`.
+     **Im Rechenkern eine Zeile je Kostenart und Einheit** mit Schlüssel
+     `DIREKT`, `perUnit` kennt nur diese Einheit — die anderen sind nicht
+     beteiligt (Nr. 329) und sehen die Position nicht; der Lohnanteil § 35a
+     der Direktbuchungen folgt der Zeile und landet ganz bei der Einheit,
+     getrennt vom verteilten Anteil. `DIREKT` ist **kein Wert des
+     Prisma-Enums** (Abweichung vom Plan): ein TypeScript-Typ
+     `StatementKey = DistributionKey | "DIREKT"` (`distribution.ts`) hält ihn
+     aus den Auswahllisten der Kostenarten heraus, ohne Enum-Migration und
+     ohne dass jemand ihn je an einer Kostenart setzen könnte;
+     `statementKeyLabels` beschriftet die Zeilen, `distributionKeyLabels`
+     bleibt für die Kostenarten. Weil Direktzeilen die `costTypeId` mit der
+     verteilten Zeile teilen, liefert `rowKey()` den React-Schlüssel. Aus der
+     Rücklage bezahlte Direktbuchungen zählen wie jede Rücklagenausgabe (nicht
+     umgelegt). Die Vorjahres-Istwerte des Wirtschaftsplans lassen
+     Direktbuchungen aus — sie sind kein Gemeinschaftsaufwand. Die
+     Betriebskostenabrechnung übernimmt den Einheitsanteil wie jede Zeile.

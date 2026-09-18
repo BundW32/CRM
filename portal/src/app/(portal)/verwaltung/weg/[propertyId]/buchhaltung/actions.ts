@@ -65,6 +65,8 @@ const bookingSchema = z.object({
   bauabzugBestaetigt: z.string().optional(),
   /** Diese Buchung bezahlt eine offene Verbindlichkeit — die wird damit beglichen. */
   verbindlichkeitId: z.string().optional(),
+  /** Direktzuordnung: nur diese Einheit trägt die Ausgabe (nicht umgelegt). */
+  directUnitId: z.string().optional(),
 });
 
 export async function createBooking(formData: FormData) {
@@ -86,6 +88,7 @@ export async function createBooking(formData: FormData) {
     craftsmanId: String(formData.get("craftsmanId") ?? "") || undefined,
     bauabzugBestaetigt: String(formData.get("bauabzugBestaetigt") ?? "") || undefined,
     verbindlichkeitId: String(formData.get("verbindlichkeitId") ?? "") || undefined,
+    directUnitId: String(formData.get("directUnitId") ?? "") || undefined,
   });
   if (!parsed.success) redirect("/verwaltung/weg");
   const property = await loadWegProperty(verwalter, parsed.data.propertyId);
@@ -133,6 +136,18 @@ export async function createBooking(formData: FormData) {
       select: { id: true },
     });
     if (!verbindlichkeit) back(property.id, "fehler=verbindlichkeit");
+  }
+
+  // Direktzuordnung: nur für Ausgaben, und die Einheit muss zum Objekt
+  // gehören (IDOR-Schutz). Eine Einnahme „nur für eine Einheit" wäre die
+  // Hausgeld-Zuordnung — die läuft über `unitId` auf der Hausgeld-Seite.
+  if (parsed.data.directUnitId) {
+    if (parsed.data.kind !== "AUSGABE") back(property.id, "fehler=einheit");
+    const einheit = await db.unit.findFirst({
+      where: { id: parsed.data.directUnitId, propertyId: property.id },
+      select: { id: true },
+    });
+    if (!einheit) back(property.id, "fehler=einheit");
   }
 
   // Handwerker muss zur eigenen Organisation gehören (IDOR-Schutz).
@@ -200,6 +215,7 @@ export async function createBooking(formData: FormData) {
       text: parsed.data.text,
       counterparty: parsed.data.counterparty ?? null,
       craftsmanId: parsed.data.craftsmanId ?? null,
+      directUnitId: parsed.data.directUnitId ?? null,
       reference: parsed.data.reference ?? null,
       belegStoredName: beleg?.storedName ?? null,
       belegFileName: beleg?.fileName ?? null,
@@ -887,6 +903,11 @@ export async function assignCostType(formData: FormData) {
   // Prüfung nach § 48 EStG greifbar zu machen: Der Bankimport liefert nur
   // Verwendungszweck-Text, und über Text lässt sich nicht summieren.
   const craftsmanId = String(formData.get("craftsmanId") ?? "");
+  // Direktzuordnung nachträglich — der Weg für importierte Buchungen: Die
+  // Bank weiß nicht, dass die Gasrechnung nur den Kamin von WE 3 betrifft.
+  // Dieselbe Dreiteilung wie beim Handwerker: leer = unverändert, „OHNE" =
+  // Zuordnung aufheben, sonst die Einheit.
+  const directUnitId = String(formData.get("directUnitId") ?? "");
   const bookingIds = formData
     .getAll("bookingId")
     .map((v) => String(v))
@@ -916,6 +937,14 @@ export async function assignCostType(formData: FormData) {
     if (!handwerker) back(property.id, "fehler=handwerker");
   }
 
+  if (directUnitId && directUnitId !== "OHNE") {
+    const einheit = await db.unit.findFirst({
+      where: { id: directUnitId, propertyId: property.id },
+      select: { id: true },
+    });
+    if (!einheit) back(property.id, "fehler=einheit");
+  }
+
   // Nur Buchungen dieses Objekts — und nur solche, die eine Kostenart tragen
   // dürfen und nicht Teil eines Stornopaars sind.
   const bookings = await db.booking.findMany({
@@ -925,9 +954,14 @@ export async function assignCostType(formData: FormData) {
       kind: { in: ["EINNAHME", "AUSGABE"] },
       ...NOT_REVERSED,
     },
-    select: { id: true, bookingDate: true },
+    select: { id: true, bookingDate: true, kind: true },
   });
   if (bookings.length === 0) back(property.id, "fehler=buchung");
+  // Eine Direktzuordnung gibt es nur für Ausgaben — eine Einnahme in der
+  // Auswahl macht die ganze Zuordnung ungültig, bevor etwas geschrieben wird.
+  if (directUnitId && directUnitId !== "OHNE" && bookings.some((b) => b.kind !== "AUSGABE")) {
+    back(property.id, "fehler=einheit");
+  }
 
   if (!(await allDatesEditable(property, bookings.map((b) => b.bookingDate)))) {
     back(property.id, "fehler=abgeschlossen");
@@ -938,6 +972,7 @@ export async function assignCostType(formData: FormData) {
     data: {
       costTypeId: costTypeId || null,
       ...(craftsmanId ? { craftsmanId: craftsmanId === "OHNE" ? null : craftsmanId } : {}),
+      ...(directUnitId ? { directUnitId: directUnitId === "OHNE" ? null : directUnitId } : {}),
     },
   });
   await logAudit({
@@ -945,7 +980,12 @@ export async function assignCostType(formData: FormData) {
     action: AUDIT.WEG_BOOKING_COSTTYPE_ASSIGNED,
     targetType: "Booking",
     targetId: bookings.length === 1 ? bookings[0].id : property.id,
-    meta: { count: bookings.length, costTypeId: costTypeId || null, craftsmanId: craftsmanId || null },
+    meta: {
+      count: bookings.length,
+      costTypeId: costTypeId || null,
+      craftsmanId: craftsmanId || null,
+      directUnitId: directUnitId || null,
+    },
   });
 
   // Nachträgliche Prüfung nach § 48 EStG.

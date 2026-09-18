@@ -3,6 +3,14 @@
 import type { DistributionKey, UnitType } from "@/generated/prisma/client";
 import { meaGewicht } from "./mea";
 
+/**
+ * Schlüssel einer Abrechnungszeile. Neben den Umlageschlüsseln der Kostenarten
+ * gibt es „DIREKT": Die Position ist einer einzelnen Einheit vollständig
+ * zugeordnet (`Booking.directUnitId`) und wird nicht verteilt. Bewusst kein
+ * Wert des Prisma-Enums — er soll an keiner Kostenart wählbar sein.
+ */
+export type StatementKey = DistributionKey | "DIREKT";
+
 export type Share = { unitId: string; weight: number };
 
 /**

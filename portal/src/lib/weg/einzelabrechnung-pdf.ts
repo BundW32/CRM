@@ -7,7 +7,7 @@
 import { getBrandingForOrg } from "@/lib/branding-server";
 import { db } from "@/lib/db";
 import { briefkopfAus } from "@/lib/documents/briefkopf";
-import { distributionKeyLabels } from "@/lib/labels";
+import { statementKeyLabels } from "@/lib/labels";
 import {
   generateEinzelabrechnungen,
   type EinzelabrechnungUnit,
@@ -70,7 +70,7 @@ export async function buildEinzelabrechnungPdf(args: {
       costRows: beteiligt.map((r) => ({
         name: r.name,
         keyLabel: schluesselMitAnteil(
-          distributionKeyLabels[r.distributionKey] ?? r.distributionKey,
+          statementKeyLabels[r.distributionKey] ?? r.distributionKey,
           r,
           basis,
           u.id,

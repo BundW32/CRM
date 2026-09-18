@@ -2,7 +2,7 @@
 // Eigentümerschaften aus der DB und rechnet sie über die pure Logik
 // (annual-statement.ts) in ein JSON-fähiges View-Model. Dasselbe Model wird
 // live gerendert (ENTWURF) und bei FERTIG als Snapshot eingefroren.
-import type { DistributionKey, LaborShareType, LedgerAccountKind } from "@/generated/prisma/client";
+import type { LaborShareType, LedgerAccountKind } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { NOT_REVERSED } from "@/lib/weg/booking-scope";
 import {
@@ -14,6 +14,7 @@ import {
   type RuecklagenEntwicklung,
   type StatementBefund,
 } from "./annual-statement";
+import type { StatementKey } from "./distribution";
 import { fiscalYearRange } from "./economic-plan";
 import { vorzeichenBetrag } from "./journal";
 import { baueUmlagebasis, type Umlagebasis } from "./umlagebasis";
@@ -25,8 +26,10 @@ export type StatementView = {
   fyEnd: string; // ISO-Datum (exklusiv)
   rows: {
     costTypeId: string;
+    /** Nur bei Schlüssel DIREKT: die Einheit, die diese Kosten allein trägt. */
+    directUnitId?: string;
     name: string;
-    distributionKey: DistributionKey;
+    distributionKey: StatementKey;
     laborShareType: LaborShareType;
     totalCents: number;
     reserveFundedCents?: number;
@@ -170,7 +173,7 @@ export async function computeStatementView(
         select: { id: true, label: true, mea: true, livingArea: true, personCount: true, unitType: true },
       }),
       db.booking.groupBy({
-        by: ["costTypeId", "accountId"],
+        by: ["costTypeId", "accountId", "directUnitId"],
         where: {
           propertyId: property.id,
           kind: "AUSGABE",
@@ -264,6 +267,7 @@ export async function computeStatementView(
         select: {
           costTypeId: true,
           accountId: true,
+          directUnitId: true,
           amountCents: true,
           laborShareCents: true,
           costType: { select: { laborSharePercent: true } },
@@ -295,11 +299,27 @@ export async function computeStatementView(
   // Erhaltungsrücklage (bereits über frühere Zuführungen bezahlt).
   const expenseByCostType = new Map<string, number>();
   const reserveSpendByCostType = new Map<string, number>();
+  // Direkt zugeordnete Ausgaben vom laufenden Konto laufen getrennt: Sie
+  // werden nicht verteilt, sondern der Einheit zugerechnet. Aus der Rücklage
+  // bezahlt zählen sie wie jede Rücklagenausgabe — nicht umgelegt.
+  const directByCostType = new Map<string, Map<string, { cents: number; laborBaseCents: number; laborUnerfasstCents: number }>>();
+  const direktEintrag = (costTypeId: string, unitId: string) => {
+    const inner = directByCostType.get(costTypeId) ?? new Map();
+    const e = inner.get(unitId) ?? { cents: 0, laborBaseCents: 0, laborUnerfasstCents: 0 };
+    inner.set(unitId, e);
+    directByCostType.set(costTypeId, inner);
+    return e;
+  };
   for (const g of expenseGroups) {
     const id = g.costTypeId as string;
     const cents = g._sum.amountCents ?? 0;
-    const ziel = reserveIds.has(g.accountId) ? reserveSpendByCostType : expenseByCostType;
-    ziel.set(id, (ziel.get(id) ?? 0) + cents);
+    if (reserveIds.has(g.accountId)) {
+      reserveSpendByCostType.set(id, (reserveSpendByCostType.get(id) ?? 0) + cents);
+    } else if (g.directUnitId) {
+      direktEintrag(id, g.directUnitId).cents += cents;
+    } else {
+      expenseByCostType.set(id, (expenseByCostType.get(id) ?? 0) + cents);
+    }
   }
 
   // §35a je Kostenart: erfasster Lohnanteil und die Lücke. Aus der Rücklage
@@ -309,18 +329,30 @@ export async function computeStatementView(
   for (const b of laborBookings) {
     if (reserveIds.has(b.accountId)) continue;
     const id = b.costTypeId as string;
+    // Direktbuchungen tragen ihren Lohnanteil selbst — er gehört ganz der
+    // einen Einheit und darf nicht mit dem verteilten Anteil vermischt werden.
+    const direkt = b.directUnitId ? direktEintrag(id, b.directUnitId) : null;
     const eintrag = laborByCostType.get(id) ?? { baseCents: 0, unerfasstCents: 0 };
     const prozent = b.costType?.laborSharePercent;
+    let base = 0;
+    let unerfasst = 0;
     if (b.laborShareCents != null) {
       // Die Rechnung geht vor. Mehr als der Rechnungsbetrag kann nicht
       // Lohnanteil sein — ein Tippfehler soll nicht zu einem Ausweis führen,
       // der über der Ausgabe liegt.
-      eintrag.baseCents += Math.min(b.laborShareCents, b.amountCents);
+      base = Math.min(b.laborShareCents, b.amountCents);
     } else if (prozent != null) {
-      eintrag.baseCents += Math.round((b.amountCents * prozent) / 100);
+      base = Math.round((b.amountCents * prozent) / 100);
     } else {
-      eintrag.unerfasstCents += b.amountCents;
+      unerfasst = b.amountCents;
     }
+    if (direkt) {
+      direkt.laborBaseCents += base;
+      direkt.laborUnerfasstCents += unerfasst;
+      continue;
+    }
+    eintrag.baseCents += base;
+    eintrag.unerfasstCents += unerfasst;
     laborByCostType.set(id, eintrag);
   }
 
@@ -356,6 +388,7 @@ export async function computeStatementView(
     reserveTransferKey,
     plannedReserveCents,
     laborByCostType,
+    directByCostType,
   });
 
   // Das gestellte Soll, nicht der geplante Jahresvorschuss: `dueGroups`
@@ -486,6 +519,7 @@ export async function computeStatementView(
     fyEnd: end.toISOString().slice(0, 10),
     rows: result.rows.map((r) => ({
       costTypeId: r.costTypeId,
+      directUnitId: r.directUnitId,
       name: r.name,
       distributionKey: r.distributionKey,
       laborShareType: r.laborShareType,

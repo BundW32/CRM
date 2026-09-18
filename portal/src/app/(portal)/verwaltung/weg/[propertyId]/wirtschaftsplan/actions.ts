@@ -59,7 +59,9 @@ export async function createPlan(formData: FormData) {
   });
   if (costTypes.length === 0) back(property.id, "", "fehler=kostenarten");
 
-  // Vorjahres-Istwerte: Ausgaben je Kostenart im vorherigen Wirtschaftsjahr
+  // Vorjahres-Istwerte: Ausgaben je Kostenart im vorherigen Wirtschaftsjahr.
+  // Ohne direkt zugeordnete Ausgaben: Die trägt eine Einheit allein, sie sind
+  // kein Gemeinschaftsaufwand und gehören nicht in den Vorschuss aller.
   const prev = fiscalYearRange(parsed.data.year - 1, property.fiscalYearStartMonth);
   const actuals = await db.booking.groupBy({
     by: ["costTypeId"],
@@ -67,6 +69,7 @@ export async function createPlan(formData: FormData) {
       propertyId: property.id,
       kind: "AUSGABE",
       costTypeId: { not: null },
+      directUnitId: null,
       bookingDate: { gte: prev.start, lt: prev.end },
       ...NOT_REVERSED,
     },

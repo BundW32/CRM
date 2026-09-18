@@ -350,6 +350,64 @@ describe("computeLaborShares (§35a)", () => {
     expect(computeStatement(baseInput()).befunde.some((b) => b.art === "lohnanteil-kennzeichen")).toBe(false);
   });
 
+  it("Direktzuordnung: eine Buchung nur für eine Einheit landet ganz dort — samt Lohnanteil", () => {
+    // Hausmeisterkosten 4.800 auf alle nach MEA; dazu eine Direktbuchung
+    // 300,00 (davon 100,00 Lohn) nur für we3 auf derselben Kostenart.
+    const r = computeStatement(
+      baseInput({
+        expenseByCostType: new Map([["hausmeister", 480_000]]),
+        manualAmounts: new Map(),
+        laborByCostType: new Map([["hausmeister", { baseCents: 300_000, unerfasstCents: 0 }]]),
+        directByCostType: new Map([
+          ["hausmeister", new Map([["we3", { cents: 30_000, laborBaseCents: 10_000, laborUnerfasstCents: 0 }]])],
+        ]),
+      }),
+    );
+    expect(r.errors).toEqual([]);
+    const zeilen = r.rows.filter((x) => x.costTypeId === "hausmeister");
+    expect(zeilen).toHaveLength(2);
+    const direkt = zeilen.find((x) => x.distributionKey === "DIREKT")!;
+    expect(direkt.directUnitId).toBe("we3");
+    expect(direkt.name).toContain("we3");
+    expect(direkt.totalCents).toBe(30_000);
+    expect([...direkt.perUnit!.keys()]).toEqual(["we3"]);
+    // Der verteilte Teil bleibt 4.800 nach MEA; we3 trägt 180/1000 davon plus die Direktbuchung.
+    const verteilt = zeilen.find((x) => x.distributionKey === "MEA")!;
+    expect(verteilt.totalCents).toBe(480_000);
+    expect(r.perUnitTotal.get("we3")).toBe(86_400 + 30_000);
+    expect(r.perUnitTotal.get("we1")).toBe(86_400);
+    expect(r.totalExpenseCents).toBe(510_000);
+    // Lohnanteil: 300.000 nach MEA verteilt, die 10.000 der Direktbuchung ganz bei we3.
+    const labor = computeLaborShares(r.rows);
+    expect(labor.get("we3")?.haushaltsnah).toBe(54_000 + 10_000);
+    expect(labor.get("we1")?.haushaltsnah).toBe(54_000);
+  });
+
+  it("Direktzuordnung ohne Gemeinschaftsanteil ergibt nur die Direktzeile", () => {
+    const r = computeStatement(
+      baseInput({
+        expenseByCostType: new Map(),
+        manualAmounts: new Map(),
+        costTypes: [
+          ...costTypes,
+          { id: "kamin", name: "Gas Kamin", category: B, distributionKey: "INDIVIDUELL" as const, laborShareType: "KEINE" as const },
+        ],
+        directByCostType: new Map([
+          ["kamin", new Map([["we1", { cents: 42_000, laborBaseCents: 0, laborUnerfasstCents: 0 }]])],
+        ]),
+      }),
+    );
+    expect(r.errors).toEqual([]);
+    expect(r.rows.map((x) => x.costTypeId)).toEqual(["kamin"]);
+    expect(r.rows[0].distributionKey).toBe("DIREKT");
+    expect(r.rows[0].perUnit?.get("we1")).toBe(42_000);
+    expect(r.rows[0].perUnit?.has("we2")).toBe(false);
+    expect(r.hatPositionen).toBe(true);
+    // Kein Prüffehler „Verteilung offen": Der INDIVIDUELL-Schlüssel der
+    // Kostenart spielt für die Direktzeile keine Rolle.
+    expect(r.befunde.some((b) => b.art === "verteilung")).toBe(false);
+  });
+
   it("verteilt den Lohnanteil centgenau — Σ Einheiten == Lohnanteil", () => {
     const r = nurHausmeister(new Map([["hausmeister", { baseCents: 100_001, unerfasstCents: 0 }]]));
     const labor = computeLaborShares(r.rows);

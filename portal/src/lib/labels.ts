@@ -22,6 +22,7 @@ import type {
   UnitType,
   VoteChoice,
 } from "@/generated/prisma/client";
+import type { StatementKey } from "@/lib/weg/distribution";
 
 export const roleLabels: Record<Role, string> = {
   VERWALTER: "Verwalter",
@@ -244,6 +245,16 @@ export const distributionKeyLabels: Record<DistributionKey, string> = {
   FESTBETRAG: "Festbetrag",
   INDIVIDUELL: "Individuell je Einheit",
   JE_STELLPLATZ: "Je Stellplatz (nur Stellplätze/Garagen)",
+};
+
+/**
+ * Beschriftung der Abrechnungszeilen — die Umlageschlüssel plus „DIREKT". Die
+ * Auswahllisten der Kostenarten nehmen weiterhin `distributionKeyLabels`:
+ * Direktzuordnung ist keine Eigenschaft der Kostenart, sondern der Buchung.
+ */
+export const statementKeyLabels: Record<StatementKey, string> = {
+  ...distributionKeyLabels,
+  DIREKT: "Direkt zugeordnet (nur diese Einheit)",
 };
 
 // Rundungsstufe der monatlichen Hausgeld-Rate. Die Worte stehen so im

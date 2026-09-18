@@ -5,11 +5,11 @@
 // Pure Funktionen — DB/UI übernehmen die Server Actions.
 import type { CostCategory, DistributionKey, LaborShareType } from "@/generated/prisma/client";
 import { formatCents } from "@/lib/money";
-import { distributeByWeight, weightsForKey, type UnitForDistribution } from "./distribution";
+import { distributeByWeight, weightsForKey, type StatementKey, type UnitForDistribution } from "./distribution";
 import { advanceWeightsForKey } from "./economic-plan";
 
 // Schlüssel, die in der Abrechnung eine manuelle Verteilung je Einheit brauchen
-export const MANUAL_KEYS: DistributionKey[] = ["VERBRAUCH", "FESTBETRAG", "INDIVIDUELL"];
+export const MANUAL_KEYS: StatementKey[] = ["VERBRAUCH", "FESTBETRAG", "INDIVIDUELL"];
 
 export type StatementCostTypeInput = {
   id: string;
@@ -108,12 +108,31 @@ export type StatementInput = {
   // (`baseCents`) und der Teil der Ausgaben, für den kein Anteil erfasst ist
   // (`unerfasstCents`). Siehe `computeLaborShares`.
   laborByCostType?: Map<string, { baseCents: number; unerfasstCents: number }>;
+  /**
+   * Direkt zugeordnete Ausgaben (`Booking.directUnitId`), vom laufenden Konto
+   * bezahlt: je Kostenart und Einheit der Betrag samt § 35a-Anteil. Sie sind
+   * NICHT in `expenseByCostType`/`laborByCostType` enthalten — die werden
+   * verteilt, diese nicht. Aus der Rücklage bezahlte Direktbuchungen zählen
+   * wie jede Rücklagenausgabe (`reserveSpendByCostType`), also ohne Umlage.
+   */
+  directByCostType?: Map<string, Map<string, { cents: number; laborBaseCents: number; laborUnerfasstCents: number }>>;
 };
+
+/** Eindeutiger Schlüssel einer Zeile — Direktzeilen teilen sich die Kostenart. */
+export function rowKey(r: { costTypeId: string; directUnitId?: string | null }): string {
+  return r.directUnitId ? `${r.costTypeId}:${r.directUnitId}` : r.costTypeId;
+}
 
 export type StatementCostRow = {
   costTypeId: string;
   name: string;
-  distributionKey: DistributionKey;
+  distributionKey: StatementKey;
+  /**
+   * Gesetzt bei Zeilen mit Schlüssel DIREKT: die eine Einheit, die diese
+   * Kosten allein trägt. Je Kostenart und Einheit eine Zeile — `costTypeId`
+   * allein ist dann kein Schlüssel mehr (siehe `rowKey`).
+   */
+  directUnitId?: string;
   laborShareType: LaborShareType;
   totalCents: number; // Ist-Ausgabe gesamt (Giro + Rücklage)
   /** Davon aus der Erhaltungsrücklage bezahlt — nicht umgelegt. */
@@ -259,7 +278,37 @@ export function computeStatement(input: StatementInput): StatementResult {
     const ausRuecklageCents = reserveSpend.get(ct.id) ?? 0;
     const totalCents = giroCents + ausRuecklageCents;
     const manual = input.manualAmounts.get(ct.id);
-    if (totalCents === 0 && (!manual || manual.size === 0)) continue;
+
+    // Direkt zugeordnete Ausgaben: je Einheit eine eigene Zeile mit Schlüssel
+    // DIREKT, `perUnit` kennt nur diese Einheit — die anderen sind nicht
+    // beteiligt (Nr. 329) und sehen die Position nicht. Der Lohnanteil § 35a
+    // folgt der Zeile und landet damit vollständig bei dieser Einheit.
+    const direktZeilen: StatementCostRow[] = [];
+    let direktLaborCents = 0;
+    for (const [unitId, d] of input.directByCostType?.get(ct.id) ?? []) {
+      if (d.cents === 0) continue;
+      const einheit = input.units.find((u) => u.id === unitId);
+      const perUnit = new Map([[unitId, d.cents]]);
+      direktZeilen.push({
+        costTypeId: ct.id,
+        directUnitId: unitId,
+        name: `${ct.name} (direkt: ${einheit?.label ?? unitId})`,
+        distributionKey: "DIREKT",
+        laborShareType: ct.laborShareType,
+        totalCents: d.cents,
+        perUnit,
+        laborBaseCents: d.laborBaseCents,
+        laborUnerfasstCents: ct.laborShareType === "KEINE" ? undefined : d.laborUnerfasstCents,
+      });
+      direktLaborCents += d.laborBaseCents;
+      addToUnits(perUnit);
+      totalExpenseCents += d.cents;
+    }
+
+    if (totalCents === 0 && (!manual || manual.size === 0)) {
+      rows.push(...direktZeilen);
+      continue;
+    }
 
     totalExpenseCents += totalCents;
     reserveWithdrawalCents += ausRuecklageCents;
@@ -291,12 +340,13 @@ export function computeStatement(input: StatementInput): StatementResult {
     // das als „der Betrag lässt sich nicht verteilen" gemeldet: Der Betrag war
     // da, nur das Kennzeichen fehlte, und nichts sagte es ihm. Kein Blocker,
     // denn die Abrechnung stimmt; nur die Steuerbescheinigung ist unvollständig.
-    if (ct.laborShareType === "KEINE" && (labor.get(ct.id)?.baseCents ?? 0) > 0) {
+    const kennzeichenlosCents = (labor.get(ct.id)?.baseCents ?? 0) + direktLaborCents;
+    if (ct.laborShareType === "KEINE" && kennzeichenlosCents > 0) {
       befunde.push({
         art: "lohnanteil-kennzeichen",
         blockierend: false,
         titel: `§ 35a-Kennzeichen fehlt: ${ct.name}`,
-        text: `${ct.name}: Für ${formatCents(labor.get(ct.id)!.baseCents)} ist ein Lohnanteil § 35a erfasst, aber die Kostenart ist nicht als Handwerkerleistung oder haushaltsnahe Dienstleistung gekennzeichnet — der Anteil erscheint nicht auf der Steuerbescheinigung der Eigentümer.`,
+        text: `${ct.name}: Für ${formatCents(kennzeichenlosCents)} ist ein Lohnanteil § 35a erfasst, aber die Kostenart ist nicht als Handwerkerleistung oder haushaltsnahe Dienstleistung gekennzeichnet — der Anteil erscheint nicht auf der Steuerbescheinigung der Eigentümer.`,
         ziel: { art: "stammdaten", anker: "kostenarten", label: "Kostenart in den Stammdaten kennzeichnen" },
       });
     }
@@ -334,7 +384,7 @@ export function computeStatement(input: StatementInput): StatementResult {
       }
     }
     if (row.perUnit) addToUnits(row.perUnit);
-    rows.push(row);
+    rows.push(row, ...direktZeilen);
   }
 
   // Gegenposition zu den aus der Rücklage bezahlten Ausgaben. Sie steht in der

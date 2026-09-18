@@ -8,9 +8,9 @@ import { Badge } from "@/components/data-display";
 import { Begriff } from "@/components/begriff";
 import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
-import { distributionKeyLabels, formatDateOnly, ledgerAccountKindLabels } from "@/lib/labels";
+import { formatDateOnly, ledgerAccountKindLabels, statementKeyLabels } from "@/lib/labels";
 import { formatCents } from "@/lib/money";
-import { MANUAL_KEYS, type Pruefziel } from "@/lib/weg/annual-statement";
+import { MANUAL_KEYS, type Pruefziel, rowKey } from "@/lib/weg/annual-statement";
 import { computeStatementView, type StatementView } from "@/lib/weg/statement-service";
 import { stimmeKontenDerAbrechnungAb } from "@/lib/weg/kontendiagnose-service";
 import { bauePruefliste, type Pruefliste, type Pruefpunkt } from "@/lib/weg/pruefliste";
@@ -634,7 +634,7 @@ Muster — ersetzt keine Rechtsberatung.`;
               // Sprungziel der Prüfliste: „Verteilung offen: Heizung" führt
               // hierher, nicht bloß auf die Seite.
               id={`verteilung-${row.costTypeId}`}
-              title={`Verteilung je Einheit: ${row.name} — ${euro(zielCents)} (${distributionKeyLabels[row.distributionKey]})`}
+              title={`Verteilung je Einheit: ${row.name} — ${euro(zielCents)} (${statementKeyLabels[row.distributionKey]})`}
             >
               <p className="mb-3 text-sm text-gray-600">
                 Ergebnisse je Einheit erfassen (z. B. aus der Messdienst-Abrechnung). Die Summe
@@ -769,10 +769,10 @@ Muster — ersetzt keine Rechtsberatung.`;
               </thead>
               <tbody>
                 {view.rows.map((r) => (
-                  <tr key={r.costTypeId} className="border-b border-gray-100">
+                  <tr key={rowKey(r)} className="border-b border-gray-100">
                     <td className="py-2 pr-3 font-medium text-gray-900">{r.name}</td>
                     <td className="py-2 pr-3 text-gray-600">
-                      {distributionKeyLabels[r.distributionKey]}
+                      {statementKeyLabels[r.distributionKey]}
                     </td>
                     <td className="py-2 pr-3 text-right text-gray-700">
                       {euro(r.totalCents)}

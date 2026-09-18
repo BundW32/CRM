@@ -2526,3 +2526,21 @@ Antwort an ihn nennt zehn Zusagen. Die ersten drei sind hier umgesetzt.
      umgelegt). Die Vorjahres-Istwerte des Wirtschaftsplans lassen
      Direktbuchungen aus — sie sind kein Gemeinschaftsaufwand. Die
      Betriebskostenabrechnung übernimmt den Einheitsanteil wie jede Zeile.
+
+332. **FESTBETRAG und INDIVIDUELL zusammengeführt (Paket 6).** Die beiden
+     Schlüssel standen an jeder Stelle im selben Zweig (`MANUAL_KEYS`,
+     `advanceWeightsForKey`, `anteilVon`, Sonderumlagen-Ausschluss) — sie
+     waren funktional identisch und unterschieden sich nur im Namen. Der
+     Testnutzer fragte, worin der Unterschied liege; es gab keinen. Jetzt:
+     Beide heißen „Betrag je Einheit (manuell erfassen)", die Auswahllisten
+     der Kostenarten nehmen `waehlbareDistributionKeyLabels` (ohne
+     FESTBETRAG), `saveCostType` mappt ein eingehendes FESTBETRAG auf
+     INDIVIDUELL, und die Migration
+     `20260918130000_festbetrag_zusammenfuehren` setzt den Bestand um.
+     **Der Enum-Wert bleibt**: Fertige Abrechnungen tragen ihn im Snapshot,
+     und Postgres lässt einen Enum-Wert nicht ohne Neubau des Typs entfernen;
+     weil beide gleich beschriftet sind, zeigt eine alte Abrechnung denselben
+     Namen wie eine neue. Alle Codestellen, die beide nennen, bleiben — sie
+     behandeln den alten Wert weiter richtig. Der Erklärtext am Schlüssel
+     verweist für Kosten einer einzelnen Einheit auf die Direktzuordnung
+     (Nr. 331), damit niemand den manuellen Schlüssel dafür missbraucht.

@@ -7,7 +7,7 @@ import { Tipp } from "@/components/tipp";
 import { db } from "@/lib/db";
 import {
   costCategoryLabels,
-  distributionKeyLabels,
+  waehlbareDistributionKeyLabels,
   laborShareTypeLabels,
   ledgerAccountKindLabels,
   stellplatzTypLabels,
@@ -713,7 +713,7 @@ export default async function WegStammdatenPage({
                       className={`${inputClass} w-auto`}
                       aria-label="Umlageschlüssel"
                     >
-                      {Object.entries(distributionKeyLabels).map(([value, label]) => (
+                      {Object.entries(waehlbareDistributionKeyLabels).map(([value, label]) => (
                         <option key={value} value={value}>
                           {label}
                         </option>
@@ -813,7 +813,7 @@ export default async function WegStammdatenPage({
               </Field>
               <Field label={<Begriff name="umlageschluessel">Umlageschlüssel</Begriff>}>
                 <select name="distributionKey" className={`${inputClass} w-auto`} defaultValue="MEA">
-                  {Object.entries(distributionKeyLabels).map(([value, label]) => (
+                  {Object.entries(waehlbareDistributionKeyLabels).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -826,7 +826,10 @@ export default async function WegStammdatenPage({
                   „Gleichmäßig&ldquo; verteilt auf Wohn- und Gewerbeeinheiten;{" "}
                   <strong>Stellplätze zahlen hier nichts</strong> — sonst trüge ein
                   Tiefgaragenplatz so viel wie eine Wohnung. Für stellplatzbezogene Kosten
-                  gibt es „Je Stellplatz&ldquo;.
+                  gibt es „Je Stellplatz&ldquo;. „Betrag je Einheit&ldquo; ist für Kosten, die
+                  nicht nach Schlüssel verteilt werden, sondern die Sie in der Jahresabrechnung
+                  je Einheit eintragen (z. B. aus der Messdienst-Abrechnung). Für Kosten
+                  einer einzelnen Einheit gibt es beim Buchen „Nur für eine Einheit&ldquo;.
                 </Tipp>
               </Field>
               <Field label="§35a">

@@ -296,7 +296,11 @@ export async function saveCostType(formData: FormData) {
   const data = {
     name: parsed.data.name,
     category: parsed.data.category,
-    distributionKey: parsed.data.distributionKey,
+    // FESTBETRAG und INDIVIDUELL waren immer dasselbe; seit 18.09.2026 gibt
+    // es an der Kostenart nur noch INDIVIDUELL. Ein altes Formular oder ein
+    // gebastelter Request darf den alten Wert nicht neu anlegen.
+    distributionKey:
+      parsed.data.distributionKey === "FESTBETRAG" ? ("INDIVIDUELL" as const) : parsed.data.distributionKey,
     laborShareType: parsed.data.laborShareType,
     // Ohne §35a-Einstufung ist ein Prozentsatz gegenstandslos — er würde sonst
     // stumm weiterleben, wenn die Kostenart später wieder eingestuft wird.

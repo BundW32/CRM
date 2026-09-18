@@ -242,10 +242,24 @@ export const distributionKeyLabels: Record<DistributionKey, string> = {
   EINHEITEN: "Wohn-/Gewerbeeinheiten (gleichmäßig)",
   PERSONEN: "Personenzahl",
   VERBRAUCH: "Verbrauch",
-  FESTBETRAG: "Festbetrag",
-  INDIVIDUELL: "Individuell je Einheit",
+  // FESTBETRAG und INDIVIDUELL waren im Code von Anfang an dasselbe — beide
+  // heißen „der Verwalter trägt den Betrag je Einheit selbst ein" — und
+  // unterschieden sich nur im Namen. Ein Testnutzer hat genau das gefragt:
+  // „Ich kann keinen Unterschied erkennen." Seit 18.09.2026 gibt es an der
+  // Kostenart nur noch INDIVIDUELL (Migration mappt den Bestand); FESTBETRAG
+  // bleibt im Enum, weil fertige Abrechnungen ihn im Snapshot tragen.
+  FESTBETRAG: "Betrag je Einheit (manuell erfassen)",
+  INDIVIDUELL: "Betrag je Einheit (manuell erfassen)",
   JE_STELLPLATZ: "Je Stellplatz (nur Stellplätze/Garagen)",
 };
+
+/**
+ * Die Schlüssel, die an einer Kostenart wählbar sind — ohne FESTBETRAG (siehe
+ * oben). Auswahllisten nehmen diese Liste, nie `distributionKeyLabels` direkt.
+ */
+export const waehlbareDistributionKeyLabels: Partial<Record<DistributionKey, string>> = Object.fromEntries(
+  Object.entries(distributionKeyLabels).filter(([key]) => key !== "FESTBETRAG"),
+);
 
 /**
  * Beschriftung der Abrechnungszeilen — die Umlageschlüssel plus „DIREKT". Die
